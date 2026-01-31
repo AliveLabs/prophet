@@ -225,7 +225,13 @@ export const geminiProvider: Provider = {
       .filter((item) => item?.name)
       .slice(0, 10)
       .map((item) => {
-        const placeId = normalizePlaceId(item.place_id)
+        const placeIdFromSources = sources.find(
+          (source) =>
+            source.type === "maps" &&
+            source.placeId &&
+            (source.title ?? "").toLowerCase().includes(item.name.toLowerCase())
+        )?.placeId
+        const placeId = normalizePlaceId(item.place_id) ?? placeIdFromSources
         const computedDistance =
           typeof item.latitude === "number" && typeof item.longitude === "number"
             ? haversineMeters({

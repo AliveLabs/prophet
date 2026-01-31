@@ -1,10 +1,9 @@
 "use client"
 
-import { motion } from "framer-motion"
-import type { HTMLAttributes } from "react"
+import { motion, type HTMLMotionProps } from "framer-motion"
 import { cn } from "@/lib/utils"
 
-type FadeInProps = HTMLAttributes<HTMLDivElement> & {
+type FadeInProps = HTMLMotionProps<"div"> & {
   delay?: number
 }
 

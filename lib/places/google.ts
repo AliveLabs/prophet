@@ -21,11 +21,24 @@ type GooglePlaceDetailsResponse = {
   primaryType?: string
   types?: string[]
   formattedAddress?: string
+  shortFormattedAddress?: string
+  adrFormatAddress?: string
   websiteUri?: string
   nationalPhoneNumber?: string
   internationalPhoneNumber?: string
   rating?: number
   userRatingCount?: number
+  businessStatus?: string
+  priceLevel?: string
+  googleMapsUri?: string
+  utcOffsetMinutes?: number
+  editorialSummary?: {
+    text?: string
+  }
+  currentOpeningHours?: {
+    weekdayDescriptions?: string[]
+    openNow?: boolean
+  }
   regularOpeningHours?: {
     weekdayDescriptions?: string[]
   }
@@ -96,7 +109,7 @@ export async function fetchPlaceDetails(placeId: string) {
     headers: {
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask":
-        "id,displayName,primaryType,types,formattedAddress,addressComponents,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,regularOpeningHours,reviews",
+        "id,displayName,primaryType,types,formattedAddress,shortFormattedAddress,adrFormatAddress,addressComponents,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,businessStatus,priceLevel,googleMapsUri,utcOffsetMinutes,editorialSummary,currentOpeningHours,regularOpeningHours,reviews",
     },
   })
 
