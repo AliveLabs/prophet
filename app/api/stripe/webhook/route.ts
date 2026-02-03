@@ -3,9 +3,15 @@ import { headers } from "next/headers"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
-  apiVersion: "2024-04-10",
-})
+function getStripeClient() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error("STRIPE_SECRET_KEY is not configured")
+  }
+  return new Stripe(key, {
+    apiVersion: "2025-12-15.clover",
+  })
+}
 
 async function resolveOrganizationId(
   customerId: string | null,
@@ -29,7 +35,9 @@ async function resolveOrganizationId(
 }
 
 export async function POST(req: Request) {
-  const signature = headers().get("stripe-signature")
+  const stripe = getStripeClient()
+  const headerList = await headers()
+  const signature = headerList.get("stripe-signature")
   if (!signature) {
     return new Response("Missing Stripe signature", { status: 400 })
   }

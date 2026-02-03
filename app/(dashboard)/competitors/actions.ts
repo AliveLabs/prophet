@@ -150,6 +150,8 @@ export async function discoverCompetitorsAction(formData: FormData) {
       const rawPlaceId =
         typeof raw.placeId === "string" ? raw.placeId : undefined
       let providerEntityId = rawPlaceId ?? candidate.providerEntityId
+      let placeDetailsError: string | null = null
+      const isLikelyCid = (value: string) => /^\d{6,}$/.test(value)
 
       if (providerEntityId.startsWith("places/")) {
         providerEntityId = providerEntityId.replace("places/", "")
@@ -157,7 +159,8 @@ export async function discoverCompetitorsAction(formData: FormData) {
 
       if (
         providerEntityId.startsWith("unknown:") ||
-        providerEntityId.startsWith("cid:")
+        providerEntityId.startsWith("cid:") ||
+        isLikelyCid(providerEntityId)
       ) {
         const query = [candidate.name, location.city, location.region]
           .filter(Boolean)
@@ -168,10 +171,14 @@ export async function discoverCompetitorsAction(formData: FormData) {
             const suggestions = await fetchAutocomplete(query)
             if (suggestions[0]?.place_id) {
               providerEntityId = suggestions[0].place_id
+            } else {
+              placeDetailsError = "Unable to resolve a valid Google Place ID."
             }
           } catch {
-            // Ignore place resolution failures.
+            placeDetailsError = "Unable to resolve a valid Google Place ID."
           }
+        } else {
+          placeDetailsError = "Missing location context to resolve Place ID."
         }
       }
 
@@ -182,10 +189,26 @@ export async function discoverCompetitorsAction(formData: FormData) {
       if (
         providerEntityId &&
         !providerEntityId.startsWith("unknown:") &&
-        !providerEntityId.startsWith("cid:")
+        !providerEntityId.startsWith("cid:") &&
+        !isLikelyCid(providerEntityId)
       ) {
         try {
           const placeDetails = await fetchPlaceDetails(providerEntityId)
+          const placeDetailsPayload = {
+            businessStatus: placeDetails.businessStatus ?? null,
+            priceLevel: placeDetails.priceLevel ?? null,
+            mapsUri: placeDetails.googleMapsUri ?? null,
+            utcOffsetMinutes: placeDetails.utcOffsetMinutes ?? null,
+            editorialSummary: placeDetails.editorialSummary?.text ?? null,
+            shortFormattedAddress: placeDetails.shortFormattedAddress ?? null,
+            adrFormatAddress: placeDetails.adrFormatAddress ?? null,
+            currentOpeningHours: placeDetails.currentOpeningHours ?? null,
+            regularOpeningHours: placeDetails.regularOpeningHours ?? null,
+            reviews: placeDetails.reviews ?? null,
+            types: placeDetails.types ?? null,
+            primaryType: placeDetails.primaryType ?? null,
+            placeId: placeDetails.id ?? null,
+          }
           const mapped = mapPlaceToLocation(placeDetails)
           enrichedName = mapped.name || enrichedName
           enrichedCategory = mapped.category ?? enrichedCategory
@@ -202,6 +225,10 @@ export async function discoverCompetitorsAction(formData: FormData) {
             longitude: mapped.geo_lng,
             placeId: providerEntityId,
             types: mapped.types,
+            shortFormattedAddress: placeDetails.shortFormattedAddress ?? null,
+            adrFormatAddress: placeDetails.adrFormatAddress ?? null,
+            placeDetails: placeDetailsPayload,
+            placeDetailsFetchedAt: new Date().toISOString(),
           }
           if (
             typeof mapped.geo_lat === "number" &&
@@ -214,9 +241,12 @@ export async function discoverCompetitorsAction(formData: FormData) {
               lng2: mapped.geo_lng,
             })
           }
-        } catch {
-          // Ignore enrichment failures.
+        } catch (error) {
+          placeDetailsError = `Places details error: ${String(error)}`
         }
+      } else {
+        placeDetailsError =
+          placeDetailsError ?? "Missing Google Places ID for this competitor."
       }
 
       return {
@@ -225,7 +255,10 @@ export async function discoverCompetitorsAction(formData: FormData) {
         name: enrichedName,
         category: enrichedCategory,
         distanceMeters: enrichedDistance,
-        raw: enrichedRaw,
+        raw: {
+          ...enrichedRaw,
+          placeDetailsError,
+        },
       }
     })
   )
@@ -248,7 +281,17 @@ export async function discoverCompetitorsAction(formData: FormData) {
       typeof raw.searchEntryPointHtml === "string" ? raw.searchEntryPointHtml : null
     const mapsWidgetContextToken =
       typeof raw.mapsWidgetContextToken === "string" ? raw.mapsWidgetContextToken : null
-    const address = typeof raw.address === "string" ? raw.address : null
+    const placeDetails = (raw.placeDetails as Record<string, unknown> | null) ?? null
+    const placeDetailsError =
+      typeof raw.placeDetailsError === "string" ? raw.placeDetailsError : null
+    const address =
+      typeof raw.address === "string"
+        ? raw.address
+        : typeof raw.shortFormattedAddress === "string"
+          ? raw.shortFormattedAddress
+          : typeof raw.adrFormatAddress === "string"
+            ? raw.adrFormatAddress
+            : null
     const city = typeof raw.city === "string" ? raw.city : null
     const region = typeof raw.region === "string" ? raw.region : null
     const phone = typeof raw.phone === "string" ? raw.phone : null
@@ -270,6 +313,9 @@ export async function discoverCompetitorsAction(formData: FormData) {
       provider_entity_id: candidate.providerEntityId,
       name: candidate.name,
       category,
+      address,
+      phone,
+      website,
       relevance_score: score,
       is_active: false,
       metadata: {
@@ -282,6 +328,8 @@ export async function discoverCompetitorsAction(formData: FormData) {
         region,
         phone,
         website,
+        placeDetails,
+        placeDetailsError,
         latitude,
         longitude,
         factors,
@@ -322,7 +370,14 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("id", competitorId)
     .single()
 
-  const organizationId = (competitor?.locations as { organization_id: string } | null)
+  if (!competitor) {
+    redirect("/competitors?error=Competitor%20not%20found")
+  }
+
+  const locationRecord = Array.isArray(competitor?.locations)
+    ? competitor?.locations?.[0]
+    : competitor?.locations
+  const organizationId = (locationRecord as { organization_id?: string } | null)
     ?.organization_id
 
   if (!organizationId) {
@@ -408,7 +463,14 @@ export async function ignoreCompetitorAction(formData: FormData) {
     .eq("id", competitorId)
     .single()
 
-  const organizationId = (competitor?.locations as { organization_id: string } | null)
+  if (!competitor) {
+    redirect("/competitors?error=Competitor%20not%20found")
+  }
+
+  const locationRecord = Array.isArray(competitor?.locations)
+    ? competitor?.locations?.[0]
+    : competitor?.locations
+  const organizationId = (locationRecord as { organization_id?: string } | null)
     ?.organization_id
 
   if (!organizationId) {

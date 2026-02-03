@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import LocationAddForm from "@/components/places/location-add-form"
 import { createLocationFromPlaceAction, deleteLocationAction, updateLocationAction } from "./actions"
 import { fetchPlaceDetails } from "@/lib/places/google"
+import MiniMap from "@/components/places/mini-map"
+import { fetchCurrentConditions, type WeatherSnapshot } from "@/lib/weather/google"
 
 const IconStar = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor">
@@ -55,6 +57,35 @@ const IconChat = () => (
   </svg>
 )
 
+const formatTemperature = (weather: WeatherSnapshot | null) => {
+  if (!weather || typeof weather.temperature !== "number") return "—"
+  const unit = weather.tempUnit === "FAHRENHEIT" ? "°F" : weather.tempUnit === "CELSIUS" ? "°C" : ""
+  return `${Math.round(weather.temperature)}${unit}`
+}
+
+const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
+  if (!weather) {
+    return <span className="text-slate-400">Weather unavailable</span>
+  }
+  return (
+    <div className="flex items-center gap-3">
+      {weather.iconUrl ? (
+        <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
+      ) : null}
+      <div className="text-xs text-slate-600">
+        <p className="text-sm font-semibold text-slate-800">{formatTemperature(weather)}</p>
+        <p>{weather.condition ?? "Conditions unavailable"}</p>
+        <p className="text-[11px] text-slate-500">
+          {typeof weather.humidity === "number" ? `Humidity ${weather.humidity}%` : "Humidity —"}
+          {typeof weather.windSpeed === "number" && weather.windUnit
+            ? ` • Wind ${Math.round(weather.windSpeed)} ${weather.windUnit}`
+            : ""}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 type LocationsPageProps = {
   searchParams?: Promise<{
     error?: string
@@ -78,26 +109,45 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
 
   const { data: locations } = await supabase
     .from("locations")
-    .select("id, name, city, region, country, address_line1, primary_place_id")
+    .select("id, name, city, region, country, address_line1, primary_place_id, geo_lat, geo_lng")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
 
   const placeProfiles = await Promise.all(
     (locations ?? []).map(async (location) => {
       if (!location.primary_place_id) {
-        return { locationId: location.id, details: null }
+        const lat = location.geo_lat
+        const lng = location.geo_lng
+        const weather =
+          typeof lat === "number" && typeof lng === "number"
+            ? await fetchCurrentConditions({ lat, lng })
+            : null
+        return { locationId: location.id, details: null, weather }
       }
       try {
         const details = await fetchPlaceDetails(location.primary_place_id)
-        return { locationId: location.id, details }
+        const lat = details.location?.latitude ?? location.geo_lat ?? null
+        const lng = details.location?.longitude ?? location.geo_lng ?? null
+        const weather =
+          typeof lat === "number" && typeof lng === "number"
+            ? await fetchCurrentConditions({ lat, lng })
+            : null
+        return { locationId: location.id, details, weather }
       } catch {
-        return { locationId: location.id, details: null }
+        const lat = location.geo_lat
+        const lng = location.geo_lng
+        const weather =
+          typeof lat === "number" && typeof lng === "number"
+            ? await fetchCurrentConditions({ lat, lng })
+            : null
+        return { locationId: location.id, details: null, weather }
       }
     })
   )
   const placeProfileMap = new Map(
     placeProfiles.map((profile) => [profile.locationId, profile.details])
   )
+  const weatherMap = new Map(placeProfiles.map((profile) => [profile.locationId, profile.weather]))
 
   const resolvedSearchParams = await Promise.resolve(searchParams)
   const error = resolvedSearchParams?.error
@@ -133,14 +183,18 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           {locations && locations.length > 0 ? (
             locations.map((location) => {
               const placeDetails = placeProfileMap.get(location.id)
+              const weather = weatherMap.get(location.id) ?? null
+              const latitude = placeDetails?.location?.latitude ?? location.geo_lat ?? null
+              const longitude = placeDetails?.location?.longitude ?? location.geo_lng ?? null
+              const mapsUri = placeDetails?.googleMapsUri ?? null
+              const address =
+                placeDetails?.formattedAddress ?? location.address_line1 ?? null
               const rating = placeDetails?.rating
               const reviewCount = placeDetails?.userRatingCount
               const phone =
                 placeDetails?.internationalPhoneNumber ??
                 placeDetails?.nationalPhoneNumber
               const website = placeDetails?.websiteUri
-              const address =
-                placeDetails?.formattedAddress ?? location.address_line1 ?? null
               const hours = placeDetails?.regularOpeningHours?.weekdayDescriptions ?? []
               const reviews = placeDetails?.reviews ?? []
 
@@ -191,13 +245,30 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                           </a>
                         ) : null}
                       </div>
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
+                        <p className="mb-2 text-sm font-semibold text-slate-700">
+                          Local weather
+                        </p>
+                        {renderWeatherSummary(weather)}
+                      </div>
                     </div>
-                    <form action={deleteLocationAction}>
-                      <input type="hidden" name="location_id" value={location.id} />
-                      <Button type="submit" variant="ghost" size="sm">
-                        Remove
-                      </Button>
-                    </form>
+                    <div className="flex w-full flex-col items-start gap-3 sm:w-auto">
+                      <MiniMap
+                        lat={latitude ?? null}
+                        lng={longitude ?? null}
+                        title={placeDetails?.displayName?.text ?? location.name ?? "Location map"}
+                        className="w-full sm:w-48"
+                        mapsUri={mapsUri}
+                        placeId={placeDetails?.id ?? null}
+                        address={address}
+                      />
+                      <form action={deleteLocationAction}>
+                        <input type="hidden" name="location_id" value={location.id} />
+                        <Button type="submit" variant="ghost" size="sm">
+                          Remove
+                        </Button>
+                      </form>
+                    </div>
                   </div>
                   {hours.length > 0 ? (
                     <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
