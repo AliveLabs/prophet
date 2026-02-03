@@ -88,18 +88,42 @@ function clampReviews(reviews: Array<Record<string, unknown>> | null | undefined
   return reviews
     .map((review) => ({
       rating: typeof review.rating === "number" ? review.rating : undefined,
-      text: typeof review.text?.text === "string" ? review.text.text : undefined,
+      text: (() => {
+        const textObj = review.text as { text?: unknown } | undefined
+        return typeof textObj?.text === "string" ? textObj.text : undefined
+      })(),
       date:
         typeof review.relativePublishTimeDescription === "string"
           ? review.relativePublishTimeDescription
           : undefined,
       author:
-        typeof review.authorAttribution?.displayName === "string"
-          ? review.authorAttribution.displayName
-          : undefined,
+        (() => {
+          const authorObj = review.authorAttribution as { displayName?: unknown } | undefined
+          return typeof authorObj?.displayName === "string" ? authorObj.displayName : undefined
+        })(),
     }))
     .filter((review) => review.text)
     .slice(0, 6)
+}
+
+function getNumber(value: unknown) {
+  return typeof value === "number" ? value : null
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" ? value : null
+}
+
+function getHoursRecord(value: unknown) {
+  if (!value || typeof value !== "object") return null
+  const entries = Object.entries(value as Record<string, unknown>)
+  const record: Record<string, string> = {}
+  for (const [key, val] of entries) {
+    if (typeof val === "string") {
+      record[key] = val
+    }
+  }
+  return Object.keys(record).length ? record : null
 }
 
 function formatPriceLevel(value: string | null | undefined) {
@@ -301,10 +325,10 @@ export async function generateInsightsAction(formData: FormData) {
             },
             competitor: {
               name: competitor.name ?? undefined,
-              rating: placeDetails?.rating ?? null,
-              reviewCount: placeDetails?.reviewCount ?? null,
-              priceLevel: placeDetails?.priceLevel ?? null,
-              hours: placeDetails?.regularOpeningHours ?? null,
+              rating: getNumber(placeDetails?.rating),
+              reviewCount: getNumber(placeDetails?.reviewCount),
+              priceLevel: getString(placeDetails?.priceLevel),
+              hours: getHoursRecord(placeDetails?.regularOpeningHours),
             },
             deltas: {
               ratingDelta: null,

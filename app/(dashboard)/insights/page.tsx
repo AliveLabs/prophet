@@ -205,15 +205,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   })
 
-  const profileMetrics = ratingComparison
+  const reviewCountComparison = ratingComparison
     .filter((item) => item.name)
     .map((item) => ({
       name: item.name,
       rating: item.rating ?? null,
       reviewCount: item.reviewCount ?? null,
-      priceLevel: item.priceLevel ?? null,
-      primaryType: item.primaryType ?? null,
-      hoursDays: item.hoursDays ?? null,
     }))
 
   const reviewSumByDate = new Map<string, number>()
@@ -381,7 +378,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           ratingComparison={ratingComparison}
           reviewGrowthDelta={reviewGrowthDelta}
           sentimentCounts={sentimentCounts}
-          reviewCountComparison={profileMetrics}
+          reviewCountComparison={reviewCountComparison}
           avgCompetitorRating={avgCompetitorRating}
           locationRating={locationRating}
           reviewShare={reviewShare}
