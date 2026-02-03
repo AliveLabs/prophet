@@ -6,7 +6,11 @@
 
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
-import { buildBusinessInsightPrompt } from "./build-business-insight-prompt.js";
+import {
+  buildBusinessInsightPrompt,
+  buildBusinessInsightPromptCompact,
+  type PromptVariant,
+} from "./build-business-insight-prompt.js";
 import {
   type BusinessInsightInput,
   type BusinessInsightResponse,
@@ -18,7 +22,7 @@ dotenv.config();
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-flash-latest";
 const VALID_TIME_RANGES: TimeRange[] = ["1d", "7d", "30d"];
 
 function parseTimeRange(s: string): TimeRange {
@@ -31,16 +35,21 @@ function parseTimeRange(s: string): TimeRange {
 }
 
 /**
- * Parses CLI args into BusinessInsightInput and TimeRange.
- * Usage: npx ts-node --esm business-insight.ts [--org Org] [--time 7d] <businessName> <businessType> <address>
+ * Parses CLI args into BusinessInsightInput, TimeRange, and compact flag.
+ * Usage: ... [--org Org] [--time 7d] [--compact] <businessName> <businessType> <address>
  */
-function parseArgs(args: string[]): { input: BusinessInsightInput; timeRange: TimeRange } {
+function parseArgs(args: string[]): {
+  input: BusinessInsightInput;
+  timeRange: TimeRange;
+  compact: boolean;
+} {
   const input: BusinessInsightInput = {
     businessName: "",
     businessType: "",
     address: "",
   };
   let timeRange: TimeRange = "7d";
+  let compact = false;
   const positionals: string[] = [];
   let i = 0;
   while (i < args.length) {
@@ -54,6 +63,11 @@ function parseArgs(args: string[]): { input: BusinessInsightInput; timeRange: Ti
       i++;
       continue;
     }
+    if (args[i] === "--compact") {
+      compact = true;
+      i++;
+      continue;
+    }
     if (args[i].startsWith("--")) {
       i++;
       continue;
@@ -64,7 +78,7 @@ function parseArgs(args: string[]): { input: BusinessInsightInput; timeRange: Ti
   if (positionals.length >= 1) input.businessName = positionals[0];
   if (positionals.length >= 2) input.businessType = positionals[1];
   if (positionals.length >= 3) input.address = positionals[2];
-  return { input, timeRange };
+  return { input, timeRange, compact };
 }
 
 /**
@@ -83,22 +97,38 @@ function extractJson(text: string): string {
 
 /**
  * Fetches business insight from Gemini and returns parsed response.
+ * One API call per run — quota issues are from token volume (large prompt + output), not multiple requests.
  */
 export async function fetchBusinessInsight(
   input: BusinessInsightInput,
   timeRange: TimeRange,
-  options?: { model?: string }
+  options?: {
+    model?: string;
+    maxOutputTokens?: number;
+    promptVariant?: PromptVariant;
+  }
 ): Promise<BusinessInsightResponse> {
   const model = options?.model ?? DEFAULT_MODEL;
-  const prompt = buildBusinessInsightPrompt(input, timeRange);
-
+  const envMax = process.env.MAX_OUTPUT_TOKENS
+    ? parseInt(process.env.MAX_OUTPUT_TOKENS, 10)
+    : NaN;
+  const maxOutputTokens =
+    options?.maxOutputTokens ?? (Number.isFinite(envMax) ? envMax : 4096);
+  const variant =
+    options?.promptVariant ??
+    (process.env.PROMPT_VARIANT === "compact" ? "compact" : "full");
+  const prompt =
+    variant === "compact"
+      ? buildBusinessInsightPromptCompact(input, timeRange)
+      : buildBusinessInsightPrompt(input, timeRange);
+  console.log(prompt);
   const response = await ai.models.generateContent({
     model,
     contents: prompt,
     config: {
       responseMimeType: "application/json",
       responseJsonSchema: BUSINESS_INSIGHT_RESPONSE_JSON_SCHEMA,
-      maxOutputTokens: 8192,
+      maxOutputTokens,
       temperature: 0.4,
     },
   });
@@ -174,15 +204,16 @@ export function printInsight(insight: BusinessInsightResponse): void {
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { input, timeRange } = parseArgs(args);
+  const { input, timeRange, compact } = parseArgs(args);
 
   if (!input.businessName || !input.businessType || !input.address) {
     console.error(
-      "Usage: npx ts-node --esm business-insight.ts [--org Organization] <businessName> <businessType> <address> [--time 1d|7d|30d]"
+      "Usage: npm run insight -- [--org Organization] [--time 1d|7d|30d] [--compact] <businessName> <businessType> <address>"
     );
     console.error(
-      "Example: npx ts-node --esm business-insight.ts \"Joe's Cafe\" \"coffee shop\" \"300 W Campbell Rd, Richardson, TX 75080\" --time 7d"
+      "Example: npm run insight -- \"Joe's Cafe\" \"coffee shop\" \"300 W Campbell Rd, Richardson, TX 75080\" --time 7d"
     );
+    console.error("  --compact  use smaller prompt (~2048 token target) for quota testing");
     process.exit(1);
   }
 
@@ -192,7 +223,10 @@ async function main(): Promise<void> {
   }
 
   try {
-    const insight = await fetchBusinessInsight(input, timeRange);
+    if (compact) console.log("Using compact prompt (~2048 token target).\n");
+    const insight = await fetchBusinessInsight(input, timeRange, {
+      promptVariant: compact ? "compact" : "full",
+    });
     printInsight(insight);
     // Optionally write full JSON to file
     if (process.env.OUTPUT_JSON_PATH) {

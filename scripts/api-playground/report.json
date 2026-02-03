@@ -1,0 +1,118 @@
+{
+    "requestContext": {
+      "businessName": "Rosa's Café",
+      "businessType": "Fast-casual Tex-Mex restaurant",
+      "location": "Richardson, Texas",
+      "timeRange": "Last 30 days",
+      "generatedAt": "2026-02-02T18:16:00-06:00"
+    },
+    "competitors": [
+      {
+        "name": "Taco Cabana",
+        "businessType": "Fast-casual Tex-Mex",
+        "address": "Belt Line Rd area, Richardson, TX",
+        "description": "Chain known for 24-hour drive-thru, margaritas, and broad menu variety.",
+        "estimatedDistance": "1.2 miles",
+        "strengths": ["Late-night hours", "Alcohol offerings", "Menu variety"],
+        "weaknesses": ["Inconsistent food quality in reviews", "Slower service during peaks"]
+      },
+      {
+        "name": "Velvet Taco",
+        "businessType": "Gourmet fast-casual tacos",
+        "address": "Richardson Square area, Richardson, TX",
+        "description": "Trendy spot with creative global-inspired tacos and strong late-night appeal.",
+        "estimatedDistance": "2.1 miles",
+        "strengths": ["Unique flavors", "High social media buzz", "Younger demographic appeal"],
+        "weaknesses": ["Higher price point", "Smaller portions"]
+      },
+      {
+        "name": "Fuzzy's Taco Shop",
+        "businessType": "Casual Baja-style tacos",
+        "address": "Greenville Ave area, Richardson, TX",
+        "description": "Laid-back chain with budget-friendly tacos, happy hours, and beer specials.",
+        "estimatedDistance": "1.8 miles",
+        "strengths": ["Affordable pricing", "Happy hour deals", "Casual vibe"],
+        "weaknesses": ["Limited menu depth", "Occasional service complaints"]
+      }
+    ],
+    "localEvents": [
+      {
+        "name": "Live Music with Dave Christen",
+        "date": "2026-02-01",
+        "venue": "Guitars & Growlers, Richardson, TX",
+        "eventType": "Live music / craft beer",
+        "relevanceToBusiness": "Drew 100+ locals for evening drinks and casual food",
+        "opportunity": "Cross-promotion potential with nearby venues for post-event traffic"
+      },
+      {
+        "name": "Pokémon Gym Badge Challenge",
+        "date": "2026-02-01",
+        "venue": "Richardson Public Library",
+        "eventType": "Family-friendly gaming event",
+        "relevanceToBusiness": "Moderate family foot traffic in central Richardson area",
+        "opportunity": "Family meal deals targeting parents/kids post-event"
+      }
+    ],
+    "weather": {
+      "currentConditions": "Partly cloudy with mild temperatures",
+      "temperature": {
+        "current": "52°F",
+        "highToday": "56°F",
+        "lowToday": "38°F"
+      },
+      "forecastSummary": "Mild winter week ahead with highs in the mid-50s and no precipitation expected.",
+      "impactOnBusiness": "Favorable for drive-thru and patio seating; encourages casual outings.",
+      "recommendation": "Promote outdoor seating and quick-service specials to capitalize on pleasant weather."
+    },
+    "sentiment": {
+      "yourBusiness": {
+        "businessName": "Rosa's Café",
+        "overallSentiment": "Mostly positive",
+        "sentimentScore": 84,
+        "reviewSummary": "Strong praise for fresh tortillas, value meals, and drive-thru efficiency; average rating ~4.2/5 across Google, Facebook, and Yelp.",
+        "socialMediaSummary": "Positive mentions on local Reddit and Facebook for consistency and speed.",
+        "commonThemes": ["Fresh ingredients", "Good value", "Reliable drive-thru", "Peak-hour wait times"],
+        "sampleQuotes": ["Best tortillas in DFW!", "Great lunch deal but busy at noon."],
+        "timeWindow": "Last 30 days"
+      },
+      "competitors": [
+        {
+          "businessName": "Taco Cabana",
+          "overallSentiment": "Mixed",
+          "sentimentScore": 78,
+          "reviewSummary": "Liked for variety and late hours but criticism on food consistency.",
+          "commonThemes": ["Convenient hours", "Inconsistent quality"],
+          "timeWindow": "Last 30 days"
+        },
+        {
+          "businessName": "Velvet Taco",
+          "overallSentiment": "Strongly positive",
+          "sentimentScore": 90,
+          "reviewSummary": "High praise for creative flavors and vibe; average ~4.5/5.",
+          "commonThemes": ["Unique menu", "Trendy atmosphere"],
+          "timeWindow": "Last 30 days"
+        },
+        {
+          "businessName": "Fuzzy's Taco Shop",
+          "overallSentiment": "Positive",
+          "sentimentScore": 82,
+          "reviewSummary": "Appreciated for affordability and happy hours.",
+          "commonThemes": ["Good deals", "Casual experience"],
+          "timeWindow": "Last 30 days"
+        }
+      ]
+    },
+    "actionableInsight": {
+      "executiveSummary": "Rosa's Café maintains solid local positioning with strong value perception, though peak-hour waits are a recurring concern. Mild weather and recent community events present immediate traffic opportunities.",
+      "priorities": ["Improve perceived wait times", "Leverage pleasant weather for promotions", "Capture post-event traffic"],
+      "opportunities": ["Geo-targeted ads for mild-weather specials", "Cross-promotions with nearby event venues", "Family-focused offers after community activities"],
+      "risks": ["Losing younger customers to trendier competitors like Velvet Taco", "Traffic dips if weather turns colder later in week"],
+      "recommendedActions": [
+        "Launch short-term Facebook/Instagram geo-fenced ads promoting fajita specials and express ordering.",
+        "Partner with Guitars & Growlers for receipt-based discounts to drive evening traffic.",
+        "Respond promptly to wait-time reviews and test app-based ordering incentives."
+      ],
+      "competitivePosition": "Strong value leader among traditional Tex-Mex options; opportunity to close gap with trendier competitors via targeted promotions.",
+      "nextSteps": ["Monitor ad performance over next 7 days", "Reach out to local venues for cross-promo", "Schedule review response campaign"]
+    }
+  }

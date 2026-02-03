@@ -117,3 +117,33 @@ Respond with a single JSON object only. No markdown, no code fence, no extra tex
 
 Use "generatedAt": "${new Date().toISOString()}" in requestContext.`;
 }
+
+/** Prompt variant: "full" (default) or "compact" (~2048 token target). */
+export type PromptVariant = "full" | "compact";
+
+/**
+ * Builds a compact prompt (~2048 token target) for quota-limited testing.
+ * Same JSON output structure, but shorter instructions and "up to 5" for lists.
+ */
+export function buildBusinessInsightPromptCompact(
+  input: BusinessInsightInput,
+  timeRange: TimeRange
+): string {
+  const location = formatLocation(input);
+  const timeWindow = TIME_RANGE_LABELS[timeRange];
+  const payload = {
+    business: input.businessName,
+    type: input.businessType,
+    location,
+    timeRange,
+    timeWindow,
+  };
+
+  return `Business insight report. Output JSON only (no markdown).
+
+Context: ${JSON.stringify(payload)}
+
+Tasks: (1) Up to 5 competitors: name, businessType, address, description. (2) Up to 5 local events in ${timeWindow}: name, date, venue, eventType, relevanceToBusiness. (3) Weather for ${location}: currentConditions, forecastSummary, impactOnBusiness. (4) Sentiment over ${timeWindow} for this business and each competitor: overallSentiment, sentimentScore 0-100, reviewSummary, commonThemes (array). (5) Actionable insight: executiveSummary (2-3 sentences), priorities (3), opportunities (2-3), risks (2-3), recommendedActions (3), competitivePosition (1 paragraph), nextSteps (2-3).
+
+JSON structure (exact keys): requestContext: { businessName, businessType, location, timeRange, generatedAt }. competitors: array of up to 5 { name, businessType, address, description }. localEvents: array of up to 5 { name, date, venue, eventType, relevanceToBusiness }. weather: { currentConditions, forecastSummary, impactOnBusiness }. sentiment: { yourBusiness: { businessName, overallSentiment, sentimentScore, reviewSummary, commonThemes, timeWindow }, competitors: same shape }. actionableInsight: { executiveSummary, priorities, opportunities, risks, recommendedActions, competitivePosition, nextSteps }. Use generatedAt: "${new Date().toISOString()}".`;
+}
