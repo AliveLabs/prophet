@@ -27,9 +27,10 @@ export default function MiniMap({
   }
 
   const query = address ?? `${lat},${lng}`
+  const embedQuery = placeId ? `place_id:${placeId}` : query
   const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(
     key
-  )}&q=${encodeURIComponent(query)}${placeId ? `&q_place_id=${encodeURIComponent(placeId)}` : ""}&zoom=14`
+  )}&q=${encodeURIComponent(embedQuery)}&zoom=14`
   const mapsLink =
     mapsUri ??
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}${
