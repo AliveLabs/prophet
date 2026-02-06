@@ -32,6 +32,11 @@ export default function InsightCard({
       ? "bg-indigo-100 text-indigo-700"
       : "bg-emerald-100 text-emerald-700"
 
+  const isEventInsight =
+    typeof evidence?.insight_type === "string"
+      ? (evidence.insight_type as string).startsWith("events.")
+      : title.toLowerCase().includes("event")
+
   const summaryEvidence: Array<string> = []
   if (typeof evidence?.field === "string" && evidence.field === "rating") {
     const delta = evidence.delta as number | undefined
@@ -57,6 +62,40 @@ export default function InsightCard({
   if (Array.isArray((evidence as Record<string, unknown>)?.themes)) {
     summaryEvidence.push("Review themes extracted")
   }
+
+  // --- Event-specific evidence rendering ---
+  if (typeof evidence?.current_weekend_count === "number") {
+    summaryEvidence.push(
+      `Weekend events: ${evidence.previous_weekend_count ?? "?"} → ${evidence.current_weekend_count} (+${evidence.pct_change ?? "?"}%)`
+    )
+  }
+  if (typeof evidence?.event_count === "number") {
+    summaryEvidence.push(
+      `${evidence.event_count} events on ${evidence.date ?? "a single day"}`
+    )
+  }
+  if (evidence?.is_new === true) {
+    const kws = evidence.matched_keywords as string[] | undefined
+    summaryEvidence.push(
+      `New event detected${kws?.length ? ` (keywords: ${kws.join(", ")})` : ""}`
+    )
+  }
+  if (typeof evidence?.matched_events === "number") {
+    summaryEvidence.push(
+      `Linked to ${evidence.matched_events} event(s)`
+    )
+  }
+  if (typeof evidence?.delta === "number" && typeof evidence?.current_count === "number") {
+    summaryEvidence.push(
+      `Event associations: ${evidence.previous_count ?? 0} → ${evidence.current_count} (+${evidence.delta})`
+    )
+  }
+
+  // Build event list for display
+  const sampleEvents = (evidence?.sample_events ?? evidence?.matched_events_list) as
+    | Array<Record<string, unknown>>
+    | undefined
+  const eventEvidence = evidence?.event as Record<string, unknown> | undefined
 
   const llmPrompt = evidence?.llm_prompt as string | undefined
   const llmInput = evidence?.llm_input as Record<string, unknown> | undefined
@@ -84,7 +123,7 @@ export default function InsightCard({
           </span>
         </div>
       </div>
-      <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${accentStyles}`}>
+      <div className={`mt-4 rounded-xl border px-3 py-2 text-sm ${isEventInsight ? "border-violet-200 bg-violet-50/40" : accentStyles}`}>
         <p className="font-medium text-slate-900">Evidence highlights</p>
         {summaryEvidence.length ? (
           <ul className="mt-2 list-disc pl-4 text-slate-700">
@@ -94,6 +133,39 @@ export default function InsightCard({
           </ul>
         ) : (
           <p className="mt-2 text-slate-600">No structured changes detected.</p>
+        )}
+
+        {/* Render event details if present */}
+        {eventEvidence && (
+          <div className="mt-2 rounded-lg bg-white/60 px-2 py-1.5 text-xs text-slate-600">
+            <span className="font-medium">{String(eventEvidence.title ?? "Event")}</span>
+            {eventEvidence.start ? (
+              <span className="ml-2 text-slate-400">{String(eventEvidence.start)}</span>
+            ) : null}
+            {(eventEvidence.venue as Record<string, unknown>)?.name ? (
+              <span className="ml-2 text-slate-400">
+                @ {String((eventEvidence.venue as Record<string, unknown>).name)}
+              </span>
+            ) : null}
+          </div>
+        )}
+
+        {Array.isArray(sampleEvents) && sampleEvents.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {sampleEvents.slice(0, 5).map((ev, i) => (
+              <div key={i} className="rounded-lg bg-white/60 px-2 py-1 text-xs text-slate-600">
+                <span className="font-medium">{String(ev.title ?? ev.event_title ?? "Event")}</span>
+                {ev.startDatetime || ev.start ? (
+                  <span className="ml-2 text-slate-400">
+                    {String(ev.startDatetime ?? ev.start)}
+                  </span>
+                ) : null}
+                {ev.venue_name ? (
+                  <span className="ml-2 text-slate-400">@ {String(ev.venue_name)}</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
         )}
       </div>
       <details className="mt-4 rounded-xl border border-slate-200 px-3 py-2">

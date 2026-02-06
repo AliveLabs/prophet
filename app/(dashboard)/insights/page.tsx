@@ -13,6 +13,7 @@ type InsightsPageProps = {
     range?: string
     error?: string
     location_id?: string
+    source?: string
   }>
 }
 
@@ -65,6 +66,14 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }
   if (resolvedSearchParams?.severity) {
     query = query.eq("severity", resolvedSearchParams.severity)
+  }
+
+  // Source filter: "events" filters to events.* insight types, "competitors" excludes them
+  const sourceFilter = resolvedSearchParams?.source
+  if (sourceFilter === "events") {
+    query = query.like("insight_type", "events.%")
+  } else if (sourceFilter === "competitors") {
+    query = query.not("insight_type", "like", "events.%")
   }
 
   const { data: insights } = await query
@@ -339,6 +348,15 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             <option value="warning">Warning</option>
             <option value="critical">Critical</option>
           </select>
+          <select
+            name="source"
+            defaultValue={resolvedSearchParams?.source ?? ""}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+          >
+            <option value="">All sources</option>
+            <option value="competitors">Competitors</option>
+            <option value="events">Events</option>
+          </select>
           <button
             type="submit"
             className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
@@ -457,6 +475,57 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           </p>
         )}
       </div>
+
+      {/* Event insights section */}
+      {(() => {
+        const eventInsights =
+          insights?.filter((i) => (i.insight_type as string).startsWith("events.")) ?? []
+        if (eventInsights.length === 0) return null
+        return (
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold text-slate-900">Event insights</h2>
+            <div className="rounded-2xl border border-violet-200 bg-violet-50/40 p-5">
+              <div className="space-y-4">
+                {eventInsights.map((insight) => (
+                  <InsightCard
+                    key={insight.id}
+                    title={insight.title}
+                    summary={insight.summary}
+                    confidence={insight.confidence}
+                    severity={insight.severity}
+                    status={insight.status}
+                    evidence={insight.evidence as Record<string, unknown>}
+                    recommendations={insight.recommendations as Array<Record<string, unknown>>}
+                    actions={
+                      <>
+                        <form action={markInsightReadAction}>
+                          <input type="hidden" name="insight_id" value={insight.id} />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-zinc-200 px-3 py-1 text-xs"
+                          >
+                            Mark read
+                          </button>
+                        </form>
+                        <form action={dismissInsightAction}>
+                          <input type="hidden" name="insight_id" value={insight.id} />
+                          <button
+                            type="submit"
+                            className="rounded-full border border-zinc-200 px-3 py-1 text-xs"
+                          >
+                            Dismiss
+                          </button>
+                        </form>
+                      </>
+                    }
+                    accent="location"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {insights && insights.length === 0 ? (
         <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">

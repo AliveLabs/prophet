@@ -297,6 +297,317 @@ serve(async (req) => {
       })
     }
 
+    // =====================================================================
+    // EVENTS JOBS
+    // =====================================================================
+
+    if (job.job_type === "fetch_events_snapshot") {
+      // Fetch location details
+      const { data: location, error: locErr } = await supabase
+        .from("locations")
+        .select("id, city, region, country, organization_id")
+        .eq("id", job.location_id)
+        .single()
+
+      if (locErr || !location) {
+        return new Response("Location not found", { status: 404 })
+      }
+
+      // Determine tier
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("subscription_tier")
+        .eq("id", location.organization_id)
+        .single()
+
+      const tier = org?.subscription_tier ?? "free"
+      const locationName = [location.city, location.region, location.country ?? "United States"]
+        .filter(Boolean)
+        .join(",")
+      const maxQueries = tier === "free" ? 1 : 2
+      const depth = 10
+
+      const queryDefs: Array<{ keyword: string; date_range: string }> = []
+      if (maxQueries >= 2) {
+        queryDefs.push(
+          { keyword: "events", date_range: "week" },
+          { keyword: "events", date_range: "weekend" }
+        )
+      } else {
+        queryDefs.push({ keyword: "events", date_range: "weekend" })
+      }
+
+      // Call DataForSEO for each query
+      const login = Deno.env.get("DATAFORSEO_LOGIN")
+      const password = Deno.env.get("DATAFORSEO_PASSWORD")
+      if (!login || !password) {
+        throw new Error("DATAFORSEO credentials not configured")
+      }
+      const auth = btoa(`${login}:${password}`)
+
+      const allItems: Array<Record<string, unknown>> = []
+      for (const q of queryDefs) {
+        const response = await fetch(
+          "https://api.dataforseo.com/v3/serp/google/events/live/advanced",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Basic ${auth}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify([
+              {
+                keyword: q.keyword,
+                location_name: locationName,
+                language_code: "en",
+                device: "desktop",
+                os: "windows",
+                depth,
+                date_range: q.date_range,
+              },
+            ]),
+          }
+        )
+
+        if (!response.ok) {
+          const text = await response.text()
+          throw new Error(`DataForSEO events error: ${response.status} ${text}`)
+        }
+
+        const data = await response.json()
+        const items = data?.tasks?.[0]?.result?.[0]?.items ?? []
+        for (const item of items) {
+          allItems.push({ ...item, _query_keyword: q.keyword, _query_date_range: q.date_range })
+        }
+      }
+
+      // Store raw snapshot (normalization happens in match/insight jobs)
+      const rawPayload = {
+        version: "1.0",
+        capturedAt: new Date().toISOString(),
+        locationName,
+        queries: queryDefs,
+        items: allItems,
+        totalEvents: allItems.length,
+      }
+
+      // Compute a simple diff hash
+      const encoder = new TextEncoder()
+      const hashData = encoder.encode(JSON.stringify(allItems.map((i) => ({
+        title: i.title, url: i.url, start: (i.event_dates as Record<string, unknown>)?.start_datetime,
+      }))))
+      const hashBuf = await crypto.subtle.digest("SHA-256", hashData)
+      const diffHash = Array.from(new Uint8Array(hashBuf))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("")
+
+      const { error: snapError } = await supabase.from("location_snapshots").upsert(
+        {
+          location_id: job.location_id,
+          provider: "dataforseo_google_events",
+          date_key: job.date_key,
+          captured_at: new Date().toISOString(),
+          raw_data: rawPayload,
+          diff_hash: diffHash,
+        },
+        { onConflict: "location_id,provider,date_key" }
+      )
+
+      if (snapError) throw snapError
+
+      return new Response(
+        JSON.stringify({ ok: true, events: allItems.length }),
+        { status: 200 }
+      )
+    }
+
+    if (job.job_type === "match_events_to_competitors") {
+      // Load latest snapshot
+      const { data: snap } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", job.location_id)
+        .eq("provider", "dataforseo_google_events")
+        .eq("date_key", job.date_key)
+        .maybeSingle()
+
+      if (!snap) {
+        return new Response("No events snapshot found", { status: 404 })
+      }
+
+      // Load approved competitors
+      const { data: competitors } = await supabase
+        .from("competitors")
+        .select("id, name, address, website, metadata, is_active")
+        .eq("location_id", job.location_id)
+        .eq("is_active", true)
+
+      const approved = (competitors ?? []).filter((c) => {
+        const meta = c.metadata as Record<string, unknown> | null
+        return meta?.status === "approved"
+      })
+
+      if (approved.length === 0) {
+        return new Response(JSON.stringify({ ok: true, matches: 0 }), { status: 200 })
+      }
+
+      // Simple venue-name matching (deterministic)
+      const rawData = snap.raw_data as Record<string, unknown>
+      const items = (rawData.items ?? []) as Array<Record<string, unknown>>
+
+      const matchRecords: Array<Record<string, unknown>> = []
+
+      for (const item of items) {
+        const locationInfo = item.location_info as Record<string, unknown> | undefined
+        const venueName = (locationInfo?.name as string ?? "").toLowerCase().trim()
+
+        for (const comp of approved) {
+          const compName = (comp.name ?? "").toLowerCase().trim()
+
+          if (venueName && compName && venueName === compName) {
+            matchRecords.push({
+              location_id: job.location_id,
+              competitor_id: comp.id,
+              date_key: job.date_key,
+              event_uid: String(item.title ?? "").slice(0, 64),
+              match_type: "venue_name",
+              confidence: "high",
+              evidence: {
+                event_title: item.title,
+                venue_name: venueName,
+                competitor_name: compName,
+              },
+            })
+          }
+        }
+      }
+
+      if (matchRecords.length > 0) {
+        await supabase
+          .from("event_matches")
+          .delete()
+          .eq("location_id", job.location_id)
+          .eq("date_key", job.date_key)
+
+        const { error: matchErr } = await supabase
+          .from("event_matches")
+          .insert(matchRecords)
+
+        if (matchErr) throw matchErr
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, matches: matchRecords.length }),
+        { status: 200 }
+      )
+    }
+
+    if (job.job_type === "generate_event_insights") {
+      // Load current snapshot
+      const { data: currentSnap } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", job.location_id)
+        .eq("provider", "dataforseo_google_events")
+        .eq("date_key", job.date_key)
+        .maybeSingle()
+
+      if (!currentSnap) {
+        return new Response("No events snapshot found", { status: 404 })
+      }
+
+      const rawData = currentSnap.raw_data as Record<string, unknown>
+      const currentCount = (rawData.totalEvents as number) ?? 0
+
+      // Load previous snapshot
+      const prevKey = getPreviousDateKey(job.date_key, 1)
+      const { data: prevSnap } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", job.location_id)
+        .eq("provider", "dataforseo_google_events")
+        .eq("date_key", prevKey)
+        .maybeSingle()
+
+      const prevCount = prevSnap
+        ? ((prevSnap.raw_data as Record<string, unknown>).totalEvents as number) ?? 0
+        : 0
+
+      const insights: Array<Record<string, unknown>> = []
+
+      // Density spike (simple: total event count change)
+      if (prevSnap && prevCount > 0) {
+        const delta = currentCount - prevCount
+        const pctChange = delta / prevCount
+        if (pctChange >= 0.3 && delta >= 5) {
+          insights.push({
+            insight_type: "events.weekend_density_spike",
+            title: "Event activity is surging nearby",
+            summary: `Events increased from ${prevCount} to ${currentCount} (+${Math.round(pctChange * 100)}%).`,
+            confidence: "medium",
+            severity: "info",
+            evidence: { current: currentCount, previous: prevCount, delta },
+            recommendations: [
+              { title: "Prepare for increased demand", rationale: "More events nearby may drive foot traffic." },
+            ],
+          })
+        }
+      }
+
+      // Competitor hosting (from matches)
+      const { data: matches } = await supabase
+        .from("event_matches")
+        .select("*")
+        .eq("location_id", job.location_id)
+        .eq("date_key", job.date_key)
+
+      if (matches && matches.length > 0) {
+        const byComp = new Map<string, Array<Record<string, unknown>>>()
+        for (const m of matches) {
+          if (!m.competitor_id) continue
+          const arr = byComp.get(m.competitor_id) ?? []
+          arr.push(m)
+          byComp.set(m.competitor_id, arr)
+        }
+
+        for (const [compId, compMatches] of byComp) {
+          insights.push({
+            insight_type: "events.competitor_hosting_event",
+            title: "A competitor appears linked to nearby events",
+            summary: `Competitor is associated with ${compMatches.length} event(s).`,
+            confidence: "medium",
+            severity: "info",
+            evidence: {
+              competitor_id: compId,
+              matched_events: compMatches.length,
+            },
+            recommendations: [],
+          })
+        }
+      }
+
+      if (insights.length > 0) {
+        const payload = insights.map((ins) => ({
+          location_id: job.location_id,
+          competitor_id: ins.competitor_id ? String(ins.competitor_id) : null,
+          date_key: job.date_key,
+          ...ins,
+          status: "new",
+        }))
+
+        const { error: insErr } = await supabase
+          .from("insights")
+          .upsert(payload, { onConflict: "location_id,competitor_id,date_key,insight_type" })
+
+        if (insErr) throw insErr
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, insights: insights.length }),
+        { status: 200 }
+      )
+    }
+
     return new Response("Unsupported job type", { status: 400 })
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error) }), {
