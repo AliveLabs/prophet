@@ -12,7 +12,7 @@ import { fetchGoogleEvents } from "@/lib/providers/dataforseo/google-events"
 import { normalizeEventsSnapshot } from "@/lib/events/normalize"
 import { computeEventsSnapshotDiffHash } from "@/lib/events/hash"
 import { matchEventsToCompetitors } from "@/lib/events/match"
-import { generateEventInsights } from "@/lib/events/insights"
+import { generateEventInsights, type InsightContext } from "@/lib/events/insights"
 import type { EventsQuery, NormalizedEventsSnapshotV1 } from "@/lib/events/types"
 
 // ---------------------------------------------------------------------------
@@ -232,6 +232,55 @@ export async function fetchEventsAction(formData: FormData) {
       .eq("location_id", locationId)
       .eq("date_key", previousDateKey)
 
+    // Build InsightContext from location + competitor data
+    const insightContext: InsightContext = {
+      locationName: location.name ?? "Your location",
+      locationRating: null,
+      locationReviewCount: null,
+      competitors: (approvedCompetitors ?? [])
+        .filter((c) => {
+          const meta = c.metadata as Record<string, unknown> | null
+          return meta?.status === "approved"
+        })
+        .map((c) => {
+          const meta = c.metadata as Record<string, unknown> | null
+          const pd = meta?.placeDetails as Record<string, unknown> | null
+          return {
+            id: c.id,
+            name: c.name ?? null,
+            rating:
+              (pd?.rating as number | null) ??
+              (meta?.rating as number | null) ??
+              null,
+            reviewCount:
+              (pd?.reviewCount as number | null) ??
+              (meta?.reviewCount as number | null) ??
+              null,
+          }
+        }),
+    }
+
+    // Try to get location rating from metadata (places data on the location)
+    try {
+      const { fetchPlaceDetails } = await import("@/lib/places/google")
+      const { data: locRow } = await supabase
+        .from("locations")
+        .select("primary_place_id")
+        .eq("id", locationId)
+        .maybeSingle()
+      if (locRow?.primary_place_id) {
+        const details = await fetchPlaceDetails(locRow.primary_place_id)
+        insightContext.locationRating =
+          typeof details.rating === "number" ? details.rating : null
+        insightContext.locationReviewCount =
+          typeof details.userRatingCount === "number"
+            ? details.userRatingCount
+            : null
+      }
+    } catch {
+      // Non-critical — proceed without location rating
+    }
+
     const insights = generateEventInsights({
       current: snapshot,
       previous: previousSnapshot,
@@ -239,6 +288,7 @@ export async function fetchEventsAction(formData: FormData) {
       previousMatches: prevMatchRows ?? null,
       locationId,
       dateKey,
+      context: insightContext,
     })
 
     if (insights.length > 0) {
