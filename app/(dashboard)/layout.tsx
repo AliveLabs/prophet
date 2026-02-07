@@ -54,6 +54,12 @@ export default async function DashboardLayout({
             </Link>
             <Link
               className="block rounded-xl px-3 py-2 hover:bg-slate-100"
+              href="/visibility"
+            >
+              Visibility
+            </Link>
+            <Link
+              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
               href="/locations"
             >
               Locations

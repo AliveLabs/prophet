@@ -6,9 +6,17 @@ export type TierLimits = {
   retentionDays: number
   // Events Intelligence limits
   eventsCadence: "weekly" | "daily"
-  eventsQueriesPerRun: number // max queries per location per run
-  eventsMaxDepth: number // max depth per query (hard cap 20)
-  eventsKeywordSets: number // configurable keywords (0 = default only)
+  eventsQueriesPerRun: number
+  eventsMaxDepth: number
+  eventsKeywordSets: number
+  // SEO Search Intelligence limits
+  seoTrackedKeywords: number
+  seoLabsCadence: "weekly" | "daily"
+  seoSerpCadence: "weekly" | "daily"
+  seoRankedKeywordsLimit: number
+  seoIntersectionEnabled: boolean
+  seoIntersectionLimit: number
+  seoAdsEnabled: boolean
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -20,6 +28,13 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     eventsQueriesPerRun: 1,
     eventsMaxDepth: 10,
     eventsKeywordSets: 0,
+    seoTrackedKeywords: 10,
+    seoLabsCadence: "weekly",
+    seoSerpCadence: "weekly",
+    seoRankedKeywordsLimit: 25,
+    seoIntersectionEnabled: false,
+    seoIntersectionLimit: 0,
+    seoAdsEnabled: false,
   },
   starter: {
     maxLocations: 3,
@@ -29,6 +44,13 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
     eventsKeywordSets: 5,
+    seoTrackedKeywords: 25,
+    seoLabsCadence: "weekly",
+    seoSerpCadence: "weekly",
+    seoRankedKeywordsLimit: 50,
+    seoIntersectionEnabled: true,
+    seoIntersectionLimit: 50,
+    seoAdsEnabled: false,
   },
   pro: {
     maxLocations: 10,
@@ -38,6 +60,13 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
     eventsKeywordSets: 5,
+    seoTrackedKeywords: 50,
+    seoLabsCadence: "weekly",
+    seoSerpCadence: "daily",
+    seoRankedKeywordsLimit: 100,
+    seoIntersectionEnabled: true,
+    seoIntersectionLimit: 100,
+    seoAdsEnabled: true,
   },
   agency: {
     maxLocations: 50,
@@ -47,6 +76,13 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
     eventsKeywordSets: 5,
+    seoTrackedKeywords: 200,
+    seoLabsCadence: "daily",
+    seoSerpCadence: "daily",
+    seoRankedKeywordsLimit: 500,
+    seoIntersectionEnabled: true,
+    seoIntersectionLimit: 500,
+    seoAdsEnabled: true,
   },
 }
 

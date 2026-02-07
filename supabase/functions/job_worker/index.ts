@@ -154,11 +154,12 @@ serve(async (req) => {
           captured_at: new Date().toISOString(),
           date_key: job.date_key,
           provider: competitor.provider,
+          snapshot_type: "listing_daily",
           raw_data: normalized,
           diff_hash: diffHash,
         },
         {
-          onConflict: "competitor_id,date_key",
+          onConflict: "competitor_id,date_key,snapshot_type",
         }
       )
 
@@ -606,6 +607,308 @@ serve(async (req) => {
         JSON.stringify({ ok: true, insights: insights.length }),
         { status: 200 }
       )
+    }
+
+    // =====================================================================
+    // SEO SEARCH INTELLIGENCE JOBS
+    // =====================================================================
+
+    // Helper: DataForSEO Labs API call
+    async function callDataForSEOLabs(path: string, taskBody: Record<string, unknown>) {
+      const login = Deno.env.get("DATAFORSEO_LOGIN")
+      const password = Deno.env.get("DATAFORSEO_PASSWORD")
+      if (!login || !password) throw new Error("DATAFORSEO credentials not configured")
+      const auth = btoa(`${login}:${password}`)
+      const response = await fetch(`https://api.dataforseo.com${path}`, {
+        method: "POST",
+        headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+        body: JSON.stringify([taskBody]),
+      })
+      if (!response.ok) {
+        const text = await response.text()
+        throw new Error(`DataForSEO error: ${response.status} ${text}`)
+      }
+      const data = await response.json()
+      const task = data?.tasks?.[0]
+      if (task?.status_code && task.status_code !== 20000) {
+        throw new Error(`DataForSEO task error: ${task.status_code} ${task.status_message ?? ""}`)
+      }
+      return task?.result?.[0] ?? null
+    }
+
+    // Helper: get location domain + competitor domains
+    async function getSeoContext(locationId: string) {
+      const { data: loc } = await supabase
+        .from("locations")
+        .select("id, name, website, organization_id")
+        .eq("id", locationId)
+        .single()
+      if (!loc) throw new Error("Location not found")
+
+      const { data: org } = await supabase
+        .from("organizations")
+        .select("subscription_tier")
+        .eq("id", loc.organization_id)
+        .single()
+      const tier = org?.subscription_tier ?? "free"
+
+      const { data: comps } = await supabase
+        .from("competitors")
+        .select("id, name, website, metadata, is_active")
+        .eq("location_id", locationId)
+        .eq("is_active", true)
+
+      const approved = (comps ?? []).filter((c) => {
+        const meta = c.metadata as Record<string, unknown> | null
+        return meta?.status === "approved"
+      })
+
+      return { location: loc, tier, competitors: approved }
+    }
+
+    function extractDomain(url: string | null | undefined): string | null {
+      if (!url) return null
+      try {
+        return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, "")
+      } catch {
+        return null
+      }
+    }
+
+    async function hashPayload(payload: unknown): Promise<string> {
+      const encoder = new TextEncoder()
+      const data = encoder.encode(JSON.stringify(payload))
+      const hashBuf = await crypto.subtle.digest("SHA-256", data)
+      return Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("")
+    }
+
+    if (job.job_type === "seo_domain_rank_overview") {
+      const ctx = await getSeoContext(job.location_id)
+      const locDomain = extractDomain(ctx.location.website)
+      const allDomains = [locDomain, ...ctx.competitors.map((c) => extractDomain(c.website))].filter(Boolean) as string[]
+
+      for (const domain of allDomains) {
+        const result = await callDataForSEOLabs(
+          "/v3/dataforseo_labs/google/domain_rank_overview/live",
+          { target: domain, location_code: 2840, language_code: "en" }
+        )
+        if (!result) continue
+
+        const snapshot = { version: "1.0", capturedAt: new Date().toISOString(), domain, raw: result }
+        const diffHash = await hashPayload(snapshot)
+
+        // Store in location_snapshots if it's the location domain, else in snapshots
+        if (domain === locDomain) {
+          await supabase.from("location_snapshots").upsert({
+            location_id: job.location_id,
+            provider: "seo_domain_rank_overview",
+            date_key: job.date_key,
+            captured_at: new Date().toISOString(),
+            raw_data: snapshot,
+            diff_hash: diffHash,
+          }, { onConflict: "location_id,provider,date_key" })
+        } else {
+          const comp = ctx.competitors.find((c) => extractDomain(c.website) === domain)
+          if (comp) {
+            await supabase.from("snapshots").upsert({
+              competitor_id: comp.id,
+              captured_at: new Date().toISOString(),
+              date_key: job.date_key,
+              provider: "dataforseo_labs",
+              snapshot_type: "seo_domain_rank_overview_weekly",
+              raw_data: snapshot,
+              diff_hash: diffHash,
+            }, { onConflict: "competitor_id,date_key,snapshot_type" })
+          }
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, domains: allDomains.length }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_ranked_keywords") {
+      const ctx = await getSeoContext(job.location_id)
+      const locDomain = extractDomain(ctx.location.website)
+      if (!locDomain) {
+        return new Response(JSON.stringify({ ok: true, skipped: "no_domain" }), { status: 200 })
+      }
+
+      const limit = ctx.tier === "free" ? 25 : ctx.tier === "starter" ? 50 : 100
+      const result = await callDataForSEOLabs(
+        "/v3/dataforseo_labs/google/ranked_keywords/live",
+        { target: locDomain, location_code: 2840, language_code: "en", limit }
+      )
+
+      if (result) {
+        const snapshot = { version: "1.0", capturedAt: new Date().toISOString(), domain: locDomain, raw: result }
+        const diffHash = await hashPayload(snapshot)
+        await supabase.from("location_snapshots").upsert({
+          location_id: job.location_id,
+          provider: "seo_ranked_keywords",
+          date_key: job.date_key,
+          captured_at: new Date().toISOString(),
+          raw_data: snapshot,
+          diff_hash: diffHash,
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_competitors_domain") {
+      const ctx = await getSeoContext(job.location_id)
+      const locDomain = extractDomain(ctx.location.website)
+      if (!locDomain) {
+        return new Response(JSON.stringify({ ok: true, skipped: "no_domain" }), { status: 200 })
+      }
+
+      const result = await callDataForSEOLabs(
+        "/v3/dataforseo_labs/google/competitors_domain/live",
+        { target: locDomain, location_code: 2840, language_code: "en", limit: 10 }
+      )
+
+      if (result) {
+        const snapshot = { version: "1.0", capturedAt: new Date().toISOString(), domain: locDomain, raw: result }
+        const diffHash = await hashPayload(snapshot)
+        await supabase.from("location_snapshots").upsert({
+          location_id: job.location_id,
+          provider: "seo_competitors_domain",
+          date_key: job.date_key,
+          captured_at: new Date().toISOString(),
+          raw_data: snapshot,
+          diff_hash: diffHash,
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_domain_intersection") {
+      const ctx = await getSeoContext(job.location_id)
+      const locDomain = extractDomain(ctx.location.website)
+      if (!locDomain) {
+        return new Response(JSON.stringify({ ok: true, skipped: "no_domain" }), { status: 200 })
+      }
+
+      const limit = ctx.tier === "starter" ? 50 : ctx.tier === "pro" ? 100 : 500
+
+      for (const comp of ctx.competitors.slice(0, 5)) {
+        const compDomain = extractDomain(comp.website)
+        if (!compDomain) continue
+
+        const result = await callDataForSEOLabs(
+          "/v3/dataforseo_labs/google/domain_intersection/live",
+          { target1: locDomain, target2: compDomain, location_code: 2840, language_code: "en", limit }
+        )
+
+        if (result) {
+          const snapshot = { version: "1.0", capturedAt: new Date().toISOString(), domains: [locDomain, compDomain], raw: result }
+          const diffHash = await hashPayload(snapshot)
+          await supabase.from("snapshots").upsert({
+            competitor_id: comp.id,
+            captured_at: new Date().toISOString(),
+            date_key: job.date_key,
+            provider: "dataforseo_labs",
+            snapshot_type: "seo_domain_intersection_weekly",
+            raw_data: snapshot,
+            diff_hash: diffHash,
+          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_serp_keywords") {
+      const ctx = await getSeoContext(job.location_id)
+      const locDomain = extractDomain(ctx.location.website)
+
+      // Fetch tracked keywords
+      const { data: keywords } = await supabase
+        .from("tracked_keywords")
+        .select("keyword")
+        .eq("location_id", job.location_id)
+        .eq("is_active", true)
+        .limit(ctx.tier === "free" ? 10 : 50)
+
+      const domains = [locDomain, ...ctx.competitors.map((c) => extractDomain(c.website))].filter(Boolean) as string[]
+
+      for (const kw of keywords ?? []) {
+        const result = await callDataForSEOLabs(
+          "/v3/serp/google/organic/live/advanced",
+          { keyword: kw.keyword, location_code: 2840, language_code: "en", device: "desktop", depth: 10 }
+        )
+
+        if (result) {
+          const items = (result.items ?? []) as Array<Record<string, unknown>>
+          const positions: Record<string, number | null> = {}
+          for (const domain of domains) {
+            const found = items.find((i) => typeof i.domain === "string" && i.domain.includes(domain) && i.type === "organic")
+            positions[domain] = found ? (found.rank_group as number) : null
+          }
+
+          const snapshot = { keyword: kw.keyword, positions, fetchedAt: new Date().toISOString() }
+          const diffHash = await hashPayload(snapshot)
+
+          // Store as location snapshot keyed by keyword
+          await supabase.from("location_snapshots").upsert({
+            location_id: job.location_id,
+            provider: `seo_serp_${kw.keyword.replace(/\s+/g, "_").slice(0, 40)}`,
+            date_key: job.date_key,
+            captured_at: new Date().toISOString(),
+            raw_data: snapshot,
+            diff_hash: diffHash,
+          }, { onConflict: "location_id,provider,date_key" })
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, keywords: (keywords ?? []).length }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_ads_search") {
+      const ctx = await getSeoContext(job.location_id)
+
+      // Fetch tracked keywords for ads
+      const { data: keywords } = await supabase
+        .from("tracked_keywords")
+        .select("keyword")
+        .eq("location_id", job.location_id)
+        .eq("is_active", true)
+        .limit(10)
+
+      const allCreatives: Array<Record<string, unknown>> = []
+      for (const kw of keywords ?? []) {
+        const result = await callDataForSEOLabs(
+          "/v3/serp/google/ads_search/live/advanced",
+          { keyword: kw.keyword, location_code: 2840, language_code: "en", device: "desktop", depth: 40 }
+        )
+        if (result) {
+          const items = (result.items ?? []) as Array<Record<string, unknown>>
+          for (const item of items) {
+            allCreatives.push({ ...item, _keyword: kw.keyword })
+          }
+        }
+      }
+
+      const snapshot = { version: "1.0", capturedAt: new Date().toISOString(), creatives: allCreatives }
+      const diffHash = await hashPayload(snapshot)
+
+      await supabase.from("location_snapshots").upsert({
+        location_id: job.location_id,
+        provider: "seo_ads_search",
+        date_key: job.date_key,
+        captured_at: new Date().toISOString(),
+        raw_data: snapshot,
+        diff_hash: diffHash,
+      }, { onConflict: "location_id,provider,date_key" })
+
+      return new Response(JSON.stringify({ ok: true, creatives: allCreatives.length }), { status: 200 })
+    }
+
+    if (job.job_type === "seo_generate_insights") {
+      // Simplified insight generation for background jobs
+      // Full context-aware insights happen in the server action
+      return new Response(JSON.stringify({ ok: true, message: "SEO insights deferred to server action" }), { status: 200 })
     }
 
     return new Response("Unsupported job type", { status: 400 })

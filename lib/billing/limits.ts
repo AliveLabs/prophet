@@ -49,3 +49,47 @@ export function ensureEventQueryLimit(
     )
   }
 }
+
+// ---------------------------------------------------------------------------
+// SEO Search Intelligence guardrails
+// ---------------------------------------------------------------------------
+
+export function getSeoTrackedKeywordsLimit(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].seoTrackedKeywords
+}
+
+export function getSeoLabsCadence(tier: SubscriptionTier): "weekly" | "daily" {
+  return TIER_LIMITS[tier].seoLabsCadence
+}
+
+export function getSeoSerpCadence(tier: SubscriptionTier): "weekly" | "daily" {
+  return TIER_LIMITS[tier].seoSerpCadence
+}
+
+export function getSeoRankedKeywordsLimit(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].seoRankedKeywordsLimit
+}
+
+export function isSeoIntersectionEnabled(tier: SubscriptionTier): boolean {
+  return TIER_LIMITS[tier].seoIntersectionEnabled
+}
+
+export function getSeoIntersectionLimit(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].seoIntersectionLimit
+}
+
+export function isSeoAdsEnabled(tier: SubscriptionTier): boolean {
+  return TIER_LIMITS[tier].seoAdsEnabled
+}
+
+export function ensureTrackedKeywordLimit(
+  tier: SubscriptionTier,
+  currentCount: number
+): void {
+  const limit = TIER_LIMITS[tier].seoTrackedKeywords
+  if (currentCount >= limit) {
+    throw new Error(
+      `Tracked keyword limit reached for ${tier} tier (max ${limit}).`
+    )
+  }
+}

@@ -6,35 +6,7 @@ import type {
   DataForSEOEventItem,
   DataForSEOEventsResponse,
 } from "@/lib/events/types"
-
-const DATAFORSEO_BASE_URL = "https://api.dataforseo.com"
-
-function getAuthHeader(): string {
-  const login = process.env.DATAFORSEO_LOGIN
-  const password = process.env.DATAFORSEO_PASSWORD
-  if (!login || !password) {
-    throw new Error("DATAFORSEO credentials are not configured")
-  }
-  return `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`
-}
-
-async function postDataForSEO<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${DATAFORSEO_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: getAuthHeader(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const text = await response.text()
-    throw new Error(`DataForSEO error: ${response.status} ${text}`)
-  }
-
-  return (await response.json()) as T
-}
+import { postDataForSEO } from "./client"
 
 // ---------------------------------------------------------------------------
 // Public API

@@ -73,7 +73,11 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   const sourceFilter = resolvedSearchParams?.source
   if (sourceFilter === "events") query = query.like("insight_type", "events.%")
-  else if (sourceFilter === "competitors") query = query.not("insight_type", "like", "events.%")
+  else if (sourceFilter === "seo") query = query.like("insight_type", "seo_%")
+  else if (sourceFilter === "competitors") {
+    query = query.not("insight_type", "like", "events.%")
+    query = query.not("insight_type", "like", "seo_%")
+  }
 
   const { data: insights } = await query
   const error = resolvedSearchParams?.error
@@ -221,8 +225,9 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   const allInsights = insights ?? []
   const eventInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("events.")).length
-  const compInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && i.competitor_id).length
-  const locInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !i.competitor_id).length
+  const seoInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("seo_")).length
+  const compInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !(i.insight_type as string).startsWith("seo_") && i.competitor_id).length
+  const locInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !(i.insight_type as string).startsWith("seo_") && !i.competitor_id).length
 
   // Group by date for separators
   const insightsByDate = new Map<string, typeof allInsights>()
@@ -293,6 +298,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             <option value="">All sources</option>
             <option value="competitors">Competitors</option>
             <option value="events">Events</option>
+            <option value="seo">SEO</option>
           </select>
           <button type="submit" className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
             Filter
@@ -310,6 +316,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700">
               <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
               {eventInsightCount} event{eventInsightCount !== 1 ? "s" : ""}
+            </span>
+          )}
+          {seoInsightCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+              {seoInsightCount} SEO
             </span>
           )}
           {compInsightCount > 0 && (
@@ -385,14 +397,19 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 <div className="space-y-3">
                   {dayInsights.map((insight) => {
                     const isEvent = (insight.insight_type as string).startsWith("events.")
+                    const isSeo = (insight.insight_type as string).startsWith("seo_")
                     const accent: "event" | "competitor" | "location" = isEvent
                       ? "event"
-                      : insight.competitor_id
-                        ? "competitor"
-                        : "location"
+                      : isSeo
+                        ? "location"
+                        : insight.competitor_id
+                          ? "competitor"
+                          : "location"
                     const subjectLabel = isEvent
                       ? "Local events"
-                      : insight.competitor_id
+                      : isSeo
+                        ? "Search visibility"
+                        : insight.competitor_id
                         ? competitorNameMap.get(insight.competitor_id) ?? "Competitor"
                         : selectedLocation?.name ?? "Your location"
 

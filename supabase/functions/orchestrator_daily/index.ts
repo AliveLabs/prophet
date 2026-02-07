@@ -115,6 +115,82 @@ serve(async (req) => {
       }
     }
 
+    // -----------------------------------------------------------------------
+    // SEO Search Intelligence jobs (location-level, weekly or daily)
+    // -----------------------------------------------------------------------
+    if (locations) {
+      for (const location of locations) {
+        const tier = orgTierMap.get(location.organization_id) ?? "free"
+        const seoLabsCadence = tier === "agency" ? "daily" : "weekly"
+
+        // Weekly SEO runs on Mondays; daily runs every day
+        if (seoLabsCadence === "weekly" && dayOfWeek !== 1) continue
+
+        jobs.push(
+          {
+            job_type: "seo_domain_rank_overview",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          },
+          {
+            job_type: "seo_ranked_keywords",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          },
+          {
+            job_type: "seo_competitors_domain",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          },
+          {
+            job_type: "seo_serp_keywords",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          }
+        )
+
+        // Paid-tier-only jobs
+        const paidTiers = ["starter", "pro", "agency"]
+        if (paidTiers.includes(tier)) {
+          jobs.push({
+            job_type: "seo_domain_intersection",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          })
+        }
+
+        const adsTiers = ["pro", "agency"]
+        if (adsTiers.includes(tier)) {
+          jobs.push({
+            job_type: "seo_ads_search",
+            location_id: location.id,
+            competitor_id: "",
+            date_key: dateKey,
+            attempt: 1,
+          })
+        }
+
+        // Always generate insights after data jobs
+        jobs.push({
+          job_type: "seo_generate_insights",
+          location_id: location.id,
+          competitor_id: "",
+          date_key: dateKey,
+          attempt: 1,
+        })
+      }
+    }
+
     return new Response(JSON.stringify({ ok: true, jobs }), { status: 200 })
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error) }), {
