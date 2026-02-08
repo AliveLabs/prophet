@@ -170,7 +170,10 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   let localPackCount = 0
   let kpiSource: "rank_overview" | "ranked_keywords" | "none" = "none"
 
-  if (rankData) {
+  // Check if rank overview has meaningful data (not all zeros for small domains)
+  const rankHasData = rankData && ((rankData.organic?.etv ?? 0) > 0 || (rankData.organic?.rankedKeywords ?? 0) > 0)
+
+  if (rankHasData) {
     kpiSource = "rank_overview"
     organicEtv = rankData.organic?.etv ?? 0
     organicKeywords = rankData.organic?.rankedKeywords ?? 0
@@ -500,8 +503,17 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-900">Keyword Ranking Distribution</h2>
-              {rankData ? (
-                <RankingDistribution distribution={rankData.organic.distribution} />
+              {rankHasData ? (
+                <RankingDistribution distribution={rankData!.organic.distribution} />
+              ) : rankedKeywords.length > 0 ? (
+                <RankingDistribution distribution={{
+                  pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,
+                  pos_2_3: rankedKeywords.filter((kw) => kw.rank >= 2 && kw.rank <= 3).length,
+                  pos_4_10: rankedKeywords.filter((kw) => kw.rank >= 4 && kw.rank <= 10).length,
+                  pos_11_20: rankedKeywords.filter((kw) => kw.rank >= 11 && kw.rank <= 20).length,
+                  pos_21_50: rankedKeywords.filter((kw) => kw.rank >= 21 && kw.rank <= 50).length,
+                  pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
+                }} />
               ) : (
                 <p className="text-sm text-slate-400">No distribution data available.</p>
               )}

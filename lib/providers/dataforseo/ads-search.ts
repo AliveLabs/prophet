@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
-// DataForSEO – Google Ads Search SERP (Live Advanced)
-// Docs: https://docs.dataforseo.com/v3/serp-google-ads_search-overview/
+// DataForSEO – Google Ads Transparency Center (Live Advanced)
+// Docs: https://docs.dataforseo.com/v3/serp/google/ads_search/live/advanced
+// NOTE: This endpoint uses `target` (domain), NOT `keyword`.
 // ---------------------------------------------------------------------------
 
 import { postDataForSEO, type DataForSEOTaskResponse } from "./client"
@@ -10,10 +11,9 @@ import { postDataForSEO, type DataForSEOTaskResponse } from "./client"
 // ---------------------------------------------------------------------------
 
 export type AdsSearchInput = {
-  keyword: string
+  target: string // domain name, e.g. "example.com"
   locationCode?: number
   languageCode?: string
-  device?: "desktop" | "mobile"
   depth?: number
 }
 
@@ -32,7 +32,7 @@ export type AdsSearchItem = {
 }
 
 export type AdsSearchResult = {
-  keyword: string
+  target?: string
   type?: string
   se_domain?: string
   location_code?: number
@@ -52,10 +52,9 @@ export async function fetchAdsSearch(
   input: AdsSearchInput
 ): Promise<AdsSearchResult | null> {
   const task = {
-    keyword: input.keyword,
+    target: input.target,
     location_code: input.locationCode ?? 2840,
     language_code: input.languageCode ?? "en",
-    device: input.device ?? "desktop",
     depth: input.depth ?? 40,
   }
 

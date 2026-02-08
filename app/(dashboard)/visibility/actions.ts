@@ -161,12 +161,21 @@ export async function refreshSeoAction(formData: FormData) {
     )
   }
 
-  try {
-    // =====================================================================
-    // 1. Domain Rank Overview (for all domains)
-    // =====================================================================
-    let locationRankSnapshot: DomainRankSnapshot | null = null
+  // Track non-fatal errors from individual API sections
+  const warnings: string[] = []
 
+  // Shared data collected across sections
+  let locationRankSnapshot: DomainRankSnapshot | null = null
+  let currentKeywords: NormalizedRankedKeyword[] = []
+  const serpEntries: SerpRankEntry[] = []
+  let intersectionRows: NormalizedIntersectionRow[] = []
+  let adCreatives: NormalizedAdCreative[] = []
+  let locationBacklinks: NormalizedBacklinksSummary | null = null
+
+  // =====================================================================
+  // 1. Domain Rank Overview (for all domains)
+  // =====================================================================
+  try {
     for (const domain of allDomains) {
       const result = await fetchDomainRankOverview({ target: domain })
       if (!result) continue
@@ -199,11 +208,15 @@ export async function refreshSeoAction(formData: FormData) {
         }
       }
     }
+  } catch (err) {
+    console.warn("Step 1 (Domain Rank Overview) failed:", err)
+    warnings.push("Domain rank overview partially failed")
+  }
 
-    // =====================================================================
-    // 2. Ranked Keywords (for location domain OR seed domain)
-    // =====================================================================
-    let currentKeywords: NormalizedRankedKeyword[] = []
+  // =====================================================================
+  // 2. Ranked Keywords (for location domain OR seed domain)
+  // =====================================================================
+  try {
     const rkDomain = locationDomain ?? seedDomain
 
     if (rkDomain) {
@@ -224,10 +237,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 2 (Ranked Keywords) failed:", err)
+    warnings.push("Ranked keywords failed")
+  }
 
-    // =====================================================================
-    // 3. Auto-seed tracked keywords (if empty) using seed domain
-    // =====================================================================
+  // =====================================================================
+  // 3. Auto-seed tracked keywords (if empty) using seed domain
+  // =====================================================================
+  try {
     const { data: existingKws } = await supabase
       .from("tracked_keywords")
       .select("id")
@@ -257,10 +275,15 @@ export async function refreshSeoAction(formData: FormData) {
         }
       }
     }
+  } catch (err) {
+    console.warn("Step 3 (Keyword seeding) failed:", err)
+    warnings.push("Keyword seeding failed")
+  }
 
-    // =====================================================================
-    // 4. Competitors Domain (organic competitor discovery – normalized)
-    // =====================================================================
+  // =====================================================================
+  // 4. Competitors Domain (organic competitor discovery – normalized)
+  // =====================================================================
+  try {
     if (seedDomain) {
       const cdResult = await fetchCompetitorsDomain({ target: seedDomain, limit: 10 })
       if (cdResult) {
@@ -275,10 +298,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 4 (Competitors Domain) failed:", err)
+    warnings.push("Competitor discovery failed")
+  }
 
-    // =====================================================================
-    // 5. SERP for tracked keywords
-    // =====================================================================
+  // =====================================================================
+  // 5. SERP for tracked keywords
+  // =====================================================================
+  try {
     const { data: trackedKws } = await supabase
       .from("tracked_keywords")
       .select("keyword")
@@ -286,12 +314,15 @@ export async function refreshSeoAction(formData: FormData) {
       .eq("is_active", true)
       .limit(getSeoTrackedKeywordsLimit(tier))
 
-    const serpEntries: SerpRankEntry[] = []
     for (const kw of trackedKws ?? []) {
-      const serpResult = await fetchSerpOrganic({ keyword: kw.keyword })
-      if (serpResult) {
-        const entry = normalizeSerpOrganic(serpResult, kw.keyword, allDomains)
-        serpEntries.push(entry)
+      try {
+        const serpResult = await fetchSerpOrganic({ keyword: kw.keyword })
+        if (serpResult) {
+          const entry = normalizeSerpOrganic(serpResult, kw.keyword, allDomains)
+          serpEntries.push(entry)
+        }
+      } catch (serpErr) {
+        console.warn(`SERP fetch failed for "${kw.keyword}":`, serpErr)
       }
     }
 
@@ -306,47 +337,61 @@ export async function refreshSeoAction(formData: FormData) {
         diff_hash: diffHash,
       }, { onConflict: "location_id,provider,date_key" })
     }
+  } catch (err) {
+    console.warn("Step 5 (SERP keywords) failed:", err)
+    warnings.push("SERP tracking failed")
+  }
 
-    // =====================================================================
-    // 6. Domain Intersection (paid tiers only, needs location domain)
-    // =====================================================================
-    let intersectionRows: NormalizedIntersectionRow[] = []
-
+  // =====================================================================
+  // 6. Domain Intersection (needs location domain)
+  // =====================================================================
+  try {
     if (isSeoIntersectionEnabled(tier) && locationDomain) {
       const limit = getSeoIntersectionLimit(tier)
       for (const comp of compDomains.slice(0, 5)) {
-        const diResult = await fetchDomainIntersection({
-          target1: locationDomain,
-          target2: comp.domain,
-          limit,
-        })
-        if (diResult) {
-          const normalized = normalizeDomainIntersection(diResult)
-          intersectionRows.push(...normalized)
+        try {
+          const diResult = await fetchDomainIntersection({
+            target1: locationDomain,
+            target2: comp.domain,
+            limit,
+          })
+          if (diResult) {
+            const normalized = normalizeDomainIntersection(diResult)
+            intersectionRows.push(...normalized)
 
-          await supabase.from("snapshots").upsert({
-            competitor_id: comp.id,
-            captured_at: new Date().toISOString(),
-            date_key: dateKey,
-            provider: "dataforseo_labs",
-            snapshot_type: SEO_SNAPSHOT_TYPES.domainIntersection,
-            raw_data: { version: "1.0", rows: normalized } as unknown as Record<string, unknown>,
-            diff_hash: hashJsonPayload(normalized),
-          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+            await supabase.from("snapshots").upsert({
+              competitor_id: comp.id,
+              captured_at: new Date().toISOString(),
+              date_key: dateKey,
+              provider: "dataforseo_labs",
+              snapshot_type: SEO_SNAPSHOT_TYPES.domainIntersection,
+              raw_data: { version: "1.0", rows: normalized } as unknown as Record<string, unknown>,
+              diff_hash: hashJsonPayload(normalized),
+            }, { onConflict: "competitor_id,date_key,snapshot_type" })
+          }
+        } catch (diErr) {
+          console.warn(`Domain intersection failed for ${comp.domain}:`, diErr)
         }
       }
     }
+  } catch (err) {
+    console.warn("Step 6 (Domain Intersection) failed:", err)
+    warnings.push("Domain intersection failed")
+  }
 
-    // =====================================================================
-    // 7. Ads Search (paid tiers only)
-    // =====================================================================
-    let adCreatives: NormalizedAdCreative[] = []
-
+  // =====================================================================
+  // 7. Ads Search (domain-based, Google Ads Transparency)
+  // =====================================================================
+  try {
     if (isSeoAdsEnabled(tier)) {
-      for (const kw of (trackedKws ?? []).slice(0, 10)) {
-        const adsResult = await fetchAdsSearch({ keyword: kw.keyword })
-        if (adsResult) {
-          adCreatives.push(...normalizeAdsSearch(adsResult, kw.keyword))
+      for (const domain of allDomains.slice(0, 5)) {
+        try {
+          const adsResult = await fetchAdsSearch({ target: domain })
+          if (adsResult) {
+            adCreatives.push(...normalizeAdsSearch(adsResult, domain))
+          }
+        } catch (adsErr) {
+          console.warn(`Ads search failed for ${domain}:`, adsErr)
         }
       }
 
@@ -361,12 +406,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 7 (Ads Search) failed:", err)
+    warnings.push("Ads search failed")
+  }
 
-    // =====================================================================
-    // 8. Backlinks Summary (location + competitors)
-    // =====================================================================
-    let locationBacklinks: NormalizedBacklinksSummary | null = null
-
+  // =====================================================================
+  // 8. Backlinks Summary (location + competitors)
+  // =====================================================================
+  try {
     if (locationDomain) {
       const blResult = await fetchBacklinksSummary({ target: locationDomain })
       if (blResult) {
@@ -398,14 +446,19 @@ export async function refreshSeoAction(formData: FormData) {
             diff_hash: hashJsonPayload(normalized),
           }, { onConflict: "competitor_id,date_key,snapshot_type" })
         }
-      } catch (err) {
-        console.warn(`Backlinks fetch failed for ${comp.domain}:`, err)
+      } catch (compBlErr) {
+        console.warn(`Backlinks fetch failed for ${comp.domain}:`, compBlErr)
       }
     }
+  } catch (err) {
+    console.warn("Step 8 (Backlinks Summary) failed:", err)
+    warnings.push("Backlinks failed")
+  }
 
-    // =====================================================================
-    // 9. Relevant Pages (location domain only)
-    // =====================================================================
+  // =====================================================================
+  // 9. Relevant Pages (location domain only)
+  // =====================================================================
+  try {
     if (locationDomain) {
       const rpResult = await fetchRelevantPages({ target: locationDomain, limit: 25 })
       if (rpResult) {
@@ -420,10 +473,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 9 (Relevant Pages) failed:", err)
+    warnings.push("Relevant pages failed")
+  }
 
-    // =====================================================================
-    // 10. Subdomains (location domain only)
-    // =====================================================================
+  // =====================================================================
+  // 10. Subdomains (location domain only)
+  // =====================================================================
+  try {
     if (locationDomain) {
       const sdResult = await fetchSubdomains({ target: locationDomain, limit: 10 })
       if (sdResult) {
@@ -438,10 +496,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 10 (Subdomains) failed:", err)
+    warnings.push("Subdomains failed")
+  }
 
-    // =====================================================================
-    // 11. Historical Rank Overview (location domain only, last 12 months)
-    // =====================================================================
+  // =====================================================================
+  // 11. Historical Rank Overview (location domain only, last 12 months)
+  // =====================================================================
+  try {
     if (locationDomain) {
       const hrResult = await fetchHistoricalRankOverview({ target: locationDomain })
       if (hrResult) {
@@ -456,10 +519,15 @@ export async function refreshSeoAction(formData: FormData) {
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
+  } catch (err) {
+    console.warn("Step 11 (Historical Rank) failed:", err)
+    warnings.push("Historical rank failed")
+  }
 
-    // =====================================================================
-    // 12. Generate deterministic insights
-    // =====================================================================
+  // =====================================================================
+  // 12. Generate deterministic insights
+  // =====================================================================
+  try {
     const prevDateKey = getPreviousDateKey(dateKey, 7)
 
     // Previous rank snapshot
@@ -523,15 +591,15 @@ export async function refreshSeoAction(formData: FormData) {
       .maybeSingle()
     const previousPages = ((prevPagesSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as import("@/lib/seo/types").NormalizedRelevantPage[]
 
-    // Current relevant pages (for insights - already saved above)
-    const currentPagesForInsights = (() => {
-      try {
-        // Re-read from what we just saved
-        return [] as import("@/lib/seo/types").NormalizedRelevantPage[]
-      } catch {
-        return []
-      }
-    })()
+    // Current relevant pages (re-read from what we just saved)
+    const { data: curPagesSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_relevant_pages")
+      .eq("date_key", dateKey)
+      .maybeSingle()
+    const currentPagesForInsights = ((curPagesSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as import("@/lib/seo/types").NormalizedRelevantPage[]
 
     // Historical traffic (just stored above)
     const { data: hrSnapForInsight } = await supabase
@@ -594,16 +662,26 @@ export async function refreshSeoAction(formData: FormData) {
         onConflict: "location_id,competitor_id,date_key,insight_type",
       })
     }
+  } catch (err) {
+    console.warn("Step 12 (Insights) failed:", err)
+    warnings.push("Insight generation failed")
+  }
 
-    const successMsg = locationDomain
-      ? "SEO+data+refreshed+successfully"
-      : "SEO+data+refreshed+using+competitor+domains.+No+website+could+be+resolved+from+Google+Places.+You+can+manually+add+a+website+URL+to+your+location+for+full+tracking."
-    redirect(`/visibility?location_id=${locationId}&success=${successMsg}`)
+  // =====================================================================
+  // Done – redirect with success (and any warnings)
+  // =====================================================================
+  try {
+    let successMsg = locationDomain
+      ? "SEO data refreshed successfully"
+      : "SEO data refreshed using competitor domains. No website could be resolved from Google Places. You can manually add a website URL to your location for full tracking."
+    if (warnings.length > 0) {
+      successMsg += ` (partial: ${warnings.join(", ")})`
+    }
+    redirect(`/visibility?location_id=${locationId}&success=${encodeURIComponent(successMsg)}`)
   } catch (error) {
-    // Re-throw redirect errors (Next.js uses error.digest starting with NEXT_REDIRECT)
     const digest = (error as { digest?: string })?.digest
     if (digest?.startsWith("NEXT_REDIRECT")) throw error
-    console.error("refreshSeoAction error:", error)
+    console.error("refreshSeoAction redirect error:", error)
     redirect(`/visibility?error=${encodeURIComponent(String(error))}&location_id=${locationId}`)
   }
 }

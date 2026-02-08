@@ -186,7 +186,7 @@ export function normalizeDomainIntersection(
 
 export function normalizeAdsSearch(
   result: AdsSearchResult,
-  keyword: string
+  targetDomain: string
 ): NormalizedAdCreative[] {
   return (result.items ?? []).map((item: AdsSearchItem) => ({
     headline: item.title ?? null,
@@ -194,7 +194,7 @@ export function normalizeAdsSearch(
     displayUrl: item.breadcrumb ?? item.url ?? null,
     domain: item.domain ?? null,
     position: item.rank_group ?? null,
-    keyword,
+    keyword: targetDomain, // domain the ads were fetched for
     fetchedAt: result.datetime ?? new Date().toISOString(),
   }))
 }
