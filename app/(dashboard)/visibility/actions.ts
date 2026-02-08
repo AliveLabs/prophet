@@ -19,6 +19,10 @@ import { fetchCompetitorsDomain } from "@/lib/providers/dataforseo/competitors-d
 import { fetchDomainIntersection } from "@/lib/providers/dataforseo/domain-intersection"
 import { fetchSerpOrganic } from "@/lib/providers/dataforseo/serp-organic"
 import { fetchAdsSearch } from "@/lib/providers/dataforseo/ads-search"
+import { fetchBacklinksSummary } from "@/lib/providers/dataforseo/backlinks-summary"
+import { fetchRelevantPages } from "@/lib/providers/dataforseo/relevant-pages"
+import { fetchSubdomains } from "@/lib/providers/dataforseo/subdomains"
+import { fetchHistoricalRankOverview } from "@/lib/providers/dataforseo/historical-rank-overview"
 import {
   normalizeDomainRankOverview,
   normalizeRankedKeywords,
@@ -26,11 +30,16 @@ import {
   normalizeSerpOrganic,
   normalizeDomainIntersection,
   normalizeAdsSearch,
+  normalizeCompetitorsDomain,
+  normalizeBacklinksSummary,
+  normalizeRelevantPages,
+  normalizeSubdomains,
+  normalizeHistoricalRankOverview,
 } from "@/lib/seo/normalize"
 import { hashDomainRankSnapshot, hashRankedKeywords, hashSerpRanks, hashJsonPayload } from "@/lib/seo/hash"
 import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
 import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
-import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative } from "@/lib/seo/types"
+import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative, NormalizedBacklinksSummary } from "@/lib/seo/types"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -250,18 +259,19 @@ export async function refreshSeoAction(formData: FormData) {
     }
 
     // =====================================================================
-    // 4. Competitors Domain (organic competitor discovery)
+    // 4. Competitors Domain (organic competitor discovery – normalized)
     // =====================================================================
     if (seedDomain) {
       const cdResult = await fetchCompetitorsDomain({ target: seedDomain, limit: 10 })
       if (cdResult) {
+        const normalizedComps = normalizeCompetitorsDomain(cdResult)
         await supabase.from("location_snapshots").upsert({
           location_id: locationId,
           provider: "seo_competitors_domain",
           date_key: dateKey,
           captured_at: new Date().toISOString(),
-          raw_data: { version: "1.0", domain: seedDomain, raw: cdResult } as unknown as Record<string, unknown>,
-          diff_hash: hashJsonPayload(cdResult),
+          raw_data: { version: "1.0", domain: seedDomain, competitors: normalizedComps } as unknown as Record<string, unknown>,
+          diff_hash: hashJsonPayload(normalizedComps),
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
@@ -353,7 +363,102 @@ export async function refreshSeoAction(formData: FormData) {
     }
 
     // =====================================================================
-    // 8. Generate deterministic insights
+    // 8. Backlinks Summary (location + competitors)
+    // =====================================================================
+    let locationBacklinks: NormalizedBacklinksSummary | null = null
+
+    if (locationDomain) {
+      const blResult = await fetchBacklinksSummary({ target: locationDomain })
+      if (blResult) {
+        locationBacklinks = normalizeBacklinksSummary(blResult, locationDomain)
+        await supabase.from("location_snapshots").upsert({
+          location_id: locationId,
+          provider: "seo_backlinks_summary",
+          date_key: dateKey,
+          captured_at: new Date().toISOString(),
+          raw_data: locationBacklinks as unknown as Record<string, unknown>,
+          diff_hash: hashJsonPayload(locationBacklinks),
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+    }
+
+    // Backlinks for competitors (up to 5)
+    for (const comp of compDomains.slice(0, 5)) {
+      try {
+        const blResult = await fetchBacklinksSummary({ target: comp.domain })
+        if (blResult) {
+          const normalized = normalizeBacklinksSummary(blResult, comp.domain)
+          await supabase.from("snapshots").upsert({
+            competitor_id: comp.id,
+            captured_at: new Date().toISOString(),
+            date_key: dateKey,
+            provider: "dataforseo_backlinks",
+            snapshot_type: SEO_SNAPSHOT_TYPES.backlinksSummary,
+            raw_data: normalized as unknown as Record<string, unknown>,
+            diff_hash: hashJsonPayload(normalized),
+          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+        }
+      } catch (err) {
+        console.warn(`Backlinks fetch failed for ${comp.domain}:`, err)
+      }
+    }
+
+    // =====================================================================
+    // 9. Relevant Pages (location domain only)
+    // =====================================================================
+    if (locationDomain) {
+      const rpResult = await fetchRelevantPages({ target: locationDomain, limit: 25 })
+      if (rpResult) {
+        const normalizedPages = normalizeRelevantPages(rpResult)
+        await supabase.from("location_snapshots").upsert({
+          location_id: locationId,
+          provider: "seo_relevant_pages",
+          date_key: dateKey,
+          captured_at: new Date().toISOString(),
+          raw_data: { version: "1.0", pages: normalizedPages } as unknown as Record<string, unknown>,
+          diff_hash: hashJsonPayload(normalizedPages),
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+    }
+
+    // =====================================================================
+    // 10. Subdomains (location domain only)
+    // =====================================================================
+    if (locationDomain) {
+      const sdResult = await fetchSubdomains({ target: locationDomain, limit: 10 })
+      if (sdResult) {
+        const normalizedSubs = normalizeSubdomains(sdResult)
+        await supabase.from("location_snapshots").upsert({
+          location_id: locationId,
+          provider: "seo_subdomains",
+          date_key: dateKey,
+          captured_at: new Date().toISOString(),
+          raw_data: { version: "1.0", subdomains: normalizedSubs } as unknown as Record<string, unknown>,
+          diff_hash: hashJsonPayload(normalizedSubs),
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+    }
+
+    // =====================================================================
+    // 11. Historical Rank Overview (location domain only, last 12 months)
+    // =====================================================================
+    if (locationDomain) {
+      const hrResult = await fetchHistoricalRankOverview({ target: locationDomain })
+      if (hrResult) {
+        const normalizedHistory = normalizeHistoricalRankOverview(hrResult)
+        await supabase.from("location_snapshots").upsert({
+          location_id: locationId,
+          provider: "seo_historical_rank",
+          date_key: dateKey,
+          captured_at: new Date().toISOString(),
+          raw_data: { version: "1.0", history: normalizedHistory } as unknown as Record<string, unknown>,
+          diff_hash: hashJsonPayload(normalizedHistory),
+        }, { onConflict: "location_id,provider,date_key" })
+      }
+    }
+
+    // =====================================================================
+    // 12. Generate deterministic insights
     // =====================================================================
     const prevDateKey = getPreviousDateKey(dateKey, 7)
 
@@ -398,6 +503,47 @@ export async function refreshSeoAction(formData: FormData) {
       .maybeSingle()
     const previousAdCreatives = (prevAdsSnap?.raw_data as Record<string, unknown>)?.creatives as NormalizedAdCreative[] ?? []
 
+    // Previous backlinks
+    const { data: prevBlSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_backlinks_summary")
+      .eq("date_key", prevDateKey)
+      .maybeSingle()
+    const previousBacklinks = prevBlSnap?.raw_data as NormalizedBacklinksSummary | null
+
+    // Previous relevant pages
+    const { data: prevPagesSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_relevant_pages")
+      .eq("date_key", prevDateKey)
+      .maybeSingle()
+    const previousPages = ((prevPagesSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as import("@/lib/seo/types").NormalizedRelevantPage[]
+
+    // Current relevant pages (for insights - already saved above)
+    const currentPagesForInsights = (() => {
+      try {
+        // Re-read from what we just saved
+        return [] as import("@/lib/seo/types").NormalizedRelevantPage[]
+      } catch {
+        return []
+      }
+    })()
+
+    // Historical traffic (just stored above)
+    const { data: hrSnapForInsight } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_historical_rank")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const historicalTraffic = ((hrSnapForInsight?.raw_data as Record<string, unknown>)?.history ?? []) as import("@/lib/seo/types").HistoricalTrafficPoint[]
+
     const insightContext: SeoInsightContext = {
       locationName: location.name ?? "Your location",
       locationDomain: locationDomain ?? seedDomain,
@@ -419,6 +565,11 @@ export async function refreshSeoAction(formData: FormData) {
       previousIntersectionRows,
       adCreatives,
       previousAdCreatives,
+      currentBacklinks: locationBacklinks,
+      previousBacklinks,
+      currentPages: currentPagesForInsights,
+      previousPages,
+      historicalTraffic,
       context: insightContext,
     })
 

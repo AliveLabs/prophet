@@ -45,7 +45,9 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
   const [isClient, setIsClient] = useState(false)
   useEffect(() => setIsClient(true), [])
 
-  if (!isClient || sovData.length === 0) return null
+  if (!isClient || sovData.length === 0) {
+    return <p className="text-sm text-slate-400">No share of voice data yet.</p>
+  }
 
   // Highlight the location domain
   const chartData = sovData.slice(0, 8).map((d) => ({
@@ -54,9 +56,8 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
   }))
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-1 text-sm font-semibold text-slate-900">Share of Voice</h2>
-      <p className="mb-4 text-xs text-slate-400">
+    <div>
+      <p className="mb-3 text-xs text-slate-400">
         % of tracked keywords where each domain ranks in the Top 10
       </p>
       <div className="h-[280px] w-full min-w-0">
@@ -109,3 +110,4 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
     </div>
   )
 }
+

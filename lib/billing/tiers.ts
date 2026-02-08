@@ -31,10 +31,10 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoTrackedKeywords: 10,
     seoLabsCadence: "weekly",
     seoSerpCadence: "weekly",
-    seoRankedKeywordsLimit: 25,
-    seoIntersectionEnabled: false,
-    seoIntersectionLimit: 0,
-    seoAdsEnabled: false,
+    seoRankedKeywordsLimit: 50,
+    seoIntersectionEnabled: true,
+    seoIntersectionLimit: 25,
+    seoAdsEnabled: true,
   },
   starter: {
     maxLocations: 3,
@@ -50,7 +50,7 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoRankedKeywordsLimit: 50,
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 50,
-    seoAdsEnabled: false,
+    seoAdsEnabled: true,
   },
   pro: {
     maxLocations: 10,

@@ -9,6 +9,9 @@ import type {
   SerpRankEntry,
   NormalizedIntersectionRow,
   NormalizedAdCreative,
+  NormalizedBacklinksSummary,
+  NormalizedRelevantPage,
+  HistoricalTrafficPoint,
 } from "./types"
 
 // ---------------------------------------------------------------------------
@@ -52,6 +55,11 @@ export function generateSeoInsights(input: {
   previousIntersectionRows: NormalizedIntersectionRow[]
   adCreatives: NormalizedAdCreative[]
   previousAdCreatives: NormalizedAdCreative[]
+  currentBacklinks?: NormalizedBacklinksSummary | null
+  previousBacklinks?: NormalizedBacklinksSummary | null
+  currentPages?: NormalizedRelevantPage[]
+  previousPages?: NormalizedRelevantPage[]
+  historicalTraffic?: HistoricalTrafficPoint[]
   context: SeoInsightContext
 }): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
@@ -80,6 +88,21 @@ export function generateSeoInsights(input: {
   )
   insights.push(
     ...detectPaidOverlapSpike(input.intersectionRows, input.previousIntersectionRows, ctx)
+  )
+
+  // Backlinks insights
+  insights.push(
+    ...detectBacklinkChanges(input.currentBacklinks ?? null, input.previousBacklinks ?? null, ctx)
+  )
+
+  // Top page traffic shift
+  insights.push(
+    ...detectTopPageTrafficShift(input.currentPages ?? [], input.previousPages ?? [], ctx)
+  )
+
+  // Historical traffic trend
+  insights.push(
+    ...detectHistoricalTrafficTrend(input.historicalTraffic ?? [], ctx)
   )
 
   return insights
@@ -506,6 +529,188 @@ function detectPaidOverlapSpike(
           rationale: `With ${delta} more overlapping keywords, competition is intensifying. Consider targeting long-tail variations or local modifiers to reduce direct competition.`,
         },
       ],
+    },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// 8. seo_backlink_growth / seo_backlink_decline
+// ---------------------------------------------------------------------------
+
+const BACKLINK_DOMAIN_CHANGE_ABS = 5
+const BACKLINK_DOMAIN_CHANGE_PCT = 0.1
+
+function detectBacklinkChanges(
+  current: NormalizedBacklinksSummary | null,
+  previous: NormalizedBacklinksSummary | null,
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (!current || !previous) return []
+
+  const refDomDelta = current.referringDomains - previous.referringDomains
+  const refDomPct = previous.referringDomains > 0
+    ? refDomDelta / previous.referringDomains
+    : 0
+
+  if (
+    Math.abs(refDomDelta) < BACKLINK_DOMAIN_CHANGE_ABS ||
+    Math.abs(refDomPct) < BACKLINK_DOMAIN_CHANGE_PCT
+  ) {
+    return []
+  }
+
+  const isGrowth = refDomDelta > 0
+
+  return [
+    {
+      insight_type: isGrowth ? "seo_backlink_growth" : "seo_backlink_decline",
+      title: isGrowth
+        ? `${ctx.locationName} gained ${refDomDelta} referring domains`
+        : `${ctx.locationName} lost ${Math.abs(refDomDelta)} referring domains`,
+      summary: isGrowth
+        ? `Referring domains increased from ${previous.referringDomains.toLocaleString()} to ${current.referringDomains.toLocaleString()} (+${Math.round(refDomPct * 100)}%). Total backlinks: ${current.backlinks.toLocaleString()}.`
+        : `Referring domains dropped from ${previous.referringDomains.toLocaleString()} to ${current.referringDomains.toLocaleString()} (${Math.round(refDomPct * 100)}%). This may impact domain authority and rankings.`,
+      confidence: Math.abs(refDomPct) >= 0.2 ? "high" : "medium",
+      severity: isGrowth ? "info" : "warning",
+      evidence: {
+        domain: current.domain,
+        previous_referring_domains: previous.referringDomains,
+        current_referring_domains: current.referringDomains,
+        delta: refDomDelta,
+        pct_change: Number((refDomPct * 100).toFixed(1)),
+        current_backlinks: current.backlinks,
+        domain_trust: current.domainTrust,
+      },
+      recommendations: isGrowth
+        ? [
+            {
+              title: "Identify which new sites are linking to you",
+              rationale: `${refDomDelta} new referring domains suggest content is resonating or outreach is working. Understand which content attracts links and replicate the pattern.`,
+            },
+          ]
+        : [
+            {
+              title: "Audit lost backlinks",
+              rationale: `Losing ${Math.abs(refDomDelta)} referring domains can weaken domain authority. Use backlink monitoring to identify which links were lost and whether they can be recovered.`,
+            },
+          ],
+    },
+  ]
+}
+
+// ---------------------------------------------------------------------------
+// 9. seo_top_page_traffic_shift
+// ---------------------------------------------------------------------------
+
+const TOP_PAGE_SHIFT_PCT = 0.15 // 15% traffic share shift
+
+function detectTopPageTrafficShift(
+  currentPages: NormalizedRelevantPage[],
+  previousPages: NormalizedRelevantPage[],
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (currentPages.length === 0 || previousPages.length === 0) return []
+
+  const prevMap = new Map(previousPages.map((p) => [p.url, p]))
+  const insights: GeneratedInsight[] = []
+
+  for (const page of currentPages.slice(0, 5)) {
+    const prev = prevMap.get(page.url)
+    if (!prev) continue
+
+    const shareDelta = page.trafficShare - prev.trafficShare
+    const etvDelta = page.organicEtv - prev.organicEtv
+
+    if (Math.abs(shareDelta) >= TOP_PAGE_SHIFT_PCT * 100 && Math.abs(etvDelta) >= 50) {
+      const isUp = shareDelta > 0
+      insights.push({
+        insight_type: "seo_top_page_traffic_shift",
+        title: isUp
+          ? `Traffic to "${page.url.split("/").pop() || page.url}" surged`
+          : `Traffic to "${page.url.split("/").pop() || page.url}" dropped`,
+        summary: isUp
+          ? `This page's traffic share grew from ${prev.trafficShare}% to ${page.trafficShare}% (ETV: ${prev.organicEtv.toLocaleString()} → ${page.organicEtv.toLocaleString()}).`
+          : `This page's traffic share fell from ${prev.trafficShare}% to ${page.trafficShare}% (ETV: ${prev.organicEtv.toLocaleString()} → ${page.organicEtv.toLocaleString()}). Check for content or technical issues.`,
+        confidence: "medium",
+        severity: isUp ? "info" : "warning",
+        evidence: {
+          page_url: page.url,
+          previous_share: prev.trafficShare,
+          current_share: page.trafficShare,
+          previous_etv: prev.organicEtv,
+          current_etv: page.organicEtv,
+          location_name: ctx.locationName,
+        },
+        recommendations: [
+          {
+            title: isUp ? "Leverage this high-performing page" : "Investigate the traffic drop",
+            rationale: isUp
+              ? `This page is capturing more traffic. Add internal links to conversion pages and consider expanding the content.`
+              : `A ${Math.abs(shareDelta).toFixed(1)}% traffic share drop may indicate ranking losses, content staleness, or cannibalizing pages.`,
+          },
+        ],
+      })
+    }
+  }
+
+  return insights.slice(0, 3)
+}
+
+// ---------------------------------------------------------------------------
+// 10. seo_historical_traffic_trend
+// ---------------------------------------------------------------------------
+
+function detectHistoricalTrafficTrend(
+  history: HistoricalTrafficPoint[],
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (history.length < 3) return []
+
+  // Look at the last 3 months
+  const recent = history.slice(-3)
+  const isDecline = recent.every((p, i) => i === 0 || p.organicEtv < recent[i - 1].organicEtv)
+  const isGrowth = recent.every((p, i) => i === 0 || p.organicEtv > recent[i - 1].organicEtv)
+
+  if (!isDecline && !isGrowth) return []
+
+  const first = recent[0]
+  const last = recent[recent.length - 1]
+  const delta = last.organicEtv - first.organicEtv
+  const pct = first.organicEtv > 0 ? delta / first.organicEtv : 0
+
+  if (Math.abs(delta) < 100) return [] // minimum absolute change
+
+  return [
+    {
+      insight_type: "seo_historical_traffic_trend",
+      title: isGrowth
+        ? `${ctx.locationName} shows a 3-month organic growth trend`
+        : `${ctx.locationName} has been declining for 3 months`,
+      summary: isGrowth
+        ? `Organic traffic has grown consistently over the last 3 months: ${first.organicEtv.toLocaleString()} → ${last.organicEtv.toLocaleString()} (+${Math.round(pct * 100)}%). This momentum is worth sustaining.`
+        : `Organic traffic has declined for 3 consecutive months: ${first.organicEtv.toLocaleString()} → ${last.organicEtv.toLocaleString()} (${Math.round(pct * 100)}%). Investigate root causes before it compounds.`,
+      confidence: "high",
+      severity: isGrowth ? "info" : "critical",
+      evidence: {
+        trend: isGrowth ? "growth" : "decline",
+        months: recent.map((p) => ({ date: p.date, etv: p.organicEtv })),
+        total_delta: delta,
+        pct_change: Number((pct * 100).toFixed(1)),
+        location_name: ctx.locationName,
+      },
+      recommendations: isGrowth
+        ? [
+            {
+              title: "Sustain the growth momentum",
+              rationale: `3 consecutive months of growth indicates strong content performance. Continue publishing, build more backlinks, and optimize top-performing pages.`,
+            },
+          ]
+        : [
+            {
+              title: "Conduct a comprehensive SEO audit",
+              rationale: `A 3-month decline suggests systemic issues. Check for algorithm impacts, technical problems (crawl errors, page speed), lost backlinks, and content gaps. Prioritize recovering traffic on your top pages.`,
+            },
+          ],
     },
   ]
 }

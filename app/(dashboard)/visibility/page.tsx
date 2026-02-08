@@ -1,11 +1,26 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
-import { isSeoIntersectionEnabled, isSeoAdsEnabled } from "@/lib/billing/limits"
+import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
 import { refreshSeoAction } from "./actions"
 import VisibilityCharts from "@/components/visibility/visibility-charts"
 import VisibilityFilters from "@/components/visibility/visibility-filters"
-import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative } from "@/lib/seo/types"
+import TrafficChart from "@/components/visibility/traffic-chart"
+import RankingDistribution from "@/components/visibility/ranking-distribution"
+import KeywordTabs from "@/components/visibility/keyword-tabs"
+import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
+import type {
+  DomainRankSnapshot,
+  NormalizedRankedKeyword,
+  SerpRankEntry,
+  NormalizedIntersectionRow,
+  NormalizedAdCreative,
+  NormalizedBacklinksSummary,
+  NormalizedOrganicCompetitor,
+  NormalizedRelevantPage,
+  NormalizedSubdomain,
+  HistoricalTrafficPoint,
+} from "@/lib/seo/types"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,53 +72,51 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -----------------------------------------------------------------------
-  // Fetch SEO data from snapshots
+  // Helper: fetch latest location snapshot
   // -----------------------------------------------------------------------
+  async function latestSnap(provider: string) {
+    if (!selectedLocationId) return null
+    const { data } = await supabase
+      .from("location_snapshots")
+      .select("raw_data, date_key")
+      .eq("location_id", selectedLocationId)
+      .eq("provider", provider)
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return data
+  }
 
-  // Domain Rank Overview (location)
-  const { data: rankSnap } = selectedLocationId
-    ? await supabase
-        .from("location_snapshots")
-        .select("raw_data, date_key")
-        .eq("location_id", selectedLocationId)
-        .eq("provider", "seo_domain_rank_overview")
-        .order("date_key", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null }
-
+  // -----------------------------------------------------------------------
+  // Fetch all SEO snapshots
+  // -----------------------------------------------------------------------
+  const rankSnap = await latestSnap("seo_domain_rank_overview")
   const rankData = rankSnap?.raw_data as DomainRankSnapshot | null
 
-  // Ranked Keywords
-  const { data: kwSnap } = selectedLocationId
-    ? await supabase
-        .from("location_snapshots")
-        .select("raw_data, date_key")
-        .eq("location_id", selectedLocationId)
-        .eq("provider", "seo_ranked_keywords")
-        .order("date_key", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null }
-
+  const kwSnap = await latestSnap("seo_ranked_keywords")
   const rankedKeywords = ((kwSnap?.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]
-
-  // Determine last refreshed date from any available snapshot
   const lastRefreshed = rankSnap?.date_key ?? kwSnap?.date_key ?? null
 
-  // SERP entries
-  const { data: serpSnap } = selectedLocationId
-    ? await supabase
-        .from("location_snapshots")
-        .select("raw_data")
-        .eq("location_id", selectedLocationId)
-        .eq("provider", "seo_serp_keywords")
-        .order("date_key", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-    : { data: null }
-
+  const serpSnap = await latestSnap("seo_serp_keywords")
   const serpEntries = ((serpSnap?.raw_data as Record<string, unknown>)?.entries ?? []) as SerpRankEntry[]
+
+  const blSnap = await latestSnap("seo_backlinks_summary")
+  const backlinkData = blSnap?.raw_data as NormalizedBacklinksSummary | null
+
+  const cdSnap = await latestSnap("seo_competitors_domain")
+  const organicCompetitors = ((cdSnap?.raw_data as Record<string, unknown>)?.competitors ?? []) as NormalizedOrganicCompetitor[]
+
+  const rpSnap = await latestSnap("seo_relevant_pages")
+  const relevantPages = ((rpSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as NormalizedRelevantPage[]
+
+  const sdSnap = await latestSnap("seo_subdomains")
+  const subdomains = ((sdSnap?.raw_data as Record<string, unknown>)?.subdomains ?? []) as NormalizedSubdomain[]
+
+  const hrSnap = await latestSnap("seo_historical_rank")
+  const historicalData = ((hrSnap?.raw_data as Record<string, unknown>)?.history ?? []) as HistoricalTrafficPoint[]
+
+  const adSnap = await latestSnap("seo_ads_search")
+  const adCreatives = ((adSnap?.raw_data as Record<string, unknown>)?.creatives ?? []) as NormalizedAdCreative[]
 
   // Tracked keywords count
   const { count: trackedKwCount } = selectedLocationId
@@ -114,7 +127,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         .eq("is_active", true)
     : { count: 0 }
 
-  // Competitor rank snapshots
+  // Competitor rank snapshots for intersection
   const { data: compSnapshots } = selectedLocationId
     ? await supabase
         .from("competitors")
@@ -123,7 +136,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         .eq("is_active", true)
     : { data: [] }
 
-  // Domain Intersection rows (most recent)
   let intersectionRows: NormalizedIntersectionRow[] = []
   if (isSeoIntersectionEnabled(tier) && selectedLocationId) {
     const compIds = (compSnapshots ?? []).map((c) => c.id)
@@ -142,65 +154,65 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     }
   }
 
-  // Ad creatives
-  let adCreatives: NormalizedAdCreative[] = []
-  if (isSeoAdsEnabled(tier) && selectedLocationId) {
-    const { data: adSnap } = await supabase
-      .from("location_snapshots")
-      .select("raw_data")
-      .eq("location_id", selectedLocationId)
-      .eq("provider", "seo_ads_search")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    adCreatives = ((adSnap?.raw_data as Record<string, unknown>)?.creatives ?? []) as NormalizedAdCreative[]
-  }
-
   // -----------------------------------------------------------------------
-  // Compute KPIs – prefer Domain Rank Overview, fall back to ranked keywords
+  // Compute KPIs
   // -----------------------------------------------------------------------
-
-  let organicEtv: number
-  let organicKeywords: number
-  let top3: number
-  let top10: number
-  let kpiSource: "rank_overview" | "ranked_keywords" | "none"
+  let organicEtv = 0
+  let organicKeywords = 0
+  let top3 = 0
+  let top10 = 0
+  let newKw = 0
+  let lostKw = 0
+  let upKw = 0
+  let downKw = 0
+  let trafficCost = 0
+  let featuredSnippets = 0
+  let localPackCount = 0
+  let kpiSource: "rank_overview" | "ranked_keywords" | "none" = "none"
 
   if (rankData) {
     kpiSource = "rank_overview"
     organicEtv = rankData.organic?.etv ?? 0
     organicKeywords = rankData.organic?.rankedKeywords ?? 0
-    top3 = rankData.organic?.distribution?.pos_1
-      ? (rankData.organic.distribution.pos_1 + rankData.organic.distribution.pos_2_3)
-      : 0
+    top3 = (rankData.organic?.distribution?.pos_1 ?? 0) + (rankData.organic?.distribution?.pos_2_3 ?? 0)
     top10 = top3 + (rankData.organic?.distribution?.pos_4_10 ?? 0)
+    newKw = rankData.organic?.newKeywords ?? 0
+    lostKw = rankData.organic?.lostKeywords ?? 0
+    upKw = rankData.organic?.upKeywords ?? 0
+    downKw = rankData.organic?.downKeywords ?? 0
+    trafficCost = rankData.organic?.estimatedPaidTrafficCost ?? 0
+    featuredSnippets = rankData.organic?.featuredSnippetCount ?? 0
+    localPackCount = rankData.organic?.localPackCount ?? 0
   } else if (rankedKeywords.length > 0) {
-    // Fallback: compute from individual ranked keyword entries
     kpiSource = "ranked_keywords"
     organicKeywords = rankedKeywords.length
     top3 = rankedKeywords.filter((kw) => kw.rank <= 3).length
     top10 = rankedKeywords.filter((kw) => kw.rank <= 10).length
-    // ETV is not available from ranked keywords alone – sum search volume as proxy
     organicEtv = rankedKeywords.reduce((sum, kw) => sum + (kw.searchVolume ?? 0), 0)
-  } else {
-    kpiSource = "none"
-    organicEtv = 0
-    organicKeywords = 0
-    top3 = 0
-    top10 = 0
   }
 
   const paidEtv = rankData?.paid?.etv ?? 0
   const paidKeywords = rankData?.paid?.rankedKeywords ?? 0
+  const domainTrust = backlinkData?.domainTrust ?? 0
+  const referringDomains = backlinkData?.referringDomains ?? 0
+  const backlinksCount = backlinkData?.backlinks ?? 0
 
-  // Share of Voice from SERP entries
+  // Location domain
   const locationDomain = selectedLocation?.website
     ? (() => {
-        try { return new URL(selectedLocation.website.startsWith("http") ? selectedLocation.website : `https://${selectedLocation.website}`).hostname.replace(/^www\./, "") }
-        catch { return null }
+        try {
+          return new URL(
+            selectedLocation.website.startsWith("http")
+              ? selectedLocation.website
+              : `https://${selectedLocation.website}`
+          ).hostname.replace(/^www\./, "")
+        } catch {
+          return null
+        }
       })()
     : null
 
+  // Share of Voice from SERP
   const sovData: Array<{ name: string; value: number }> = []
   if (serpEntries.length > 0) {
     const domainCounts = new Map<string, number>()
@@ -217,7 +229,49 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     sovData.sort((a, b) => b.value - a.value)
   }
 
-  // Top movers (keyword rank changes vs previous)
+  // Keyword gap opportunities
+  const gapOpportunities = intersectionRows
+    .filter((r) => r.gapType === "loss" && (r.searchVolume ?? 0) > 0)
+    .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+    .slice(0, 20)
+
+  // Intent breakdown (from ranked keywords)
+  const intentMap = new Map<string, { count: number; traffic: number }>()
+  for (const kw of rankedKeywords) {
+    const intent = kw.intent ?? "unknown"
+    const existing = intentMap.get(intent) ?? { count: 0, traffic: 0 }
+    existing.count += 1
+    existing.traffic += kw.searchVolume ?? 0
+    intentMap.set(intent, existing)
+  }
+  const totalIntentKw = rankedKeywords.length || 1
+  const intentData = Array.from(intentMap.entries())
+    .filter(([key]) => key !== "unknown")
+    .map(([intent, data]) => ({
+      intent,
+      count: data.count,
+      traffic: data.traffic,
+      percent: Math.round((data.count / totalIntentKw) * 10000) / 100,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  // SERP features breakdown
+  const serpFeatureMap = new Map<string, number>()
+  for (const kw of rankedKeywords) {
+    for (const feature of kw.serpFeatures) {
+      serpFeatureMap.set(feature, (serpFeatureMap.get(feature) ?? 0) + 1)
+    }
+  }
+  const serpFeatures = Array.from(serpFeatureMap.entries())
+    .map(([feature, count]) => ({ feature, count }))
+    .sort((a, b) => b.count - a.count)
+
+  // Paid overlap
+  const paidOverlap = intersectionRows
+    .filter((r) => r.gapType === "shared" && r.domain1Rank !== null && r.domain2Rank !== null)
+    .slice(0, 20)
+
+  // Top movers
   const { data: prevSerpSnapRows } = selectedLocationId
     ? await supabase
         .from("location_snapshots")
@@ -249,19 +303,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     topMovers.sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))
   }
 
-  // Gap opportunities
-  const gapOpportunities = intersectionRows
-    .filter((r) => r.gapType === "loss" && (r.searchVolume ?? 0) > 0)
-    .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
-    .slice(0, 20)
-
-  // Paid overlap
-  const paidOverlap = intersectionRows
-    .filter((r) => r.gapType === "shared" && r.domain1Rank !== null && r.domain2Rank !== null)
-    .slice(0, 20)
-
-  // Freshness label
-  const freshnessLabel = tier === "free" || tier === "starter" ? "Weekly refresh" : "Daily refresh available"
+  const freshnessLabel = tier === "free" || tier === "starter" ? "Weekly refresh" : "Daily refresh"
 
   // -----------------------------------------------------------------------
   // Render
@@ -269,13 +311,15 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
   return (
     <section className="space-y-6">
-      {/* Header */}
+      {/* ================================================================= */}
+      {/* HEADER */}
+      {/* ================================================================= */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Search Visibility</h1>
             <p className="mt-0.5 text-sm text-slate-500">
-              Organic + paid search performance for your location vs competitors.
+              Domain overview, organic + paid search performance vs competitors.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -285,7 +329,10 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             {selectedLocationId && (
               <form action={refreshSeoAction}>
                 <input type="hidden" name="location_id" value={selectedLocationId} />
-                <button type="submit" className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                <button
+                  type="submit"
+                  className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                >
                   Refresh SEO
                 </button>
               </form>
@@ -304,7 +351,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           </p>
         )}
 
-        {/* Location + Tab selectors -- auto-navigates on change */}
         <VisibilityFilters
           locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
           selectedLocationId={selectedLocationId ?? ""}
@@ -315,9 +361,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
       {/* Missing website warning */}
       {selectedLocation && !selectedLocation.website && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <strong>No website configured.</strong> Add a website URL to &quot;{selectedLocation.name}&quot; in{" "}
-          <a href="/locations" className="underline hover:text-amber-900">Locations</a>{" "}
-          to enable full domain-level SEO tracking. Competitor domains with websites will still be analyzed.
+          <strong>No website configured.</strong> Click &quot;Refresh SEO&quot; to auto-resolve from Google Places, or add a website URL in{" "}
+          <a href="/locations" className="underline hover:text-amber-900">Locations</a>.
         </div>
       )}
 
@@ -326,9 +371,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           Last refreshed: {new Date(lastRefreshed + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-          {selectedLocation?.website && (
+          {locationDomain && (
             <span className="ml-2 text-slate-400">
-              Domain: <strong className="text-slate-600">{locationDomain ?? selectedLocation.website}</strong>
+              Domain: <strong className="text-slate-600">{locationDomain}</strong>
             </span>
           )}
         </div>
@@ -339,32 +384,212 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
       {/* ================================================================= */}
       {activeTab === "organic" && (
         <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+          {/* ROW 1: Overview KPI Strip */}
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
             <KpiCard
-              label={kpiSource === "ranked_keywords" ? "Total Search Volume" : "Est. Organic Traffic"}
-              value={organicEtv.toLocaleString()}
-              sub={kpiSource === "ranked_keywords" ? "from ranked keywords" : "monthly visits"}
-              accent="indigo"
+              label="Domain Trust"
+              value={domainTrust > 0 ? `${Math.round(domainTrust / 10)}` : "—"}
+              sub="/100"
+              accent="slate"
             />
-            <KpiCard label="Ranking Keywords" value={organicKeywords.toLocaleString()} sub={`${trackedKwCount ?? 0} tracked`} accent="violet" />
-            <KpiCard label="Top 3 Keywords" value={String(top3)} accent="emerald" />
-            <KpiCard label="Top 10 Keywords" value={String(top10)} accent="sky" />
+            <KpiCard
+              label="Organic Traffic"
+              value={organicEtv.toLocaleString()}
+              sub="clicks/mo"
+              accent="emerald"
+              badge={kpiSource === "ranked_keywords" ? "est." : undefined}
+            />
+            <KpiCard label="Paid Traffic" value={paidEtv.toLocaleString()} sub="clicks/mo" accent="violet" />
+            <KpiCard
+              label="Traffic Cost"
+              value={trafficCost > 0 ? `$${trafficCost.toLocaleString()}` : "—"}
+              accent="amber"
+            />
+            <KpiCard
+              label="Keywords"
+              value={organicKeywords.toLocaleString()}
+              sub={`${trackedKwCount ?? 0} tracked`}
+              accent="indigo"
+              badges={[
+                { label: `+${newKw}`, color: "emerald" },
+                { label: `-${lostKw}`, color: "rose" },
+              ]}
+            />
+            <KpiCard label="Ref. Domains" value={referringDomains.toLocaleString()} accent="sky" />
+            <KpiCard label="Backlinks" value={backlinksCount.toLocaleString()} accent="blue" />
           </div>
 
-          {kpiSource === "ranked_keywords" && (
-            <p className="text-xs text-amber-600">
-              KPIs are estimated from ranked keyword data. Full domain-level traffic estimates will be available after domain rank overview data is collected.
-            </p>
-          )}
+          {/* ROW 2: Historical Traffic Chart */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold text-slate-900">Traffic Trends</h2>
+            <p className="mb-3 text-xs text-slate-400">Organic and paid traffic over the past 12 months.</p>
+            <TrafficChart data={historicalData} />
+          </div>
 
-          {/* Charts (client component) */}
-          <VisibilityCharts
-            sovData={sovData}
-            locationDomain={locationDomain}
-          />
+          {/* ROW 3: Keywords + Organic Competitors */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Organic Keywords with tabs */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                Organic Keywords ({organicKeywords.toLocaleString()})
+              </h2>
+              <KeywordTabs
+                keywords={rankedKeywords}
+                newCount={newKw}
+                upCount={upKw}
+                downCount={downKw}
+                lostCount={lostKw}
+              />
+            </div>
 
-          {/* Top Movers table */}
+            {/* Organic Competitors */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                Organic Competitors ({organicCompetitors.length})
+              </h2>
+              {organicCompetitors.length > 0 ? (
+                <div className="max-h-[400px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="border-b border-slate-100 text-slate-400">
+                        <th className="py-2 pr-3 font-medium">Domain</th>
+                        <th className="py-2 pr-3 font-medium">Overlap</th>
+                        <th className="py-2 pr-3 font-medium">Keywords</th>
+                        <th className="py-2 font-medium">Traffic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {organicCompetitors.slice(0, 15).map((comp) => {
+                        const maxOverlap = Math.max(...organicCompetitors.map((c) => c.intersections), 1)
+                        const overlapPct = Math.round((comp.intersections / maxOverlap) * 100)
+                        return (
+                          <tr key={comp.domain} className="border-b border-slate-50 hover:bg-slate-50/50">
+                            <td className="max-w-[140px] truncate py-2 pr-3 font-medium text-indigo-600">
+                              {comp.domain}
+                            </td>
+                            <td className="py-2 pr-3">
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400"
+                                    style={{ width: `${overlapPct}%` }}
+                                  />
+                                </div>
+                                <span className="text-[10px] text-slate-400">{comp.intersections}</span>
+                              </div>
+                            </td>
+                            <td className="py-2 pr-3 text-slate-600">{comp.organicKeywords.toLocaleString()}</td>
+                            <td className="py-2 text-slate-500">{comp.organicEtv.toLocaleString()}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No organic competitor data yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ROW 4: Keywords by Intent + SERP Features */}
+          <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
+
+          {/* ROW 5: Ranking Distribution + Share of Voice */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">Keyword Ranking Distribution</h2>
+              {rankData ? (
+                <RankingDistribution distribution={rankData.organic.distribution} />
+              ) : (
+                <p className="text-sm text-slate-400">No distribution data available.</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">Share of Voice</h2>
+              <VisibilityCharts sovData={sovData} locationDomain={locationDomain} />
+            </div>
+          </div>
+
+          {/* ROW 6: Top Pages + Subdomains */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Top Pages */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                Top Pages in Organic Search ({relevantPages.length})
+              </h2>
+              {relevantPages.length > 0 ? (
+                <div className="max-h-[300px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="border-b border-slate-100 text-slate-400">
+                        <th className="py-2 pr-3 font-medium">URL</th>
+                        <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
+                        <th className="py-2 font-medium text-right">Total Traffic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {relevantPages.slice(0, 15).map((page) => (
+                        <tr key={page.url} className="border-b border-slate-50">
+                          <td className="max-w-[220px] truncate py-2 pr-3">
+                            <a
+                              href={page.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-600 hover:underline"
+                            >
+                              {page.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                            </a>
+                          </td>
+                          <td className="py-2 pr-3 text-right text-slate-600">{page.trafficShare}%</td>
+                          <td className="py-2 text-right text-slate-600">{page.organicEtv.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No top pages data yet.</p>
+              )}
+            </div>
+
+            {/* Subdomains */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+                Top Subdomains ({subdomains.length})
+              </h2>
+              {subdomains.length > 0 ? (
+                <div className="max-h-[300px] overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-white">
+                      <tr className="border-b border-slate-100 text-slate-400">
+                        <th className="py-2 pr-3 font-medium">URL</th>
+                        <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
+                        <th className="py-2 font-medium text-right">Total Traffic</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subdomains.slice(0, 10).map((sub) => (
+                        <tr key={sub.subdomain} className="border-b border-slate-50">
+                          <td className="max-w-[220px] truncate py-2 pr-3 font-medium text-slate-700">
+                            {sub.subdomain}
+                          </td>
+                          <td className="py-2 pr-3 text-right text-slate-600">{sub.trafficShare}%</td>
+                          <td className="py-2 text-right text-slate-600">{sub.organicEtv.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-400">No subdomain data yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ROW 7: Top Movers */}
           {topMovers.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-slate-900">Top Movers</h2>
@@ -401,7 +626,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
           )}
 
-          {/* Keyword Gap Opportunities */}
+          {/* ROW 8: Keyword Gap Opportunities */}
           {gapOpportunities.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-1 text-sm font-semibold text-slate-900">Keyword Gap Opportunities</h2>
@@ -431,36 +656,21 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
           )}
 
-          {/* Ranked keywords list */}
-          {rankedKeywords.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
-                Top Ranked Keywords ({rankedKeywords.length})
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400">
-                      <th className="py-2 pr-4 font-medium">Keyword</th>
-                      <th className="py-2 pr-4 font-medium">Rank</th>
-                      <th className="py-2 pr-4 font-medium">Volume</th>
-                      <th className="py-2 pr-4 font-medium">CPC</th>
-                      <th className="py-2 font-medium">Competition</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rankedKeywords.slice(0, 25).map((kw) => (
-                      <tr key={kw.keyword} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-medium text-slate-700">{kw.keyword}</td>
-                        <td className="py-2 pr-4 text-slate-600">#{kw.rank}</td>
-                        <td className="py-2 pr-4 text-slate-600">{kw.searchVolume?.toLocaleString() ?? "—"}</td>
-                        <td className="py-2 pr-4 text-slate-500">{kw.cpc ? `$${kw.cpc.toFixed(2)}` : "—"}</td>
-                        <td className="py-2 text-slate-500">{kw.competitionLevel ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+          {/* SERP Features metrics */}
+          {(featuredSnippets > 0 || localPackCount > 0) && (
+            <div className="flex flex-wrap gap-3">
+              {featuredSnippets > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <span className="text-xs text-slate-400">Featured Snippets</span>
+                  <p className="text-lg font-bold text-slate-900">{featuredSnippets}</p>
+                </div>
+              )}
+              {localPackCount > 0 && (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <span className="text-xs text-slate-400">Local Pack</span>
+                  <p className="text-lg font-bold text-slate-900">{localPackCount}</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -469,11 +679,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
               <p className="text-sm text-slate-500">
                 No SEO data yet. Click &quot;Refresh SEO&quot; to fetch search visibility data.
-                {!selectedLocation?.website && (
-                  <span className="mt-1 block text-amber-600">
-                    Tip: Add a website URL to your location in Settings to enable domain-level SEO tracking.
-                  </span>
-                )}
               </p>
             </div>
           )}
@@ -533,12 +738,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                   <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-indigo-700">
-                          {ad.headline ?? "Ad creative"}
-                        </p>
-                        {ad.description && (
-                          <p className="mt-0.5 text-xs text-slate-600">{ad.description}</p>
-                        )}
+                        <p className="text-sm font-semibold text-indigo-700">{ad.headline ?? "Ad creative"}</p>
+                        {ad.description && <p className="mt-0.5 text-xs text-slate-600">{ad.description}</p>}
                         <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-slate-400">
                           {ad.displayUrl && <span>{ad.displayUrl}</span>}
                           {ad.domain && <span className="font-medium text-slate-500">{ad.domain}</span>}
@@ -557,9 +758,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {paidEtv === 0 && adCreatives.length === 0 && paidOverlap.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
               <p className="text-sm text-slate-500">
-                {isSeoAdsEnabled(tier)
-                  ? "No paid search data yet. Click \"Refresh SEO\" to fetch ad data."
-                  : "Paid search intelligence is available on Pro and Agency tiers."}
+                No paid search data yet. Click &quot;Refresh SEO&quot; to fetch ad data.
               </p>
             </div>
           )}
@@ -573,11 +772,20 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 // KPI Card component
 // ---------------------------------------------------------------------------
 
-function KpiCard({ label, value, sub, accent }: {
+function KpiCard({
+  label,
+  value,
+  sub,
+  accent,
+  badge,
+  badges,
+}: {
   label: string
   value: string
   sub?: string
   accent: string
+  badge?: string
+  badges?: Array<{ label: string; color: string }>
 }) {
   const colorMap: Record<string, string> = {
     indigo: "border-l-indigo-500 bg-indigo-50/30",
@@ -587,14 +795,41 @@ function KpiCard({ label, value, sub, accent }: {
     amber: "border-l-amber-500 bg-amber-50/30",
     orange: "border-l-orange-500 bg-orange-50/30",
     rose: "border-l-rose-500 bg-rose-50/30",
+    blue: "border-l-blue-500 bg-blue-50/30",
+    slate: "border-l-slate-500 bg-slate-50/30",
   }
   const cls = colorMap[accent] ?? colorMap.indigo
 
+  const badgeColorMap: Record<string, string> = {
+    emerald: "bg-emerald-100 text-emerald-700",
+    rose: "bg-rose-100 text-rose-700",
+    amber: "bg-amber-100 text-amber-700",
+  }
+
   return (
-    <div className={`rounded-xl border border-slate-200 border-l-4 ${cls} p-4 shadow-sm`}>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-slate-500">{sub}</p>}
+    <div className={`rounded-xl border border-slate-200 border-l-4 ${cls} p-3 shadow-sm`}>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</p>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span className="text-xl font-bold text-slate-900">{value}</span>
+        {sub && <span className="text-[10px] text-slate-400">{sub}</span>}
+        {badge && (
+          <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+            {badge}
+          </span>
+        )}
+      </div>
+      {badges && badges.length > 0 && (
+        <div className="mt-1 flex gap-1">
+          {badges.map((b) => (
+            <span
+              key={b.label}
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${badgeColorMap[b.color] ?? "bg-slate-100 text-slate-600"}`}
+            >
+              {b.label}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

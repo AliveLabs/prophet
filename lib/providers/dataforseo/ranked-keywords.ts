@@ -31,6 +31,18 @@ export type RankedKeywordItem = {
       cpc?: number
       monthly_searches?: Array<{ year: number; month: number; search_volume: number }>
     }
+    search_intent_info?: {
+      se_type?: string
+      main_intent?: string // "informational" | "commercial" | "navigational" | "transactional"
+      foreign_intent?: string[]
+    }
+    keyword_properties?: {
+      se_type?: string
+      core_keyword?: string | null
+      keyword_difficulty?: number
+      detected_language?: string
+      is_another_language?: boolean
+    }
     serp_info?: {
       se_type?: string
       check_url?: string
