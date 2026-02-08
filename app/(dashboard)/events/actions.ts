@@ -321,10 +321,9 @@ export async function fetchEventsAction(formData: FormData) {
 
     redirect(`/events?location_id=${locationId}&success=Events+fetched+successfully`)
   } catch (error) {
-    // re-throw redirect errors
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
-      throw error
-    }
+    // Re-throw redirect errors (Next.js uses error.digest starting with NEXT_REDIRECT)
+    const digest = (error as { digest?: string })?.digest
+    if (digest?.startsWith("NEXT_REDIRECT")) throw error
     console.error("fetchEventsAction error:", error)
     redirect(
       `/events?error=${encodeURIComponent(String(error))}&location_id=${locationId}`

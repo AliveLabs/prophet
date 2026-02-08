@@ -16,6 +16,7 @@ type PlaceDetails = {
   country: string | null
   geo_lat: number | null
   geo_lng: number | null
+  website?: string | null
 }
 
 type LocationAddFormProps = {
@@ -61,6 +62,7 @@ export default function LocationAddForm({
           <input type="hidden" name="country" value={selected.country ?? ""} />
           <input type="hidden" name="geo_lat" value={selected.geo_lat ?? ""} />
           <input type="hidden" name="geo_lng" value={selected.geo_lng ?? ""} />
+          <input type="hidden" name="website" value={selected.website ?? ""} />
         </>
       ) : null}
       {selected ? (

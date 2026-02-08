@@ -11,6 +11,7 @@ import {
   getSeoIntersectionLimit,
   isSeoAdsEnabled,
 } from "@/lib/billing/limits"
+import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchDomainRankOverview } from "@/lib/providers/dataforseo/domain-rank-overview"
 import { fetchRankedKeywords } from "@/lib/providers/dataforseo/ranked-keywords"
 import { fetchKeywordsForSite } from "@/lib/providers/dataforseo/keywords-for-site"
@@ -94,13 +95,34 @@ export async function refreshSeoAction(formData: FormData) {
 
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, website, organization_id")
+    .select("id, name, website, primary_place_id, organization_id")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
   if (!location) redirect("/visibility?error=Location+not+found")
 
-  const locationDomain = extractDomain(location.website)
+  // -----------------------------------------------------------------------
+  // Auto-resolve website from Google Places if missing
+  // -----------------------------------------------------------------------
+  let resolvedWebsite = location.website as string | null
+
+  if (!resolvedWebsite && location.primary_place_id) {
+    try {
+      const placeDetails = await fetchPlaceDetails(location.primary_place_id)
+      if (placeDetails?.websiteUri) {
+        resolvedWebsite = placeDetails.websiteUri
+        // Persist so future runs don't need to re-fetch
+        await supabase
+          .from("locations")
+          .update({ website: resolvedWebsite })
+          .eq("id", locationId)
+      }
+    } catch (err) {
+      console.warn("Auto-resolve website from Places failed:", err)
+    }
+  }
+
+  const locationDomain = extractDomain(resolvedWebsite)
   const dateKey = getDateKey()
 
   // Fetch competitors
@@ -120,6 +142,15 @@ export async function refreshSeoAction(formData: FormData) {
     .filter((c) => c.domain !== null) as Array<typeof competitors[number] & { domain: string }>
 
   const allDomains = [locationDomain, ...compDomains.map((c) => c.domain)].filter(Boolean) as string[]
+
+  // Pick a "seed domain" for keyword discovery: prefer location, fall back to first competitor
+  const seedDomain = locationDomain ?? compDomains[0]?.domain ?? null
+
+  if (allDomains.length === 0) {
+    redirect(
+      `/visibility?error=${encodeURIComponent("No website configured for this location or its competitors. Add a website URL to your location or approve competitors with websites.")}&location_id=${locationId}`
+    )
+  }
 
   try {
     // =====================================================================
@@ -161,13 +192,14 @@ export async function refreshSeoAction(formData: FormData) {
     }
 
     // =====================================================================
-    // 2. Ranked Keywords (for location domain)
+    // 2. Ranked Keywords (for location domain OR seed domain)
     // =====================================================================
     let currentKeywords: NormalizedRankedKeyword[] = []
+    const rkDomain = locationDomain ?? seedDomain
 
-    if (locationDomain) {
+    if (rkDomain) {
       const rkResult = await fetchRankedKeywords({
-        target: locationDomain,
+        target: rkDomain,
         limit: getSeoRankedKeywordsLimit(tier),
       })
       if (rkResult) {
@@ -178,14 +210,14 @@ export async function refreshSeoAction(formData: FormData) {
           provider: "seo_ranked_keywords",
           date_key: dateKey,
           captured_at: new Date().toISOString(),
-          raw_data: { version: "1.0", keywords: currentKeywords } as unknown as Record<string, unknown>,
+          raw_data: { version: "1.0", domain: rkDomain, keywords: currentKeywords } as unknown as Record<string, unknown>,
           diff_hash: diffHash,
         }, { onConflict: "location_id,provider,date_key" })
       }
     }
 
     // =====================================================================
-    // 3. Auto-seed tracked keywords (if empty)
+    // 3. Auto-seed tracked keywords (if empty) using seed domain
     // =====================================================================
     const { data: existingKws } = await supabase
       .from("tracked_keywords")
@@ -193,9 +225,9 @@ export async function refreshSeoAction(formData: FormData) {
       .eq("location_id", locationId)
       .limit(1)
 
-    if ((existingKws?.length ?? 0) === 0 && locationDomain) {
+    if ((existingKws?.length ?? 0) === 0 && seedDomain) {
       const kfsResult = await fetchKeywordsForSite({
-        target: locationDomain,
+        target: seedDomain,
         limit: getSeoTrackedKeywordsLimit(tier),
       })
       if (kfsResult) {
@@ -220,15 +252,15 @@ export async function refreshSeoAction(formData: FormData) {
     // =====================================================================
     // 4. Competitors Domain (organic competitor discovery)
     // =====================================================================
-    if (locationDomain) {
-      const cdResult = await fetchCompetitorsDomain({ target: locationDomain, limit: 10 })
+    if (seedDomain) {
+      const cdResult = await fetchCompetitorsDomain({ target: seedDomain, limit: 10 })
       if (cdResult) {
         await supabase.from("location_snapshots").upsert({
           location_id: locationId,
           provider: "seo_competitors_domain",
           date_key: dateKey,
           captured_at: new Date().toISOString(),
-          raw_data: { version: "1.0", raw: cdResult } as unknown as Record<string, unknown>,
+          raw_data: { version: "1.0", domain: seedDomain, raw: cdResult } as unknown as Record<string, unknown>,
           diff_hash: hashJsonPayload(cdResult),
         }, { onConflict: "location_id,provider,date_key" })
       }
@@ -266,7 +298,7 @@ export async function refreshSeoAction(formData: FormData) {
     }
 
     // =====================================================================
-    // 6. Domain Intersection (paid tiers only)
+    // 6. Domain Intersection (paid tiers only, needs location domain)
     // =====================================================================
     let intersectionRows: NormalizedIntersectionRow[] = []
 
@@ -368,7 +400,7 @@ export async function refreshSeoAction(formData: FormData) {
 
     const insightContext: SeoInsightContext = {
       locationName: location.name ?? "Your location",
-      locationDomain,
+      locationDomain: locationDomain ?? seedDomain,
       competitors: competitors.map((c) => ({
         id: c.id,
         name: c.name ?? null,
@@ -412,9 +444,14 @@ export async function refreshSeoAction(formData: FormData) {
       })
     }
 
-    redirect(`/visibility?location_id=${locationId}&success=SEO+data+refreshed+successfully`)
+    const successMsg = locationDomain
+      ? "SEO+data+refreshed+successfully"
+      : "SEO+data+refreshed+using+competitor+domains.+No+website+could+be+resolved+from+Google+Places.+You+can+manually+add+a+website+URL+to+your+location+for+full+tracking."
+    redirect(`/visibility?location_id=${locationId}&success=${successMsg}`)
   } catch (error) {
-    if (error instanceof Error && error.message === "NEXT_REDIRECT") throw error
+    // Re-throw redirect errors (Next.js uses error.digest starting with NEXT_REDIRECT)
+    const digest = (error as { digest?: string })?.digest
+    if (digest?.startsWith("NEXT_REDIRECT")) throw error
     console.error("refreshSeoAction error:", error)
     redirect(`/visibility?error=${encodeURIComponent(String(error))}&location_id=${locationId}`)
   }

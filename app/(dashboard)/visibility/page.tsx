@@ -4,6 +4,7 @@ import { getTierFromPriceId } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled, isSeoAdsEnabled } from "@/lib/billing/limits"
 import { refreshSeoAction } from "./actions"
 import VisibilityCharts from "@/components/visibility/visibility-charts"
+import VisibilityFilters from "@/components/visibility/visibility-filters"
 import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative } from "@/lib/seo/types"
 
 // ---------------------------------------------------------------------------
@@ -72,13 +73,12 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     : { data: null }
 
   const rankData = rankSnap?.raw_data as DomainRankSnapshot | null
-  const lastRefreshed = rankSnap?.date_key ?? null
 
   // Ranked Keywords
   const { data: kwSnap } = selectedLocationId
     ? await supabase
         .from("location_snapshots")
-        .select("raw_data")
+        .select("raw_data, date_key")
         .eq("location_id", selectedLocationId)
         .eq("provider", "seo_ranked_keywords")
         .order("date_key", { ascending: false })
@@ -87,6 +87,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     : { data: null }
 
   const rankedKeywords = ((kwSnap?.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]
+
+  // Determine last refreshed date from any available snapshot
+  const lastRefreshed = rankSnap?.date_key ?? kwSnap?.date_key ?? null
 
   // SERP entries
   const { data: serpSnap } = selectedLocationId
@@ -154,15 +157,39 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   }
 
   // -----------------------------------------------------------------------
-  // Compute KPIs
+  // Compute KPIs – prefer Domain Rank Overview, fall back to ranked keywords
   // -----------------------------------------------------------------------
 
-  const organicEtv = rankData?.organic?.etv ?? 0
-  const organicKeywords = rankData?.organic?.rankedKeywords ?? 0
-  const top3 = rankData?.organic?.distribution?.pos_1
-    ? (rankData.organic.distribution.pos_1 + rankData.organic.distribution.pos_2_3)
-    : 0
-  const top10 = top3 + (rankData?.organic?.distribution?.pos_4_10 ?? 0)
+  let organicEtv: number
+  let organicKeywords: number
+  let top3: number
+  let top10: number
+  let kpiSource: "rank_overview" | "ranked_keywords" | "none"
+
+  if (rankData) {
+    kpiSource = "rank_overview"
+    organicEtv = rankData.organic?.etv ?? 0
+    organicKeywords = rankData.organic?.rankedKeywords ?? 0
+    top3 = rankData.organic?.distribution?.pos_1
+      ? (rankData.organic.distribution.pos_1 + rankData.organic.distribution.pos_2_3)
+      : 0
+    top10 = top3 + (rankData.organic?.distribution?.pos_4_10 ?? 0)
+  } else if (rankedKeywords.length > 0) {
+    // Fallback: compute from individual ranked keyword entries
+    kpiSource = "ranked_keywords"
+    organicKeywords = rankedKeywords.length
+    top3 = rankedKeywords.filter((kw) => kw.rank <= 3).length
+    top10 = rankedKeywords.filter((kw) => kw.rank <= 10).length
+    // ETV is not available from ranked keywords alone – sum search volume as proxy
+    organicEtv = rankedKeywords.reduce((sum, kw) => sum + (kw.searchVolume ?? 0), 0)
+  } else {
+    kpiSource = "none"
+    organicEtv = 0
+    organicKeywords = 0
+    top3 = 0
+    top10 = 0
+  }
+
   const paidEtv = rankData?.paid?.etv ?? 0
   const paidKeywords = rankData?.paid?.rankedKeywords ?? 0
 
@@ -277,31 +304,22 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           </p>
         )}
 
-        {/* Location + Tab selectors */}
-        <form className="mt-4 flex flex-wrap items-center gap-2" method="get">
-          <select name="location_id" defaultValue={selectedLocationId ?? ""} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            {locations?.map((l) => <option key={l.id} value={l.id}>{l.name ?? "Location"}</option>)}
-          </select>
-          <div className="flex gap-1">
-            <button
-              type="submit"
-              name="tab"
-              value="organic"
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${activeTab === "organic" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-            >
-              Organic
-            </button>
-            <button
-              type="submit"
-              name="tab"
-              value="paid"
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${activeTab === "paid" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-            >
-              Paid
-            </button>
-          </div>
-        </form>
+        {/* Location + Tab selectors -- auto-navigates on change */}
+        <VisibilityFilters
+          locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+          selectedLocationId={selectedLocationId ?? ""}
+          activeTab={activeTab}
+        />
       </div>
+
+      {/* Missing website warning */}
+      {selectedLocation && !selectedLocation.website && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>No website configured.</strong> Add a website URL to &quot;{selectedLocation.name}&quot; in{" "}
+          <a href="/locations" className="underline hover:text-amber-900">Locations</a>{" "}
+          to enable full domain-level SEO tracking. Competitor domains with websites will still be analyzed.
+        </div>
+      )}
 
       {/* Last refreshed */}
       {lastRefreshed && (
@@ -323,11 +341,22 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <div className="space-y-6">
           {/* KPI Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Est. Organic Traffic" value={organicEtv.toLocaleString()} sub="monthly visits" accent="indigo" />
+            <KpiCard
+              label={kpiSource === "ranked_keywords" ? "Total Search Volume" : "Est. Organic Traffic"}
+              value={organicEtv.toLocaleString()}
+              sub={kpiSource === "ranked_keywords" ? "from ranked keywords" : "monthly visits"}
+              accent="indigo"
+            />
             <KpiCard label="Ranking Keywords" value={organicKeywords.toLocaleString()} sub={`${trackedKwCount ?? 0} tracked`} accent="violet" />
             <KpiCard label="Top 3 Keywords" value={String(top3)} accent="emerald" />
             <KpiCard label="Top 10 Keywords" value={String(top10)} accent="sky" />
           </div>
+
+          {kpiSource === "ranked_keywords" && (
+            <p className="text-xs text-amber-600">
+              KPIs are estimated from ranked keyword data. Full domain-level traffic estimates will be available after domain rank overview data is collected.
+            </p>
+          )}
 
           {/* Charts (client component) */}
           <VisibilityCharts
@@ -436,7 +465,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           )}
 
           {/* Empty state */}
-          {!rankData && rankedKeywords.length === 0 && (
+          {kpiSource === "none" && serpEntries.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
               <p className="text-sm text-slate-500">
                 No SEO data yet. Click &quot;Refresh SEO&quot; to fetch search visibility data.

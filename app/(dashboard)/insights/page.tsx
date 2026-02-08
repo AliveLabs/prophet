@@ -1,5 +1,6 @@
 import InsightCard from "@/components/insight-card"
 import InsightsDashboard from "@/components/insights/insights-dashboard"
+import AutoFilterForm from "@/components/filters/auto-filter-form"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
@@ -273,37 +274,54 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           </p>
         )}
 
-        {/* Compact filter bar */}
-        <form className="mt-4 flex flex-wrap items-center gap-2" method="get">
-          <select name="location_id" defaultValue={selectedLocationId ?? ""} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            {locations?.map((l) => <option key={l.id} value={l.id}>{l.name ?? "Location"}</option>)}
-          </select>
-          <select name="range" defaultValue={resolvedSearchParams?.range ?? "7"} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-          </select>
-          <select name="confidence" defaultValue={resolvedSearchParams?.confidence ?? ""} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            <option value="">All confidence</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-          <select name="severity" defaultValue={resolvedSearchParams?.severity ?? ""} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            <option value="">All severity</option>
-            <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="critical">Critical</option>
-          </select>
-          <select name="source" defaultValue={resolvedSearchParams?.source ?? ""} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700">
-            <option value="">All sources</option>
-            <option value="competitors">Competitors</option>
-            <option value="events">Events</option>
-            <option value="seo">SEO</option>
-          </select>
-          <button type="submit" className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
-            Filter
-          </button>
-        </form>
+        {/* Compact filter bar -- auto-navigates on change */}
+        <AutoFilterForm
+          filters={[
+            {
+              name: "location_id",
+              defaultValue: selectedLocationId ?? "",
+              options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
+            },
+            {
+              name: "range",
+              defaultValue: resolvedSearchParams?.range ?? "7",
+              options: [
+                { value: "7", label: "7 days" },
+                { value: "30", label: "30 days" },
+              ],
+            },
+            {
+              name: "confidence",
+              defaultValue: resolvedSearchParams?.confidence ?? "",
+              options: [
+                { value: "", label: "All confidence" },
+                { value: "high", label: "High" },
+                { value: "medium", label: "Medium" },
+                { value: "low", label: "Low" },
+              ],
+            },
+            {
+              name: "severity",
+              defaultValue: resolvedSearchParams?.severity ?? "",
+              options: [
+                { value: "", label: "All severity" },
+                { value: "info", label: "Info" },
+                { value: "warning", label: "Warning" },
+                { value: "critical", label: "Critical" },
+              ],
+            },
+            {
+              name: "source",
+              defaultValue: resolvedSearchParams?.source ?? "",
+              options: [
+                { value: "", label: "All sources" },
+                { value: "competitors", label: "Competitors" },
+                { value: "events", label: "Events" },
+                { value: "seo", label: "SEO" },
+              ],
+            },
+          ]}
+        />
       </div>
 
       {/* Summary banner */}

@@ -40,6 +40,8 @@ export async function createLocationFromPlaceAction(formData: FormData) {
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
   const geoLng = geoLngValue ? Number.parseFloat(geoLngValue) : null
 
+  const website = String(formData.get("website") ?? "").trim() || null
+
   const { error } = await supabase.from("locations").insert({
     organization_id: organizationId,
     name: locationName,
@@ -50,6 +52,7 @@ export async function createLocationFromPlaceAction(formData: FormData) {
     country: String(formData.get("country") ?? "").trim() || "US",
     timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
     primary_place_id: primaryPlaceId,
+    website,
     settings: {
       category,
       types: placeTypes,
