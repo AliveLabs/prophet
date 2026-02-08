@@ -51,10 +51,10 @@ export function normalizeDomainRankOverview(
   domain: string
 ): DomainRankSnapshot {
   const item = result.items?.[0]
-  const organic = item?.organic
-  const paid = item?.paid
-  const featuredSnippet = item?.featured_snippet
-  const localPack = item?.local_pack
+  const organic = item?.metrics?.organic
+  const paid = item?.metrics?.paid
+  const featuredSnippet = item?.metrics?.featured_snippet
+  const localPack = item?.metrics?.local_pack
 
   return {
     version: "1.0",
@@ -299,11 +299,11 @@ export function normalizeHistoricalRankOverview(
     const month = String(item.month ?? 1).padStart(2, "0")
     return {
       date: `${item.year ?? 2025}-${month}`,
-      organicEtv: item.organic?.etv ?? 0,
-      paidEtv: item.paid?.etv ?? 0,
-      organicKeywords: item.organic?.count ?? 0,
-      paidKeywords: item.paid?.count ?? 0,
-      organicCost: item.organic?.estimated_paid_traffic_cost ?? 0,
+      organicEtv: item.metrics?.organic?.etv ?? 0,
+      paidEtv: item.metrics?.paid?.etv ?? 0,
+      organicKeywords: item.metrics?.organic?.count ?? 0,
+      paidKeywords: item.metrics?.paid?.count ?? 0,
+      organicCost: item.metrics?.organic?.estimated_paid_traffic_cost ?? 0,
     }
   }).sort((a, b) => a.date.localeCompare(b.date))
 }

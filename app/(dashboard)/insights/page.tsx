@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
+import RefreshOverlay from "@/components/ui/refresh-overlay"
 import { dismissInsightAction, generateInsightsAction, markInsightReadAction } from "./actions"
 
 // ---------------------------------------------------------------------------
@@ -240,6 +241,18 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }
   const sortedDates = Array.from(insightsByDate.keys()).sort((a, b) => (a > b ? -1 : 1))
 
+  // Quick facts for loading overlay
+  const insightQuickFacts: string[] = []
+  if (allInsights.length > 0) insightQuickFacts.push(`${allInsights.length} insight${allInsights.length !== 1 ? "s" : ""} generated so far.`)
+  if (locationRating) insightQuickFacts.push(`Your location: ${locationRating.toFixed(1)} stars.`)
+  if (avgCompetitorRating) insightQuickFacts.push(`Avg competitor rating: ${avgCompetitorRating} stars.`)
+  if (reviewShare !== null) insightQuickFacts.push(`You hold ${reviewShare}% review share vs competitors.`)
+  if (eventInsightCount > 0) insightQuickFacts.push(`${eventInsightCount} event-related insight${eventInsightCount !== 1 ? "s" : ""} detected.`)
+  if (seoInsightCount > 0) insightQuickFacts.push(`${seoInsightCount} SEO insight${seoInsightCount !== 1 ? "s" : ""} identified.`)
+  if (competitors && competitors.length > 0) insightQuickFacts.push(`Analyzing data across ${competitors.length} approved competitor${competitors.length !== 1 ? "s" : ""}.`)
+
+  const insightsGeminiContext = `Local business insights. Location: ${selectedLocation?.name ?? "Unknown"}. Rating: ${locationRating ?? "N/A"}. ${competitors?.length ?? 0} competitors. ${allInsights.length} existing insights. Avg competitor rating: ${avgCompetitorRating ?? "N/A"}.`
+
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
@@ -258,12 +271,20 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           {selectedLocationId && (
             <form action={generateInsightsAction}>
               <input type="hidden" name="location_id" value={selectedLocationId} />
-              <button
-                type="submit"
-                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-              >
-                Generate insights
-              </button>
+              <RefreshOverlay
+                label="Generate insights"
+                pendingLabel="Generating insights"
+                quickFacts={insightQuickFacts}
+                geminiContext={insightsGeminiContext}
+                steps={[
+                  "Collecting competitor data...",
+                  "Analyzing review trends...",
+                  "Processing event correlations...",
+                  "Evaluating SEO signals...",
+                  "Running insight rules...",
+                  "Generating recommendations...",
+                ]}
+              />
             </form>
           )}
         </div>

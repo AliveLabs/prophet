@@ -19,7 +19,6 @@ import { fetchCompetitorsDomain } from "@/lib/providers/dataforseo/competitors-d
 import { fetchDomainIntersection } from "@/lib/providers/dataforseo/domain-intersection"
 import { fetchSerpOrganic } from "@/lib/providers/dataforseo/serp-organic"
 import { fetchAdsSearch } from "@/lib/providers/dataforseo/ads-search"
-import { fetchBacklinksSummary } from "@/lib/providers/dataforseo/backlinks-summary"
 import { fetchRelevantPages } from "@/lib/providers/dataforseo/relevant-pages"
 import { fetchSubdomains } from "@/lib/providers/dataforseo/subdomains"
 import { fetchHistoricalRankOverview } from "@/lib/providers/dataforseo/historical-rank-overview"
@@ -31,7 +30,6 @@ import {
   normalizeDomainIntersection,
   normalizeAdsSearch,
   normalizeCompetitorsDomain,
-  normalizeBacklinksSummary,
   normalizeRelevantPages,
   normalizeSubdomains,
   normalizeHistoricalRankOverview,
@@ -39,7 +37,7 @@ import {
 import { hashDomainRankSnapshot, hashRankedKeywords, hashSerpRanks, hashJsonPayload } from "@/lib/seo/hash"
 import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
 import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
-import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative, NormalizedBacklinksSummary } from "@/lib/seo/types"
+import type { DomainRankSnapshot, NormalizedRankedKeyword, SerpRankEntry, NormalizedIntersectionRow, NormalizedAdCreative } from "@/lib/seo/types"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -170,7 +168,7 @@ export async function refreshSeoAction(formData: FormData) {
   const serpEntries: SerpRankEntry[] = []
   let intersectionRows: NormalizedIntersectionRow[] = []
   let adCreatives: NormalizedAdCreative[] = []
-  let locationBacklinks: NormalizedBacklinksSummary | null = null
+  // (Backlinks API removed — requires separate DataForSEO subscription)
 
   // =====================================================================
   // 1. Domain Rank Overview (for all domains)
@@ -185,6 +183,13 @@ export async function refreshSeoAction(formData: FormData) {
 
       if (domain === locationDomain) {
         locationRankSnapshot = normalized
+        console.log(`[SEO] Domain Rank Overview for ${domain}:`, JSON.stringify({
+          organic_etv: normalized.organic.etv,
+          organic_keywords: normalized.organic.rankedKeywords,
+          paid_etv: normalized.paid.etv,
+          paid_keywords: normalized.paid.rankedKeywords,
+          traffic_cost: normalized.organic.estimatedPaidTrafficCost,
+        }))
         await supabase.from("location_snapshots").upsert({
           location_id: locationId,
           provider: "seo_domain_rank_overview",
@@ -412,51 +417,7 @@ export async function refreshSeoAction(formData: FormData) {
   }
 
   // =====================================================================
-  // 8. Backlinks Summary (location + competitors)
-  // =====================================================================
-  try {
-    if (locationDomain) {
-      const blResult = await fetchBacklinksSummary({ target: locationDomain })
-      if (blResult) {
-        locationBacklinks = normalizeBacklinksSummary(blResult, locationDomain)
-        await supabase.from("location_snapshots").upsert({
-          location_id: locationId,
-          provider: "seo_backlinks_summary",
-          date_key: dateKey,
-          captured_at: new Date().toISOString(),
-          raw_data: locationBacklinks as unknown as Record<string, unknown>,
-          diff_hash: hashJsonPayload(locationBacklinks),
-        }, { onConflict: "location_id,provider,date_key" })
-      }
-    }
-
-    // Backlinks for competitors (up to 5)
-    for (const comp of compDomains.slice(0, 5)) {
-      try {
-        const blResult = await fetchBacklinksSummary({ target: comp.domain })
-        if (blResult) {
-          const normalized = normalizeBacklinksSummary(blResult, comp.domain)
-          await supabase.from("snapshots").upsert({
-            competitor_id: comp.id,
-            captured_at: new Date().toISOString(),
-            date_key: dateKey,
-            provider: "dataforseo_backlinks",
-            snapshot_type: SEO_SNAPSHOT_TYPES.backlinksSummary,
-            raw_data: normalized as unknown as Record<string, unknown>,
-            diff_hash: hashJsonPayload(normalized),
-          }, { onConflict: "competitor_id,date_key,snapshot_type" })
-        }
-      } catch (compBlErr) {
-        console.warn(`Backlinks fetch failed for ${comp.domain}:`, compBlErr)
-      }
-    }
-  } catch (err) {
-    console.warn("Step 8 (Backlinks Summary) failed:", err)
-    warnings.push("Backlinks failed")
-  }
-
-  // =====================================================================
-  // 9. Relevant Pages (location domain only)
+  // 8. Relevant Pages (location domain only)
   // =====================================================================
   try {
     if (locationDomain) {
@@ -571,16 +532,6 @@ export async function refreshSeoAction(formData: FormData) {
       .maybeSingle()
     const previousAdCreatives = (prevAdsSnap?.raw_data as Record<string, unknown>)?.creatives as NormalizedAdCreative[] ?? []
 
-    // Previous backlinks
-    const { data: prevBlSnap } = await supabase
-      .from("location_snapshots")
-      .select("raw_data")
-      .eq("location_id", locationId)
-      .eq("provider", "seo_backlinks_summary")
-      .eq("date_key", prevDateKey)
-      .maybeSingle()
-    const previousBacklinks = prevBlSnap?.raw_data as NormalizedBacklinksSummary | null
-
     // Previous relevant pages
     const { data: prevPagesSnap } = await supabase
       .from("location_snapshots")
@@ -633,8 +584,8 @@ export async function refreshSeoAction(formData: FormData) {
       previousIntersectionRows,
       adCreatives,
       previousAdCreatives,
-      currentBacklinks: locationBacklinks,
-      previousBacklinks,
+      currentBacklinks: null,
+      previousBacklinks: null,
       currentPages: currentPagesForInsights,
       previousPages,
       historicalTraffic,

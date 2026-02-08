@@ -3,19 +3,18 @@ import { requireUser } from "@/lib/auth/server"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
 import { refreshSeoAction } from "./actions"
-import VisibilityCharts from "@/components/visibility/visibility-charts"
 import VisibilityFilters from "@/components/visibility/visibility-filters"
 import TrafficChart from "@/components/visibility/traffic-chart"
 import RankingDistribution from "@/components/visibility/ranking-distribution"
 import KeywordTabs from "@/components/visibility/keyword-tabs"
 import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
+import RefreshOverlay from "@/components/ui/refresh-overlay"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
   SerpRankEntry,
   NormalizedIntersectionRow,
   NormalizedAdCreative,
-  NormalizedBacklinksSummary,
   NormalizedOrganicCompetitor,
   NormalizedRelevantPage,
   NormalizedSubdomain,
@@ -100,9 +99,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   const serpSnap = await latestSnap("seo_serp_keywords")
   const serpEntries = ((serpSnap?.raw_data as Record<string, unknown>)?.entries ?? []) as SerpRankEntry[]
 
-  const blSnap = await latestSnap("seo_backlinks_summary")
-  const backlinkData = blSnap?.raw_data as NormalizedBacklinksSummary | null
-
   const cdSnap = await latestSnap("seo_competitors_domain")
   const organicCompetitors = ((cdSnap?.raw_data as Record<string, unknown>)?.competitors ?? []) as NormalizedOrganicCompetitor[]
 
@@ -175,7 +171,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
   if (rankHasData) {
     kpiSource = "rank_overview"
-    organicEtv = rankData.organic?.etv ?? 0
+    organicEtv = Math.round(rankData.organic?.etv ?? 0)
     organicKeywords = rankData.organic?.rankedKeywords ?? 0
     top3 = (rankData.organic?.distribution?.pos_1 ?? 0) + (rankData.organic?.distribution?.pos_2_3 ?? 0)
     top10 = top3 + (rankData.organic?.distribution?.pos_4_10 ?? 0)
@@ -183,7 +179,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     lostKw = rankData.organic?.lostKeywords ?? 0
     upKw = rankData.organic?.upKeywords ?? 0
     downKw = rankData.organic?.downKeywords ?? 0
-    trafficCost = rankData.organic?.estimatedPaidTrafficCost ?? 0
+    trafficCost = Math.round(rankData.organic?.estimatedPaidTrafficCost ?? 0)
     featuredSnippets = rankData.organic?.featuredSnippetCount ?? 0
     localPackCount = rankData.organic?.localPackCount ?? 0
   } else if (rankedKeywords.length > 0) {
@@ -191,14 +187,25 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     organicKeywords = rankedKeywords.length
     top3 = rankedKeywords.filter((kw) => kw.rank <= 3).length
     top10 = rankedKeywords.filter((kw) => kw.rank <= 10).length
-    organicEtv = rankedKeywords.reduce((sum, kw) => sum + (kw.searchVolume ?? 0), 0)
+    // Estimate organic traffic using a CTR model (not raw search volume sum)
+    organicEtv = rankedKeywords.reduce((sum, kw) => {
+      const vol = kw.searchVolume ?? 0
+      const rank = kw.rank
+      // Approximate CTR by rank position
+      let ctr = 0
+      if (rank === 1) ctr = 0.30
+      else if (rank === 2) ctr = 0.15
+      else if (rank === 3) ctr = 0.10
+      else if (rank <= 5) ctr = 0.06
+      else if (rank <= 10) ctr = 0.03
+      else if (rank <= 20) ctr = 0.01
+      else ctr = 0.005
+      return sum + Math.round(vol * ctr)
+    }, 0)
   }
 
-  const paidEtv = rankData?.paid?.etv ?? 0
+  const paidEtv = Math.round(rankData?.paid?.etv ?? 0)
   const paidKeywords = rankData?.paid?.rankedKeywords ?? 0
-  const domainTrust = backlinkData?.domainTrust ?? 0
-  const referringDomains = backlinkData?.referringDomains ?? 0
-  const backlinksCount = backlinkData?.backlinks ?? 0
 
   // Location domain
   const locationDomain = selectedLocation?.website
@@ -214,23 +221,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         }
       })()
     : null
-
-  // Share of Voice from SERP
-  const sovData: Array<{ name: string; value: number }> = []
-  if (serpEntries.length > 0) {
-    const domainCounts = new Map<string, number>()
-    for (const entry of serpEntries) {
-      for (const [domain, rank] of Object.entries(entry.positions)) {
-        if (rank !== null && rank <= 10) {
-          domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + 1)
-        }
-      }
-    }
-    for (const [domain, count] of domainCounts) {
-      sovData.push({ name: domain, value: count })
-    }
-    sovData.sort((a, b) => b.value - a.value)
-  }
 
   // Keyword gap opportunities
   const gapOpportunities = intersectionRows
@@ -274,39 +264,25 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     .filter((r) => r.gapType === "shared" && r.domain1Rank !== null && r.domain2Rank !== null)
     .slice(0, 20)
 
-  // Top movers
-  const { data: prevSerpSnapRows } = selectedLocationId
-    ? await supabase
-        .from("location_snapshots")
-        .select("raw_data")
-        .eq("location_id", selectedLocationId)
-        .eq("provider", "seo_serp_keywords")
-        .order("date_key", { ascending: false })
-        .range(1, 1)
-    : { data: null }
-  const prevSerpSnap = prevSerpSnapRows?.[0] ?? null
-  const prevSerpEntries = ((prevSerpSnap?.raw_data as Record<string, unknown>)?.entries ?? []) as SerpRankEntry[]
-  const prevSerpMap = new Map(prevSerpEntries.map((e) => [e.keyword, e]))
-
-  type TopMover = { keyword: string; yourRank: number | null; bestCompRank: number | null; delta: number | null; volume: number | null }
-  const topMovers: TopMover[] = []
-  if (locationDomain) {
-    for (const entry of serpEntries) {
-      const prev = prevSerpMap.get(entry.keyword)
-      const curRank = entry.positions[locationDomain] ?? null
-      const prevRank = prev?.positions[locationDomain] ?? null
-      const delta = curRank !== null && prevRank !== null ? prevRank - curRank : null
-      const compRanks = Object.entries(entry.positions)
-        .filter(([d]) => d !== locationDomain)
-        .map(([, r]) => r)
-        .filter((r): r is number => r !== null)
-      const bestCompRank = compRanks.length > 0 ? Math.min(...compRanks) : null
-      topMovers.push({ keyword: entry.keyword, yourRank: curRank, bestCompRank, delta, volume: entry.searchVolume })
-    }
-    topMovers.sort((a, b) => Math.abs(b.delta ?? 0) - Math.abs(a.delta ?? 0))
-  }
-
   const freshnessLabel = tier === "free" || tier === "starter" ? "Weekly refresh" : "Daily refresh"
+
+  // -----------------------------------------------------------------------
+  // Quick facts for loading overlay
+  // -----------------------------------------------------------------------
+  const seoQuickFacts: string[] = []
+  if (organicKeywords > 0) seoQuickFacts.push(`You rank for ${organicKeywords.toLocaleString()} keywords organically.`)
+  if (top10 > 0) seoQuickFacts.push(`${top10.toLocaleString()} keywords are in the top 10 results.`)
+  if (newKw > 0) seoQuickFacts.push(`${newKw} new keywords gained since last refresh.`)
+  if (lostKw > 0) seoQuickFacts.push(`${lostKw} keywords lost since last refresh.`)
+  if (gapOpportunities.length > 0) seoQuickFacts.push(`${gapOpportunities.length} keyword gap opportunities found vs competitors.`)
+  if (organicCompetitors.length > 0) seoQuickFacts.push(`Top organic competitor: ${organicCompetitors[0].domain} (${organicCompetitors[0].intersections} shared keywords).`)
+  if (relevantPages.length > 0) seoQuickFacts.push(`Your top page drives ${relevantPages[0].trafficShare}% of organic traffic.`)
+  if (featuredSnippets > 0) seoQuickFacts.push(`You hold ${featuredSnippets} featured snippets in search results.`)
+  if (localPackCount > 0) seoQuickFacts.push(`Your business appears in ${localPackCount} Local Pack results.`)
+
+  const seoGeminiContext = locationDomain
+    ? `Domain: ${locationDomain}. Organic keywords: ${organicKeywords}. Top 10: ${top10}. Organic traffic est: ${organicEtv}. Competitors tracked: ${compSnapshots?.length ?? 0}.`
+    : `Local business SEO analysis. ${organicKeywords} organic keywords.`
 
   // -----------------------------------------------------------------------
   // Render
@@ -329,17 +305,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             <span className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500">
               {freshnessLabel}
             </span>
-            {selectedLocationId && (
-              <form action={refreshSeoAction}>
-                <input type="hidden" name="location_id" value={selectedLocationId} />
-                <button
-                  type="submit"
-                  className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
-                >
-                  Refresh SEO
-                </button>
-              </form>
-            )}
           </div>
         </div>
 
@@ -359,6 +324,28 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           selectedLocationId={selectedLocationId ?? ""}
           activeTab={activeTab}
         />
+
+        {/* Refresh SEO action with interactive overlay */}
+        {selectedLocationId && (
+          <form action={refreshSeoAction} className="mt-4">
+            <input type="hidden" name="location_id" value={selectedLocationId} />
+            <RefreshOverlay
+              label="Refresh SEO"
+              pendingLabel="Refreshing SEO data"
+              quickFacts={seoQuickFacts}
+              geminiContext={seoGeminiContext}
+              steps={[
+                "Fetching domain overview...",
+                "Analyzing ranked keywords...",
+                "Scanning SERP positions...",
+                "Comparing competitor domains...",
+                "Collecting historical trends...",
+                "Processing ad creatives...",
+                "Building insights...",
+              ]}
+            />
+          </form>
+        )}
       </div>
 
       {/* Missing website warning */}
@@ -389,24 +376,24 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <div className="space-y-6">
 
           {/* ROW 1: Overview KPI Strip */}
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
-            <KpiCard
-              label="Domain Trust"
-              value={domainTrust > 0 ? `${Math.round(domainTrust / 10)}` : "—"}
-              sub="/100"
-              accent="slate"
-            />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               label="Organic Traffic"
               value={organicEtv.toLocaleString()}
-              sub="clicks/mo"
+              sub="est. clicks/mo"
               accent="emerald"
               badge={kpiSource === "ranked_keywords" ? "est." : undefined}
             />
-            <KpiCard label="Paid Traffic" value={paidEtv.toLocaleString()} sub="clicks/mo" accent="violet" />
+            <KpiCard
+              label="Paid Traffic"
+              value={paidEtv.toLocaleString()}
+              sub="est. clicks/mo"
+              accent="violet"
+            />
             <KpiCard
               label="Traffic Cost"
-              value={trafficCost > 0 ? `$${trafficCost.toLocaleString()}` : "—"}
+              value={trafficCost > 0 ? `$${Math.round(trafficCost).toLocaleString()}` : "—"}
+              sub={trafficCost > 0 ? "organic equiv." : undefined}
               accent="amber"
             />
             <KpiCard
@@ -419,8 +406,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                 { label: `-${lostKw}`, color: "rose" },
               ]}
             />
-            <KpiCard label="Ref. Domains" value={referringDomains.toLocaleString()} accent="sky" />
-            <KpiCard label="Backlinks" value={backlinksCount.toLocaleString()} accent="blue" />
           </div>
 
           {/* ROW 2: Historical Traffic Chart */}
@@ -499,30 +484,23 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {/* ROW 4: Keywords by Intent + SERP Features */}
           <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
 
-          {/* ROW 5: Ranking Distribution + Share of Voice */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Keyword Ranking Distribution</h2>
-              {rankHasData ? (
-                <RankingDistribution distribution={rankData!.organic.distribution} />
-              ) : rankedKeywords.length > 0 ? (
-                <RankingDistribution distribution={{
-                  pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,
-                  pos_2_3: rankedKeywords.filter((kw) => kw.rank >= 2 && kw.rank <= 3).length,
-                  pos_4_10: rankedKeywords.filter((kw) => kw.rank >= 4 && kw.rank <= 10).length,
-                  pos_11_20: rankedKeywords.filter((kw) => kw.rank >= 11 && kw.rank <= 20).length,
-                  pos_21_50: rankedKeywords.filter((kw) => kw.rank >= 21 && kw.rank <= 50).length,
-                  pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
-                }} />
-              ) : (
-                <p className="text-sm text-slate-400">No distribution data available.</p>
-              )}
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Share of Voice</h2>
-              <VisibilityCharts sovData={sovData} locationDomain={locationDomain} />
-            </div>
+          {/* ROW 5: Ranking Distribution */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-slate-900">Keyword Ranking Distribution</h2>
+            {rankHasData ? (
+              <RankingDistribution distribution={rankData!.organic.distribution} />
+            ) : rankedKeywords.length > 0 ? (
+              <RankingDistribution distribution={{
+                pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,
+                pos_2_3: rankedKeywords.filter((kw) => kw.rank >= 2 && kw.rank <= 3).length,
+                pos_4_10: rankedKeywords.filter((kw) => kw.rank >= 4 && kw.rank <= 10).length,
+                pos_11_20: rankedKeywords.filter((kw) => kw.rank >= 11 && kw.rank <= 20).length,
+                pos_21_50: rankedKeywords.filter((kw) => kw.rank >= 21 && kw.rank <= 50).length,
+                pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
+              }} />
+            ) : (
+              <p className="text-sm text-slate-400">No distribution data available.</p>
+            )}
           </div>
 
           {/* ROW 6: Top Pages + Subdomains */}
@@ -601,44 +579,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
           </div>
 
-          {/* ROW 7: Top Movers */}
-          {topMovers.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Top Movers</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-slate-400">
-                      <th className="py-2 pr-4 font-medium">Keyword</th>
-                      <th className="py-2 pr-4 font-medium">Your Rank</th>
-                      <th className="py-2 pr-4 font-medium">Best Competitor</th>
-                      <th className="py-2 pr-4 font-medium">Change</th>
-                      <th className="py-2 font-medium">Volume</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topMovers.slice(0, 20).map((m) => (
-                      <tr key={m.keyword} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-medium text-slate-700">{m.keyword}</td>
-                        <td className="py-2 pr-4 text-slate-600">{m.yourRank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-slate-600">{m.bestCompRank ?? "—"}</td>
-                        <td className="py-2 pr-4">
-                          {m.delta !== null ? (
-                            <span className={m.delta > 0 ? "font-semibold text-emerald-600" : m.delta < 0 ? "font-semibold text-rose-600" : "text-slate-400"}>
-                              {m.delta > 0 ? `+${m.delta}` : m.delta === 0 ? "—" : String(m.delta)}
-                            </span>
-                          ) : "—"}
-                        </td>
-                        <td className="py-2 text-slate-500">{m.volume?.toLocaleString() ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ROW 8: Keyword Gap Opportunities */}
+          {/* ROW 7: Keyword Gap Opportunities */}
           {gapOpportunities.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="mb-1 text-sm font-semibold text-slate-900">Keyword Gap Opportunities</h2>
@@ -769,8 +710,12 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {/* Empty paid state */}
           {paidEtv === 0 && adCreatives.length === 0 && paidOverlap.length === 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-              <p className="text-sm text-slate-500">
-                No paid search data yet. Click &quot;Refresh SEO&quot; to fetch ad data.
+              <p className="text-sm font-medium text-slate-600">
+                No paid advertising detected
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                No Google Ads data found for this domain or its competitors.
+                This is common for local businesses that rely on organic search.
               </p>
             </div>
           )}

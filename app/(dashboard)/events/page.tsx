@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import RefreshOverlay from "@/components/ui/refresh-overlay"
 import { fetchEventsAction } from "./actions"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
 
@@ -322,10 +323,28 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           {selectedLocationId && (
             <form action={fetchEventsAction} className="ml-auto">
               <input type="hidden" name="location_id" value={selectedLocationId} />
-              <Button type="submit" className="bg-violet-600 text-white hover:bg-violet-700">
-                <IconSparkles />
-                <span className="ml-1.5">Fetch Events</span>
-              </Button>
+              <RefreshOverlay
+                label="Fetch Events"
+                pendingLabel="Fetching local events"
+                quickFacts={(() => {
+                  const facts: string[] = []
+                  if (totalEvents > 0) facts.push(`${totalEvents} events discovered so far.`)
+                  if (totalMatched > 0) facts.push(`${totalMatched} events matched to your competitors.`)
+                  const uniqueVenues = Object.keys(snapshot?.summary.byVenueName ?? {}).length
+                  if (uniqueVenues > 0) facts.push(`Events span ${uniqueVenues} unique venues.`)
+                  if (topVenues.length > 0) facts.push(`Top venue: ${topVenues[0][0]} (${topVenues[0][1]} events).`)
+                  if (selectedLocation?.city) facts.push(`Scanning events near ${selectedLocation.city}.`)
+                  return facts
+                })()}
+                geminiContext={`Local events for ${selectedLocation?.name ?? "your location"} in ${selectedLocation?.city ?? "the area"}. ${totalEvents} events found, ${totalMatched} matched to competitors.`}
+                steps={[
+                  "Searching local events...",
+                  "Parsing event details...",
+                  "Matching to competitors...",
+                  "Organizing by venue...",
+                  "Generating event insights...",
+                ]}
+              />
             </form>
           )}
         </div>

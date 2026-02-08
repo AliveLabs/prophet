@@ -45,11 +45,15 @@ export type DomainRankOverviewResult = {
   total_count: number
   items_count: number
   items: Array<{
-    se_type: string // "organic" | "paid" etc.
-    organic?: DomainRankMetrics
-    paid?: DomainRankMetrics
-    local_pack?: DomainRankMetrics
-    featured_snippet?: DomainRankMetrics
+    se_type: string
+    location_code: number
+    language_code: string
+    metrics: {
+      organic?: DomainRankMetrics
+      paid?: DomainRankMetrics
+      local_pack?: DomainRankMetrics
+      featured_snippet?: DomainRankMetrics
+    }
   }>
 }
 
