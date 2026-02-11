@@ -93,3 +93,17 @@ export function ensureTrackedKeywordLimit(
     )
   }
 }
+
+// ---------------------------------------------------------------------------
+// Content & Menu Intelligence guardrails
+// ---------------------------------------------------------------------------
+
+export function getContentMaxPages(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].contentPagesPerRun
+}
+
+export function getContentCadence(
+  tier: SubscriptionTier
+): "weekly" | "daily" {
+  return TIER_LIMITS[tier].contentRefreshCadence
+}

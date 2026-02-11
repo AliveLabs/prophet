@@ -76,9 +76,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const sourceFilter = resolvedSearchParams?.source
   if (sourceFilter === "events") query = query.like("insight_type", "events.%")
   else if (sourceFilter === "seo") query = query.like("insight_type", "seo_%")
+  else if (sourceFilter === "content") query = query.or("insight_type.like.menu.%,insight_type.like.content.%")
   else if (sourceFilter === "competitors") {
     query = query.not("insight_type", "like", "events.%")
     query = query.not("insight_type", "like", "seo_%")
+    query = query.not("insight_type", "like", "menu.%")
+    query = query.not("insight_type", "like", "content.%")
   }
 
   const { data: insights } = await query
@@ -228,7 +231,11 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const allInsights = insights ?? []
   const eventInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("events.")).length
   const seoInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("seo_")).length
-  const compInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !(i.insight_type as string).startsWith("seo_") && i.competitor_id).length
+  const contentInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("menu.") || (i.insight_type as string).startsWith("content.")).length
+  const compInsightCount = allInsights.filter((i) => {
+    const t = i.insight_type as string
+    return !t.startsWith("events.") && !t.startsWith("seo_") && !t.startsWith("menu.") && !t.startsWith("content.") && i.competitor_id
+  }).length
   const locInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !(i.insight_type as string).startsWith("seo_") && !i.competitor_id).length
 
   // Group by date for separators
@@ -249,6 +256,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   if (reviewShare !== null) insightQuickFacts.push(`You hold ${reviewShare}% review share vs competitors.`)
   if (eventInsightCount > 0) insightQuickFacts.push(`${eventInsightCount} event-related insight${eventInsightCount !== 1 ? "s" : ""} detected.`)
   if (seoInsightCount > 0) insightQuickFacts.push(`${seoInsightCount} SEO insight${seoInsightCount !== 1 ? "s" : ""} identified.`)
+  if (contentInsightCount > 0) insightQuickFacts.push(`${contentInsightCount} content/menu insight${contentInsightCount !== 1 ? "s" : ""} found.`)
   if (competitors && competitors.length > 0) insightQuickFacts.push(`Analyzing data across ${competitors.length} approved competitor${competitors.length !== 1 ? "s" : ""}.`)
 
   const insightsGeminiContext = `Local business insights. Location: ${selectedLocation?.name ?? "Unknown"}. Rating: ${locationRating ?? "N/A"}. ${competitors?.length ?? 0} competitors. ${allInsights.length} existing insights. Avg competitor rating: ${avgCompetitorRating ?? "N/A"}.`
@@ -339,6 +347,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 { value: "competitors", label: "Competitors" },
                 { value: "events", label: "Events" },
                 { value: "seo", label: "SEO" },
+                { value: "content", label: "Content" },
               ],
             },
           ]}
@@ -361,6 +370,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
               <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
               {seoInsightCount} SEO
+            </span>
+          )}
+          {contentInsightCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 font-medium text-teal-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
+              {contentInsightCount} content
             </span>
           )}
           {compInsightCount > 0 && (

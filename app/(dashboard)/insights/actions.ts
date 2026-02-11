@@ -8,6 +8,8 @@ import { diffSnapshots, buildInsights, buildWeeklyInsights } from "@/lib/insight
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
+import { generateContentInsights } from "@/lib/content/insights"
+import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 
 export async function markInsightReadAction(formData: FormData) {
   await requireUser()
@@ -801,6 +803,102 @@ export async function generateInsightsAction(formData: FormData) {
   } catch (crossErr) {
     console.warn("Cross-source insight generation error:", crossErr)
     // Non-fatal: continue with whatever insights we have
+  }
+
+  // =======================================================================
+  // Content & Menu insight pipeline
+  // =======================================================================
+  try {
+    // Fetch location menu + site content snapshots
+    const { data: locMenuSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "firecrawl_menu")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const { data: locSiteSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "firecrawl_site_content")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const locMenu = locMenuSnap?.raw_data as MenuSnapshot | null
+    const locSiteContent = locSiteSnap?.raw_data as SiteContentSnapshot | null
+
+    if (locMenu || locSiteContent) {
+      // Fetch previous menu for change detection
+      const { data: prevMenuSnaps } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", locationId)
+        .eq("provider", "firecrawl_menu")
+        .order("date_key", { ascending: false })
+        .range(1, 1)
+
+      const previousMenu = prevMenuSnaps?.[0]?.raw_data as MenuSnapshot | null
+
+      // Fetch competitor menu snapshots
+      type CompMenuForInsights = {
+        competitorId: string
+        competitorName: string
+        menu: MenuSnapshot
+        siteContent?: SiteContentSnapshot | null
+      }
+      const compMenusForInsights: CompMenuForInsights[] = []
+
+      for (const comp of approvedCompetitors) {
+        const { data: compMenuSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", "web_menu_weekly")
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compMenuSnap) {
+          compMenusForInsights.push({
+            competitorId: comp.id,
+            competitorName: comp.name ?? "Competitor",
+            menu: compMenuSnap.raw_data as MenuSnapshot,
+            siteContent: null,
+          })
+        }
+      }
+
+      const contentInsights = generateContentInsights(
+        locMenu,
+        compMenusForInsights,
+        locSiteContent,
+        previousMenu
+      )
+
+      for (const insight of contentInsights) {
+        const evidence = insight.evidence as Record<string, unknown>
+        const compName = evidence?.competitor as string | undefined
+        let matchedCompId: string | null = null
+        if (compName) {
+          const match = compMenusForInsights.find((c) => c.competitorName === compName)
+          if (match) matchedCompId = match.competitorId
+        }
+
+        insightsPayload.push({
+          location_id: locationId,
+          competitor_id: matchedCompId,
+          date_key: todayKey,
+          ...insight,
+          status: "new",
+        })
+      }
+    }
+  } catch (contentErr) {
+    console.warn("Content & Menu insight generation error:", contentErr)
   }
 
   if (insightsPayload.length) {
