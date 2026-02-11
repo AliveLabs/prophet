@@ -621,6 +621,188 @@ export async function generateInsightsAction(formData: FormData) {
     }
   }
 
+  // =======================================================================
+  // Cross-source insight generation
+  // Correlate SEO, competitor, and event data for deeper insights
+  // =======================================================================
+  try {
+    // Fetch SEO snapshots for this location
+    const { data: seoSnaps } = await supabase
+      .from("location_snapshots")
+      .select("provider, raw_data")
+      .eq("location_id", locationId)
+      .in("provider", [
+        "seo_domain_rank_overview",
+        "seo_backlinks_summary",
+        "seo_historical_rank",
+        "seo_ranked_keywords",
+      ])
+      .order("date_key", { ascending: false })
+      .limit(4)
+
+    const seoDataMap = new Map<string, Record<string, unknown>>()
+    for (const snap of seoSnaps ?? []) {
+      if (!seoDataMap.has(snap.provider)) {
+        seoDataMap.set(snap.provider, snap.raw_data as Record<string, unknown>)
+      }
+    }
+
+    const rankOverview = seoDataMap.get("seo_domain_rank_overview") as { organic?: { etv?: number; rankedKeywords?: number; lostKeywords?: number }; paid?: { etv?: number } } | undefined
+    const backlinksSummary = seoDataMap.get("seo_backlinks_summary") as { domainTrust?: number; referringDomains?: number; backlinks?: number } | undefined
+    const historicalData = ((seoDataMap.get("seo_historical_rank") as Record<string, unknown>)?.history ?? []) as Array<{ date: string; organicEtv: number }>
+
+    // Fetch event data
+    const { data: eventSnaps } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "events_google")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const eventsData = eventSnaps?.raw_data as { events?: Array<{ title?: string; date?: string }> } | null
+
+    // Cross-source: Event + SEO Traffic Correlation
+    if (eventsData?.events?.length && historicalData.length >= 2) {
+      const lastMonth = historicalData[historicalData.length - 1]
+      const prevMonth = historicalData[historicalData.length - 2]
+      if (lastMonth && prevMonth && lastMonth.organicEtv > prevMonth.organicEtv) {
+        const pctGrowth = ((lastMonth.organicEtv - prevMonth.organicEtv) / (prevMonth.organicEtv || 1)) * 100
+        if (pctGrowth >= 5) {
+          insightsPayload.push({
+            location_id: locationId,
+            competitor_id: null,
+            date_key: todayKey,
+            insight_type: "cross_event_seo_opportunity",
+            title: `Event-driven traffic opportunity detected`,
+            summary: `Organic traffic grew ${Math.round(pctGrowth)}% last month while ${eventsData.events.length} local events are upcoming. Capitalize on event-related search demand by creating timely content.`,
+            confidence: "medium",
+            severity: "info",
+            evidence: {
+              traffic_growth_pct: Math.round(pctGrowth),
+              upcoming_events: eventsData.events.slice(0, 3).map((e) => e.title),
+              last_month_etv: lastMonth.organicEtv,
+              prev_month_etv: prevMonth.organicEtv,
+            },
+            recommendations: [
+              {
+                title: "Create event-related content",
+                rationale: `With ${eventsData.events.length} upcoming events and rising organic traffic, publish landing pages or blog posts about these events to capture search demand.`,
+              },
+            ],
+            status: "new",
+          })
+        }
+      }
+    }
+
+    // Cross-source: Backlinks declining + Traffic declining
+    if (backlinksSummary && historicalData.length >= 3) {
+      const recent3 = historicalData.slice(-3)
+      const isTrafficDecline = recent3.every((p, i) => i === 0 || p.organicEtv < recent3[i - 1].organicEtv)
+
+      // Check if we have previous backlinks data to compare
+      const { data: prevBlSnap } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", locationId)
+        .eq("provider", "seo_backlinks_summary")
+        .order("date_key", { ascending: false })
+        .range(1, 1)
+
+      const prevBacklinks = prevBlSnap?.[0]?.raw_data as { referringDomains?: number } | null
+      const backlinkDecline = prevBacklinks && backlinksSummary.referringDomains
+        ? (backlinksSummary.referringDomains < (prevBacklinks.referringDomains ?? 0))
+        : false
+
+      if (isTrafficDecline && backlinkDecline) {
+        insightsPayload.push({
+          location_id: locationId,
+          competitor_id: null,
+          date_key: todayKey,
+          insight_type: "cross_authority_risk",
+          title: "Domain authority at risk",
+          summary: `Both referring domains and organic traffic have been declining. This compound effect can accelerate ranking losses. Immediate action on link building and content freshness is recommended.`,
+          confidence: "high",
+          severity: "critical",
+          evidence: {
+            current_referring_domains: backlinksSummary.referringDomains,
+            previous_referring_domains: prevBacklinks?.referringDomains,
+            traffic_trend: recent3.map((p) => ({ date: p.date, etv: p.organicEtv })),
+          },
+          recommendations: [
+            {
+              title: "Launch a backlink recovery campaign",
+              rationale: "Identify and attempt to recover lost backlinks while pursuing new link building opportunities to reverse the domain authority decline.",
+            },
+            {
+              title: "Refresh your highest-traffic content",
+              rationale: "Update publication dates, add new information, and improve on-page SEO for your top pages to signal freshness to search engines.",
+            },
+          ],
+          status: "new",
+        })
+      }
+    }
+
+    // Cross-source: Competitor review velocity + keyword growth
+    for (const competitor of approvedCompetitors) {
+      const compMeta = competitor.metadata as Record<string, unknown> | null
+      const compPlaceDetails = compMeta?.placeDetails as Record<string, unknown> | null
+      if (!compPlaceDetails) continue
+
+      // Check if competitor has high review growth
+      const { data: compSnapPrev } = await supabase
+        .from("snapshots")
+        .select("raw_data")
+        .eq("competitor_id", competitor.id)
+        .eq("snapshot_type", "seo_domain_rank_overview_weekly")
+        .order("date_key", { ascending: false })
+        .limit(2)
+
+      const compSeoSnaps = compSnapPrev ?? []
+      if (compSeoSnaps.length >= 2) {
+        const curCompSeo = compSeoSnaps[0].raw_data as { organic?: { rankedKeywords?: number } } | null
+        const prevCompSeo = compSeoSnaps[1].raw_data as { organic?: { rankedKeywords?: number } } | null
+        const curKw = curCompSeo?.organic?.rankedKeywords ?? 0
+        const prevKw = prevCompSeo?.organic?.rankedKeywords ?? 0
+
+        if (curKw > prevKw && curKw - prevKw >= 10) {
+          const compReviewCount = typeof compPlaceDetails.userRatingCount === "number" ? compPlaceDetails.userRatingCount : 0
+          if (compReviewCount >= 50) {
+            insightsPayload.push({
+              location_id: locationId,
+              competitor_id: competitor.id,
+              date_key: todayKey,
+              insight_type: "cross_competitor_momentum",
+              title: `${competitor.name ?? "Competitor"} is gaining ground on multiple fronts`,
+              summary: `${competitor.name ?? "This competitor"} gained ${curKw - prevKw} organic keywords and has ${compReviewCount} reviews. Their combined SEO and review velocity suggests growing market presence.`,
+              confidence: "high",
+              severity: "warning",
+              evidence: {
+                competitor_name: competitor.name,
+                keyword_gain: curKw - prevKw,
+                current_keywords: curKw,
+                review_count: compReviewCount,
+              },
+              recommendations: [
+                {
+                  title: `Counter ${competitor.name ?? "competitor"}'s momentum`,
+                  rationale: "Focus on both content/SEO growth and review acquisition to prevent this competitor from widening their competitive advantage.",
+                },
+              ],
+              status: "new",
+            })
+          }
+        }
+      }
+    }
+  } catch (crossErr) {
+    console.warn("Cross-source insight generation error:", crossErr)
+    // Non-fatal: continue with whatever insights we have
+  }
+
   if (insightsPayload.length) {
     const { error } = await supabase.from("insights").upsert(insightsPayload, {
       onConflict: "location_id,competitor_id,date_key,insight_type",

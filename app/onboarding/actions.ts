@@ -79,6 +79,8 @@ export async function createOrganizationAction(formData: FormData) {
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
   const geoLng = geoLngValue ? Number.parseFloat(geoLngValue) : null
 
+  const website = String(formData.get("website") ?? "").trim() || null
+
   const { error: locationError } = await supabaseAdmin.from("locations").insert({
     organization_id: org.id,
     name: locationName,
@@ -90,6 +92,7 @@ export async function createOrganizationAction(formData: FormData) {
     country: String(formData.get("country") ?? "").trim() || "US",
     timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
     primary_place_id: primaryPlaceId || null,
+    website,
     settings: {
       category,
       types: placeTypes,
@@ -133,6 +136,8 @@ export async function createLocationAction(formData: FormData) {
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
   const geoLng = geoLngValue ? Number.parseFloat(geoLngValue) : null
 
+  const website = String(formData.get("website") ?? "").trim() || null
+
   const { error: locationError } = await supabaseAdmin.from("locations").insert({
     organization_id: organizationId,
     name: locationName,
@@ -144,6 +149,7 @@ export async function createLocationAction(formData: FormData) {
     country: String(formData.get("country") ?? "").trim() || "US",
     timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
     primary_place_id: primaryPlaceId || null,
+    website,
     geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
     geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
   })

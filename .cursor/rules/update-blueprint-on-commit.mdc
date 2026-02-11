@@ -1,0 +1,38 @@
+---
+description: Update BLUEPRINT.md whenever committing and pushing changes to the dev branch
+alwaysApply: true
+---
+
+# Keep BLUEPRINT.md Up to Date
+
+Whenever the user asks to commit and push changes to the `dev` branch, you MUST update `BLUEPRINT.md` at the project root before committing. This ensures the blueprint always reflects the current state of the codebase.
+
+## What to update
+
+1. **Last updated date** in the header and footer -- set to today's date.
+2. **Any sections affected by the changes being committed.** For example:
+   - New files or deleted files -> update Section 4 (Project Structure)
+   - New pages or routes -> update Section 9 (Routing and Pages)
+   - New or changed server actions -> update Section 10 (Server Actions Reference)
+   - New or changed API routes -> update Section 11 (API Routes Reference)
+   - New external API integrations -> update Section 12 (External API Integrations)
+   - Database migrations -> update Section 7 (Database Schema)
+   - New components -> update Section 16 (UI Component Library)
+   - Billing/tier changes -> update Section 15 (Billing and Tier System)
+   - New environment variables -> update Section 3 (Environment Variables)
+   - Architecture changes -> update Section 5 (Architecture Overview)
+   - Bug fixes or known limitations resolved -> update Section 20
+   - New Edge Functions or changes -> update Section 17
+3. **Section 1 (Executive Summary)** if the changes represent a new feature or milestone.
+
+## How to update
+
+- Review `git diff --stat` to identify which files changed.
+- Read the changed files if needed to understand the impact.
+- Make targeted edits to the relevant BLUEPRINT.md sections -- do not rewrite the entire file.
+- Include the BLUEPRINT.md update in the same commit as the code changes.
+
+## When NOT to update
+
+- If the commit is documentation-only (e.g., only BLUEPRINT.md itself changed).
+- If the changes are trivial (typo fixes, formatting) with no functional impact.

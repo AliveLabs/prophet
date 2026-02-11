@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import DiscoverForm from "@/components/competitors/discover-form"
 import MiniMap from "@/components/places/mini-map"
+import LocationFilter from "@/components/ui/location-filter"
 import { fetchCurrentConditions, type WeatherSnapshot } from "@/lib/weather/google"
 
 const IconMapPin = () => (
@@ -227,6 +228,7 @@ type CompetitorsPageProps = {
   searchParams?: Promise<{
     error?: string
     debug?: string
+    location_id?: string
   }>
 }
 
@@ -251,21 +253,21 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
 
-  const locationIds = locations?.map((location) => location.id) ?? []
+  const resolvedSearchParams = await Promise.resolve(searchParams)
+  const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
+  const error = resolvedSearchParams?.error
+  const debugParam = resolvedSearchParams?.debug
+
   const { data: competitors } =
-    locationIds.length > 0
+    selectedLocationId
       ? await supabase
           .from("competitors")
           .select(
             "id, name, category, relevance_score, is_active, metadata, location_id, address, phone, website"
           )
-          .in("location_id", locationIds)
+          .eq("location_id", selectedLocationId)
           .order("created_at", { ascending: false })
       : { data: [] }
-
-  const resolvedSearchParams = await Promise.resolve(searchParams)
-  const error = resolvedSearchParams?.error
-  const debugParam = resolvedSearchParams?.debug
   let debugData: Record<string, unknown> | null = null
   if (debugParam) {
     try {
@@ -314,13 +316,56 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
   )
   const approvedWeatherMap = new Map<string, WeatherSnapshot | null>(approvedWeatherEntries)
 
+  function buildCompetitorQuickFacts(approved: typeof approvedCompetitors): string[] {
+    const facts: string[] = []
+    if (approved.length > 0) {
+      facts.push(`You are tracking ${approved.length} approved competitor${approved.length !== 1 ? "s" : ""}.`)
+    }
+    const ratings = approved.map((c) => {
+      const meta = c.metadata as Record<string, unknown> | null
+      return (meta?.rating as number | null) ?? null
+    }).filter((r): r is number => typeof r === "number")
+    if (ratings.length > 0) {
+      const avg = (ratings.reduce((s, v) => s + v, 0) / ratings.length).toFixed(1)
+      facts.push(`Avg competitor rating: ${avg} stars.`)
+    }
+    const distances = approved.map((c) => {
+      const meta = c.metadata as Record<string, unknown> | null
+      return (meta?.distanceMeters as number | null) ?? null
+    }).filter((d): d is number => typeof d === "number")
+    if (distances.length > 0) {
+      const closest = Math.min(...distances)
+      facts.push(`Closest competitor is ${(closest / 1000).toFixed(1)} km away.`)
+    }
+    const topRated = [...approved].sort((a, b) => {
+      const ra = ((a.metadata as Record<string, unknown> | null)?.rating as number) ?? 0
+      const rb = ((b.metadata as Record<string, unknown> | null)?.rating as number) ?? 0
+      return rb - ra
+    })[0]
+    if (topRated) {
+      const tr = ((topRated.metadata as Record<string, unknown> | null)?.rating as number | null) ?? null
+      if (tr) facts.push(`Top-rated competitor: ${topRated.name} (${tr} stars).`)
+    }
+    return facts
+  }
+
   return (
     <section className="space-y-6">
       <Card className="bg-white text-slate-900">
-        <h1 className="text-2xl font-semibold">Competitors</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Discover nearby competitors and approve who should be monitored.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Competitors</h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Discover nearby competitors and approve who should be monitored.
+            </p>
+          </div>
+          {locations && locations.length > 1 && (
+            <LocationFilter
+              locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+              selectedLocationId={selectedLocationId ?? ""}
+            />
+          )}
+        </div>
         {error ? (
           <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {decodeURIComponent(error)}
@@ -341,7 +386,12 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
           />
         ) : null}
         {locations ? (
-          <DiscoverForm locations={locations} action={discoverCompetitorsAction} />
+          <DiscoverForm
+            locations={locations}
+            action={discoverCompetitorsAction}
+            selectedLocationId={selectedLocationId ?? undefined}
+            quickFacts={buildCompetitorQuickFacts(approvedCompetitors)}
+          />
         ) : null}
       </Card>
 
