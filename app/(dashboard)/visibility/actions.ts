@@ -486,7 +486,96 @@ export async function refreshSeoAction(formData: FormData) {
   }
 
   // =====================================================================
-  // 12. Generate deterministic insights
+  // 12. Ranked Keywords for each competitor
+  // =====================================================================
+  try {
+    const rkLimit = getSeoRankedKeywordsLimit(tier)
+    for (const comp of compDomains) {
+      try {
+        const rkResult = await fetchRankedKeywords({ target: comp.domain, limit: rkLimit })
+        if (rkResult) {
+          const normalized = normalizeRankedKeywords(rkResult)
+          const diffHash = hashRankedKeywords(normalized)
+          await supabase.from("snapshots").upsert({
+            competitor_id: comp.id,
+            captured_at: new Date().toISOString(),
+            date_key: dateKey,
+            provider: "dataforseo_labs",
+            snapshot_type: SEO_SNAPSHOT_TYPES.rankedKeywords,
+            raw_data: { version: "1.0", domain: comp.domain, keywords: normalized } as unknown as Record<string, unknown>,
+            diff_hash: diffHash,
+          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+          console.log(`[SEO] Ranked Keywords for competitor ${comp.name}: ${normalized.length} keywords`)
+        }
+      } catch (rkErr) {
+        console.warn(`Ranked Keywords failed for competitor ${comp.domain}:`, rkErr)
+      }
+    }
+  } catch (err) {
+    console.warn("Step 12 (Competitor Ranked Keywords) failed:", err)
+    warnings.push("Competitor ranked keywords partially failed")
+  }
+
+  // =====================================================================
+  // 13. Relevant Pages for each competitor
+  // =====================================================================
+  try {
+    for (const comp of compDomains) {
+      try {
+        const rpResult = await fetchRelevantPages({ target: comp.domain, limit: 25 })
+        if (rpResult) {
+          const normalized = normalizeRelevantPages(rpResult)
+          await supabase.from("snapshots").upsert({
+            competitor_id: comp.id,
+            captured_at: new Date().toISOString(),
+            date_key: dateKey,
+            provider: "dataforseo_labs",
+            snapshot_type: SEO_SNAPSHOT_TYPES.relevantPages,
+            raw_data: { version: "1.0", domain: comp.domain, pages: normalized } as unknown as Record<string, unknown>,
+            diff_hash: hashJsonPayload(normalized),
+          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+          console.log(`[SEO] Relevant Pages for competitor ${comp.name}: ${normalized.length} pages`)
+        }
+      } catch (rpErr) {
+        console.warn(`Relevant Pages failed for competitor ${comp.domain}:`, rpErr)
+      }
+    }
+  } catch (err) {
+    console.warn("Step 13 (Competitor Relevant Pages) failed:", err)
+    warnings.push("Competitor relevant pages partially failed")
+  }
+
+  // =====================================================================
+  // 14. Historical Rank for each competitor
+  // =====================================================================
+  try {
+    for (const comp of compDomains) {
+      try {
+        const hrResult = await fetchHistoricalRankOverview({ target: comp.domain })
+        if (hrResult) {
+          const normalized = normalizeHistoricalRankOverview(hrResult)
+          await supabase.from("snapshots").upsert({
+            competitor_id: comp.id,
+            captured_at: new Date().toISOString(),
+            date_key: dateKey,
+            provider: "dataforseo_labs",
+            snapshot_type: SEO_SNAPSHOT_TYPES.historicalRank,
+            raw_data: { version: "1.0", domain: comp.domain, history: normalized } as unknown as Record<string, unknown>,
+            diff_hash: hashJsonPayload(normalized),
+          }, { onConflict: "competitor_id,date_key,snapshot_type" })
+          console.log(`[SEO] Historical Rank for competitor ${comp.name}: ${normalized.length} months`)
+        }
+      } catch (hrErr) {
+        console.warn(`Historical Rank failed for competitor ${comp.domain}:`, hrErr)
+      }
+    }
+  } catch (err) {
+    console.warn("Step 14 (Competitor Historical Rank) failed:", err)
+    warnings.push("Competitor historical rank partially failed")
+  }
+
+  // =====================================================================
+  // 15. Generate deterministic insights
   // =====================================================================
   try {
     const prevDateKey = getPreviousDateKey(dateKey, 7)

@@ -111,7 +111,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
 
   const { data: locations } = await supabase
     .from("locations")
-    .select("id, name, city, region, country, address_line1, primary_place_id, geo_lat, geo_lng")
+    .select("id, name, city, region, country, address_line1, primary_place_id, geo_lat, geo_lng, website")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
 
@@ -428,6 +428,26 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                         defaultValue={address ?? ""}
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
                       />
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-semibold text-slate-500">
+                        Website URL
+                      </label>
+                      <input
+                        name="website"
+                        type="url"
+                        defaultValue={location.website ?? website ?? ""}
+                        placeholder="https://example.com/your-branch-page"
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                      />
+                      {website && location.website !== website && (
+                        <p className="text-[11px] text-slate-400">
+                          Google Places detected: <span className="font-medium text-slate-500">{website}</span>
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400">
+                        Override with a branch-specific URL for Content &amp; Visibility tracking.
+                      </p>
                     </div>
                     <Button type="submit" size="sm">
                       Save changes

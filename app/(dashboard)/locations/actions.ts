@@ -75,6 +75,7 @@ export async function updateLocationAction(formData: FormData) {
   const locationId = String(formData.get("location_id") ?? "").trim()
   const name = String(formData.get("name") ?? "").trim()
   const addressLine1 = String(formData.get("address_line1") ?? "").trim()
+  const website = String(formData.get("website") ?? "").trim() || null
 
   if (!locationId || !name) {
     redirect("/locations?error=Missing%20required%20fields")
@@ -106,6 +107,7 @@ export async function updateLocationAction(formData: FormData) {
     .update({
       name,
       address_line1: addressLine1 || null,
+      website,
     })
     .eq("id", locationId)
 

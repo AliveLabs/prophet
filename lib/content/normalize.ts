@@ -10,9 +10,49 @@ import type {
   MenuCategory,
   MenuItem,
 } from "./types"
+import type { ExtractedSiteFeatures } from "@/lib/providers/firecrawl"
 
 // ---------------------------------------------------------------------------
-// Feature detection from page markdown
+// Normalize site content from Firecrawl's JSON extraction
+// (preferred path – Firecrawl does LLM extraction server-side)
+// ---------------------------------------------------------------------------
+
+export function normalizeSiteContentFromExtraction(
+  website: string,
+  features: ExtractedSiteFeatures | null,
+  screenshotRef: { storagePath: string; sourceUrl: string } | null
+): SiteContentSnapshot {
+  const detected: DetectedFeatures = features
+    ? {
+        reservation: features.hasReservations ?? false,
+        onlineOrdering: features.hasOnlineOrdering ?? false,
+        privateDining: features.hasPrivateDining ?? false,
+        catering: features.hasCatering ?? false,
+        happyHour: features.hasHappyHour ?? false,
+        deliveryPlatforms: Array.isArray(features.deliveryPlatforms)
+          ? features.deliveryPlatforms.map((p) => p.toLowerCase().trim()).filter(Boolean)
+          : [],
+      }
+    : {
+        reservation: false,
+        onlineOrdering: false,
+        privateDining: false,
+        catering: false,
+        happyHour: false,
+        deliveryPlatforms: [],
+      }
+
+  return {
+    website,
+    capturedAt: new Date().toISOString(),
+    screenshot: screenshotRef,
+    corePages: [],
+    detected,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy: Normalize site content from markdown (fallback)
 // ---------------------------------------------------------------------------
 
 const FEATURE_PATTERNS: Record<keyof DetectedFeatures, RegExp[]> = {
@@ -88,7 +128,6 @@ export function detectFeatures(text: string): DetectedFeatures {
     }
   }
 
-  // Detect specific delivery platforms
   for (const [pattern, name] of Object.entries(DELIVERY_PLATFORM_NAMES)) {
     if (new RegExp(pattern, "i").test(text)) {
       features.deliveryPlatforms.push(name)
@@ -97,10 +136,6 @@ export function detectFeatures(text: string): DetectedFeatures {
 
   return features
 }
-
-// ---------------------------------------------------------------------------
-// Normalize site content from scraped markdown
-// ---------------------------------------------------------------------------
 
 export function normalizeSiteContent(
   website: string,
@@ -114,7 +149,7 @@ export function normalizeSiteContent(
     website,
     capturedAt: new Date().toISOString(),
     screenshot: screenshotRef,
-    corePages: [], // populated later if we scrape multiple pages
+    corePages: [],
     detected,
   }
 }

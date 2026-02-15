@@ -359,10 +359,10 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
               Discover nearby competitors and approve who should be monitored.
             </p>
           </div>
-          {locations && locations.length > 1 && (
+          {locations && locations.length > 0 && selectedLocationId && (
             <LocationFilter
               locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-              selectedLocationId={selectedLocationId ?? ""}
+              selectedLocationId={selectedLocationId}
             />
           )}
         </div>
@@ -385,11 +385,10 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             dangerouslySetInnerHTML={{ __html: searchEntryPointHtml }}
           />
         ) : null}
-        {locations ? (
+        {selectedLocationId ? (
           <DiscoverForm
-            locations={locations}
             action={discoverCompetitorsAction}
-            selectedLocationId={selectedLocationId ?? undefined}
+            selectedLocationId={selectedLocationId}
             quickFacts={buildCompetitorQuickFacts(approvedCompetitors)}
           />
         ) : null}

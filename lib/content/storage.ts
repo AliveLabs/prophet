@@ -7,28 +7,45 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 const BUCKET = "screenshots"
 
 // ---------------------------------------------------------------------------
-// Upload a base64 screenshot to Supabase Storage
+// Upload a screenshot to Supabase Storage
+// Handles both URL (Firecrawl returns URLs) and base64 data
 // ---------------------------------------------------------------------------
 
 export async function uploadScreenshot(
-  base64Data: string,
+  screenshotData: string,
   storagePath: string
 ): Promise<string | null> {
   try {
     const admin = createAdminSupabaseClient()
+    let buffer: Buffer
+    let contentType = "image/png"
 
-    // Strip data:image/...;base64, prefix if present
-    const raw = base64Data.replace(/^data:image\/\w+;base64,/, "")
-    const buffer = Buffer.from(raw, "base64")
+    if (screenshotData.startsWith("http://") || screenshotData.startsWith("https://")) {
+      // Firecrawl returns screenshots as hosted URLs – download the image
+      const response = await fetch(screenshotData)
+      if (!response.ok) {
+        console.warn("Screenshot download failed:", response.status, screenshotData)
+        return null
+      }
+      const ct = response.headers.get("content-type")
+      if (ct && ct.startsWith("image/")) contentType = ct
+      const arrayBuffer = await response.arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
+    } else if (screenshotData.startsWith("data:image/")) {
+      // base64 data URL
+      const raw = screenshotData.replace(/^data:image\/\w+;base64,/, "")
+      buffer = Buffer.from(raw, "base64")
+      const match = screenshotData.match(/^data:(image\/\w+);/)
+      if (match) contentType = match[1]
+    } else {
+      // Raw base64 string (no prefix)
+      buffer = Buffer.from(screenshotData, "base64")
+    }
 
-    // Determine content type from path extension
-    const ext = storagePath.split(".").pop()?.toLowerCase() ?? "png"
-    const contentType =
-      ext === "jpg" || ext === "jpeg"
-        ? "image/jpeg"
-        : ext === "webp"
-          ? "image/webp"
-          : "image/png"
+    if (buffer.length === 0) {
+      console.warn("Screenshot buffer is empty")
+      return null
+    }
 
     const { error } = await admin.storage.from(BUCKET).upload(storagePath, buffer, {
       contentType,

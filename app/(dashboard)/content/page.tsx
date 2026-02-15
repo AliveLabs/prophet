@@ -263,6 +263,21 @@ export default async function ContentPage({ searchParams }: PageProps) {
             </div>
           </div>
         </CardHeader>
+        {selectedLocation?.website && (
+          <div className="border-t border-slate-100 px-6 py-2 text-xs text-slate-500 flex items-center gap-2">
+            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+            </svg>
+            <span>
+              Tracking:{" "}
+              <span className="font-medium text-slate-700">{selectedLocation.website}</span>
+            </span>
+            <a href="/locations" className="ml-auto text-indigo-600 hover:text-indigo-700 font-medium">
+              Change URL
+            </a>
+          </div>
+        )}
       </Card>
 
       {/* Error / Success banners */}

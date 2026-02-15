@@ -39,7 +39,10 @@ function parseJson(text: string) {
   }
 }
 
-export async function generateGeminiJson(prompt: string) {
+export async function generateGeminiJson(
+  prompt: string,
+  options?: { maxOutputTokens?: number; temperature?: number }
+) {
   const response = await fetch(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
     method: "POST",
     headers: {
@@ -53,7 +56,8 @@ export async function generateGeminiJson(prompt: string) {
         },
       ],
       generationConfig: {
-        temperature: 0.3,
+        temperature: options?.temperature ?? 0.3,
+        ...(options?.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
       },
     }),
   })

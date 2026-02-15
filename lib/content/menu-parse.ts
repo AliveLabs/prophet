@@ -1,248 +1,172 @@
 // ---------------------------------------------------------------------------
-// Menu parser – extract structured menu from markdown
-// Two-stage: heuristic regex pass + optional Gemini refinement
+// Menu normalizer – clean up Firecrawl's structured extraction output
+// Firecrawl does the heavy lifting (LLM extraction); we just normalize.
 // ---------------------------------------------------------------------------
 
 import type { MenuCategory, MenuItem } from "./types"
-import { generateGeminiJson } from "@/lib/ai/gemini"
+import type { ExtractedMenu } from "@/lib/providers/firecrawl"
 
 // ---------------------------------------------------------------------------
-// Stage 1: Heuristic extraction
+// Strip markdown formatting from text
 // ---------------------------------------------------------------------------
 
-const PRICE_PATTERN = /\$\s*(\d+(?:\.\d{1,2})?)/g
-const SECTION_HEADER_PATTERN = /^#{1,4}\s+(.+)/gm
-
-type HeuristicResult = {
-  categories: MenuCategory[]
-  confidence: "high" | "medium" | "low"
-  hasItems: boolean
-}
-
-function heuristicParse(markdown: string): HeuristicResult {
-  if (!markdown || markdown.length < 50) {
-    return { categories: [], confidence: "low", hasItems: false }
-  }
-
-  // Count price occurrences
-  const priceMatches = [...markdown.matchAll(PRICE_PATTERN)]
-  if (priceMatches.length < 2) {
-    return { categories: [], confidence: "low", hasItems: false }
-  }
-
-  // Split by section headers
-  const sections: Array<{ name: string; content: string }> = []
-  const headerMatches = [...markdown.matchAll(SECTION_HEADER_PATTERN)]
-
-  if (headerMatches.length === 0) {
-    // No headers – treat entire text as single category
-    sections.push({ name: "Menu", content: markdown })
-  } else {
-    for (let i = 0; i < headerMatches.length; i++) {
-      const match = headerMatches[i]
-      const nextMatch = headerMatches[i + 1]
-      const start = match.index! + match[0].length
-      const end = nextMatch ? nextMatch.index! : markdown.length
-      const content = markdown.slice(start, end).trim()
-      sections.push({ name: match[1].trim(), content })
-    }
-  }
-
-  // Extract items from each section
-  const categories: MenuCategory[] = []
-  for (const section of sections) {
-    const items: MenuItem[] = []
-    const lines = section.content.split("\n").filter((l) => l.trim().length > 0)
-
-    for (const line of lines) {
-      const priceParts = [...line.matchAll(PRICE_PATTERN)]
-      if (priceParts.length === 0) continue
-
-      const priceStr = priceParts[0][0]
-      const priceVal = parseFloat(priceParts[0][1])
-      // Everything before the price is the item name/description
-      const nameAndDesc = line.slice(0, priceParts[0].index).replace(/[|*_\-–—]+$/, "").trim()
-
-      if (!nameAndDesc || nameAndDesc.length < 2) continue
-
-      // Split name and description: first sentence is name, rest is description
-      const dotIdx = nameAndDesc.indexOf(".")
-      const dashIdx = nameAndDesc.indexOf(" - ")
-      let name: string
-      let description: string | null = null
-
-      if (dashIdx > 0) {
-        name = nameAndDesc.slice(0, dashIdx).trim()
-        description = nameAndDesc.slice(dashIdx + 3).trim() || null
-      } else if (dotIdx > 0 && dotIdx < nameAndDesc.length - 1) {
-        name = nameAndDesc.slice(0, dotIdx).trim()
-        description = nameAndDesc.slice(dotIdx + 1).trim() || null
-      } else {
-        name = nameAndDesc
-      }
-
-      // Detect tags from description/name text
-      const text = `${name} ${description ?? ""}`.toLowerCase()
-      const tags: string[] = []
-      if (/\bvegan\b/.test(text)) tags.push("vegan")
-      if (/\bvegetarian\b/.test(text)) tags.push("vegetarian")
-      if (/\bgluten[- ]?free\b/.test(text)) tags.push("gluten-free")
-      if (/\bspicy\b/.test(text)) tags.push("spicy")
-      if (/\borganic\b/.test(text)) tags.push("organic")
-
-      items.push({
-        name,
-        description,
-        price: priceStr,
-        priceValue: Number.isFinite(priceVal) ? priceVal : null,
-        tags,
-      })
-    }
-
-    if (items.length > 0) {
-      categories.push({ name: section.name, items })
-    }
-  }
-
-  const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
-  const confidence =
-    totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
-
-  return { categories, confidence, hasItems: totalItems > 0 }
+function cleanText(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1")
+    .replace(/_(.+?)_/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`(.+?)`/g, "$1")
+    .replace(/^#+\s*/gm, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/\|/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim()
 }
 
 // ---------------------------------------------------------------------------
-// Stage 2: Gemini refinement – send markdown to LLM for structured extraction
+// Normalize Firecrawl extracted menu into our MenuCategory/MenuItem types
 // ---------------------------------------------------------------------------
 
-const MENU_PARSE_PROMPT = `You are a menu data extraction assistant. Given the following restaurant website content in markdown, extract a structured menu.
-
-Return ONLY valid JSON with this exact schema:
-{
-  "currency": "USD",
-  "categories": [
-    {
-      "name": "Category Name",
-      "items": [
-        {
-          "name": "Item Name",
-          "description": "Brief description or null",
-          "price": "$12.99",
-          "priceValue": 12.99,
-          "tags": ["vegan", "spicy"]
-        }
-      ]
-    }
-  ]
-}
-
-Rules:
-- Extract ALL menu items you can find with their prices
-- Group items into their natural categories (Appetizers, Entrees, Desserts, Drinks, etc.)
-- tags should only include: "vegan", "vegetarian", "gluten-free", "spicy", "organic", "new", "popular"
-- If no price is found for an item, set price to null and priceValue to null
-- If currency cannot be determined, default to "USD"
-- Return empty categories array if no menu items are found
-
-MARKDOWN CONTENT:
-`
-
-export async function parseMenuFromMarkdown(
-  markdown: string
-): Promise<{
+export type NormalizedMenuResult = {
   categories: MenuCategory[]
   currency: string | null
   confidence: "high" | "medium" | "low"
   notes: string[]
-}> {
+}
+
+export function normalizeExtractedMenu(
+  extracted: ExtractedMenu | null
+): NormalizedMenuResult {
   const notes: string[] = []
 
-  // Stage 1: Heuristic
-  const heuristic = heuristicParse(markdown)
-
-  // If heuristic found enough items with high confidence, use directly
-  if (heuristic.confidence === "high" && heuristic.categories.length >= 2) {
-    notes.push("Parsed via heuristic extraction (high confidence)")
-    return {
-      categories: heuristic.categories,
-      currency: "USD",
-      confidence: "high",
-      notes,
-    }
-  }
-
-  // Stage 2: Gemini refinement
-  if (!heuristic.hasItems && markdown.length < 100) {
-    notes.push("Content too short for menu extraction")
+  if (!extracted || !extracted.categories?.length) {
+    notes.push("No menu data extracted from page")
     return { categories: [], currency: null, confidence: "low", notes }
   }
 
-  try {
-    // Truncate markdown to avoid token limits (keep first 8000 chars)
-    const truncated = markdown.length > 8000 ? markdown.slice(0, 8000) + "\n...(truncated)" : markdown
-    const prompt = MENU_PARSE_PROMPT + truncated
+  const categories: MenuCategory[] = extracted.categories
+    .filter((c) => c.name && c.items?.length)
+    .map((c) => ({
+      name: cleanText(c.name),
+      items: (c.items ?? [])
+        .filter((i) => i.name)
+        .map((i): MenuItem => ({
+          name: cleanText(i.name),
+          description: i.description ? cleanText(i.description) || null : null,
+          price: i.price?.trim() || null,
+          priceValue:
+            typeof i.priceValue === "number" && Number.isFinite(i.priceValue)
+              ? i.priceValue
+              : null,
+          tags: Array.isArray(i.tags)
+            ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
+            : [],
+        })),
+    }))
 
-    const result = await generateGeminiJson(prompt) as {
-      currency?: string
-      categories?: Array<{
-        name?: string
-        items?: Array<{
-          name?: string
-          description?: string
-          price?: string
-          priceValue?: number
-          tags?: string[]
-        }>
-      }>
-    } | null
+  const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
+  const confidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
 
-    if (!result?.categories?.length) {
-      notes.push("Gemini returned no categories; falling back to heuristic")
-      return {
-        categories: heuristic.categories,
-        currency: "USD",
-        confidence: heuristic.confidence,
-        notes,
+  notes.push(`Extracted via Firecrawl JSON mode (${totalItems} items across ${categories.length} categories)`)
+
+  return {
+    categories,
+    currency: extracted.currency ?? "USD",
+    confidence,
+    notes,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Merge multiple extracted menus into one combined result
+// Deduplicates categories by normalized name & items by normalized item name
+// ---------------------------------------------------------------------------
+
+function normalizeKey(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]/g, "").trim()
+}
+
+export function mergeExtractedMenus(
+  results: NormalizedMenuResult[]
+): NormalizedMenuResult {
+  if (results.length === 0) {
+    return { categories: [], currency: null, confidence: "low", notes: ["No menu results to merge"] }
+  }
+  if (results.length === 1) return results[0]
+
+  // Track categories by normalized name → { name, items Map }
+  const catMap = new Map<string, { displayName: string; itemMap: Map<string, MenuItem> }>()
+  const allNotes: string[] = []
+  let bestCurrency: string | null = null
+  let highestConfidence: "high" | "medium" | "low" = "low"
+
+  const confidenceRank = { high: 3, medium: 2, low: 1 }
+
+  for (const result of results) {
+    // Track best currency (first non-null wins)
+    if (!bestCurrency && result.currency) {
+      bestCurrency = result.currency
+    }
+
+    // Track highest confidence
+    if (confidenceRank[result.confidence] > confidenceRank[highestConfidence]) {
+      highestConfidence = result.confidence
+    }
+
+    // Collect all notes
+    allNotes.push(...result.notes)
+
+    // Merge categories
+    for (const cat of result.categories) {
+      const catKey = normalizeKey(cat.name)
+      if (!catMap.has(catKey)) {
+        catMap.set(catKey, {
+          displayName: cat.name,
+          itemMap: new Map(),
+        })
+      }
+      const existing = catMap.get(catKey)!
+
+      // Merge items, deduplicating by normalized name
+      for (const item of cat.items) {
+        const itemKey = normalizeKey(item.name)
+        if (!existing.itemMap.has(itemKey)) {
+          existing.itemMap.set(itemKey, item)
+        } else {
+          // Keep the version with more info (has price, description, etc.)
+          const prev = existing.itemMap.get(itemKey)!
+          const prevScore = (prev.price ? 1 : 0) + (prev.description ? 1 : 0) + (prev.tags.length > 0 ? 1 : 0)
+          const newScore = (item.price ? 1 : 0) + (item.description ? 1 : 0) + (item.tags.length > 0 ? 1 : 0)
+          if (newScore > prevScore) {
+            existing.itemMap.set(itemKey, item)
+          }
+        }
       }
     }
+  }
 
-    const geminiCategories: MenuCategory[] = result.categories
-      .filter((c) => c.name && c.items?.length)
-      .map((c) => ({
-        name: c.name!,
-        items: (c.items ?? [])
-          .filter((i) => i.name)
-          .map((i) => ({
-            name: i.name!,
-            description: i.description?.trim() || null,
-            price: i.price?.trim() || null,
-            priceValue:
-              typeof i.priceValue === "number" && Number.isFinite(i.priceValue)
-                ? i.priceValue
-                : null,
-            tags: Array.isArray(i.tags)
-              ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
-              : [],
-          })),
-      }))
+  // Build merged categories
+  const categories: MenuCategory[] = Array.from(catMap.values()).map((entry) => ({
+    name: entry.displayName,
+    items: Array.from(entry.itemMap.values()),
+  }))
 
-    const totalItems = geminiCategories.reduce((s, c) => s + c.items.length, 0)
-    const geminiConfidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
-    notes.push(`Parsed via Gemini refinement (${totalItems} items)`)
+  const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
+  allNotes.push(`Merged from ${results.length} sources (${totalItems} total items across ${categories.length} categories)`)
 
-    return {
-      categories: geminiCategories,
-      currency: result.currency ?? "USD",
-      confidence: geminiConfidence,
-      notes,
-    }
-  } catch (error) {
-    notes.push(`Gemini parse failed: ${error instanceof Error ? error.message : "unknown"}; using heuristic`)
-    return {
-      categories: heuristic.categories,
-      currency: "USD",
-      confidence: heuristic.confidence,
-      notes,
-    }
+  // Recompute confidence based on merged total
+  const mergedConfidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
+  const finalConfidence = confidenceRank[mergedConfidence] > confidenceRank[highestConfidence]
+    ? mergedConfidence
+    : highestConfidence
+
+  return {
+    categories,
+    currency: bestCurrency,
+    confidence: finalConfidence,
+    notes: allNotes,
   }
 }

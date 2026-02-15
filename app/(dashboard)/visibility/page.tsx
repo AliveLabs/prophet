@@ -325,6 +325,25 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           activeTab={activeTab}
         />
 
+        {locationDomain && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+            </svg>
+            <span>
+              Tracking domain:{" "}
+              <span className="font-medium text-slate-700">{locationDomain}</span>
+              {selectedLocation?.website && (
+                <span className="ml-1 text-slate-400">({selectedLocation.website})</span>
+              )}
+            </span>
+            <a href="/locations" className="ml-auto text-indigo-600 hover:text-indigo-700 font-medium">
+              Change URL
+            </a>
+          </div>
+        )}
+
         {/* Refresh SEO action with interactive overlay */}
         {selectedLocationId && (
           <form action={refreshSeoAction} className="mt-4">
