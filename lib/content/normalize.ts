@@ -177,6 +177,7 @@ export function normalizeMenuCategories(categories: MenuCategory[]): MenuCategor
   return categories
     .map((cat) => ({
       name: (cat.name ?? "").trim(),
+      menuType: cat.menuType ?? ("dine_in" as const),
       items: (cat.items ?? []).map(normalizeMenuItem).filter((i) => i.name.length > 0),
     }))
     .filter((cat) => cat.name.length > 0 && cat.items.length > 0)
@@ -221,6 +222,7 @@ export function computeMenuDiffHash(snapshot: MenuSnapshot): string {
   const payload = {
     categories: snapshot.categories.map((cat) => ({
       name: cat.name,
+      menuType: cat.menuType,
       items: cat.items.map((i) => ({
         name: i.name,
         price: i.price,

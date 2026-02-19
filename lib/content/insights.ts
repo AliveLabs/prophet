@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
 // Content & Menu – deterministic insight rules
-// 7 rules per PRD section 7
+// 8 rules: 7 original + catering pricing gap
 // ---------------------------------------------------------------------------
 
 import type { GeneratedInsight } from "@/lib/insights/types"
-import type { MenuSnapshot, SiteContentSnapshot, MenuCategory } from "./types"
+import type { MenuSnapshot, SiteContentSnapshot, MenuCategory, MenuType } from "./types"
 
 type CompetitorMenu = {
   competitorId: string
@@ -16,6 +16,10 @@ type CompetitorMenu = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function filterByMenuType(categories: MenuCategory[], menuType: MenuType): MenuCategory[] {
+  return categories.filter((c) => (c.menuType ?? "dine_in") === menuType)
+}
 
 function avgPrice(categories: MenuCategory[]): number | null {
   const prices: number[] = []
@@ -71,15 +75,19 @@ export function generateContentInsights(
 ): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
 
+  // Use dine-in categories only for price/category/item comparisons
+  const locDineIn = locationMenu ? filterByMenuType(locationMenu.categories, "dine_in") : []
+  const locCatering = locationMenu ? filterByMenuType(locationMenu.categories, "catering") : []
+
   // -----------------------------------------------------------------------
-  // 1. menu.price_positioning_shift
-  // Compare location avg entree price vs competitor avg
+  // 1. menu.price_positioning_shift (dine-in only)
   // -----------------------------------------------------------------------
-  if (locationMenu && locationMenu.categories.length > 0) {
-    const locAvg = avgPrice(locationMenu.categories)
+  if (locDineIn.length > 0) {
+    const locAvg = avgPrice(locDineIn)
     for (const comp of competitorMenus) {
-      if (comp.menu.categories.length === 0) continue
-      const compAvg = avgPrice(comp.menu.categories)
+      const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
+      if (compDineIn.length === 0) continue
+      const compAvg = avgPrice(compDineIn)
       if (locAvg == null || compAvg == null) continue
       const diff = compAvg - locAvg
       const pctDiff = Math.abs(diff) / locAvg
@@ -88,9 +96,9 @@ export function generateContentInsights(
         insights.push({
           insight_type: "menu.price_positioning_shift",
           title: diff > 0
-            ? `${comp.competitorName} prices are ${Math.round(pctDiff * 100)}% higher`
-            : `${comp.competitorName} prices are ${Math.round(pctDiff * 100)}% lower`,
-          summary: `Your average menu price ($${locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compAvg.toFixed(2)}). ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
+            ? `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% higher`
+            : `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% lower`,
+          summary: `Your average dine-in price ($${locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compAvg.toFixed(2)}). ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
           confidence: "high",
           severity: Math.abs(pctDiff) >= 0.3 ? "warning" : "info",
           evidence: {
@@ -98,13 +106,14 @@ export function generateContentInsights(
             competitorAvgPrice: compAvg,
             priceDiffPct: Math.round(pctDiff * 100),
             competitor: comp.competitorName,
+            menuType: "dine_in",
           },
           recommendations: [
             {
               title: diff > 0 ? "Evaluate a price increase" : "Review your pricing strategy",
               rationale: diff > 0
-                ? `${comp.competitorName} charges ${Math.round(pctDiff * 100)}% more. Test raising prices on high-margin items.`
-                : `${comp.competitorName} is ${Math.round(pctDiff * 100)}% cheaper. Ensure your value proposition justifies the premium.`,
+                ? `${comp.competitorName} charges ${Math.round(pctDiff * 100)}% more for dine-in. Test raising prices on high-margin items.`
+                : `${comp.competitorName} is ${Math.round(pctDiff * 100)}% cheaper for dine-in. Ensure your value proposition justifies the premium.`,
             },
           ],
         })
@@ -113,26 +122,27 @@ export function generateContentInsights(
   }
 
   // -----------------------------------------------------------------------
-  // 2. menu.category_gap
-  // Competitor has a category the location doesn't
+  // 2. menu.category_gap (dine-in only)
   // -----------------------------------------------------------------------
-  if (locationMenu && locationMenu.categories.length > 0) {
-    const locCats = categoryNames(locationMenu.categories)
+  if (locDineIn.length > 0) {
+    const locCats = categoryNames(locDineIn)
     for (const comp of competitorMenus) {
-      if (comp.menu.categories.length === 0) continue
-      const compCats = categoryNames(comp.menu.categories)
+      const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
+      if (compDineIn.length === 0) continue
+      const compCats = categoryNames(compDineIn)
       const missing = [...compCats].filter((c) => !locCats.has(c))
       if (missing.length > 0) {
         insights.push({
           insight_type: "menu.category_gap",
-          title: `${comp.competitorName} offers categories you don't`,
-          summary: `${comp.competitorName} has menu categories that you lack: ${missing.join(", ")}. Consider whether adding similar offerings could attract more customers.`,
+          title: `${comp.competitorName} offers dine-in categories you don't`,
+          summary: `${comp.competitorName} has dine-in menu categories that you lack: ${missing.join(", ")}. Consider whether adding similar offerings could attract more customers.`,
           confidence: "medium",
           severity: "info",
           evidence: {
             missingCategories: missing,
             competitor: comp.competitorName,
             locationCategories: [...locCats],
+            menuType: "dine_in",
           },
           recommendations: [
             {
@@ -146,26 +156,27 @@ export function generateContentInsights(
   }
 
   // -----------------------------------------------------------------------
-  // 3. menu.signature_item_missing
-  // Competitor has items (popular keywords) that location lacks
+  // 3. menu.signature_item_missing (dine-in only)
   // -----------------------------------------------------------------------
-  if (locationMenu && locationMenu.categories.length > 0) {
-    const locItems = allItemNames(locationMenu.categories)
+  if (locDineIn.length > 0) {
+    const locItems = allItemNames(locDineIn)
     for (const comp of competitorMenus) {
-      if (comp.menu.categories.length === 0) continue
-      const compItems = allItemNames(comp.menu.categories)
+      const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
+      if (compDineIn.length === 0) continue
+      const compItems = allItemNames(compDineIn)
       const unique = [...compItems].filter((i) => !locItems.has(i))
       if (unique.length >= 3) {
         insights.push({
           insight_type: "menu.signature_item_missing",
-          title: `${comp.competitorName} offers ${unique.length} items you don't`,
-          summary: `${comp.competitorName} has ${unique.length} menu items not on your menu. Examples: ${unique.slice(0, 5).join(", ")}.`,
+          title: `${comp.competitorName} offers ${unique.length} dine-in items you don't`,
+          summary: `${comp.competitorName} has ${unique.length} dine-in menu items not on your menu. Examples: ${unique.slice(0, 5).join(", ")}.`,
           confidence: "medium",
           severity: "info",
           evidence: {
             uniqueItems: unique.slice(0, 10),
             competitor: comp.competitorName,
             totalUniqueCount: unique.length,
+            menuType: "dine_in",
           },
           recommendations: [
             {
@@ -180,7 +191,6 @@ export function generateContentInsights(
 
   // -----------------------------------------------------------------------
   // 4. menu.promo_signal_detected
-  // Detect promotional keywords in menu text
   // -----------------------------------------------------------------------
   const allText = (locationMenu?.categories ?? [])
     .flatMap((c) =>
@@ -212,14 +222,13 @@ export function generateContentInsights(
             },
           ],
         })
-        break // one insight per competitor for promo signals
+        break
       }
     }
   }
 
   // -----------------------------------------------------------------------
   // 5. menu.menu_change_detected
-  // Location's menu changed since last snapshot
   // -----------------------------------------------------------------------
   if (locationMenu && previousLocationMenu) {
     const currentItems = locationMenu.parseMeta.itemsTotal
@@ -252,7 +261,6 @@ export function generateContentInsights(
 
   // -----------------------------------------------------------------------
   // 6. content.conversion_feature_gap
-  // Competitor has website features (reservations, ordering) that location lacks
   // -----------------------------------------------------------------------
   if (locationSiteContent) {
     const locFeatures = locationSiteContent.detected
@@ -290,7 +298,6 @@ export function generateContentInsights(
 
   // -----------------------------------------------------------------------
   // 7. content.delivery_platform_gap
-  // Competitor on delivery platforms location isn't
   // -----------------------------------------------------------------------
   if (locationSiteContent) {
     const locPlatforms = new Set(locationSiteContent.detected.deliveryPlatforms)
@@ -315,6 +322,49 @@ export function generateContentInsights(
             {
               title: `Consider joining ${missing.slice(0, 2).join(" and ")}`,
               rationale: `Competitors are capturing delivery orders on these platforms. Evaluate the commission structure and potential revenue.`,
+            },
+          ],
+        })
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // 8. menu.catering_pricing_gap (catering menus only)
+  // Compare catering prices between location and competitors
+  // -----------------------------------------------------------------------
+  if (locCatering.length > 0) {
+    const locCatAvg = avgPrice(locCatering)
+    for (const comp of competitorMenus) {
+      const compCatering = filterByMenuType(comp.menu.categories, "catering")
+      if (compCatering.length === 0) continue
+      const compCatAvg = avgPrice(compCatering)
+      if (locCatAvg == null || compCatAvg == null) continue
+      const diff = compCatAvg - locCatAvg
+      const pctDiff = Math.abs(diff) / locCatAvg
+
+      if (pctDiff >= 0.10) {
+        insights.push({
+          insight_type: "menu.catering_pricing_gap",
+          title: diff > 0
+            ? `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% higher`
+            : `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% lower`,
+          summary: `Your average catering price ($${locCatAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compCatAvg.toFixed(2)}). Catering margins are typically high — pricing accurately matters.`,
+          confidence: "high",
+          severity: Math.abs(pctDiff) >= 0.25 ? "warning" : "info",
+          evidence: {
+            locationCateringAvgPrice: locCatAvg,
+            competitorCateringAvgPrice: compCatAvg,
+            priceDiffPct: Math.round(pctDiff * 100),
+            competitor: comp.competitorName,
+            menuType: "catering",
+          },
+          recommendations: [
+            {
+              title: diff > 0 ? "Review catering price opportunity" : "Audit catering pricing competitiveness",
+              rationale: diff > 0
+                ? `${comp.competitorName} charges ${Math.round(pctDiff * 100)}% more for catering. You may be leaving revenue on the table.`
+                : `${comp.competitorName} undercuts your catering prices by ${Math.round(pctDiff * 100)}%. Evaluate your catering value proposition.`,
             },
           ],
         })

@@ -4,14 +4,16 @@
 // ---------------------------------------------------------------------------
 
 import { discoverAllMenuUrls, scrapeMenuPage } from "@/lib/providers/firecrawl"
-import { normalizeExtractedMenu, mergeExtractedMenus } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { buildMenuSnapshot, computeMenuDiffHash } from "@/lib/content/normalize"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
+import type { MenuSource } from "@/lib/content/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // ---------------------------------------------------------------------------
-// enrichCompetitorContent – multi-URL scrape + merge for one competitor
+// enrichCompetitorContent – multi-URL scrape + Gemini Google + merge
 // ---------------------------------------------------------------------------
 
 function ensureUrl(url: string): string {
@@ -25,12 +27,14 @@ export async function enrichCompetitorContent(
   website: string,
   organizationId: string,
   dateKey: string,
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  competitorAddress?: string | null
 ): Promise<{ warnings: string[] }> {
   const warnings: string[] = []
 
   try {
     const compUrl = ensureUrl(website)
+    const sources: MenuSource[] = []
 
     // Discover menu URLs (cap at 2 for competitors)
     let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
@@ -62,6 +66,19 @@ export async function enrichCompetitorContent(
       }
     }
 
+    if (compParsedResults.length > 0) sources.push("firecrawl")
+
+    // Gemini + Google Search Grounding for richer menu data
+    try {
+      const googleMenu = await fetchGoogleMenuData(competitorName, competitorAddress ?? null)
+      if (googleMenu && googleMenu.categories.length > 0) {
+        compParsedResults.push(normalizeGoogleMenuData(googleMenu))
+        sources.push("gemini_google_search")
+      }
+    } catch {
+      // Non-fatal
+    }
+
     if (compParsedResults.length > 0) {
       const merged = mergeExtractedMenus(compParsedResults)
       const compMenu = buildMenuSnapshot(
@@ -74,6 +91,7 @@ export async function enrichCompetitorContent(
           : null,
         merged.currency
       )
+      compMenu.parseMeta.sources = sources
 
       // Store in snapshots table (competitor-scoped)
       const menuHash = computeMenuDiffHash(compMenu)
@@ -94,7 +112,7 @@ export async function enrichCompetitorContent(
         console.warn(`[Content Enrich] Snapshot save failed for ${competitorName}:`, error.message)
         warnings.push(`Menu snapshot save failed for ${competitorName}`)
       } else {
-        console.log(`[Content Enrich] Menu saved for ${competitorName}: ${compMenu.parseMeta.itemsTotal} items from ${compParsedResults.length} source(s)`)
+        console.log(`[Content Enrich] Menu saved for ${competitorName}: ${compMenu.parseMeta.itemsTotal} items (sources: ${sources.join(" + ")})`)
       }
     } else {
       warnings.push(`No menu content found for ${competitorName}`)

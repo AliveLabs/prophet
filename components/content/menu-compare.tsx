@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 
 type MenuItem = {
   name: string
@@ -10,8 +10,11 @@ type MenuItem = {
   tags: string[]
 }
 
+type MenuType = "dine_in" | "catering" | "banquet" | "happy_hour" | "kids" | "other"
+
 type MenuCategory = {
   name: string
+  menuType?: MenuType
   items: MenuItem[]
 }
 
@@ -42,6 +45,10 @@ function computeAvgPrice(categories: MenuCategory[]): number | null {
   return prices.reduce((a, b) => a + b, 0) / prices.length
 }
 
+function filterByMenuType(categories: MenuCategory[], menuType: MenuType): MenuCategory[] {
+  return categories.filter((c) => (c.menuType ?? "dine_in") === menuType)
+}
+
 function uniqueItems(
   compCategories: MenuCategory[],
   locCategories: MenuCategory[]
@@ -62,6 +69,15 @@ function uniqueItems(
   return unique
 }
 
+const COMPARE_TYPE_LABELS: Record<string, string> = {
+  dine_in: "Dine-In",
+  catering: "Catering",
+  banquet: "Banquet",
+  happy_hour: "Happy Hour",
+  kids: "Kids",
+  other: "Other",
+}
+
 export default function MenuCompare({
   locationName,
   locationCategories,
@@ -69,6 +85,17 @@ export default function MenuCompare({
   competitors,
 }: MenuCompareProps) {
   const [selectedComp, setSelectedComp] = useState(0)
+
+  const allMenuTypes = useMemo(() => {
+    const types = new Set<MenuType>()
+    for (const c of locationCategories) types.add(c.menuType ?? "dine_in")
+    for (const comp of competitors) {
+      for (const c of comp.categories) types.add(c.menuType ?? "dine_in")
+    }
+    return Array.from(types)
+  }, [locationCategories, competitors])
+
+  const [compareType, setCompareType] = useState<MenuType>("dine_in")
 
   if (competitors.length === 0) {
     return (
@@ -78,33 +105,52 @@ export default function MenuCompare({
     )
   }
 
-  const locItemCount = locationCategories.reduce((s, c) => s + c.items.length, 0)
-  const locCatNames = new Set(locationCategories.map((c) => c.name.toLowerCase().trim()))
   const comp = competitors[selectedComp] ?? competitors[0]
-  const compAvg = comp.avgPrice ?? computeAvgPrice(comp.categories)
-  const locAvg = locationAvgPrice ?? computeAvgPrice(locationCategories)
-  const compCatNames = new Set(comp.categories.map((c) => c.name.toLowerCase().trim()))
+
+  const filteredLocCats = filterByMenuType(locationCategories, compareType)
+  const filteredCompCats = filterByMenuType(comp.categories, compareType)
+
+  const locAvg = computeAvgPrice(filteredLocCats) ?? locationAvgPrice
+  const compAvg = computeAvgPrice(filteredCompCats) ?? comp.avgPrice
+  const locItemCount = filteredLocCats.reduce((s, c) => s + c.items.length, 0)
+  const compItemCount = filteredCompCats.reduce((s, c) => s + c.items.length, 0)
+
+  const locCatNames = new Set(filteredLocCats.map((c) => c.name.toLowerCase().trim()))
+  const compCatNames = new Set(filteredCompCats.map((c) => c.name.toLowerCase().trim()))
   const missingCats = [...compCatNames].filter((c) => !locCatNames.has(c))
-  const compUniqueItems = uniqueItems(comp.categories, locationCategories)
+  const compUniqueItems = uniqueItems(filteredCompCats, filteredLocCats)
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
         <h3 className="text-sm font-semibold text-slate-900">Competitor Menu Compare</h3>
-        {competitors.length > 1 && (
-          <select
-            value={selectedComp}
-            onChange={(e) => setSelectedComp(Number(e.target.value))}
-            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
-          >
-            {competitors.map((c, idx) => (
-              <option key={idx} value={idx}>
-                {c.competitorName}
-              </option>
-            ))}
-          </select>
-        )}
+        <div className="flex items-center gap-2">
+          {allMenuTypes.length > 1 && (
+            <select
+              value={compareType}
+              onChange={(e) => setCompareType(e.target.value as MenuType)}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+            >
+              {allMenuTypes.map((mt) => (
+                <option key={mt} value={mt}>{COMPARE_TYPE_LABELS[mt] ?? mt}</option>
+              ))}
+            </select>
+          )}
+          {competitors.length > 1 && (
+            <select
+              value={selectedComp}
+              onChange={(e) => setSelectedComp(Number(e.target.value))}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+            >
+              {competitors.map((c, idx) => (
+                <option key={idx} value={idx}>
+                  {c.competitorName}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       {/* Price comparison */}
@@ -116,7 +162,9 @@ export default function MenuCompare({
           <p className="mt-1 text-xl font-bold text-indigo-700">
             {locAvg != null ? `$${locAvg.toFixed(2)}` : "N/A"}
           </p>
-          <p className="text-[10px] text-indigo-500">avg price · {locItemCount} items</p>
+          <p className="text-[10px] text-indigo-500">
+            avg {COMPARE_TYPE_LABELS[compareType]?.toLowerCase() ?? ""} price · {locItemCount} items
+          </p>
         </div>
         <div className="rounded-xl bg-slate-50 p-3 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -125,7 +173,9 @@ export default function MenuCompare({
           <p className="mt-1 text-xl font-bold text-slate-700">
             {compAvg != null ? `$${compAvg.toFixed(2)}` : "N/A"}
           </p>
-          <p className="text-[10px] text-slate-500">avg price · {comp.itemCount} items</p>
+          <p className="text-[10px] text-slate-500">
+            avg {COMPARE_TYPE_LABELS[compareType]?.toLowerCase() ?? ""} price · {compItemCount} items
+          </p>
         </div>
       </div>
 

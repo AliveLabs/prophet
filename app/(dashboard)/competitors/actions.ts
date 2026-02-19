@@ -488,13 +488,15 @@ export async function approveCompetitorAction(formData: FormData) {
   // Content/menu enrichment
   if (compWebsite) {
     try {
+      const compAddress = (placeDetails?.formattedAddress as string) ?? null
       const { warnings } = await enrichCompetitorContent(
         competitorId,
         competitor.name ?? "Competitor",
         compWebsite,
         organizationId,
         dateKey,
-        supabase
+        supabase,
+        compAddress
       )
       if (warnings.length > 0) {
         console.warn(`[Approve] Content enrichment warnings for ${competitor.name}:`, warnings)

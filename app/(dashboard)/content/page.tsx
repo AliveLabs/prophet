@@ -373,6 +373,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
               currency={menuSnap.currency}
               itemsTotal={menuSnap.parseMeta.itemsTotal}
               confidence={menuSnap.parseMeta.confidence}
+              sources={menuSnap.parseMeta.sources}
             />
           </div>
           <div className="space-y-4">

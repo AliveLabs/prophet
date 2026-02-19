@@ -6,11 +6,12 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
 import { normalizeSiteContentFromExtraction, buildMenuSnapshot, computeContentDiffHash, computeMenuDiffHash } from "@/lib/content/normalize"
-import { normalizeExtractedMenu, mergeExtractedMenus } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
-import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
+import type { MenuSnapshot, SiteContentSnapshot, MenuSource } from "@/lib/content/types"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -68,7 +69,7 @@ export async function refreshContentAction(formData: FormData) {
 
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, website, primary_place_id, organization_id")
+    .select("id, name, website, primary_place_id, organization_id, address_line1, city, region")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
@@ -217,8 +218,31 @@ export async function refreshContentAction(formData: FormData) {
       }
     }
 
+    // -----------------------------------------------------------------------
+    // STEP 3.5: Fetch Google menu data via Gemini + Search Grounding
+    // -----------------------------------------------------------------------
+    const sources: MenuSource[] = []
+    if (allParsedResults.length > 0) sources.push("firecrawl")
+
+    try {
+      const addressParts = [location.address_line1, location.city, location.region].filter(Boolean)
+      const locationAddress = addressParts.length > 0 ? addressParts.join(", ") : null
+      const googleMenu = await fetchGoogleMenuData(
+        location.name ?? "Restaurant",
+        locationAddress
+      )
+      if (googleMenu && googleMenu.categories.length > 0) {
+        const normalizedGoogle = normalizeGoogleMenuData(googleMenu)
+        allParsedResults.push(normalizedGoogle)
+        sources.push("gemini_google_search")
+        console.log(`[Content] Google Search grounding added ${normalizedGoogle.categories.reduce((s, c) => s + c.items.length, 0)} items`)
+      }
+    } catch (err) {
+      console.warn("[Content] Gemini Google menu fetch error:", err)
+      warnings.push("Google menu data fetch failed – using Firecrawl data only")
+    }
+
     if (allParsedResults.length > 0) {
-      // Merge all results into one combined menu
       const merged = mergeExtractedMenus(allParsedResults)
       console.log(`[Content] Merged menu: ${merged.categories.length} categories, ${merged.categories.reduce((s, c) => s + c.items.length, 0)} items from ${allParsedResults.length} source(s)`)
 
@@ -232,6 +256,7 @@ export async function refreshContentAction(formData: FormData) {
           : null,
         merged.currency
       )
+      locationMenu.parseMeta.sources = sources
 
       // Upsert location_snapshots for menu
       const menuHash = computeMenuDiffHash(locationMenu)
@@ -250,7 +275,7 @@ export async function refreshContentAction(formData: FormData) {
         console.warn("[Content] Menu upsert error:", upsertErr.message)
         warnings.push("Failed to save menu snapshot")
       } else {
-        console.log(`[Content] Menu saved: ${locationMenu.parseMeta.itemsTotal} items`)
+        console.log(`[Content] Menu saved: ${locationMenu.parseMeta.itemsTotal} items (sources: ${sources.join(", ")})`)
       }
     } else {
       warnings.push("No menu content found across any discovered URLs")
@@ -289,6 +314,7 @@ export async function refreshContentAction(formData: FormData) {
 
     try {
       const compUrl = ensureUrl(compWebsite)
+      const compSources: MenuSource[] = []
 
       // Discover menu URLs for this competitor (cap at 2)
       let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
@@ -320,6 +346,25 @@ export async function refreshContentAction(formData: FormData) {
         }
       }
 
+      if (compParsedResults.length > 0) compSources.push("firecrawl")
+
+      // Gemini Google Search grounding for competitor
+      try {
+        const compMeta = comp.metadata as Record<string, unknown> | null
+        const compPlaceDetails = compMeta?.placeDetails as Record<string, unknown> | null
+        const compAddress = (compPlaceDetails?.formattedAddress as string) ?? null
+        const googleCompMenu = await fetchGoogleMenuData(
+          comp.name ?? "Restaurant",
+          compAddress
+        )
+        if (googleCompMenu && googleCompMenu.categories.length > 0) {
+          compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
+          compSources.push("gemini_google_search")
+        }
+      } catch {
+        // Non-fatal
+      }
+
       if (compParsedResults.length > 0) {
         const merged = mergeExtractedMenus(compParsedResults)
         const compMenu = buildMenuSnapshot(
@@ -332,6 +377,7 @@ export async function refreshContentAction(formData: FormData) {
             : null,
           merged.currency
         )
+        compMenu.parseMeta.sources = compSources
 
         const compSiteContent: SiteContentSnapshot | null = normalizeSiteContentFromExtraction(compUrl, null, null)
 
@@ -356,7 +402,7 @@ export async function refreshContentAction(formData: FormData) {
           menu: compMenu,
           siteContent: compSiteContent,
         })
-        console.log(`[Content] Competitor ${comp.name}: ${compMenu.parseMeta.itemsTotal} items from ${compParsedResults.length} source(s)`)
+        console.log(`[Content] Competitor ${comp.name}: ${compMenu.parseMeta.itemsTotal} items from ${compSources.join(" + ")}`)
       }
     } catch {
       warnings.push(`Could not scrape menu for ${comp.name ?? "competitor"}`)

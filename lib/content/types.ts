@@ -48,15 +48,21 @@ export type MenuItem = {
   tags: string[]             // e.g. ["vegan", "spicy", "gluten-free"]
 }
 
+export type MenuType = "dine_in" | "catering" | "banquet" | "happy_hour" | "kids" | "other"
+
 export type MenuCategory = {
   name: string
+  menuType: MenuType
   items: MenuItem[]
 }
+
+export type MenuSource = "firecrawl" | "gemini_google_search"
 
 export type ParseMeta = {
   itemsTotal: number
   confidence: "high" | "medium" | "low"
   notes: string[]
+  sources?: MenuSource[]
 }
 
 export type MenuSnapshot = {
@@ -96,6 +102,6 @@ export function emptyMenu(): MenuSnapshot {
     screenshot: null,
     currency: null,
     categories: [],
-    parseMeta: { itemsTotal: 0, confidence: "low", notes: ["No menu data found"] },
+    parseMeta: { itemsTotal: 0, confidence: "low", notes: ["No menu data found"], sources: [] },
   }
 }

@@ -3,8 +3,9 @@
 // Firecrawl does the heavy lifting (LLM extraction); we just normalize.
 // ---------------------------------------------------------------------------
 
-import type { MenuCategory, MenuItem } from "./types"
+import type { MenuCategory, MenuItem, MenuType } from "./types"
 import type { ExtractedMenu } from "@/lib/providers/firecrawl"
+import type { GoogleMenuResult } from "@/lib/ai/gemini"
 
 // ---------------------------------------------------------------------------
 // Strip markdown formatting from text
@@ -24,6 +25,28 @@ function cleanText(text: string): string {
     .replace(/\|/g, " ")
     .replace(/\s{2,}/g, " ")
     .trim()
+}
+
+// ---------------------------------------------------------------------------
+// Category classification – detect catering, happy hour, kids, etc.
+// ---------------------------------------------------------------------------
+
+const CATERING_PATTERNS = [
+  /\bcater/i, /\bbanquet/i, /\bevent\s*package/i, /\bgroup\s*dining/i,
+  /\bparty\s*pack/i, /\bparty\s*platter/i, /\bbuffet\s*package/i,
+  /\blarge\s*party/i, /\bcorporate\s*(lunch|dinner|event)/i,
+]
+const BANQUET_PATTERNS = [/\bbanquet/i, /\bevent\s*package/i, /\bprivate\s*dining\s*menu/i]
+const HAPPY_HOUR_PATTERNS = [/\bhappy\s*hour/i, /\bhh\s*special/i, /\bdrink\s*special/i]
+const KIDS_PATTERNS = [/\bkid/i, /\bchild/i, /\blittle\s*ones/i, /\bjunior/i]
+
+export function classifyMenuCategory(categoryName: string): MenuType {
+  const name = categoryName.toLowerCase()
+  for (const p of BANQUET_PATTERNS) if (p.test(name)) return "banquet"
+  for (const p of CATERING_PATTERNS) if (p.test(name)) return "catering"
+  for (const p of HAPPY_HOUR_PATTERNS) if (p.test(name)) return "happy_hour"
+  for (const p of KIDS_PATTERNS) if (p.test(name)) return "kids"
+  return "dine_in"
 }
 
 // ---------------------------------------------------------------------------
@@ -49,23 +72,27 @@ export function normalizeExtractedMenu(
 
   const categories: MenuCategory[] = extracted.categories
     .filter((c) => c.name && c.items?.length)
-    .map((c) => ({
-      name: cleanText(c.name),
-      items: (c.items ?? [])
-        .filter((i) => i.name)
-        .map((i): MenuItem => ({
-          name: cleanText(i.name),
-          description: i.description ? cleanText(i.description) || null : null,
-          price: i.price?.trim() || null,
-          priceValue:
-            typeof i.priceValue === "number" && Number.isFinite(i.priceValue)
-              ? i.priceValue
-              : null,
-          tags: Array.isArray(i.tags)
-            ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
-            : [],
-        })),
-    }))
+    .map((c) => {
+      const name = cleanText(c.name)
+      return {
+        name,
+        menuType: classifyMenuCategory(name),
+        items: (c.items ?? [])
+          .filter((i) => i.name)
+          .map((i): MenuItem => ({
+            name: cleanText(i.name),
+            description: i.description ? cleanText(i.description) || null : null,
+            price: i.price?.trim() || null,
+            priceValue:
+              typeof i.priceValue === "number" && Number.isFinite(i.priceValue)
+                ? i.priceValue
+                : null,
+            tags: Array.isArray(i.tags)
+              ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
+              : [],
+          })),
+      }
+    })
 
   const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
   const confidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
@@ -81,8 +108,45 @@ export function normalizeExtractedMenu(
 }
 
 // ---------------------------------------------------------------------------
+// Normalize Google Gemini menu data into our NormalizedMenuResult type
+// ---------------------------------------------------------------------------
+
+export function normalizeGoogleMenuData(
+  googleResult: GoogleMenuResult
+): NormalizedMenuResult {
+  const categories: MenuCategory[] = googleResult.categories
+    .filter((c) => c.name && c.items?.length)
+    .map((c) => ({
+      name: c.name.trim(),
+      menuType: c.menuType ?? classifyMenuCategory(c.name),
+      items: c.items
+        .filter((i) => i.name)
+        .map((i): MenuItem => ({
+          name: i.name.trim(),
+          description: i.description?.trim() || null,
+          price: i.price?.trim() || null,
+          priceValue:
+            typeof i.priceValue === "number" && Number.isFinite(i.priceValue)
+              ? i.priceValue
+              : null,
+          tags: Array.isArray(i.tags)
+            ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
+            : [],
+        })),
+    }))
+
+  return {
+    categories,
+    currency: googleResult.currency,
+    confidence: googleResult.confidence,
+    notes: googleResult.notes,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Merge multiple extracted menus into one combined result
 // Deduplicates categories by normalized name & items by normalized item name
+// Preserves menuType classification during merge
 // ---------------------------------------------------------------------------
 
 function normalizeKey(text: string): string {
@@ -97,8 +161,7 @@ export function mergeExtractedMenus(
   }
   if (results.length === 1) return results[0]
 
-  // Track categories by normalized name → { name, items Map }
-  const catMap = new Map<string, { displayName: string; itemMap: Map<string, MenuItem> }>()
+  const catMap = new Map<string, { displayName: string; menuType: MenuType; itemMap: Map<string, MenuItem> }>()
   const allNotes: string[] = []
   let bestCurrency: string | null = null
   let highestConfidence: "high" | "medium" | "low" = "low"
@@ -106,37 +169,37 @@ export function mergeExtractedMenus(
   const confidenceRank = { high: 3, medium: 2, low: 1 }
 
   for (const result of results) {
-    // Track best currency (first non-null wins)
     if (!bestCurrency && result.currency) {
       bestCurrency = result.currency
     }
 
-    // Track highest confidence
     if (confidenceRank[result.confidence] > confidenceRank[highestConfidence]) {
       highestConfidence = result.confidence
     }
 
-    // Collect all notes
     allNotes.push(...result.notes)
 
-    // Merge categories
     for (const cat of result.categories) {
       const catKey = normalizeKey(cat.name)
       if (!catMap.has(catKey)) {
         catMap.set(catKey, {
           displayName: cat.name,
+          menuType: cat.menuType ?? classifyMenuCategory(cat.name),
           itemMap: new Map(),
         })
       }
       const existing = catMap.get(catKey)!
 
-      // Merge items, deduplicating by normalized name
+      // If a non-dine_in classification comes from any source, prefer it
+      if (existing.menuType === "dine_in" && cat.menuType && cat.menuType !== "dine_in") {
+        existing.menuType = cat.menuType
+      }
+
       for (const item of cat.items) {
         const itemKey = normalizeKey(item.name)
         if (!existing.itemMap.has(itemKey)) {
           existing.itemMap.set(itemKey, item)
         } else {
-          // Keep the version with more info (has price, description, etc.)
           const prev = existing.itemMap.get(itemKey)!
           const prevScore = (prev.price ? 1 : 0) + (prev.description ? 1 : 0) + (prev.tags.length > 0 ? 1 : 0)
           const newScore = (item.price ? 1 : 0) + (item.description ? 1 : 0) + (item.tags.length > 0 ? 1 : 0)
@@ -148,16 +211,15 @@ export function mergeExtractedMenus(
     }
   }
 
-  // Build merged categories
   const categories: MenuCategory[] = Array.from(catMap.values()).map((entry) => ({
     name: entry.displayName,
+    menuType: entry.menuType,
     items: Array.from(entry.itemMap.values()),
   }))
 
   const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
   allNotes.push(`Merged from ${results.length} sources (${totalItems} total items across ${categories.length} categories)`)
 
-  // Recompute confidence based on merged total
   const mergedConfidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
   const finalConfidence = confidenceRank[mergedConfidence] > confidenceRank[highestConfidence]
     ? mergedConfidence
