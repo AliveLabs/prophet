@@ -7,6 +7,8 @@ import { createLocationFromPlaceAction, deleteLocationAction, updateLocationActi
 import { fetchPlaceDetails } from "@/lib/places/google"
 import MiniMap from "@/components/places/mini-map"
 import { fetchCurrentConditions, type WeatherSnapshot } from "@/lib/weather/google"
+import { getScreenshotUrl } from "@/lib/content/storage"
+import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 
 const IconStar = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor">
@@ -70,6 +72,7 @@ const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
   return (
     <div className="flex items-center gap-3">
       {weather.iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
       ) : null}
       <div className="text-xs text-slate-600">
@@ -109,7 +112,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
 
   const { data: locations } = await supabase
     .from("locations")
-    .select("id, name, city, region, country, address_line1, primary_place_id, geo_lat, geo_lng")
+    .select("id, name, city, region, country, address_line1, primary_place_id, geo_lat, geo_lng, website")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: false })
 
@@ -148,6 +151,61 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
     placeProfiles.map((profile) => [profile.locationId, profile.details])
   )
   const weatherMap = new Map(placeProfiles.map((profile) => [profile.locationId, profile.weather]))
+
+  // Fetch content snapshots for each location (screenshot + menu status)
+  type ContentInfo = {
+    screenshotUrl: string | null
+    menuItemCount: number
+    menuConfidence: string | null
+    lastScrapedAt: string | null
+  }
+  const contentInfoMap = new Map<string, ContentInfo>()
+  await Promise.all(
+    (locations ?? []).map(async (location) => {
+      try {
+        const { data: siteSnap } = await supabase
+          .from("location_snapshots")
+          .select("raw_data, date_key")
+          .eq("location_id", location.id)
+          .eq("provider", "firecrawl_site_content")
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        const { data: menuSnapRow } = await supabase
+          .from("location_snapshots")
+          .select("raw_data, date_key")
+          .eq("location_id", location.id)
+          .eq("provider", "firecrawl_menu")
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        let scrUrl: string | null = null
+        if (siteSnap) {
+          const sc = siteSnap.raw_data as SiteContentSnapshot
+          if (sc?.screenshot?.storagePath) {
+            scrUrl = await getScreenshotUrl(sc.screenshot.storagePath)
+          }
+        }
+
+        const menuData = menuSnapRow?.raw_data as MenuSnapshot | null
+        contentInfoMap.set(location.id, {
+          screenshotUrl: scrUrl,
+          menuItemCount: menuData?.parseMeta?.itemsTotal ?? 0,
+          menuConfidence: menuData?.parseMeta?.confidence ?? null,
+          lastScrapedAt: siteSnap?.date_key ?? menuSnapRow?.date_key ?? null,
+        })
+      } catch {
+        contentInfoMap.set(location.id, {
+          screenshotUrl: null,
+          menuItemCount: 0,
+          menuConfidence: null,
+          lastScrapedAt: null,
+        })
+      }
+    })
+  )
 
   const resolvedSearchParams = await Promise.resolve(searchParams)
   const error = resolvedSearchParams?.error
@@ -197,6 +255,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
               const website = placeDetails?.websiteUri
               const hours = placeDetails?.regularOpeningHours?.weekdayDescriptions ?? []
               const reviews = placeDetails?.reviews ?? []
+              const contentInfo = contentInfoMap.get(location.id)
 
               return (
                 <div
@@ -245,6 +304,40 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                           </a>
                         ) : null}
                       </div>
+                      {/* Content & Menu badges */}
+                      {contentInfo && (
+                        <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                          {contentInfo.menuConfidence ? (
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
+                                contentInfo.menuItemCount > 0
+                                  ? "bg-green-50 text-green-700"
+                                  : "bg-slate-100 text-slate-500"
+                              }`}
+                            >
+                              {contentInfo.menuItemCount > 0 ? (
+                                <>
+                                  <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                                  </svg>
+                                  Menu scraped · {contentInfo.menuItemCount} items
+                                </>
+                              ) : (
+                                "No menu found"
+                              )}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-600">
+                              Needs content refresh
+                            </span>
+                          )}
+                          {contentInfo.lastScrapedAt && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-slate-500">
+                              Scraped {contentInfo.lastScrapedAt}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
                         <p className="mb-2 text-sm font-semibold text-slate-700">
                           Local weather
@@ -253,6 +346,16 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                       </div>
                     </div>
                     <div className="flex w-full flex-col items-start gap-3 sm:w-auto">
+                      {contentInfo?.screenshotUrl && (
+                        <div className="overflow-hidden rounded-xl border border-slate-200 w-full sm:w-48">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={contentInfo.screenshotUrl}
+                            alt={`${location.name} website`}
+                            className="h-28 w-full object-cover object-top"
+                          />
+                        </div>
+                      )}
                       <MiniMap
                         lat={latitude ?? null}
                         lng={longitude ?? null}
@@ -326,6 +429,26 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                         defaultValue={address ?? ""}
                         className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
                       />
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-semibold text-slate-500">
+                        Website URL
+                      </label>
+                      <input
+                        name="website"
+                        type="url"
+                        defaultValue={location.website ?? website ?? ""}
+                        placeholder="https://example.com/your-branch-page"
+                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                      />
+                      {website && location.website !== website && (
+                        <p className="text-[11px] text-slate-400">
+                          Google Places detected: <span className="font-medium text-slate-500">{website}</span>
+                        </p>
+                      )}
+                      <p className="text-[11px] text-slate-400">
+                        Override with a branch-specific URL for Content &amp; Visibility tracking.
+                      </p>
                     </div>
                     <Button type="submit" size="sm">
                       Save changes

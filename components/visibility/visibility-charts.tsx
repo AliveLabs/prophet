@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 import {
   PieChart,
   Pie,
@@ -42,8 +42,7 @@ const COLORS = [
 // ---------------------------------------------------------------------------
 
 export default function VisibilityCharts({ sovData, locationDomain }: Props) {
-  const [isClient, setIsClient] = useState(false)
-  useEffect(() => setIsClient(true), [])
+  const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   if (!isClient || sovData.length === 0) {
     return <p className="text-sm text-slate-400">No share of voice data yet.</p>

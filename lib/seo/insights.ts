@@ -14,6 +14,9 @@ import type {
   HistoricalTrafficPoint,
 } from "./types"
 
+// Re-export types for external consumers
+export type { NormalizedRankedKeyword, NormalizedRelevantPage, HistoricalTrafficPoint }
+
 // ---------------------------------------------------------------------------
 // Thresholds
 // ---------------------------------------------------------------------------
@@ -44,7 +47,7 @@ export type SeoInsightContext = {
 // Main entry
 // ---------------------------------------------------------------------------
 
-export function generateSeoInsights(input: {
+export type SeoInsightInput = {
   currentRank: DomainRankSnapshot | null
   previousRank: DomainRankSnapshot | null
   currentKeywords: NormalizedRankedKeyword[]
@@ -60,8 +63,14 @@ export function generateSeoInsights(input: {
   currentPages?: NormalizedRelevantPage[]
   previousPages?: NormalizedRelevantPage[]
   historicalTraffic?: HistoricalTrafficPoint[]
+  // New: competitor-level enriched data (keyed by competitor ID)
+  competitorRankedKeywords?: Map<string, NormalizedRankedKeyword[]>
+  competitorRelevantPages?: Map<string, NormalizedRelevantPage[]>
+  competitorHistoricalTraffic?: Map<string, HistoricalTrafficPoint[]>
   context: SeoInsightContext
-}): GeneratedInsight[] {
+}
+
+export function generateSeoInsights(input: SeoInsightInput): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
   const ctx = input.context
 
@@ -103,6 +112,27 @@ export function generateSeoInsights(input: {
   // Historical traffic trend
   insights.push(
     ...detectHistoricalTrafficTrend(input.historicalTraffic ?? [], ctx)
+  )
+
+  // New: Competitor-specific enriched insights
+  insights.push(
+    ...detectCompetitorKeywordPortfolio(
+      input.currentKeywords,
+      input.competitorRankedKeywords ?? new Map(),
+      ctx
+    )
+  )
+  insights.push(
+    ...detectCompetitorTopPageThreat(
+      input.competitorRelevantPages ?? new Map(),
+      ctx
+    )
+  )
+  insights.push(
+    ...detectCompetitorGrowthTrend(
+      input.competitorHistoricalTraffic ?? new Map(),
+      ctx
+    )
   )
 
   return insights
@@ -212,7 +242,6 @@ function detectKeywordOpportunityGap(
 
   if (gaps.length === 0) return []
 
-  const topKeywords = gaps.map((g) => g.keyword).join(", ")
   const totalVolume = gaps.reduce((s, g) => s + (g.searchVolume ?? 0), 0)
 
   return [
@@ -713,4 +742,225 @@ function detectHistoricalTrafficTrend(
           ],
     },
   ]
+}
+
+// ---------------------------------------------------------------------------
+// 11. seo_competitor_keyword_portfolio — keywords competitors rank for that
+//     you don't (using enriched competitor ranked-keywords data)
+// ---------------------------------------------------------------------------
+
+const COMP_KEYWORD_MIN_VOLUME = 100
+const COMP_KEYWORD_MAX_RANK = 10
+
+function detectCompetitorKeywordPortfolio(
+  locationKeywords: NormalizedRankedKeyword[],
+  competitorKeywordsMap: Map<string, NormalizedRankedKeyword[]>,
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (competitorKeywordsMap.size === 0) return []
+
+  // Build a set of keywords the location already ranks for
+  const locationKwSet = new Set(
+    locationKeywords.map((k) => k.keyword.toLowerCase())
+  )
+
+  const insights: GeneratedInsight[] = []
+
+  for (const comp of ctx.competitors) {
+    const compKeywords = competitorKeywordsMap.get(comp.id)
+    if (!compKeywords || compKeywords.length === 0) continue
+
+    // Find high-value keywords where competitor ranks top 10 but location doesn't rank at all
+    const gaps = compKeywords
+      .filter(
+        (k) =>
+          k.rank <= COMP_KEYWORD_MAX_RANK &&
+          (k.searchVolume ?? 0) >= COMP_KEYWORD_MIN_VOLUME &&
+          !locationKwSet.has(k.keyword.toLowerCase())
+      )
+      .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+      .slice(0, 10)
+
+    if (gaps.length === 0) continue
+
+    const totalVolume = gaps.reduce((s, g) => s + (g.searchVolume ?? 0), 0)
+    const compName = comp.name ?? comp.domain ?? "A competitor"
+
+    insights.push({
+      insight_type: "seo_competitor_keyword_portfolio",
+      title: `${compName} ranks for ${gaps.length} keywords you're missing`,
+      summary: `${compName} ranks in the top ${COMP_KEYWORD_MAX_RANK} for ${gaps.length} high-volume keywords (${totalVolume.toLocaleString()} combined monthly searches) that ${ctx.locationName} doesn't appear for. Top opportunity: "${gaps[0].keyword}" (${(gaps[0].searchVolume ?? 0).toLocaleString()} searches/mo, rank #${gaps[0].rank}).`,
+      confidence: gaps.length >= 5 ? "high" : "medium",
+      severity: gaps.length >= 5 ? "warning" : "info",
+      evidence: {
+        competitor_id: comp.id,
+        competitor_name: compName,
+        competitor_domain: comp.domain,
+        gap_count: gaps.length,
+        total_volume: totalVolume,
+        top_gaps: gaps.slice(0, 5).map((g) => ({
+          keyword: g.keyword,
+          rank: g.rank,
+          search_volume: g.searchVolume,
+          cpc: g.cpc,
+          intent: g.intent,
+        })),
+        location_name: ctx.locationName,
+      },
+      recommendations: [
+        {
+          title: `Create content targeting "${gaps[0].keyword}"`,
+          rationale: `${compName} ranks #${gaps[0].rank} for this keyword with ${(gaps[0].searchVolume ?? 0).toLocaleString()} monthly searches${gaps[0].cpc ? ` and $${gaps[0].cpc.toFixed(2)} CPC` : ""}. Creating a well-optimized page could capture this traffic.`,
+        },
+        {
+          title: `Build a content plan for the ${gaps.length} keyword gaps`,
+          rationale: `These ${gaps.length} keywords represent ${totalVolume.toLocaleString()} monthly searches. Prioritize by search volume and commercial intent to maximize ROI.`,
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// 12. seo_competitor_top_page_threat — competitor pages getting significant
+//     organic traffic (using enriched competitor relevant pages data)
+// ---------------------------------------------------------------------------
+
+const COMP_PAGE_MIN_ETV = 100
+
+function detectCompetitorTopPageThreat(
+  competitorPagesMap: Map<string, NormalizedRelevantPage[]>,
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (competitorPagesMap.size === 0) return []
+
+  const insights: GeneratedInsight[] = []
+
+  for (const comp of ctx.competitors) {
+    const compPages = competitorPagesMap.get(comp.id)
+    if (!compPages || compPages.length === 0) continue
+
+    const topPages = compPages
+      .filter((p) => p.organicEtv >= COMP_PAGE_MIN_ETV)
+      .sort((a, b) => b.organicEtv - a.organicEtv)
+      .slice(0, 5)
+
+    if (topPages.length === 0) continue
+
+    const compName = comp.name ?? comp.domain ?? "A competitor"
+    const totalEtv = topPages.reduce((s, p) => s + p.organicEtv, 0)
+
+    insights.push({
+      insight_type: "seo_competitor_top_page_threat",
+      title: `${compName}'s top ${topPages.length} pages drive ${totalEtv.toLocaleString()} monthly visits`,
+      summary: `${compName}'s highest-traffic pages are generating significant organic traffic. Their top page "${topPages[0].url.split("/").pop() || topPages[0].url}" alone drives ~${topPages[0].organicEtv.toLocaleString()} estimated visits/month with ${topPages[0].organicKeywords} ranking keywords.`,
+      confidence: "medium",
+      severity: "info",
+      evidence: {
+        competitor_id: comp.id,
+        competitor_name: compName,
+        competitor_domain: comp.domain,
+        total_etv: totalEtv,
+        top_pages: topPages.map((p) => ({
+          url: p.url,
+          organic_etv: p.organicEtv,
+          organic_keywords: p.organicKeywords,
+          traffic_share: p.trafficShare,
+        })),
+        location_name: ctx.locationName,
+      },
+      recommendations: [
+        {
+          title: `Analyze ${compName}'s top-performing page`,
+          rationale: `Their page at "${topPages[0].url}" gets ~${topPages[0].organicEtv.toLocaleString()} visits/month. Study the content format, keywords targeted, and user experience to create a superior alternative.`,
+        },
+        {
+          title: `Create competing content for their top topics`,
+          rationale: `${compName}'s top ${topPages.length} pages together drive ${totalEtv.toLocaleString()} visits. Identify the topics they cover and create better, more comprehensive content to compete.`,
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// 13. seo_competitor_growth_trend — detect 3-month consistent growth or
+//     decline for each competitor (using enriched competitor historical data)
+// ---------------------------------------------------------------------------
+
+const COMP_GROWTH_PCT_THRESHOLD = 0.15 // 15% change over 3 months
+
+function detectCompetitorGrowthTrend(
+  competitorHistoryMap: Map<string, HistoricalTrafficPoint[]>,
+  ctx: SeoInsightContext
+): GeneratedInsight[] {
+  if (competitorHistoryMap.size === 0) return []
+
+  const insights: GeneratedInsight[] = []
+
+  for (const comp of ctx.competitors) {
+    const history = competitorHistoryMap.get(comp.id)
+    if (!history || history.length < 3) continue
+
+    const recent = history.slice(-3)
+    const isDecline = recent.every((p, i) => i === 0 || p.organicEtv < recent[i - 1].organicEtv)
+    const isGrowth = recent.every((p, i) => i === 0 || p.organicEtv > recent[i - 1].organicEtv)
+
+    if (!isDecline && !isGrowth) continue
+
+    const first = recent[0]
+    const last = recent[recent.length - 1]
+    const delta = last.organicEtv - first.organicEtv
+    const pct = first.organicEtv > 0 ? delta / first.organicEtv : 0
+
+    if (Math.abs(pct) < COMP_GROWTH_PCT_THRESHOLD) continue
+    if (Math.abs(delta) < 50) continue // minimum absolute change
+
+    const compName = comp.name ?? comp.domain ?? "A competitor"
+
+    insights.push({
+      insight_type: "seo_competitor_growth_trend",
+      title: isGrowth
+        ? `${compName}'s organic traffic grew ${Math.round(pct * 100)}% over 3 months`
+        : `${compName}'s organic traffic declined ${Math.abs(Math.round(pct * 100))}% over 3 months`,
+      summary: isGrowth
+        ? `${compName}'s estimated organic traffic has grown consistently: ${first.organicEtv.toLocaleString()} → ${last.organicEtv.toLocaleString()} (+${Math.round(pct * 100)}%) over 3 months. This competitor is gaining momentum and may capture more of your shared audience.`
+        : `${compName}'s organic traffic declined from ${first.organicEtv.toLocaleString()} to ${last.organicEtv.toLocaleString()} (${Math.round(pct * 100)}%) over 3 months. This may be an opportunity to capture their lost traffic.`,
+      confidence: "high",
+      severity: isGrowth ? "warning" : "info",
+      evidence: {
+        competitor_id: comp.id,
+        competitor_name: compName,
+        competitor_domain: comp.domain,
+        trend: isGrowth ? "growth" : "decline",
+        pct_change: Number((pct * 100).toFixed(1)),
+        months: recent.map((p) => ({ date: p.date, etv: p.organicEtv })),
+        total_delta: delta,
+        location_name: ctx.locationName,
+      },
+      recommendations: isGrowth
+        ? [
+            {
+              title: `Investigate what's driving ${compName}'s growth`,
+              rationale: `With +${Math.round(pct * 100)}% organic growth over 3 months, ${compName} is doing something right. Analyze their new content, backlinks, and keyword strategy to identify what's working and adapt.`,
+            },
+            {
+              title: `Accelerate your own content strategy`,
+              rationale: `A growing competitor means increased competition for shared keywords. Prioritize publishing new content and improving existing pages to maintain your position.`,
+            },
+          ]
+        : [
+            {
+              title: `Capitalize on ${compName}'s traffic decline`,
+              rationale: `${compName}'s ${Math.abs(Math.round(pct * 100))}% traffic drop means less competition for shared keywords. Target their weakening positions with strong content to capture their lost traffic.`,
+            },
+          ],
+    })
+  }
+
+  return insights
 }

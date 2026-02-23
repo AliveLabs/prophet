@@ -8,25 +8,210 @@ import { diffSnapshots, buildInsights, buildWeeklyInsights } from "@/lib/insight
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
+import { generateContentInsights } from "@/lib/content/insights"
+import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
+import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
+import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
+import type {
+  DomainRankSnapshot,
+  NormalizedRankedKeyword,
+  NormalizedRelevantPage,
+  HistoricalTrafficPoint,
+  NormalizedIntersectionRow,
+  NormalizedAdCreative,
+  SerpRankEntry,
+} from "@/lib/seo/types"
+import { updateWeight } from "@/lib/insights/scoring"
+import {
+  buildPriorityBriefingPrompt,
+  buildDeterministicBriefing,
+  type PriorityItem,
+  type InsightForBriefing,
+} from "@/lib/ai/prompts/priority-briefing"
+import type { InsightPreference } from "@/lib/insights/scoring"
 
-export async function markInsightReadAction(formData: FormData) {
-  await requireUser()
+// ---------------------------------------------------------------------------
+// Helper: rebuild redirect URL preserving all search params
+// ---------------------------------------------------------------------------
+
+function buildRedirectUrl(formData: FormData): string {
+  const params = new URLSearchParams()
+  const preserve = ["location_id", "range", "confidence", "severity", "source", "status"]
+  for (const key of preserve) {
+    const val = formData.get(`_param_${key}`)
+    if (val && typeof val === "string") params.set(key, val)
+  }
+  const qs = params.toString()
+  return `/insights${qs ? `?${qs}` : ""}`
+}
+
+// ---------------------------------------------------------------------------
+// Save (useful) action
+// ---------------------------------------------------------------------------
+
+export async function saveInsightAction(formData: FormData) {
+  const user = await requireUser()
   const insightId = String(formData.get("insight_id") ?? "")
   if (!insightId) {
     redirect("/insights?error=Missing%20insight")
   }
 
   const supabase = await createServerSupabaseClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type, location_id")
+    .eq("id", insightId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("insights")
-    .update({ status: "read" })
+    .update({
+      status: "read",
+      user_feedback: "useful",
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
     .eq("id", insightId)
 
   if (error) {
     redirect(`/insights?error=${encodeURIComponent(error.message)}`)
   }
 
-  redirect("/insights")
+  if (insight) {
+    await updateOrgPreference(supabase, user.id, insight.insight_type, "useful")
+  }
+
+  redirect(buildRedirectUrl(formData))
+}
+
+// ---------------------------------------------------------------------------
+// Dismiss (not useful) action
+// ---------------------------------------------------------------------------
+
+export async function dismissInsightAction(formData: FormData) {
+  const user = await requireUser()
+  const insightId = String(formData.get("insight_id") ?? "")
+  if (!insightId) {
+    redirect("/insights?error=Missing%20insight")
+  }
+
+  const supabase = await createServerSupabaseClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type, location_id")
+    .eq("id", insightId)
+    .maybeSingle()
+
+  const { error } = await supabase
+    .from("insights")
+    .update({
+      status: "dismissed",
+      user_feedback: "not_useful",
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
+    .eq("id", insightId)
+
+  if (error) {
+    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
+  }
+
+  if (insight) {
+    await updateOrgPreference(supabase, user.id, insight.insight_type, "not_useful")
+  }
+
+  redirect(buildRedirectUrl(formData))
+}
+
+// ---------------------------------------------------------------------------
+// Update org preference weight
+// ---------------------------------------------------------------------------
+
+async function updateOrgPreference(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  insightType: string,
+  feedback: "useful" | "not_useful"
+) {
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("current_organization_id")
+      .eq("id", userId)
+      .maybeSingle()
+
+    const orgId = profile?.current_organization_id
+    if (!orgId) return
+
+    const { data: existing } = await supabase
+      .from("insight_preferences")
+      .select("weight, useful_count, dismissed_count")
+      .eq("organization_id", orgId)
+      .eq("insight_type", insightType)
+      .maybeSingle()
+
+    const currentWeight = existing?.weight ?? 1.0
+    const newWeight = updateWeight(Number(currentWeight), feedback)
+
+    await supabase.from("insight_preferences").upsert(
+      {
+        organization_id: orgId,
+        insight_type: insightType,
+        weight: newWeight,
+        useful_count: (existing?.useful_count ?? 0) + (feedback === "useful" ? 1 : 0),
+        dismissed_count: (existing?.dismissed_count ?? 0) + (feedback === "not_useful" ? 1 : 0),
+        last_feedback_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id,insight_type" }
+    )
+  } catch (err) {
+    console.error("Failed to update org preference:", err)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy actions kept for backward compatibility (redirect to new ones)
+// ---------------------------------------------------------------------------
+
+export async function markInsightReadAction(formData: FormData) {
+  return saveInsightAction(formData)
+}
+
+// ---------------------------------------------------------------------------
+// Priority Briefing generation (called during page render)
+// ---------------------------------------------------------------------------
+
+export async function generatePriorityBriefing(
+  insights: InsightForBriefing[],
+  preferences: InsightPreference[],
+  locationName: string
+): Promise<PriorityItem[]> {
+  if (insights.length === 0) return []
+
+  try {
+    const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName)
+    const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 2048 })
+
+    if (result?.priorities && Array.isArray(result.priorities)) {
+      const validSources = ["competitors", "events", "seo", "content"]
+      return (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
+        title: String(p.title ?? ""),
+        why: String(p.why ?? ""),
+        urgency: (["critical", "warning", "info"].includes(p.urgency) ? p.urgency : "info") as PriorityItem["urgency"],
+        action: String(p.action ?? ""),
+        source: (validSources.includes(p.source) ? p.source : "competitors") as PriorityItem["source"],
+        relatedInsightTypes: Array.isArray(p.relatedInsightTypes)
+          ? p.relatedInsightTypes.map(String)
+          : [],
+      }))
+    }
+  } catch (err) {
+    console.warn("[PriorityBriefing] Gemini call failed, using deterministic fallback:", err)
+  }
+
+  return buildDeterministicBriefing(insights)
 }
 
 function getDateKey(date = new Date()) {
@@ -647,7 +832,6 @@ export async function generateInsightsAction(formData: FormData) {
       }
     }
 
-    const rankOverview = seoDataMap.get("seo_domain_rank_overview") as { organic?: { etv?: number; rankedKeywords?: number; lostKeywords?: number }; paid?: { etv?: number } } | undefined
     const backlinksSummary = seoDataMap.get("seo_backlinks_summary") as { domainTrust?: number; referringDomains?: number; backlinks?: number } | undefined
     const historicalData = ((seoDataMap.get("seo_historical_rank") as Record<string, unknown>)?.history ?? []) as Array<{ date: string; organicEtv: number }>
 
@@ -803,6 +987,326 @@ export async function generateInsightsAction(formData: FormData) {
     // Non-fatal: continue with whatever insights we have
   }
 
+  // =======================================================================
+  // Enriched Competitor SEO Insights (uses competitor-level snapshot data)
+  // =======================================================================
+  try {
+    // Read location domain from the location's website or seo snapshot
+    const { data: locObj } = await supabase
+      .from("locations")
+      .select("website")
+      .eq("id", locationId)
+      .maybeSingle()
+    const locationWebsite = locObj?.website as string | null
+    const locationDomain = locationWebsite
+      ? (() => {
+          try {
+            return new URL(locationWebsite.startsWith("http") ? locationWebsite : `https://${locationWebsite}`).hostname.replace(/^www\./, "")
+          } catch { return null }
+        })()
+      : null
+
+    // Fetch location's latest ranked keywords
+    const { data: locKwSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_ranked_keywords")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const locationKeywords = ((locKwSnap?.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]
+
+    // Fetch location's rank overview (current and previous)
+    const { data: locRankSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_domain_rank_overview")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const currentRank = locRankSnap?.raw_data as DomainRankSnapshot | null
+
+    // Fetch location's relevant pages
+    const { data: locPagesSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_relevant_pages")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const currentPages = ((locPagesSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as NormalizedRelevantPage[]
+
+    // Fetch location's historical rank
+    const { data: locHistSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_historical_rank")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const historicalTraffic = ((locHistSnap?.raw_data as Record<string, unknown>)?.history ?? []) as HistoricalTrafficPoint[]
+
+    // Fetch location's SERP entries
+    const { data: locSerpSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_serp_keywords")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const serpEntries = ((locSerpSnap?.raw_data as Record<string, unknown>)?.entries ?? []) as SerpRankEntry[]
+
+    // Fetch location's ads
+    const { data: locAdsSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "seo_ads_search")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    const adCreatives = ((locAdsSnap?.raw_data as Record<string, unknown>)?.creatives ?? []) as NormalizedAdCreative[]
+
+    // Build competitor data maps
+    const competitorRankedKeywords = new Map<string, NormalizedRankedKeyword[]>()
+    const competitorRelevantPages = new Map<string, NormalizedRelevantPage[]>()
+    const competitorHistoricalTraffic = new Map<string, HistoricalTrafficPoint[]>()
+    const allIntersectionRows: NormalizedIntersectionRow[] = []
+
+    for (const comp of approvedCompetitors) {
+      // Competitor Ranked Keywords
+      try {
+        const { data: compKwSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", SEO_SNAPSHOT_TYPES.rankedKeywords)
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compKwSnap) {
+          const keywords = ((compKwSnap.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]
+          if (keywords.length > 0) {
+            competitorRankedKeywords.set(comp.id, keywords)
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Competitor Relevant Pages
+      try {
+        const { data: compPagesSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", SEO_SNAPSHOT_TYPES.relevantPages)
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compPagesSnap) {
+          const pages = ((compPagesSnap.raw_data as Record<string, unknown>)?.pages ?? []) as NormalizedRelevantPage[]
+          if (pages.length > 0) {
+            competitorRelevantPages.set(comp.id, pages)
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Competitor Historical Rank
+      try {
+        const { data: compHistSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", SEO_SNAPSHOT_TYPES.historicalRank)
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compHistSnap) {
+          const history = ((compHistSnap.raw_data as Record<string, unknown>)?.history ?? []) as HistoricalTrafficPoint[]
+          if (history.length > 0) {
+            competitorHistoricalTraffic.set(comp.id, history)
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Competitor Domain Intersection
+      try {
+        const { data: compDiSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", SEO_SNAPSHOT_TYPES.domainIntersection)
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compDiSnap) {
+          const rows = ((compDiSnap.raw_data as Record<string, unknown>)?.rows ?? []) as NormalizedIntersectionRow[]
+          allIntersectionRows.push(...rows)
+        }
+      } catch { /* ignore */ }
+    }
+
+    // Build context for SEO insight generator
+    const compMetas = approvedCompetitors.map((c) => {
+      const meta = c.metadata as Record<string, unknown> | null
+      const pd = meta?.placeDetails as Record<string, unknown> | null
+      const compWeb = (meta?.website as string) ?? (pd?.websiteUri as string) ?? null
+      let compDomain: string | null = null
+      if (compWeb) {
+        try {
+          compDomain = new URL(compWeb.startsWith("http") ? compWeb : `https://${compWeb}`).hostname.replace(/^www\./, "")
+        } catch { /* ignore */ }
+      }
+      return { id: c.id, name: c.name ?? null, domain: compDomain }
+    })
+
+    const seoInsightContext: SeoInsightContext = {
+      locationName: location.name ?? "Your location",
+      locationDomain,
+      competitors: compMetas,
+    }
+
+    const seoInsights = generateSeoInsights({
+      currentRank,
+      previousRank: null, // Previous rank would require another query; skip for now
+      currentKeywords: locationKeywords,
+      previousKeywords: [], // Skip previous comparison in this pass
+      serpEntries,
+      previousSerpEntries: [],
+      intersectionRows: allIntersectionRows,
+      previousIntersectionRows: [],
+      adCreatives,
+      previousAdCreatives: [],
+      currentPages,
+      previousPages: [],
+      historicalTraffic,
+      competitorRankedKeywords,
+      competitorRelevantPages,
+      competitorHistoricalTraffic,
+      context: seoInsightContext,
+    })
+
+    for (const insight of seoInsights) {
+      insightsPayload.push({
+        location_id: locationId,
+        competitor_id: insight.evidence?.competitor_id
+          ? String(insight.evidence.competitor_id)
+          : null,
+        date_key: todayKey,
+        ...insight,
+        status: "new",
+      })
+    }
+
+    console.log(`[Insights] Generated ${seoInsights.length} enriched SEO insights from competitor data`)
+  } catch (seoEnrichedErr) {
+    console.warn("Enriched competitor SEO insight generation error:", seoEnrichedErr)
+  }
+
+  // =======================================================================
+  // Content & Menu insight pipeline
+  // =======================================================================
+  try {
+    // Fetch location menu + site content snapshots
+    const { data: locMenuSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "firecrawl_menu")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const { data: locSiteSnap } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "firecrawl_site_content")
+      .order("date_key", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const locMenu = locMenuSnap?.raw_data as MenuSnapshot | null
+    const locSiteContent = locSiteSnap?.raw_data as SiteContentSnapshot | null
+
+    if (locMenu || locSiteContent) {
+      // Fetch previous menu for change detection
+      const { data: prevMenuSnaps } = await supabase
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", locationId)
+        .eq("provider", "firecrawl_menu")
+        .order("date_key", { ascending: false })
+        .range(1, 1)
+
+      const previousMenu = prevMenuSnaps?.[0]?.raw_data as MenuSnapshot | null
+
+      // Fetch competitor menu snapshots
+      type CompMenuForInsights = {
+        competitorId: string
+        competitorName: string
+        menu: MenuSnapshot
+        siteContent?: SiteContentSnapshot | null
+      }
+      const compMenusForInsights: CompMenuForInsights[] = []
+
+      for (const comp of approvedCompetitors) {
+        const { data: compMenuSnap } = await supabase
+          .from("snapshots")
+          .select("raw_data")
+          .eq("competitor_id", comp.id)
+          .eq("snapshot_type", "web_menu_weekly")
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (compMenuSnap) {
+          compMenusForInsights.push({
+            competitorId: comp.id,
+            competitorName: comp.name ?? "Competitor",
+            menu: compMenuSnap.raw_data as MenuSnapshot,
+            siteContent: null,
+          })
+        }
+      }
+
+      const contentInsights = generateContentInsights(
+        locMenu,
+        compMenusForInsights,
+        locSiteContent,
+        previousMenu
+      )
+
+      for (const insight of contentInsights) {
+        const evidence = insight.evidence as Record<string, unknown>
+        const compName = evidence?.competitor as string | undefined
+        let matchedCompId: string | null = null
+        if (compName) {
+          const match = compMenusForInsights.find((c) => c.competitorName === compName)
+          if (match) matchedCompId = match.competitorId
+        }
+
+        insightsPayload.push({
+          location_id: locationId,
+          competitor_id: matchedCompId,
+          date_key: todayKey,
+          ...insight,
+          status: "new",
+        })
+      }
+    }
+  } catch (contentErr) {
+    console.warn("Content & Menu insight generation error:", contentErr)
+  }
+
   if (insightsPayload.length) {
     const { error } = await supabase.from("insights").upsert(insightsPayload, {
       onConflict: "location_id,competitor_id,date_key,insight_type",
@@ -815,22 +1319,5 @@ export async function generateInsightsAction(formData: FormData) {
   redirect(`/insights?location_id=${locationId}`)
 }
 
-export async function dismissInsightAction(formData: FormData) {
-  await requireUser()
-  const insightId = String(formData.get("insight_id") ?? "")
-  if (!insightId) {
-    redirect("/insights?error=Missing%20insight")
-  }
-
-  const supabase = await createServerSupabaseClient()
-  const { error } = await supabase
-    .from("insights")
-    .update({ status: "dismissed" })
-    .eq("id", insightId)
-
-  if (error) {
-    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
-  }
-
-  redirect("/insights")
-}
+// Note: dismissInsightAction is now defined at the top of this file with
+// proper feedback recording and search param preservation.

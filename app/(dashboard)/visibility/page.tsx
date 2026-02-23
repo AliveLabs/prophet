@@ -2,13 +2,12 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
-import { refreshSeoAction } from "./actions"
+import JobRefreshButton from "@/components/ui/job-refresh-button"
 import VisibilityFilters from "@/components/visibility/visibility-filters"
 import TrafficChart from "@/components/visibility/traffic-chart"
 import RankingDistribution from "@/components/visibility/ranking-distribution"
 import KeywordTabs from "@/components/visibility/keyword-tabs"
 import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
-import RefreshOverlay from "@/components/ui/refresh-overlay"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
@@ -132,7 +131,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         .eq("is_active", true)
     : { data: [] }
 
-  let intersectionRows: NormalizedIntersectionRow[] = []
+  const intersectionRows: NormalizedIntersectionRow[] = []
   if (isSeoIntersectionEnabled(tier) && selectedLocationId) {
     const compIds = (compSnapshots ?? []).map((c) => c.id)
     if (compIds.length > 0) {
@@ -155,8 +154,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   // -----------------------------------------------------------------------
   let organicEtv = 0
   let organicKeywords = 0
-  let top3 = 0
-  let top10 = 0
   let newKw = 0
   let lostKw = 0
   let upKw = 0
@@ -173,8 +170,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     kpiSource = "rank_overview"
     organicEtv = Math.round(rankData.organic?.etv ?? 0)
     organicKeywords = rankData.organic?.rankedKeywords ?? 0
-    top3 = (rankData.organic?.distribution?.pos_1 ?? 0) + (rankData.organic?.distribution?.pos_2_3 ?? 0)
-    top10 = top3 + (rankData.organic?.distribution?.pos_4_10 ?? 0)
     newKw = rankData.organic?.newKeywords ?? 0
     lostKw = rankData.organic?.lostKeywords ?? 0
     upKw = rankData.organic?.upKeywords ?? 0
@@ -185,8 +180,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   } else if (rankedKeywords.length > 0) {
     kpiSource = "ranked_keywords"
     organicKeywords = rankedKeywords.length
-    top3 = rankedKeywords.filter((kw) => kw.rank <= 3).length
-    top10 = rankedKeywords.filter((kw) => kw.rank <= 10).length
     // Estimate organic traffic using a CTR model (not raw search volume sum)
     organicEtv = rankedKeywords.reduce((sum, kw) => {
       const vol = kw.searchVolume ?? 0
@@ -267,24 +260,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   const freshnessLabel = tier === "free" || tier === "starter" ? "Weekly refresh" : "Daily refresh"
 
   // -----------------------------------------------------------------------
-  // Quick facts for loading overlay
-  // -----------------------------------------------------------------------
-  const seoQuickFacts: string[] = []
-  if (organicKeywords > 0) seoQuickFacts.push(`You rank for ${organicKeywords.toLocaleString()} keywords organically.`)
-  if (top10 > 0) seoQuickFacts.push(`${top10.toLocaleString()} keywords are in the top 10 results.`)
-  if (newKw > 0) seoQuickFacts.push(`${newKw} new keywords gained since last refresh.`)
-  if (lostKw > 0) seoQuickFacts.push(`${lostKw} keywords lost since last refresh.`)
-  if (gapOpportunities.length > 0) seoQuickFacts.push(`${gapOpportunities.length} keyword gap opportunities found vs competitors.`)
-  if (organicCompetitors.length > 0) seoQuickFacts.push(`Top organic competitor: ${organicCompetitors[0].domain} (${organicCompetitors[0].intersections} shared keywords).`)
-  if (relevantPages.length > 0) seoQuickFacts.push(`Your top page drives ${relevantPages[0].trafficShare}% of organic traffic.`)
-  if (featuredSnippets > 0) seoQuickFacts.push(`You hold ${featuredSnippets} featured snippets in search results.`)
-  if (localPackCount > 0) seoQuickFacts.push(`Your business appears in ${localPackCount} Local Pack results.`)
-
-  const seoGeminiContext = locationDomain
-    ? `Domain: ${locationDomain}. Organic keywords: ${organicKeywords}. Top 10: ${top10}. Organic traffic est: ${organicEtv}. Competitors tracked: ${compSnapshots?.length ?? 0}.`
-    : `Local business SEO analysis. ${organicKeywords} organic keywords.`
-
-  // -----------------------------------------------------------------------
   // Render
   // -----------------------------------------------------------------------
 
@@ -325,26 +300,35 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           activeTab={activeTab}
         />
 
+        {locationDomain && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+            </svg>
+            <span>
+              Tracking domain:{" "}
+              <span className="font-medium text-slate-700">{locationDomain}</span>
+              {selectedLocation?.website && (
+                <span className="ml-1 text-slate-400">({selectedLocation.website})</span>
+              )}
+            </span>
+            <a href="/locations" className="ml-auto text-indigo-600 hover:text-indigo-700 font-medium">
+              Change URL
+            </a>
+          </div>
+        )}
+
         {/* Refresh SEO action with interactive overlay */}
         {selectedLocationId && (
-          <form action={refreshSeoAction} className="mt-4">
-            <input type="hidden" name="location_id" value={selectedLocationId} />
-            <RefreshOverlay
+          <div className="mt-4">
+            <JobRefreshButton
+              type="visibility"
+              locationId={selectedLocationId}
               label="Refresh SEO"
               pendingLabel="Refreshing SEO data"
-              quickFacts={seoQuickFacts}
-              geminiContext={seoGeminiContext}
-              steps={[
-                "Fetching domain overview...",
-                "Analyzing ranked keywords...",
-                "Scanning SERP positions...",
-                "Comparing competitor domains...",
-                "Collecting historical trends...",
-                "Processing ad creatives...",
-                "Building insights...",
-              ]}
             />
-          </form>
+          </div>
         )}
       </div>
 

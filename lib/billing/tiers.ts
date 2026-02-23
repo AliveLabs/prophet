@@ -17,6 +17,9 @@ export type TierLimits = {
   seoIntersectionEnabled: boolean
   seoIntersectionLimit: number
   seoAdsEnabled: boolean
+  // Content & Menu Intelligence limits
+  contentPagesPerRun: number
+  contentRefreshCadence: "weekly" | "daily"
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -35,6 +38,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 25,
     seoAdsEnabled: true,
+    contentPagesPerRun: 2,
+    contentRefreshCadence: "weekly",
   },
   starter: {
     maxLocations: 3,
@@ -51,6 +56,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 50,
     seoAdsEnabled: true,
+    contentPagesPerRun: 3,
+    contentRefreshCadence: "weekly",
   },
   pro: {
     maxLocations: 10,
@@ -67,6 +74,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 100,
     seoAdsEnabled: true,
+    contentPagesPerRun: 5,
+    contentRefreshCadence: "weekly",
   },
   agency: {
     maxLocations: 50,
@@ -83,6 +92,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 500,
     seoAdsEnabled: true,
+    contentPagesPerRun: 8,
+    contentRefreshCadence: "weekly",
   },
 }
 

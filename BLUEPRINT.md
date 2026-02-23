@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** February 8, 2026
+> **Last updated:** February 11, 2026
 > **Branch:** `dev`
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -42,7 +42,8 @@
 - **Competitor Monitoring:** Tracks approved competitors with daily snapshots, diffing, and deterministic change detection.
 - **SEO Visibility Dashboard:** Semrush-style domain overview via DataForSEO -- organic/paid traffic estimates, keyword rankings, competitor overlap, ranking distribution, top pages, subdomains, historical trends, ad creatives.
 - **Local Events Intelligence:** Discovers nearby events via DataForSEO Google Events SERP, matches events to tracked competitors, generates event-driven insights.
-- **Insight Engine:** Deterministic rules generate structured insights across competitors, SEO, and events. LLM (Gemini) adds narrative summaries and recommendations.
+- **Content & Menu Intelligence:** Scrapes business websites via Firecrawl to extract menu items, pricing, screenshots, and site feature detection. Compares menus across competitors with deterministic insight rules.
+- **Insight Engine:** Deterministic rules generate structured insights across competitors, SEO, events, and content/menu data. LLM (Gemini) adds narrative summaries and recommendations.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
 
 ### Current state
@@ -147,6 +148,7 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `STRIPE_PRICE_ID_PRO` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Pro tier |
 | `STRIPE_PRICE_ID_AGENCY` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Agency tier |
 | `NEXT_PUBLIC_APP_URL` | No | `app/(dashboard)/competitors/actions.ts` | App base URL (defaults to `http://localhost:3000`) |
+| `FIRECRAWL_API_KEY` | Yes | `lib/providers/firecrawl.ts` | Firecrawl API key for website scraping and screenshots |
 | `OPENAI_API_KEY` | No | `app/api/ai/chat/route.ts` | OpenAI key (referenced but not actively used) |
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
 
@@ -196,6 +198,9 @@ prophet/
 │   │   ├── visibility/
 │   │   │   ├── page.tsx                    # SEO visibility dashboard (organic + paid)
 │   │   │   └── actions.ts                  # refreshSeoAction
+│   │   ├── content/
+│   │   │   ├── page.tsx                    # Content & menu intelligence (hero screenshot, menu viewer, compare)
+│   │   │   └── actions.ts                  # refreshContentAction (Firecrawl scrape + menu parse)
 │   │   ├── locations/
 │   │   │   ├── page.tsx                    # Location management CRUD
 │   │   │   └── actions.ts                  # createLocationFromPlace, update, delete
@@ -227,6 +232,9 @@ prophet/
 ├── components/                             # React components
 │   ├── competitors/
 │   │   └── discover-form.tsx               # Client: Competitor discovery form + RefreshOverlay
+│   ├── content/
+│   │   ├── menu-viewer.tsx                 # Client: Tabbed menu category viewer with item cards
+│   │   └── menu-compare.tsx                # Client: Side-by-side competitor menu comparison
 │   ├── filters/
 │   │   └── auto-filter-form.tsx            # Client: Auto-navigating filter dropdowns
 │   ├── insights/
@@ -295,6 +303,13 @@ prophet/
 │   │       ├── google-events.ts            # SERP Google Events
 │   │       ├── ads-search.ts               # Google Ads Search (Transparency Center)
 │   │       └── backlinks-summary.ts        # Backlinks Summary (subscription-gated)
+│   │   └── firecrawl.ts                   # Firecrawl SDK wrapper: mapSite(), scrapePage(), scrapeMenuPage()
+│   ├── content/                           # Content & Menu intelligence engine
+│   │   ├── types.ts                       # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory
+│   │   ├── normalize.ts                   # detectFeatures(), normalizeSiteContent(), buildMenuSnapshot(), hash
+│   │   ├── menu-parse.ts                  # Heuristic + Gemini menu extraction from markdown
+│   │   ├── insights.ts                    # generateContentInsights() (7 deterministic rules)
+│   │   └── storage.ts                     # uploadScreenshot(), getScreenshotUrl(), buildScreenshotPath()
 │   ├── insights/                           # Competitor insight engine
 │   │   ├── types.ts                        # SnapshotFieldChange, SnapshotDiff, GeneratedInsight
 │   │   ├── index.ts                        # Re-exports all insight functions
@@ -320,7 +335,7 @@ prophet/
 │   └── prophet.types.ts                    # ActionResult<T> standard return shape
 │
 ├── supabase/                               # Supabase configuration
-│   ├── migrations/                         # SQL migrations (5 files)
+│   ├── migrations/                         # SQL migrations (6 files)
 │   │   ├── 20260127010101_initial_schema.sql
 │   │   ├── 20260127010200_membership_bootstrap.sql
 │   │   ├── 20260127010300_fix_org_member_policies.sql
@@ -519,6 +534,7 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `20260127010300_fix_org_member_policies.sql` | `is_org_member()` / `is_org_admin()` SECURITY DEFINER helpers; refactored membership policies |
 | `20260206010100_events_tables.sql` | `location_snapshots`, `event_matches` tables with RLS |
 | `20260207010100_seo_tables.sql` | `website` column on `locations`, `snapshot_type` on `snapshots`, `tracked_keywords` table |
+| `20260211010100_screenshots_bucket.sql` | Supabase Storage `screenshots` bucket (private, 5MB limit, png/jpeg/webp) |
 
 ### 7.2 Tables
 
@@ -795,6 +811,7 @@ Root Layout (app/layout.tsx)
   │     ├── /insights
   │     ├── /events
   │     ├── /visibility
+  │     ├── /content
   │     ├── /locations
   │     └── /settings (+ /settings/billing, /settings/team)
   ├── /onboarding (no group, uses root layout only)
@@ -826,7 +843,7 @@ Root Layout (app/layout.tsx)
 - **Loading overlay:** `RefreshOverlay` with quick facts and Gemini tips during discovery
 
 #### `/insights`
-- **Filters:** Location, date range (7/30 days), confidence, severity, source (competitors/events/SEO)
+- **Filters:** Location, date range (7/30 days), confidence, severity, source (competitors/events/SEO/content)
 - **Charts dashboard:** Rating comparison bar chart, review count comparison, sentiment distribution pie chart, reputation KPIs
 - **Insight feed:** Grouped by date, each insight shows title, summary, confidence/severity badges, evidence accordion, recommendations, mark-read/dismiss buttons
 - **Loading overlay:** `RefreshOverlay` during insight generation
@@ -856,8 +873,17 @@ Root Layout (app/layout.tsx)
   - Competitor ad creatives feed
 - **Loading overlay:** `RefreshOverlay` during SEO refresh
 
+#### `/content`
+- **Controls:** Location selector, Refresh Content button with `RefreshOverlay`
+- **Hero panel:** Full-width website screenshot, location name, website link, last refresh timestamp
+- **Site Features:** Detected website features as badge chips (reservations, online ordering, private dining, catering, happy hour, delivery platforms)
+- **Menu Viewer:** Tabbed category navigation with item cards showing name, description, price, and dietary tags (vegan/spicy/gluten-free)
+- **Competitor Menu Compare:** Side-by-side price comparison, category coverage gaps, unique competitor items list
+- **Empty state:** Prompts user to click Refresh Content
+
 #### `/locations`
 - Location cards with edit/delete, weather, mini-map, Google Places details
+- **New:** Screenshot thumbnail (from Firecrawl), menu badge ("Menu scraped" / "No menu found" / "Needs refresh"), item count and last scraped date
 - Add location form with Google Places autocomplete
 
 #### `/settings`
@@ -883,10 +909,11 @@ Root Layout (app/layout.tsx)
 | `competitors/actions.ts` | `discoverCompetitorsAction` | FormData (location_id, query?) | Gemini discovery + Places enrichment | `/competitors` |
 | `competitors/actions.ts` | `approveCompetitorAction` | FormData (competitor_id) | Sets status=approved, is_active=true | `/competitors` |
 | `competitors/actions.ts` | `ignoreCompetitorAction` | FormData (competitor_id) | Sets status=ignored, is_active=false | `/competitors` |
-| `insights/actions.ts` | `generateInsightsAction` | FormData (location_id) | Runs all insight pipelines (competitor + events + SEO) | `/insights` |
+| `insights/actions.ts` | `generateInsightsAction` | FormData (location_id) | Runs all insight pipelines (competitor + events + SEO + content) | `/insights` |
 | `insights/actions.ts` | `markInsightReadAction` | FormData (insight_id) | Sets insight status=read | `/insights` |
 | `insights/actions.ts` | `dismissInsightAction` | FormData (insight_id) | Sets insight status=dismissed | `/insights` |
 | `events/actions.ts` | `fetchEventsAction` | FormData (location_id) | Fetches events via DataForSEO, matches to competitors, generates insights | `/events` |
+| `content/actions.ts` | `refreshContentAction` | FormData (location_id) | Firecrawl scrape (homepage + menu), Gemini menu parse, screenshot upload, insight generation | `/content` |
 | `visibility/actions.ts` | `refreshSeoAction` | FormData (location_id) | Fetches all SEO data (11 API call groups), stores snapshots, generates insights | `/visibility` |
 | `locations/actions.ts` | `createLocationFromPlaceAction` | FormData (place data) | Creates location from Google Place | `/locations` |
 | `locations/actions.ts` | `updateLocationAction` | FormData (id, fields) | Updates location fields | `/locations` |
@@ -998,7 +1025,25 @@ All DataForSEO calls go through two shared functions:
 | `ads-search.ts` | `/v3/serp/google/ads_search/live/advanced` | Ads | Google Ads Transparency Center data |
 | `backlinks-summary.ts` | `/v3/backlinks/summary/live` | Backlinks | Domain trust, backlink counts (subscription-gated, removed from UI) |
 
-### 12.6 Stripe
+### 12.6 Firecrawl API
+
+**File:** `lib/providers/firecrawl.ts` (SDK wrapper using `@mendable/firecrawl-js`)
+
+| Function | API Method | Purpose |
+|---|---|---|
+| `mapSite(url, search, limit)` | `firecrawl.map()` | Discover pages on a website by search term (e.g. "menu") |
+| `scrapePage(url, options)` | `firecrawl.scrape()` | Scrape URL for markdown, links, and full-page screenshot |
+| `scrapeMenuPage(url)` | `firecrawl.scrape()` | Same as scrapePage with PDF parser enabled for PDF menus |
+
+**Cost controls:**
+- Location run: 2-4 pages max (homepage + menu + optional extra)
+- Competitor run: 1-2 pages max (menu page)
+- `onlyMainContent: true` to reduce noise
+- Tier-based `contentPagesPerRun` limit enforced
+
+**Screenshot storage:** Screenshots returned as base64 by Firecrawl are uploaded to Supabase Storage `screenshots` bucket via `lib/content/storage.ts`. Only the storage path is stored in snapshot `raw_data`; signed URLs are generated at render time.
+
+### 12.7 Stripe
 
 **File:** `app/api/stripe/webhook/route.ts`
 
@@ -1171,15 +1216,44 @@ type GeneratedInsight = {
 | `events.competitor_hosting_event` | Competitor matched to an event |
 | `events.competitor_event_cadence_up` | Competitor event count increased vs previous snapshot |
 
-### 14.4 Cross-Source Correlation
+### 14.4 Content & Menu Intelligence Pipeline
 
-The `generateInsightsAction` in `app/(dashboard)/insights/actions.ts` runs all three pipelines and then generates cross-source insights:
+**Trigger:** `refreshContentAction` in `app/(dashboard)/content/actions.ts`
+
+**Flow:**
+
+1. Maps the location website via Firecrawl to find menu page URL
+2. Scrapes homepage (markdown + screenshot)
+3. Scrapes menu page (markdown + screenshot + PDF support)
+4. Parses menu via heuristic regex + Gemini refinement (`lib/content/menu-parse.ts`)
+5. Detects site features (reservations, online ordering, catering, delivery platforms)
+6. Uploads screenshots to Supabase Storage
+7. Stores in `location_snapshots` (providers: `firecrawl_site_content`, `firecrawl_menu`)
+8. Scrapes each approved competitor's menu page (1-2 pages per competitor)
+9. Stores competitor menus in `snapshots` (snapshot_type: `web_menu_weekly`, provider: `firecrawl_menu`)
+10. Runs `generateContentInsights()` with location + competitor data
+
+**7 Content Insight Types:**
+
+| Type | Trigger |
+|---|---|
+| `menu.price_positioning_shift` | Avg price differs >= 15% from competitor |
+| `menu.category_gap` | Competitor has menu categories location lacks |
+| `menu.signature_item_missing` | Competitor has >= 3 items location doesn't have |
+| `menu.promo_signal_detected` | Competitor menu contains promotional keywords (happy hour, etc.) |
+| `menu.menu_change_detected` | Location menu item count changed by >= 3 vs previous snapshot |
+| `content.conversion_feature_gap` | Competitor has website features (reservations, ordering) location lacks |
+| `content.delivery_platform_gap` | Competitor on delivery platforms location isn't |
+
+### 14.5 Cross-Source Correlation
+
+The `generateInsightsAction` in `app/(dashboard)/insights/actions.ts` runs all four pipelines (competitor, events, SEO, content) and then generates cross-source insights:
 
 - **Event + SEO traffic opportunity:** High-density event days near location + rising organic traffic
 - **Domain authority risk:** Competitor SEO gains correlated with event activity
 - **Competitor momentum detection:** Competitor with improving ratings + rising SEO + event presence
 
-### 14.5 LLM-Enhanced Insights
+### 14.6 LLM-Enhanced Insights
 
 After deterministic rules produce structured insights, Gemini 3 Pro Preview (`lib/ai/gemini.ts`) adds natural language narratives:
 - `buildInsightNarrativePrompt()` creates a prompt with location context, competitor deltas, review snippets
@@ -1192,14 +1266,14 @@ After deterministic rules produce structured insights, Gemini 3 Pro Preview (`li
 
 ### 15.1 Tiers
 
-| Tier | Locations | Competitors/Location | Retention | Events | SEO Keywords | SEO Cadence |
-|---|---|---|---|---|---|---|
-| Free | 1 | 5 | 30 days | Weekly, 1 query | 10 tracked, 50 ranked | Weekly |
-| Starter | 3 | 15 | 90 days | Daily, 2 queries | 25 tracked, 50 ranked | Weekly |
-| Pro | 10 | 50 | 180 days | Daily, 2 queries | 50 tracked, 100 ranked | Labs weekly, SERP daily |
-| Agency | 50 | 200 | 365 days | Daily, 2 queries | 200 tracked, 500 ranked | Daily |
+| Tier | Locations | Competitors/Location | Retention | Events | SEO Keywords | SEO Cadence | Content Pages/Run |
+|---|---|---|---|---|---|---|---|
+| Free | 1 | 5 | 30 days | Weekly, 1 query | 10 tracked, 50 ranked | Weekly | 2 |
+| Starter | 3 | 15 | 90 days | Daily, 2 queries | 25 tracked, 50 ranked | Weekly | 3 |
+| Pro | 10 | 50 | 180 days | Daily, 2 queries | 50 tracked, 100 ranked | Labs weekly, SERP daily | 5 |
+| Agency | 50 | 200 | 365 days | Daily, 2 queries | 200 tracked, 500 ranked | Daily | 8 |
 
-All tiers have: SEO intersection enabled, SEO ads enabled.
+All tiers have: SEO intersection enabled, SEO ads enabled, content refresh cadence weekly.
 
 ### 15.2 Implementation
 
@@ -1215,6 +1289,7 @@ All tiers have: SEO intersection enabled, SEO ads enabled.
 - `getEventsCadence(tier)`, `getEventsQueriesPerRun(tier)`, `getEventsMaxDepth(tier)`
 - `getSeoTrackedKeywordsLimit(tier)`, `getSeoLabsCadence(tier)`, `getSeoSerpCadence(tier)`, `getSeoRankedKeywordsLimit(tier)`
 - `isSeoIntersectionEnabled(tier)`, `getSeoIntersectionLimit(tier)`, `isSeoAdsEnabled(tier)`
+- `getContentMaxPages(tier)`, `getContentCadence(tier)`
 
 ### 15.3 Stripe Integration
 
@@ -1255,7 +1330,14 @@ The `subscription_tier` field on `organizations` is updated by the Stripe webhoo
 | LocationAddForm | `components/places/location-add-form.tsx` | Client | `organizationId`, `action`, `buttonLabel` | Add location form wrapping LocationSearch |
 | MiniMap | `components/places/mini-map.tsx` | Server | `lat`, `lng`, `title`, `mapsUri`, `placeId`, `address` | Google Maps Embed iframe |
 
-### 16.4 Visibility Components
+### 16.4 Content Components
+
+| Component | File | Type | Key Props | Description |
+|---|---|---|---|---|
+| MenuViewer | `components/content/menu-viewer.tsx` | Client | `categories`, `currency`, `itemsTotal`, `confidence` | Tabbed menu viewer with category navigation and item cards (name, price, tags) |
+| MenuCompare | `components/content/menu-compare.tsx` | Client | `locationName`, `locationCategories`, `locationAvgPrice`, `competitors` | Side-by-side competitor menu comparison with price bands, category gaps, unique items |
+
+### 16.5 Visibility Components
 
 | Component | File | Type | Key Props | Description |
 |---|---|---|---|---|
@@ -1410,4 +1492,4 @@ npm run test:e2e # Playwright E2E tests
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase as of February 8, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase as of February 11, 2026.*

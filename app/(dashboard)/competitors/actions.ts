@@ -31,6 +31,8 @@ import { scoreCompetitor } from "@/lib/providers/scoring"
 import { ensureCompetitorLimit } from "@/lib/billing/limits"
 import type { SubscriptionTier } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
+import { enrichCompetitorSeo } from "@/lib/seo/enrich"
+import { enrichCompetitorContent } from "@/lib/content/enrich"
 
 export async function discoverCompetitorsAction(formData: FormData) {
   await requireUser()
@@ -366,7 +368,7 @@ export async function approveCompetitorAction(formData: FormData) {
   const supabase = await createServerSupabaseClient()
   const { data: competitor } = await supabase
     .from("competitors")
-    .select("metadata, location_id, locations (organization_id)")
+    .select("metadata, location_id, name, website, locations (organization_id, website)")
     .eq("id", competitorId)
     .single()
 
@@ -401,6 +403,8 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("id", organizationId)
     .single()
 
+  const tier = (organization?.subscription_tier ?? "free") as SubscriptionTier
+
   const { count } = await supabase
     .from("competitors")
     .select("id", { count: "exact", head: true })
@@ -408,10 +412,7 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("is_active", true)
 
   try {
-    ensureCompetitorLimit(
-      (organization?.subscription_tier ?? "free") as SubscriptionTier,
-      count ?? 0
-    )
+    ensureCompetitorLimit(tier, count ?? 0)
   } catch (error) {
     redirect(`/competitors?error=${encodeURIComponent(String(error))}`)
   }
@@ -446,7 +447,75 @@ export async function approveCompetitorAction(formData: FormData) {
     }
   }
 
+  // =========================================================================
+  // Enrich competitor with SEO + Content data (non-blocking: failures logged)
+  // =========================================================================
+  const dateKey = new Date().toISOString().slice(0, 10)
+  const compMeta = competitor.metadata as Record<string, unknown> | null
+  const placeDetails = compMeta?.placeDetails as Record<string, unknown> | null
+
+  // Resolve competitor domain
+  const compWebsite =
+    competitor.website ??
+    (placeDetails?.websiteUri as string | undefined) ??
+    (compMeta?.website as string | undefined) ??
+    null
+  const compDomain = extractDomainFromUrl(compWebsite)
+
+  // Resolve location domain
+  const locationWebsite = (locationRecord as { website?: string } | null)?.website ?? null
+  const locationDomain = extractDomainFromUrl(locationWebsite)
+
+  // SEO enrichment
+  if (compDomain) {
+    try {
+      const { warnings } = await enrichCompetitorSeo(
+        competitorId,
+        compDomain,
+        locationDomain,
+        dateKey,
+        tier,
+        supabase
+      )
+      if (warnings.length > 0) {
+        console.warn(`[Approve] SEO enrichment warnings for ${competitor.name}:`, warnings)
+      }
+    } catch (err) {
+      console.warn(`[Approve] SEO enrichment failed for ${competitor.name}:`, err)
+    }
+  }
+
+  // Content/menu enrichment
+  if (compWebsite) {
+    try {
+      const compAddress = (placeDetails?.formattedAddress as string) ?? null
+      const { warnings } = await enrichCompetitorContent(
+        competitorId,
+        competitor.name ?? "Competitor",
+        compWebsite,
+        organizationId,
+        dateKey,
+        supabase,
+        compAddress
+      )
+      if (warnings.length > 0) {
+        console.warn(`[Approve] Content enrichment warnings for ${competitor.name}:`, warnings)
+      }
+    } catch (err) {
+      console.warn(`[Approve] Content enrichment failed for ${competitor.name}:`, err)
+    }
+  }
+
   redirect("/competitors")
+}
+
+function extractDomainFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    return new URL(url.startsWith("http") ? url : `https://${url}`).hostname.replace(/^www\./, "")
+  } catch {
+    return null
+  }
 }
 
 export async function ignoreCompetitorAction(formData: FormData) {

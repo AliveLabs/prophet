@@ -93,6 +93,7 @@ const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
   return (
     <div className="flex items-center gap-2">
       {weather.iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
       ) : null}
       <div className="text-xs text-slate-600">
@@ -359,10 +360,10 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
               Discover nearby competitors and approve who should be monitored.
             </p>
           </div>
-          {locations && locations.length > 1 && (
+          {locations && locations.length > 0 && selectedLocationId && (
             <LocationFilter
               locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-              selectedLocationId={selectedLocationId ?? ""}
+              selectedLocationId={selectedLocationId}
             />
           )}
         </div>
@@ -385,11 +386,10 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             dangerouslySetInnerHTML={{ __html: searchEntryPointHtml }}
           />
         ) : null}
-        {locations ? (
+        {selectedLocationId ? (
           <DiscoverForm
-            locations={locations}
             action={discoverCompetitorsAction}
-            selectedLocationId={selectedLocationId ?? undefined}
+            selectedLocationId={selectedLocationId}
             quickFacts={buildCompetitorQuickFacts(approvedCompetitors)}
           />
         ) : null}

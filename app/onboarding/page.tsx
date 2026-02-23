@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createLocationAction, createOrganizationAction } from "./actions"
+import { createOrganizationAction } from "./actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { Card } from "@/components/ui/card"
