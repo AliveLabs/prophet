@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useSyncExternalStore } from "react"
 import {
   ResponsiveContainer,
   BarChart,
@@ -44,10 +44,7 @@ export default function InsightsDashboard({
   locationRating,
   reviewShare,
 }: InsightsDashboardProps) {
-  const [isClient, setIsClient] = useState(false)
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
+  const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   const sentimentData = [
     { name: "Positive", value: sentimentCounts.positive, color: "#22c55e" },

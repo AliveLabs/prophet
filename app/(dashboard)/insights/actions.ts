@@ -21,25 +21,197 @@ import type {
   NormalizedAdCreative,
   SerpRankEntry,
 } from "@/lib/seo/types"
+import { updateWeight } from "@/lib/insights/scoring"
+import {
+  buildPriorityBriefingPrompt,
+  buildDeterministicBriefing,
+  type PriorityItem,
+  type InsightForBriefing,
+} from "@/lib/ai/prompts/priority-briefing"
+import type { InsightPreference } from "@/lib/insights/scoring"
 
-export async function markInsightReadAction(formData: FormData) {
-  await requireUser()
+// ---------------------------------------------------------------------------
+// Helper: rebuild redirect URL preserving all search params
+// ---------------------------------------------------------------------------
+
+function buildRedirectUrl(formData: FormData): string {
+  const params = new URLSearchParams()
+  const preserve = ["location_id", "range", "confidence", "severity", "source", "status"]
+  for (const key of preserve) {
+    const val = formData.get(`_param_${key}`)
+    if (val && typeof val === "string") params.set(key, val)
+  }
+  const qs = params.toString()
+  return `/insights${qs ? `?${qs}` : ""}`
+}
+
+// ---------------------------------------------------------------------------
+// Save (useful) action
+// ---------------------------------------------------------------------------
+
+export async function saveInsightAction(formData: FormData) {
+  const user = await requireUser()
   const insightId = String(formData.get("insight_id") ?? "")
   if (!insightId) {
     redirect("/insights?error=Missing%20insight")
   }
 
   const supabase = await createServerSupabaseClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type, location_id")
+    .eq("id", insightId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("insights")
-    .update({ status: "read" })
+    .update({
+      status: "read",
+      user_feedback: "useful",
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
     .eq("id", insightId)
 
   if (error) {
     redirect(`/insights?error=${encodeURIComponent(error.message)}`)
   }
 
-  redirect("/insights")
+  if (insight) {
+    await updateOrgPreference(supabase, user.id, insight.insight_type, "useful")
+  }
+
+  redirect(buildRedirectUrl(formData))
+}
+
+// ---------------------------------------------------------------------------
+// Dismiss (not useful) action
+// ---------------------------------------------------------------------------
+
+export async function dismissInsightAction(formData: FormData) {
+  const user = await requireUser()
+  const insightId = String(formData.get("insight_id") ?? "")
+  if (!insightId) {
+    redirect("/insights?error=Missing%20insight")
+  }
+
+  const supabase = await createServerSupabaseClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type, location_id")
+    .eq("id", insightId)
+    .maybeSingle()
+
+  const { error } = await supabase
+    .from("insights")
+    .update({
+      status: "dismissed",
+      user_feedback: "not_useful",
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
+    .eq("id", insightId)
+
+  if (error) {
+    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
+  }
+
+  if (insight) {
+    await updateOrgPreference(supabase, user.id, insight.insight_type, "not_useful")
+  }
+
+  redirect(buildRedirectUrl(formData))
+}
+
+// ---------------------------------------------------------------------------
+// Update org preference weight
+// ---------------------------------------------------------------------------
+
+async function updateOrgPreference(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  insightType: string,
+  feedback: "useful" | "not_useful"
+) {
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("current_organization_id")
+      .eq("id", userId)
+      .maybeSingle()
+
+    const orgId = profile?.current_organization_id
+    if (!orgId) return
+
+    const { data: existing } = await supabase
+      .from("insight_preferences")
+      .select("weight, useful_count, dismissed_count")
+      .eq("organization_id", orgId)
+      .eq("insight_type", insightType)
+      .maybeSingle()
+
+    const currentWeight = existing?.weight ?? 1.0
+    const newWeight = updateWeight(Number(currentWeight), feedback)
+
+    await supabase.from("insight_preferences").upsert(
+      {
+        organization_id: orgId,
+        insight_type: insightType,
+        weight: newWeight,
+        useful_count: (existing?.useful_count ?? 0) + (feedback === "useful" ? 1 : 0),
+        dismissed_count: (existing?.dismissed_count ?? 0) + (feedback === "not_useful" ? 1 : 0),
+        last_feedback_at: new Date().toISOString(),
+      },
+      { onConflict: "organization_id,insight_type" }
+    )
+  } catch (err) {
+    console.error("Failed to update org preference:", err)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Legacy actions kept for backward compatibility (redirect to new ones)
+// ---------------------------------------------------------------------------
+
+export async function markInsightReadAction(formData: FormData) {
+  return saveInsightAction(formData)
+}
+
+// ---------------------------------------------------------------------------
+// Priority Briefing generation (called during page render)
+// ---------------------------------------------------------------------------
+
+export async function generatePriorityBriefing(
+  insights: InsightForBriefing[],
+  preferences: InsightPreference[],
+  locationName: string
+): Promise<PriorityItem[]> {
+  if (insights.length === 0) return []
+
+  try {
+    const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName)
+    const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 2048 })
+
+    if (result?.priorities && Array.isArray(result.priorities)) {
+      const validSources = ["competitors", "events", "seo", "content"]
+      return (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
+        title: String(p.title ?? ""),
+        why: String(p.why ?? ""),
+        urgency: (["critical", "warning", "info"].includes(p.urgency) ? p.urgency : "info") as PriorityItem["urgency"],
+        action: String(p.action ?? ""),
+        source: (validSources.includes(p.source) ? p.source : "competitors") as PriorityItem["source"],
+        relatedInsightTypes: Array.isArray(p.relatedInsightTypes)
+          ? p.relatedInsightTypes.map(String)
+          : [],
+      }))
+    }
+  } catch (err) {
+    console.warn("[PriorityBriefing] Gemini call failed, using deterministic fallback:", err)
+  }
+
+  return buildDeterministicBriefing(insights)
 }
 
 function getDateKey(date = new Date()) {
@@ -660,7 +832,6 @@ export async function generateInsightsAction(formData: FormData) {
       }
     }
 
-    const rankOverview = seoDataMap.get("seo_domain_rank_overview") as { organic?: { etv?: number; rankedKeywords?: number; lostKeywords?: number }; paid?: { etv?: number } } | undefined
     const backlinksSummary = seoDataMap.get("seo_backlinks_summary") as { domainTrust?: number; referringDomains?: number; backlinks?: number } | undefined
     const historicalData = ((seoDataMap.get("seo_historical_rank") as Record<string, unknown>)?.history ?? []) as Array<{ date: string; organicEtv: number }>
 
@@ -1148,22 +1319,5 @@ export async function generateInsightsAction(formData: FormData) {
   redirect(`/insights?location_id=${locationId}`)
 }
 
-export async function dismissInsightAction(formData: FormData) {
-  await requireUser()
-  const insightId = String(formData.get("insight_id") ?? "")
-  if (!insightId) {
-    redirect("/insights?error=Missing%20insight")
-  }
-
-  const supabase = await createServerSupabaseClient()
-  const { error } = await supabase
-    .from("insights")
-    .update({ status: "dismissed" })
-    .eq("id", insightId)
-
-  if (error) {
-    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
-  }
-
-  redirect("/insights")
-}
+// Note: dismissInsightAction is now defined at the top of this file with
+// proper feedback recording and search param preservation.

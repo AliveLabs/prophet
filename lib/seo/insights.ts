@@ -242,7 +242,6 @@ function detectKeywordOpportunityGap(
 
   if (gaps.length === 0) return []
 
-  const topKeywords = gaps.map((g) => g.keyword).join(", ")
   const totalVolume = gaps.reduce((s, g) => s + (g.searchVolume ?? 0), 0)
 
   return [

@@ -166,8 +166,8 @@ export async function refreshSeoAction(formData: FormData) {
   let locationRankSnapshot: DomainRankSnapshot | null = null
   let currentKeywords: NormalizedRankedKeyword[] = []
   const serpEntries: SerpRankEntry[] = []
-  let intersectionRows: NormalizedIntersectionRow[] = []
-  let adCreatives: NormalizedAdCreative[] = []
+  const intersectionRows: NormalizedIntersectionRow[] = []
+  const adCreatives: NormalizedAdCreative[] = []
   // (Backlinks API removed — requires separate DataForSEO subscription)
 
   // =====================================================================

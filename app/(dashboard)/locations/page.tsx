@@ -72,6 +72,7 @@ const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
   return (
     <div className="flex items-center gap-3">
       {weather.iconUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
         <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
       ) : null}
       <div className="text-xs text-slate-600">

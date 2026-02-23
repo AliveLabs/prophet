@@ -866,8 +866,6 @@ serve(async (req) => {
     }
 
     if (job.job_type === "seo_ads_search") {
-      const ctx = await getSeoContext(job.location_id)
-
       // Fetch tracked keywords for ads
       const { data: keywords } = await supabase
         .from("tracked_keywords")

@@ -1,9 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import { refreshContentAction } from "./actions"
 import { getScreenshotUrl } from "@/lib/content/storage"
 import LocationFilter from "@/components/ui/location-filter"
-import RefreshOverlay from "@/components/ui/refresh-overlay"
+import JobRefreshButton from "@/components/ui/job-refresh-button"
 import MenuViewer from "@/components/content/menu-viewer"
 import MenuCompare from "@/components/content/menu-compare"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -175,22 +174,6 @@ export default async function ContentPage({ searchParams }: PageProps) {
     }
   }
 
-  // Build quick facts for overlay
-  const contentQuickFacts: string[] = []
-  if (menuSnap && menuSnap.parseMeta.itemsTotal > 0) {
-    contentQuickFacts.push(`Your menu has ${menuSnap.parseMeta.itemsTotal} items across ${menuSnap.categories.length} categories.`)
-  }
-  if (siteContentSnap?.detected?.reservation) {
-    contentQuickFacts.push("Your website offers online reservations.")
-  }
-  if (competitorMenus.length > 0) {
-    contentQuickFacts.push(`You have ${competitorMenus.length} competitor menu(s) available for comparison.`)
-  }
-
-  const geminiContext = selectedLocation
-    ? `Restaurant: ${selectedLocation.name}. Website: ${selectedLocation.website ?? "unknown"}. ${menuSnap ? `Menu has ${menuSnap.parseMeta.itemsTotal} items.` : "No menu data yet."}`
-    : ""
-
   // Compute location avg price
   const locPrices: number[] = []
   for (const cat of menuSnap?.categories ?? []) {
@@ -240,26 +223,13 @@ export default async function ContentPage({ searchParams }: PageProps) {
                   Last refresh: {lastRefreshDate}
                 </span>
               )}
-              <form action={refreshContentAction}>
-                <input type="hidden" name="location_id" value={selectedLocationId ?? ""} />
-                <RefreshOverlay
-                  label="Refresh Content"
-                  pendingLabel="Scraping website content"
-                  quickFacts={contentQuickFacts}
-                  geminiContext={geminiContext}
-                  steps={[
-                    "Mapping website pages...",
-                    "Scraping homepage...",
-                    "Capturing screenshots...",
-                    "Finding menu page...",
-                    "Extracting menu items...",
-                    "Parsing prices and categories...",
-                    "Scraping competitor menus...",
-                    "Generating insights...",
-                    "Almost done...",
-                  ]}
-                />
-              </form>
+              <JobRefreshButton
+                type="content"
+                locationId={selectedLocationId ?? ""}
+                label="Refresh Content"
+                pendingLabel="Scraping website content"
+                disabled={!selectedLocationId}
+              />
             </div>
           </div>
         </CardHeader>

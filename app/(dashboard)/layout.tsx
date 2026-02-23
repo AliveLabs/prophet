@@ -5,6 +5,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { signOutAction } from "./actions"
 import { Button } from "@/components/ui/button"
+import ActiveJobBar from "@/components/ui/active-job-bar"
+import { Toaster } from "sonner"
 
 export default async function DashboardLayout({
   children,
@@ -25,6 +27,8 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      <Toaster position="top-right" richColors closeButton />
+      <ActiveJobBar />
       <div className="grid min-h-screen w-full grid-cols-[260px_1fr] gap-6 px-6 py-6">
         <aside className="flex h-[calc(100vh-48px)] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
           <Link href="/home" className="text-lg font-semibold">

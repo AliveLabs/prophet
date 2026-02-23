@@ -1,16 +1,18 @@
-import InsightCard from "@/components/insight-card"
 import InsightsDashboard from "@/components/insights/insights-dashboard"
+import PriorityBriefing from "@/components/insights/priority-briefing"
+import InsightFeed, { type FeedInsight } from "@/components/insights/insight-feed"
 import AutoFilterForm from "@/components/filters/auto-filter-form"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
-import RefreshOverlay from "@/components/ui/refresh-overlay"
-import { dismissInsightAction, generateInsightsAction, markInsightReadAction } from "./actions"
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import JobRefreshButton from "@/components/ui/job-refresh-button"
+import { generatePriorityBriefing } from "./actions"
+import {
+  scoreInsights,
+  type InsightPreference,
+} from "@/lib/insights/scoring"
+import type { InsightForBriefing } from "@/lib/ai/prompts/priority-briefing"
 
 type InsightsPageProps = {
   searchParams?: Promise<{
@@ -19,7 +21,7 @@ type InsightsPageProps = {
     range?: string
     error?: string
     location_id?: string
-    source?: string
+    status?: string
   }>
 }
 
@@ -29,10 +31,6 @@ function getStartDate(range: string | undefined) {
   date.setDate(date.getDate() - days)
   return date.toISOString().slice(0, 10)
 }
-
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
 
 export default async function InsightsPage({ searchParams }: InsightsPageProps) {
   const user = await requireUser()
@@ -56,35 +54,64 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const resolvedSearchParams = await Promise.resolve(searchParams)
   const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
   const startDate = getStartDate(resolvedSearchParams?.range)
+  const statusFilter = resolvedSearchParams?.status ?? ""
 
   // -------------------------------------------------------------------------
-  // Fetch insights
+  // Fetch ALL insights (no source filter -- client handles that)
   // -------------------------------------------------------------------------
 
-  let query = supabase
+  let baseQuery = supabase
     .from("insights")
     .select(
-      "id, title, summary, confidence, severity, status, evidence, recommendations, date_key, competitor_id, insight_type"
+      "id, title, summary, confidence, severity, status, user_feedback, evidence, recommendations, date_key, competitor_id, insight_type"
     )
     .gte("date_key", startDate)
     .order("date_key", { ascending: false })
 
-  if (selectedLocationId) query = query.eq("location_id", selectedLocationId)
-  if (resolvedSearchParams?.confidence) query = query.eq("confidence", resolvedSearchParams.confidence)
-  if (resolvedSearchParams?.severity) query = query.eq("severity", resolvedSearchParams.severity)
+  if (selectedLocationId) baseQuery = baseQuery.eq("location_id", selectedLocationId)
+  if (resolvedSearchParams?.confidence) baseQuery = baseQuery.eq("confidence", resolvedSearchParams.confidence)
+  if (resolvedSearchParams?.severity) baseQuery = baseQuery.eq("severity", resolvedSearchParams.severity)
 
-  const sourceFilter = resolvedSearchParams?.source
-  if (sourceFilter === "events") query = query.like("insight_type", "events.%")
-  else if (sourceFilter === "seo") query = query.like("insight_type", "seo_%")
-  else if (sourceFilter === "content") query = query.or("insight_type.like.menu.%,insight_type.like.content.%")
-  else if (sourceFilter === "competitors") {
-    query = query.not("insight_type", "like", "events.%")
-    query = query.not("insight_type", "like", "seo_%")
-    query = query.not("insight_type", "like", "menu.%")
-    query = query.not("insight_type", "like", "content.%")
-  }
+  if (statusFilter === "saved") baseQuery = baseQuery.eq("status", "read")
+  else if (statusFilter === "dismissed") baseQuery = baseQuery.eq("status", "dismissed")
+  else if (statusFilter === "new") baseQuery = baseQuery.eq("status", "new")
+  else baseQuery = baseQuery.neq("status", "dismissed")
 
-  const { data: insights } = await query
+  const { data: allInsightsRaw } = await baseQuery
+  const allInsights = allInsightsRaw ?? []
+
+  // -------------------------------------------------------------------------
+  // Fetch org preferences for scoring
+  // -------------------------------------------------------------------------
+
+  const { data: prefsRaw } = await supabase
+    .from("insight_preferences")
+    .select("insight_type, weight, useful_count, dismissed_count")
+    .eq("organization_id", organizationId)
+
+  const preferences: InsightPreference[] = (prefsRaw ?? []).map((p) => ({
+    insight_type: p.insight_type,
+    weight: Number(p.weight),
+    useful_count: p.useful_count,
+    dismissed_count: p.dismissed_count,
+  }))
+
+  // -------------------------------------------------------------------------
+  // Score insights
+  // -------------------------------------------------------------------------
+
+  const scoredMap = new Map(
+    scoreInsights(
+      allInsights.map((i) => ({
+        id: i.id,
+        insight_type: i.insight_type as string,
+        confidence: i.confidence,
+        severity: i.severity,
+      })),
+      preferences
+    ).map((s) => [s.id, s])
+  )
+
   const error = resolvedSearchParams?.error
 
   // -------------------------------------------------------------------------
@@ -100,9 +127,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
       const details = await fetchPlaceDetails(selectedLocation.primary_place_id)
       locationRating = typeof details.rating === "number" ? details.rating : null
       locationReviewCount = typeof details.userRatingCount === "number" ? details.userRatingCount : null
-    } catch {
-      // silently skip
-    }
+    } catch { /* silently skip */ }
   }
 
   // -------------------------------------------------------------------------
@@ -110,25 +135,15 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   // -------------------------------------------------------------------------
 
   const { data: competitors } = selectedLocationId
-    ? await supabase
-        .from("competitors")
-        .select("id, name, category, metadata")
-        .eq("location_id", selectedLocationId)
-        .eq("is_active", true)
+    ? await supabase.from("competitors").select("id, name, category, metadata").eq("location_id", selectedLocationId).eq("is_active", true)
     : { data: [] }
 
   const competitorIds = competitors?.map((c) => c.id) ?? []
   const { data: snapshots } = competitorIds.length > 0
-    ? await supabase
-        .from("snapshots")
-        .select("competitor_id, date_key, raw_data")
-        .in("competitor_id", competitorIds)
-        .gte("date_key", startDate)
+    ? await supabase.from("snapshots").select("competitor_id, date_key, raw_data").in("competitor_id", competitorIds).gte("date_key", startDate)
     : { data: [] }
 
   const snapshotRows = snapshots ?? []
-
-  // Build latest snapshot per competitor
   const latestByCompetitor = new Map<string, NormalizedSnapshot>()
   const latestDateByCompetitor = new Map<string, string>()
   for (const snap of snapshotRows) {
@@ -139,11 +154,8 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   }
 
-  // Rating comparison data
   const ratingComparison = [
-    ...(selectedLocation?.name
-      ? [{ name: selectedLocation.name, rating: locationRating, reviewCount: locationReviewCount }]
-      : []),
+    ...(selectedLocation?.name ? [{ name: selectedLocation.name, rating: locationRating, reviewCount: locationReviewCount }] : []),
     ...(competitors ?? []).map((c) => {
       const snap = latestByCompetitor.get(c.id)
       const meta = c.metadata as Record<string, unknown> | null
@@ -159,7 +171,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }),
   ]
 
-  // Review growth
   const baselineByCompetitor = new Map<string, NormalizedSnapshot>()
   const baselineDateByCompetitor = new Map<string, string>()
   for (const snap of snapshotRows) {
@@ -182,9 +193,8 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     name: i.name, rating: i.rating ?? null, reviewCount: i.reviewCount ?? null,
   }))
 
-  // Sentiment
   const sentimentCounts = { positive: 0, negative: 0, mixed: 0 }
-  const themeInsights = insights?.filter((i) => i.insight_type === "review_themes") ?? []
+  const themeInsights = allInsights.filter((i) => i.insight_type === "review_themes")
   for (const ins of themeInsights) {
     const ev = ins.evidence as Record<string, unknown>
     const counts = ev?.sentimentCounts as { positive?: number; negative?: number; mixed?: number } | undefined
@@ -193,8 +203,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
       sentimentCounts.negative += counts.negative ?? 0
       sentimentCounts.mixed += counts.mixed ?? 0
     } else {
-      const themes = (ev?.themes as Array<Record<string, unknown>> | undefined) ?? []
-      for (const t of themes) {
+      for (const t of ((ev?.themes as Array<Record<string, unknown>>) ?? [])) {
         const s = t.sentiment as string | undefined
         if (s === "positive") sentimentCounts.positive += 1
         else if (s === "negative") sentimentCounts.negative += 1
@@ -203,7 +212,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   }
 
-  // KPIs
   const avgCompetitorRating = (() => {
     const ratings = ratingComparison.filter((i) => i.name !== selectedLocation?.name).map((i) => i.rating).filter((v): v is number => typeof v === "number")
     if (!ratings.length) return null
@@ -215,51 +223,75 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const reviewShare = locReviewTotal + compReviewTotal > 0
     ? Number(((locReviewTotal / (locReviewTotal + compReviewTotal)) * 100).toFixed(1)) : null
 
-  // -------------------------------------------------------------------------
-  // Build competitor name map for subject labels
-  // -------------------------------------------------------------------------
-
   const competitorNameMap = new Map<string, string>()
   for (const c of competitors ?? []) {
     competitorNameMap.set(c.id, c.name ?? "Competitor")
   }
 
   // -------------------------------------------------------------------------
-  // Summary counts for banner
+  // Generate AI Priority Briefing
   // -------------------------------------------------------------------------
 
-  const allInsights = insights ?? []
-  const eventInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("events.")).length
-  const seoInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("seo_")).length
-  const contentInsightCount = allInsights.filter((i) => (i.insight_type as string).startsWith("menu.") || (i.insight_type as string).startsWith("content.")).length
-  const compInsightCount = allInsights.filter((i) => {
-    const t = i.insight_type as string
-    return !t.startsWith("events.") && !t.startsWith("seo_") && !t.startsWith("menu.") && !t.startsWith("content.") && i.competitor_id
-  }).length
-  const locInsightCount = allInsights.filter((i) => !(i.insight_type as string).startsWith("events.") && !(i.insight_type as string).startsWith("seo_") && !i.competitor_id).length
+  const insightsForBriefing: InsightForBriefing[] = allInsights.slice(0, 30).map((i) => ({
+    insight_type: i.insight_type as string,
+    title: i.title,
+    summary: i.summary,
+    severity: i.severity,
+    confidence: i.confidence,
+    competitorId: i.competitor_id,
+    relevanceScore: scoredMap.get(i.id)?.relevanceScore ?? 0,
+  }))
 
-  // Group by date for separators
-  const insightsByDate = new Map<string, typeof allInsights>()
-  for (const ins of allInsights) {
-    const dk = ins.date_key as string
-    const arr = insightsByDate.get(dk) ?? []
-    arr.push(ins)
-    insightsByDate.set(dk, arr)
-  }
-  const sortedDates = Array.from(insightsByDate.keys()).sort((a, b) => (a > b ? -1 : 1))
+  const priorities = allInsights.length > 0
+    ? await generatePriorityBriefing(insightsForBriefing, preferences, selectedLocation?.name ?? "Your location")
+    : []
 
-  // Quick facts for loading overlay
-  const insightQuickFacts: string[] = []
-  if (allInsights.length > 0) insightQuickFacts.push(`${allInsights.length} insight${allInsights.length !== 1 ? "s" : ""} generated so far.`)
-  if (locationRating) insightQuickFacts.push(`Your location: ${locationRating.toFixed(1)} stars.`)
-  if (avgCompetitorRating) insightQuickFacts.push(`Avg competitor rating: ${avgCompetitorRating} stars.`)
-  if (reviewShare !== null) insightQuickFacts.push(`You hold ${reviewShare}% review share vs competitors.`)
-  if (eventInsightCount > 0) insightQuickFacts.push(`${eventInsightCount} event-related insight${eventInsightCount !== 1 ? "s" : ""} detected.`)
-  if (seoInsightCount > 0) insightQuickFacts.push(`${seoInsightCount} SEO insight${seoInsightCount !== 1 ? "s" : ""} identified.`)
-  if (contentInsightCount > 0) insightQuickFacts.push(`${contentInsightCount} content/menu insight${contentInsightCount !== 1 ? "s" : ""} found.`)
-  if (competitors && competitors.length > 0) insightQuickFacts.push(`Analyzing data across ${competitors.length} approved competitor${competitors.length !== 1 ? "s" : ""}.`)
+  // -------------------------------------------------------------------------
+  // Serialize insights for client-side feed (sorted by relevance)
+  // -------------------------------------------------------------------------
 
-  const insightsGeminiContext = `Local business insights. Location: ${selectedLocation?.name ?? "Unknown"}. Rating: ${locationRating ?? "N/A"}. ${competitors?.length ?? 0} competitors. ${allInsights.length} existing insights. Avg competitor rating: ${avgCompetitorRating ?? "N/A"}.`
+  const sortedInsights = [...allInsights].sort((a, b) => {
+    const sa = scoredMap.get(a.id)?.relevanceScore ?? 0
+    const sb = scoredMap.get(b.id)?.relevanceScore ?? 0
+    return sb - sa
+  })
+
+  const feedInsights: FeedInsight[] = sortedInsights.map((insight) => {
+    const scored = scoredMap.get(insight.id)
+    const subjectLabel = (insight.insight_type as string).startsWith("events.")
+      ? "Local events"
+      : (insight.insight_type as string).startsWith("seo_")
+        ? "Search visibility"
+        : insight.competitor_id
+          ? competitorNameMap.get(insight.competitor_id) ?? "Competitor"
+          : selectedLocation?.name ?? "Your location"
+
+    return {
+      id: insight.id,
+      title: insight.title,
+      summary: insight.summary,
+      insightType: insight.insight_type as string,
+      competitorId: insight.competitor_id,
+      confidence: insight.confidence,
+      severity: insight.severity,
+      status: insight.status,
+      userFeedback: (insight.user_feedback as string | null) ?? null,
+      relevanceScore: scored?.relevanceScore ?? 0,
+      urgencyLevel: scored?.urgencyLevel ?? "info",
+      suppressed: scored?.suppressed ?? false,
+      evidence: insight.evidence as Record<string, unknown>,
+      recommendations: insight.recommendations as Array<Record<string, unknown>>,
+      subjectLabel,
+      dateKey: insight.date_key as string,
+    }
+  })
+
+  const baseParams: Record<string, string> = {}
+  if (selectedLocationId) baseParams.location_id = selectedLocationId
+  if (resolvedSearchParams?.range) baseParams.range = resolvedSearchParams.range
+  if (resolvedSearchParams?.confidence) baseParams.confidence = resolvedSearchParams.confidence
+  if (resolvedSearchParams?.severity) baseParams.severity = resolvedSearchParams.severity
+  if (statusFilter) baseParams.status = statusFilter
 
   // -------------------------------------------------------------------------
   // Render
@@ -267,133 +299,91 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   return (
     <section className="space-y-6">
-      {/* Header + filters */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 text-slate-900 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold">Insights</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Changes and opportunities across your competitors and local events.
+      {/* Hero Header */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-600 p-6 text-white shadow-xl shadow-indigo-200/50">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
+
+        <div className="relative flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-bold tracking-tight">Insights</h1>
+            </div>
+            <p className="max-w-md text-sm text-white/70">
+              Changes and opportunities across competitors, events, SEO, and content for{" "}
+              <span className="font-medium text-white/90">{selectedLocation?.name ?? "your locations"}</span>.
             </p>
           </div>
+
           {selectedLocationId && (
-            <form action={generateInsightsAction}>
-              <input type="hidden" name="location_id" value={selectedLocationId} />
-              <RefreshOverlay
-                label="Generate insights"
-                pendingLabel="Generating insights"
-                quickFacts={insightQuickFacts}
-                geminiContext={insightsGeminiContext}
-                steps={[
-                  "Collecting competitor data...",
-                  "Analyzing review trends...",
-                  "Processing event correlations...",
-                  "Evaluating SEO signals...",
-                  "Running insight rules...",
-                  "Generating recommendations...",
-                ]}
-              />
-            </form>
+            <JobRefreshButton
+              type="insights"
+              locationId={selectedLocationId}
+              label="Generate insights"
+              pendingLabel="Generating insights"
+              className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
+            />
           )}
         </div>
 
-        {error && (
-          <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {decodeURIComponent(error)}
-          </p>
-        )}
-
-        {/* Compact filter bar -- auto-navigates on change */}
-        <AutoFilterForm
-          filters={[
-            {
-              name: "location_id",
-              defaultValue: selectedLocationId ?? "",
-              options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
-            },
-            {
-              name: "range",
-              defaultValue: resolvedSearchParams?.range ?? "7",
-              options: [
-                { value: "7", label: "7 days" },
-                { value: "30", label: "30 days" },
-              ],
-            },
-            {
-              name: "confidence",
-              defaultValue: resolvedSearchParams?.confidence ?? "",
-              options: [
-                { value: "", label: "All confidence" },
-                { value: "high", label: "High" },
-                { value: "medium", label: "Medium" },
-                { value: "low", label: "Low" },
-              ],
-            },
-            {
-              name: "severity",
-              defaultValue: resolvedSearchParams?.severity ?? "",
-              options: [
-                { value: "", label: "All severity" },
-                { value: "info", label: "Info" },
-                { value: "warning", label: "Warning" },
-                { value: "critical", label: "Critical" },
-              ],
-            },
-            {
-              name: "source",
-              defaultValue: resolvedSearchParams?.source ?? "",
-              options: [
-                { value: "", label: "All sources" },
-                { value: "competitors", label: "Competitors" },
-                { value: "events", label: "Events" },
-                { value: "seo", label: "SEO" },
-                { value: "content", label: "Content" },
-              ],
-            },
-          ]}
-        />
+        {/* Filters */}
+        <div className="relative mt-5">
+          <AutoFilterForm
+            filters={[
+              {
+                name: "location_id",
+                defaultValue: selectedLocationId ?? "",
+                options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
+              },
+              {
+                name: "range",
+                defaultValue: resolvedSearchParams?.range ?? "7",
+                options: [
+                  { value: "7", label: "7 days" },
+                  { value: "30", label: "30 days" },
+                ],
+              },
+              {
+                name: "severity",
+                defaultValue: resolvedSearchParams?.severity ?? "",
+                options: [
+                  { value: "", label: "All severity" },
+                  { value: "critical", label: "Critical" },
+                  { value: "warning", label: "Warning" },
+                  { value: "info", label: "Info" },
+                ],
+              },
+              {
+                name: "status",
+                defaultValue: statusFilter,
+                options: [
+                  { value: "", label: "New + Saved" },
+                  { value: "new", label: "New only" },
+                  { value: "saved", label: "Saved" },
+                  { value: "dismissed", label: "Dismissed" },
+                ],
+              },
+            ]}
+          />
+        </div>
       </div>
 
-      {/* Summary banner */}
-      {allInsights.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-          <span className="font-semibold text-slate-800">
-            {allInsights.length} insight{allInsights.length !== 1 ? "s" : ""}
-          </span>
-          {eventInsightCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 font-medium text-violet-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-violet-400" />
-              {eventInsightCount} event{eventInsightCount !== 1 ? "s" : ""}
-            </span>
-          )}
-          {seoInsightCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
-              {seoInsightCount} SEO
-            </span>
-          )}
-          {contentInsightCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-teal-50 px-2 py-0.5 font-medium text-teal-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-teal-400" />
-              {contentInsightCount} content
-            </span>
-          )}
-          {compInsightCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              {compInsightCount} competitor
-            </span>
-          )}
-          {locInsightCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
-              {locInsightCount} location
-            </span>
-          )}
+      {/* Error banner */}
+      {error && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {decodeURIComponent(error)}
         </div>
       )}
 
-      {/* Charts dashboard */}
+      {/* Priority Briefing */}
+      {priorities.length > 0 && <PriorityBriefing priorities={priorities} />}
+
+      {/* Charts Dashboard */}
       {selectedLocationId && (
         <InsightsDashboard
           ratingComparison={ratingComparison}
@@ -406,123 +396,13 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
         />
       )}
 
-      {/* Location summary banner */}
-      {selectedLocation && (
-        <div className="flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 px-4 py-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100">
-            <svg className="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-indigo-900">{selectedLocation.name}</p>
-            <p className="text-xs text-indigo-700">
-              {locationRating ? `${locationRating.toFixed(1)} stars` : ""}
-              {locationRating && locationReviewCount ? " · " : ""}
-              {locationReviewCount ? `${locationReviewCount.toLocaleString()} reviews` : ""}
-              {!locationRating && !locationReviewCount ? "Your location of interest" : ""}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Unified insight feed */}
-      {sortedDates.length > 0 ? (
-        <div className="space-y-4">
-          {sortedDates.map((dateKey) => {
-            const dayInsights = insightsByDate.get(dateKey) ?? []
-            const dateLabel = (() => {
-              try {
-                return new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
-                  weekday: "long", month: "short", day: "numeric",
-                })
-              } catch { return dateKey }
-            })()
-
-            return (
-              <div key={dateKey}>
-                {/* Date separator */}
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="text-xs font-semibold text-slate-400">{dateLabel}</span>
-                  <div className="h-px flex-1 bg-slate-200" />
-                </div>
-
-                <div className="space-y-3">
-                  {dayInsights.map((insight) => {
-                    const isEvent = (insight.insight_type as string).startsWith("events.")
-                    const isSeo = (insight.insight_type as string).startsWith("seo_")
-                    const accent: "event" | "competitor" | "location" = isEvent
-                      ? "event"
-                      : isSeo
-                        ? "location"
-                        : insight.competitor_id
-                          ? "competitor"
-                          : "location"
-                    const subjectLabel = isEvent
-                      ? "Local events"
-                      : isSeo
-                        ? "Search visibility"
-                        : insight.competitor_id
-                        ? competitorNameMap.get(insight.competitor_id) ?? "Competitor"
-                        : selectedLocation?.name ?? "Your location"
-
-                    return (
-                      <InsightCard
-                        key={insight.id}
-                        title={insight.title}
-                        summary={insight.summary}
-                        insightType={insight.insight_type as string}
-                        confidence={insight.confidence}
-                        severity={insight.severity}
-                        status={insight.status}
-                        evidence={insight.evidence as Record<string, unknown>}
-                        recommendations={insight.recommendations as Array<Record<string, unknown>>}
-                        subjectLabel={subjectLabel}
-                        accent={accent}
-                        actions={
-                          <>
-                            <form action={markInsightReadAction}>
-                              <input type="hidden" name="insight_id" value={insight.id} />
-                              <button
-                                type="submit"
-                                className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                                title="Mark read"
-                              >
-                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
-                              </button>
-                            </form>
-                            <form action={dismissInsightAction}>
-                              <input type="hidden" name="insight_id" value={insight.id} />
-                              <button
-                                type="submit"
-                                className="rounded-lg border border-slate-200 p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600"
-                                title="Dismiss"
-                              >
-                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            </form>
-                          </>
-                        }
-                      />
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-          <p className="text-sm text-slate-500">
-            No insights yet. Generate insights or fetch events to see changes and opportunities here.
-          </p>
-        </div>
-      )}
+      {/* Client-side tabs + insight feed (instant tab switching) */}
+      <InsightFeed
+        insights={feedInsights}
+        baseParams={baseParams}
+        statusFilter={statusFilter}
+        preferencesCount={preferences.length}
+      />
     </section>
   )
 }

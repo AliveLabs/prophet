@@ -64,7 +64,7 @@ function RefreshOverlayInner({
   // Cycle through progress steps every 6 seconds
   useEffect(() => {
     if (!pending) return
-    setStepIndex(0)
+    queueMicrotask(() => setStepIndex(0))
     const interval = setInterval(() => {
       setStepIndex((i) => Math.min(i + 1, steps.length - 1))
     }, 6000)
@@ -94,9 +94,11 @@ function RefreshOverlayInner({
   useEffect(() => {
     if (!pending) {
       geminiCalled.current = false
-      setFactIndex(0)
-      setStepIndex(0)
-      setAllFacts(quickFacts)
+      queueMicrotask(() => {
+        setFactIndex(0)
+        setStepIndex(0)
+        setAllFacts(quickFacts)
+      })
     }
   }, [pending, quickFacts])
 
