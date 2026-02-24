@@ -1,5 +1,5 @@
+import { Suspense } from "react"
 import InsightsDashboard from "@/components/insights/insights-dashboard"
-import PriorityBriefing from "@/components/insights/priority-briefing"
 import InsightFeed, { type FeedInsight } from "@/components/insights/insight-feed"
 import AutoFilterForm from "@/components/filters/auto-filter-form"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
@@ -7,12 +7,13 @@ import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
-import { generatePriorityBriefing } from "./actions"
 import {
   scoreInsights,
   type InsightPreference,
 } from "@/lib/insights/scoring"
 import type { InsightForBriefing } from "@/lib/ai/prompts/priority-briefing"
+import PriorityBriefingSection from "./priority-briefing-section"
+import { BriefingSkeleton } from "@/components/insights/priority-briefing"
 
 type InsightsPageProps = {
   searchParams?: Promise<{
@@ -55,12 +56,13 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
   const startDate = getStartDate(resolvedSearchParams?.range)
   const statusFilter = resolvedSearchParams?.status ?? ""
+  const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -------------------------------------------------------------------------
-  // Fetch ALL insights (no source filter -- client handles that)
+  // Build insight query (must be built before Promise.all)
   // -------------------------------------------------------------------------
 
-  let baseQuery = supabase
+  let insightQuery = supabase
     .from("insights")
     .select(
       "id, title, summary, confidence, severity, status, user_feedback, evidence, recommendations, date_key, competitor_id, insight_type"
@@ -68,26 +70,39 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     .gte("date_key", startDate)
     .order("date_key", { ascending: false })
 
-  if (selectedLocationId) baseQuery = baseQuery.eq("location_id", selectedLocationId)
-  if (resolvedSearchParams?.confidence) baseQuery = baseQuery.eq("confidence", resolvedSearchParams.confidence)
-  if (resolvedSearchParams?.severity) baseQuery = baseQuery.eq("severity", resolvedSearchParams.severity)
+  if (selectedLocationId) insightQuery = insightQuery.eq("location_id", selectedLocationId)
+  if (resolvedSearchParams?.confidence) insightQuery = insightQuery.eq("confidence", resolvedSearchParams.confidence)
+  if (resolvedSearchParams?.severity) insightQuery = insightQuery.eq("severity", resolvedSearchParams.severity)
 
-  if (statusFilter === "saved") baseQuery = baseQuery.eq("status", "read")
-  else if (statusFilter === "dismissed") baseQuery = baseQuery.eq("status", "dismissed")
-  else if (statusFilter === "new") baseQuery = baseQuery.eq("status", "new")
-  else baseQuery = baseQuery.neq("status", "dismissed")
+  if (statusFilter === "saved") insightQuery = insightQuery.eq("status", "read")
+  else if (statusFilter === "dismissed") insightQuery = insightQuery.eq("status", "dismissed")
+  else if (statusFilter === "new") insightQuery = insightQuery.eq("status", "new")
+  else insightQuery = insightQuery.neq("status", "dismissed")
 
-  const { data: allInsightsRaw } = await baseQuery
+  // -------------------------------------------------------------------------
+  // Parallel fetch: insights, preferences, place details, competitors
+  // -------------------------------------------------------------------------
+
+  const [
+    { data: allInsightsRaw },
+    { data: prefsRaw },
+    placeDetails,
+    { data: competitors },
+  ] = await Promise.all([
+    insightQuery,
+    supabase
+      .from("insight_preferences")
+      .select("insight_type, weight, useful_count, dismissed_count")
+      .eq("organization_id", organizationId),
+    selectedLocation?.primary_place_id
+      ? fetchPlaceDetails(selectedLocation.primary_place_id).catch(() => null)
+      : Promise.resolve(null),
+    selectedLocationId
+      ? supabase.from("competitors").select("id, name, category, metadata").eq("location_id", selectedLocationId).eq("is_active", true)
+      : Promise.resolve({ data: [] as Array<{ id: string; name: string; category: string; metadata: unknown }> }),
+  ])
+
   const allInsights = allInsightsRaw ?? []
-
-  // -------------------------------------------------------------------------
-  // Fetch org preferences for scoring
-  // -------------------------------------------------------------------------
-
-  const { data: prefsRaw } = await supabase
-    .from("insight_preferences")
-    .select("insight_type, weight, useful_count, dismissed_count")
-    .eq("organization_id", organizationId)
 
   const preferences: InsightPreference[] = (prefsRaw ?? []).map((p) => ({
     insight_type: p.insight_type,
@@ -96,8 +111,11 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     dismissed_count: p.dismissed_count,
   }))
 
+  const locationRating = typeof placeDetails?.rating === "number" ? placeDetails.rating : null
+  const locationReviewCount = typeof placeDetails?.userRatingCount === "number" ? placeDetails.userRatingCount : null
+
   // -------------------------------------------------------------------------
-  // Score insights
+  // Score insights (CPU-only, instant)
   // -------------------------------------------------------------------------
 
   const scoredMap = new Map(
@@ -115,28 +133,8 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const error = resolvedSearchParams?.error
 
   // -------------------------------------------------------------------------
-  // Location details
+  // Snapshots (depends on competitors result)
   // -------------------------------------------------------------------------
-
-  const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
-  let locationRating: number | null = null
-  let locationReviewCount: number | null = null
-
-  if (selectedLocation?.primary_place_id) {
-    try {
-      const details = await fetchPlaceDetails(selectedLocation.primary_place_id)
-      locationRating = typeof details.rating === "number" ? details.rating : null
-      locationReviewCount = typeof details.userRatingCount === "number" ? details.userRatingCount : null
-    } catch { /* silently skip */ }
-  }
-
-  // -------------------------------------------------------------------------
-  // Competitor + snapshot data (for charts)
-  // -------------------------------------------------------------------------
-
-  const { data: competitors } = selectedLocationId
-    ? await supabase.from("competitors").select("id, name, category, metadata").eq("location_id", selectedLocationId).eq("is_active", true)
-    : { data: [] }
 
   const competitorIds = competitors?.map((c) => c.id) ?? []
   const { data: snapshots } = competitorIds.length > 0
@@ -229,7 +227,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }
 
   // -------------------------------------------------------------------------
-  // Generate AI Priority Briefing
+  // Prepare briefing data (passed to Suspense-wrapped component)
   // -------------------------------------------------------------------------
 
   const insightsForBriefing: InsightForBriefing[] = allInsights.slice(0, 30).map((i) => ({
@@ -241,10 +239,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     competitorId: i.competitor_id,
     relevanceScore: scoredMap.get(i.id)?.relevanceScore ?? 0,
   }))
-
-  const priorities = allInsights.length > 0
-    ? await generatePriorityBriefing(insightsForBriefing, preferences, selectedLocation?.name ?? "Your location")
-    : []
 
   // -------------------------------------------------------------------------
   // Serialize insights for client-side feed (sorted by relevance)
@@ -292,6 +286,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   if (resolvedSearchParams?.confidence) baseParams.confidence = resolvedSearchParams.confidence
   if (resolvedSearchParams?.severity) baseParams.severity = resolvedSearchParams.severity
   if (statusFilter) baseParams.status = statusFilter
+
+  // Cache key components for the briefing
+  const latestDateKey = allInsights[0]?.date_key as string | undefined
+  const briefingCacheKey = selectedLocationId
+    ? `${selectedLocationId}:${allInsights.length}:${latestDateKey ?? "none"}`
+    : null
 
   // -------------------------------------------------------------------------
   // Render
@@ -380,8 +380,17 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
         </div>
       )}
 
-      {/* Priority Briefing */}
-      {priorities.length > 0 && <PriorityBriefing priorities={priorities} />}
+      {/* Priority Briefing -- streamed via Suspense, never blocks page */}
+      {allInsights.length > 0 && (
+        <Suspense fallback={<BriefingSkeleton />}>
+          <PriorityBriefingSection
+            insights={insightsForBriefing}
+            preferences={preferences}
+            locationName={selectedLocation?.name ?? "Your location"}
+            cacheKey={briefingCacheKey}
+          />
+        </Suspense>
+      )}
 
       {/* Charts Dashboard */}
       {selectedLocationId && (
