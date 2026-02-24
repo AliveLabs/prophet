@@ -152,3 +152,51 @@ export default function PriorityBriefing({ priorities }: Props) {
     </div>
   )
 }
+
+export function BriefingSkeleton() {
+  return (
+    <div className="space-y-3 animate-pulse">
+      <div className="flex items-center gap-2">
+        <div className="h-7 w-7 rounded-lg bg-amber-100/60" />
+        <div className="space-y-1">
+          <div className="h-4 w-28 rounded bg-slate-200" />
+          <div className="h-3 w-56 rounded bg-slate-100" />
+        </div>
+      </div>
+
+      {/* Featured card skeleton */}
+      <div className="rounded-2xl border border-l-4 border-l-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex gap-2">
+              <div className="h-5 w-16 rounded-full bg-slate-200" />
+              <div className="h-5 w-14 rounded-full bg-slate-100" />
+            </div>
+            <div className="h-5 w-3/4 rounded bg-slate-200" />
+            <div className="h-4 w-full rounded bg-slate-100" />
+            <div className="h-10 w-full rounded-xl bg-slate-100" />
+          </div>
+        </div>
+      </div>
+
+      {/* 2x2 grid skeleton */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-xl border border-l-4 border-l-slate-200 bg-gradient-to-br from-slate-50 to-white p-4 shadow-sm">
+            <div className="mb-2.5 flex items-center justify-between">
+              <div className="h-7 w-7 rounded-lg bg-slate-200" />
+              <div className="flex gap-1.5">
+                <div className="h-5 w-12 rounded-full bg-slate-100" />
+                <div className="h-5 w-16 rounded-full bg-slate-100" />
+              </div>
+            </div>
+            <div className="h-4 w-2/3 rounded bg-slate-200" />
+            <div className="mt-1.5 h-3 w-full rounded bg-slate-100" />
+            <div className="mt-2.5 h-8 w-full rounded-lg bg-slate-100" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

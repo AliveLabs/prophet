@@ -29,6 +29,7 @@ import {
   type InsightForBriefing,
 } from "@/lib/ai/prompts/priority-briefing"
 import type { InsightPreference } from "@/lib/insights/scoring"
+import { getCachedBriefing, setCachedBriefing } from "@/lib/insights/briefing-cache"
 
 // ---------------------------------------------------------------------------
 // Helper: rebuild redirect URL preserving all search params
@@ -186,9 +187,17 @@ export async function markInsightReadAction(formData: FormData) {
 export async function generatePriorityBriefing(
   insights: InsightForBriefing[],
   preferences: InsightPreference[],
-  locationName: string
+  locationName: string,
+  cacheKey?: string | null
 ): Promise<PriorityItem[]> {
   if (insights.length === 0) return []
+
+  if (cacheKey) {
+    const cached = getCachedBriefing(cacheKey)
+    if (cached) return cached
+  }
+
+  let result_items: PriorityItem[]
 
   try {
     const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName)
@@ -196,7 +205,7 @@ export async function generatePriorityBriefing(
 
     if (result?.priorities && Array.isArray(result.priorities)) {
       const validSources = ["competitors", "events", "seo", "content"]
-      return (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
+      result_items = (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
         title: String(p.title ?? ""),
         why: String(p.why ?? ""),
         urgency: (["critical", "warning", "info"].includes(p.urgency) ? p.urgency : "info") as PriorityItem["urgency"],
@@ -206,12 +215,19 @@ export async function generatePriorityBriefing(
           ? p.relatedInsightTypes.map(String)
           : [],
       }))
+    } else {
+      result_items = buildDeterministicBriefing(insights)
     }
   } catch (err) {
     console.warn("[PriorityBriefing] Gemini call failed, using deterministic fallback:", err)
+    result_items = buildDeterministicBriefing(insights)
   }
 
-  return buildDeterministicBriefing(insights)
+  if (cacheKey && result_items.length > 0) {
+    setCachedBriefing(cacheKey, result_items)
+  }
+
+  return result_items
 }
 
 function getDateKey(date = new Date()) {
