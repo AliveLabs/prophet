@@ -38,6 +38,8 @@ const TABS: TabConfig[] = [
   { value: "events", label: "Events", color: "text-violet-700", activeColor: "bg-violet-600 text-white", dot: SOURCE_COLORS.events.dot },
   { value: "seo", label: "SEO", color: "text-sky-700", activeColor: "bg-sky-600 text-white", dot: SOURCE_COLORS.seo.dot },
   { value: "content", label: "Content", color: "text-teal-700", activeColor: "bg-teal-600 text-white", dot: SOURCE_COLORS.content.dot },
+  { value: "photos", label: "Photos", color: "text-pink-700", activeColor: "bg-pink-600 text-white", dot: SOURCE_COLORS.photos.dot },
+  { value: "traffic", label: "Traffic", color: "text-orange-700", activeColor: "bg-orange-600 text-white", dot: SOURCE_COLORS.traffic.dot },
 ]
 
 type Props = {
@@ -51,7 +53,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter, prefer
   const [activeTab, setActiveTab] = useState("")
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": insights.length, competitors: 0, events: 0, seo: 0, content: 0 }
+    const counts: Record<string, number> = { "": insights.length, competitors: 0, events: 0, seo: 0, content: 0, photos: 0, traffic: 0 }
     for (const ins of insights) {
       const cat = getSourceCategory(ins.insightType, ins.competitorId)
       counts[cat] = (counts[cat] ?? 0) + 1

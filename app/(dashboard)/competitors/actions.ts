@@ -448,13 +448,12 @@ export async function approveCompetitorAction(formData: FormData) {
   }
 
   // =========================================================================
-  // Enrich competitor with SEO + Content data (non-blocking: failures logged)
+  // Fire-and-forget background enrichment so the UI isn't blocked
   // =========================================================================
   const dateKey = new Date().toISOString().slice(0, 10)
   const compMeta = competitor.metadata as Record<string, unknown> | null
   const placeDetails = compMeta?.placeDetails as Record<string, unknown> | null
 
-  // Resolve competitor domain
   const compWebsite =
     competitor.website ??
     (placeDetails?.websiteUri as string | undefined) ??
@@ -462,51 +461,59 @@ export async function approveCompetitorAction(formData: FormData) {
     null
   const compDomain = extractDomainFromUrl(compWebsite)
 
-  // Resolve location domain
   const locationWebsite = (locationRecord as { website?: string } | null)?.website ?? null
   const locationDomain = extractDomainFromUrl(locationWebsite)
 
-  // SEO enrichment
-  if (compDomain) {
-    try {
-      const { warnings } = await enrichCompetitorSeo(
-        competitorId,
-        compDomain,
-        locationDomain,
-        dateKey,
-        tier,
-        supabase
-      )
-      if (warnings.length > 0) {
-        console.warn(`[Approve] SEO enrichment warnings for ${competitor.name}:`, warnings)
-      }
-    } catch (err) {
-      console.warn(`[Approve] SEO enrichment failed for ${competitor.name}:`, err)
-    }
-  }
+  const competitorName = competitor.name ?? "Competitor"
 
-  // Content/menu enrichment
-  if (compWebsite) {
-    try {
-      const compAddress = (placeDetails?.formattedAddress as string) ?? null
-      const { warnings } = await enrichCompetitorContent(
-        competitorId,
-        competitor.name ?? "Competitor",
-        compWebsite,
-        organizationId,
-        dateKey,
-        supabase,
-        compAddress
-      )
-      if (warnings.length > 0) {
-        console.warn(`[Approve] Content enrichment warnings for ${competitor.name}:`, warnings)
+  // Run enrichment in background – don't await
+  void (async () => {
+    if (compDomain) {
+      try {
+        const { warnings } = await enrichCompetitorSeo(
+          competitorId,
+          compDomain,
+          locationDomain,
+          dateKey,
+          tier,
+          supabase
+        )
+        if (warnings.length > 0) {
+          console.warn(`[Approve] SEO enrichment warnings for ${competitorName}:`, warnings)
+        }
+      } catch (err) {
+        console.warn(`[Approve] SEO enrichment failed for ${competitorName}:`, err)
       }
-    } catch (err) {
-      console.warn(`[Approve] Content enrichment failed for ${competitor.name}:`, err)
     }
-  }
 
-  redirect("/competitors")
+    if (compWebsite) {
+      try {
+        const compAddress = (placeDetails?.formattedAddress as string) ?? null
+        const { warnings } = await enrichCompetitorContent(
+          competitorId,
+          competitorName,
+          compWebsite,
+          organizationId,
+          dateKey,
+          supabase,
+          compAddress
+        )
+        if (warnings.length > 0) {
+          console.warn(`[Approve] Content enrichment warnings for ${competitorName}:`, warnings)
+        }
+      } catch (err) {
+        console.warn(`[Approve] Content enrichment failed for ${competitorName}:`, err)
+      }
+    }
+
+    console.log(`[Approve] Background enrichment complete for ${competitorName}`)
+  })()
+
+  redirect(
+    `/competitors?success=${encodeURIComponent(
+      `${competitorName} approved. Data enrichment started in background.`
+    )}`
+  )
 }
 
 function extractDomainFromUrl(url: string | null | undefined): string | null {

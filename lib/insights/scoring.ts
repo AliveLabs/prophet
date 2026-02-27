@@ -119,13 +119,15 @@ export function scoreInsights(
 // Source category mapping
 // ---------------------------------------------------------------------------
 
-export type SourceCategory = "competitors" | "events" | "seo" | "content"
+export type SourceCategory = "competitors" | "events" | "seo" | "content" | "photos" | "traffic"
 
 export function getSourceCategory(insightType: string, competitorId: string | null): SourceCategory {
   void competitorId
   if (insightType.startsWith("events.")) return "events"
   if (insightType.startsWith("seo_") || insightType.startsWith("cross_")) return "seo"
   if (insightType.startsWith("menu.") || insightType.startsWith("content.")) return "content"
+  if (insightType.startsWith("photo.") || insightType.startsWith("visual.")) return "photos"
+  if (insightType.startsWith("traffic.") || insightType.startsWith("busy_times.")) return "traffic"
   return "competitors"
 }
 
@@ -134,6 +136,8 @@ export const SOURCE_LABELS: Record<SourceCategory, string> = {
   events: "Local Events",
   seo: "Search Visibility",
   content: "Website & Menu",
+  photos: "Visual Intelligence",
+  traffic: "Foot Traffic",
 }
 
 export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; border: string; dot: string }> = {
@@ -141,4 +145,6 @@ export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; b
   events: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-400" },
   seo: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", dot: "bg-sky-400" },
   content: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", dot: "bg-teal-400" },
+  photos: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200", dot: "bg-pink-400" },
+  traffic: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", dot: "bg-orange-400" },
 }

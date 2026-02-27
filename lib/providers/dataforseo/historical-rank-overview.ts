@@ -86,8 +86,8 @@ export async function fetchHistoricalRankOverview(
   if (input.dateFrom) task.date_from = input.dateFrom
   else task.date_from = yearAgo.toISOString().slice(0, 10)
 
+  // Only send date_to when explicitly provided; the API defaults to today
   if (input.dateTo) task.date_to = input.dateTo
-  else task.date_to = now.toISOString().slice(0, 10)
 
   const data = await postDataForSEO<DataForSEOTaskResponse<HistoricalRankOverviewResult>>(
     "/v3/dataforseo_labs/google/historical_rank_overview/live",

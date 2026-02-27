@@ -24,6 +24,10 @@ const TYPE_LABELS: Record<string, string> = {
   visibility: "SEO refresh",
   events: "Events refresh",
   insights: "Insights generation",
+  refresh_all: "Full data refresh",
+  photos: "Photo analysis",
+  busy_times: "Busy times fetch",
+  weather: "Weather fetch",
 }
 
 export default function JobRefreshButton({

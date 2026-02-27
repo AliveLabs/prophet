@@ -221,73 +221,88 @@ export async function scrapePage(
 // ---------------------------------------------------------------------------
 
 export async function scrapeMenuPage(url: string): Promise<MenuExtractResult | null> {
+  const client = getClient()
+
+  const baseOpts: Record<string, unknown> = {
+    formats: [
+      "markdown",
+      { type: "screenshot", fullPage: true },
+      {
+        type: "json",
+        schema: MENU_SCHEMA,
+        prompt: MENU_EXTRACT_PROMPT,
+      },
+    ],
+    onlyMainContent: false,
+    timeout: 90000,
+  }
+
+  const actionsPayload = [
+    { type: "wait", milliseconds: 2000 },
+    {
+      type: "executeJavascript",
+      script: [
+        'document.querySelectorAll(',
+        '  \'[role="tab"], .tab, [data-tab], .nav-link, .menu-tab, \'  +',
+        '  \'.tab-link, .tabs a, .tabs button, .tab-header, \'  +',
+        '  \'[data-toggle="tab"], [data-bs-toggle="tab"]\'',
+        ').forEach(function(el) { try { el.click(); } catch(e) {} });',
+        'document.querySelectorAll(',
+        '  \'[style*="display: none"], [style*="display:none"], \'  +',
+        '  \'.hidden, [hidden], .tab-pane, .accordion-body, \'  +',
+        '  \'.collapse:not(.show), .tab-content > div\'',
+        ').forEach(function(el) {',
+        '  el.style.display = "block";',
+        '  el.style.visibility = "visible";',
+        '  el.style.opacity = "1";',
+        '  el.style.height = "auto";',
+        '  el.classList.remove("hidden");',
+        '  el.removeAttribute("hidden");',
+        '});',
+      ].join('\n'),
+    },
+    { type: "scroll", direction: "down" as const },
+    { type: "scroll", direction: "down" as const },
+    { type: "scroll", direction: "down" as const },
+    { type: "wait", milliseconds: 1500 },
+  ]
+
+  // Try with actions first (reveals hidden tabs/accordions), fall back to plain scrape
+  let result: Record<string, unknown> | null = null
   try {
-    const client = getClient()
-    const result = await client.scrape(url, {
-      formats: [
-        "markdown",
-        { type: "screenshot", fullPage: true },
-        {
-          type: "json",
-          schema: MENU_SCHEMA,
-          prompt: MENU_EXTRACT_PROMPT,
-        },
-      ],
-      onlyMainContent: false,
-      timeout: 90000,
-      // Browser actions: reveal hidden tabs, accordions, and lazy content
-      // before extraction so the full menu is captured.
-      actions: [
-        { type: "wait", milliseconds: 2000 },
-        {
-          type: "executeJavascript",
-          script: [
-            // 1. Click all tab-like elements to reveal hidden content
-            'document.querySelectorAll(',
-            '  \'[role="tab"], .tab, [data-tab], .nav-link, .menu-tab, \'  +',
-            '  \'.tab-link, .tabs a, .tabs button, .tab-header, \'  +',
-            '  \'[data-toggle="tab"], [data-bs-toggle="tab"]\'',
-            ').forEach(function(el) { try { el.click(); } catch(e) {} });',
-            // 2. Force hidden elements visible (CSS-hidden tabs, accordions)
-            'document.querySelectorAll(',
-            '  \'[style*="display: none"], [style*="display:none"], \'  +',
-            '  \'.hidden, [hidden], .tab-pane, .accordion-body, \'  +',
-            '  \'.collapse:not(.show), .tab-content > div\'',
-            ').forEach(function(el) {',
-            '  el.style.display = "block";',
-            '  el.style.visibility = "visible";',
-            '  el.style.opacity = "1";',
-            '  el.style.height = "auto";',
-            '  el.classList.remove("hidden");',
-            '  el.removeAttribute("hidden");',
-            '});',
-          ].join('\n'),
-        },
-        { type: "scroll", direction: "down" as const },
-        { type: "scroll", direction: "down" as const },
-        { type: "scroll", direction: "down" as const },
-        { type: "wait", milliseconds: 1500 },
-      ],
-    } as Record<string, unknown>)
-
-    if (!result) return null
-
-    const data = result as Record<string, unknown>
-    const screenshot = typeof data.screenshot === "string" ? data.screenshot : null
-    const markdown = typeof data.markdown === "string" ? data.markdown : null
-    const jsonData = data.json as ExtractedMenu | null | undefined
-
-    const totalItems = jsonData?.categories?.reduce((s, c) => s + (c.items?.length ?? 0), 0) ?? 0
-    console.log(`[Firecrawl] Menu extracted: ${url}, ${totalItems} items in ${jsonData?.categories?.length ?? 0} categories, screenshot: ${screenshot ? "yes" : "no"}`)
-
-    return {
-      screenshot,
-      markdown,
-      menu: jsonData ?? null,
+    result = await client.scrape(url, { ...baseOpts, actions: actionsPayload } as Record<string, unknown>) as Record<string, unknown> | null
+  } catch (err) {
+    const isActionsUnsupported =
+      err instanceof Error &&
+      (err.message.includes("SCRAPE_ACTIONS_NOT_SUPPORTED") ||
+       err.message.includes("Actions are not supported"))
+    if (isActionsUnsupported) {
+      console.log("[Firecrawl] Actions not supported, retrying without actions:", url)
+      try {
+        result = await client.scrape(url, baseOpts) as Record<string, unknown> | null
+      } catch (retryErr) {
+        console.warn("Firecrawl scrapeMenuPage retry error:", retryErr)
+        return null
+      }
+    } else {
+      console.warn("Firecrawl scrapeMenuPage error:", err)
+      return null
     }
-  } catch (error) {
-    console.warn("Firecrawl scrapeMenuPage error:", error)
-    return null
+  }
+
+  if (!result) return null
+
+  const screenshot = typeof result.screenshot === "string" ? result.screenshot : null
+  const markdown = typeof result.markdown === "string" ? result.markdown : null
+  const jsonData = result.json as ExtractedMenu | null | undefined
+
+  const totalItems = jsonData?.categories?.reduce((s, c) => s + (c.items?.length ?? 0), 0) ?? 0
+  console.log(`[Firecrawl] Menu extracted: ${url}, ${totalItems} items in ${jsonData?.categories?.length ?? 0} categories, screenshot: ${screenshot ? "yes" : "no"}`)
+
+  return {
+    screenshot,
+    markdown,
+    menu: jsonData ?? null,
   }
 }
 

@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** February 11, 2026
+> **Last updated:** January 31, 2026
 > **Branch:** `dev`
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -23,46 +23,57 @@
 12. [External API Integrations](#12-external-api-integrations)
 13. [Provider Architecture](#13-provider-architecture)
 14. [Data Pipeline: Snapshots and Insights](#14-data-pipeline-snapshots-and-insights)
-15. [Billing and Tier System](#15-billing-and-tier-system)
-16. [UI Component Library](#16-ui-component-library)
-17. [Supabase Edge Functions](#17-supabase-edge-functions)
-18. [Testing](#18-testing)
-19. [Deployment](#19-deployment)
-20. [Known Limitations and Future Work](#20-known-limitations-and-future-work)
+15. [Background Job System](#15-background-job-system)
+16. [Billing and Tier System](#16-billing-and-tier-system)
+17. [UI Component Library](#17-ui-component-library)
+18. [Supabase Edge Functions](#18-supabase-edge-functions)
+19. [Testing](#19-testing)
+20. [Deployment](#20-deployment)
+21. [Known Limitations and Future Work](#21-known-limitations-and-future-work)
 
 ---
 
 ## 1. Executive Summary
 
-**Prophet** is a competitive intelligence platform for local businesses (initially restaurants). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, and actionable insight generation.
+**Prophet** is a competitive intelligence platform for local businesses (initially restaurants). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation.
 
 ### What it does
 
 - **Competitor Discovery:** AI-powered (Gemini with Google Maps grounding) discovery of nearby competitors, enriched with Google Places data.
 - **Competitor Monitoring:** Tracks approved competitors with daily snapshots, diffing, and deterministic change detection.
 - **SEO Visibility Dashboard:** Semrush-style domain overview via DataForSEO -- organic/paid traffic estimates, keyword rankings, competitor overlap, ranking distribution, top pages, subdomains, historical trends, ad creatives.
+- **Comprehensive SEO Enrichment:** On competitor approval, automatically collects Domain Rank Overview, Ranked Keywords, Relevant Pages, Historical Rank, and Domain Intersection data. Produces 13+ deterministic SEO insight types.
 - **Local Events Intelligence:** Discovers nearby events via DataForSEO Google Events SERP, matches events to tracked competitors, generates event-driven insights.
-- **Content & Menu Intelligence:** Scrapes business websites via Firecrawl to extract menu items, pricing, screenshots, and site feature detection. Compares menus across competitors with deterministic insight rules.
-- **Insight Engine:** Deterministic rules generate structured insights across competitors, SEO, events, and content/menu data. LLM (Gemini) adds narrative summaries and recommendations.
+- **Content & Menu Intelligence:** Scrapes business websites via Firecrawl to extract menu items, pricing, screenshots, and site feature detection. Combines Firecrawl data with Google menu data via Gemini (Google Search Grounding) for higher accuracy. Classifies menu types (dine-in, catering, banquet, happy hour, kids). Compares menus across competitors with deterministic insight rules.
+- **Visual Intelligence (Photos):** Fetches Google Places photos, analyzes via Gemini Vision for quality, ambiance, food presentation, and generates photo-based insights.
+- **Foot Traffic Analysis (Busy Times):** Fetches Google Maps Popular Times data via Outscraper, visualizes hourly/daily traffic patterns, peak comparisons, and generates traffic insights.
+- **Weather Intelligence:** Fetches historical and forecast weather via OpenWeatherMap, provides weather context for cross-signal insights, and suppresses weather-affected metrics.
+- **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather). LLM (Gemini) adds priority briefings and narrative summaries. Client-side filtering for instant tab switching.
+- **Real-Time Job System:** Background job pipelines with SSE (Server-Sent Events) streaming, step-by-step progress, ambient insight feeds during long-running operations, and toast notifications on completion.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
 
 ### Current state
 
-The application has shipped MVP through most of the PRD phases:
+The application has shipped through most PRD phases:
 - Auth, onboarding, organization management (Phase 1)
 - Location management with Google Places integration (Phase 2)
 - Competitor discovery with Gemini + Google Places enrichment (Phase 3)
 - Snapshot pipeline with competitor and location-level snapshots (Phase 4)
-- Deterministic insight engine with competitor, SEO, and event insight rules (Phase 5)
+- Deterministic insight engine with competitor, SEO, event, content, photo, traffic, and weather insight rules (Phase 5)
 - Stripe billing with 4 tiers and limit enforcement (Phase 6)
-- AI chat endpoint (scaffolded, LLM integration pending), interactive loading overlays (Phase 7 partial)
+- Background job pipeline system with SSE streaming, ActiveJobBar, and toast notifications (Phase 7)
+- Real-time dashboard home with KPIs, onboarding checklist, and "Refresh All" capability
+- Daily cron orchestrator for automated data refresh
+- Website URL override for location-specific content/visibility tracking
+- Fire-and-forget competitor enrichment on approval (SEO + content)
 
 ### What is NOT yet shipped
 
-- Background job automation (pg_cron + pgmq + Edge workers are scaffolded but not deployed)
 - Email digests/notifications (Edge Function stub exists)
 - Full "Ask Prophet" chat with LLM
 - Data retention cleanup policies
+- Team management functionality
+- Insight like/dislike feedback UI (database schema ready)
 
 ---
 
@@ -93,6 +104,7 @@ The application has shipped MVP through most of the PRD phases:
 | @tailwindcss/postcss | ^4 | PostCSS plugin for Tailwind v4 |
 | Recharts | ^3.7.0 | React charting (bar, area, pie charts) |
 | Framer Motion | ^12.29.2 | Animations (fade-in, carousel, overlays) |
+| Sonner | ^2.0.7 | Toast notifications |
 
 ### Payments
 
@@ -100,21 +112,32 @@ The application has shipped MVP through most of the PRD phases:
 |---|---|---|
 | Stripe | ^20.2.0 | Subscription billing, webhook handling |
 
-### Testing
+### External API SDKs
+
+| Package | Version | Purpose |
+|---|---|---|
+| @mendable/firecrawl-js | ^4.12.1 | Firecrawl API SDK for website scraping |
+
+### Testing and Dev Tools
 
 | Technology | Version | Purpose |
 |---|---|---|
 | Playwright | ^1.58.0 | End-to-end browser testing |
+| dotenv | ^17.3.1 | Load `.env.local` in scripts |
+| tsx | ^4.21.0 | TypeScript script runner for dev scripts |
 
 ### External APIs (not npm packages)
 
 | API | Purpose |
 |---|---|
-| Google Places API (New) | Location search, place details, reviews |
+| Google Places API (New) | Location search, place details, reviews, photos |
 | Google Maps Embed API | Mini-map iframes |
 | Google Weather API | Current conditions for competitor locations |
-| Google Gemini API | Competitor discovery (2.5 Flash), insight narratives (3 Pro Preview), quick tips (2.5 Flash) |
+| Google Gemini API | Competitor discovery (2.5 Flash), insight narratives (3 Pro Preview), photo analysis (2.5 Flash Vision), Google Search Grounding for menu data |
 | DataForSEO | SEO data (12 endpoints), local events SERP |
+| Firecrawl | Website scraping, menu extraction, screenshots, site mapping |
+| Outscraper | Google Maps Popular Times / Busy Times data |
+| OpenWeatherMap | Historical weather data, forecasts, severe weather detection |
 
 ### Configuration
 
@@ -137,18 +160,21 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 |---|---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | `lib/supabase/server.ts`, `client.ts`, `admin.ts` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | `lib/supabase/server.ts`, `client.ts` | Supabase anonymous/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | `lib/supabase/admin.ts` | Supabase service role key (server-only, bypasses RLS) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | `lib/supabase/admin.ts`, `lib/jobs/manager.ts` | Supabase service role key (server-only, bypasses RLS) |
 | `GOOGLE_MAPS_API_KEY` | Yes | `lib/places/google.ts`, `lib/weather/google.ts`, `components/places/mini-map.tsx` | Google Maps Platform (Places, Embed, Weather) |
-| `GOOGLE_AI_API_KEY` | Yes | `lib/providers/gemini.ts`, `lib/ai/gemini.ts`, `app/api/ai/quick-tip/route.ts` | Google AI / Gemini API key |
+| `GOOGLE_AI_API_KEY` | Yes | `lib/providers/gemini.ts`, `lib/ai/gemini.ts`, `lib/providers/photos.ts`, `app/api/ai/quick-tip/route.ts` | Google AI / Gemini API key |
 | `DATAFORSEO_LOGIN` | Yes | `lib/providers/dataforseo/client.ts` | DataForSEO API username |
 | `DATAFORSEO_PASSWORD` | Yes | `lib/providers/dataforseo/client.ts` | DataForSEO API password |
+| `FIRECRAWL_API_KEY` | Yes | `lib/providers/firecrawl.ts` | Firecrawl API key for website scraping and screenshots |
+| `OUTSCRAPER_API_KEY` | Yes | `lib/providers/outscraper.ts` | Outscraper API key for Popular Times |
+| `OPENWEATHERMAP_API_KEY` | Yes | `lib/providers/openweathermap.ts` | OpenWeatherMap One Call API 3.0 key |
 | `STRIPE_SECRET_KEY` | Yes | `app/api/stripe/webhook/route.ts` | Stripe secret key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | `app/api/stripe/webhook/route.ts` | Stripe webhook signing secret |
 | `STRIPE_PRICE_ID_STARTER` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Starter tier |
 | `STRIPE_PRICE_ID_PRO` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Pro tier |
 | `STRIPE_PRICE_ID_AGENCY` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Agency tier |
 | `NEXT_PUBLIC_APP_URL` | No | `app/(dashboard)/competitors/actions.ts` | App base URL (defaults to `http://localhost:3000`) |
-| `FIRECRAWL_API_KEY` | Yes | `lib/providers/firecrawl.ts` | Firecrawl API key for website scraping and screenshots |
+| `CRON_SECRET` | No | `app/api/cron/daily/route.ts` | Secret for authenticating cron job requests |
 | `OPENAI_API_KEY` | No | `app/api/ai/chat/route.ts` | OpenAI key (referenced but not actively used) |
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
 
@@ -182,28 +208,38 @@ prophet/
 │   │   └── actions.ts                      # createOrganizationAction, createLocationAction
 │   │
 │   ├── (dashboard)/                        # Dashboard route group (auth-gated)
-│   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check
+│   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, ActiveJobBar, Toaster
 │   │   ├── actions.ts                      # signOutAction
 │   │   ├── home/
-│   │   │   └── page.tsx                    # Dashboard overview (metrics summary)
+│   │   │   └── page.tsx                    # Live dashboard (KPIs, freshness, onboarding checklist, Refresh All)
 │   │   ├── competitors/
 │   │   │   ├── page.tsx                    # Competitor management (discover/approve/ignore)
-│   │   │   └── actions.ts                  # discoverCompetitorsAction, approve, ignore
+│   │   │   └── actions.ts                  # discoverCompetitorsAction, approve (fire-and-forget enrich), ignore
 │   │   ├── insights/
-│   │   │   ├── page.tsx                    # Insight feed with filters and charts
-│   │   │   └── actions.ts                  # generateInsightsAction, markRead, dismiss
+│   │   │   ├── page.tsx                    # Insight feed with filters, priority briefing, charts
+│   │   │   ├── actions.ts                  # generateInsightsAction, markRead, dismiss, priority briefing
+│   │   │   └── priority-briefing-section.tsx  # Suspense-wrapped async server component for briefing
 │   │   ├── events/
 │   │   │   ├── page.tsx                    # Local events intelligence
 │   │   │   └── actions.ts                  # fetchEventsAction
 │   │   ├── visibility/
 │   │   │   ├── page.tsx                    # SEO visibility dashboard (organic + paid)
-│   │   │   └── actions.ts                  # refreshSeoAction
+│   │   │   └── actions.ts                  # refreshSeoAction (comprehensive, with competitor enrichment)
 │   │   ├── content/
 │   │   │   ├── page.tsx                    # Content & menu intelligence (hero screenshot, menu viewer, compare)
-│   │   │   └── actions.ts                  # refreshContentAction (Firecrawl scrape + menu parse)
+│   │   │   └── actions.ts                  # refreshContentAction (Firecrawl + Gemini Google menu)
+│   │   ├── photos/
+│   │   │   ├── page.tsx                    # Visual intelligence (photo grid, KPIs)
+│   │   │   └── actions.ts                  # refreshPhotosAction
+│   │   ├── traffic/
+│   │   │   ├── page.tsx                    # Busy times (heatmap, peak comparison, traffic chart)
+│   │   │   └── actions.ts                  # refreshTrafficAction
+│   │   ├── weather/
+│   │   │   ├── page.tsx                    # Weather intelligence (history, location cards)
+│   │   │   └── actions.ts                  # refreshWeatherAction
 │   │   ├── locations/
-│   │   │   ├── page.tsx                    # Location management CRUD
-│   │   │   └── actions.ts                  # createLocationFromPlace, update, delete
+│   │   │   ├── page.tsx                    # Location management CRUD with website URL override
+│   │   │   └── actions.ts                  # createLocationFromPlace, update (with website), delete
 │   │   └── settings/
 │   │       ├── page.tsx                    # Settings index
 │   │       ├── billing/
@@ -217,6 +253,19 @@ prophet/
 │   │   │   │   └── route.ts                # POST: AI chat (LLM integration pending)
 │   │   │   └── quick-tip/
 │   │   │       └── route.ts                # POST: Lightweight Gemini quick tip
+│   │   ├── cron/
+│   │   │   └── daily/
+│   │   │       └── route.ts                # GET: Daily orchestrator (Vercel Cron / external scheduler)
+│   │   ├── jobs/
+│   │   │   ├── [type]/
+│   │   │   │   └── route.ts                # GET: Starts pipeline job + streams SSE progress
+│   │   │   ├── active/
+│   │   │   │   └── route.ts                # GET: Returns active running jobs for org
+│   │   │   ├── ambient-feed/
+│   │   │   │   └── route.ts                # GET: Returns ambient insight cards for a job
+│   │   │   └── stream/
+│   │   │       └── [jobId]/
+│   │   │           └── route.ts            # GET: SSE reconnection stream for existing job
 │   │   ├── places/
 │   │   │   ├── autocomplete/
 │   │   │   │   └── route.ts                # GET: Google Places autocomplete proxy
@@ -235,10 +284,26 @@ prophet/
 │   ├── content/
 │   │   ├── menu-viewer.tsx                 # Client: Tabbed menu category viewer with item cards
 │   │   └── menu-compare.tsx                # Client: Side-by-side competitor menu comparison
+│   ├── events/
+│   │   └── events-filters.tsx              # Client: Events page filters
 │   ├── filters/
 │   │   └── auto-filter-form.tsx            # Client: Auto-navigating filter dropdowns
 │   ├── insights/
-│   │   └── insights-dashboard.tsx          # Client: Charts dashboard (Recharts)
+│   │   ├── insight-feed.tsx                # Client: Client-side filtered insight feed with tabs
+│   │   ├── insight-tabs.tsx                # Client: Source tab navigation
+│   │   ├── insights-dashboard.tsx          # Client: Charts dashboard (Recharts)
+│   │   ├── photo-gallery.tsx               # Client: Photo gallery for insights
+│   │   ├── priority-briefing.tsx           # Client: Priority briefing display + skeleton
+│   │   ├── traffic-chart.tsx               # Client: Insight-level traffic chart
+│   │   └── weather-badge.tsx               # Client: Weather condition badge
+│   ├── photos/
+│   │   └── photo-grid.tsx                  # Client: Analyzed photo grid with filters and detail panel
+│   ├── traffic/
+│   │   ├── peak-comparison.tsx             # Client: Side-by-side peak hour comparison
+│   │   └── traffic-heatmap.tsx             # Client: 7x18 weekly traffic heatmap
+│   ├── weather/
+│   │   ├── location-weather-cards.tsx      # Client: Multi-location weather cards
+│   │   └── weather-history.tsx             # Client: Multi-day weather history chart
 │   ├── insight-card.tsx                    # Server: Insight card with evidence + recommendations
 │   ├── motion/
 │   │   └── fade-in.tsx                     # Client: Framer Motion fade-in wrapper
@@ -247,13 +312,17 @@ prophet/
 │   │   ├── location-search.tsx             # Client: Google Places autocomplete search
 │   │   └── mini-map.tsx                    # Server: Google Maps Embed iframe
 │   ├── ui/                                 # Base UI components
+│   │   ├── active-job-bar.tsx              # Client: Global job status bar (polls, navigates with location_id, toast)
+│   │   ├── ambient-insight-feed.tsx        # Client: Ambient insight card carousel during jobs
 │   │   ├── badge.tsx                       # Server: Badge (default/success/warning)
 │   │   ├── button.tsx                      # Server: Button (primary/secondary/ghost)
 │   │   ├── card.tsx                        # Server: Card, CardHeader, CardTitle, CardDescription
 │   │   ├── input.tsx                       # Server: Input field
+│   │   ├── job-pipeline-view.tsx           # Client: Step-by-step pipeline progress visualization
+│   │   ├── job-refresh-button.tsx          # Client: Refresh button with SSE streaming + ambient feed
 │   │   ├── label.tsx                       # Server: Label
 │   │   ├── location-filter.tsx             # Client: Location dropdown (URL param navigation)
-│   │   ├── refresh-overlay.tsx             # Client: Animated loading overlay with insight carousel
+│   │   ├── refresh-overlay.tsx             # Client: Legacy animated loading overlay
 │   │   └── separator.tsx                   # Server: Horizontal separator
 │   └── visibility/
 │       ├── intent-serp-panels.tsx          # Client: Keyword intent + SERP feature panels
@@ -275,21 +344,26 @@ prophet/
 │   │   ├── client.ts                       # createBrowserSupabaseClient()
 │   │   └── admin.ts                        # createAdminSupabaseClient() (service role)
 │   ├── ai/
-│   │   ├── gemini.ts                       # generateGeminiJson() via Gemini 3 Pro Preview
+│   │   ├── gemini.ts                       # generateGeminiJson(), fetchGoogleMenuData() (Search Grounding)
 │   │   └── prompts/
 │   │       ├── insights.ts                 # buildInsightNarrativePrompt()
+│   │       ├── priority-briefing.ts        # buildPriorityBriefingPrompt() with diversity rules
 │   │       └── prophet-chat.ts             # buildProphetPrompt()
 │   ├── places/
 │   │   └── google.ts                       # fetchAutocomplete(), fetchPlaceDetails(), mapPlaceToLocation()
 │   ├── weather/
 │   │   └── google.ts                       # fetchCurrentConditions() -> WeatherSnapshot
-│   ├── providers/                          # Provider Abstraction Layer (PAL)
+│   ├── providers/                          # External API provider wrappers
 │   │   ├── types.ts                        # NormalizedSnapshot, ProviderCandidate, Provider interface
 │   │   ├── index.ts                        # getProvider() registry
 │   │   ├── scoring.ts                      # scoreCompetitor() relevance scoring
 │   │   ├── gemini.ts                       # Gemini provider (competitor discovery)
 │   │   ├── dataforseo.ts                   # DataForSEO provider (local finder + snapshots)
-│   │   └── dataforseo/                     # DataForSEO API clients
+│   │   ├── firecrawl.ts                    # Firecrawl wrapper: mapSite(), scrapePage(), scrapeMenuPage(), discoverAllMenuUrls()
+│   │   ├── photos.ts                       # Google Places photos + Gemini Vision analysis
+│   │   ├── outscraper.ts                   # Outscraper Popular Times fetcher
+│   │   ├── openweathermap.ts               # OpenWeatherMap historical + forecast weather
+│   │   └── dataforseo/                     # DataForSEO API clients (12 endpoints)
 │   │       ├── client.ts                   # postDataForSEO(), extractFirstResult()
 │   │       ├── domain-rank-overview.ts     # Labs Domain Rank Overview
 │   │       ├── ranked-keywords.ts          # Labs Ranked Keywords
@@ -303,51 +377,82 @@ prophet/
 │   │       ├── google-events.ts            # SERP Google Events
 │   │       ├── ads-search.ts               # Google Ads Search (Transparency Center)
 │   │       └── backlinks-summary.ts        # Backlinks Summary (subscription-gated)
-│   │   └── firecrawl.ts                   # Firecrawl SDK wrapper: mapSite(), scrapePage(), scrapeMenuPage()
-│   ├── content/                           # Content & Menu intelligence engine
-│   │   ├── types.ts                       # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory
-│   │   ├── normalize.ts                   # detectFeatures(), normalizeSiteContent(), buildMenuSnapshot(), hash
-│   │   ├── menu-parse.ts                  # Heuristic + Gemini menu extraction from markdown
-│   │   ├── insights.ts                    # generateContentInsights() (7 deterministic rules)
-│   │   └── storage.ts                     # uploadScreenshot(), getScreenshotUrl(), buildScreenshotPath()
-│   ├── insights/                           # Competitor insight engine
+│   ├── content/                            # Content & Menu intelligence engine
+│   │   ├── types.ts                        # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory, MenuType
+│   │   ├── normalize.ts                    # detectFeatures(), normalizeSiteContent(), buildMenuSnapshot(), hash
+│   │   ├── menu-parse.ts                   # classifyMenuCategory(), normalizeExtractedMenu(), normalizeGoogleMenuData(), mergeExtractedMenus()
+│   │   ├── enrich.ts                       # enrichCompetitorContent() – multi-URL scrape + Gemini Google menu + merge
+│   │   ├── insights.ts                     # generateContentInsights() (8 deterministic rules)
+│   │   └── storage.ts                      # uploadScreenshot(), getScreenshotUrl(), buildScreenshotPath()
+│   ├── insights/                           # Core insight engine
 │   │   ├── types.ts                        # SnapshotFieldChange, SnapshotDiff, GeneratedInsight
 │   │   ├── index.ts                        # Re-exports all insight functions
 │   │   ├── normalize.ts                    # normalizeSnapshot() (canonical format)
 │   │   ├── hash.ts                         # computeDiffHash() (SHA256)
 │   │   ├── diff.ts                         # diffSnapshots() (compare previous vs current)
-│   │   ├── rules.ts                        # buildInsights() (deterministic rules)
-│   │   └── trends.ts                       # buildWeeklyInsights() (T-7 trend analysis)
+│   │   ├── rules.ts                        # buildInsights() (deterministic competitor rules)
+│   │   ├── trends.ts                       # buildWeeklyInsights() (T-7 trend analysis)
+│   │   ├── scoring.ts                      # Source categories, relevance scoring weights
+│   │   ├── briefing-cache.ts               # In-memory TTL cache for Gemini priority briefings
+│   │   ├── photo-insights.ts               # generatePhotoInsights() rules
+│   │   ├── traffic-insights.ts             # generateTrafficInsights() + competitive opportunity rules
+│   │   └── weather-context.ts              # shouldSuppressInsight(), addWeatherContext(), generateWeatherCrossSignals()
 │   ├── seo/                                # SEO insight engine
-│   │   ├── types.ts                        # DomainRankSnapshot, NormalizedRankedKeyword, etc.
+│   │   ├── types.ts                        # DomainRankSnapshot, NormalizedRankedKeyword, SEO_SNAPSHOT_TYPES
 │   │   ├── normalize.ts                    # Normalizers for all DataForSEO SEO responses
 │   │   ├── hash.ts                         # SEO-specific hashing utilities
-│   │   └── insights.ts                     # generateSeoInsights() (10 deterministic rules)
-│   └── events/                             # Events insight engine
-│       ├── types.ts                        # NormalizedEvent, EventMatchRecord, etc.
-│       ├── normalize.ts                    # normalizeEventsSnapshot() from DataForSEO
-│       ├── hash.ts                         # computeEventUid(), computeEventsSnapshotDiffHash()
-│       ├── match.ts                        # matchEventsToCompetitors() deterministic matching
-│       └── insights.ts                     # generateEventInsights() (5 insight rules)
+│   │   ├── enrich.ts                       # enrichCompetitorSeo() – full pipeline for one competitor domain
+│   │   └── insights.ts                     # generateSeoInsights() (13 deterministic rules)
+│   ├── events/                             # Events insight engine
+│   │   ├── types.ts                        # NormalizedEvent, EventMatchRecord, etc.
+│   │   ├── normalize.ts                    # normalizeEventsSnapshot() from DataForSEO
+│   │   ├── hash.ts                         # computeEventUid(), computeEventsSnapshotDiffHash()
+│   │   ├── match.ts                        # matchEventsToCompetitors() deterministic matching
+│   │   └── insights.ts                     # generateEventInsights() (5 insight rules)
+│   ├── traffic/
+│   │   └── peak-data.ts                    # buildPeakData() – shared utility for server/client peak calculation
+│   └── jobs/                               # Background job pipeline system
+│       ├── types.ts                        # JobType, JobStatus, JobStep, JobRecord, SSE event types, AmbientCard
+│       ├── manager.ts                      # CRUD operations for refresh_jobs table (admin client)
+│       ├── pipeline.ts                     # Generic pipeline runner (sequential steps, error isolation, SSE progress)
+│       ├── sse.ts                          # SSE stream creation and response helpers
+│       ├── auth.ts                         # getJobAuthContext() – validates user + org for job requests
+│       ├── triggers.ts                     # triggerInitialLocationData() – fire-and-forget on location creation
+│       ├── ambient-data.ts                 # Generates ambient insight cards during job execution
+│       ├── use-job-runner.ts               # React hook for client-side job management
+│       └── pipelines/                      # Individual pipeline builders
+│           ├── content.ts                  # Content pipeline (Firecrawl scrape, Gemini menu, screenshots)
+│           ├── visibility.ts               # SEO visibility pipeline (11 DataForSEO API groups)
+│           ├── events.ts                   # Events pipeline (DataForSEO Events SERP + matching)
+│           ├── insights.ts                 # Insights pipeline (all sources + cross-correlation)
+│           ├── photos.ts                   # Photos pipeline (Google Places + Gemini Vision)
+│           ├── traffic.ts                  # Traffic pipeline (Outscraper Popular Times)
+│           ├── weather.ts                  # Weather pipeline (OpenWeatherMap historical + forecast)
+│           └── refresh-all.ts              # Orchestrates all 7 pipelines sequentially
 │
 ├── types/                                  # Shared TypeScript types
 │   ├── database.types.ts                   # Auto-generated Supabase database types
 │   └── prophet.types.ts                    # ActionResult<T> standard return shape
 │
 ├── supabase/                               # Supabase configuration
-│   ├── migrations/                         # SQL migrations (6 files)
+│   ├── migrations/                         # SQL migrations (9 files)
 │   │   ├── 20260127010101_initial_schema.sql
 │   │   ├── 20260127010200_membership_bootstrap.sql
 │   │   ├── 20260127010300_fix_org_member_policies.sql
+│   │   ├── 20260131010100_visual_intelligence_weather_busy_times.sql
 │   │   ├── 20260206010100_events_tables.sql
-│   │   └── 20260207010100_seo_tables.sql
+│   │   ├── 20260207010100_seo_tables.sql
+│   │   ├── 20260209010100_refresh_jobs.sql
+│   │   ├── 20260211010100_screenshots_bucket.sql
+│   │   └── 20260219010100_insight_feedback_and_preferences.sql
 │   └── functions/                          # Supabase Edge Functions (Deno)
-│       ├── orchestrator_daily/
-│       │   └── index.ts                    # SEO insight generation rules
-│       ├── job_worker/
-│       │   └── index.ts                    # SEO normalization utilities
-│       └── digest_weekly/
-│           └── index.ts                    # Weekly digest (stub)
+│       ├── orchestrator_daily/index.ts     # SEO insight generation rules
+│       ├── job_worker/index.ts             # SEO normalization utilities
+│       └── digest_weekly/index.ts          # Weekly digest (stub)
+│
+├── scripts/                                # Development/testing scripts
+│   ├── refresh-signals.ts                  # End-to-end signal fetch script
+│   └── refresh-busy-times.ts              # Outscraper debugging script
 │
 ├── tests/
 │   └── auth-onboarding.spec.ts             # Playwright smoke test
@@ -378,24 +483,33 @@ flowchart TB
     NextJS["Next.js 16 App Router"]
     SupaAuth["Supabase Auth"]
     SupaDB["Supabase Postgres + RLS"]
+    SupaStorage["Supabase Storage"]
     GooglePlaces["Google Places API"]
     GoogleMaps["Google Maps Embed"]
     GoogleWeather["Google Weather API"]
     Gemini["Google Gemini API"]
     DataForSEO["DataForSEO API"]
+    Firecrawl["Firecrawl API"]
+    Outscraper["Outscraper API"]
+    OpenWeatherMap["OpenWeatherMap API"]
     Stripe["Stripe"]
-    EdgeFns["Supabase Edge Functions"]
+    SSE["SSE Streams"]
 
     Browser --> NextJS
+    Browser <-->|"SSE (job progress)"| SSE
     NextJS -->|"Server Components / Actions"| SupaDB
+    NextJS -->|"Screenshots"| SupaStorage
     NextJS -->|"Auth (SSR cookies)"| SupaAuth
-    NextJS -->|"Autocomplete, Details"| GooglePlaces
+    NextJS -->|"Autocomplete, Details, Photos"| GooglePlaces
     NextJS -->|"Current conditions"| GoogleWeather
-    NextJS -->|"Competitor discovery, Insights"| Gemini
+    NextJS -->|"Discovery, Insights, Vision, Menu"| Gemini
     NextJS -->|"SEO data, Events"| DataForSEO
+    NextJS -->|"Website scraping, Menus"| Firecrawl
+    NextJS -->|"Popular Times"| Outscraper
+    NextJS -->|"Historical weather"| OpenWeatherMap
     NextJS -->|"Webhooks"| Stripe
     Browser -->|"Embed iframe"| GoogleMaps
-    EdgeFns -->|"Background jobs"| SupaDB
+    NextJS --> SSE
 ```
 
 ### 5.2 Request and Data Flow
@@ -421,7 +535,34 @@ sequenceDiagram
     SA-->>B: redirect() to page
 ```
 
-### 5.3 Insight Pipeline
+### 5.3 Job Pipeline Flow (SSE)
+
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant JR as JobRefreshButton
+    participant API as /api/jobs/[type]
+    participant DB as refresh_jobs table
+    participant P as Pipeline Runner
+    participant EXT as External APIs
+
+    B->>JR: Click Refresh
+    JR->>API: GET /api/jobs/content?location_id=xxx
+    API->>DB: createJob() → job_id
+    API-->>JR: SSE stream opened
+    loop Each Pipeline Step
+        P->>EXT: Fetch data
+        EXT-->>P: Response
+        P->>DB: updateJobStep(progress)
+        P-->>JR: SSE: step event
+        JR-->>B: UI update (progress %, step preview)
+    end
+    P->>DB: completeJob()
+    P-->>JR: SSE: done event
+    JR-->>B: Toast notification + redirect
+```
+
+### 5.4 Insight Pipeline
 
 ```mermaid
 flowchart LR
@@ -437,26 +578,14 @@ flowchart LR
     Fetch --> Normalize --> Hash --> Store --> Diff --> Rules --> LLM --> Insights
 ```
 
-This pipeline applies to all three insight sources:
+This pipeline applies to all signal sources:
 - **Competitor insights:** DataForSEO/Google Places snapshot -> normalize -> diff -> rules (rating change, review velocity, hours change)
-- **SEO insights:** DataForSEO Labs/SERP -> normalize -> diff -> rules (10 rule types)
+- **SEO insights:** DataForSEO Labs/SERP -> normalize -> diff -> rules (13 rule types)
 - **Event insights:** DataForSEO Events SERP -> normalize -> match to competitors -> rules (5 rule types)
-
-### 5.4 Background Job Architecture (Designed, Not Yet Deployed)
-
-```mermaid
-flowchart LR
-    Cron["pg_cron (daily)"]
-    Orch["orchestrator_daily Edge Function"]
-    Queue["pgmq Queue"]
-    Worker["job_worker Edge Function"]
-    DB["Supabase Postgres"]
-
-    Cron -->|"invoke"| Orch
-    Orch -->|"enqueue jobs"| Queue
-    Queue -->|"dequeue"| Worker
-    Worker -->|"fetch + store"| DB
-```
+- **Content insights:** Firecrawl + Gemini menu data -> normalize -> diff -> rules (8 rule types)
+- **Photo insights:** Google Places photos + Gemini Vision -> analyze -> rules
+- **Traffic insights:** Outscraper Popular Times -> normalize -> rules
+- **Weather insights:** OpenWeatherMap -> cross-signal correlation -> context enrichment
 
 ---
 
@@ -484,10 +613,7 @@ Both are implemented in `app/(auth)/login/actions.ts`.
 Auth is checked server-side using two functions in `lib/auth/server.ts`:
 
 ```typescript
-// Returns user or null (does not throw/redirect)
 async function getUser(): Promise<User | null>
-
-// Returns user or redirects to /login (used as a guard)
 async function requireUser(): Promise<User>
 ```
 
@@ -497,6 +623,7 @@ Both use `createServerSupabaseClient()` which reads Supabase auth cookies via Ne
 
 - **Dashboard layout** (`app/(dashboard)/layout.tsx`): Calls `requireUser()`, then checks for `current_organization_id`. Redirects to `/onboarding` if missing.
 - **Individual pages**: Also call `requireUser()` as the first operation.
+- **Job API routes** (`lib/jobs/auth.ts`): `getJobAuthContext()` validates user session + org membership for job requests.
 - **There is no `middleware.ts`**: All auth is enforced at the layout/page level.
 
 ### 6.5 Supabase Clients
@@ -505,21 +632,16 @@ Both use `createServerSupabaseClient()` which reads Supabase auth cookies via Ne
 |---|---|---|---|
 | Server | `lib/supabase/server.ts` | User's session (cookies) | All server components and actions |
 | Browser | `lib/supabase/client.ts` | User's session (browser) | Client-side realtime (not actively used) |
-| Admin | `lib/supabase/admin.ts` | Service role key (bypasses RLS) | Fallback writes when RLS blocks admin actions |
+| Admin | `lib/supabase/admin.ts` | Service role key (bypasses RLS) | Fallback writes when RLS blocks, job manager |
 
 ### 6.6 RLS Helper Functions
 
-To avoid recursive RLS policy evaluation (where `organization_members` policies reference `organization_members`), two `SECURITY DEFINER` functions are used:
+Two `SECURITY DEFINER` functions avoid recursive RLS policy evaluation:
 
 ```sql
--- Returns true if the current user is a member of the given org
 public.is_org_member(org_id uuid) -> boolean
-
--- Returns true if the current user is an owner or admin of the given org
 public.is_org_admin(org_id uuid) -> boolean
 ```
-
-These are defined in migration `20260127010300_fix_org_member_policies.sql` and used in `organization_members` RLS policies.
 
 ---
 
@@ -530,11 +652,14 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | Migration | Purpose |
 |---|---|
 | `20260127010101_initial_schema.sql` | Core tables, indexes, RLS policies for all base tables |
-| `20260127010200_membership_bootstrap.sql` | Policy allowing the first org member to self-insert as owner |
-| `20260127010300_fix_org_member_policies.sql` | `is_org_member()` / `is_org_admin()` SECURITY DEFINER helpers; refactored membership policies |
+| `20260127010200_membership_bootstrap.sql` | Policy allowing first org member to self-insert as owner |
+| `20260127010300_fix_org_member_policies.sql` | `is_org_member()`/`is_org_admin()` SECURITY DEFINER helpers |
+| `20260131010100_visual_intelligence_weather_busy_times.sql` | `competitor_photos`, `busy_times`, `location_weather` tables + RLS + `competitor-photos` storage bucket |
 | `20260206010100_events_tables.sql` | `location_snapshots`, `event_matches` tables with RLS |
 | `20260207010100_seo_tables.sql` | `website` column on `locations`, `snapshot_type` on `snapshots`, `tracked_keywords` table |
-| `20260211010100_screenshots_bucket.sql` | Supabase Storage `screenshots` bucket (private, 5MB limit, png/jpeg/webp) |
+| `20260209010100_refresh_jobs.sql` | `refresh_jobs` table for real-time job progress tracking |
+| `20260211010100_screenshots_bucket.sql` | Supabase Storage `screenshots` bucket (private, 5MB, png/jpeg/webp) |
+| `20260219010100_insight_feedback_and_preferences.sql` | `user_feedback`/`feedback_at`/`feedback_by` on `insights`, `insight_preferences` table |
 
 ### 7.2 Tables
 
@@ -549,8 +674,7 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `stripe_subscription_id` | text | Nullable |
 | `billing_email` | text | Nullable |
 | `settings` | jsonb DEFAULT '{}' | |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
+| `created_at` / `updated_at` | timestamptz | |
 
 #### `profiles`
 | Column | Type | Notes |
@@ -560,8 +684,7 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `full_name` | text | |
 | `avatar_url` | text | |
 | `current_organization_id` | uuid | References `organizations(id)` |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
+| `created_at` / `updated_at` | timestamptz | |
 
 #### `organization_members`
 | Column | Type | Notes |
@@ -570,7 +693,6 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `organization_id` | uuid NOT NULL | References `organizations(id)` CASCADE |
 | `user_id` | uuid NOT NULL | References `auth.users(id)` CASCADE |
 | `role` | text NOT NULL DEFAULT 'member' | CHECK: owner/admin/member |
-| `created_at` | timestamptz | |
 | UNIQUE | `(organization_id, user_id)` | |
 
 #### `locations`
@@ -579,22 +701,13 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `id` | uuid PK | |
 | `organization_id` | uuid NOT NULL | References `organizations(id)` CASCADE |
 | `name` | text NOT NULL | |
-| `address_line1` | text | |
-| `address_line2` | text | |
-| `city` | text | |
-| `region` | text | |
-| `postal_code` | text | |
-| `country` | text DEFAULT 'US' | |
-| `geo_lat` | double precision | |
-| `geo_lng` | double precision | |
+| `address_line1`, `address_line2`, `city`, `region`, `postal_code`, `country` | text | Address fields |
+| `geo_lat` / `geo_lng` | double precision | Coordinates |
 | `timezone` | text DEFAULT 'America/New_York' | |
 | `primary_place_id` | text | Google Places ID |
-| `website` | text | Added in SEO migration |
+| `website` | text | User-overridable URL for content/visibility tracking |
 | `settings` | jsonb DEFAULT '{}' | Stores category, types, etc. |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
-
-**Index:** `idx_locations_org` on `(organization_id)`
+| `created_at` / `updated_at` | timestamptz | |
 
 #### `competitors`
 | Column | Type | Notes |
@@ -604,19 +717,12 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `provider` | text NOT NULL DEFAULT 'dataforseo' | |
 | `provider_entity_id` | text NOT NULL | Google Place ID or provider-specific ID |
 | `name` | text | |
-| `category` | text | |
-| `address` | text | |
-| `phone` | text | |
-| `website` | text | |
+| `category`, `address`, `phone`, `website` | text | Business details |
 | `relevance_score` | numeric | 0-100 weighted score |
 | `is_active` | boolean NOT NULL DEFAULT true | false = ignored/removed |
 | `metadata` | jsonb DEFAULT '{}' | status, placeDetails, rating, sources, etc. |
 | `last_seen_at` | timestamptz | |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
 | UNIQUE | `(provider, provider_entity_id, location_id)` | |
-
-**Indexes:** `idx_competitors_location`, `idx_competitors_active`
 
 **metadata.status:** `"pending"` | `"approved"` | `"ignored"` -- tracks approval workflow.
 
@@ -627,31 +733,23 @@ These are defined in migration `20260127010300_fix_org_member_policies.sql` and 
 | `competitor_id` | uuid NOT NULL | References `competitors(id)` CASCADE |
 | `captured_at` | timestamptz NOT NULL | |
 | `date_key` | date NOT NULL | |
-| `provider` | text NOT NULL | |
-| `snapshot_type` | text NOT NULL DEFAULT 'listing_daily' | e.g. `seo_domain_rank_overview_weekly` |
+| `provider` | text NOT NULL | e.g. `dataforseo`, `firecrawl_menu` |
+| `snapshot_type` | text NOT NULL DEFAULT 'listing_daily' | e.g. `web_menu_weekly`, `seo_domain_rank_overview_weekly` |
 | `raw_data` | jsonb NOT NULL | Normalized payload |
 | `diff_hash` | text NOT NULL | SHA256 for change detection |
-| `created_at` | timestamptz | |
 | UNIQUE | `(competitor_id, date_key, snapshot_type)` | |
-
-**Indexes:** `idx_snapshots_competitor_date`, `idx_snapshots_date_type`
 
 #### `location_snapshots`
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
 | `location_id` | uuid NOT NULL | References `locations(id)` CASCADE |
-| `provider` | text NOT NULL | e.g. `dataforseo_google_events`, `seo_domain_rank_overview` |
+| `provider` | text NOT NULL | e.g. `dataforseo_google_events`, `firecrawl_site_content`, `firecrawl_menu` |
 | `date_key` | date NOT NULL | |
 | `captured_at` | timestamptz NOT NULL | |
 | `raw_data` | jsonb NOT NULL | |
 | `diff_hash` | text NOT NULL | |
-| `created_at` | timestamptz | |
 | UNIQUE | `(location_id, provider, date_key)` | |
-
-**Index:** `idx_location_snapshots_loc_date`
-
-Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 
 #### `event_matches`
 | Column | Type | Notes |
@@ -663,8 +761,7 @@ Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 | `event_uid` | text NOT NULL | Stable hash of event |
 | `match_type` | text NOT NULL | `venue_name`, `venue_address`, `url_domain` |
 | `confidence` | text NOT NULL | CHECK: high/medium/low |
-| `evidence` | jsonb DEFAULT '{}' | Match details |
-| `created_at` | timestamptz | |
+| `evidence` | jsonb DEFAULT '{}' | |
 | UNIQUE | `(location_id, competitor_id, date_key, event_uid, match_type)` | |
 
 #### `insights`
@@ -674,7 +771,7 @@ Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 | `location_id` | uuid NOT NULL | References `locations(id)` CASCADE |
 | `competitor_id` | uuid | References `competitors(id)` SET NULL |
 | `date_key` | date NOT NULL | |
-| `insight_type` | text NOT NULL | e.g. `rating_change`, `seo_organic_visibility_up`, `events.weekend_density_spike` |
+| `insight_type` | text NOT NULL | e.g. `rating_change`, `seo_organic_visibility_up`, `menu.price_positioning_shift` |
 | `title` | text NOT NULL | |
 | `summary` | text NOT NULL | |
 | `confidence` | text NOT NULL | CHECK: high/medium/low |
@@ -682,10 +779,21 @@ Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 | `evidence` | jsonb DEFAULT '{}' | |
 | `recommendations` | jsonb DEFAULT '[]' | |
 | `status` | text NOT NULL DEFAULT 'new' | CHECK: new/read/dismissed |
-| `created_at` | timestamptz | |
+| `user_feedback` | text | CHECK: useful/not_useful |
+| `feedback_at` | timestamptz | |
+| `feedback_by` | uuid | References `auth.users(id)` |
 | UNIQUE | `(location_id, competitor_id, date_key, insight_type)` | |
 
-**Index:** `idx_insights_location_date`
+#### `insight_preferences`
+| Column | Type | Notes |
+|---|---|---|
+| `organization_id` | uuid NOT NULL | References `organizations(id)` CASCADE |
+| `insight_type` | text NOT NULL | |
+| `weight` | numeric NOT NULL DEFAULT 1.0 | Learning loop weight |
+| `useful_count` | int NOT NULL DEFAULT 0 | |
+| `dismissed_count` | int NOT NULL DEFAULT 0 | |
+| `last_feedback_at` | timestamptz | |
+| PRIMARY KEY | `(organization_id, insight_type)` | |
 
 #### `tracked_keywords`
 | Column | Type | Notes |
@@ -695,12 +803,62 @@ Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 | `keyword` | text NOT NULL | |
 | `source` | text NOT NULL DEFAULT 'auto' | CHECK: auto/manual |
 | `is_active` | boolean NOT NULL DEFAULT true | |
-| `tags` | jsonb DEFAULT '{}' | |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
 | UNIQUE | `(location_id, keyword)` | |
 
-#### `job_runs`
+#### `refresh_jobs`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `organization_id` | uuid NOT NULL | References `organizations(id)` CASCADE |
+| `location_id` | uuid NOT NULL | References `locations(id)` CASCADE |
+| `job_type` | text NOT NULL | CHECK: content/visibility/events/insights/photos/busy_times/weather |
+| `status` | text NOT NULL DEFAULT 'running' | CHECK: running/completed/failed |
+| `total_steps` / `current_step` | integer | Progress tracking |
+| `steps` | jsonb NOT NULL DEFAULT '[]' | Array of step objects with status/preview |
+| `result` | jsonb | Final result payload |
+| `created_at` / `updated_at` | timestamptz | |
+
+#### `competitor_photos`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `snapshot_id` | uuid | |
+| `competitor_id` | uuid NOT NULL | References `competitors(id)` CASCADE |
+| `place_photo_name` | text NOT NULL | Google Places photo reference |
+| `image_hash` | text NOT NULL | SHA-256 for deduplication |
+| `image_url`, `width_px`, `height_px` | text/int | Photo metadata |
+| `author_attribution` | jsonb | |
+| `analysis_result` | jsonb | Gemini Vision analysis output |
+| `first_seen_at` / `last_seen_at` | timestamptz | |
+
+#### `busy_times`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `snapshot_id` | uuid | |
+| `competitor_id` | uuid NOT NULL | References `competitors(id)` CASCADE |
+| `day_of_week` | integer NOT NULL | 0=Sunday through 6=Saturday |
+| `hourly_scores` | integer[] NOT NULL | 24-element array of popularity scores |
+| `peak_hour` / `peak_score` | integer | |
+| `slow_hours` | integer[] | |
+| `typical_time_spent` | text | |
+| `current_popularity` | integer | Live popularity percentage |
+
+#### `location_weather`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `location_id` | uuid NOT NULL | References `locations(id)` CASCADE |
+| `date` | date NOT NULL | |
+| `temp_high_f` / `temp_low_f` / `feels_like_high_f` | decimal | |
+| `humidity_avg` | integer | |
+| `wind_speed_max_mph` | decimal | |
+| `weather_condition` / `weather_description` / `weather_icon` | text | |
+| `precipitation_in` | decimal DEFAULT 0 | |
+| `is_severe` | boolean NOT NULL DEFAULT false | |
+| UNIQUE | `(location_id, date)` | |
+
+#### `job_runs` (legacy)
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | |
@@ -709,22 +867,27 @@ Used for location-scoped data: events snapshots and SEO domain-level snapshots.
 | `status` | text NOT NULL DEFAULT 'queued' | CHECK: queued/running/succeeded/failed |
 | `attempt` | integer NOT NULL DEFAULT 1 | |
 | `trace_id` | uuid | |
-| `message` | text | |
-| `metadata` | jsonb DEFAULT '{}' | |
-| `started_at` | timestamptz | |
-| `finished_at` | timestamptz | |
-| `created_at` | timestamptz | |
+| `message`, `metadata` | text/jsonb | |
+| `started_at` / `finished_at` | timestamptz | |
 
-### 7.3 Entity Relationship Diagram
+### 7.3 Storage Buckets
+
+| Bucket | Access | Limits | Purpose |
+|---|---|---|---|
+| `screenshots` | Private (signed URLs) | 5MB, png/jpeg/webp | Website and menu page screenshots |
+| `competitor-photos` | Private (signed URLs) | — | Competitor Google Places photos |
+
+### 7.4 Entity Relationship Diagram
 
 ```mermaid
 erDiagram
     organizations ||--o{ organization_members : has
     organizations ||--o{ locations : owns
     organizations ||--o{ job_runs : tracks
+    organizations ||--o{ refresh_jobs : tracks
+    organizations ||--o{ insight_preferences : configures
 
     profiles ||--o| organizations : current_org
-
     auth_users ||--|| profiles : extends
     auth_users ||--o{ organization_members : belongs_to
 
@@ -733,13 +896,17 @@ erDiagram
     locations ||--o{ location_snapshots : stores
     locations ||--o{ event_matches : matches
     locations ||--o{ tracked_keywords : tracks
+    locations ||--o{ location_weather : weather
+    locations ||--o{ refresh_jobs : jobs
 
     competitors ||--o{ snapshots : captures
+    competitors ||--o{ competitor_photos : has_photos
+    competitors ||--o{ busy_times : has_traffic
     competitors ||--o{ event_matches : linked_to
     competitors ||--o| insights : subject_of
 ```
 
-### 7.4 RLS Policy Summary
+### 7.5 RLS Policy Summary
 
 Every table has RLS enabled. The general pattern is:
 
@@ -747,9 +914,8 @@ Every table has RLS enabled. The general pattern is:
 - **INSERT/UPDATE/DELETE (write):** Allowed if user is an owner or admin of the owning organization.
 - **profiles:** Users can only read/insert/update their own profile.
 - **organizations:** Any authenticated user can create; only members can read; only owner/admin can update.
-- **organization_members:** Special bootstrap policy allows the first user to insert themselves as owner when the org has zero members.
-
-Nested tables (competitors, snapshots, insights, etc.) join through `locations` to resolve the organization membership.
+- **organization_members:** Bootstrap policy allows first user to insert themselves as owner when org has zero members.
+- **refresh_jobs:** Readable by org members; writable by admins/owners. Job manager uses admin client to bypass RLS for pipeline progress writes.
 
 ---
 
@@ -760,32 +926,38 @@ Nested tables (competitors, snapshots, insights, etc.) join through `locations` 
 ```
 Organization
   ├── Members (users with roles: owner/admin/member)
+  ├── Insight Preferences (learned weights per insight type)
+  ├── Refresh Jobs (real-time pipeline progress)
   ├── Locations
   │     ├── Competitors (discovered, approved/ignored)
-  │     │     └── Snapshots (daily data captures)
-  │     ├── Location Snapshots (events, SEO domain data)
+  │     │     ├── Snapshots (daily data captures + SEO + menu)
+  │     │     ├── Photos (Gemini Vision analyzed)
+  │     │     └── Busy Times (Popular Times data)
+  │     ├── Location Snapshots (events, SEO domain data, site content, menus)
+  │     ├── Location Weather (daily weather records)
   │     ├── Event Matches (event-competitor links)
   │     ├── Tracked Keywords (SEO keywords)
-  │     └── Insights (generated findings)
-  └── Job Runs (background processing)
+  │     └── Insights (generated findings with feedback)
+  └── Job Runs (legacy background processing)
 ```
 
 ### 8.2 Organization Context
 
-A user's "active" organization is stored in `profiles.current_organization_id`. This is set during onboarding and used throughout the dashboard to scope all queries. All dashboard pages:
+A user's "active" organization is stored in `profiles.current_organization_id`. All dashboard pages:
 
 1. Call `requireUser()` to get the authenticated user
 2. Query `profiles` for `current_organization_id`
 3. Query `locations` scoped to that organization
-4. All further queries (competitors, snapshots, insights) scope through location IDs
+4. All further queries scope through location IDs
 
 ### 8.3 Onboarding Flow
 
 1. User signs up (magic link or Google OAuth)
 2. OAuth callback checks for `current_organization_id` -- none found, redirects to `/onboarding`
 3. Onboarding page collects: organization name, slug, and first location (via Google Places search)
-4. `createOrganizationAction` in a single transaction: creates org, inserts `organization_members` (role: owner), upserts profile with `current_organization_id`, creates first location
-5. Redirects to `/home`
+4. `createOrganizationAction`: creates org, inserts `organization_members` (role: owner), upserts profile with `current_organization_id`, creates first location
+5. **Automatic data trigger:** `triggerInitialLocationData()` fires in the background to scrape website content and fetch weather for the new location
+6. Redirects to `/competitors?location_id=xxx&onboarding=true` with onboarding guidance banner
 
 ---
 
@@ -793,163 +965,174 @@ A user's "active" organization is stored in `profiles.current_organization_id`. 
 
 ### 9.1 Route Groups
 
-Next.js parenthesized route groups organize routes without affecting URL paths:
-
-- **`(auth)`:** Login and signup pages. Shares a minimal layout (`layout.tsx`).
-- **`(dashboard)`:** All main app pages. Shares a sidebar layout with auth guard.
+- **`(auth)`:** Login and signup pages. Shares a minimal layout.
+- **`(dashboard)`:** All main app pages. Shares a sidebar layout with auth guard, ActiveJobBar, and Sonner Toaster.
 
 ### 9.2 Layout Hierarchy
 
 ```
 Root Layout (app/layout.tsx)
-  ├── (auth) Layout (app/(auth)/layout.tsx) -- minimal, slate background
+  ├── (auth) Layout -- minimal, slate background
   │     ├── /login
   │     └── /signup
-  ├── (dashboard) Layout (app/(dashboard)/layout.tsx) -- sidebar + auth guard
+  ├── (dashboard) Layout -- sidebar + auth guard + ActiveJobBar + Toaster
   │     ├── /home
-  │     ├── /competitors
   │     ├── /insights
+  │     ├── /competitors
   │     ├── /events
   │     ├── /visibility
   │     ├── /content
+  │     ├── /photos
+  │     ├── /traffic
+  │     ├── /weather
   │     ├── /locations
   │     └── /settings (+ /settings/billing, /settings/team)
-  ├── /onboarding (no group, uses root layout only)
+  ├── /onboarding
   └── / (landing page)
 ```
 
-### 9.3 Page Details
+### 9.3 Sidebar Navigation
 
-#### `/` (Landing Page)
-- Static marketing page with product overview and CTAs
+The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings.
 
-#### `/login` and `/signup`
-- Forms with email input for magic link and Google OAuth button
-- Server actions in `app/(auth)/login/actions.ts`
+### 9.4 Page Details
 
-#### `/onboarding`
-- Auth-gated (redirects to `/login` if not authenticated)
-- Two-step form: org creation + first location via Google Places
-
-#### `/home`
-- Dashboard overview: counts of locations, approved competitors, recent insights
-- Quick navigation cards
+#### `/home` (Dashboard)
+- Live KPIs: locations count, approved competitors, total insights, data freshness
+- Onboarding checklist for new users (add location, discover competitors, run first refresh)
+- "Refresh All Data" button triggers `refresh_all` pipeline
+- Recent insights feed with quick navigation
 
 #### `/competitors`
-- **Location filter:** Dropdown scopes competitors to selected location (URL param `location_id`)
+- **Location filter:** Dropdown scopes competitors to selected location
 - **Discover form:** Select location, optional keyword, triggers `discoverCompetitorsAction`
-- **Candidates list:** Pending competitors with approve/ignore buttons, Google Places highlights, mini-maps, weather
+- **Candidates list:** Pending competitors with approve/ignore buttons (approval is instant, enrichment runs in background)
 - **Approved table:** Full table with rating, reviews, distance, address, phone, website, maps, weather, remove button
-- **Loading overlay:** `RefreshOverlay` with quick facts and Gemini tips during discovery
+- **Success/onboarding banners:** Shows guidance for new users and approval success messages
 
 #### `/insights`
-- **Filters:** Location, date range (7/30 days), confidence, severity, source (competitors/events/SEO/content)
-- **Charts dashboard:** Rating comparison bar chart, review count comparison, sentiment distribution pie chart, reputation KPIs
-- **Insight feed:** Grouped by date, each insight shows title, summary, confidence/severity badges, evidence accordion, recommendations, mark-read/dismiss buttons
-- **Loading overlay:** `RefreshOverlay` during insight generation
+- **Filters:** Location, date range, confidence, severity, source (competitors/events/SEO/content/photos/traffic)
+- **Priority briefing:** Gemini-generated top 5 priorities with diversity rules (Suspense-streamed with skeleton fallback)
+- **Charts dashboard:** Rating comparison, review count, sentiment distribution
+- **Insight feed:** Client-side tab filtering for instant switching, grouped by date
+- **Insight cards:** Title, summary, badges, evidence accordion, recommendations, mark-read/dismiss
 
 #### `/events`
 - **Controls:** Location selector, period (week/weekend), venue filter, matched-only toggle
 - **KPIs:** Total events, competitor matches, unique venues, active days
-- **Top venues:** Tag cloud of most active venues
-- **Event list:** Cards with title, date, venue, description, competitor match badges, image, ticket links, Maps link
-- **Loading overlay:** `RefreshOverlay` during event fetching
+- **Event list:** Cards with title, date, venue, description, competitor match badges
 
 #### `/visibility`
 - **Tabs:** Organic and Paid
-- **Organic tab:**
-  - KPI strip: Organic Traffic, Paid Traffic, Traffic Cost, Keywords (with new/lost badges)
-  - Traffic Trends: Historical area chart (12 months)
-  - Organic Keywords: Tabbed table (All/Improved/Decreased/New/Lost)
-  - Organic Competitors: Table with overlap bar, keywords, traffic
-  - Intent + SERP Features: Stacked bar + tag grid
-  - Ranking Distribution: Bar chart (pos 1, 2-3, 4-10, 11-20, 21-50, 51-100)
-  - Top Pages + Subdomains: Side-by-side tables
-  - Keyword Gap Opportunities: Table of competitor-only keywords
-  - Featured Snippets + Local Pack counts
-- **Paid tab:**
-  - KPIs: Paid traffic, paid keywords, ad creatives, paid overlap
-  - Paid keyword overlap table
-  - Competitor ad creatives feed
-- **Loading overlay:** `RefreshOverlay` during SEO refresh
+- **Organic tab:** KPI strip, traffic trends chart (12 months), keyword tables (All/Improved/Decreased/New/Lost), competitor overlap, intent + SERP features, ranking distribution, top pages, subdomains, keyword gap, featured snippets
+- **Paid tab:** Paid KPIs, paid keyword overlap, competitor ad creatives
+- **Comprehensive competitor SEO:** On refresh, also enriches all approved competitors
 
 #### `/content`
-- **Controls:** Location selector, Refresh Content button with `RefreshOverlay`
-- **Hero panel:** Full-width website screenshot, location name, website link, last refresh timestamp
-- **Site Features:** Detected website features as badge chips (reservations, online ordering, private dining, catering, happy hour, delivery platforms)
-- **Menu Viewer:** Tabbed category navigation with item cards showing name, description, price, and dietary tags (vegan/spicy/gluten-free)
-- **Competitor Menu Compare:** Side-by-side price comparison, category coverage gaps, unique competitor items list
-- **Empty state:** Prompts user to click Refresh Content
+- **Hero panel:** Website screenshot, location name, website link, tracking URL display, last refresh timestamp
+- **Site features:** Detected website features as badge chips
+- **Menu viewer:** Tabbed categories with item cards (name, description, price, tags), source badges (Firecrawl/Google), menu type filter (Dine-In/Catering)
+- **Competitor menu compare:** Side-by-side price comparison, category gaps, unique items
+- **Multi-source data:** Combines Firecrawl scraping with Gemini Google Search Grounding for menu accuracy
+
+#### `/photos`
+- **KPIs:** Total photos, analyzed count, competitor count
+- **Photo grid:** Filterable by competitor, with detail panel showing Gemini Vision analysis (quality, ambiance, food presentation)
+- **Refresh button:** Triggers `photos` pipeline
+
+#### `/traffic` (Busy Times)
+- **KPIs:** Most popular day, peak traffic competitor, average peak score
+- **Traffic heatmap:** 7x18 grid showing hourly traffic patterns by day of week
+- **Peak comparison:** Side-by-side bars comparing peak scores across competitors
+- **Traffic chart:** Hourly breakdown for selected day
+
+#### `/weather`
+- **KPIs:** Current conditions summary
+- **Weather history:** Multi-day chart with temperature, precipitation
+- **Location weather cards:** Side-by-side cards for all locations
 
 #### `/locations`
 - Location cards with edit/delete, weather, mini-map, Google Places details
-- **New:** Screenshot thumbnail (from Firecrawl), menu badge ("Menu scraped" / "No menu found" / "Needs refresh"), item count and last scraped date
+- **Website URL override:** Users can manually set the website URL for content/visibility tracking (for branch-specific URLs)
+- **Screenshot thumbnail:** From Firecrawl, menu badge, item count, last scraped date
 - Add location form with Google Places autocomplete
-
-#### `/settings`
-- Index with links to billing and team
-
-#### `/settings/billing`
-- Shows current tier, billing email, Stripe status
-
-#### `/settings/team`
-- Team management placeholder
 
 ---
 
 ## 10. Server Actions Reference
 
-| File | Function | Input | What It Does | Redirect |
-|---|---|---|---|---|
-| `(auth)/login/actions.ts` | `sendMagicLinkAction` | FormData (email) | Sends Supabase magic link email | None (returns result) |
-| `(auth)/login/actions.ts` | `signInWithGoogleAction` | None | Initiates Google OAuth redirect | External OAuth URL |
-| `onboarding/actions.ts` | `createOrganizationAction` | FormData (name, slug, place) | Creates org + member + profile + location | `/home` |
-| `onboarding/actions.ts` | `createLocationAction` | FormData (org_id, place) | Adds a location | `/home` |
-| `(dashboard)/actions.ts` | `signOutAction` | None | Signs out user | `/login` |
-| `competitors/actions.ts` | `discoverCompetitorsAction` | FormData (location_id, query?) | Gemini discovery + Places enrichment | `/competitors` |
-| `competitors/actions.ts` | `approveCompetitorAction` | FormData (competitor_id) | Sets status=approved, is_active=true | `/competitors` |
-| `competitors/actions.ts` | `ignoreCompetitorAction` | FormData (competitor_id) | Sets status=ignored, is_active=false | `/competitors` |
-| `insights/actions.ts` | `generateInsightsAction` | FormData (location_id) | Runs all insight pipelines (competitor + events + SEO + content) | `/insights` |
-| `insights/actions.ts` | `markInsightReadAction` | FormData (insight_id) | Sets insight status=read | `/insights` |
-| `insights/actions.ts` | `dismissInsightAction` | FormData (insight_id) | Sets insight status=dismissed | `/insights` |
-| `events/actions.ts` | `fetchEventsAction` | FormData (location_id) | Fetches events via DataForSEO, matches to competitors, generates insights | `/events` |
-| `content/actions.ts` | `refreshContentAction` | FormData (location_id) | Firecrawl scrape (homepage + menu), Gemini menu parse, screenshot upload, insight generation | `/content` |
-| `visibility/actions.ts` | `refreshSeoAction` | FormData (location_id) | Fetches all SEO data (11 API call groups), stores snapshots, generates insights | `/visibility` |
-| `locations/actions.ts` | `createLocationFromPlaceAction` | FormData (place data) | Creates location from Google Place | `/locations` |
-| `locations/actions.ts` | `updateLocationAction` | FormData (id, fields) | Updates location fields | `/locations` |
-| `locations/actions.ts` | `deleteLocationAction` | FormData (location_id) | Deletes location | `/locations` |
+| File | Function | What It Does | Redirect |
+|---|---|---|---|
+| `(auth)/login/actions.ts` | `sendMagicLinkAction` | Sends Supabase magic link email | None |
+| `(auth)/login/actions.ts` | `signInWithGoogleAction` | Initiates Google OAuth redirect | External |
+| `onboarding/actions.ts` | `createOrganizationAction` | Creates org + member + profile + location + triggers initial data | `/competitors` |
+| `onboarding/actions.ts` | `createLocationAction` | Adds a location + triggers initial data | `/competitors` |
+| `(dashboard)/actions.ts` | `signOutAction` | Signs out user | `/login` |
+| `competitors/actions.ts` | `discoverCompetitorsAction` | Gemini discovery + Places enrichment | `/competitors` |
+| `competitors/actions.ts` | `approveCompetitorAction` | Sets approved, fire-and-forget SEO + content enrichment | `/competitors` |
+| `competitors/actions.ts` | `ignoreCompetitorAction` | Sets ignored, is_active=false | `/competitors` |
+| `insights/actions.ts` | `generateInsightsAction` | Runs all insight pipelines + cross-source correlation | `/insights` |
+| `insights/actions.ts` | `markInsightReadAction` | Sets insight status=read | `/insights` |
+| `insights/actions.ts` | `dismissInsightAction` | Sets insight status=dismissed | `/insights` |
+| `insights/actions.ts` | `generatePriorityBriefing` | Gemini priority briefing with TTL cache | None (returns data) |
+| `events/actions.ts` | `fetchEventsAction` | DataForSEO events, matching, insights | `/events` |
+| `content/actions.ts` | `refreshContentAction` | Firecrawl + Gemini menu, screenshots, insights | `/content` |
+| `visibility/actions.ts` | `refreshSeoAction` | 11 SEO API groups + competitor enrichment + insights | `/visibility` |
+| `locations/actions.ts` | `createLocationFromPlaceAction` | Creates location + triggers initial content/weather | `/locations` |
+| `locations/actions.ts` | `updateLocationAction` | Updates location fields including website URL | `/locations` |
+| `locations/actions.ts` | `deleteLocationAction` | Deletes location | `/locations` |
 
 ---
 
 ## 11. API Routes Reference
 
+### `GET /api/jobs/[type]?location_id=xxx`
+- **Auth:** Supabase user session via `getJobAuthContext()`
+- **Valid types:** content, visibility, events, insights, photos, busy_times, weather, refresh_all
+- **Logic:** Builds pipeline context + steps for the given type, creates job record, runs pipeline with SSE streaming
+- **Output:** SSE stream with step events and done event (includes redirect URL)
+- **Max duration:** 300 seconds
+
+### `GET /api/jobs/active`
+- **Auth:** Supabase user session
+- **Logic:** Returns all `running` jobs for the user's organization
+- **Output:** `{ jobs: JobRecord[] }`
+
+### `GET /api/jobs/stream/[jobId]`
+- **Auth:** Supabase user session
+- **Logic:** Reconnects to an existing running job's SSE stream
+- **Output:** SSE stream (replays current state + continues)
+
+### `GET /api/jobs/ambient-feed?jobId=xxx`
+- **Auth:** Supabase user session
+- **Logic:** Returns ambient insight cards for display during long-running jobs
+- **Output:** `{ cards: AmbientCard[] }`
+
+### `GET /api/cron/daily`
+- **Auth:** `CRON_SECRET` bearer token
+- **Logic:** Iterates all locations, checks org tier and cadence, triggers `refresh_all` jobs for eligible locations
+- **Output:** `{ processed: number, skipped: number, errors: string[] }`
+
 ### `POST /api/ai/chat`
-- **Auth:** Supabase user session (checks `getUser()`)
+- **Auth:** Supabase user session
 - **Input:** `{ question: string }`
-- **Logic:** Fetches recent insights and snapshots, builds prompt via `buildProphetPrompt()`, returns prompt (LLM call not yet wired)
-- **Output:** `{ ok, message, data: { prompt, insightsCount } }`
+- **Output:** `{ ok, message, data: { prompt, insightsCount } }` (LLM call not yet wired)
 
 ### `POST /api/ai/quick-tip`
-- **Auth:** None (lightweight endpoint)
 - **Input:** `{ context: string }`
-- **Logic:** Calls Gemini 2.5 Flash with a short prompt asking for one actionable tip based on the context
-- **Output:** `{ tip: string | null }`
+- **Output:** `{ tip: string | null }` (Gemini 2.5 Flash)
 
 ### `GET /api/places/autocomplete`
 - **Input:** `?input=search+text`
-- **Logic:** Proxies to Google Places Autocomplete API
 - **Output:** Array of `{ place_id, description }` suggestions
 
 ### `GET /api/places/details`
 - **Input:** `?place_id=ChIJ...`
-- **Logic:** Proxies to Google Places Details API with comprehensive field mask
 - **Output:** Full place details object
 
 ### `POST /api/stripe/webhook`
 - **Auth:** Stripe signature verification
-- **Events handled:**
-  - `customer.subscription.created` / `updated`: Updates org `subscription_tier` based on Stripe price ID mapping
-  - `customer.subscription.deleted`: Resets org to free tier
+- **Events:** `customer.subscription.created/updated/deleted`
 - **Output:** `{ received: true }`
 
 ---
@@ -957,495 +1140,333 @@ Root Layout (app/layout.tsx)
 ## 12. External API Integrations
 
 ### 12.1 Google Places API (New)
-
 **File:** `lib/places/google.ts`
 
-Three main functions:
+| Function | Purpose |
+|---|---|
+| `fetchAutocomplete(input)` | Search suggestions for location/competitor lookup |
+| `fetchPlaceDetails(placeId)` | Full business details with comprehensive field mask |
+| `mapPlaceToLocation(place)` | Maps Google Places response to the `locations` table schema |
 
-| Function | Endpoint | Purpose |
-|---|---|---|
-| `fetchAutocomplete(input)` | `places:autocomplete` | Search suggestions for location/competitor lookup |
-| `fetchPlaceDetails(placeId)` | `places/{placeId}` | Full business details with comprehensive field mask |
-| `mapPlaceToLocation(place)` | (local) | Maps Google Places response to the `locations` table schema |
-
-**Field mask for details:** `id`, `displayName`, `formattedAddress`, `addressComponents`, `location` (lat/lng), `rating`, `userRatingCount`, `websiteUri`, `nationalPhoneNumber`, `businessStatus`, `priceLevel`, `currentOpeningHours`, `regularOpeningHours`, `reviews`, `editorialSummary`, `googleMapsUri`, `primaryType`, `types`, and more.
-
-### 12.2 Google Maps Embed API
-
-**File:** `components/places/mini-map.tsx`
-
-Renders an iframe using `https://www.google.com/maps/embed/v1/place` with the location's coordinates or place ID.
-
-### 12.3 Google Weather API
-
-**File:** `lib/weather/google.ts`
-
-| Function | Endpoint | Purpose |
-|---|---|---|
-| `fetchCurrentConditions({lat, lng})` | `currentConditions:lookup` | Gets current weather for a competitor's location |
-
-Returns a `WeatherSnapshot` with: `condition`, `temperature`, `tempUnit`, `humidity`, `windSpeed`, `windUnit`, `precipitation`, `uvIndex`, `iconUrl`.
-
-Uses `next.revalidate = 1800` (30-minute cache).
-
-### 12.4 Google Gemini API
-
-Used in three places:
+### 12.2 Google Gemini API
+Used in five contexts:
 
 | Use Case | Model | File | Purpose |
 |---|---|---|---|
-| Competitor discovery | gemini-2.5-flash | `lib/providers/gemini.ts` | AI-powered competitor search with Google Maps + Search grounding |
-| Insight narratives | gemini-3-pro-preview | `lib/ai/gemini.ts` | Generates structured JSON summaries and recommendations |
-| Quick tips | gemini-2.5-flash | `app/api/ai/quick-tip/route.ts` | Single-sentence actionable tip during loading |
+| Competitor discovery | gemini-2.5-flash | `lib/providers/gemini.ts` | AI-powered competitor search with Maps + Search grounding |
+| Insight narratives | gemini-3-pro-preview | `lib/ai/gemini.ts` | Structured JSON summaries and recommendations |
+| Priority briefing | gemini-3-pro-preview | `insights/actions.ts` | Top 5 priorities with diversity rules (cached with TTL) |
+| Photo analysis | gemini-2.5-flash | `lib/providers/photos.ts` | Gemini Vision for quality, ambiance, food presentation |
+| Google menu data | gemini-3-pro-preview | `lib/ai/gemini.ts` | Google Search Grounding to fetch structured menu data |
 
-**Competitor discovery** is the most complex: it sends a prompt with the business name, category, and coordinates, using Gemini's `googleMaps` and `googleSearch` tools for grounding. It extracts competitors from the JSON response and enriches them with grounding metadata (place IDs, Maps URIs).
-
-### 12.5 DataForSEO APIs
-
+### 12.3 DataForSEO APIs
 **Client:** `lib/providers/dataforseo/client.ts`
 
-All DataForSEO calls go through two shared functions:
-- `postDataForSEO(endpoint, payload)` -- HTTP POST with Basic auth
-- `extractFirstResult(response)` -- Extracts `tasks[0].result[0]` from the standard response shape
+12 endpoint-specific clients covering: Domain Rank Overview, Ranked Keywords, Keywords For Site, Competitors Domain, Domain Intersection, Relevant Pages, Subdomains, Historical Rank Overview, SERP Organic, Google Events, Ads Search, Backlinks Summary.
 
-**Endpoints used:**
+### 12.4 Firecrawl API
+**File:** `lib/providers/firecrawl.ts` (SDK: `@mendable/firecrawl-js`)
 
-| File | API Endpoint | Type | Purpose |
-|---|---|---|---|
-| `domain-rank-overview.ts` | `/v3/dataforseo_labs/google/domain_rank_overview/live` | Labs | Domain-level organic/paid metrics, keyword distribution |
-| `ranked-keywords.ts` | `/v3/dataforseo_labs/google/ranked_keywords/live` | Labs | Keywords a domain ranks for, with intent and difficulty |
-| `keywords-for-site.ts` | `/v3/dataforseo_labs/google/keywords_for_site/live` | Labs | Keyword candidates for tracked keyword seeding |
-| `competitors-domain.ts` | `/v3/dataforseo_labs/google/competitors_domain/live` | Labs | Organic competitor domains by keyword overlap |
-| `domain-intersection.ts` | `/v3/dataforseo_labs/google/domain_intersection/live` | Labs | Keyword gap analysis (win/loss/shared) |
-| `relevant-pages.ts` | `/v3/dataforseo_labs/google/relevant_pages/live` | Labs | Top pages by organic traffic |
-| `subdomains.ts` | `/v3/dataforseo_labs/google/subdomains/live` | Labs | Subdomain performance metrics |
-| `historical-rank-overview.ts` | `/v3/dataforseo_labs/google/historical_rank_overview/live` | Labs | Monthly historical organic/paid data (12 months) |
-| `serp-organic.ts` | `/v3/serp/google/organic/live/advanced` | SERP | Live SERP positions for tracked keywords |
-| `google-events.ts` | `/v3/serp/google/events/live/advanced` | SERP | Local events from Google Events SERP |
-| `ads-search.ts` | `/v3/serp/google/ads_search/live/advanced` | Ads | Google Ads Transparency Center data |
-| `backlinks-summary.ts` | `/v3/backlinks/summary/live` | Backlinks | Domain trust, backlink counts (subscription-gated, removed from UI) |
+| Function | Purpose |
+|---|---|
+| `mapSite(url, search, limit)` | Discover pages by search term (e.g. "menu") |
+| `scrapePage(url, options)` | Scrape URL for markdown, links, full-page screenshot |
+| `scrapeMenuPage(url)` | Structured menu extraction via Firecrawl's LLM extraction with JSON schema. Falls back gracefully if browser actions not supported. |
+| `discoverAllMenuUrls(url, limit)` | Multi-term site mapping to find all menu-related URLs |
 
-### 12.6 Firecrawl API
+**Cost controls:** Location run: 2-4 pages max. Competitor run: 1-2 pages max. Tier-based `contentPagesPerRun` limit.
 
-**File:** `lib/providers/firecrawl.ts` (SDK wrapper using `@mendable/firecrawl-js`)
+**Actions fallback:** `scrapeMenuPage` attempts browser actions (tab-clicking, accordion-revealing) first; if the Firecrawl plan doesn't support Fire Engine, retries without actions automatically.
 
-| Function | API Method | Purpose |
-|---|---|---|
-| `mapSite(url, search, limit)` | `firecrawl.map()` | Discover pages on a website by search term (e.g. "menu") |
-| `scrapePage(url, options)` | `firecrawl.scrape()` | Scrape URL for markdown, links, and full-page screenshot |
-| `scrapeMenuPage(url)` | `firecrawl.scrape()` | Same as scrapePage with PDF parser enabled for PDF menus |
+### 12.5 Outscraper API
+**File:** `lib/providers/outscraper.ts`
 
-**Cost controls:**
-- Location run: 2-4 pages max (homepage + menu + optional extra)
-- Competitor run: 1-2 pages max (menu page)
-- `onlyMainContent: true` to reduce noise
-- Tier-based `contentPagesPerRun` limit enforced
+| Function | Purpose |
+|---|---|
+| `fetchBusyTimes(placeId, competitorId)` | Google Maps Popular Times data with async polling |
 
-**Screenshot storage:** Screenshots returned as base64 by Firecrawl are uploaded to Supabase Storage `screenshots` bucket via `lib/content/storage.ts`. Only the storage path is stored in snapshot `raw_data`; signed URLs are generated at render time.
+### 12.6 OpenWeatherMap API
+**File:** `lib/providers/openweathermap.ts`
+
+| Function | Purpose |
+|---|---|
+| `fetchHistoricalWeather(lat, lon, date)` | Historical daily weather aggregation |
+| `fetchForecast(lat, lon)` | Forecast with severe weather detection |
 
 ### 12.7 Stripe
-
-**File:** `app/api/stripe/webhook/route.ts`
-
-Handles subscription lifecycle events:
-- `customer.subscription.created` / `updated`: Maps Stripe price ID to tier using `getTierFromPriceId()`, updates `organizations.subscription_tier`
-- `customer.subscription.deleted`: Resets to `free`
+Handles subscription lifecycle events via webhook. Maps Stripe price IDs to tiers.
 
 ---
 
 ## 13. Provider Architecture
 
 ### 13.1 Provider Interface
-
 Defined in `lib/providers/types.ts`:
 
 ```typescript
 interface Provider {
   name: string
-  fetchCompetitorsNear(input: {
-    lat: number; lng: number; radiusMeters: number; query?: string
-  }): Promise<ProviderCandidate[]>
-  fetchSnapshot(input: { providerEntityId: string }): Promise<unknown>
+  fetchCompetitorsNear(input: { lat; lng; radiusMeters; query? }): Promise<ProviderCandidate[]>
+  fetchSnapshot(input: { providerEntityId }): Promise<unknown>
   normalizeSnapshot(raw: unknown): NormalizedSnapshot
 }
 ```
 
 ### 13.2 Provider Registry
+- `"gemini"` -> competitor discovery (Gemini 2.5 Flash with Maps grounding)
+- `"dataforseo"` -> snapshots + local finder (DataForSEO APIs)
 
-`lib/providers/index.ts` exports `getProvider(name)` which returns the matching provider:
-- `"gemini"` -> `geminiProvider` (competitor discovery)
-- `"dataforseo"` -> `dataforseoProvider` (snapshots + local finder)
-
-### 13.3 Gemini Provider
-
-`lib/providers/gemini.ts`
-
-- **fetchCompetitorsNear:** Builds a prompt for Gemini 2.5 Flash with Maps + Search grounding. Parses the JSON response to extract competitor names, coordinates, ratings, review counts. Falls back to grounding chunk metadata if JSON parsing fails. Computes haversine distances. Returns up to 10 candidates.
-- **fetchSnapshot:** Not implemented (throws).
-- **normalizeSnapshot:** Returns empty normalized snapshot.
-
-### 13.4 DataForSEO Provider
-
-`lib/providers/dataforseo.ts`
-
-- **fetchCompetitorsNear:** Uses the Local Finder API to discover nearby businesses. Has fallback radius logic (2x radius if initial results are empty).
-- **fetchSnapshot:** Uses the My Business Info API to fetch a business profile snapshot.
-- **normalizeSnapshot:** Maps raw DataForSEO response to `NormalizedSnapshot` format (profile, hours, reviews).
-
-### 13.5 Competitor Scoring
-
-`lib/providers/scoring.ts`
-
-```typescript
-function scoreCompetitor(input: {
-  distanceMeters?: number
-  category?: string
-  targetCategory?: string | null
-  rating?: number
-  reviewCount?: number
-}): { score: number; factors: Array<{ factor: string; weight: number; value: number }> }
-```
-
-Weighted scoring algorithm:
-- **Distance** (40% weight): Closer = higher score. Score drops linearly from 100 to 0 over 5km.
-- **Category match** (30% weight): Exact match = 100, otherwise 0.
-- **Rating** (15% weight): Scaled 0-100 based on rating 0-5.
-- **Review count** (15% weight): Logarithmic scale, capped at ~500 reviews for max score.
+### 13.3 Competitor Scoring
+`lib/providers/scoring.ts`: Weighted algorithm (distance 40%, category 30%, rating 15%, reviews 15%).
 
 ---
 
 ## 14. Data Pipeline: Snapshots and Insights
 
 ### 14.1 Competitor Insights Pipeline
-
 **Modules:** `lib/insights/`
 
-**Flow:**
-
-1. **Normalize** (`normalize.ts`): Canonicalizes ratings (2 decimal places), review counts (rounded), hours (trimmed whitespace).
-2. **Hash** (`hash.ts`): SHA256 hash of profile fields + hours for change detection.
-3. **Diff** (`diff.ts`): Compares previous vs current snapshot. Produces `SnapshotDiff` with: `ratingDelta`, `reviewCountDelta`, `hoursChanged`, and detailed `changes` array.
-4. **Rules** (`rules.ts`): Deterministic insight generation from diffs:
-   - `rating_change`: Rating delta >= 0.1
-   - `review_velocity`: Review count delta >= 2
-   - `hours_change`: Any hours modification
-5. **Trends** (`trends.ts`): Weekly aggregations:
-   - `weekly_rating_trend`: Rating delta >= 0.2 over the week
-   - `weekly_review_trend`: Review count delta >= 5 over the week
-
-**Types:**
-```typescript
-type GeneratedInsight = {
-  insight_type: string
-  title: string
-  summary: string
-  confidence: "high" | "medium" | "low"
-  severity: "info" | "warning" | "critical"
-  evidence: Record<string, unknown>
-  recommendations: Array<Record<string, unknown>>
-}
-```
+Rules: `rating_change`, `review_velocity`, `hours_change`, `weekly_rating_trend`, `weekly_review_trend`
 
 ### 14.2 SEO Insights Pipeline
-
 **Modules:** `lib/seo/`
 
-**Trigger:** `refreshSeoAction` in `app/(dashboard)/visibility/actions.ts`
-
-**Flow:**
-
-1. Resolves location website from Google Places if missing
-2. Collects competitor domains from approved competitors
-3. Calls up to 11 DataForSEO API groups (each wrapped in try/catch for fault isolation):
-   - Step 1: Domain Rank Overview (location + each competitor)
-   - Step 2: Ranked Keywords (location)
-   - Step 3: Keywords For Site -> seed tracked keywords
-   - Step 4: SERP Organic (for tracked keywords)
-   - Step 5: Competitors Domain
-   - Step 6: Domain Intersection (location vs each competitor)
-   - Step 7: Ads Search (each competitor)
-   - Step 8: (Removed -- was Backlinks Summary)
-   - Step 9: Relevant Pages
-   - Step 10: Subdomains
-   - Step 11: Historical Rank Overview
-4. Normalizes all responses via `lib/seo/normalize.ts`
-5. Stores results in `location_snapshots` table (upsert by location_id + provider + date_key)
-6. Generates deterministic SEO insights via `lib/seo/insights.ts`
-
-**10 SEO Insight Types:**
-
-| Type | Trigger | Severity |
-|---|---|---|
-| `seo_organic_visibility_up` | ETV or keyword count increase >= 10% | info |
-| `seo_organic_visibility_down` | ETV or keyword count decrease >= 10% | warning |
-| `seo_keyword_opportunity_gap` | >= 3 keywords where competitor ranks but you don't | info |
-| `seo_keyword_win` | New keywords entering top 3 or top 10 | info |
-| `seo_competitor_overtake` | Competitor gains more organic keywords than you | warning |
-| `seo_paid_visibility_change` | Paid ETV delta >= 20% | info |
-| `seo_new_competitor_ads_detected` | New competitor ad creatives detected | info |
-| `seo_paid_keyword_overlap_spike` | Shared paid keyword count increase >= 50% | info |
-| `seo_top_page_traffic_shift` | Top page traffic share change >= 5% | info |
-| `seo_historical_traffic_trend` | 3-month organic traffic trend (up/down >= 15%) | info/warning |
-
-### 14.3 Events Intelligence Pipeline
-
-**Modules:** `lib/events/`
-
-**Trigger:** `fetchEventsAction` in `app/(dashboard)/events/actions.ts`
-
-**Flow:**
-
-1. Builds search queries from location name, city, competitor names
-2. Calls DataForSEO Google Events SERP for each query (weekend + week horizons)
-3. Normalizes events (`normalizeEventsSnapshot`): deduplicates by UID, extracts venue/tickets/dates, builds summary
-4. Stores in `location_snapshots` (provider: `dataforseo_google_events`)
-5. Matches events to competitors (`matchEventsToCompetitors`):
-   - **HIGH confidence:** Venue name exactly matches competitor name
-   - **MEDIUM confidence:** Venue address tokens overlap >= 60% with competitor address
-   - **LOW confidence:** Event URL domain matches competitor website domain
-6. Stores matches in `event_matches` table
-7. Generates event insights (`generateEventInsights`)
-
-**5 Event Insight Types:**
+**13 SEO Insight Types:**
 
 | Type | Trigger |
 |---|---|
-| `events.weekend_density_spike` | Weekend event count >= 10 |
-| `events.upcoming_dense_day` | Single day with >= 8 events |
-| `events.new_high_signal_event` | Event title contains high-signal keywords (festival, concert, etc.) |
-| `events.competitor_hosting_event` | Competitor matched to an event |
-| `events.competitor_event_cadence_up` | Competitor event count increased vs previous snapshot |
+| `seo_organic_visibility_up/down` | ETV or keyword count change >= 10% |
+| `seo_keyword_opportunity_gap` | >= 3 competitor-only keywords |
+| `seo_keyword_win` | New keywords entering top 3/10 |
+| `seo_competitor_overtake` | Competitor gains more organic keywords |
+| `seo_paid_visibility_change` | Paid ETV delta >= 20% |
+| `seo_new_competitor_ads_detected` | New ad creatives detected |
+| `seo_paid_keyword_overlap_spike` | Shared paid keywords increase >= 50% |
+| `seo_top_page_traffic_shift` | Top page traffic share change >= 5% |
+| `seo_historical_traffic_trend` | 3-month organic traffic trend |
+| `seo_competitor_keyword_portfolio` | Competitor keyword portfolio analysis |
+| `seo_competitor_top_page_threat` | Competitor top page threats |
+| `seo_competitor_growth_trend` | Competitor growth trajectory |
+
+### 14.3 Events Intelligence Pipeline
+**Modules:** `lib/events/`
+
+5 event insight types: weekend density spike, upcoming dense day, high-signal event, competitor hosting event, competitor event cadence up.
 
 ### 14.4 Content & Menu Intelligence Pipeline
+**Modules:** `lib/content/`
 
-**Trigger:** `refreshContentAction` in `app/(dashboard)/content/actions.ts`
+**Multi-source menu extraction:**
+1. **Firecrawl scraping:** Multi-URL discovery (up to 8 search terms), structured JSON extraction with schema, PDF support
+2. **Gemini Google Search Grounding:** `fetchGoogleMenuData()` retrieves Google's own menu data for a business
+3. **Merge:** `mergeExtractedMenus()` deduplicates, preserves sources, maintains category classification
 
-**Flow:**
+**Menu type classification:** `classifyMenuCategory()` detects: dine_in, catering, banquet, happy_hour, kids, other.
 
-1. Maps the location website via Firecrawl to find menu page URL
-2. Scrapes homepage (markdown + screenshot)
-3. Scrapes menu page (markdown + screenshot + PDF support)
-4. Parses menu via heuristic regex + Gemini refinement (`lib/content/menu-parse.ts`)
-5. Detects site features (reservations, online ordering, catering, delivery platforms)
-6. Uploads screenshots to Supabase Storage
-7. Stores in `location_snapshots` (providers: `firecrawl_site_content`, `firecrawl_menu`)
-8. Scrapes each approved competitor's menu page (1-2 pages per competitor)
-9. Stores competitor menus in `snapshots` (snapshot_type: `web_menu_weekly`, provider: `firecrawl_menu`)
-10. Runs `generateContentInsights()` with location + competitor data
-
-**7 Content Insight Types:**
+**8 Content Insight Types:**
 
 | Type | Trigger |
 |---|---|
 | `menu.price_positioning_shift` | Avg price differs >= 15% from competitor |
-| `menu.category_gap` | Competitor has menu categories location lacks |
-| `menu.signature_item_missing` | Competitor has >= 3 items location doesn't have |
-| `menu.promo_signal_detected` | Competitor menu contains promotional keywords (happy hour, etc.) |
-| `menu.menu_change_detected` | Location menu item count changed by >= 3 vs previous snapshot |
-| `content.conversion_feature_gap` | Competitor has website features (reservations, ordering) location lacks |
-| `content.delivery_platform_gap` | Competitor on delivery platforms location isn't |
+| `menu.category_gap` | Competitor has categories location lacks |
+| `menu.signature_item_missing` | Competitor has >= 3 unique items |
+| `menu.promo_signal_detected` | Promotional keywords in competitor menu |
+| `menu.menu_change_detected` | Item count changed >= 3 vs previous |
+| `menu.catering_pricing_gap` | Catering vs dine-in pricing comparison |
+| `content.conversion_feature_gap` | Competitor has features location lacks |
+| `content.delivery_platform_gap` | Competitor on platforms location isn't |
 
-### 14.5 Cross-Source Correlation
+### 14.5 Photo Insights Pipeline
+**Modules:** `lib/insights/photo-insights.ts`, `lib/providers/photos.ts`
 
-The `generateInsightsAction` in `app/(dashboard)/insights/actions.ts` runs all four pipelines (competitor, events, SEO, content) and then generates cross-source insights:
+Flow: Fetch Google Places photo references -> Download photos -> SHA-256 hash for dedup -> Gemini Vision analysis -> Generate photo insights.
 
-- **Event + SEO traffic opportunity:** High-density event days near location + rising organic traffic
-- **Domain authority risk:** Competitor SEO gains correlated with event activity
-- **Competitor momentum detection:** Competitor with improving ratings + rising SEO + event presence
+### 14.6 Traffic Insights Pipeline
+**Modules:** `lib/insights/traffic-insights.ts`, `lib/providers/outscraper.ts`
 
-### 14.6 LLM-Enhanced Insights
+Flow: Fetch Outscraper Popular Times -> Normalize day/hour data -> Generate traffic insights + competitive opportunity insights.
 
-After deterministic rules produce structured insights, Gemini 3 Pro Preview (`lib/ai/gemini.ts`) adds natural language narratives:
-- `buildInsightNarrativePrompt()` creates a prompt with location context, competitor deltas, review snippets
-- Gemini returns: summary text, 3-5 recommendations, and review theme analysis
-- These are merged into the insight's `summary` and `recommendations` fields
+### 14.7 Weather Context Pipeline
+**Modules:** `lib/insights/weather-context.ts`, `lib/providers/openweathermap.ts`
+
+Flow: Fetch OpenWeatherMap data -> Detect severe weather -> Suppress weather-affected insights -> Generate cross-signal weather insights.
+
+### 14.8 Cross-Source Correlation
+`generateInsightsAction` runs all pipelines then generates cross-source insights:
+- Event + SEO traffic opportunity
+- Domain authority risk
+- Competitor momentum detection
+
+### 14.9 Priority Briefing
+Gemini 3 Pro Preview generates a top-5 priority briefing with diversity rules (must cover >= 3 source categories, max 2 from same category). Results are cached in an in-memory TTL cache (`lib/insights/briefing-cache.ts`).
+
+### 14.10 Competitor Enrichment on Approval
+When a competitor is approved (`approveCompetitorAction`):
+1. Competitor row is updated immediately (instant redirect)
+2. Background fire-and-forget enrichment runs:
+   - **SEO enrichment** (`lib/seo/enrich.ts`): Domain Rank Overview, Ranked Keywords, Relevant Pages, Historical Rank, Domain Intersection
+   - **Content enrichment** (`lib/content/enrich.ts`): Multi-URL menu scrape, Gemini Google menu, merge, screenshot upload
 
 ---
 
-## 15. Billing and Tier System
+## 15. Background Job System
 
-### 15.1 Tiers
+### 15.1 Architecture
 
-| Tier | Locations | Competitors/Location | Retention | Events | SEO Keywords | SEO Cadence | Content Pages/Run |
+The job system provides real-time progress tracking for long-running data refresh operations.
+
+**Components:**
+- `lib/jobs/types.ts` – Shared types: `JobType` (8 types), `JobStatus`, `JobStep`, `JobRecord`, `SSEStepEvent`, `SSEDoneEvent`, `AmbientCard`
+- `lib/jobs/manager.ts` – CRUD for `refresh_jobs` table using admin Supabase client
+- `lib/jobs/pipeline.ts` – Generic sequential pipeline runner with error isolation
+- `lib/jobs/sse.ts` – SSE stream creation utilities
+- `lib/jobs/auth.ts` – Authentication context for job API routes
+- `lib/jobs/triggers.ts` – Fire-and-forget triggers for automatic data collection
+- `lib/jobs/ambient-data.ts` – Ambient insight card generation during job execution
+- `lib/jobs/use-job-runner.ts` – React hook for client-side job management
+
+### 15.2 Job Types
+
+| Type | Pipeline | Steps |
+|---|---|---|
+| `content` | Content & Menus | Firecrawl scrape + Gemini menu + screenshot upload |
+| `visibility` | SEO & Visibility | 11 DataForSEO API groups + competitor enrichment |
+| `events` | Local Events | DataForSEO Events SERP + matching |
+| `insights` | Insight Generation | All source pipelines + cross-correlation |
+| `photos` | Photo Analysis | Google Places photos + Gemini Vision |
+| `busy_times` | Busy Times | Outscraper Popular Times |
+| `weather` | Weather | OpenWeatherMap historical + forecast |
+| `refresh_all` | Full Refresh | Orchestrates all 7 pipelines sequentially |
+
+### 15.3 UI Components
+
+- **`JobRefreshButton`** (`components/ui/job-refresh-button.tsx`): Per-page refresh button. Connects to SSE stream, shows pipeline step progress with `JobPipelineView`, displays `AmbientInsightFeed` during execution, shows toast on completion. Re-checks for active jobs when location changes.
+- **`ActiveJobBar`** (`components/ui/active-job-bar.tsx`): Global top bar that polls `/api/jobs/active` to show running jobs across all pages. Navigates with `location_id` preserved. Shows toast notifications when jobs complete. Stores job metadata (type + locationId) for proper navigation.
+- **`JobPipelineView`** (`components/ui/job-pipeline-view.tsx`): Step-by-step progress visualization with status icons and preview data.
+- **`AmbientInsightFeed`** (`components/ui/ambient-insight-feed.tsx`): Carousel of insight cards during long-running operations.
+
+### 15.4 SSE Protocol
+
+Events sent during pipeline execution:
+- `step` – Step progress update with preview data
+- `done` – Pipeline complete with status, warnings, and redirect URL
+
+### 15.5 Daily Cron Orchestrator
+
+`app/api/cron/daily/route.ts`: Iterates all locations, checks org subscription tier and cadence rules, triggers `refresh_all` pipeline for eligible locations. Designed for Vercel Cron or external scheduler.
+
+---
+
+## 16. Billing and Tier System
+
+### 16.1 Tiers
+
+| Tier | Locations | Competitors/Loc | Retention | Events | SEO Keywords | SEO Cadence | Content Pages/Run |
 |---|---|---|---|---|---|---|---|
 | Free | 1 | 5 | 30 days | Weekly, 1 query | 10 tracked, 50 ranked | Weekly | 2 |
 | Starter | 3 | 15 | 90 days | Daily, 2 queries | 25 tracked, 50 ranked | Weekly | 3 |
 | Pro | 10 | 50 | 180 days | Daily, 2 queries | 50 tracked, 100 ranked | Labs weekly, SERP daily | 5 |
 | Agency | 50 | 200 | 365 days | Daily, 2 queries | 200 tracked, 500 ranked | Daily | 8 |
 
-All tiers have: SEO intersection enabled, SEO ads enabled, content refresh cadence weekly.
+### 16.2 Guardrail Functions
 
-### 15.2 Implementation
-
-**Files:**
-- `lib/billing/tiers.ts`: Defines `SubscriptionTier` type, `TIER_LIMITS` constant, `getTierFromPriceId()` function
-- `lib/billing/limits.ts`: Guardrail functions that throw errors when limits are exceeded
-
-**Guardrail functions:**
-- `ensureLocationLimit(tier, currentCount)` -- throws if at max locations
-- `ensureCompetitorLimit(tier, currentCount)` -- throws if at max competitors
-- `ensureEventQueryLimit(tier, queriesRequested)` -- throws if exceeding query limit
-- `ensureTrackedKeywordLimit(tier, currentCount)` -- throws if at max tracked keywords
-- `getEventsCadence(tier)`, `getEventsQueriesPerRun(tier)`, `getEventsMaxDepth(tier)`
-- `getSeoTrackedKeywordsLimit(tier)`, `getSeoLabsCadence(tier)`, `getSeoSerpCadence(tier)`, `getSeoRankedKeywordsLimit(tier)`
-- `isSeoIntersectionEnabled(tier)`, `getSeoIntersectionLimit(tier)`, `isSeoAdsEnabled(tier)`
-- `getContentMaxPages(tier)`, `getContentCadence(tier)`
-
-### 15.3 Stripe Integration
-
-The `subscription_tier` field on `organizations` is updated by the Stripe webhook handler. The mapping from Stripe price IDs to tiers uses environment variables (`STRIPE_PRICE_ID_STARTER`, `STRIPE_PRICE_ID_PRO`, `STRIPE_PRICE_ID_AGENCY`).
+`lib/billing/limits.ts` provides:
+- `ensureLocationLimit`, `ensureCompetitorLimit`, `ensureEventQueryLimit`, `ensureTrackedKeywordLimit`
+- `getEventsCadence`, `getEventsQueriesPerRun`, `getEventsMaxDepth`
+- `getSeoTrackedKeywordsLimit`, `getSeoLabsCadence`, `getSeoSerpCadence`, `getSeoRankedKeywordsLimit`, `getSeoIntersectionLimit`
+- `isSeoIntersectionEnabled`, `isSeoAdsEnabled`
+- `getContentMaxPages`, `getContentCadence`
 
 ---
 
-## 16. UI Component Library
+## 17. UI Component Library
 
-### 16.1 Base UI Components
+### 17.1 Base UI Components
 
-| Component | File | Type | Props | Description |
-|---|---|---|---|---|
-| Badge | `components/ui/badge.tsx` | Server | `variant`, `className`, `children` | Colored badge (default/success/warning) |
-| Button | `components/ui/button.tsx` | Server | `variant`, `size`, `className`, `children` | Button (primary/secondary/ghost, sm/md/lg) |
-| Card | `components/ui/card.tsx` | Server | `className`, `children` | Card container with sub-components (CardHeader, CardTitle, etc.) |
-| Input | `components/ui/input.tsx` | Server | Standard input props | Styled text input |
-| Label | `components/ui/label.tsx` | Server | Standard label props | Form label |
-| Separator | `components/ui/separator.tsx` | Server | `className` | Horizontal rule |
+| Component | File | Type | Description |
+|---|---|---|---|
+| Badge | `components/ui/badge.tsx` | Server | Colored badge (default/success/warning) |
+| Button | `components/ui/button.tsx` | Server | Button (primary/secondary/ghost, sm/md/lg) |
+| Card | `components/ui/card.tsx` | Server | Card container with sub-components |
+| Input | `components/ui/input.tsx` | Server | Styled text input |
+| Label | `components/ui/label.tsx` | Server | Form label |
+| Separator | `components/ui/separator.tsx` | Server | Horizontal rule |
 
-### 16.2 Interactive Components
+### 17.2 Interactive Components
 
-| Component | File | Type | Key Props | Description |
-|---|---|---|---|---|
-| LocationFilter | `components/ui/location-filter.tsx` | Client | `locations`, `selectedLocationId` | Dropdown that navigates via URL params (`useRouter`) |
-| RefreshOverlay | `components/ui/refresh-overlay.tsx` | Client | `label`, `pendingLabel`, `quickFacts`, `geminiContext`, `steps` | Animated loading overlay using `useFormStatus()`, framer-motion carousel, Gemini quick-tip fetch |
-| AutoFilterForm | `components/filters/auto-filter-form.tsx` | Client | `filters[]` | Auto-navigating filter selects that update URL params on change |
-| FadeIn | `components/motion/fade-in.tsx` | Client | `delay`, standard div props | Framer Motion fade-in + slide-up wrapper |
+| Component | File | Type | Description |
+|---|---|---|---|
+| LocationFilter | `components/ui/location-filter.tsx` | Client | Dropdown navigating via URL params |
+| RefreshOverlay | `components/ui/refresh-overlay.tsx` | Client | Legacy animated loading overlay |
+| JobRefreshButton | `components/ui/job-refresh-button.tsx` | Client | SSE-connected refresh with pipeline view |
+| ActiveJobBar | `components/ui/active-job-bar.tsx` | Client | Global job status bar with polling and toast |
+| JobPipelineView | `components/ui/job-pipeline-view.tsx` | Client | Step-by-step progress visualization |
+| AmbientInsightFeed | `components/ui/ambient-insight-feed.tsx` | Client | Insight card carousel during jobs |
+| AutoFilterForm | `components/filters/auto-filter-form.tsx` | Client | Auto-navigating filter selects |
+| FadeIn | `components/motion/fade-in.tsx` | Client | Framer Motion fade-in wrapper |
 
-### 16.3 Feature Components
+### 17.3 Feature Components
 
-| Component | File | Type | Key Props | Description |
-|---|---|---|---|---|
-| DiscoverForm | `components/competitors/discover-form.tsx` | Client | `locations`, `action`, `selectedLocationId`, `quickFacts` | Competitor discovery form with RefreshOverlay |
-| InsightCard | `components/insight-card.tsx` | Server | `title`, `summary`, `confidence`, `severity`, `evidence`, `recommendations`, `accent`, `actions` | Rich insight card with evidence accordion, metric pills, recommendation list |
-| InsightsDashboard | `components/insights/insights-dashboard.tsx` | Client | `ratingComparison`, `reviewGrowthDelta`, `sentimentCounts`, etc. | Recharts dashboard with bar charts, pie charts, KPI cards |
-| LocationSearch | `components/places/location-search.tsx` | Client | `onSelectPlace`, `onClear` | Google Places autocomplete with debounced search |
-| LocationAddForm | `components/places/location-add-form.tsx` | Client | `organizationId`, `action`, `buttonLabel` | Add location form wrapping LocationSearch |
-| MiniMap | `components/places/mini-map.tsx` | Server | `lat`, `lng`, `title`, `mapsUri`, `placeId`, `address` | Google Maps Embed iframe |
+| Component | File | Description |
+|---|---|---|
+| DiscoverForm | `competitors/discover-form.tsx` | Competitor discovery + RefreshOverlay |
+| InsightCard | `insight-card.tsx` | Rich insight card with evidence, recommendations |
+| InsightFeed | `insights/insight-feed.tsx` | Client-side filtered insight feed with tabs |
+| InsightsDashboard | `insights/insights-dashboard.tsx` | Recharts charts dashboard |
+| PriorityBriefing | `insights/priority-briefing.tsx` | Priority briefing display + skeleton |
+| MenuViewer | `content/menu-viewer.tsx` | Tabbed menu viewer with item cards |
+| MenuCompare | `content/menu-compare.tsx` | Side-by-side competitor menu comparison |
+| PhotoGrid | `photos/photo-grid.tsx` | Analyzed photo grid with filters |
+| TrafficHeatmap | `traffic/traffic-heatmap.tsx` | 7x18 weekly traffic heatmap |
+| PeakComparison | `traffic/peak-comparison.tsx` | Side-by-side peak hour comparison |
+| WeatherHistory | `weather/weather-history.tsx` | Multi-day weather chart |
+| LocationWeatherCards | `weather/location-weather-cards.tsx` | Multi-location weather cards |
+| EventsFilters | `events/events-filters.tsx` | Events page filters |
 
-### 16.4 Content Components
+### 17.4 Visibility Components
 
-| Component | File | Type | Key Props | Description |
-|---|---|---|---|---|
-| MenuViewer | `components/content/menu-viewer.tsx` | Client | `categories`, `currency`, `itemsTotal`, `confidence` | Tabbed menu viewer with category navigation and item cards (name, price, tags) |
-| MenuCompare | `components/content/menu-compare.tsx` | Client | `locationName`, `locationCategories`, `locationAvgPrice`, `competitors` | Side-by-side competitor menu comparison with price bands, category gaps, unique items |
-
-### 16.5 Visibility Components
-
-| Component | File | Type | Key Props | Description |
-|---|---|---|---|---|
-| VisibilityFilters | `components/visibility/visibility-filters.tsx` | Client | `locations`, `selectedLocationId`, `activeTab` | Location dropdown + Organic/Paid tab switcher |
-| TrafficChart | `components/visibility/traffic-chart.tsx` | Client | `data: HistoricalTrafficPoint[]` | Recharts AreaChart with organic/paid toggle and traffic/keywords mode |
-| RankingDistribution | `components/visibility/ranking-distribution.tsx` | Client | `distribution: RankDistribution` | Recharts BarChart showing keyword counts per position bucket |
-| KeywordTabs | `components/visibility/keyword-tabs.tsx` | Client | `keywords`, `newCount`, `upCount`, `downCount`, `lostCount` | Tabbed table (All/Improved/Decreased/New/Lost) with intent badges |
-| IntentSerpPanels | `components/visibility/intent-serp-panels.tsx` | Client | `intentData`, `serpFeatures` | Keyword intent breakdown bars + SERP feature tag grid |
-| VisibilityCharts | `components/visibility/visibility-charts.tsx` | Client | `sovData`, `locationDomain` | Recharts PieChart for share of voice |
+VisibilityFilters, TrafficChart, RankingDistribution, KeywordTabs, IntentSerpPanels, VisibilityCharts – all in `components/visibility/`.
 
 ---
 
-## 17. Supabase Edge Functions
+## 18. Supabase Edge Functions
 
-Three Edge Functions exist in `supabase/functions/`:
+Three Edge Functions exist in `supabase/functions/` (scaffolded, not deployed):
 
-### `orchestrator_daily/index.ts`
-Contains deterministic SEO insight generation rules. In production, this would be invoked by `pg_cron` daily. Currently houses:
-- Organic visibility change detection
-- Keyword opportunity gap analysis
-- Keyword win detection (top 3/10 movements)
-- Competitor overtake detection
-- Paid visibility change detection
-- New competitor ads detection
-- Paid keyword overlap spike
-- Backlink growth/decline detection
-- Top page traffic shift detection
-- Historical traffic trend analysis
+- **`orchestrator_daily`:** Contains SEO insight generation rules (duplicated from `lib/seo/`)
+- **`job_worker`:** Contains SEO normalization utilities (duplicated from `lib/seo/`)
+- **`digest_weekly`:** Stub for weekly email digest generation
 
-### `job_worker/index.ts`
-Contains SEO normalization utilities. In production, this would consume jobs from a `pgmq` queue. Currently houses:
-- Domain rank overview normalization
-- Ranked keywords normalization
-- SERP organic normalization
-- Domain intersection normalization
-- Ads search normalization
-- Competitors domain normalization
-- Backlinks summary normalization
-- Relevant pages normalization
-- Subdomains normalization
-- Historical rank overview normalization
-
-### `digest_weekly/index.ts`
-Stub for weekly email digest generation. Returns organization summaries for email delivery. Not yet implemented.
-
-**Note:** These Edge Functions contain duplicated logic that also exists in `lib/seo/`. The production deployment would use the Edge Function versions for background processing, while the `lib/` versions are used for on-demand server action calls.
+**Note:** The primary daily orchestration is now handled by `app/api/cron/daily/route.ts` within the Next.js app, not the Edge Functions.
 
 ---
 
-## 18. Testing
+## 19. Testing
 
-### 18.1 Configuration
+### 19.1 Existing Tests
 
-**File:** `playwright.config.ts`
+`tests/auth-onboarding.spec.ts`: Playwright smoke test covering `/login`, `/signup`, and `/onboarding` redirect behavior.
 
-- Test directory: `./tests`
-- Timeout: 30 seconds per test
-- Base URL: `http://localhost:3000`
-- Optional web server auto-start with `npm run dev`
+### 19.2 Development Scripts
 
-### 18.2 Existing Tests
-
-**File:** `tests/auth-onboarding.spec.ts`
-
-Smoke test covering:
-- `/login` -- verifies "Welcome back." heading and "Send magic link" button
-- `/signup` -- verifies "Start monitoring in minutes." heading and "Send magic link" button
-- `/onboarding` -- verifies redirect to `/login` for unauthenticated users
-
-### 18.3 Running Tests
-
-```bash
-# Run E2E tests
-npm run test:e2e
-
-# Run with Playwright UI
-npx playwright test --ui
-```
+- `scripts/refresh-signals.ts` – End-to-end signal fetch for weather, photos, busy times
+- `scripts/refresh-busy-times.ts` – Outscraper debugging script
 
 ---
 
-## 19. Deployment
+## 20. Deployment
 
-### 19.1 Hosting
+### 20.1 Hosting
 
-The app is deployed on **Vercel** (inferred from `.vercel` in `.gitignore`). Vercel provides:
-- Automatic deployments on push to `main`
-- Preview deployments for pull requests
-- Edge runtime support
-- Environment variable management
+The app is deployed on **Vercel**. Vercel provides automatic deployments on push, preview deployments for PRs, and environment variable management.
 
-### 19.2 Git Workflow
+### 20.2 Git Workflow
 
 - **`dev` branch:** Primary development branch
 - **`main` branch:** Production branch
 - Flow: develop on `dev` -> create PR -> merge to `main` -> Vercel auto-deploys
 
-### 19.3 Environment Setup for New Developers
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Copy `.env.local.example` (or create `.env.local`) with all required variables from Section 3
-4. Set up Supabase project (or use local development with `supabase start`)
-5. Run migrations: `supabase db push` (or apply via Supabase dashboard)
-6. Start development server: `npm run dev`
-7. Access at `http://localhost:3000`
-
-### 19.4 Build and Lint
+### 20.3 Build and Lint
 
 ```bash
 npm run dev      # Development server (Turbopack)
@@ -1457,39 +1478,32 @@ npm run test:e2e # Playwright E2E tests
 
 ---
 
-## 20. Known Limitations and Future Work
+## 21. Known Limitations and Future Work
 
 ### Current Limitations
 
-1. **Backlinks API:** Requires a separate DataForSEO subscription. Backlink-related KPIs (Domain Trust, Referring Domains, Backlinks) have been removed from the UI but the API client (`backlinks-summary.ts`) still exists.
+1. **Backlinks API:** Requires separate DataForSEO subscription. API client exists but removed from UI.
+2. **Chat endpoint incomplete:** `POST /api/ai/chat` scaffolds prompt building but does not call an LLM.
+3. **Weekly digest is a stub:** `supabase/functions/digest_weekly/index.ts` returns mock data.
+4. **No middleware.ts:** Auth enforced at layout/page level.
+5. **Edge Function code duplication:** SEO logic in `supabase/functions/` duplicates `lib/seo/`.
+6. **No data retention cleanup:** Defined in tier limits but no cleanup job exists.
+7. **Team management placeholder:** `/settings/team` has no functionality.
+8. **Insight feedback UI not built:** Database schema supports `user_feedback` on insights and `insight_preferences` table, but the like/dislike UI is not yet implemented.
+9. **Firecrawl actions limitation:** Browser actions (tab-clicking, accordion-revealing) require Fire Engine which may not be available on all Firecrawl plans. The code falls back gracefully to plain scraping.
+10. **DataForSEO ETV estimates:** For small/local businesses, estimated traffic volume can be approximate.
 
-2. **Background jobs not deployed:** The `pg_cron` -> `pgmq` -> Edge Function worker architecture is designed and Edge Functions are scaffolded, but daily automated runs are not yet configured. All data fetching currently happens via manual user-triggered server actions.
-
-3. **Chat endpoint incomplete:** `POST /api/ai/chat` scaffolds the prompt building but does not call an LLM. The `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` env vars are checked but no SDK is installed.
-
-4. **Weekly digest is a stub:** `supabase/functions/digest_weekly/index.ts` returns mock data.
-
-5. **No middleware.ts:** Auth is enforced at the layout/page level, not via Next.js middleware. This means unauthenticated requests reach the server component before being redirected.
-
-6. **DataForSEO organic traffic estimates:** For small/local businesses, DataForSEO's estimated traffic volume (ETV) can be approximate. The UI includes a CTR-model fallback for computing ETV from ranked keywords when the domain rank overview returns zero.
-
-7. **Edge Function code duplication:** The SEO normalization and insight generation logic in `supabase/functions/` duplicates logic in `lib/seo/`. This is by design (Edge Functions run in Deno, separate from the Next.js runtime), but keeping them in sync requires manual effort.
-
-8. **No data retention cleanup:** Snapshot and insight retention is defined in tier limits but no cleanup job exists.
-
-9. **Team management is a placeholder:** The `/settings/team` page exists but has no team invite or role management functionality.
-
-### Future Work (from PRD)
+### Future Work
 
 - "Ask Prophet" natural language chat grounded in stored data
 - Email alerts and weekly digests
-- Improved discovery scoring with additional signals
+- Insight like/dislike feedback UI with learning loop
+- Events page layout redesign
 - Additional providers (Yelp, SerpApi)
-- Trend insights (T-7 comparisons), weekly summaries
 - Real-time monitoring capabilities
 - Data retention enforcement
 - Team invite and role management
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase as of February 11, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase as of January 31, 2026.*
