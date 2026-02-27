@@ -14,6 +14,9 @@ import {
 import type { InsightForBriefing } from "@/lib/ai/prompts/priority-briefing"
 import PriorityBriefingSection from "./priority-briefing-section"
 import { BriefingSkeleton } from "@/components/insights/priority-briefing"
+import WeatherBadge from "@/components/insights/weather-badge"
+import PhotoGallery from "@/components/insights/photo-gallery"
+import TrafficChart from "@/components/insights/traffic-chart"
 
 type InsightsPageProps = {
   searchParams?: Promise<{
@@ -280,6 +283,91 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   })
 
+  // -------------------------------------------------------------------------
+  // Fetch new signal data: weather, photos, busy times
+  // -------------------------------------------------------------------------
+
+  const todayDate = new Date().toISOString().slice(0, 10)
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayDate = yesterday.toISOString().slice(0, 10)
+
+  const [
+    { data: todayWeather },
+    { data: competitorPhotosRaw },
+    { data: busyTimesRaw },
+  ] = await Promise.all([
+    selectedLocationId
+      ? supabase
+          .from("location_weather")
+          .select("date, temp_high_f, temp_low_f, weather_condition, weather_icon, precipitation_in, is_severe")
+          .eq("location_id", selectedLocationId)
+          .in("date", [todayDate, yesterdayDate])
+          .order("date", { ascending: false })
+          .limit(2)
+      : Promise.resolve({ data: [] as Array<{ date: string; temp_high_f: number | null; temp_low_f: number | null; weather_condition: string | null; weather_icon: string | null; precipitation_in: number | null; is_severe: boolean }> }),
+    competitorIds.length > 0
+      ? supabase
+          .from("competitor_photos")
+          .select("id, competitor_id, image_url, analysis_result")
+          .in("competitor_id", competitorIds)
+          .order("created_at", { ascending: false })
+          .limit(50)
+      : Promise.resolve({ data: [] as Array<{ id: string; competitor_id: string; image_url: string | null; analysis_result: unknown }> }),
+    competitorIds.length > 0
+      ? supabase
+          .from("busy_times")
+          .select("competitor_id, day_of_week, hourly_scores, peak_hour, peak_score, typical_time_spent")
+          .in("competitor_id", competitorIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as Array<{ competitor_id: string; day_of_week: number; hourly_scores: number[]; peak_hour: number | null; peak_score: number | null; typical_time_spent: string | null }> }),
+  ])
+
+  const latestWeather = (todayWeather ?? []).find(w => w.date === todayDate) ?? (todayWeather ?? [])[0] ?? null
+  const weatherForBadge = latestWeather ? {
+    date: latestWeather.date,
+    temp_high_f: latestWeather.temp_high_f ?? 0,
+    temp_low_f: latestWeather.temp_low_f ?? 0,
+    weather_condition: latestWeather.weather_condition ?? "Unknown",
+    weather_icon: latestWeather.weather_icon ?? "01d",
+    precipitation_in: latestWeather.precipitation_in ?? 0,
+    is_severe: latestWeather.is_severe,
+  } : null
+
+  const photoItems = (competitorPhotosRaw ?? []).map(p => {
+    const analysis = p.analysis_result as Record<string, unknown> | null
+    return {
+      id: p.id,
+      image_url: p.image_url,
+      category: (analysis?.category as string) ?? "other",
+      subcategory: (analysis?.subcategory as string) ?? "",
+      tags: (analysis?.tags as string[]) ?? [],
+      extracted_text: (analysis?.extracted_text as string) ?? "",
+      promotional_content: (analysis?.promotional_content as boolean) ?? false,
+      confidence: (analysis?.confidence as number) ?? 0,
+      competitor_name: competitorNameMap.get(p.competitor_id) ?? "Competitor",
+    }
+  })
+
+  const trafficByCompetitor = new Map<string, Array<{ day_of_week: number; hourly_scores: number[]; peak_hour: number; peak_score: number; typical_time_spent: string | null }>>()
+  for (const bt of busyTimesRaw ?? []) {
+    const arr = trafficByCompetitor.get(bt.competitor_id) ?? []
+    arr.push({
+      day_of_week: bt.day_of_week,
+      hourly_scores: bt.hourly_scores,
+      peak_hour: bt.peak_hour ?? 0,
+      peak_score: bt.peak_score ?? 0,
+      typical_time_spent: bt.typical_time_spent,
+    })
+    trafficByCompetitor.set(bt.competitor_id, arr)
+  }
+
+  const trafficData = [...trafficByCompetitor.entries()].map(([compId, days]) => ({
+    competitor_id: compId,
+    competitor_name: competitorNameMap.get(compId) ?? "Competitor",
+    days,
+  }))
+
   const baseParams: Record<string, string> = {}
   if (selectedLocationId) baseParams.location_id = selectedLocationId
   if (resolvedSearchParams?.range) baseParams.range = resolvedSearchParams.range
@@ -392,6 +480,11 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
         </Suspense>
       )}
 
+      {/* Weather Context Badge */}
+      {weatherForBadge && (
+        <WeatherBadge weather={weatherForBadge} />
+      )}
+
       {/* Charts Dashboard */}
       {selectedLocationId && (
         <InsightsDashboard
@@ -403,6 +496,20 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           locationRating={locationRating}
           reviewShare={reviewShare}
         />
+      )}
+
+      {/* Busy Times Traffic Chart */}
+      {trafficData.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TrafficChart data={trafficData} />
+        </div>
+      )}
+
+      {/* Photo Gallery */}
+      {photoItems.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <PhotoGallery photos={photoItems} />
+        </div>
       )}
 
       {/* Client-side tabs + insight feed (instant tab switching) */}

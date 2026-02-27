@@ -25,16 +25,36 @@ import {
   buildInsightsContext,
   buildInsightsSteps,
 } from "@/lib/jobs/pipelines/insights"
+import {
+  buildPhotosContext,
+  buildPhotosSteps,
+} from "@/lib/jobs/pipelines/photos"
+import {
+  buildTrafficContext,
+  buildTrafficSteps,
+} from "@/lib/jobs/pipelines/traffic"
+import {
+  buildWeatherContext,
+  buildWeatherSteps,
+} from "@/lib/jobs/pipelines/weather"
+import {
+  buildRefreshAllContext,
+  buildRefreshAllSteps,
+} from "@/lib/jobs/pipelines/refresh-all"
 
 export const maxDuration = 300
 
-const VALID_TYPES = new Set(["content", "visibility", "events", "insights"])
+const VALID_TYPES = new Set(["content", "visibility", "events", "insights", "photos", "busy_times", "weather", "refresh_all"])
 
 const REDIRECT_MAP: Record<string, string> = {
   content: "/content",
   visibility: "/visibility",
   events: "/events",
   insights: "/insights",
+  photos: "/photos",
+  busy_times: "/traffic",
+  weather: "/weather",
+  refresh_all: "/home",
 }
 
 export async function GET(
@@ -105,6 +125,42 @@ export async function GET(
             auth.organizationId
           )
           steps = buildInsightsSteps()
+          break
+        }
+        case "photos": {
+          ctx = await buildPhotosContext(
+            auth.supabase,
+            locationId,
+            auth.organizationId
+          )
+          steps = buildPhotosSteps()
+          break
+        }
+        case "busy_times": {
+          ctx = await buildTrafficContext(
+            auth.supabase,
+            locationId,
+            auth.organizationId
+          )
+          steps = buildTrafficSteps()
+          break
+        }
+        case "weather": {
+          ctx = await buildWeatherContext(
+            auth.supabase,
+            locationId,
+            auth.organizationId
+          )
+          steps = buildWeatherSteps()
+          break
+        }
+        case "refresh_all": {
+          ctx = await buildRefreshAllContext(
+            auth.supabase,
+            locationId,
+            auth.organizationId
+          )
+          steps = buildRefreshAllSteps()
           break
         }
         default:

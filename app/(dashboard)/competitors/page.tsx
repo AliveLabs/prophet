@@ -228,8 +228,10 @@ const renderPlaceDetails = (placeDetails: Record<string, unknown>) => {
 type CompetitorsPageProps = {
   searchParams?: Promise<{
     error?: string
+    success?: string
     debug?: string
     location_id?: string
+    onboarding?: string
   }>
 }
 
@@ -257,7 +259,9 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
   const resolvedSearchParams = await Promise.resolve(searchParams)
   const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
   const error = resolvedSearchParams?.error
+  const success = resolvedSearchParams?.success
   const debugParam = resolvedSearchParams?.debug
+  const isOnboarding = resolvedSearchParams?.onboarding === "true"
 
   const { data: competitors } =
     selectedLocationId
@@ -371,6 +375,22 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
           <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {decodeURIComponent(error)}
           </p>
+        ) : null}
+        {success ? (
+          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {decodeURIComponent(success)}
+          </p>
+        ) : null}
+        {isOnboarding ? (
+          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4">
+            <p className="text-sm font-semibold text-indigo-900">
+              Location added! Now discover competitors to start getting insights.
+            </p>
+            <p className="mt-1 text-xs text-indigo-700/70">
+              Use the &quot;Discover Competitors&quot; button below to find nearby competitors.
+              Once you approve them, Prophet will automatically collect their data and generate insights.
+            </p>
+          </div>
         ) : null}
         {debugData ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">

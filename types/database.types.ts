@@ -14,6 +14,112 @@ export type Database = {
   }
   public: {
     Tables: {
+      busy_times: {
+        Row: {
+          id: string
+          snapshot_id: string | null
+          competitor_id: string
+          day_of_week: number
+          hourly_scores: number[]
+          peak_hour: number | null
+          peak_score: number | null
+          slow_hours: number[] | null
+          typical_time_spent: string | null
+          current_popularity: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          snapshot_id?: string | null
+          competitor_id: string
+          day_of_week: number
+          hourly_scores: number[]
+          peak_hour?: number | null
+          peak_score?: number | null
+          slow_hours?: number[] | null
+          typical_time_spent?: string | null
+          current_popularity?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          snapshot_id?: string | null
+          competitor_id?: string
+          day_of_week?: number
+          hourly_scores?: number[]
+          peak_hour?: number | null
+          peak_score?: number | null
+          slow_hours?: number[] | null
+          typical_time_spent?: string | null
+          current_popularity?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "busy_times_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_photos: {
+        Row: {
+          id: string
+          snapshot_id: string | null
+          competitor_id: string
+          place_photo_name: string
+          image_hash: string
+          image_url: string | null
+          width_px: number | null
+          height_px: number | null
+          author_attribution: Json
+          analysis_result: Json | null
+          first_seen_at: string
+          last_seen_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          snapshot_id?: string | null
+          competitor_id: string
+          place_photo_name: string
+          image_hash: string
+          image_url?: string | null
+          width_px?: number | null
+          height_px?: number | null
+          author_attribution?: Json
+          analysis_result?: Json | null
+          first_seen_at?: string
+          last_seen_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          snapshot_id?: string | null
+          competitor_id?: string
+          place_photo_name?: string
+          image_hash?: string
+          image_url?: string | null
+          width_px?: number | null
+          height_px?: number | null
+          author_attribution?: Json
+          analysis_result?: Json | null
+          first_seen_at?: string
+          last_seen_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_photos_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           address: string | null
@@ -250,6 +356,65 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_weather: {
+        Row: {
+          id: string
+          location_id: string
+          date: string
+          temp_high_f: number | null
+          temp_low_f: number | null
+          feels_like_high_f: number | null
+          humidity_avg: number | null
+          wind_speed_max_mph: number | null
+          weather_condition: string | null
+          weather_description: string | null
+          weather_icon: string | null
+          precipitation_in: number | null
+          is_severe: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          date: string
+          temp_high_f?: number | null
+          temp_low_f?: number | null
+          feels_like_high_f?: number | null
+          humidity_avg?: number | null
+          wind_speed_max_mph?: number | null
+          weather_condition?: string | null
+          weather_description?: string | null
+          weather_icon?: string | null
+          precipitation_in?: number | null
+          is_severe?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          date?: string
+          temp_high_f?: number | null
+          temp_low_f?: number | null
+          feels_like_high_f?: number | null
+          humidity_avg?: number | null
+          wind_speed_max_mph?: number | null
+          weather_condition?: string | null
+          weather_description?: string | null
+          weather_icon?: string | null
+          precipitation_in?: number | null
+          is_severe?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_weather_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]

@@ -204,7 +204,7 @@ export async function generatePriorityBriefing(
     const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 2048 })
 
     if (result?.priorities && Array.isArray(result.priorities)) {
-      const validSources = ["competitors", "events", "seo", "content"]
+      const validSources = ["competitors", "events", "seo", "content", "photos", "traffic"]
       result_items = (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
         title: String(p.title ?? ""),
         why: String(p.why ?? ""),

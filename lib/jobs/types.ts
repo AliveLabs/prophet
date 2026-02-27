@@ -2,7 +2,7 @@
 // Shared types for the real-time job pipeline system
 // ---------------------------------------------------------------------------
 
-export type JobType = "content" | "visibility" | "events" | "insights"
+export type JobType = "content" | "visibility" | "events" | "insights" | "photos" | "busy_times" | "weather" | "refresh_all"
 
 export type JobStatus = "running" | "completed" | "failed"
 

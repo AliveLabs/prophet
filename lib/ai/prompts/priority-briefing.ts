@@ -95,8 +95,8 @@ Rules:
 
 CRITICAL DIVERSITY RULE:
 - The 5 priorities MUST cover at least 3 different source categories
-- Source categories: competitors (GBP/reviews), events (local events), seo (search visibility), content (website/menu)
-- For each priority, set "source" to one of: "competitors", "events", "seo", "content"
+- Source categories: competitors (GBP/reviews), events (local events), seo (search visibility), content (website/menu), photos (visual intelligence), traffic (foot traffic patterns)
+- For each priority, set "source" to one of: "competitors", "events", "seo", "content", "photos", "traffic"
 - Do NOT pick more than 2 priorities from the same source category
 - If a category has no insights, skip it and spread across available categories`
 }
@@ -124,7 +124,7 @@ export function buildDeterministicBriefing(
 
   const picked: InsightForBriefing[] = []
   const pickedIds = new Set<string>()
-  const categories: SourceCategory[] = ["competitors", "events", "seo", "content"]
+  const categories: SourceCategory[] = ["competitors", "events", "seo", "content", "photos", "traffic"]
 
   // Round 1: pick the top insight from each available category
   for (const cat of categories) {
