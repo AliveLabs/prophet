@@ -119,10 +119,11 @@ export function scoreInsights(
 // Source category mapping
 // ---------------------------------------------------------------------------
 
-export type SourceCategory = "competitors" | "events" | "seo" | "content" | "photos" | "traffic"
+export type SourceCategory = "competitors" | "events" | "seo" | "content" | "photos" | "traffic" | "social"
 
 export function getSourceCategory(insightType: string, competitorId: string | null): SourceCategory {
   void competitorId
+  if (insightType.startsWith("social.")) return "social"
   if (insightType.startsWith("events.")) return "events"
   if (insightType.startsWith("seo_") || insightType.startsWith("cross_")) return "seo"
   if (insightType.startsWith("menu.") || insightType.startsWith("content.")) return "content"
@@ -138,6 +139,7 @@ export const SOURCE_LABELS: Record<SourceCategory, string> = {
   content: "Website & Menu",
   photos: "Visual Intelligence",
   traffic: "Foot Traffic",
+  social: "Social Media",
 }
 
 export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; border: string; dot: string }> = {
@@ -147,4 +149,5 @@ export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; b
   content: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", dot: "bg-teal-400" },
   photos: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200", dot: "bg-pink-400" },
   traffic: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", dot: "bg-orange-400" },
+  social: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", dot: "bg-indigo-400" },
 }

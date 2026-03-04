@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:unit": "vitest run",
+    "test": "vitest run && playwright test"
   },
   "dependencies": {
     "@mendable/firecrawl-js": "^4.12.1",
@@ -32,6 +34,7 @@
     "eslint-config-next": "16.1.5",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

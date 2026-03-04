@@ -1,6 +1,6 @@
 import type { PriorityItem } from "@/lib/ai/prompts/priority-briefing"
 
-const TTL_MS = 10 * 60 * 1000 // 10 minutes
+const TTL_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
 type CacheEntry = {
   data: PriorityItem[]

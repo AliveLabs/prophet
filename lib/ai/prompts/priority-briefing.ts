@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------------------
-// Priority Briefing Prompt -- Gemini 3 Pro
+// Priority Briefing Prompt – Gemini 2.5 Pro
 //
 // Summarizes all current insights into top-5 actionable priorities,
-// factoring in the organization's historical preferences.
+// factoring in the organization's historical preferences and full
+// business context (weather, traffic, photos, content, SEO, events).
 // Enforces diversity across source categories.
 // ---------------------------------------------------------------------------
 
@@ -32,10 +33,23 @@ export type InsightForBriefing = {
   evidenceHighlights?: string
 }
 
+export type BusinessContext = {
+  weatherSummary?: string | null
+  trafficSummary?: string | null
+  photoSummary?: string | null
+  socialSummary?: string | null
+  locationRating?: number | null
+  locationReviewCount?: number | null
+  menuItemCount?: number | null
+  avgMenuPrice?: string | null
+  competitorCount?: number
+}
+
 export function buildPriorityBriefingPrompt(
   insights: InsightForBriefing[],
   preferences: InsightPreference[],
-  locationName: string
+  locationName: string,
+  context?: BusinessContext | null
 ): string {
   const sorted = [...preferences].sort((a, b) => b.weight - a.weight)
   const topPrefs = sorted.filter((p) => p.weight > 1.0).slice(0, 5)
@@ -61,10 +75,40 @@ export function buildPriorityBriefingPrompt(
     })
     .join("\n")
 
-  return `You are Prophet, an AI competitive intelligence assistant for local businesses.
+  // Build the rich business context section
+  const contextLines: string[] = []
+  if (context) {
+    if (context.locationRating != null) {
+      contextLines.push(`- Google rating: ${context.locationRating}/5${context.locationReviewCount != null ? ` (${context.locationReviewCount.toLocaleString()} reviews)` : ""}`)
+    }
+    if (context.competitorCount != null && context.competitorCount > 0) {
+      contextLines.push(`- Active competitors tracked: ${context.competitorCount}`)
+    }
+    if (context.weatherSummary) {
+      contextLines.push(`- Current weather: ${context.weatherSummary}`)
+    }
+    if (context.trafficSummary) {
+      contextLines.push(`- Foot traffic patterns: ${context.trafficSummary}`)
+    }
+    if (context.photoSummary) {
+      contextLines.push(`- Visual intelligence: ${context.photoSummary}`)
+    }
+    if (context.socialSummary) {
+      contextLines.push(`- Social media: ${context.socialSummary}`)
+    }
+    if (context.menuItemCount != null) {
+      contextLines.push(`- Menu: ${context.menuItemCount} items tracked${context.avgMenuPrice ? `, avg price ${context.avgMenuPrice}` : ""}`)
+    }
+  }
+
+  const contextBlock = contextLines.length > 0
+    ? `\nBUSINESS CONTEXT for "${locationName}":\n${contextLines.join("\n")}\n`
+    : ""
+
+  return `You are Prophet, an AI competitive intelligence assistant for local businesses. You provide sharp, data-driven briefings that help business owners make better decisions.
 
 Analyze the following ${insights.length} insights for "${locationName}" and produce a priority briefing — the TOP 5 most actionable items the business owner should focus on RIGHT NOW.
-
+${contextBlock}
 ${prefContext ? `BUSINESS PREFERENCES:\n${prefContext}\n` : ""}
 INSIGHTS:
 ${insightList}
@@ -74,10 +118,10 @@ Return a JSON object with this exact structure:
   "priorities": [
     {
       "title": "Short, punchy headline (max 10 words)",
-      "why": "One sentence explaining why this matters urgently",
+      "why": "2-3 sentences explaining why this matters urgently. Reference specific numbers, competitors, or data points from the insights and context above. Connect dots across multiple sources when relevant.",
       "urgency": "critical" | "warning" | "info",
-      "action": "One concrete, specific action the owner should take today",
-      "source": "competitors" | "events" | "seo" | "content",
+      "action": "One concrete, specific action with numbers or dates where possible. Example: 'Respond to the 3 negative reviews posted this week by Friday' instead of 'Respond to reviews'.",
+      "source": "competitors" | "events" | "seo" | "social" | "content" | "photos" | "traffic",
       "relatedInsightTypes": ["insight_type_1", "insight_type_2"]
     }
   ]
@@ -89,14 +133,26 @@ Rules:
 - "critical" = needs action within 24-48 hours
 - "warning" = needs action this week
 - "info" = good to know, plan for later
-- Be specific and actionable — not generic advice
+- Be specific and actionable — NOT generic advice. Reference competitor names, specific numbers, dates, or metrics.
 - Factor in the business's historical preferences when ranking
-- Do NOT invent data; only reference what's in the insights above
+- Do NOT invent data; only reference what's in the insights and context above
+- For "why": Write 2-3 complete sentences. Explain the business impact and connect dots across multiple data sources when possible (e.g., "Weather is clearing up AND foot traffic at [competitor] peaks on Fridays — this is your window to run a weekend promotion")
+- For "action": Be concrete with specifics (who, what, when, how much). Avoid vague advice like "monitor the situation" or "take appropriate action"
+
+CROSS-SOURCE REASONING (important):
+- If weather data and traffic patterns are both available, correlate them (e.g., severe weather → lower foot traffic → opportunity or risk)
+- If a competitor's review count is growing while yours is stagnant, connect that to SEO/visibility implications
+- If menu prices differ significantly from competitors, connect that to positioning strategy
+- If photo analysis shows competitors investing in ambiance/decor, connect that to customer experience strategy
+- If social media data shows a competitor is running promotions, connect that to competitive strategy and foot traffic implications
+- If a competitor has rapid follower growth on social while your Google reviews are stagnant, connect those signals
+- If social engagement is high but SEO visibility is low, recommend leveraging social audience to drive website traffic
+- Always ground your recommendations in the specific data provided, not general business advice
 
 CRITICAL DIVERSITY RULE:
 - The 5 priorities MUST cover at least 3 different source categories
-- Source categories: competitors (GBP/reviews), events (local events), seo (search visibility), content (website/menu), photos (visual intelligence), traffic (foot traffic patterns)
-- For each priority, set "source" to one of: "competitors", "events", "seo", "content", "photos", "traffic"
+- Source categories: competitors (GBP/reviews), events (local events), seo (search visibility), social (social media), content (website/menu), photos (visual intelligence), traffic (foot traffic patterns)
+- For each priority, set "source" to one of: "competitors", "events", "seo", "social", "content", "photos", "traffic"
 - Do NOT pick more than 2 priorities from the same source category
 - If a category has no insights, skip it and spread across available categories`
 }
@@ -124,9 +180,8 @@ export function buildDeterministicBriefing(
 
   const picked: InsightForBriefing[] = []
   const pickedIds = new Set<string>()
-  const categories: SourceCategory[] = ["competitors", "events", "seo", "content", "photos", "traffic"]
+  const categories: SourceCategory[] = ["competitors", "events", "seo", "social", "content", "photos", "traffic"]
 
-  // Round 1: pick the top insight from each available category
   for (const cat of categories) {
     const arr = byCategory.get(cat)
     if (arr && arr.length > 0 && picked.length < 5) {
@@ -135,7 +190,6 @@ export function buildDeterministicBriefing(
     }
   }
 
-  // Round 2: fill remaining slots from the highest-scoring unpicked insights
   if (picked.length < 5) {
     const remaining = insights
       .filter((i) => !pickedIds.has(i.title))

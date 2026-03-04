@@ -1,6 +1,18 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Area,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ReferenceLine,
+} from "recharts"
 
 export type WeatherDay = {
   date: string
@@ -12,15 +24,28 @@ export type WeatherDay = {
   is_severe: boolean
   humidity_avg: number | null
   wind_speed_max_mph: number | null
+  isForecast?: boolean
 }
 
 type Props = {
   days: WeatherDay[]
   locationName: string
+  todayDate?: string
 }
 
-function getWeatherIconUrl(icon: string): string {
-  return `https://openweathermap.org/img/wn/${icon}@2x.png`
+type ChartRow = {
+  date: string
+  label: string
+  tempRange: [number, number]
+  high: number
+  low: number
+  precipitation: number
+  humidity: number | null
+  wind: number | null
+  condition: string
+  icon: string
+  isForecast: boolean
+  isSevere: boolean
 }
 
 function useIsClient() {
@@ -31,93 +56,236 @@ function useIsClient() {
   )
 }
 
-export default function WeatherHistory({ days, locationName }: Props) {
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00")
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: ChartRow }> }) {
+  if (!active || !payload?.length) return null
+  const row = payload[0]?.payload
+  if (!row) return null
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl">
+      <div className="flex items-center gap-2">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`https://openweathermap.org/img/wn/${row.icon}@2x.png`}
+          alt={row.condition}
+          className="h-8 w-8"
+        />
+        <div>
+          <p className="text-xs font-bold text-slate-900">
+            {new Date(row.date + "T12:00:00").toLocaleDateString("en-US", {
+              weekday: "short", month: "short", day: "numeric",
+            })}
+            {row.isForecast && (
+              <span className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600">
+                FORECAST
+              </span>
+            )}
+          </p>
+          <p className="text-[11px] capitalize text-slate-500">{row.condition.toLowerCase()}</p>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+        <span className="text-slate-400">High</span>
+        <span className="font-semibold text-orange-600">{Math.round(row.high)}°F</span>
+        <span className="text-slate-400">Low</span>
+        <span className="font-semibold text-blue-500">{Math.round(row.low)}°F</span>
+        {row.precipitation > 0 && (
+          <>
+            <span className="text-slate-400">Precip</span>
+            <span className="font-semibold text-sky-600">{row.precipitation.toFixed(2)}&quot;</span>
+          </>
+        )}
+        {row.humidity != null && (
+          <>
+            <span className="text-slate-400">Humidity</span>
+            <span className="font-medium text-slate-600">{row.humidity}%</span>
+          </>
+        )}
+        {row.wind != null && (
+          <>
+            <span className="text-slate-400">Wind</span>
+            <span className="font-medium text-slate-600">{Math.round(row.wind)} mph</span>
+          </>
+        )}
+      </div>
+      {row.isSevere && (
+        <div className="mt-2 flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-600">
+          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+          </svg>
+          Severe Weather
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function WeatherHistory({ days, locationName, todayDate }: Props) {
   const isClient = useIsClient()
 
-  if (!isClient) return <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+  if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-slate-100" />
   if (days.length === 0) return null
 
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
-  const maxTemp = Math.max(...sorted.map((d) => d.temp_high_f), 100)
-  const minTemp = Math.min(...sorted.map((d) => d.temp_low_f), 0)
-  const tempRange = maxTemp - minTemp || 1
-  const maxPrecip = Math.max(...sorted.map((d) => d.precipitation_in), 0.1)
+
+  const chartData: ChartRow[] = sorted.map((d) => ({
+    date: d.date,
+    label: formatDateLabel(d.date),
+    tempRange: [d.temp_low_f, d.temp_high_f],
+    high: d.temp_high_f,
+    low: d.temp_low_f,
+    precipitation: d.precipitation_in,
+    humidity: d.humidity_avg,
+    wind: d.wind_speed_max_mph,
+    condition: d.weather_condition,
+    icon: d.weather_icon,
+    isForecast: d.isForecast ?? false,
+    isSevere: d.is_severe,
+  }))
+
+  const allTemps = sorted.flatMap((d) => [d.temp_high_f, d.temp_low_f])
+  const minY = Math.floor(Math.min(...allTemps) / 5) * 5 - 5
+  const maxY = Math.ceil(Math.max(...allTemps) / 5) * 5 + 5
+
+  const histCount = sorted.filter((d) => !d.isForecast).length
+  const forecastCount = sorted.filter((d) => d.isForecast).length
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-bold text-slate-900">Weather History</h3>
-        <span className="text-xs text-slate-400">{locationName} · Last {sorted.length} day{sorted.length !== 1 ? "s" : ""}</span>
-      </div>
-
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex min-w-[500px] items-end gap-2" style={{ height: 180 }}>
-          {sorted.map((day) => {
-            const highPct = ((day.temp_high_f - minTemp) / tempRange) * 100
-            const lowPct = ((day.temp_low_f - minTemp) / tempRange) * 100
-            const precipPct = (day.precipitation_in / maxPrecip) * 40
-            const dateLabel = new Date(day.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-
-            return (
-              <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
-                {/* Temperature range bar */}
-                <div className="relative flex w-full flex-col items-center" style={{ height: 120 }}>
-                  <div className="absolute bottom-0 left-1/2 w-3 -translate-x-1/2 rounded-full" style={{
-                    height: `${highPct - lowPct + 8}%`,
-                    bottom: `${lowPct}%`,
-                    background: day.is_severe
-                      ? "linear-gradient(to top, #fda4af, #e11d48)"
-                      : "linear-gradient(to top, #93c5fd, #f97316)",
-                  }} />
-                  <div className="absolute text-[9px] font-bold text-orange-600" style={{ bottom: `${highPct + 2}%` }}>
-                    {Math.round(day.temp_high_f)}°
-                  </div>
-                  <div className="absolute text-[9px] font-medium text-blue-500" style={{ bottom: `${Math.max(lowPct - 8, 0)}%` }}>
-                    {Math.round(day.temp_low_f)}°
-                  </div>
-                </div>
-
-                {/* Precip bar */}
-                {day.precipitation_in > 0 && (
-                  <div className="w-full px-1">
-                    <div
-                      className="mx-auto w-2 rounded-t bg-sky-400"
-                      style={{ height: Math.max(precipPct, 3) }}
-                      title={`${day.precipitation_in}" precipitation`}
-                    />
-                  </div>
-                )}
-
-                {/* Icon + date */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={getWeatherIconUrl(day.weather_icon)}
-                  alt={day.weather_condition}
-                  className="h-6 w-6"
-                />
-                <span className="text-[9px] text-slate-500">{dateLabel}</span>
-                {day.is_severe && (
-                  <span className="rounded bg-rose-100 px-1 py-0.5 text-[8px] font-bold text-rose-600">
-                    SEVERE
-                  </span>
-                )}
-              </div>
-            )
-          })}
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-900">Weather Trend</h3>
+          <span className="text-xs text-slate-400">
+            {locationName} · {histCount} day{histCount !== 1 ? "s" : ""} history
+            {forecastCount > 0 && ` + ${forecastCount} day forecast`}
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-400">
+          <div className="flex items-center gap-1">
+            <div className="h-2.5 w-5 rounded-sm bg-gradient-to-t from-blue-200 to-orange-200" />
+            Temp range
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+            Precipitation
+          </div>
+          {forecastCount > 0 && (
+            <div className="flex items-center gap-1">
+              <div className="h-2.5 w-5 rounded-sm border border-dashed border-slate-300 bg-blue-50" />
+              Forecast
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-[10px] text-slate-400">
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-4 rounded bg-gradient-to-r from-blue-300 to-orange-400" />
-          Temperature range
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-2 w-4 rounded bg-sky-400" />
-          Precipitation
-        </div>
-        <span className="ml-auto">Data: OpenWeatherMap</span>
+      <div className="h-[340px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#f97316" stopOpacity={0.35} />
+                <stop offset="50%" stopColor="#fbbf24" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.25} />
+              </linearGradient>
+              <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.8} />
+                <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.3} />
+              </linearGradient>
+            </defs>
+
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
+            />
+            <YAxis
+              yAxisId="temp"
+              domain={[minY, maxY]}
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => `${v}°`}
+              width={40}
+            />
+            <YAxis
+              yAxisId="precip"
+              orientation="right"
+              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v: number) => `${v}"`}
+              width={36}
+            />
+
+            <Tooltip content={<CustomTooltip />} />
+
+            {todayDate && (
+              <ReferenceLine
+                yAxisId="temp"
+                x={formatDateLabel(todayDate)}
+                stroke="#6366f1"
+                strokeWidth={1.5}
+                strokeDasharray="4 4"
+                label={{
+                  value: "Today",
+                  position: "top",
+                  fill: "#6366f1",
+                  fontSize: 10,
+                  fontWeight: 700,
+                }}
+              />
+            )}
+
+            <Area
+              yAxisId="temp"
+              dataKey="tempRange"
+              fill="url(#tempGrad)"
+              stroke="none"
+              activeDot={false}
+              isAnimationActive={false}
+            />
+
+            <Line
+              yAxisId="temp"
+              dataKey="high"
+              stroke="#f97316"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4, fill: "#f97316", strokeWidth: 0 }}
+              isAnimationActive={false}
+            />
+            <Line
+              yAxisId="temp"
+              dataKey="low"
+              stroke="#3b82f6"
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 4, fill: "#3b82f6", strokeWidth: 0 }}
+              isAnimationActive={false}
+            />
+
+            <Bar
+              yAxisId="precip"
+              dataKey="precipitation"
+              fill="url(#precipGrad)"
+              radius={[3, 3, 0, 0]}
+              maxBarSize={12}
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       </div>
+
+      <p className="text-right text-[10px] text-slate-300">Data: OpenWeatherMap</p>
     </div>
   )
 }

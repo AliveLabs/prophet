@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import PhotoGrid, { type PhotoGridItem } from "@/components/photos/photo-grid"
+import VisualInsightsCards from "@/components/photos/visual-insights-cards"
 import { Card } from "@/components/ui/card"
 
 type PhotosPageProps = {
@@ -73,6 +74,88 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
       first_seen_at: p.first_seen_at ?? p.created_at,
     }
   })
+
+  // -------------------------------------------------------------------------
+  // Fetch photo-related insights
+  // -------------------------------------------------------------------------
+  const { data: photoInsightsRaw } = selectedLocationId
+    ? await supabase
+        .from("insights")
+        .select("id, title, summary, severity, insight_type, date_key, evidence, recommendations")
+        .eq("location_id", selectedLocationId)
+        .or("insight_type.like.photo.%,insight_type.like.visual.%")
+        .order("date_key", { ascending: false })
+        .limit(8)
+    : { data: [] }
+
+  const photoInsights = (photoInsightsRaw ?? []).map((ins) => ({
+    id: ins.id,
+    title: ins.title,
+    summary: ins.summary,
+    severity: ins.severity,
+    insight_type: ins.insight_type as string,
+    date_key: ins.date_key as string,
+    evidence: (ins.evidence ?? {}) as Record<string, unknown>,
+    recommendations: (ins.recommendations ?? []) as Array<{ title?: string; rationale?: string }>,
+  }))
+
+  // -------------------------------------------------------------------------
+  // Compute aggregate visual intelligence metrics
+  // -------------------------------------------------------------------------
+  const categoryByCompetitor = new Map<string, { name: string; cats: Record<string, number>; total: number }>()
+  const qualityByCompetitor = new Map<string, { name: string; professional: number; styled: number; total: number }>()
+  const promoByCompetitor = new Map<string, { name: string; count: number; details: string[] }>()
+
+  for (const p of photos) {
+    const key = p.competitor_id
+
+    if (!categoryByCompetitor.has(key)) {
+      categoryByCompetitor.set(key, { name: p.competitor_name, cats: {}, total: 0 })
+    }
+    const catEntry = categoryByCompetitor.get(key)!
+    catEntry.cats[p.category] = (catEntry.cats[p.category] ?? 0) + 1
+    catEntry.total += 1
+
+    if (!qualityByCompetitor.has(key)) {
+      qualityByCompetitor.set(key, { name: p.competitor_name, professional: 0, styled: 0, total: 0 })
+    }
+    const qEntry = qualityByCompetitor.get(key)!
+    qEntry.total += 1
+    if (p.quality_lighting === "professional") qEntry.professional += 1
+    if (p.quality_staging === "styled") qEntry.styled += 1
+
+    if (p.promotional_content) {
+      if (!promoByCompetitor.has(key)) {
+        promoByCompetitor.set(key, { name: p.competitor_name, count: 0, details: [] })
+      }
+      const pEntry = promoByCompetitor.get(key)!
+      pEntry.count += 1
+      if (p.promotional_details) pEntry.details.push(p.promotional_details)
+    }
+  }
+
+  const categoryDistributions = [...categoryByCompetitor.values()].map((v) => ({
+    competitorName: v.name,
+    categories: v.cats,
+    total: v.total,
+  }))
+
+  const qualityBenchmarks = [...qualityByCompetitor.values()]
+    .map((v) => ({
+      competitorName: v.name,
+      professionalPct: v.total > 0 ? Math.round((v.professional / v.total) * 100) : 0,
+      styledPct: v.total > 0 ? Math.round((v.styled / v.total) * 100) : 0,
+      total: v.total,
+    }))
+    .sort((a, b) => b.professionalPct - a.professionalPct)
+
+  const promoActivity = [...promoByCompetitor.values()]
+    .map((v) => ({
+      competitorName: v.name,
+      promoCount: v.count,
+      details: v.details,
+    }))
+    .sort((a, b) => b.promoCount - a.promoCount)
 
   // KPI calculations
   const totalPhotos = photos.length
@@ -157,6 +240,16 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
             <p className="mt-1 text-[11px] text-slate-400">{professionalCount} of {totalPhotos} photos</p>
           </Card>
         </div>
+      )}
+
+      {/* Visual Intelligence Insight Cards */}
+      {totalPhotos > 0 && (
+        <VisualInsightsCards
+          insights={photoInsights}
+          categoryDistributions={categoryDistributions}
+          qualityBenchmarks={qualityBenchmarks}
+          promoActivity={promoActivity}
+        />
       )}
 
       {/* Photo Grid */}
