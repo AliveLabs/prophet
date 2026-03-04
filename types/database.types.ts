@@ -16,43 +16,43 @@ export type Database = {
     Tables: {
       busy_times: {
         Row: {
-          id: string
-          snapshot_id: string | null
           competitor_id: string
+          created_at: string
+          current_popularity: number | null
           day_of_week: number
           hourly_scores: number[]
+          id: string
           peak_hour: number | null
           peak_score: number | null
           slow_hours: number[] | null
+          snapshot_id: string | null
           typical_time_spent: string | null
-          current_popularity: number | null
-          created_at: string
         }
         Insert: {
-          id?: string
-          snapshot_id?: string | null
           competitor_id: string
+          created_at?: string
+          current_popularity?: number | null
           day_of_week: number
           hourly_scores: number[]
+          id?: string
           peak_hour?: number | null
           peak_score?: number | null
           slow_hours?: number[] | null
+          snapshot_id?: string | null
           typical_time_spent?: string | null
-          current_popularity?: number | null
-          created_at?: string
         }
         Update: {
-          id?: string
-          snapshot_id?: string | null
           competitor_id?: string
+          created_at?: string
+          current_popularity?: number | null
           day_of_week?: number
           hourly_scores?: number[]
+          id?: string
           peak_hour?: number | null
           peak_score?: number | null
           slow_hours?: number[] | null
+          snapshot_id?: string | null
           typical_time_spent?: string | null
-          current_popularity?: number | null
-          created_at?: string
         }
         Relationships: [
           {
@@ -66,49 +66,49 @@ export type Database = {
       }
       competitor_photos: {
         Row: {
-          id: string
-          snapshot_id: string | null
+          analysis_result: Json | null
+          author_attribution: Json | null
           competitor_id: string
-          place_photo_name: string
+          created_at: string
+          first_seen_at: string
+          height_px: number | null
+          id: string
           image_hash: string
           image_url: string | null
-          width_px: number | null
-          height_px: number | null
-          author_attribution: Json
-          analysis_result: Json | null
-          first_seen_at: string
           last_seen_at: string
-          created_at: string
+          place_photo_name: string
+          snapshot_id: string | null
+          width_px: number | null
         }
         Insert: {
-          id?: string
-          snapshot_id?: string | null
+          analysis_result?: Json | null
+          author_attribution?: Json | null
           competitor_id: string
-          place_photo_name: string
+          created_at?: string
+          first_seen_at?: string
+          height_px?: number | null
+          id?: string
           image_hash: string
           image_url?: string | null
-          width_px?: number | null
-          height_px?: number | null
-          author_attribution?: Json
-          analysis_result?: Json | null
-          first_seen_at?: string
           last_seen_at?: string
-          created_at?: string
+          place_photo_name: string
+          snapshot_id?: string | null
+          width_px?: number | null
         }
         Update: {
-          id?: string
-          snapshot_id?: string | null
+          analysis_result?: Json | null
+          author_attribution?: Json | null
           competitor_id?: string
-          place_photo_name?: string
+          created_at?: string
+          first_seen_at?: string
+          height_px?: number | null
+          id?: string
           image_hash?: string
           image_url?: string | null
-          width_px?: number | null
-          height_px?: number | null
-          author_attribution?: Json
-          analysis_result?: Json | null
-          first_seen_at?: string
           last_seen_at?: string
-          created_at?: string
+          place_photo_name?: string
+          snapshot_id?: string | null
+          width_px?: number | null
         }
         Relationships: [
           {
@@ -182,6 +182,92 @@ export type Database = {
           },
         ]
       }
+      event_matches: {
+        Row: {
+          competitor_id: string | null
+          confidence: string
+          created_at: string
+          date_key: string
+          event_uid: string
+          evidence: Json
+          id: string
+          location_id: string
+          match_type: string
+        }
+        Insert: {
+          competitor_id?: string | null
+          confidence: string
+          created_at?: string
+          date_key: string
+          event_uid: string
+          evidence?: Json
+          id?: string
+          location_id: string
+          match_type: string
+        }
+        Update: {
+          competitor_id?: string | null
+          confidence?: string
+          created_at?: string
+          date_key?: string
+          event_uid?: string
+          evidence?: Json
+          id?: string
+          location_id?: string
+          match_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_matches_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_matches_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      insight_preferences: {
+        Row: {
+          dismissed_count: number
+          insight_type: string
+          last_feedback_at: string
+          organization_id: string
+          useful_count: number
+          weight: number
+        }
+        Insert: {
+          dismissed_count?: number
+          insight_type: string
+          last_feedback_at?: string
+          organization_id: string
+          useful_count?: number
+          weight?: number
+        }
+        Update: {
+          dismissed_count?: number
+          insight_type?: string
+          last_feedback_at?: string
+          organization_id?: string
+          useful_count?: number
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_preferences_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insights: {
         Row: {
           competitor_id: string | null
@@ -189,6 +275,8 @@ export type Database = {
           created_at: string
           date_key: string
           evidence: Json
+          feedback_at: string | null
+          feedback_by: string | null
           id: string
           insight_type: string
           location_id: string
@@ -197,6 +285,7 @@ export type Database = {
           status: string
           summary: string
           title: string
+          user_feedback: string | null
         }
         Insert: {
           competitor_id?: string | null
@@ -204,6 +293,8 @@ export type Database = {
           created_at?: string
           date_key: string
           evidence?: Json
+          feedback_at?: string | null
+          feedback_by?: string | null
           id?: string
           insight_type: string
           location_id: string
@@ -212,6 +303,7 @@ export type Database = {
           status?: string
           summary: string
           title: string
+          user_feedback?: string | null
         }
         Update: {
           competitor_id?: string | null
@@ -219,6 +311,8 @@ export type Database = {
           created_at?: string
           date_key?: string
           evidence?: Json
+          feedback_at?: string | null
+          feedback_by?: string | null
           id?: string
           insight_type?: string
           location_id?: string
@@ -227,6 +321,7 @@ export type Database = {
           status?: string
           summary?: string
           title?: string
+          user_feedback?: string | null
         }
         Relationships: [
           {
@@ -295,6 +390,106 @@ export type Database = {
           },
         ]
       }
+      location_snapshots: {
+        Row: {
+          captured_at: string
+          created_at: string
+          date_key: string
+          diff_hash: string
+          id: string
+          location_id: string
+          provider: string
+          raw_data: Json
+        }
+        Insert: {
+          captured_at: string
+          created_at?: string
+          date_key: string
+          diff_hash: string
+          id?: string
+          location_id: string
+          provider: string
+          raw_data: Json
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          date_key?: string
+          diff_hash?: string
+          id?: string
+          location_id?: string
+          provider?: string
+          raw_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_snapshots_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_weather: {
+        Row: {
+          created_at: string
+          date: string
+          feels_like_high_f: number | null
+          humidity_avg: number | null
+          id: string
+          is_severe: boolean
+          location_id: string
+          precipitation_in: number | null
+          temp_high_f: number | null
+          temp_low_f: number | null
+          weather_condition: string | null
+          weather_description: string | null
+          weather_icon: string | null
+          wind_speed_max_mph: number | null
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          feels_like_high_f?: number | null
+          humidity_avg?: number | null
+          id?: string
+          is_severe?: boolean
+          location_id: string
+          precipitation_in?: number | null
+          temp_high_f?: number | null
+          temp_low_f?: number | null
+          weather_condition?: string | null
+          weather_description?: string | null
+          weather_icon?: string | null
+          wind_speed_max_mph?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          feels_like_high_f?: number | null
+          humidity_avg?: number | null
+          id?: string
+          is_severe?: boolean
+          location_id?: string
+          precipitation_in?: number | null
+          temp_high_f?: number | null
+          temp_low_f?: number | null
+          weather_condition?: string | null
+          weather_description?: string | null
+          weather_icon?: string | null
+          wind_speed_max_mph?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_weather_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address_line1: string | null
@@ -313,6 +508,7 @@ export type Database = {
           settings: Json
           timezone: string
           updated_at: string
+          website: string | null
         }
         Insert: {
           address_line1?: string | null
@@ -331,6 +527,7 @@ export type Database = {
           settings?: Json
           timezone?: string
           updated_at?: string
+          website?: string | null
         }
         Update: {
           address_line1?: string | null
@@ -349,6 +546,7 @@ export type Database = {
           settings?: Json
           timezone?: string
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {
@@ -356,65 +554,6 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      location_weather: {
-        Row: {
-          id: string
-          location_id: string
-          date: string
-          temp_high_f: number | null
-          temp_low_f: number | null
-          feels_like_high_f: number | null
-          humidity_avg: number | null
-          wind_speed_max_mph: number | null
-          weather_condition: string | null
-          weather_description: string | null
-          weather_icon: string | null
-          precipitation_in: number | null
-          is_severe: boolean
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          location_id: string
-          date: string
-          temp_high_f?: number | null
-          temp_low_f?: number | null
-          feels_like_high_f?: number | null
-          humidity_avg?: number | null
-          wind_speed_max_mph?: number | null
-          weather_condition?: string | null
-          weather_description?: string | null
-          weather_icon?: string | null
-          precipitation_in?: number | null
-          is_severe?: boolean
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          location_id?: string
-          date?: string
-          temp_high_f?: number | null
-          temp_low_f?: number | null
-          feels_like_high_f?: number | null
-          humidity_avg?: number | null
-          wind_speed_max_mph?: number | null
-          weather_condition?: string | null
-          weather_description?: string | null
-          weather_icon?: string | null
-          precipitation_in?: number | null
-          is_severe?: boolean
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "location_weather_location_id_fkey"
-            columns: ["location_id"]
-            isOneToOne: false
-            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -528,6 +667,63 @@ export type Database = {
           },
         ]
       }
+      refresh_jobs: {
+        Row: {
+          created_at: string
+          current_step: number
+          id: string
+          job_type: string
+          location_id: string
+          organization_id: string
+          result: Json | null
+          status: string
+          steps: Json
+          total_steps: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_step?: number
+          id?: string
+          job_type: string
+          location_id: string
+          organization_id: string
+          result?: Json | null
+          status?: string
+          steps?: Json
+          total_steps?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_step?: number
+          id?: string
+          job_type?: string
+          location_id?: string
+          organization_id?: string
+          result?: Json | null
+          status?: string
+          steps?: Json
+          total_steps?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refresh_jobs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refresh_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       snapshots: {
         Row: {
           captured_at: string
@@ -538,6 +734,7 @@ export type Database = {
           id: string
           provider: string
           raw_data: Json
+          snapshot_type: string
         }
         Insert: {
           captured_at: string
@@ -548,6 +745,7 @@ export type Database = {
           id?: string
           provider: string
           raw_data: Json
+          snapshot_type?: string
         }
         Update: {
           captured_at?: string
@@ -558,6 +756,7 @@ export type Database = {
           id?: string
           provider?: string
           raw_data?: Json
+          snapshot_type?: string
         }
         Relationships: [
           {
@@ -569,12 +768,134 @@ export type Database = {
           },
         ]
       }
+      social_profiles: {
+        Row: {
+          created_at: string
+          discovery_method: string
+          entity_id: string
+          entity_type: string
+          handle: string
+          id: string
+          is_verified: boolean
+          metadata: Json
+          platform: string
+          profile_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discovery_method?: string
+          entity_id: string
+          entity_type: string
+          handle: string
+          id?: string
+          is_verified?: boolean
+          metadata?: Json
+          platform: string
+          profile_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discovery_method?: string
+          entity_id?: string
+          entity_type?: string
+          handle?: string
+          id?: string
+          is_verified?: boolean
+          metadata?: Json
+          platform?: string
+          profile_url?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_snapshots: {
+        Row: {
+          captured_at: string
+          created_at: string
+          date_key: string
+          diff_hash: string
+          id: string
+          raw_data: Json
+          social_profile_id: string
+        }
+        Insert: {
+          captured_at: string
+          created_at?: string
+          date_key: string
+          diff_hash: string
+          id?: string
+          raw_data: Json
+          social_profile_id: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          date_key?: string
+          diff_hash?: string
+          id?: string
+          raw_data?: Json
+          social_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_snapshots_social_profile_id_fkey"
+            columns: ["social_profile_id"]
+            isOneToOne: false
+            referencedRelation: "social_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracked_keywords: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          location_id: string
+          source: string
+          tags: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          location_id: string
+          source?: string
+          tags?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          location_id?: string
+          source?: string
+          tags?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_keywords_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_org_admin: { Args: { org_id: string }; Returns: boolean }
+      is_org_member: { Args: { org_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

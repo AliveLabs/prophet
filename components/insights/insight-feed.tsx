@@ -37,6 +37,7 @@ const TABS: TabConfig[] = [
   { value: "competitors", label: "Competitors", color: "text-emerald-700", activeColor: "bg-emerald-600 text-white", dot: SOURCE_COLORS.competitors.dot },
   { value: "events", label: "Events", color: "text-violet-700", activeColor: "bg-violet-600 text-white", dot: SOURCE_COLORS.events.dot },
   { value: "seo", label: "SEO", color: "text-sky-700", activeColor: "bg-sky-600 text-white", dot: SOURCE_COLORS.seo.dot },
+  { value: "social", label: "Social", color: "text-indigo-700", activeColor: "bg-indigo-600 text-white", dot: SOURCE_COLORS.social.dot },
   { value: "content", label: "Content", color: "text-teal-700", activeColor: "bg-teal-600 text-white", dot: SOURCE_COLORS.content.dot },
   { value: "photos", label: "Photos", color: "text-pink-700", activeColor: "bg-pink-600 text-white", dot: SOURCE_COLORS.photos.dot },
   { value: "traffic", label: "Traffic", color: "text-orange-700", activeColor: "bg-orange-600 text-white", dot: SOURCE_COLORS.traffic.dot },
@@ -49,11 +50,15 @@ type Props = {
   preferencesCount: number
 }
 
+const INITIAL_VISIBLE = 6
+const LOAD_MORE_STEP = 6
+
 export default function InsightFeed({ insights, baseParams, statusFilter, preferencesCount }: Props) {
   const [activeTab, setActiveTab] = useState("")
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": insights.length, competitors: 0, events: 0, seo: 0, content: 0, photos: 0, traffic: 0 }
+    const counts: Record<string, number> = { "": insights.length, competitors: 0, events: 0, seo: 0, social: 0, content: 0, photos: 0, traffic: 0 }
     for (const ins of insights) {
       const cat = getSourceCategory(ins.insightType, ins.competitorId)
       counts[cat] = (counts[cat] ?? 0) + 1
@@ -66,15 +71,19 @@ export default function InsightFeed({ insights, baseParams, statusFilter, prefer
     return insights.filter((i) => getSourceCategory(i.insightType, i.competitorId) === activeTab)
   }, [insights, activeTab])
 
+  const visibleInsights = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
+  const hasMore = filtered.length > visibleCount
+  const remainingCount = filtered.length - visibleCount
+
   const insightsByDate = useMemo(() => {
     const map = new Map<string, FeedInsight[]>()
-    for (const ins of filtered) {
+    for (const ins of visibleInsights) {
       const arr = map.get(ins.dateKey) ?? []
       arr.push(ins)
       map.set(ins.dateKey, arr)
     }
     return map
-  }, [filtered])
+  }, [visibleInsights])
 
   const sortedDates = useMemo(
     () => Array.from(insightsByDate.keys()).sort((a, b) => (a > b ? -1 : 1)),
@@ -95,7 +104,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter, prefer
             <button
               key={tab.value}
               type="button"
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => { setActiveTab(tab.value); setVisibleCount(INITIAL_VISIBLE) }}
               className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                 isActive
                   ? tab.activeColor + " shadow-sm"
@@ -239,6 +248,22 @@ export default function InsightFeed({ insights, baseParams, statusFilter, prefer
                   ? "Dismissed insights will appear here."
                   : "Generate insights or fetch events to see changes and opportunities."}
           </p>
+        </div>
+      )}
+
+      {/* Load more */}
+      {hasMore && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((c) => c + LOAD_MORE_STEP)}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+            Load more ({remainingCount} remaining)
+          </button>
         </div>
       )}
 

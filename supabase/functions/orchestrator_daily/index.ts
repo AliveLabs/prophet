@@ -68,6 +68,9 @@ serve(async (req) => {
     }
 
     const { data: locations, error: locError } = await locQuery
+    const orgTierMap = new Map<string, string>()
+    const dayOfWeek = new Date().getUTCDay() // 0=Sun, 1=Mon
+
     if (!locError && locations) {
       // Fetch org tiers to determine cadence
       const orgIds = [...new Set(locations.map((l) => l.organization_id))]
@@ -76,12 +79,9 @@ serve(async (req) => {
         .select("id, subscription_tier")
         .in("id", orgIds)
 
-      const orgTierMap = new Map<string, string>()
       for (const org of orgs ?? []) {
         orgTierMap.set(org.id, org.subscription_tier ?? "free")
       }
-
-      const dayOfWeek = new Date().getUTCDay() // 0=Sun, 1=Mon
       for (const location of locations) {
         const tier = orgTierMap.get(location.organization_id) ?? "free"
         const isWeekly = tier === "free"
@@ -188,6 +188,60 @@ serve(async (req) => {
           date_key: dateKey,
           attempt: 1,
         })
+      }
+    }
+
+    // -----------------------------------------------------------------------
+    // Social Media Intelligence jobs (Data365)
+    // -----------------------------------------------------------------------
+    if (locations) {
+      // Gather all location + competitor IDs to find social profiles
+      const allEntityIds: string[] = []
+      for (const loc of locations) {
+        allEntityIds.push(loc.id)
+      }
+      const compIds = competitors?.map((c) => c.id) ?? []
+      allEntityIds.push(...compIds)
+
+      if (allEntityIds.length > 0) {
+        const { data: socialProfiles } = await supabase
+          .from("social_profiles")
+          .select("id, entity_type, entity_id, platform")
+
+        if (socialProfiles && socialProfiles.length > 0) {
+          for (const sp of socialProfiles) {
+            // Determine the location for this social profile
+            let locationId = ""
+            if (sp.entity_type === "location") {
+              locationId = sp.entity_id
+            } else if (sp.entity_type === "competitor") {
+              const comp = competitors?.find((c) => c.id === sp.entity_id)
+              locationId = comp?.location_id ?? ""
+            }
+            if (!locationId) continue
+
+            // Determine tier-based cadence: weekly (free), 2x/week (starter), daily (pro/agency)
+            const location = locations.find((l) => l.id === locationId)
+            if (!location) continue
+            const tier = orgTierMap.get(location.organization_id) ?? "free"
+
+            const shouldRun =
+              tier === "free" ? dayOfWeek === 1 :
+              tier === "starter" ? (dayOfWeek === 1 || dayOfWeek === 4) :
+              true // pro/agency = daily
+
+            if (!shouldRun) continue
+
+            jobs.push({
+              job_type: "social_fetch_snapshot",
+              location_id: locationId,
+              competitor_id: sp.entity_type === "competitor" ? sp.entity_id : "",
+              date_key: dateKey,
+              attempt: 1,
+              social_profile_id: sp.id,
+            })
+          }
+        }
       }
     }
 

@@ -38,13 +38,17 @@ import {
   buildWeatherSteps,
 } from "@/lib/jobs/pipelines/weather"
 import {
+  buildSocialContext,
+  buildSocialSteps,
+} from "@/lib/jobs/pipelines/social"
+import {
   buildRefreshAllContext,
   buildRefreshAllSteps,
 } from "@/lib/jobs/pipelines/refresh-all"
 
 export const maxDuration = 300
 
-const VALID_TYPES = new Set(["content", "visibility", "events", "insights", "photos", "busy_times", "weather", "refresh_all"])
+const VALID_TYPES = new Set(["content", "visibility", "events", "insights", "photos", "busy_times", "weather", "social", "refresh_all"])
 
 const REDIRECT_MAP: Record<string, string> = {
   content: "/content",
@@ -54,6 +58,7 @@ const REDIRECT_MAP: Record<string, string> = {
   photos: "/photos",
   busy_times: "/traffic",
   weather: "/weather",
+  social: "/social",
   refresh_all: "/home",
 }
 
@@ -152,6 +157,15 @@ export async function GET(
             auth.organizationId
           )
           steps = buildWeatherSteps()
+          break
+        }
+        case "social": {
+          ctx = await buildSocialContext(
+            auth.supabase,
+            locationId,
+            auth.organizationId
+          )
+          steps = buildSocialSteps()
           break
         }
         case "refresh_all": {

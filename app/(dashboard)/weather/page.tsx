@@ -5,6 +5,7 @@ import LocationFilter from "@/components/ui/location-filter"
 import WeatherHistory, { type WeatherDay } from "@/components/weather/weather-history"
 import LocationWeatherCards, { type LocationWeather } from "@/components/weather/location-weather-cards"
 import { Card } from "@/components/ui/card"
+import { fetchForecast } from "@/lib/providers/openweathermap"
 
 type WeatherPageProps = {
   searchParams?: Promise<{
@@ -50,7 +51,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
         .order("date", { ascending: false })
     : { data: [] }
 
-  const weatherDays: WeatherDay[] = (weatherHistoryRaw ?? []).map((w) => ({
+  const historicalDays: WeatherDay[] = (weatherHistoryRaw ?? []).map((w) => ({
     date: w.date,
     temp_high_f: w.temp_high_f ?? 0,
     temp_low_f: w.temp_low_f ?? 0,
@@ -60,7 +61,37 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
     is_severe: w.is_severe,
     humidity_avg: w.humidity_avg,
     wind_speed_max_mph: w.wind_speed_max_mph,
+    isForecast: false,
   }))
+
+  // Fetch 8-day forecast from OpenWeatherMap One Call API
+  let forecastDays: WeatherDay[] = []
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const historicalDates = new Set(historicalDays.map((d) => d.date))
+
+  if (selectedLocation?.geo_lat != null && selectedLocation?.geo_lng != null) {
+    try {
+      const raw = await fetchForecast(selectedLocation.geo_lat, selectedLocation.geo_lng)
+      forecastDays = raw
+        .filter((d) => d.date > todayStr && !historicalDates.has(d.date))
+        .map((d) => ({
+          date: d.date,
+          temp_high_f: d.temp_high_f,
+          temp_low_f: d.temp_low_f,
+          weather_condition: d.weather_condition,
+          weather_icon: d.weather_icon,
+          precipitation_in: d.precipitation_in,
+          is_severe: d.is_severe,
+          humidity_avg: d.humidity_avg,
+          wind_speed_max_mph: d.wind_speed_max_mph,
+          isForecast: true,
+        }))
+    } catch (err) {
+      console.warn("[Weather] Forecast fetch failed:", err)
+    }
+  }
+
+  const weatherDays: WeatherDay[] = [...historicalDays, ...forecastDays]
 
   // Fetch latest weather for ALL locations
   const allLocationIds = (locations ?? []).map((l) => l.id)
@@ -104,13 +135,13 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
         .limit(10)
     : { data: [] }
 
-  // KPIs
-  const latestWeather = weatherDays[0]
-  const severeCount = weatherDays.filter((d) => d.is_severe).length
-  const avgTemp = weatherDays.length > 0
-    ? Math.round(weatherDays.reduce((s, d) => s + d.temp_high_f, 0) / weatherDays.length)
+  // KPIs (from historical only)
+  const latestWeather = historicalDays[0]
+  const severeCount = historicalDays.filter((d) => d.is_severe).length
+  const avgTemp = historicalDays.length > 0
+    ? Math.round(historicalDays.reduce((s, d) => s + d.temp_high_f, 0) / historicalDays.length)
     : 0
-  const totalPrecip = weatherDays.reduce((s, d) => s + d.precipitation_in, 0)
+  const totalPrecip = historicalDays.reduce((s, d) => s + d.precipitation_in, 0)
 
   return (
     <section className="space-y-6">
@@ -185,12 +216,12 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
             <Card className="bg-white">
               <p className="text-xs font-medium text-slate-500">Avg High Temp</p>
               <p className="mt-2 text-3xl font-bold text-orange-600">{avgTemp}°F</p>
-              <p className="mt-1 text-[11px] text-slate-400">over {weatherDays.length} days</p>
+              <p className="mt-1 text-[11px] text-slate-400">over {historicalDays.length} days</p>
             </Card>
             <Card className="bg-white">
               <p className="text-xs font-medium text-slate-500">Total Precipitation</p>
               <p className="mt-2 text-3xl font-bold text-sky-600">{totalPrecip.toFixed(2)}&quot;</p>
-              <p className="mt-1 text-[11px] text-slate-400">over {weatherDays.length} days</p>
+              <p className="mt-1 text-[11px] text-slate-400">over {historicalDays.length} days</p>
             </Card>
             <Card className="bg-white">
               <p className="text-xs font-medium text-slate-500">Severe Weather Days</p>
@@ -201,11 +232,12 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
             </Card>
           </div>
 
-          {/* Weather History Chart */}
+          {/* Weather History + Forecast Chart */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <WeatherHistory
               days={weatherDays}
               locationName={selectedLocation?.name ?? "Location"}
+              todayDate={todayStr}
             />
           </div>
 
