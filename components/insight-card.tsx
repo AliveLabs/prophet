@@ -80,11 +80,39 @@ function IconLightBulb({ className = "h-3.5 w-3.5" }: { className?: string }) {
   )
 }
 
+function IconPhotos({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+    </svg>
+  )
+}
+
+function IconTraffic({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+    </svg>
+  )
+}
+
+function IconSocial({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+    </svg>
+  )
+}
+
 const SOURCE_ICONS: Record<SourceCategory, typeof IconCompetitors> = {
   competitors: IconCompetitors,
   events: IconEvents,
   seo: IconSeo,
+  social: IconSocial,
   content: IconContent,
+  photos: IconPhotos,
+  traffic: IconTraffic,
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +290,7 @@ export default function InsightCard({
               <span>Severity: <strong className="text-slate-700">{severity}</strong></span>
               {insightType && <span>Type: <strong className="text-slate-700">{insightType}</strong></span>}
             </div>
-            {renderStructuredEvidence(evidence)}
+            {renderStructuredEvidence(evidence, insightType)}
           </div>
         </details>
       </div>
@@ -274,7 +302,105 @@ export default function InsightCard({
 // Structured evidence
 // ---------------------------------------------------------------------------
 
-function renderStructuredEvidence(evidence: Record<string, unknown>) {
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <svg
+          key={star}
+          className={`h-3 w-3 ${star <= rating ? "text-amber-400" : "text-slate-200"}`}
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+        </svg>
+      ))}
+    </span>
+  )
+}
+
+function renderReviewEvidence(evidence: Record<string, unknown>) {
+  const themes = evidence.themes as Array<{ theme?: string; sentiment?: string; examples?: string[] }> | undefined
+  const sampleReviews = evidence.sampleReviews as Array<{ rating?: number; text?: string; author?: string; date?: string }> | undefined
+  const counts = evidence.sentimentCounts as { positive?: number; negative?: number; mixed?: number } | undefined
+
+  if (!themes?.length && !sampleReviews?.length) return null
+
+  return (
+    <div className="mt-2 space-y-3">
+      {counts && (counts.positive || counts.negative || counts.mixed) ? (
+        <div className="flex items-center gap-3 text-[10px]">
+          {(counts.positive ?? 0) > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              {counts.positive} positive
+            </span>
+          )}
+          {(counts.negative ?? 0) > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+              {counts.negative} negative
+            </span>
+          )}
+          {(counts.mixed ?? 0) > 0 && (
+            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              {counts.mixed} mixed
+            </span>
+          )}
+        </div>
+      ) : null}
+
+      {themes && themes.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Key themes</p>
+          {themes.slice(0, 4).map((t, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
+                t.sentiment === "positive" ? "bg-emerald-500" :
+                t.sentiment === "negative" ? "bg-rose-500" : "bg-amber-500"
+              }`} />
+              <div className="min-w-0">
+                <span className="text-[11px] font-medium text-slate-700">{t.theme}</span>
+                {t.examples?.[0] && (
+                  <p className="mt-0.5 text-[10px] italic leading-snug text-slate-400">
+                    &ldquo;{t.examples[0].slice(0, 80)}{t.examples[0].length > 80 ? "..." : ""}&rdquo;
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {sampleReviews && sampleReviews.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sample reviews</p>
+          {sampleReviews.slice(0, 3).map((r, i) => (
+            <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
+              <div className="flex items-center gap-2">
+                {typeof r.rating === "number" && <StarRating rating={r.rating} />}
+                {r.author && <span className="text-[10px] font-medium text-slate-500">{r.author}</span>}
+                {r.date && <span className="text-[10px] text-slate-400">{r.date}</span>}
+              </div>
+              {r.text && (
+                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                  {r.text.slice(0, 150)}{r.text.length > 150 ? "..." : ""}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function renderStructuredEvidence(evidence: Record<string, unknown>, insightType?: string) {
+  if (insightType === "review_themes" || insightType === "review_velocity") {
+    return renderReviewEvidence(evidence)
+  }
+
   const rows: Array<{ label: string; value: string }> = []
 
   if (evidence.location_name) rows.push({ label: "Location", value: String(evidence.location_name) })

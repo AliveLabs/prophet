@@ -52,6 +52,12 @@ export default async function DashboardLayout({
             </Link>
             <Link
               className="block rounded-xl px-3 py-2 hover:bg-slate-100"
+              href="/social"
+            >
+              Social
+            </Link>
+            <Link
+              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
               href="/events"
             >
               Events
@@ -67,6 +73,24 @@ export default async function DashboardLayout({
               href="/content"
             >
               Content
+            </Link>
+            <Link
+              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
+              href="/photos"
+            >
+              Photos
+            </Link>
+            <Link
+              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
+              href="/traffic"
+            >
+              Busy Times
+            </Link>
+            <Link
+              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
+              href="/weather"
+            >
+              Weather
             </Link>
             <Link
               className="block rounded-xl px-3 py-2 hover:bg-slate-100"

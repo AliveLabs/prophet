@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { revalidateTag } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
@@ -27,6 +28,7 @@ import {
   buildDeterministicBriefing,
   type PriorityItem,
   type InsightForBriefing,
+  type BusinessContext,
 } from "@/lib/ai/prompts/priority-briefing"
 import type { InsightPreference } from "@/lib/insights/scoring"
 import { getCachedBriefing, setCachedBriefing } from "@/lib/insights/briefing-cache"
@@ -188,7 +190,8 @@ export async function generatePriorityBriefing(
   insights: InsightForBriefing[],
   preferences: InsightPreference[],
   locationName: string,
-  cacheKey?: string | null
+  cacheKey?: string | null,
+  context?: BusinessContext | null
 ): Promise<PriorityItem[]> {
   if (insights.length === 0) return []
 
@@ -200,11 +203,11 @@ export async function generatePriorityBriefing(
   let result_items: PriorityItem[]
 
   try {
-    const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName)
-    const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 2048 })
+    const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName, context)
+    const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 4096 })
 
     if (result?.priorities && Array.isArray(result.priorities)) {
-      const validSources = ["competitors", "events", "seo", "content"]
+      const validSources = ["competitors", "events", "seo", "content", "photos", "traffic"]
       result_items = (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
         title: String(p.title ?? ""),
         why: String(p.why ?? ""),
@@ -1323,6 +1326,17 @@ export async function generateInsightsAction(formData: FormData) {
     console.warn("Content & Menu insight generation error:", contentErr)
   }
 
+  // =========================================================================
+  // Social Media Insight Generation
+  // =========================================================================
+  try {
+    const { generateSocialInsightsForLocation } = await import("./social-actions")
+    const socialInsights = await generateSocialInsightsForLocation(locationId, todayKey)
+    console.log(`[Insights] Generated ${socialInsights.length} social insights for ${locationId}`)
+  } catch (socialErr) {
+    console.warn("Social insight generation error:", socialErr)
+  }
+
   if (insightsPayload.length) {
     const { error } = await supabase.from("insights").upsert(insightsPayload, {
       onConflict: "location_id,competitor_id,date_key,insight_type",
@@ -1332,6 +1346,8 @@ export async function generateInsightsAction(formData: FormData) {
     }
   }
 
+  revalidateTag("insights-data", { expire: 0 })
+  revalidateTag("place-details", { expire: 0 })
   redirect(`/insights?location_id=${locationId}`)
 }
 

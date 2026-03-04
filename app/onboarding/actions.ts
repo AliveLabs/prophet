@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 
 function slugify(input: string) {
   return input
@@ -81,31 +82,44 @@ export async function createOrganizationAction(formData: FormData) {
 
   const website = String(formData.get("website") ?? "").trim() || null
 
-  const { error: locationError } = await supabaseAdmin.from("locations").insert({
-    organization_id: org.id,
-    name: locationName,
-    address_line1: String(formData.get("address_line1") ?? "").trim() || null,
-    address_line2: String(formData.get("address_line2") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null,
-    region: String(formData.get("region") ?? "").trim() || null,
-    postal_code: String(formData.get("postal_code") ?? "").trim() || null,
-    country: String(formData.get("country") ?? "").trim() || "US",
-    timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
-    primary_place_id: primaryPlaceId || null,
-    website,
-    settings: {
-      category,
-      types: placeTypes,
-    },
-    geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
-    geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
-  })
+  const { data: newLocation, error: locationError } = await supabaseAdmin
+    .from("locations")
+    .insert({
+      organization_id: org.id,
+      name: locationName,
+      address_line1: String(formData.get("address_line1") ?? "").trim() || null,
+      address_line2: String(formData.get("address_line2") ?? "").trim() || null,
+      city: String(formData.get("city") ?? "").trim() || null,
+      region: String(formData.get("region") ?? "").trim() || null,
+      postal_code: String(formData.get("postal_code") ?? "").trim() || null,
+      country: String(formData.get("country") ?? "").trim() || "US",
+      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      primary_place_id: primaryPlaceId || null,
+      website,
+      settings: {
+        category,
+        types: placeTypes,
+      },
+      geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+      geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+    })
+    .select("id")
+    .single()
 
-  if (locationError) {
-    redirect(`/onboarding?error=${encodeURIComponent(locationError.message)}`)
+  if (locationError || !newLocation) {
+    redirect(`/onboarding?error=${encodeURIComponent(locationError?.message ?? "Failed to create location")}`)
   }
 
-  redirect("/home")
+  // Fire-and-forget: initial data collection (content scrape + weather)
+  triggerInitialLocationData(newLocation.id, org.id, {
+    website,
+    geoLat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+    geoLng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+  }).catch(() => {})
+
+  redirect(
+    `/competitors?location_id=${newLocation.id}&onboarding=true`
+  )
 }
 
 export async function createLocationAction(formData: FormData) {
@@ -138,25 +152,36 @@ export async function createLocationAction(formData: FormData) {
 
   const website = String(formData.get("website") ?? "").trim() || null
 
-  const { error: locationError } = await supabaseAdmin.from("locations").insert({
-    organization_id: organizationId,
-    name: locationName,
-    address_line1: String(formData.get("address_line1") ?? "").trim() || null,
-    address_line2: String(formData.get("address_line2") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null,
-    region: String(formData.get("region") ?? "").trim() || null,
-    postal_code: String(formData.get("postal_code") ?? "").trim() || null,
-    country: String(formData.get("country") ?? "").trim() || "US",
-    timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
-    primary_place_id: primaryPlaceId || null,
-    website,
-    geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
-    geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
-  })
+  const { data: newLocation, error: locationError } = await supabaseAdmin
+    .from("locations")
+    .insert({
+      organization_id: organizationId,
+      name: locationName,
+      address_line1: String(formData.get("address_line1") ?? "").trim() || null,
+      address_line2: String(formData.get("address_line2") ?? "").trim() || null,
+      city: String(formData.get("city") ?? "").trim() || null,
+      region: String(formData.get("region") ?? "").trim() || null,
+      postal_code: String(formData.get("postal_code") ?? "").trim() || null,
+      country: String(formData.get("country") ?? "").trim() || "US",
+      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      primary_place_id: primaryPlaceId || null,
+      website,
+      geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+      geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+    })
+    .select("id")
+    .single()
 
-  if (locationError) {
-    redirect(`/onboarding?error=${encodeURIComponent(locationError.message)}`)
+  if (locationError || !newLocation) {
+    redirect(`/onboarding?error=${encodeURIComponent(locationError?.message ?? "Failed to create location")}`)
   }
+
+  // Fire-and-forget: initial data collection
+  triggerInitialLocationData(newLocation.id, organizationId, {
+    website,
+    geoLat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+    geoLng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+  }).catch(() => {})
 
   redirect("/home")
 }

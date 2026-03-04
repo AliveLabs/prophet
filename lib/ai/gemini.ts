@@ -1,5 +1,5 @@
 const GEMINI_INSIGHTS_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
 
 type GeminiCandidate = {
   content?: {

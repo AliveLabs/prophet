@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
+import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -42,28 +43,39 @@ export async function createLocationFromPlaceAction(formData: FormData) {
 
   const website = String(formData.get("website") ?? "").trim() || null
 
-  const { error } = await supabase.from("locations").insert({
-    organization_id: organizationId,
-    name: locationName,
-    address_line1: String(formData.get("address_line1") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null,
-    region: String(formData.get("region") ?? "").trim() || null,
-    postal_code: String(formData.get("postal_code") ?? "").trim() || null,
-    country: String(formData.get("country") ?? "").trim() || "US",
-    timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
-    primary_place_id: primaryPlaceId,
-    website,
-    settings: {
-      category,
-      types: placeTypes,
-    },
-    geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
-    geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
-  })
+  const { data: newLocation, error } = await supabase
+    .from("locations")
+    .insert({
+      organization_id: organizationId,
+      name: locationName,
+      address_line1: String(formData.get("address_line1") ?? "").trim() || null,
+      city: String(formData.get("city") ?? "").trim() || null,
+      region: String(formData.get("region") ?? "").trim() || null,
+      postal_code: String(formData.get("postal_code") ?? "").trim() || null,
+      country: String(formData.get("country") ?? "").trim() || "US",
+      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      primary_place_id: primaryPlaceId,
+      website,
+      settings: {
+        category,
+        types: placeTypes,
+      },
+      geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+      geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+    })
+    .select("id")
+    .single()
 
-  if (error) {
-    redirect(`/locations?error=${encodeURIComponent(error.message)}`)
+  if (error || !newLocation) {
+    redirect(`/locations?error=${encodeURIComponent(error?.message ?? "Failed to create location")}`)
   }
+
+  // Fire-and-forget: initial data collection
+  triggerInitialLocationData(newLocation.id, organizationId, {
+    website,
+    geoLat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+    geoLng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
+  }).catch(() => {})
 
   redirect("/locations")
 }

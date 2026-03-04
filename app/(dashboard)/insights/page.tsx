@@ -11,9 +11,15 @@ import {
   scoreInsights,
   type InsightPreference,
 } from "@/lib/insights/scoring"
-import type { InsightForBriefing } from "@/lib/ai/prompts/priority-briefing"
+import type { InsightForBriefing, BusinessContext } from "@/lib/ai/prompts/priority-briefing"
 import PriorityBriefingSection from "./priority-briefing-section"
 import { BriefingSkeleton } from "@/components/insights/priority-briefing"
+import WeatherBadge from "@/components/insights/weather-badge"
+import PhotoGallery from "@/components/insights/photo-gallery"
+import TrafficChart from "@/components/insights/traffic-chart"
+import SocialDashboard from "@/components/insights/social-dashboard"
+import { fetchSocialDashboardData } from "./social-actions"
+import { fetchInsightsPageData } from "@/lib/insights/cached-data"
 
 type InsightsPageProps = {
   searchParams?: Promise<{
@@ -59,57 +65,29 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -------------------------------------------------------------------------
-  // Build insight query (must be built before Promise.all)
+  // Fetch cached data (insights, preferences, competitors, snapshots, etc.)
   // -------------------------------------------------------------------------
 
-  let insightQuery = supabase
-    .from("insights")
-    .select(
-      "id, title, summary, confidence, severity, status, user_feedback, evidence, recommendations, date_key, competitor_id, insight_type"
-    )
-    .gte("date_key", startDate)
-    .order("date_key", { ascending: false })
-
-  if (selectedLocationId) insightQuery = insightQuery.eq("location_id", selectedLocationId)
-  if (resolvedSearchParams?.confidence) insightQuery = insightQuery.eq("confidence", resolvedSearchParams.confidence)
-  if (resolvedSearchParams?.severity) insightQuery = insightQuery.eq("severity", resolvedSearchParams.severity)
-
-  if (statusFilter === "saved") insightQuery = insightQuery.eq("status", "read")
-  else if (statusFilter === "dismissed") insightQuery = insightQuery.eq("status", "dismissed")
-  else if (statusFilter === "new") insightQuery = insightQuery.eq("status", "new")
-  else insightQuery = insightQuery.neq("status", "dismissed")
-
-  // -------------------------------------------------------------------------
-  // Parallel fetch: insights, preferences, place details, competitors
-  // -------------------------------------------------------------------------
-
-  const [
-    { data: allInsightsRaw },
-    { data: prefsRaw },
-    placeDetails,
-    { data: competitors },
-  ] = await Promise.all([
-    insightQuery,
-    supabase
-      .from("insight_preferences")
-      .select("insight_type, weight, useful_count, dismissed_count")
-      .eq("organization_id", organizationId),
+  const [cachedData, placeDetails] = await Promise.all([
+    selectedLocationId
+      ? fetchInsightsPageData(
+          organizationId,
+          selectedLocationId,
+          startDate,
+          statusFilter,
+          resolvedSearchParams?.confidence ?? "",
+          resolvedSearchParams?.severity ?? "",
+        )
+      : Promise.resolve({ insights: [], preferences: [], competitors: [], snapshots: [], weather: [], photos: [], busyTimes: [] }),
     selectedLocation?.primary_place_id
       ? fetchPlaceDetails(selectedLocation.primary_place_id).catch(() => null)
       : Promise.resolve(null),
-    selectedLocationId
-      ? supabase.from("competitors").select("id, name, category, metadata").eq("location_id", selectedLocationId).eq("is_active", true)
-      : Promise.resolve({ data: [] as Array<{ id: string; name: string; category: string; metadata: unknown }> }),
   ])
 
-  const allInsights = allInsightsRaw ?? []
+  const allInsights = cachedData.insights
+  const competitors = cachedData.competitors
 
-  const preferences: InsightPreference[] = (prefsRaw ?? []).map((p) => ({
-    insight_type: p.insight_type,
-    weight: Number(p.weight),
-    useful_count: p.useful_count,
-    dismissed_count: p.dismissed_count,
-  }))
+  const preferences: InsightPreference[] = cachedData.preferences
 
   const locationRating = typeof placeDetails?.rating === "number" ? placeDetails.rating : null
   const locationReviewCount = typeof placeDetails?.userRatingCount === "number" ? placeDetails.userRatingCount : null
@@ -133,15 +111,11 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   const error = resolvedSearchParams?.error
 
   // -------------------------------------------------------------------------
-  // Snapshots (depends on competitors result)
+  // Snapshots (from cached data)
   // -------------------------------------------------------------------------
 
-  const competitorIds = competitors?.map((c) => c.id) ?? []
-  const { data: snapshots } = competitorIds.length > 0
-    ? await supabase.from("snapshots").select("competitor_id, date_key, raw_data").in("competitor_id", competitorIds).gte("date_key", startDate)
-    : { data: [] }
-
-  const snapshotRows = snapshots ?? []
+  const competitorIds = competitors.map((c) => c.id)
+  const snapshotRows = cachedData.snapshots
   const latestByCompetitor = new Map<string, NormalizedSnapshot>()
   const latestDateByCompetitor = new Map<string, string>()
   for (const snap of snapshotRows) {
@@ -154,7 +128,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   const ratingComparison = [
     ...(selectedLocation?.name ? [{ name: selectedLocation.name, rating: locationRating, reviewCount: locationReviewCount }] : []),
-    ...(competitors ?? []).map((c) => {
+    ...competitors.map((c) => {
       const snap = latestByCompetitor.get(c.id)
       const meta = c.metadata as Record<string, unknown> | null
       const pd = meta?.placeDetails as Record<string, unknown> | null
@@ -179,17 +153,13 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   }
 
-  const reviewGrowthDelta = (competitors ?? []).map((c) => {
+  const reviewGrowthDelta = competitors.map((c) => {
     const latest = latestByCompetitor.get(c.id)
     const baseline = baselineByCompetitor.get(c.id)
     const delta = typeof latest?.profile?.reviewCount === "number" && typeof baseline?.profile?.reviewCount === "number"
       ? latest.profile.reviewCount - baseline.profile.reviewCount : null
     return { name: c.name ?? "Competitor", delta }
   })
-
-  const reviewCountComparison = ratingComparison.filter((i) => i.name).map((i) => ({
-    name: i.name, rating: i.rating ?? null, reviewCount: i.reviewCount ?? null,
-  }))
 
   const sentimentCounts = { positive: 0, negative: 0, mixed: 0 }
   const themeInsights = allInsights.filter((i) => i.insight_type === "review_themes")
@@ -222,13 +192,41 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     ? Number(((locReviewTotal / (locReviewTotal + compReviewTotal)) * 100).toFixed(1)) : null
 
   const competitorNameMap = new Map<string, string>()
-  for (const c of competitors ?? []) {
+  for (const c of competitors) {
     competitorNameMap.set(c.id, c.name ?? "Competitor")
   }
 
   // -------------------------------------------------------------------------
   // Prepare briefing data (passed to Suspense-wrapped component)
   // -------------------------------------------------------------------------
+
+  function extractEvidenceHighlights(evidence: Record<string, unknown>, insightType: string): string {
+    const parts: string[] = []
+    try {
+      if (insightType.startsWith("menu.") || insightType.startsWith("content.")) {
+        if (evidence.locationAvgPrice) parts.push(`Your avg: $${evidence.locationAvgPrice}`)
+        if (evidence.competitorAvgPrice) parts.push(`Competitor avg: $${evidence.competitorAvgPrice}`)
+        if (evidence.missingCategory) parts.push(`Missing: ${evidence.missingCategory}`)
+        if (evidence.competitor) parts.push(`vs ${evidence.competitor}`)
+      } else if (insightType.startsWith("seo_") || insightType.startsWith("cross_")) {
+        if (evidence.keyword_gain) parts.push(`+${evidence.keyword_gain} keywords`)
+        if (evidence.traffic_growth_pct) parts.push(`+${evidence.traffic_growth_pct}% traffic`)
+        if (evidence.current_keywords) parts.push(`${evidence.current_keywords} total keywords`)
+        if (evidence.review_count) parts.push(`${evidence.review_count} reviews`)
+      } else if (insightType.includes("weather")) {
+        if (evidence.condition) parts.push(`${evidence.condition}`)
+        if (evidence.temp_high_f) parts.push(`${evidence.temp_high_f}°F`)
+      } else if (insightType.includes("traffic")) {
+        if (evidence.peak_hour != null) parts.push(`Peak: ${evidence.peak_hour}:00`)
+        if (evidence.peak_score) parts.push(`Score: ${evidence.peak_score}`)
+      } else {
+        if (evidence.competitor_name || evidence.competitor) parts.push(`${evidence.competitor_name ?? evidence.competitor}`)
+        if (typeof evidence.rating === "number") parts.push(`Rating: ${evidence.rating}`)
+        if (typeof evidence.reviewCount === "number") parts.push(`${evidence.reviewCount} reviews`)
+      }
+    } catch { /* non-fatal */ }
+    return parts.join(", ").slice(0, 200)
+  }
 
   const insightsForBriefing: InsightForBriefing[] = allInsights.slice(0, 30).map((i) => ({
     insight_type: i.insight_type as string,
@@ -238,6 +236,10 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     confidence: i.confidence,
     competitorId: i.competitor_id,
     relevanceScore: scoredMap.get(i.id)?.relevanceScore ?? 0,
+    evidenceHighlights: extractEvidenceHighlights(
+      (i.evidence as Record<string, unknown>) ?? {},
+      i.insight_type as string
+    ),
   }))
 
   // -------------------------------------------------------------------------
@@ -280,6 +282,82 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     }
   })
 
+  // -------------------------------------------------------------------------
+  // Signal data from cached result: weather, photos, busy times
+  // -------------------------------------------------------------------------
+
+  const todayDate = new Date().toISOString().slice(0, 10)
+
+  const latestWeather = cachedData.weather.find(w => w.date === todayDate) ?? cachedData.weather[0] ?? null
+  const weatherForBadge = latestWeather ? {
+    date: latestWeather.date,
+    temp_high_f: latestWeather.temp_high_f ?? 0,
+    temp_low_f: latestWeather.temp_low_f ?? 0,
+    weather_condition: latestWeather.weather_condition ?? "Unknown",
+    weather_icon: latestWeather.weather_icon ?? "01d",
+    precipitation_in: latestWeather.precipitation_in ?? 0,
+    is_severe: latestWeather.is_severe,
+  } : null
+
+  const photoItems = cachedData.photos.map(p => {
+    const analysis = p.analysis_result as Record<string, unknown> | null
+    return {
+      id: p.id,
+      image_url: p.image_url,
+      category: (analysis?.category as string) ?? "other",
+      subcategory: (analysis?.subcategory as string) ?? "",
+      tags: (analysis?.tags as string[]) ?? [],
+      extracted_text: (analysis?.extracted_text as string) ?? "",
+      promotional_content: (analysis?.promotional_content as boolean) ?? false,
+      confidence: (analysis?.confidence as number) ?? 0,
+      competitor_name: competitorNameMap.get(p.competitor_id) ?? "Competitor",
+    }
+  })
+
+  const trafficByCompetitor = new Map<string, Array<{ day_of_week: number; hourly_scores: number[]; peak_hour: number; peak_score: number; typical_time_spent: string | null }>>()
+  for (const bt of cachedData.busyTimes) {
+    const arr = trafficByCompetitor.get(bt.competitor_id) ?? []
+    arr.push({
+      day_of_week: bt.day_of_week,
+      hourly_scores: bt.hourly_scores,
+      peak_hour: bt.peak_hour ?? 0,
+      peak_score: bt.peak_score ?? 0,
+      typical_time_spent: bt.typical_time_spent,
+    })
+    trafficByCompetitor.set(bt.competitor_id, arr)
+  }
+
+  const trafficData = [...trafficByCompetitor.entries()].map(([compId, days]) => ({
+    competitor_id: compId,
+    competitor_name: competitorNameMap.get(compId) ?? "Competitor",
+    days,
+  }))
+
+  // -------------------------------------------------------------------------
+  // Extract review excerpts from review_themes insights
+  // -------------------------------------------------------------------------
+
+  const recentReviews: Array<{
+    rating?: number
+    text?: string
+    author?: string
+    date?: string
+    competitorName?: string
+  }> = []
+
+  for (const ins of themeInsights) {
+    const ev = ins.evidence as Record<string, unknown>
+    const samples = ev?.sampleReviews as Array<{ rating?: number; text?: string; author?: string; date?: string }> | undefined
+    const compName = ins.competitor_id ? competitorNameMap.get(ins.competitor_id) : undefined
+    if (samples) {
+      for (const review of samples) {
+        if (review.text) {
+          recentReviews.push({ ...review, competitorName: compName })
+        }
+      }
+    }
+  }
+
   const baseParams: Record<string, string> = {}
   if (selectedLocationId) baseParams.location_id = selectedLocationId
   if (resolvedSearchParams?.range) baseParams.range = resolvedSearchParams.range
@@ -287,11 +365,48 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   if (resolvedSearchParams?.severity) baseParams.severity = resolvedSearchParams.severity
   if (statusFilter) baseParams.status = statusFilter
 
+  // -------------------------------------------------------------------------
+  // Fetch social media intelligence data
+  // -------------------------------------------------------------------------
+  const socialData = selectedLocationId
+    ? await fetchSocialDashboardData(selectedLocationId)
+    : { profiles: [], handles: [] }
+
   // Cache key components for the briefing
   const latestDateKey = allInsights[0]?.date_key as string | undefined
   const briefingCacheKey = selectedLocationId
     ? `${selectedLocationId}:${allInsights.length}:${latestDateKey ?? "none"}`
     : null
+
+  // Build rich business context for the priority briefing
+  const briefingContext: BusinessContext = {
+    locationRating: locationRating,
+    locationReviewCount: locationReviewCount,
+    competitorCount: competitors.length,
+    weatherSummary: weatherForBadge
+      ? `${weatherForBadge.weather_condition}, High ${Math.round(weatherForBadge.temp_high_f)}°F / Low ${Math.round(weatherForBadge.temp_low_f)}°F${weatherForBadge.precipitation_in > 0 ? `, ${weatherForBadge.precipitation_in.toFixed(2)}" precipitation` : ""}${weatherForBadge.is_severe ? " (SEVERE)" : ""}`
+      : null,
+    trafficSummary: (() => {
+      if (trafficData.length === 0) return null
+      const allDays = trafficData.flatMap((t) => t.days)
+      if (allDays.length === 0) return null
+      const peakDay = allDays.reduce((best, d) => (d.peak_score > best.peak_score ? d : best), allDays[0])
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+      return `Peak traffic: ${dayNames[peakDay.day_of_week]} at ${peakDay.peak_hour}:00 (score: ${peakDay.peak_score}/100). Tracking ${trafficData.length} competitor(s).`
+    })(),
+    photoSummary: photoItems.length > 0
+      ? `${photoItems.length} photos analyzed. Categories: ${[...new Set(photoItems.map((p) => p.category))].slice(0, 4).join(", ")}. ${photoItems.filter((p) => p.promotional_content).length} promotional.`
+      : null,
+    socialSummary: socialData.profiles.length > 0
+      ? (() => {
+          const locProfiles = socialData.profiles.filter((p) => p.entityType === "location")
+          const compProfiles = socialData.profiles.filter((p) => p.entityType === "competitor")
+          const platforms = [...new Set(socialData.profiles.map((p) => p.platform))].join(", ")
+          const locFollowers = locProfiles.reduce((s, p) => s + p.followerCount, 0)
+          return `Tracking ${socialData.profiles.length} profiles on ${platforms}. Your followers: ${locFollowers.toLocaleString()}. ${compProfiles.length} competitor profiles tracked.`
+        })()
+      : null,
+  }
 
   // -------------------------------------------------------------------------
   // Render
@@ -315,7 +430,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
               <h1 className="text-xl font-bold tracking-tight">Insights</h1>
             </div>
             <p className="max-w-md text-sm text-white/70">
-              Changes and opportunities across competitors, events, SEO, and content for{" "}
+              Changes and opportunities across competitors, events, SEO, social media, and content for{" "}
               <span className="font-medium text-white/90">{selectedLocation?.name ?? "your locations"}</span>.
             </p>
           </div>
@@ -388,21 +503,39 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             preferences={preferences}
             locationName={selectedLocation?.name ?? "Your location"}
             cacheKey={briefingCacheKey}
+            context={briefingContext}
           />
         </Suspense>
       )}
 
-      {/* Charts Dashboard */}
+      {/* Weather Context Badge */}
+      {weatherForBadge && (
+        <WeatherBadge weather={weatherForBadge} />
+      )}
+
+      {/* Charts Dashboard (competitor analytics) */}
       {selectedLocationId && (
         <InsightsDashboard
           ratingComparison={ratingComparison}
           reviewGrowthDelta={reviewGrowthDelta}
           sentimentCounts={sentimentCounts}
-          reviewCountComparison={reviewCountComparison}
           avgCompetitorRating={avgCompetitorRating}
           locationRating={locationRating}
           reviewShare={reviewShare}
+          recentReviews={recentReviews}
         />
+      )}
+
+      {/* Social Media Intelligence Dashboard */}
+      {socialData.profiles.length > 0 && (
+        <SocialDashboard profiles={socialData.profiles} />
+      )}
+
+      {/* Busy Times Traffic Chart */}
+      {trafficData.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <TrafficChart data={trafficData} />
+        </div>
       )}
 
       {/* Client-side tabs + insight feed (instant tab switching) */}
@@ -412,6 +545,13 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
         statusFilter={statusFilter}
         preferencesCount={preferences.length}
       />
+
+      {/* Photo Gallery */}
+      {photoItems.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <PhotoGallery photos={photoItems} />
+        </div>
+      )}
     </section>
   )
 }

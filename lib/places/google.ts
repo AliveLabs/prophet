@@ -111,6 +111,7 @@ export async function fetchPlaceDetails(placeId: string) {
       "X-Goog-FieldMask":
         "id,displayName,primaryType,types,formattedAddress,shortFormattedAddress,adrFormatAddress,addressComponents,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,businessStatus,priceLevel,googleMapsUri,utcOffsetMinutes,editorialSummary,currentOpeningHours,regularOpeningHours,reviews",
     },
+    next: { revalidate: 604800, tags: ["place-details"] },
   })
 
   if (!response.ok) {

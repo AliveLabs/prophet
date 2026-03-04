@@ -2,13 +2,14 @@ import { serve } from "https://deno.land/std@0.203.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 type JobMessage = {
-  job_type: "fetch_snapshot" | "generate_insights"
+  job_type: "fetch_snapshot" | "generate_insights" | "social_fetch_snapshot" | "social_generate_insights"
   organization_id: string
   location_id: string
   competitor_id: string
   date_key: string
   attempt: number
   trace_id: string
+  social_profile_id?: string
 }
 
 type NormalizedSnapshot = {
@@ -907,6 +908,151 @@ serve(async (req) => {
       // Simplified insight generation for background jobs
       // Full context-aware insights happen in the server action
       return new Response(JSON.stringify({ ok: true, message: "SEO insights deferred to server action" }), { status: 200 })
+    }
+
+    // =====================================================================
+    // SOCIAL MEDIA JOBS (Data365)
+    // =====================================================================
+
+    if (job.job_type === "social_fetch_snapshot") {
+      const socialProfileId = job.social_profile_id
+      if (!socialProfileId) {
+        return new Response("Missing social_profile_id", { status: 400 })
+      }
+
+      const { data: profile, error: spErr } = await supabase
+        .from("social_profiles")
+        .select("id, entity_type, entity_id, platform, handle")
+        .eq("id", socialProfileId)
+        .single()
+
+      if (spErr || !profile) {
+        return new Response("Social profile not found", { status: 404 })
+      }
+
+      const data365Token = Deno.env.get("DATA365_ACCESS_TOKEN")
+      if (!data365Token) {
+        throw new Error("DATA365_ACCESS_TOKEN not configured")
+      }
+
+      const platform = profile.platform as string
+      const handle = profile.handle as string
+      const baseUrl = "https://api.data365.co/v1.1"
+
+      // Step 1: Initiate data collection
+      const updateUrl = `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}/update?access_token=${data365Token}&load_posts=true`
+      await fetch(updateUrl, { method: "POST" })
+
+      // Step 2: Poll until finished (max 60 attempts x 5s = 5 min)
+      let finished = false
+      for (let i = 0; i < 60; i++) {
+        await new Promise((r) => setTimeout(r, 5000))
+        const statusRes = await fetch(
+          `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}/update?access_token=${data365Token}`,
+          { method: "GET" }
+        )
+        const statusData = await statusRes.json()
+        if (statusData.status === "finished") { finished = true; break }
+        if (statusData.status === "fail" || statusData.status === "canceled") {
+          throw new Error(`Data365 collection ${statusData.status}: ${statusData.error_message ?? ""}`)
+        }
+      }
+
+      if (!finished) {
+        throw new Error(`Data365 polling timed out for ${platform}/${handle}`)
+      }
+
+      // Step 3: Retrieve profile data
+      const profileRes = await fetch(
+        `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}?access_token=${data365Token}`,
+        { method: "GET" }
+      )
+      const profileData = await profileRes.json()
+
+      // Step 3b: Retrieve recent posts
+      const postsRes = await fetch(
+        `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}/posts?access_token=${data365Token}&max_page=1&page_size=20&order_by=date`,
+        { method: "GET" }
+      )
+      const postsData = await postsRes.json()
+
+      // Build snapshot payload with aggregate metrics
+      const rawProfile = profileData.data ?? {}
+      const rawPosts = postsData.data?.items ?? []
+
+      const followers = rawProfile.followers_count ?? rawProfile.followers ?? 0
+      const posts = rawPosts as Array<Record<string, unknown>>
+      const postCount = posts.length
+
+      let totalLikes = 0, totalComments = 0, totalShares = 0, totalViews = 0, viewPostCount = 0
+      const hashtagCounts: Record<string, number> = {}
+
+      for (const p of posts) {
+        totalLikes += (p.like_count ?? p.digg_count ?? p.likes_count ?? 0) as number
+        totalComments += (p.comment_count ?? p.comments_count ?? 0) as number
+        totalShares += (p.share_count ?? p.shares_count ?? 0) as number
+        const views = (p.play_count ?? p.video_view_count ?? null) as number | null
+        if (views != null) { totalViews += views; viewPostCount++ }
+
+        const tags = (p.hashtags ?? []) as Array<string | Record<string, unknown>>
+        for (const t of tags) {
+          const tag = (typeof t === "string" ? t : (t.name as string) ?? "").toLowerCase().replace(/^#/, "")
+          if (tag) hashtagCounts[tag] = (hashtagCounts[tag] ?? 0) + 1
+        }
+      }
+
+      const avgLikes = postCount > 0 ? Math.round(totalLikes / postCount) : 0
+      const avgComments = postCount > 0 ? Math.round((totalComments / postCount) * 10) / 10 : 0
+      const avgShares = postCount > 0 ? Math.round((totalShares / postCount) * 10) / 10 : 0
+      const avgViews = viewPostCount > 0 ? Math.round(totalViews / viewPostCount) : null
+      const engagementRate = followers > 0 ? Math.round(((avgLikes + avgComments) / followers) * 10000) / 100 : 0
+
+      const topHashtags = Object.entries(hashtagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([tag]) => tag)
+
+      const snapshotPayload = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        profile: rawProfile,
+        recentPosts: rawPosts,
+        aggregateMetrics: {
+          avgLikesPerPost: avgLikes,
+          avgCommentsPerPost: avgComments,
+          avgSharesPerPost: avgShares,
+          avgViewsPerPost: avgViews,
+          engagementRate,
+          postingFrequencyPerWeek: 0,
+          topHashtags,
+        },
+      }
+
+      const snapshotStr = JSON.stringify(snapshotPayload)
+      const encoder = new TextEncoder()
+      const hashBuf = await crypto.subtle.digest("SHA-256", encoder.encode(snapshotStr))
+      const diffHash = Array.from(new Uint8Array(hashBuf)).map((b) => b.toString(16).padStart(2, "0")).join("")
+
+      const { error: snapError } = await supabase.from("social_snapshots").upsert(
+        {
+          social_profile_id: socialProfileId,
+          date_key: job.date_key,
+          raw_data: snapshotPayload,
+          diff_hash: diffHash,
+          captured_at: new Date().toISOString(),
+        },
+        { onConflict: "social_profile_id,date_key" }
+      )
+
+      if (snapError) throw snapError
+
+      return new Response(JSON.stringify({ ok: true, platform, handle, posts: postCount }), { status: 200 })
+    }
+
+    if (job.job_type === "social_generate_insights") {
+      // Social insights are generated in the server action alongside other insight types.
+      // This job is a placeholder for future background-only social insight generation.
+      return new Response(JSON.stringify({ ok: true, message: "Social insights deferred to server action" }), { status: 200 })
     }
 
     return new Response("Unsupported job type", { status: 400 })
