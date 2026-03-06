@@ -95,35 +95,17 @@ export async function runSocialDiscoveryAction(locationId: string): Promise<{
 
   let totalDiscovered = 0
 
-  // Discover for the location itself
-  const locHandles = await discoverSocialHandles(location.name, location.website)
-  for (const h of locHandles) {
-    const { error } = await supabase.from("social_profiles").upsert(
-      {
-        entity_type: "location" as const,
-        entity_id: location.id,
-        platform: h.platform,
-        handle: h.handle,
-        profile_url: h.profileUrl,
-        discovery_method: h.method,
-        is_verified: false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "entity_type,entity_id,platform" }
-    )
-    if (!error) totalDiscovered++
-  }
-
-  // Discover for each approved competitor
-  for (const comp of approved) {
-    const compMeta = comp.metadata as Record<string, unknown> | null
-    const compWebsite = (comp.website ?? compMeta?.website ?? null) as string | null
-    const compHandles = await discoverSocialHandles(comp.name, compWebsite)
-    for (const h of compHandles) {
+  async function upsertHandles(
+    entityType: "location" | "competitor",
+    entityId: string,
+    handles: Awaited<ReturnType<typeof discoverSocialHandles>>
+  ): Promise<number> {
+    let count = 0
+    for (const h of handles) {
       const { error } = await supabase.from("social_profiles").upsert(
         {
-          entity_type: "competitor" as const,
-          entity_id: comp.id,
+          entity_type: entityType,
+          entity_id: entityId,
           platform: h.platform,
           handle: h.handle,
           profile_url: h.profileUrl,
@@ -133,8 +115,34 @@ export async function runSocialDiscoveryAction(locationId: string): Promise<{
         },
         { onConflict: "entity_type,entity_id,platform" }
       )
-      if (!error) totalDiscovered++
+      if (!error) count++
     }
+    return count
+  }
+
+  // Discover for the location + all competitors in parallel
+  const allEntities = [
+    { type: "location" as const, id: location.id, name: location.name, website: location.website as string | null },
+    ...approved.map((comp) => {
+      const compMeta = comp.metadata as Record<string, unknown> | null
+      return {
+        type: "competitor" as const,
+        id: comp.id,
+        name: comp.name,
+        website: (comp.website ?? compMeta?.website ?? null) as string | null,
+      }
+    }),
+  ]
+
+  const results = await Promise.allSettled(
+    allEntities.map(async (entity) => {
+      const handles = await discoverSocialHandles(entity.name, entity.website)
+      return upsertHandles(entity.type, entity.id, handles)
+    })
+  )
+
+  for (const r of results) {
+    if (r.status === "fulfilled") totalDiscovered += r.value
   }
 
   return { discovered: totalDiscovered }
@@ -253,22 +261,23 @@ export async function fetchSocialDashboardData(locationId: string) {
     isVerified: p.is_verified,
   }))
 
-  // Extract recent posts from snapshots, sorted by engagement (likes + comments)
-  const recentPosts: Array<NormalizedSocialPost & { entityName: string; entityType: "location" | "competitor" }> = []
+  // Extract ALL recent posts from snapshots for client-side filtering
+  type PostWithMeta = NormalizedSocialPost & { entityName: string; entityType: "location" | "competitor" }
+  const allPosts: PostWithMeta[] = []
+
   for (const profile of allProfiles) {
     const snap = latestSnapshots.get(profile.id) as SocialSnapshotData | undefined
     if (!snap?.recentPosts?.length) continue
     const entityName = nameMap.get(profile.entity_id) ?? "Unknown"
     const entityType = profile.entity_type as "location" | "competitor"
     for (const post of snap.recentPosts) {
-      recentPosts.push({ ...post, entityName, entityType })
+      allPosts.push({ ...post, entityName, entityType })
     }
   }
 
-  recentPosts.sort((a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount))
-  const topPosts = recentPosts.slice(0, 10)
+  allPosts.sort((a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount))
 
-  return { profiles: dashboardProfiles, handles, topPosts }
+  return { profiles: dashboardProfiles, handles, topPosts: allPosts }
 }
 
 // ---------------------------------------------------------------------------

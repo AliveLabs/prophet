@@ -9,12 +9,9 @@
 
 ## Executive Summary
 
-Data365 is **not viable as our primary social media data provider** for the Prophet competitive intelligence platform. Testing across 17 account/platform combinations reveals two critical, unfixable limitations:
+**UPDATE (January 31, 2026)**: The root cause of missing post data has been identified and fixed. We were using the wrong API parameter (`load_posts` instead of `load_feed_posts`). Data365 support confirmed this was a parameter naming error on our side, not an API limitation. Trial accounts have no restrictions on post loading. The fix has been applied to both the main client and the Supabase edge function.
 
-1. **Post data is unavailable for 88% of tracked accounts** — only 2 out of 17 return any posts
-2. **Image URLs expire within days** — the CDN links returned by Data365 are Instagram/Facebook temporary tokens, not permanent URLs
-
-These are API-level limitations, not code bugs. Our normalization pipeline is correct and works when data is available.
+**Previous assessment** (now partially invalidated): ~~Data365 is not viable as our primary social media data provider.~~ The 88% failure rate for post data was caused by our incorrect parameter, not by API limitations. Image URL expiration remains a known behavior that requires either immediate download or re-fetching.
 
 ---
 
@@ -46,27 +43,25 @@ We tested every social profile tracked in Prophet by querying the Data365 posts 
 
 **Result: 2/17 accounts (12%) return posts. All Facebook accounts return 0 posts. All TikTok accounts return 0 posts.**
 
-### 2. The `load_posts` Parameter (Ineffective)
+### 2. The `load_posts` Parameter — ROOT CAUSE IDENTIFIED (January 31, 2026)
 
-Our pipeline sends `load_posts=true` and `max_posts=20` as query parameters in the `POST /{platform}/profile/{handle}/update` request. Testing reveals:
+**UPDATE**: Data365 technical support confirmed that we were using the **wrong parameter name**. The correct parameter is `load_feed_posts`, NOT `load_posts`. The API silently ignores unknown parameters, which is why posts were never loaded.
 
-- The API accepts these parameters without error (HTTP 202 Accepted)
-- The profile update completes successfully (`status: "finished"`)
-- Profile metadata is updated correctly (followers, bio, posts_count)
-- **However, the posts endpoint remains empty** — `load_posts` has no observable effect
+**Root cause**: Our pipeline was sending `load_posts=true` — an invalid parameter — instead of `load_feed_posts=true` in the `POST /{platform}/profile/{handle}/update` request. The API accepted the request without error (HTTP 202) and collected profile metadata successfully, but never triggered post collection because the parameter was unrecognized.
 
-We tested with:
-- `load_posts=true` (string)
-- `load_posts=1` (integer)
-- `update_interval=0` (force fresh update, bypass cache)
-- Waiting 60+ seconds after profile update completion
+**Fix applied**: Changed `load_posts` to `load_feed_posts` in:
+- `lib/providers/data365/client.ts` (central client used by all platform adapters)
+- `supabase/functions/job_worker/index.ts` (edge function)
 
-None of these produced posts for accounts that didn't already have them.
+**Additional clarifications from Data365 support**:
+- Trial accounts have NO limitations on post loading — this was never a tier issue
+- The `max_posts` parameter (default 10, we use 20) was correct
+- Feed posts cost +1 credit per post; reels cost +2; tagged posts cost +2
+- Expired media URLs in old cached posts are expected — social platforms rotate CDN URLs frequently
+- Fresh POST requests with `load_feed_posts=true` should return valid, active media URLs
+- To preserve media, either download immediately after retrieval or use the S3 storage parameter
 
-**Conclusion**: The `load_posts` parameter is either:
-1. Not a supported parameter (not documented in Data365's official docs)
-2. Only effective for premium/enterprise tier accounts
-3. Silently ignored by the API
+**Previous (incorrect) conclusion**: ~~The `load_posts` parameter is either not supported, premium-only, or silently ignored.~~ The parameter was simply the wrong name.
 
 ### 3. Why Some Accounts Have Posts
 

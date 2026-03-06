@@ -4,8 +4,10 @@ import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import WeatherHistory, { type WeatherDay } from "@/components/weather/weather-history"
 import LocationWeatherCards, { type LocationWeather } from "@/components/weather/location-weather-cards"
+import WeatherActionableInsights from "@/components/weather/weather-actionable-insights"
 import { Card } from "@/components/ui/card"
 import { fetchForecast } from "@/lib/providers/openweathermap"
+import { fetchWeatherPageData } from "@/lib/cache/weather"
 
 type WeatherPageProps = {
   searchParams?: Promise<{
@@ -37,21 +39,13 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   const selectedLocationId = resolvedParams?.location_id ?? locations?.[0]?.id ?? null
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId)
 
-  // Fetch weather history for selected location (last 30 days)
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const startDate = thirtyDaysAgo.toISOString().slice(0, 10)
+  // Fetch weather data (cached, 7-day TTL)
+  const allLocationIds = (locations ?? []).map((l) => l.id)
+  const cached = selectedLocationId
+    ? await fetchWeatherPageData(selectedLocationId, allLocationIds)
+    : { weatherHistory: [], allLocationWeather: [], weatherInsights: [] }
 
-  const { data: weatherHistoryRaw } = selectedLocationId
-    ? await supabase
-        .from("location_weather")
-        .select("date, temp_high_f, temp_low_f, weather_condition, weather_icon, precipitation_in, is_severe, humidity_avg, wind_speed_max_mph")
-        .eq("location_id", selectedLocationId)
-        .gte("date", startDate)
-        .order("date", { ascending: false })
-    : { data: [] }
-
-  const historicalDays: WeatherDay[] = (weatherHistoryRaw ?? []).map((w) => ({
+  const historicalDays: WeatherDay[] = cached.weatherHistory.map((w) => ({
     date: w.date,
     temp_high_f: w.temp_high_f ?? 0,
     temp_low_f: w.temp_low_f ?? 0,
@@ -93,19 +87,9 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
 
   const weatherDays: WeatherDay[] = [...historicalDays, ...forecastDays]
 
-  // Fetch latest weather for ALL locations
-  const allLocationIds = (locations ?? []).map((l) => l.id)
-  const { data: allWeatherRaw } = allLocationIds.length > 0
-    ? await supabase
-        .from("location_weather")
-        .select("location_id, date, temp_high_f, temp_low_f, weather_condition, weather_icon, precipitation_in, is_severe, humidity_avg, wind_speed_max_mph")
-        .in("location_id", allLocationIds)
-        .order("date", { ascending: false })
-    : { data: [] }
-
-  // Pick latest per location
+  // Pick latest weather per location from cache
   const latestByLocation = new Map<string, LocationWeather>()
-  for (const w of allWeatherRaw ?? []) {
+  for (const w of cached.allLocationWeather) {
     if (latestByLocation.has(w.location_id)) continue
     const loc = locations?.find((l) => l.id === w.location_id)
     latestByLocation.set(w.location_id, {
@@ -124,16 +108,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   }
   const allLocationWeather = [...latestByLocation.values()]
 
-  // Fetch weather-related insights
-  const { data: weatherInsights } = selectedLocationId
-    ? await supabase
-        .from("insights")
-        .select("id, title, summary, severity, insight_type, date_key")
-        .eq("location_id", selectedLocationId)
-        .or("insight_type.like.visual.weather%,insight_type.like.traffic.weather%")
-        .order("date_key", { ascending: false })
-        .limit(10)
-    : { data: [] }
+  const weatherInsights = cached.weatherInsights
 
   // KPIs (from historical only)
   const latestWeather = historicalDays[0]
@@ -240,6 +215,9 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
               todayDate={todayStr}
             />
           </div>
+
+          {/* Actionable Weather Insights */}
+          <WeatherActionableInsights days={weatherDays} todayStr={todayStr} />
 
           {/* All Locations Cards */}
           {allLocationWeather.length > 1 && (

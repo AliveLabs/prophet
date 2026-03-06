@@ -6,10 +6,8 @@ import SocialDashboard from "@/components/insights/social-dashboard"
 import SocialPostsGrid from "@/components/insights/social-posts-grid"
 import InsightFeed, { type FeedInsight } from "@/components/insights/insight-feed"
 import { scoreInsights, type InsightPreference } from "@/lib/insights/scoring"
-import {
-  fetchSocialDashboardData,
-  runSocialDiscoveryAction,
-} from "./actions"
+import { fetchSocialPageData } from "@/lib/cache/social"
+import { fetchSocialDashboardData } from "./actions"
 import SocialHandleSection from "./handle-section"
 
 type SocialPageProps = {
@@ -43,47 +41,20 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -------------------------------------------------------------------------
-  // Parallel fetch: social dashboard data + social insights + preferences
+  // Parallel fetch: social dashboard data + cached insights/preferences
   // -------------------------------------------------------------------------
 
-  const startDate = new Date()
-  startDate.setDate(startDate.getDate() - 30)
-  const startDateStr = startDate.toISOString().slice(0, 10)
-
-  let insightQuery = supabase
-    .from("insights")
-    .select(
-      "id, title, summary, confidence, severity, status, user_feedback, evidence, recommendations, date_key, competitor_id, insight_type"
-    )
-    .gte("date_key", startDateStr)
-    .like("insight_type", "social.%")
-    .neq("status", "dismissed")
-    .order("date_key", { ascending: false })
-
-  if (selectedLocationId) insightQuery = insightQuery.eq("location_id", selectedLocationId)
-
-  const [
-    socialData,
-    { data: allInsightsRaw },
-    { data: prefsRaw },
-  ] = await Promise.all([
+  const [socialData, cached] = await Promise.all([
     selectedLocationId
       ? fetchSocialDashboardData(selectedLocationId)
       : Promise.resolve({ profiles: [], handles: [], topPosts: [] }),
-    insightQuery,
-    supabase
-      .from("insight_preferences")
-      .select("insight_type, weight, useful_count, dismissed_count")
-      .eq("organization_id", organizationId),
+    selectedLocationId
+      ? fetchSocialPageData(organizationId, selectedLocationId)
+      : Promise.resolve({ insights: [], preferences: [] }),
   ])
 
-  const allInsights = allInsightsRaw ?? []
-  const preferences: InsightPreference[] = (prefsRaw ?? []).map((p) => ({
-    insight_type: p.insight_type,
-    weight: Number(p.weight),
-    useful_count: p.useful_count,
-    dismissed_count: p.dismissed_count,
-  }))
+  const allInsights = cached.insights
+  const preferences: InsightPreference[] = cached.preferences
 
   // -------------------------------------------------------------------------
   // Score insights

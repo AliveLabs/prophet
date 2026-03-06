@@ -4,9 +4,11 @@ import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import TrafficHeatmap, { type HeatmapData } from "@/components/traffic/traffic-heatmap"
 import PeakComparison from "@/components/traffic/peak-comparison"
+import TrafficInsightsSection from "@/components/traffic/traffic-insights"
 import { buildPeakData } from "@/lib/traffic/peak-data"
 import TrafficChart from "@/components/insights/traffic-chart"
 import { Card } from "@/components/ui/card"
+import { fetchTrafficPageData } from "@/lib/cache/traffic"
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -56,13 +58,9 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const competitorIds = (competitors ?? []).map((c) => c.id)
   const competitorNameMap = new Map((competitors ?? []).map((c) => [c.id, c.name ?? "Competitor"]))
 
-  const { data: busyTimesRaw } = competitorIds.length > 0
-    ? await supabase
-        .from("busy_times")
-        .select("competitor_id, day_of_week, hourly_scores, peak_hour, peak_score, slow_hours, typical_time_spent, current_popularity")
-        .in("competitor_id", competitorIds)
-        .order("created_at", { ascending: false })
-    : { data: [] }
+  // Fetch busy times (cached, 7-day TTL)
+  const cached = await fetchTrafficPageData(competitorIds)
+  const busyTimesRaw = cached.busyTimes
 
   // Group by competitor
   const byCompetitor = new Map<string, Array<{
@@ -75,7 +73,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
 
   const currentPopMap = new Map<string, number | null>()
 
-  for (const bt of busyTimesRaw ?? []) {
+  for (const bt of busyTimesRaw) {
     const arr = byCompetitor.get(bt.competitor_id) ?? []
     arr.push({
       day_of_week: bt.day_of_week,
@@ -226,6 +224,9 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <PeakComparison competitors={peakData} />
           </div>
+
+          {/* Traffic Insights */}
+          <TrafficInsightsSection data={trafficData} />
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">

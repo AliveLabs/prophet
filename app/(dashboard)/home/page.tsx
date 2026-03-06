@@ -4,12 +4,22 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
+import { fetchHomePageData } from "@/lib/cache/home"
+import { computeRelevanceScore } from "@/lib/insights/scoring"
+import HomeChartsSection from "./home-charts-section"
 
 const SEVERITY_COLORS: Record<string, string> = {
   critical: "border-red-200 bg-red-50 text-red-800",
   warning: "border-amber-200 bg-amber-50 text-amber-800",
   info: "border-blue-200 bg-blue-50 text-blue-800",
   positive: "border-emerald-200 bg-emerald-50 text-emerald-800",
+}
+
+const SEVERITY_ICONS: Record<string, string> = {
+  critical: "text-red-500",
+  warning: "text-amber-500",
+  info: "text-blue-500",
+  positive: "text-emerald-500",
 }
 
 const PIPELINE_LABELS: Record<string, { label: string; href: string }> = {
@@ -20,6 +30,7 @@ const PIPELINE_LABELS: Record<string, { label: string; href: string }> = {
   photos: { label: "Photos", href: "/photos" },
   busy_times: { label: "Busy Times", href: "/traffic" },
   weather: { label: "Weather", href: "/weather" },
+  social: { label: "Social", href: "/social" },
 }
 
 export default async function HomePage() {
@@ -35,53 +46,15 @@ export default async function HomePage() {
   const organizationId = profile?.current_organization_id
   if (!organizationId) return null
 
-  const [
-    { count: locationCount },
-    { count: competitorCount },
-    { count: insightCount },
-    { data: locations },
-    { data: recentInsights },
-    { data: recentJobs },
-  ] = await Promise.all([
-    supabase
-      .from("locations")
-      .select("id", { count: "exact", head: true })
-      .eq("organization_id", organizationId),
-    supabase
-      .from("competitors")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true),
-    supabase
-      .from("insights")
-      .select("id", { count: "exact", head: true }),
-    supabase
-      .from("locations")
-      .select("id, name")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("insights")
-      .select("id, insight_type, title, summary, severity, confidence, created_at, competitor_id")
-      .order("created_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("refresh_jobs")
-      .select("id, job_type, status, created_at, updated_at, location_id")
-      .eq("organization_id", organizationId)
-      .order("updated_at", { ascending: false })
-      .limit(20),
-  ])
+  const cached = await fetchHomePageData(organizationId)
 
-  const defaultLocationId = locations?.[0]?.id ?? null
-
-  const hasLocations = (locationCount ?? 0) > 0
-  const hasCompetitors = (competitorCount ?? 0) > 0
-  const hasInsights = (insightCount ?? 0) > 0
-
-  const approvedCompetitors = competitorCount ?? 0
+  const defaultLocationId = cached.locations[0]?.id ?? null
+  const hasLocations = cached.locationCount > 0
+  const hasCompetitors = cached.competitorCount > 0
+  const hasInsights = cached.insightCount > 0
 
   const jobsByType = new Map<string, { status: string; updatedAt: string }>()
-  for (const job of recentJobs ?? []) {
+  for (const job of cached.recentJobs) {
     const existing = jobsByType.get(job.job_type)
     if (!existing || job.updated_at > existing.updatedAt) {
       jobsByType.set(job.job_type, {
@@ -92,6 +65,17 @@ export default async function HomePage() {
   }
 
   const isNewUser = !hasCompetitors && !hasInsights
+
+  // -------------------------------------------------------------------------
+  // Top 5 Priority Actions: score + rank all non-dismissed insights
+  // -------------------------------------------------------------------------
+  const scoredInsights = cached.recentInsights
+    .map((ins) => ({
+      ...ins,
+      score: computeRelevanceScore(ins.severity, ins.confidence),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
 
   return (
     <section className="space-y-6">
@@ -111,21 +95,21 @@ export default async function HomePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-white">
           <p className="text-xs font-medium text-slate-500">Locations</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{locationCount ?? 0}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.locationCount}</p>
           <Link href="/locations" className="mt-1 text-[11px] text-indigo-600 hover:underline">
             Manage locations
           </Link>
         </Card>
         <Card className="bg-white">
           <p className="text-xs font-medium text-slate-500">Competitors Tracked</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{approvedCompetitors}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.competitorCount}</p>
           <Link href="/competitors" className="mt-1 text-[11px] text-indigo-600 hover:underline">
             View competitors
           </Link>
         </Card>
         <Card className="bg-white">
           <p className="text-xs font-medium text-slate-500">Total Insights</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{insightCount ?? 0}</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.insightCount}</p>
           <Link href="/insights" className="mt-1 text-[11px] text-indigo-600 hover:underline">
             View insights
           </Link>
@@ -145,21 +129,9 @@ export default async function HomePage() {
             Complete these steps to start receiving competitive insights.
           </p>
           <div className="mt-4 space-y-3">
-            <ChecklistItem
-              done={hasLocations}
-              label="Add your first location"
-              href="/locations"
-            />
-            <ChecklistItem
-              done={hasCompetitors}
-              label="Discover and approve competitors"
-              href="/competitors"
-            />
-            <ChecklistItem
-              done={hasInsights}
-              label="Generate your first insights"
-              href="/insights"
-            />
+            <ChecklistItem done={hasLocations} label="Add your first location" href="/locations" />
+            <ChecklistItem done={hasCompetitors} label="Discover and approve competitors" href="/competitors" />
+            <ChecklistItem done={hasInsights} label="Generate your first insights" href="/insights" />
           </div>
         </Card>
       )}
@@ -172,7 +144,7 @@ export default async function HomePage() {
               <h2 className="text-sm font-bold text-slate-900">Quick Actions</h2>
               <p className="mt-0.5 text-xs text-slate-500">
                 Refresh all data or generate insights for{" "}
-                <span className="font-medium">{locations?.[0]?.name ?? "your location"}</span>
+                <span className="font-medium">{cached.locations[0]?.name ?? "your location"}</span>
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -194,12 +166,85 @@ export default async function HomePage() {
         </Card>
       )}
 
+      {/* ================================================================= */}
+      {/* TOP 5 PRIORITY ACTIONS                                            */}
+      {/* ================================================================= */}
+      {scoredInsights.length > 0 && (
+        <Card className="bg-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">Top Priority Actions</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                The highest-impact things you should address right now
+              </p>
+            </div>
+            <Link
+              href="/insights"
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+            >
+              View all
+            </Link>
+          </div>
+          <div className="mt-4 space-y-3">
+            {scoredInsights.map((insight, idx) => {
+              const recs = (insight.recommendations ?? []) as Array<{ title?: string; rationale?: string }>
+              const firstRec = recs[0]
+              return (
+                <div
+                  key={insight.id}
+                  className={`rounded-xl border px-4 py-3 ${SEVERITY_COLORS[insight.severity ?? "info"] ?? SEVERITY_COLORS.info}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-bold text-xs ${SEVERITY_ICONS[insight.severity ?? "info"] ?? SEVERITY_ICONS.info}`}>
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold">{insight.title}</p>
+                        <Badge
+                          variant={
+                            insight.confidence === "high"
+                              ? "success"
+                              : insight.confidence === "medium"
+                                ? "warning"
+                                : "default"
+                          }
+                          className="shrink-0 text-[10px]"
+                        >
+                          {insight.confidence ?? "medium"}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs opacity-80">{insight.summary}</p>
+                      {firstRec?.title && (
+                        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/60 px-2.5 py-1.5">
+                          <svg className="mt-0.5 h-3 w-3 shrink-0 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                          </svg>
+                          <span className="text-[11px] font-medium text-slate-700">{firstRec.title}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* ================================================================= */}
+      {/* CHARTS ROW: Severity + Source + Trend                             */}
+      {/* ================================================================= */}
+      {hasInsights && (
+        <HomeChartsSection allInsights={cached.allInsights} />
+      )}
+
       {/* Data Freshness */}
       {jobsByType.size > 0 && (
         <Card className="bg-white">
           <h2 className="text-sm font-bold text-slate-900">Data Freshness</h2>
           <p className="mt-0.5 text-xs text-slate-500">Last refresh time for each pipeline</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {Object.entries(PIPELINE_LABELS).map(([type, { label, href }]) => {
               const job = jobsByType.get(type)
               return (
@@ -234,55 +279,6 @@ export default async function HomePage() {
         </Card>
       )}
 
-      {/* Recent Insights */}
-      {(recentInsights?.length ?? 0) > 0 && (
-        <Card className="bg-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Recent Insights</h2>
-              <p className="mt-0.5 text-xs text-slate-500">Latest intelligence across all sources</p>
-            </div>
-            <Link
-              href="/insights"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
-            >
-              View all
-            </Link>
-          </div>
-          <div className="mt-4 space-y-2">
-            {recentInsights?.map((insight) => (
-              <div
-                key={insight.id}
-                className={`rounded-xl border px-4 py-3 ${
-                  SEVERITY_COLORS[insight.severity ?? "info"] ?? SEVERITY_COLORS.info
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{insight.title}</p>
-                    <p className="mt-0.5 line-clamp-1 text-xs opacity-70">
-                      {insight.summary}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      insight.confidence === "high"
-                        ? "success"
-                        : insight.confidence === "medium"
-                          ? "warning"
-                          : "default"
-                    }
-                    className="shrink-0 text-[10px]"
-                  >
-                    {insight.confidence ?? "medium"}
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {/* Empty state when no insights */}
       {!hasInsights && hasCompetitors && (
         <Card className="border-dashed bg-white py-8 text-center">
@@ -311,15 +307,7 @@ export default async function HomePage() {
   )
 }
 
-function ChecklistItem({
-  done,
-  label,
-  href,
-}: {
-  done: boolean
-  label: string
-  href: string
-}) {
+function ChecklistItem({ done, label, href }: { done: boolean; label: string; href: string }) {
   return (
     <Link
       href={href}

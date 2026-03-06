@@ -8,6 +8,7 @@ import TrafficChart from "@/components/visibility/traffic-chart"
 import RankingDistribution from "@/components/visibility/ranking-distribution"
 import KeywordTabs from "@/components/visibility/keyword-tabs"
 import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
+import { fetchVisibilityPageData } from "@/lib/cache/visibility"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
@@ -70,82 +71,44 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -----------------------------------------------------------------------
-  // Helper: fetch latest location snapshot
+  // Fetch all SEO data (cached, 7-day TTL)
   // -----------------------------------------------------------------------
-  async function latestSnap(provider: string) {
-    if (!selectedLocationId) return null
-    const { data } = await supabase
-      .from("location_snapshots")
-      .select("raw_data, date_key")
-      .eq("location_id", selectedLocationId)
-      .eq("provider", provider)
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    return data
-  }
+  const cached = selectedLocationId
+    ? await fetchVisibilityPageData(selectedLocationId)
+    : { snapshots: {}, trackedKwCount: 0, competitors: [], intersectionSnaps: [] }
 
-  // -----------------------------------------------------------------------
-  // Fetch all SEO snapshots
-  // -----------------------------------------------------------------------
-  const rankSnap = await latestSnap("seo_domain_rank_overview")
+  const rankSnap = cached.snapshots["seo_domain_rank_overview"]
   const rankData = rankSnap?.raw_data as DomainRankSnapshot | null
 
-  const kwSnap = await latestSnap("seo_ranked_keywords")
+  const kwSnap = cached.snapshots["seo_ranked_keywords"]
   const rankedKeywords = ((kwSnap?.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]
   const lastRefreshed = rankSnap?.date_key ?? kwSnap?.date_key ?? null
 
-  const serpSnap = await latestSnap("seo_serp_keywords")
+  const serpSnap = cached.snapshots["seo_serp_keywords"]
   const serpEntries = ((serpSnap?.raw_data as Record<string, unknown>)?.entries ?? []) as SerpRankEntry[]
 
-  const cdSnap = await latestSnap("seo_competitors_domain")
+  const cdSnap = cached.snapshots["seo_competitors_domain"]
   const organicCompetitors = ((cdSnap?.raw_data as Record<string, unknown>)?.competitors ?? []) as NormalizedOrganicCompetitor[]
 
-  const rpSnap = await latestSnap("seo_relevant_pages")
+  const rpSnap = cached.snapshots["seo_relevant_pages"]
   const relevantPages = ((rpSnap?.raw_data as Record<string, unknown>)?.pages ?? []) as NormalizedRelevantPage[]
 
-  const sdSnap = await latestSnap("seo_subdomains")
+  const sdSnap = cached.snapshots["seo_subdomains"]
   const subdomains = ((sdSnap?.raw_data as Record<string, unknown>)?.subdomains ?? []) as NormalizedSubdomain[]
 
-  const hrSnap = await latestSnap("seo_historical_rank")
+  const hrSnap = cached.snapshots["seo_historical_rank"]
   const historicalData = ((hrSnap?.raw_data as Record<string, unknown>)?.history ?? []) as HistoricalTrafficPoint[]
 
-  const adSnap = await latestSnap("seo_ads_search")
+  const adSnap = cached.snapshots["seo_ads_search"]
   const adCreatives = ((adSnap?.raw_data as Record<string, unknown>)?.creatives ?? []) as NormalizedAdCreative[]
 
-  // Tracked keywords count
-  const { count: trackedKwCount } = selectedLocationId
-    ? await supabase
-        .from("tracked_keywords")
-        .select("id", { count: "exact", head: true })
-        .eq("location_id", selectedLocationId)
-        .eq("is_active", true)
-    : { count: 0 }
-
-  // Competitor rank snapshots for intersection
-  const { data: compSnapshots } = selectedLocationId
-    ? await supabase
-        .from("competitors")
-        .select("id, name, website")
-        .eq("location_id", selectedLocationId)
-        .eq("is_active", true)
-    : { data: [] }
+  const trackedKwCount = cached.trackedKwCount
 
   const intersectionRows: NormalizedIntersectionRow[] = []
   if (isSeoIntersectionEnabled(tier) && selectedLocationId) {
-    const compIds = (compSnapshots ?? []).map((c) => c.id)
-    if (compIds.length > 0) {
-      const { data: diSnaps } = await supabase
-        .from("snapshots")
-        .select("raw_data")
-        .in("competitor_id", compIds)
-        .eq("snapshot_type", "seo_domain_intersection_weekly")
-        .order("date_key", { ascending: false })
-        .limit(5)
-      for (const snap of diSnaps ?? []) {
-        const rows = (snap.raw_data as Record<string, unknown>)?.rows as NormalizedIntersectionRow[] | undefined
-        if (rows) intersectionRows.push(...rows)
-      }
+    for (const snap of cached.intersectionSnaps) {
+      const rows = (snap.raw_data as Record<string, unknown>)?.rows as NormalizedIntersectionRow[] | undefined
+      if (rows) intersectionRows.push(...rows)
     }
   }
 

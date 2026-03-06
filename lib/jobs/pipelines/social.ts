@@ -24,6 +24,7 @@ import {
   buildSocialSnapshot,
 } from "@/lib/social/normalize"
 import { generateSocialInsights } from "@/lib/social/insights"
+import { persistPostImages } from "@/lib/social/storage"
 import { fetchInstagramProfile, fetchInstagramPosts } from "@/lib/providers/data365/instagram"
 import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data365/facebook"
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
@@ -175,6 +176,12 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
 
         let collected = 0
 
+        const TIMEOUT_BY_PLATFORM: Record<string, number> = {
+          instagram: 90_000,
+          facebook: 90_000,
+          tiktok: 150_000,
+        }
+
         const results = await Promise.allSettled(
           profiles.map((profile) =>
             withTimeout(
@@ -185,7 +192,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
                 c.dateKey,
                 c.supabase
               ),
-              90_000
+              TIMEOUT_BY_PLATFORM[profile.platform] ?? 90_000
             )
           )
         )
@@ -426,6 +433,15 @@ async function collectSingleProfile(
         snapshot = buildSocialSnapshot(profile, posts)
         break
       }
+    }
+
+    // Download post images and replace expiring CDN URLs with permanent Storage URLs
+    if (snapshot.recentPosts.length > 0) {
+      const originalPosts = snapshot.recentPosts
+      const persisted = await persistPostImages(originalPosts, handle, platform)
+      const savedCount = persisted.filter((p) => p.mediaUrl?.includes("supabase")).length
+      console.log(`[Social] ${platform}/${handle}: persisted ${savedCount}/${persisted.length} post images to storage`)
+      snapshot = { ...snapshot, recentPosts: persisted }
     }
 
     const diffHash = computeSnapshotHash(snapshot)
