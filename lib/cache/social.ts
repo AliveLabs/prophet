@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedSocialResult = {
@@ -23,7 +24,7 @@ export type CachedSocialResult = {
   }>
 }
 
-export async function fetchSocialPageData(
+async function fetchSocialPageDataRaw(
   organizationId: string,
   locationId: string,
 ): Promise<CachedSocialResult> {
@@ -51,10 +52,6 @@ export async function fetchSocialPageData(
       .eq("organization_id", organizationId),
   ])
 
-  console.log(
-    `[Social Page] Fetched ${insightsRaw?.length ?? 0} social insights for location ${locationId}`
-  )
-
   return {
     insights: (insightsRaw ?? []) as CachedSocialResult["insights"],
     preferences: (prefsRaw ?? []).map((p) => ({
@@ -65,3 +62,9 @@ export async function fetchSocialPageData(
     })),
   }
 }
+
+export const fetchSocialPageData = unstable_cache(
+  fetchSocialPageDataRaw,
+  ["social-page-data"],
+  { revalidate: 604800, tags: ["social-data"] }
+)
