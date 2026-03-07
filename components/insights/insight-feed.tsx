@@ -1,9 +1,13 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import InsightCard from "@/components/insight-card"
-import { getSourceCategory, SOURCE_COLORS } from "@/lib/insights/scoring"
-import { saveInsightAction, dismissInsightAction } from "@/app/(dashboard)/insights/actions"
+import {
+  getSourceCategory,
+  SOURCE_COLORS,
+  SOURCE_LABELS,
+  type SourceCategory,
+} from "@/lib/insights/scoring"
 
 export type FeedInsight = {
   id: string
@@ -43,187 +47,362 @@ const TABS: TabConfig[] = [
   { value: "traffic", label: "Traffic", color: "text-orange-700", activeColor: "bg-orange-600 text-white", dot: SOURCE_COLORS.traffic.dot },
 ]
 
+const CATEGORY_ORDER: SourceCategory[] = [
+  "competitors", "events", "seo", "social", "content", "photos", "traffic",
+]
+
+const HIDDEN_STATUSES = new Set(["dismissed", "snoozed"])
+const CARDS_PER_CATEGORY = 6
+const CARDS_PER_COLUMN = 8
+
+const KANBAN_COLUMNS = [
+  { key: "inbox", label: "Inbox", statuses: new Set(["new", "read"]), accent: "bg-blue-500", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+  { key: "todo", label: "To-Do", statuses: new Set(["todo"]), accent: "bg-amber-500", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+  { key: "done", label: "Done", statuses: new Set(["actioned"]), accent: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+] as const
+
 type Props = {
   insights: FeedInsight[]
   baseParams: Record<string, string>
   statusFilter: string
-  preferencesCount: number
 }
 
-const INITIAL_VISIBLE = 6
-const LOAD_MORE_STEP = 6
-
-export default function InsightFeed({ insights, baseParams, statusFilter, preferencesCount }: Props) {
+export default function InsightFeed({ insights, baseParams, statusFilter }: Props) {
   const [activeTab, setActiveTab] = useState("")
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE)
+  const [viewMode, setViewMode] = useState<"feed" | "board">("feed")
+  const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map())
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set())
+
+  const handleStatusChange = useCallback((insightId: string, newStatus: string) => {
+    setStatusOverrides((prev) => new Map(prev).set(insightId, newStatus))
+  }, [])
+
+  const mergedInsights = useMemo(() =>
+    insights.map((i) => {
+      const override = statusOverrides.get(i.id)
+      return override ? { ...i, status: override } : i
+    }),
+    [insights, statusOverrides]
+  )
+
+  const filteredInsights = useMemo(() => {
+    let list = mergedInsights
+
+    if (!statusFilter || statusFilter === "new" || statusFilter === "") {
+      list = list.filter((i) => !HIDDEN_STATUSES.has(i.status))
+    }
+
+    if (activeTab) {
+      list = list.filter((i) => getSourceCategory(i.insightType, i.competitorId) === activeTab)
+    }
+
+    return list
+  }, [mergedInsights, activeTab, statusFilter])
 
   const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = { "": insights.length, competitors: 0, events: 0, seo: 0, social: 0, content: 0, photos: 0, traffic: 0 }
-    for (const ins of insights) {
+    const base = mergedInsights.filter((i) => !HIDDEN_STATUSES.has(i.status))
+    const counts: Record<string, number> = { "": base.length, competitors: 0, events: 0, seo: 0, social: 0, content: 0, photos: 0, traffic: 0 }
+    for (const ins of base) {
       const cat = getSourceCategory(ins.insightType, ins.competitorId)
       counts[cat] = (counts[cat] ?? 0) + 1
     }
     return counts
-  }, [insights])
+  }, [mergedInsights])
 
-  const filtered = useMemo(() => {
-    if (!activeTab) return insights
-    return insights.filter((i) => getSourceCategory(i.insightType, i.competitorId) === activeTab)
-  }, [insights, activeTab])
+  // ── Feed view: group by category ──────────────────────────────────────
 
-  const visibleInsights = useMemo(() => filtered.slice(0, visibleCount), [filtered, visibleCount])
-  const hasMore = filtered.length > visibleCount
-  const remainingCount = filtered.length - visibleCount
-
-  const insightsByDate = useMemo(() => {
-    const map = new Map<string, FeedInsight[]>()
-    for (const ins of visibleInsights) {
-      const arr = map.get(ins.dateKey) ?? []
+  const insightsByCategory = useMemo(() => {
+    const map = new Map<SourceCategory, FeedInsight[]>()
+    for (const ins of filteredInsights) {
+      const cat = getSourceCategory(ins.insightType, ins.competitorId)
+      const arr = map.get(cat) ?? []
       arr.push(ins)
-      map.set(ins.dateKey, arr)
+      map.set(cat, arr)
     }
     return map
-  }, [visibleInsights])
+  }, [filteredInsights])
 
-  const sortedDates = useMemo(
-    () => Array.from(insightsByDate.keys()).sort((a, b) => (a > b ? -1 : 1)),
-    [insightsByDate]
+  const orderedCategories = useMemo(() =>
+    CATEGORY_ORDER.filter((cat) => (insightsByCategory.get(cat)?.length ?? 0) > 0),
+    [insightsByCategory]
   )
 
-  const currentParams = { ...baseParams }
-  if (activeTab) currentParams.source = activeTab
+  const toggleCategory = useCallback((cat: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev)
+      next.has(cat) ? next.delete(cat) : next.add(cat)
+      return next
+    })
+  }, [])
+
+  // ── Board view: group by status column ────────────────────────────────
+
+  const columnInsights = useMemo(() => {
+    const map = new Map<string, FeedInsight[]>()
+    for (const col of KANBAN_COLUMNS) {
+      map.set(col.key, [])
+    }
+    for (const ins of filteredInsights) {
+      for (const col of KANBAN_COLUMNS) {
+        if (col.statuses.has(ins.status)) {
+          map.get(col.key)!.push(ins)
+          break
+        }
+      }
+    }
+    return map
+  }, [filteredInsights])
+
+  const toggleColumn = useCallback((key: string) => {
+    setExpandedColumns((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }, [])
+
+  // ── Shared empty state ────────────────────────────────────────────────
+
+  const hasAnyInsights = filteredInsights.length > 0
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5">
-        {TABS.map((tab) => {
-          const count = tabCounts[tab.value] ?? 0
-          const isActive = activeTab === tab.value
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => { setActiveTab(tab.value); setVisibleCount(INITIAL_VISIBLE) }}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-                isActive
-                  ? tab.activeColor + " shadow-sm"
-                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              {tab.value && (
-                <span className={`h-2 w-2 rounded-full ${isActive ? "bg-white/40" : tab.dot}`} />
-              )}
-              {tab.label}
-              {count > 0 && (
-                <span
-                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                    isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          )
-        })}
+      {/* Header: Tabs + View Toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {TABS.map((tab) => {
+            const count = tabCounts[tab.value] ?? 0
+            const isActive = activeTab === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveTab(tab.value)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+                  isActive
+                    ? tab.activeColor + " shadow-sm"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                {tab.value && (
+                  <span className={`h-2 w-2 rounded-full ${isActive ? "bg-white/40" : tab.dot}`} />
+                )}
+                {tab.label}
+                {count > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                      isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* View Toggle */}
+        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("feed")}
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+              viewMode === "feed"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+            title="Category feed"
+          >
+            <ListIcon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Feed</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("board")}
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+              viewMode === "board"
+                ? "bg-slate-900 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+            title="Kanban board"
+          >
+            <BoardIcon className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Board</span>
+          </button>
+        </div>
       </div>
 
-      {/* Feed */}
-      {sortedDates.length > 0 ? (
-        sortedDates.map((dateKey) => {
-          const dayInsights = insightsByDate.get(dateKey) ?? []
-          const dateLabel = (() => {
-            try {
-              return new Date(dateKey + "T12:00:00Z").toLocaleDateString("en-US", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })
-            } catch {
-              return dateKey
-            }
-          })()
+      {/* ── Feed View ────────────────────────────────────────────────── */}
+      {viewMode === "feed" && hasAnyInsights && (
+        <div className="space-y-8">
+          {orderedCategories.map((cat) => {
+            const catInsights = insightsByCategory.get(cat) ?? []
+            const isExpanded = expandedCategories.has(cat)
+            const displayLimit = isExpanded ? catInsights.length : CARDS_PER_CATEGORY
+            const visible = catInsights.slice(0, displayLimit)
+            const remaining = catInsights.length - displayLimit
+            const colors = SOURCE_COLORS[cat]
 
-          return (
-            <div key={dateKey}>
-              <div className="mb-3 flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-500">{dateLabel}</span>
-                <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
-                <span className="text-[11px] font-medium text-slate-400">
-                  {dayInsights.length} insight{dayInsights.length !== 1 ? "s" : ""}
-                </span>
-              </div>
+            return (
+              <section key={cat}>
+                <div className="mb-3 flex items-center gap-3">
+                  <div className={`flex items-center gap-2 rounded-lg px-2.5 py-1 ${colors.bg}`}>
+                    <span className={`h-2 w-2 rounded-full ${colors.dot}`} />
+                    <span className={`text-xs font-bold ${colors.text}`}>
+                      {SOURCE_LABELS[cat]}
+                    </span>
+                  </div>
+                  <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
+                  <span className="text-[11px] font-medium text-slate-400">
+                    {catInsights.length} insight{catInsights.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {dayInsights.map((insight) => (
-                  <InsightCard
-                    key={insight.id}
-                    id={insight.id}
-                    title={insight.title}
-                    summary={insight.summary}
-                    insightType={insight.insightType}
-                    competitorId={insight.competitorId}
-                    confidence={insight.confidence}
-                    severity={insight.severity}
-                    status={insight.status}
-                    userFeedback={insight.userFeedback}
-                    relevanceScore={insight.relevanceScore}
-                    urgencyLevel={insight.urgencyLevel}
-                    suppressed={insight.suppressed}
-                    evidence={insight.evidence}
-                    recommendations={insight.recommendations}
-                    subjectLabel={insight.subjectLabel}
-                    searchParams={currentParams}
-                    actions={
-                      <>
-                        <form action={saveInsightAction}>
-                          <input type="hidden" name="insight_id" value={insight.id} />
-                          {Object.entries(currentParams).map(([k, v]) => (
-                            <input key={k} type="hidden" name={`_param_${k}`} value={v} />
-                          ))}
-                          <button
-                            type="submit"
-                            className={`rounded-lg border p-1.5 transition ${
-                              insight.status === "read" || insight.userFeedback === "useful"
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-600"
-                                : "border-slate-200 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600"
-                            }`}
-                            title="Save as useful — Prophet learns from your feedback"
-                          >
-                            <svg className="h-3.5 w-3.5" fill={insight.userFeedback === "useful" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.633 10.5c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75A2.25 2.25 0 0116.5 4.5c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23H5.904M14.25 9h2.25M5.904 18.75c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 01-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 10.203 4.167 9.75 5 9.75h1.053c.472 0 .745.556.5.96a8.958 8.958 0 00-1.302 4.665c0 1.194.232 2.333.654 3.375z" />
-                            </svg>
-                          </button>
-                        </form>
-                        <form action={dismissInsightAction}>
-                          <input type="hidden" name="insight_id" value={insight.id} />
-                          {Object.entries(currentParams).map(([k, v]) => (
-                            <input key={k} type="hidden" name={`_param_${k}`} value={v} />
-                          ))}
-                          <button
-                            type="submit"
-                            className={`rounded-lg border p-1.5 transition ${
-                              insight.status === "dismissed"
-                                ? "border-rose-300 bg-rose-50 text-rose-500"
-                                : "border-slate-200 text-slate-400 hover:bg-rose-50 hover:text-rose-500"
-                            }`}
-                            title="Dismiss — Prophet learns from your feedback"
-                          >
-                            <svg className="h-3.5 w-3.5" fill={insight.userFeedback === "not_useful" ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 15h2.25m8.024-9.75c.011.05.028.1.052.148.591 1.2.924 2.55.924 3.977a8.96 8.96 0 01-1.302 4.665c-.245.404.028.96.5.96h1.053c.832 0 1.612-.453 1.918-1.227.306-.774.468-1.614.468-2.523 0-1.553-.295-3.036-.831-4.398C20.613 5.203 19.833 4.75 19 4.75h-1.053c-.472 0-.745.556-.5.96.245.404.028.96-.5.96H14.25M7.5 15v3.375c0 .621-.504 1.125-1.125 1.125h-.375a1.125 1.125 0 01-1.125-1.125V15m3.75 0V9.75A2.25 2.25 0 005.25 7.5h-.375A1.125 1.125 0 003.75 8.625v7.875c0 .621.504 1.125 1.125 1.125h.375c.621 0 1.125-.504 1.125-1.125V15z" />
-                            </svg>
-                          </button>
-                        </form>
-                      </>
-                    }
-                  />
-                ))}
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {visible.map((insight) => (
+                    <InsightCard
+                      key={insight.id}
+                      id={insight.id}
+                      title={insight.title}
+                      summary={insight.summary}
+                      insightType={insight.insightType}
+                      competitorId={insight.competitorId}
+                      confidence={insight.confidence}
+                      severity={insight.severity}
+                      status={insight.status}
+                      userFeedback={insight.userFeedback}
+                      relevanceScore={insight.relevanceScore}
+                      urgencyLevel={insight.urgencyLevel}
+                      suppressed={insight.suppressed}
+                      evidence={insight.evidence}
+                      recommendations={insight.recommendations}
+                      subjectLabel={insight.subjectLabel}
+                      searchParams={baseParams}
+                      onStatusChange={handleStatusChange}
+                    />
+                  ))}
+                </div>
+
+                {remaining > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  >
+                    <ChevronDownIcon className="h-3.5 w-3.5" />
+                    Show {remaining} more
+                  </button>
+                )}
+
+                {isExpanded && catInsights.length > CARDS_PER_CATEGORY && (
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                  >
+                    <ChevronUpIcon className="h-3.5 w-3.5" />
+                    Show less
+                  </button>
+                )}
+              </section>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Board View ───────────────────────────────────────────────── */}
+      {viewMode === "board" && hasAnyInsights && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {KANBAN_COLUMNS.map((col) => {
+            const colInsights = columnInsights.get(col.key) ?? []
+            const isExpanded = expandedColumns.has(col.key)
+            const displayLimit = isExpanded ? colInsights.length : CARDS_PER_COLUMN
+            const visible = colInsights.slice(0, displayLimit)
+            const remaining = colInsights.length - displayLimit
+
+            return (
+              <div key={col.key} className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50/50">
+                {/* Column header */}
+                <div className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-3">
+                  <span className={`h-2.5 w-2.5 rounded-full ${col.accent}`} />
+                  <h3 className="text-sm font-bold text-slate-800">{col.label}</h3>
+                  <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${col.bg} ${col.text}`}>
+                    {colInsights.length}
+                  </span>
+                </div>
+
+                {/* Column body */}
+                <div className="flex-1 space-y-2.5 p-3">
+                  {visible.length > 0 ? (
+                    visible.map((insight) => (
+                      <InsightCard
+                        key={insight.id}
+                        id={insight.id}
+                        title={insight.title}
+                        summary={insight.summary}
+                        insightType={insight.insightType}
+                        competitorId={insight.competitorId}
+                        confidence={insight.confidence}
+                        severity={insight.severity}
+                        status={insight.status}
+                        userFeedback={insight.userFeedback}
+                        relevanceScore={insight.relevanceScore}
+                        urgencyLevel={insight.urgencyLevel}
+                        suppressed={insight.suppressed}
+                        evidence={insight.evidence}
+                        recommendations={insight.recommendations}
+                        subjectLabel={insight.subjectLabel}
+                        searchParams={baseParams}
+                        onStatusChange={handleStatusChange}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-200 bg-white py-8 text-center">
+                      <p className="text-xs font-medium text-slate-400">
+                        {col.key === "inbox" && "No new insights"}
+                        {col.key === "todo" && "Nothing planned yet"}
+                        {col.key === "done" && "No completed actions"}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-slate-300">
+                        {col.key === "inbox" && "Generate insights or fetch data to see new items"}
+                        {col.key === "todo" && "Mark insights as \"To-Do\" to plan actions"}
+                        {col.key === "done" && "Mark insights as \"Done\" when actioned"}
+                      </p>
+                    </div>
+                  )}
+
+                  {remaining > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleColumn(col.key)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-white py-2 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                    >
+                      <ChevronDownIcon className="h-3 w-3" />
+                      {remaining} more
+                    </button>
+                  )}
+
+                  {isExpanded && colInsights.length > CARDS_PER_COLUMN && (
+                    <button
+                      type="button"
+                      onClick={() => toggleColumn(col.key)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-white py-2 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                    >
+                      <ChevronUpIcon className="h-3 w-3" />
+                      Show less
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })
-      ) : (
+            )
+          })}
+        </div>
+      )}
+
+      {/* ── Empty state ──────────────────────────────────────────────── */}
+      {!hasAnyInsights && (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
             <svg className="h-8 w-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -233,49 +412,55 @@ export default function InsightFeed({ insights, baseParams, statusFilter, prefer
           <h3 className="text-base font-semibold text-slate-900">
             {activeTab
               ? `No ${TABS.find((t) => t.value === activeTab)?.label.toLowerCase() ?? ""} insights`
-              : statusFilter === "saved"
-                ? "No saved insights"
-                : statusFilter === "dismissed"
-                  ? "No dismissed insights"
-                  : "No insights yet"}
+              : statusFilter === "dismissed"
+                ? "No dismissed insights"
+                : statusFilter === "todo"
+                  ? "No to-do insights"
+                  : statusFilter === "actioned"
+                    ? "No actioned insights"
+                    : "No insights yet"}
           </h3>
           <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
             {activeTab
               ? "Try switching to a different category or generate new insights."
-              : statusFilter === "saved"
-                ? "Save insights you find useful by clicking the thumbs-up button."
-                : statusFilter === "dismissed"
-                  ? "Dismissed insights will appear here."
-                  : "Generate insights or fetch events to see changes and opportunities."}
+              : "Generate insights or fetch data to see changes and opportunities."}
           </p>
         </div>
       )}
-
-      {/* Load more */}
-      {hasMore && (
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={() => setVisibleCount((c) => c + LOAD_MORE_STEP)}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-            </svg>
-            Load more ({remainingCount} remaining)
-          </button>
-        </div>
-      )}
-
-      {/* Learning indicator */}
-      {preferencesCount > 0 && (
-        <div className="flex items-center justify-center gap-2 py-2 text-[11px] text-slate-400">
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
-          Prophet is learning from your feedback across {preferencesCount} insight type{preferencesCount !== 1 ? "s" : ""}
-        </div>
-      )}
     </div>
+  )
+}
+
+// ─── Icons ─────────────────────────────────────────────────────────────
+
+function ListIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+    </svg>
+  )
+}
+
+function BoardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 4.5v15m6-15v15M4.5 4.5h15a1.5 1.5 0 011.5 1.5v12a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18V6a1.5 1.5 0 011.5-1.5z" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  )
+}
+
+function ChevronUpIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
   )
 }

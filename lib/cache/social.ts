@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedSocialResult = {
@@ -24,14 +23,14 @@ export type CachedSocialResult = {
   }>
 }
 
-async function fetchSocialPageDataRaw(
+export async function fetchSocialPageData(
   organizationId: string,
   locationId: string,
 ): Promise<CachedSocialResult> {
   const supabase = createAdminSupabaseClient()
 
   const startDate = new Date()
-  startDate.setDate(startDate.getDate() - 30)
+  startDate.setDate(startDate.getDate() - 7)
   const startDateStr = startDate.toISOString().slice(0, 10)
 
   const [{ data: insightsRaw }, { data: prefsRaw }] = await Promise.all([
@@ -43,13 +42,18 @@ async function fetchSocialPageDataRaw(
       .eq("location_id", locationId)
       .gte("date_key", startDateStr)
       .like("insight_type", "social.%")
-      .neq("status", "dismissed")
-      .order("date_key", { ascending: false }),
+      .not("status", "in", '("dismissed","snoozed")')
+      .order("date_key", { ascending: false })
+      .limit(20),
     supabase
       .from("insight_preferences")
       .select("insight_type, weight, useful_count, dismissed_count")
       .eq("organization_id", organizationId),
   ])
+
+  console.log(
+    `[Social Page] Fetched ${insightsRaw?.length ?? 0} social insights for location ${locationId}`
+  )
 
   return {
     insights: (insightsRaw ?? []) as CachedSocialResult["insights"],
@@ -61,9 +65,3 @@ async function fetchSocialPageDataRaw(
     })),
   }
 }
-
-export const fetchSocialPageData = unstable_cache(
-  fetchSocialPageDataRaw,
-  ["social-page-data"],
-  { revalidate: 604800, tags: ["social-data"] }
-)

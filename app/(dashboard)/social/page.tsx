@@ -223,25 +223,49 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
         <SocialPostsGrid posts={socialData.topPosts} />
       )}
 
-      {/* Social Insights Feed */}
-      {feedInsights.length > 0 ? (
-        <InsightFeed
-          insights={feedInsights}
-          baseParams={baseParams}
-          statusFilter=""
-          preferencesCount={preferences.length}
-        />
-      ) : socialData.profiles.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-          <svg className="mx-auto h-12 w-12 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-slate-600">No social profiles connected yet</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Add your social media handles above or click &quot;Discover Handles&quot; to automatically find profiles
-          </p>
+      {/* Social Intelligence Insights */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 text-amber-600">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Social Intelligence Insights</h2>
+            <p className="text-xs text-slate-500">AI-powered analysis of your social presence vs competitors</p>
+          </div>
         </div>
-      ) : null}
+
+        {feedInsights.length > 0 ? (
+          <InsightFeed
+            insights={feedInsights}
+            baseParams={baseParams}
+            statusFilter=""
+          />
+        ) : socialData.profiles.length > 0 ? (
+          <div className="rounded-2xl border border-dashed border-amber-200 bg-gradient-to-br from-amber-50/50 to-orange-50/30 py-12 text-center">
+            <svg className="mx-auto h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+            </svg>
+            <p className="mt-3 text-sm font-medium text-slate-700">No insights generated yet</p>
+            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-slate-500">
+              Insights are generated automatically when you run &quot;Fetch Social Data&quot;.
+              The AI analyzes your posts, engagement, and visual content against competitors to surface actionable recommendations.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+            <svg className="mx-auto h-12 w-12 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+            </svg>
+            <p className="mt-3 text-sm font-medium text-slate-600">No social profiles connected yet</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Add your social media handles above or click &quot;Discover Handles&quot; to automatically find profiles
+            </p>
+          </div>
+        )}
+      </div>
     </section>
   )
 }

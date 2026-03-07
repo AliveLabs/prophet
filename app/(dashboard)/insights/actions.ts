@@ -34,98 +34,70 @@ import type { InsightPreference } from "@/lib/insights/scoring"
 import { getCachedBriefing, setCachedBriefing } from "@/lib/insights/briefing-cache"
 
 // ---------------------------------------------------------------------------
-// Helper: rebuild redirect URL preserving all search params
+// Unified insight status update action
+// Updates status, optionally adjusts org preference, revalidates current page
 // ---------------------------------------------------------------------------
 
-function buildRedirectUrl(formData: FormData): string {
-  const params = new URLSearchParams()
-  const preserve = ["location_id", "range", "confidence", "severity", "source", "status"]
-  for (const key of preserve) {
-    const val = formData.get(`_param_${key}`)
-    if (val && typeof val === "string") params.set(key, val)
+const VALID_STATUSES = new Set(["new", "read", "todo", "actioned", "snoozed", "dismissed"])
+const POSITIVE_STATUSES = new Set(["read", "todo", "actioned"])
+
+export async function updateInsightStatusAction(formData: FormData) {
+  const user = await requireUser()
+  const insightId = String(formData.get("insight_id") ?? "")
+  const newStatus = String(formData.get("new_status") ?? "")
+  const currentPath = String(formData.get("current_path") ?? "/insights")
+
+  if (!insightId || !VALID_STATUSES.has(newStatus)) return
+
+  const supabase = await createServerSupabaseClient()
+
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type")
+    .eq("id", insightId)
+    .maybeSingle()
+
+  const userFeedback = newStatus === "dismissed"
+    ? "not_useful"
+    : POSITIVE_STATUSES.has(newStatus)
+      ? "useful"
+      : null
+
+  await supabase
+    .from("insights")
+    .update({
+      status: newStatus,
+      ...(userFeedback ? { user_feedback: userFeedback } : {}),
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
+    .eq("id", insightId)
+
+  if (insight && userFeedback) {
+    const feedback = userFeedback === "useful" ? "useful" : "not_useful"
+    await updateOrgPreference(supabase, user.id, insight.insight_type, feedback)
   }
-  const qs = params.toString()
-  return `/insights${qs ? `?${qs}` : ""}`
+
+  revalidateTag("insights-data", { expire: 0 })
+  revalidateTag("social-data", { expire: 0 })
 }
 
 // ---------------------------------------------------------------------------
-// Save (useful) action
+// Legacy actions (kept for backward compat, delegate to unified action)
 // ---------------------------------------------------------------------------
 
 export async function saveInsightAction(formData: FormData) {
-  const user = await requireUser()
-  const insightId = String(formData.get("insight_id") ?? "")
-  if (!insightId) {
-    redirect("/insights?error=Missing%20insight")
-  }
-
-  const supabase = await createServerSupabaseClient()
-
-  const { data: insight } = await supabase
-    .from("insights")
-    .select("insight_type, location_id")
-    .eq("id", insightId)
-    .maybeSingle()
-
-  const { error } = await supabase
-    .from("insights")
-    .update({
-      status: "read",
-      user_feedback: "useful",
-      feedback_at: new Date().toISOString(),
-      feedback_by: user.id,
-    })
-    .eq("id", insightId)
-
-  if (error) {
-    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
-  }
-
-  if (insight) {
-    await updateOrgPreference(supabase, user.id, insight.insight_type, "useful")
-  }
-
-  redirect(buildRedirectUrl(formData))
+  formData.set("new_status", "read")
+  formData.set("current_path", "/insights")
+  await updateInsightStatusAction(formData)
+  redirect("/insights")
 }
 
-// ---------------------------------------------------------------------------
-// Dismiss (not useful) action
-// ---------------------------------------------------------------------------
-
 export async function dismissInsightAction(formData: FormData) {
-  const user = await requireUser()
-  const insightId = String(formData.get("insight_id") ?? "")
-  if (!insightId) {
-    redirect("/insights?error=Missing%20insight")
-  }
-
-  const supabase = await createServerSupabaseClient()
-
-  const { data: insight } = await supabase
-    .from("insights")
-    .select("insight_type, location_id")
-    .eq("id", insightId)
-    .maybeSingle()
-
-  const { error } = await supabase
-    .from("insights")
-    .update({
-      status: "dismissed",
-      user_feedback: "not_useful",
-      feedback_at: new Date().toISOString(),
-      feedback_by: user.id,
-    })
-    .eq("id", insightId)
-
-  if (error) {
-    redirect(`/insights?error=${encodeURIComponent(error.message)}`)
-  }
-
-  if (insight) {
-    await updateOrgPreference(supabase, user.id, insight.insight_type, "not_useful")
-  }
-
-  redirect(buildRedirectUrl(formData))
+  formData.set("new_status", "dismissed")
+  formData.set("current_path", "/insights")
+  await updateInsightStatusAction(formData)
+  redirect("/insights")
 }
 
 // ---------------------------------------------------------------------------

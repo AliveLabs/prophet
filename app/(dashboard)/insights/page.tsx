@@ -477,9 +477,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 name: "status",
                 defaultValue: statusFilter,
                 options: [
-                  { value: "", label: "New + Saved" },
-                  { value: "new", label: "New only" },
-                  { value: "saved", label: "Saved" },
+                  { value: "", label: "All active" },
+                  { value: "new", label: "New" },
+                  { value: "read", label: "Read" },
+                  { value: "todo", label: "To-Do" },
+                  { value: "actioned", label: "Done" },
+                  { value: "snoozed", label: "Snoozed" },
                   { value: "dismissed", label: "Dismissed" },
                 ],
               },
@@ -543,7 +546,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
         insights={feedInsights}
         baseParams={baseParams}
         statusFilter={statusFilter}
-        preferencesCount={preferences.length}
       />
 
       {/* Photo Gallery */}

@@ -1,8 +1,8 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** January 31, 2026
-> **Branch:** `dev`
+> **Last updated:** March 6, 2026
+> **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
 ---
@@ -48,8 +48,10 @@
 - **Visual Intelligence (Photos):** Fetches Google Places photos, analyzes via Gemini Vision for quality, ambiance, food presentation, and generates photo-based insights.
 - **Foot Traffic Analysis (Busy Times):** Fetches Google Maps Popular Times data via Outscraper, visualizes hourly/daily traffic patterns, peak comparisons, and generates traffic insights.
 - **Weather Intelligence:** Fetches historical and forecast weather via OpenWeatherMap, provides weather context for cross-signal insights, and suppresses weather-affected metrics.
-- **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather). LLM (Gemini) adds priority briefings and narrative summaries. Client-side filtering for instant tab switching.
+- **Social Media Intelligence:** Tracks Instagram, Facebook, and TikTok profiles for locations and competitors via Data365 API. Discovers handles via Firecrawl website scraping and Data365 profile search (parallelized). Collects posts with engagement metrics and images. Persists social post images to Supabase Storage (replacing expiring CDN URLs). Generates 10 deterministic social insight rules + 4 cross-signal rules. Platform-tabbed posts grid with entity filtering.
+- **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather, social). LLM (Gemini) adds priority briefings and narrative summaries. Client-side filtering for instant tab switching.
 - **Real-Time Job System:** Background job pipelines with SSE (Server-Sent Events) streaming, step-by-step progress, ambient insight feeds during long-running operations, and toast notifications on completion.
+- **Server-Side Caching:** All dashboard pages use Next.js `unstable_cache` with 7-day TTL and tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag()`.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
 
 ### Current state
@@ -66,9 +68,14 @@ The application has shipped through most PRD phases:
 - Daily cron orchestrator for automated data refresh
 - Website URL override for location-specific content/visibility tracking
 - Fire-and-forget competitor enrichment on approval (SEO + content)
+- Social media intelligence with Data365 (Instagram, Facebook, TikTok) (Phase 8)
+- Social post image persistence to Supabase Storage
+- Server-side caching with 7-day TTL and automatic revalidation after job completion
+- Parallelized social handle discovery and data collection
 
 ### What is NOT yet shipped
 
+- Social media visual intelligence (Gemini Vision on social post images) -- plan created, not yet implemented
 - Email digests/notifications (Edge Function stub exists)
 - Full "Ask Prophet" chat with LLM
 - Data retention cleanup policies
@@ -134,8 +141,9 @@ The application has shipped through most PRD phases:
 | Google Maps Embed API | Mini-map iframes |
 | Google Weather API | Current conditions for competitor locations |
 | Google Gemini API | Competitor discovery (2.5 Flash), insight narratives (3 Pro Preview), photo analysis (2.5 Flash Vision), Google Search Grounding for menu data |
+| Data365 Social Media API | Instagram, Facebook, TikTok profile data and post collection (async POST-poll-GET pattern) |
 | DataForSEO | SEO data (12 endpoints), local events SERP |
-| Firecrawl | Website scraping, menu extraction, screenshots, site mapping |
+| Firecrawl | Website scraping, menu extraction, screenshots, site mapping, social handle discovery |
 | Outscraper | Google Maps Popular Times / Busy Times data |
 | OpenWeatherMap | Historical weather data, forecasts, severe weather detection |
 
@@ -175,6 +183,7 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `STRIPE_PRICE_ID_AGENCY` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Agency tier |
 | `NEXT_PUBLIC_APP_URL` | No | `app/(dashboard)/competitors/actions.ts` | App base URL (defaults to `http://localhost:3000`) |
 | `CRON_SECRET` | No | `app/api/cron/daily/route.ts` | Secret for authenticating cron job requests |
+| `DATA365_ACCESS_TOKEN` | Yes | `lib/providers/data365/client.ts` | Data365 Social Media API access token |
 | `OPENAI_API_KEY` | No | `app/api/ai/chat/route.ts` | OpenAI key (referenced but not actively used) |
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
 
@@ -211,14 +220,20 @@ prophet/
 │   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, ActiveJobBar, Toaster
 │   │   ├── actions.ts                      # signOutAction
 │   │   ├── home/
-│   │   │   └── page.tsx                    # Live dashboard (KPIs, freshness, onboarding checklist, Refresh All)
+│   │   │   ├── page.tsx                    # Live dashboard (KPIs, freshness, onboarding checklist, Refresh All)
+│   │   │   └── home-charts-section.tsx     # Client: Home page charts (rating comparison, review trends)
 │   │   ├── competitors/
 │   │   │   ├── page.tsx                    # Competitor management (discover/approve/ignore)
 │   │   │   └── actions.ts                  # discoverCompetitorsAction, approve (fire-and-forget enrich), ignore
 │   │   ├── insights/
 │   │   │   ├── page.tsx                    # Insight feed with filters, priority briefing, charts
 │   │   │   ├── actions.ts                  # generateInsightsAction, markRead, dismiss, priority briefing
+│   │   │   ├── social-actions.ts           # Social profile CRUD, discovery, dashboard data, social insight generation
 │   │   │   └── priority-briefing-section.tsx  # Suspense-wrapped async server component for briefing
+│   │   ├── social/
+│   │   │   ├── page.tsx                    # Social intelligence (KPIs, handle management, posts grid, insights)
+│   │   │   ├── actions.ts                  # Server action re-exports for social page
+│   │   │   └── handle-section.tsx          # Client: Social handle management (discover, verify, delete)
 │   │   ├── events/
 │   │   │   ├── page.tsx                    # Local events intelligence
 │   │   │   └── actions.ts                  # fetchEventsAction
@@ -288,12 +303,16 @@ prophet/
 │   │   └── events-filters.tsx              # Client: Events page filters
 │   ├── filters/
 │   │   └── auto-filter-form.tsx            # Client: Auto-navigating filter dropdowns
+│   ├── home/
+│   │   └── home-charts.tsx                 # Client: Home page charts (rating comparison, review trends, insights by source)
 │   ├── insights/
 │   │   ├── insight-feed.tsx                # Client: Client-side filtered insight feed with tabs
 │   │   ├── insight-tabs.tsx                # Client: Source tab navigation
 │   │   ├── insights-dashboard.tsx          # Client: Charts dashboard (Recharts)
 │   │   ├── photo-gallery.tsx               # Client: Photo gallery for insights
 │   │   ├── priority-briefing.tsx           # Client: Priority briefing display + skeleton
+│   │   ├── social-dashboard.tsx            # Client: Social metrics dashboard (presence matrix, follower/engagement charts)
+│   │   ├── social-posts-grid.tsx           # Client: Filterable social posts grid with platform tabs + entity filter
 │   │   ├── traffic-chart.tsx               # Client: Insight-level traffic chart
 │   │   └── weather-badge.tsx               # Client: Weather condition badge
 │   ├── photos/
@@ -363,6 +382,12 @@ prophet/
 │   │   ├── photos.ts                       # Google Places photos + Gemini Vision analysis
 │   │   ├── outscraper.ts                   # Outscraper Popular Times fetcher
 │   │   ├── openweathermap.ts               # OpenWeatherMap historical + forecast weather
+│   │   ├── data365/                        # Data365 Social Media API clients
+│   │   │   ├── client.ts                   # Core client: POST→poll→GET flow, profile search, error handling
+│   │   │   ├── instagram.ts               # Instagram adapter: profile + posts fetch/types
+│   │   │   ├── facebook.ts                # Facebook adapter: profile + posts fetch/types
+│   │   │   ├── tiktok.ts                  # TikTok adapter: profile + posts fetch/types
+│   │   │   └── index.ts                   # Barrel file
 │   │   └── dataforseo/                     # DataForSEO API clients (12 endpoints)
 │   │       ├── client.ts                   # postDataForSEO(), extractFirstResult()
 │   │       ├── domain-rank-overview.ts     # Labs Domain Rank Overview
@@ -409,6 +434,23 @@ prophet/
 │   │   ├── hash.ts                         # computeEventUid(), computeEventsSnapshotDiffHash()
 │   │   ├── match.ts                        # matchEventsToCompetitors() deterministic matching
 │   │   └── insights.ts                     # generateEventInsights() (5 insight rules)
+│   ├── social/                             # Social media intelligence engine
+│   │   ├── types.ts                        # SocialPlatform, NormalizedSocialProfile/Post, SocialSnapshotData, etc.
+│   │   ├── normalize.ts                    # Raw Data365 response → normalized profiles/posts (Instagram, Facebook, TikTok)
+│   │   ├── enrich.ts                       # Social handle discovery via Firecrawl + Data365 search (parallel, with timeouts)
+│   │   ├── insights.ts                     # 10 deterministic social insight rules (engagement, frequency, growth, etc.)
+│   │   ├── cross-signal.ts                 # 4 cross-signal rules (social+SEO, social+events, social+weather, multi-platform)
+│   │   ├── storage.ts                      # Download & persist social post images to Supabase Storage (admin client)
+│   │   └── index.ts                        # Barrel file re-exporting all social modules
+│   ├── cache/                              # Server-side caching layer (unstable_cache with 7-day TTL)
+│   │   ├── home.ts                         # Cached home dashboard data (tag: home-data)
+│   │   ├── social.ts                       # Cached social insights (tag: social-data)
+│   │   ├── content.ts                      # Cached content/menu data (tag: content-data)
+│   │   ├── visibility.ts                   # Cached SEO data (tag: visibility-data)
+│   │   ├── events.ts                       # Cached events data (tag: events-data)
+│   │   ├── photos.ts                       # Cached photo/visual data (tag: photos-data)
+│   │   ├── traffic.ts                      # Cached busy times data (tag: traffic-data)
+│   │   └── weather.ts                      # Cached weather data (tag: weather-data)
 │   ├── traffic/
 │   │   └── peak-data.ts                    # buildPeakData() – shared utility for server/client peak calculation
 │   └── jobs/                               # Background job pipeline system
@@ -428,14 +470,15 @@ prophet/
 │           ├── photos.ts                   # Photos pipeline (Google Places + Gemini Vision)
 │           ├── traffic.ts                  # Traffic pipeline (Outscraper Popular Times)
 │           ├── weather.ts                  # Weather pipeline (OpenWeatherMap historical + forecast)
-│           └── refresh-all.ts              # Orchestrates all 7 pipelines sequentially
+│           ├── social.ts                   # Social pipeline (Data365 collect, image persistence, insight generation)
+│           └── refresh-all.ts              # Orchestrates all 8 pipelines sequentially
 │
 ├── types/                                  # Shared TypeScript types
 │   ├── database.types.ts                   # Auto-generated Supabase database types
 │   └── prophet.types.ts                    # ActionResult<T> standard return shape
 │
 ├── supabase/                               # Supabase configuration
-│   ├── migrations/                         # SQL migrations (9 files)
+│   ├── migrations/                         # SQL migrations (13 files)
 │   │   ├── 20260127010101_initial_schema.sql
 │   │   ├── 20260127010200_membership_bootstrap.sql
 │   │   ├── 20260127010300_fix_org_member_policies.sql
@@ -444,7 +487,11 @@ prophet/
 │   │   ├── 20260207010100_seo_tables.sql
 │   │   ├── 20260209010100_refresh_jobs.sql
 │   │   ├── 20260211010100_screenshots_bucket.sql
-│   │   └── 20260219010100_insight_feedback_and_preferences.sql
+│   │   ├── 20260219010100_insight_feedback_and_preferences.sql
+│   │   ├── 20260228010100_social_media_tables.sql
+│   │   ├── 20260228020100_add_social_refresh_all_job_types.sql
+│   │   ├── 20260306010100_social_media_bucket.sql
+│   │   └── 20260306010200_social_snapshots_update_policy.sql
 │   └── functions/                          # Supabase Edge Functions (Deno)
 │       ├── orchestrator_daily/index.ts     # SEO insight generation rules
 │       ├── job_worker/index.ts             # SEO normalization utilities
@@ -492,13 +539,14 @@ flowchart TB
     Firecrawl["Firecrawl API"]
     Outscraper["Outscraper API"]
     OpenWeatherMap["OpenWeatherMap API"]
+    Data365["Data365 Social API"]
     Stripe["Stripe"]
     SSE["SSE Streams"]
 
     Browser --> NextJS
     Browser <-->|"SSE (job progress)"| SSE
     NextJS -->|"Server Components / Actions"| SupaDB
-    NextJS -->|"Screenshots"| SupaStorage
+    NextJS -->|"Screenshots, Social images"| SupaStorage
     NextJS -->|"Auth (SSR cookies)"| SupaAuth
     NextJS -->|"Autocomplete, Details, Photos"| GooglePlaces
     NextJS -->|"Current conditions"| GoogleWeather
@@ -507,6 +555,7 @@ flowchart TB
     NextJS -->|"Website scraping, Menus"| Firecrawl
     NextJS -->|"Popular Times"| Outscraper
     NextJS -->|"Historical weather"| OpenWeatherMap
+    NextJS -->|"Social profiles/posts"| Data365
     NextJS -->|"Webhooks"| Stripe
     Browser -->|"Embed iframe"| GoogleMaps
     NextJS --> SSE
@@ -586,6 +635,7 @@ This pipeline applies to all signal sources:
 - **Photo insights:** Google Places photos + Gemini Vision -> analyze -> rules
 - **Traffic insights:** Outscraper Popular Times -> normalize -> rules
 - **Weather insights:** OpenWeatherMap -> cross-signal correlation -> context enrichment
+- **Social insights:** Data365 social profiles/posts -> normalize -> diff -> rules (10 types) + cross-signal rules (4 types)
 
 ---
 
@@ -660,6 +710,10 @@ public.is_org_admin(org_id uuid) -> boolean
 | `20260209010100_refresh_jobs.sql` | `refresh_jobs` table for real-time job progress tracking |
 | `20260211010100_screenshots_bucket.sql` | Supabase Storage `screenshots` bucket (private, 5MB, png/jpeg/webp) |
 | `20260219010100_insight_feedback_and_preferences.sql` | `user_feedback`/`feedback_at`/`feedback_by` on `insights`, `insight_preferences` table |
+| `20260228010100_social_media_tables.sql` | `social_profiles`, `social_snapshots` tables with RLS for social media tracking |
+| `20260228020100_add_social_refresh_all_job_types.sql` | Extends `refresh_jobs.job_type` CHECK to include `social` and `refresh_all` |
+| `20260306010100_social_media_bucket.sql` | `social-media` storage bucket (public, 10MB, image formats) + RLS policies |
+| `20260306010200_social_snapshots_update_policy.sql` | UPDATE policy on `social_snapshots` for org admin upserts |
 
 ### 7.2 Tables
 
@@ -811,7 +865,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `id` | uuid PK | |
 | `organization_id` | uuid NOT NULL | References `organizations(id)` CASCADE |
 | `location_id` | uuid NOT NULL | References `locations(id)` CASCADE |
-| `job_type` | text NOT NULL | CHECK: content/visibility/events/insights/photos/busy_times/weather |
+| `job_type` | text NOT NULL | CHECK: content/visibility/events/insights/photos/busy_times/weather/social/refresh_all |
 | `status` | text NOT NULL DEFAULT 'running' | CHECK: running/completed/failed |
 | `total_steps` / `current_step` | integer | Progress tracking |
 | `steps` | jsonb NOT NULL DEFAULT '[]' | Array of step objects with status/preview |
@@ -858,6 +912,35 @@ public.is_org_admin(org_id uuid) -> boolean
 | `is_severe` | boolean NOT NULL DEFAULT false | |
 | UNIQUE | `(location_id, date)` | |
 
+#### `social_profiles`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `entity_type` | text NOT NULL | CHECK: location/competitor |
+| `entity_id` | uuid NOT NULL | References `locations(id)` or `competitors(id)` |
+| `platform` | text NOT NULL | CHECK: instagram/facebook/tiktok |
+| `handle` | text NOT NULL | Platform-specific username or page ID |
+| `display_name` | text | |
+| `profile_url` | text | |
+| `avatar_url` | text | |
+| `is_verified` | boolean NOT NULL DEFAULT false | |
+| `source` | text NOT NULL DEFAULT 'manual' | CHECK: manual/firecrawl/data365_search |
+| `confidence` | numeric | Discovery confidence score (0-1) |
+| `last_collected_at` | timestamptz | Last successful data collection |
+| `created_at` / `updated_at` | timestamptz | |
+| UNIQUE | `(entity_type, entity_id, platform, handle)` | |
+
+#### `social_snapshots`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `social_profile_id` | uuid NOT NULL | References `social_profiles(id)` CASCADE |
+| `date_key` | date NOT NULL | |
+| `captured_at` | timestamptz NOT NULL DEFAULT now() | |
+| `raw_data` | jsonb NOT NULL | `SocialSnapshotData` (profile stats + recent posts) |
+| `diff_hash` | text NOT NULL | SHA256 for change detection |
+| UNIQUE | `(social_profile_id, date_key)` | |
+
 #### `job_runs` (legacy)
 | Column | Type | Notes |
 |---|---|---|
@@ -876,6 +959,7 @@ public.is_org_admin(org_id uuid) -> boolean
 |---|---|---|---|
 | `screenshots` | Private (signed URLs) | 5MB, png/jpeg/webp | Website and menu page screenshots |
 | `competitor-photos` | Private (signed URLs) | — | Competitor Google Places photos |
+| `social-media` | Public | 10MB, jpeg/png/webp/gif | Social media post images (persisted from expiring CDN URLs) |
 
 ### 7.4 Entity Relationship Diagram
 
@@ -898,12 +982,16 @@ erDiagram
     locations ||--o{ tracked_keywords : tracks
     locations ||--o{ location_weather : weather
     locations ||--o{ refresh_jobs : jobs
+    locations ||--o{ social_profiles : "tracks social (entity_type=location)"
 
     competitors ||--o{ snapshots : captures
     competitors ||--o{ competitor_photos : has_photos
     competitors ||--o{ busy_times : has_traffic
     competitors ||--o{ event_matches : linked_to
     competitors ||--o| insights : subject_of
+    competitors ||--o{ social_profiles : "tracks social (entity_type=competitor)"
+
+    social_profiles ||--o{ social_snapshots : captures
 ```
 
 ### 7.5 RLS Policy Summary
@@ -932,7 +1020,11 @@ Organization
   │     ├── Competitors (discovered, approved/ignored)
   │     │     ├── Snapshots (daily data captures + SEO + menu)
   │     │     ├── Photos (Gemini Vision analyzed)
-  │     │     └── Busy Times (Popular Times data)
+  │     │     ├── Busy Times (Popular Times data)
+  │     │     └── Social Profiles (Instagram, Facebook, TikTok)
+  │     │           └── Social Snapshots (profile stats + recent posts)
+  │     ├── Social Profiles (location's own Instagram, Facebook, TikTok)
+  │     │     └── Social Snapshots (profile stats + recent posts)
   │     ├── Location Snapshots (events, SEO domain data, site content, menus)
   │     ├── Location Weather (daily weather records)
   │     ├── Event Matches (event-competitor links)
@@ -976,32 +1068,37 @@ Root Layout (app/layout.tsx)
   │     ├── /login
   │     └── /signup
   ├── (dashboard) Layout -- sidebar + auth guard + ActiveJobBar + Toaster
-  │     ├── /home
-  │     ├── /insights
-  │     ├── /competitors
-  │     ├── /events
-  │     ├── /visibility
-  │     ├── /content
-  │     ├── /photos
-  │     ├── /traffic
-  │     ├── /weather
-  │     ├── /locations
-  │     └── /settings (+ /settings/billing, /settings/team)
+│     ├── /home
+│     ├── /insights
+│     ├── /competitors
+│     ├── /social
+│     ├── /events
+│     ├── /visibility
+│     ├── /content
+│     ├── /photos
+│     ├── /traffic
+│     ├── /weather
+│     ├── /locations
+│     └── /settings (+ /settings/billing, /settings/team)
   ├── /onboarding
   └── / (landing page)
 ```
 
 ### 9.3 Sidebar Navigation
 
-The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings.
+The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors, Social, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings.
 
 ### 9.4 Page Details
 
 #### `/home` (Dashboard)
-- Live KPIs: locations count, approved competitors, total insights, data freshness
-- Onboarding checklist for new users (add location, discover competitors, run first refresh)
-- "Refresh All Data" button triggers `refresh_all` pipeline
-- Recent insights feed with quick navigation
+- **Hero banner** with gradient background
+- **KPI cards:** Locations count, competitors tracked, total insights, signal sources (pipeline count)
+- **Onboarding checklist** for new users (add location, discover competitors, run first refresh)
+- **Quick Actions:** "Refresh All Data" (`refresh_all` pipeline) and "Generate Insights" buttons
+- **Top 5 Priority Actions:** Scored and ranked by relevance (`computeRelevanceScore`), color-coded by severity, with first recommendation shown inline
+- **Charts row** (`HomeChartsSection`): Severity distribution (bar), insights by source (bar), 30-day insight trend (area) — all via Recharts
+- **Data Freshness grid:** Per-pipeline last-refresh timestamp with status indicators (green/amber/red dots)
+- **Empty states** for no-insights and no-competitors scenarios
 
 #### `/competitors`
 - **Location filter:** Dropdown scopes competitors to selected location
@@ -1009,6 +1106,14 @@ The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors,
 - **Candidates list:** Pending competitors with approve/ignore buttons (approval is instant, enrichment runs in background)
 - **Approved table:** Full table with rating, reviews, distance, address, phone, website, maps, weather, remove button
 - **Success/onboarding banners:** Shows guidance for new users and approval success messages
+
+#### `/social` (Social Intelligence)
+- **KPIs:** Total profiles tracked, platforms active, total posts, total engagement
+- **Handle management:** "Discover Handles" button runs parallel Firecrawl + Data365 discovery for location and competitors. HandleManager component for add/edit/delete/verify per entity.
+- **Social dashboard:** Platform presence matrix, follower bar chart, engagement rate bar chart, quick stats
+- **Posts grid:** Platform tabs (All/Instagram/Facebook/TikTok), entity filter dropdown, post cards with images (persisted to Supabase Storage), engagement stats (likes/comments/shares/views), "You" badge for location's own posts
+- **Insight feed:** Social-specific insights (engagement gap, posting frequency, follower growth, platform presence, viral content, hashtags, inactive accounts) + cross-signal social insights
+- **Refresh button:** Triggers `social` pipeline (collect snapshots, persist images, generate insights)
 
 #### `/insights`
 - **Filters:** Location, date range, confidence, severity, source (competitors/events/SEO/content/photos/traffic)
@@ -1037,19 +1142,22 @@ The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors,
 
 #### `/photos`
 - **KPIs:** Total photos, analyzed count, competitor count
-- **Photo grid:** Filterable by competitor, with detail panel showing Gemini Vision analysis (quality, ambiance, food presentation)
+- **Photo grid:** Filterable by competitor, with detail panel showing Gemini Vision analysis (quality, ambiance, food presentation). Fetches up to 30 photos per entity (increased from 10) for broader visual intelligence.
 - **Refresh button:** Triggers `photos` pipeline
 
 #### `/traffic` (Busy Times)
 - **KPIs:** Most popular day, peak traffic competitor, average peak score
 - **Traffic heatmap:** 7x18 grid showing hourly traffic patterns by day of week
-- **Peak comparison:** Side-by-side bars comparing peak scores across competitors
+- **Peak comparison:** Side-by-side bars comparing actual peak busyness scores across competitors (uses `buildPeakData` from `lib/traffic/peak-data.ts` for proper percentage calculations)
 - **Traffic chart:** Hourly breakdown for selected day
+- **Traffic insights section** (`TrafficInsightsSection`): Deterministic traffic insights (peak hours, competitive opportunities, staffing recommendations)
 
 #### `/weather`
-- **KPIs:** Current conditions summary
-- **Weather history:** Multi-day chart with temperature, precipitation
-- **Location weather cards:** Side-by-side cards for all locations
+- **KPIs:** Current conditions (icon + temp), average high temp, total precipitation, severe weather day count
+- **Weather history chart:** Multi-day temperature and precipitation chart (historical + 8-day forecast, with forecast region shaded)
+- **Actionable weather insights** (`WeatherActionableInsights`): Deterministic rules analyzing upcoming weather to provide business-specific guidance (stock up, add seating, prepare for slow days, capitalize on good weather)
+- **Location weather cards:** Side-by-side cards for all locations with current conditions
+- **Weather-related insights:** Database-stored cross-signal weather insights (severity-colored)
 
 #### `/locations`
 - Location cards with edit/delete, weather, mini-map, Google Places details
@@ -1075,6 +1183,12 @@ The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors,
 | `insights/actions.ts` | `markInsightReadAction` | Sets insight status=read | `/insights` |
 | `insights/actions.ts` | `dismissInsightAction` | Sets insight status=dismissed | `/insights` |
 | `insights/actions.ts` | `generatePriorityBriefing` | Gemini priority briefing with TTL cache | None (returns data) |
+| `insights/social-actions.ts` | `saveSocialProfileAction` | Creates/updates social profile handle | None |
+| `insights/social-actions.ts` | `deleteSocialProfileAction` | Deletes a social profile | None |
+| `insights/social-actions.ts` | `verifySocialProfileAction` | Verifies a social handle via Data365 | None |
+| `insights/social-actions.ts` | `runSocialDiscoveryAction` | Discovers social handles for location + competitors (parallel) | None |
+| `insights/social-actions.ts` | `fetchSocialDashboardData` | Fetches profiles, handles, and all posts for social dashboard | None |
+| `insights/social-actions.ts` | `generateSocialInsightsForLocation` | Runs social insight rules + cross-signal rules | None |
 | `events/actions.ts` | `fetchEventsAction` | DataForSEO events, matching, insights | `/events` |
 | `content/actions.ts` | `refreshContentAction` | Firecrawl + Gemini menu, screenshots, insights | `/content` |
 | `visibility/actions.ts` | `refreshSeoAction` | 11 SEO API groups + competitor enrichment + insights | `/visibility` |
@@ -1088,7 +1202,7 @@ The dashboard sidebar includes 10 navigation links: Home, Insights, Competitors,
 
 ### `GET /api/jobs/[type]?location_id=xxx`
 - **Auth:** Supabase user session via `getJobAuthContext()`
-- **Valid types:** content, visibility, events, insights, photos, busy_times, weather, refresh_all
+- **Valid types:** content, visibility, events, insights, photos, busy_times, weather, social, refresh_all
 - **Logic:** Builds pipeline context + steps for the given type, creates job record, runs pipeline with SSE streaming
 - **Output:** SSE stream with step events and done event (includes redirect URL)
 - **Max duration:** 300 seconds
@@ -1159,12 +1273,33 @@ Used in five contexts:
 | Photo analysis | gemini-2.5-flash | `lib/providers/photos.ts` | Gemini Vision for quality, ambiance, food presentation |
 | Google menu data | gemini-3-pro-preview | `lib/ai/gemini.ts` | Google Search Grounding to fetch structured menu data |
 
-### 12.3 DataForSEO APIs
+### 12.3 Data365 Social Media API
+**Client:** `lib/providers/data365/client.ts`
+
+**API Pattern:** Async POST→Poll→GET:
+1. `POST /profile/{handle}/update` with `load_feed_posts=true` to initiate data collection
+2. `GET /profile/{handle}/update` to poll collection status (up to 40 attempts, 3s intervals)
+3. `GET /profile/{handle}` and `GET /profile/{handle}/feed/posts` to retrieve collected data
+
+**Platform Adapters:**
+| File | Platform | Key Types |
+|---|---|---|
+| `data365/instagram.ts` | Instagram | `InstagramRawProfile`, `InstagramRawPost` |
+| `data365/facebook.ts` | Facebook | `FacebookRawProfile`, `FacebookRawPost` (uses `attached_image_url`, `reactions_*_count`) |
+| `data365/tiktok.ts` | TikTok | `TikTokRawProfile`, `TikTokRawPost` |
+
+**Key details:**
+- Facebook uses different field names than Instagram (e.g., `attached_image_url` not `attached_media_display_url`, flat `reactions_*_count` fields)
+- TikTok collection is slower; pipeline uses 150s timeout (vs 90s for Instagram/Facebook)
+- Profile search (`searchProfiles`) supports all 3 platforms for handle discovery
+- Media URLs from CDNs expire quickly; images are downloaded and persisted to Supabase Storage immediately after collection
+
+### 12.4 DataForSEO APIs
 **Client:** `lib/providers/dataforseo/client.ts`
 
 12 endpoint-specific clients covering: Domain Rank Overview, Ranked Keywords, Keywords For Site, Competitors Domain, Domain Intersection, Relevant Pages, Subdomains, Historical Rank Overview, SERP Organic, Google Events, Ads Search, Backlinks Summary.
 
-### 12.4 Firecrawl API
+### 12.5 Firecrawl API
 **File:** `lib/providers/firecrawl.ts` (SDK: `@mendable/firecrawl-js`)
 
 | Function | Purpose |
@@ -1178,14 +1313,14 @@ Used in five contexts:
 
 **Actions fallback:** `scrapeMenuPage` attempts browser actions (tab-clicking, accordion-revealing) first; if the Firecrawl plan doesn't support Fire Engine, retries without actions automatically.
 
-### 12.5 Outscraper API
+### 12.6 Outscraper API
 **File:** `lib/providers/outscraper.ts`
 
 | Function | Purpose |
 |---|---|
 | `fetchBusyTimes(placeId, competitorId)` | Google Maps Popular Times data with async polling |
 
-### 12.6 OpenWeatherMap API
+### 12.7 OpenWeatherMap API
 **File:** `lib/providers/openweathermap.ts`
 
 | Function | Purpose |
@@ -1193,7 +1328,7 @@ Used in five contexts:
 | `fetchHistoricalWeather(lat, lon, date)` | Historical daily weather aggregation |
 | `fetchForecast(lat, lon)` | Forecast with severe weather detection |
 
-### 12.7 Stripe
+### 12.8 Stripe
 Handles subscription lifecycle events via webhook. Maps Stripe price IDs to tiers.
 
 ---
@@ -1279,7 +1414,7 @@ Rules: `rating_change`, `review_velocity`, `hours_change`, `weekly_rating_trend`
 ### 14.5 Photo Insights Pipeline
 **Modules:** `lib/insights/photo-insights.ts`, `lib/providers/photos.ts`
 
-Flow: Fetch Google Places photo references -> Download photos -> SHA-256 hash for dedup -> Gemini Vision analysis -> Generate photo insights.
+Flow: Fetch Google Places photo references (up to 30 per entity) -> Download photos -> SHA-256 hash for dedup -> Gemini Vision analysis (gemini-2.5-flash) -> Generate photo insights.
 
 ### 14.6 Traffic Insights Pipeline
 **Modules:** `lib/insights/traffic-insights.ts`, `lib/providers/outscraper.ts`
@@ -1291,21 +1426,81 @@ Flow: Fetch Outscraper Popular Times -> Normalize day/hour data -> Generate traf
 
 Flow: Fetch OpenWeatherMap data -> Detect severe weather -> Suppress weather-affected insights -> Generate cross-signal weather insights.
 
-### 14.8 Cross-Source Correlation
+### 14.8 Social Media Intelligence Pipeline
+**Modules:** `lib/social/`, `lib/providers/data365/`, `lib/jobs/pipelines/social.ts`
+
+**Discovery flow:**
+1. `discoverSocialHandles()` combines Firecrawl website scraping + Data365 profile search
+2. Platform searches run in parallel with 20-second per-platform timeout
+3. Location and all competitors are processed in parallel via `Promise.allSettled`
+
+**Collection flow (pipeline):**
+1. `collect_snapshots` step: Fetches profiles and posts from Data365 for each tracked social profile
+2. Image persistence: Downloads post images from CDN and uploads to `social-media` Supabase Storage bucket (admin client bypasses RLS)
+3. `generate_insights` step: Runs social insight rules + cross-signal rules
+
+**Platform-specific timeouts:** Instagram/Facebook 90s, TikTok 150s (Data365 needs longer for TikTok).
+
+**10 Social Insight Types:**
+
+| Type | Trigger |
+|---|---|
+| `social.engagement_gap` | Location engagement rate < competitor by significant margin |
+| `social.posting_frequency_low` | Location posts significantly less frequently than competitors |
+| `social.follower_growth_slow` | Location follower growth trailing competitors |
+| `social.platform_presence_gap` | Competitor active on platform location isn't on |
+| `social.competitor_viral_content` | Competitor post with unusually high engagement |
+| `social.hashtag_opportunity` | Trending hashtags used by competitors but not location |
+| `social.competitor_inactive` | Competitor hasn't posted in 30+ days |
+| `social.engagement_declining` | Location engagement rate trending down |
+| `social.content_type_gap` | Competitor succeeding with content types location doesn't use |
+| `social.posting_consistency` | Location posting schedule irregular vs competitors |
+
+**4 Cross-Signal Social Insight Types:**
+
+| Type | Trigger |
+|---|---|
+| `social.web_traffic_correlation` | Social presence vs SEO traffic disparity |
+| `social.event_promotion_gap` | Local events not being promoted on social |
+| `social.weather_opportunity` | Weather conditions that favor social engagement |
+| `social.multi_platform_strength` | Multi-platform presence advantage/disadvantage |
+
+### 14.9 Cross-Source Correlation
 `generateInsightsAction` runs all pipelines then generates cross-source insights:
 - Event + SEO traffic opportunity
 - Domain authority risk
 - Competitor momentum detection
 
-### 14.9 Priority Briefing
+### 14.10 Priority Briefing
 Gemini 3 Pro Preview generates a top-5 priority briefing with diversity rules (must cover >= 3 source categories, max 2 from same category). Results are cached in an in-memory TTL cache (`lib/insights/briefing-cache.ts`).
 
-### 14.10 Competitor Enrichment on Approval
+### 14.11 Competitor Enrichment on Approval
 When a competitor is approved (`approveCompetitorAction`):
 1. Competitor row is updated immediately (instant redirect)
 2. Background fire-and-forget enrichment runs:
    - **SEO enrichment** (`lib/seo/enrich.ts`): Domain Rank Overview, Ranked Keywords, Relevant Pages, Historical Rank, Domain Intersection
    - **Content enrichment** (`lib/content/enrich.ts`): Multi-URL menu scrape, Gemini Google menu, merge, screenshot upload
+
+---
+
+### 14.12 Server-Side Caching
+
+**Module:** `lib/cache/`
+
+All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server component data fetches. Each page's data fetcher is wrapped in `unstable_cache()` with a unique cache tag.
+
+| Cache Tag | File | Used By |
+|---|---|---|
+| `home-data` | `lib/cache/home.ts` | `/home` dashboard KPIs, recent insights, recent jobs |
+| `social-data` | `lib/cache/social.ts` | `/social` insights and preferences |
+| `content-data` | `lib/cache/content.ts` | `/content` site content, menus, competitor menus |
+| `visibility-data` | `lib/cache/visibility.ts` | `/visibility` SEO data, keywords, intersection |
+| `events-data` | `lib/cache/events.ts` | `/events` events snapshot, event matches |
+| `photos-data` | `lib/cache/photos.ts` | `/photos` competitor photos, visual insights |
+| `traffic-data` | `lib/cache/traffic.ts` | `/traffic` busy times, peak hours |
+| `weather-data` | `lib/cache/weather.ts` | `/weather` history, forecasts, location cards |
+
+**Cache invalidation:** When a pipeline job completes (`app/api/jobs/[type]/route.ts`), the appropriate cache tags are invalidated via `revalidateTag(tag, { expire: 0 })`. The `refresh_all` job invalidates all 8 tags.
 
 ---
 
@@ -1316,7 +1511,7 @@ When a competitor is approved (`approveCompetitorAction`):
 The job system provides real-time progress tracking for long-running data refresh operations.
 
 **Components:**
-- `lib/jobs/types.ts` – Shared types: `JobType` (8 types), `JobStatus`, `JobStep`, `JobRecord`, `SSEStepEvent`, `SSEDoneEvent`, `AmbientCard`
+- `lib/jobs/types.ts` – Shared types: `JobType` (9 types), `JobStatus`, `JobStep`, `JobRecord`, `SSEStepEvent`, `SSEDoneEvent`, `AmbientCard`
 - `lib/jobs/manager.ts` – CRUD for `refresh_jobs` table using admin Supabase client
 - `lib/jobs/pipeline.ts` – Generic sequential pipeline runner with error isolation
 - `lib/jobs/sse.ts` – SSE stream creation utilities
@@ -1336,7 +1531,8 @@ The job system provides real-time progress tracking for long-running data refres
 | `photos` | Photo Analysis | Google Places photos + Gemini Vision |
 | `busy_times` | Busy Times | Outscraper Popular Times |
 | `weather` | Weather | OpenWeatherMap historical + forecast |
-| `refresh_all` | Full Refresh | Orchestrates all 7 pipelines sequentially |
+| `social` | Social Media | Data365 collect + image persistence + social insights |
+| `refresh_all` | Full Refresh | Orchestrates all 8 pipelines sequentially |
 
 ### 15.3 UI Components
 
@@ -1419,8 +1615,14 @@ Events sent during pipeline execution:
 | PhotoGrid | `photos/photo-grid.tsx` | Analyzed photo grid with filters |
 | TrafficHeatmap | `traffic/traffic-heatmap.tsx` | 7x18 weekly traffic heatmap |
 | PeakComparison | `traffic/peak-comparison.tsx` | Side-by-side peak hour comparison |
-| WeatherHistory | `weather/weather-history.tsx` | Multi-day weather chart |
+| WeatherHistory | `weather/weather-history.tsx` | Multi-day weather chart (historical + forecast) |
+| WeatherActionableInsights | `weather/weather-actionable-insights.tsx` | Deterministic weather-to-action rules for business owners |
 | LocationWeatherCards | `weather/location-weather-cards.tsx` | Multi-location weather cards |
+| TrafficInsightsSection | `traffic/traffic-insights.tsx` | Deterministic traffic insights from busy times data |
+| SocialDashboard | `insights/social-dashboard.tsx` | Presence matrix, follower/engagement charts |
+| SocialPostsGrid | `insights/social-posts-grid.tsx` | Platform-tabbed posts grid with entity filter dropdown |
+| HandleManager | `social/handle-manager.tsx` | Add/edit/delete/verify social handles per entity |
+| HomeChartsSection | `home/home-charts-section.tsx` | Severity distribution, source breakdown, 30-day trend (Recharts) |
 | EventsFilters | `events/events-filters.tsx` | Events page filters |
 
 ### 17.4 Visibility Components
@@ -1495,6 +1697,7 @@ npm run test:e2e # Playwright E2E tests
 
 ### Future Work
 
+- Social media visual intelligence (Gemini Vision analysis of social post images) -- plan created, not yet implemented
 - "Ask Prophet" natural language chat grounded in stored data
 - Email alerts and weekly digests
 - Insight like/dislike feedback UI with learning loop
@@ -1503,7 +1706,8 @@ npm run test:e2e # Playwright E2E tests
 - Real-time monitoring capabilities
 - Data retention enforcement
 - Team invite and role management
+- UX/UI refresh (modern light aesthetic, micro-interactions, 3D background) -- plan on hold
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase as of January 31, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 6, 2026.*

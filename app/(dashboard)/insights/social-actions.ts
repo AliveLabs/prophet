@@ -2,8 +2,10 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import type { SocialSnapshotData, SocialPlatform, NormalizedSocialPost } from "@/lib/social/types"
+import type { SocialSnapshotData, SocialPlatform, NormalizedSocialPost, EntityVisualProfile } from "@/lib/social/types"
 import { generateSocialInsights } from "@/lib/social/insights"
+import { generateVisualInsights } from "@/lib/social/visual-insights"
+import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 
 // ---------------------------------------------------------------------------
 // Social Profile CRUD
@@ -375,8 +377,47 @@ export async function generateSocialInsightsForLocation(locationId: string, date
     }
   }
 
-  // Generate insights
-  const insights = generateSocialInsights(locationSnapshots, competitorSnapshots)
+  // Generate metric-based insights
+  const metricInsights = generateSocialInsights(locationSnapshots, competitorSnapshots)
+
+  // Generate visual intelligence insights from existing visual analysis data
+  const locVisualProfiles: EntityVisualProfile[] = []
+  const compVisualProfiles: EntityVisualProfile[] = []
+
+  for (const profile of allProfiles) {
+    const snaps = snapshotsByProfile.get(profile.id) ?? []
+    if (snaps.length === 0) continue
+
+    const current = snaps[0].raw_data as SocialSnapshotData
+    const posts = current.recentPosts ?? []
+    const analyzedPosts = posts.filter((p) => p.visualAnalysis)
+
+    if (analyzedPosts.length === 0) continue
+
+    const analysisMap = new Map(
+      analyzedPosts.map((p) => [p.platformPostId, p.visualAnalysis!])
+    )
+
+    const vp = aggregateVisualMetrics(
+      profile.entity_type as "location" | "competitor",
+      profile.entity_id,
+      nameMap.get(profile.entity_id) ?? "Unknown",
+      profile.platform as SocialPlatform,
+      posts,
+      analysisMap
+    )
+
+    if (vp) {
+      if (profile.entity_type === "location") {
+        locVisualProfiles.push(vp)
+      } else {
+        compVisualProfiles.push(vp)
+      }
+    }
+  }
+
+  const visualInsights = generateVisualInsights(locVisualProfiles, compVisualProfiles)
+  const insights = [...metricInsights, ...visualInsights]
 
   // Upsert insights into the database
   if (insights.length > 0) {
