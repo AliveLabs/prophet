@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { revalidateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
@@ -319,6 +320,8 @@ export async function fetchEventsAction(formData: FormData) {
       }
     }
 
+    revalidateTag("events-data", { expire: 0 })
+    revalidateTag("home-data", { expire: 0 })
     redirect(`/events?location_id=${locationId}&success=Events+fetched+successfully`)
   } catch (error) {
     // Re-throw redirect errors (Next.js uses error.digest starting with NEXT_REDIRECT)

@@ -80,10 +80,14 @@ async function fetchInsightsDataRaw(
   if (confidenceFilter) insightQuery = insightQuery.eq("confidence", confidenceFilter)
   if (severityFilter) insightQuery = insightQuery.eq("severity", severityFilter)
 
-  if (statusFilter === "saved") insightQuery = insightQuery.eq("status", "read")
-  else if (statusFilter === "dismissed") insightQuery = insightQuery.eq("status", "dismissed")
-  else if (statusFilter === "new") insightQuery = insightQuery.eq("status", "new")
-  else insightQuery = insightQuery.neq("status", "dismissed")
+  const singleStatuses = ["new", "read", "todo", "actioned", "snoozed", "dismissed"]
+  if (statusFilter === "saved") {
+    insightQuery = insightQuery.eq("status", "read")
+  } else if (singleStatuses.includes(statusFilter)) {
+    insightQuery = insightQuery.eq("status", statusFilter)
+  } else {
+    insightQuery = insightQuery.not("status", "in", '("dismissed","snoozed")')
+  }
 
   const [
     { data: insightsRaw },

@@ -88,35 +88,45 @@ export function normalizeFacebookProfile(
 }
 
 export function normalizeFacebookPost(raw: FacebookRawPost): NormalizedSocialPost {
+  const postType = raw.post_type ?? raw.type
   let mediaType: SocialMediaType = "status"
-  if (raw.type === "photo") mediaType = "image"
-  else if (raw.type === "video") mediaType = "video"
-  else if (raw.type === "link") mediaType = "link"
+  if (postType === "photo" || postType === "image") mediaType = "image"
+  else if (postType === "video") mediaType = "video"
+  else if (postType === "link") mediaType = "link"
 
   const totalReactions =
-    (raw.reactions?.like ?? 0) +
-    (raw.reactions?.love ?? 0) +
-    (raw.reactions?.haha ?? 0) +
-    (raw.reactions?.wow ?? 0) +
-    (raw.reactions?.sad ?? 0) +
-    (raw.reactions?.angry ?? 0) +
-    (raw.reactions?.support ?? 0)
+    (raw.reactions_like_count ?? 0) +
+    (raw.reactions_love_count ?? 0) +
+    (raw.reactions_haha_count ?? 0) +
+    (raw.reactions_wow_count ?? 0) +
+    (raw.reactions_sad_count ?? 0) +
+    (raw.reactions_angry_count ?? 0) +
+    (raw.reactions_support_count ?? 0)
 
   const text = raw.message ?? raw.text ?? null
+  const mediaUrl = raw.attached_image_url ?? raw.attached_media_display_url ?? null
 
   return {
     platformPostId: raw.id ?? "",
     platform: "facebook",
     text,
-    mediaUrl: raw.attached_media_display_url ?? null,
+    mediaUrl,
     mediaType,
-    likesCount: raw.likes_count ?? totalReactions,
+    likesCount: raw.reactions_total_count ?? totalReactions ?? raw.likes_count ?? 0,
     commentsCount: raw.comments_count ?? 0,
     sharesCount: raw.shares_count ?? 0,
     viewsCount: null,
     hashtags: extractHashtags(text),
     createdTime: raw.created_time ?? new Date().toISOString(),
-    reactions: raw.reactions,
+    reactions: {
+      like: raw.reactions_like_count,
+      love: raw.reactions_love_count,
+      haha: raw.reactions_haha_count,
+      wow: raw.reactions_wow_count,
+      sad: raw.reactions_sad_count,
+      angry: raw.reactions_angry_count,
+      support: raw.reactions_support_count,
+    },
   }
 }
 

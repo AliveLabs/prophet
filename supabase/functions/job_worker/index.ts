@@ -940,7 +940,7 @@ serve(async (req) => {
       const baseUrl = "https://api.data365.co/v1.1"
 
       // Step 1: Initiate data collection
-      const updateUrl = `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}/update?access_token=${data365Token}&load_posts=true`
+      const updateUrl = `${baseUrl}/${platform}/profile/${encodeURIComponent(handle)}/update?access_token=${data365Token}&load_feed_posts=true`
       await fetch(updateUrl, { method: "POST" })
 
       // Step 2: Poll until finished (max 60 attempts x 5s = 5 min)

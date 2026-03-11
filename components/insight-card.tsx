@@ -1,10 +1,10 @@
-import type { ReactNode } from "react"
 import {
   getSourceCategory,
   SOURCE_LABELS,
   SOURCE_COLORS,
   type SourceCategory,
 } from "@/lib/insights/scoring"
+import KebabMenu from "@/components/insights/kebab-menu"
 
 type InsightCardProps = {
   id: string
@@ -21,9 +21,9 @@ type InsightCardProps = {
   suppressed: boolean
   evidence: Record<string, unknown>
   recommendations: Array<Record<string, unknown>>
-  actions: ReactNode
   subjectLabel?: string
   searchParams?: Record<string, string>
+  onStatusChange?: (insightId: string, newStatus: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +115,14 @@ const SOURCE_ICONS: Record<SourceCategory, typeof IconCompetitors> = {
   traffic: IconTraffic,
 }
 
+const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
+  read: { bg: "bg-sky-50", text: "text-sky-700", label: "Read" },
+  todo: { bg: "bg-amber-50", text: "text-amber-700", label: "To-Do" },
+  actioned: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Done" },
+  snoozed: { bg: "bg-slate-100", text: "text-slate-500", label: "Snoozed" },
+  dismissed: { bg: "bg-rose-50", text: "text-rose-600", label: "Dismissed" },
+}
+
 // ---------------------------------------------------------------------------
 // Metric pill extraction
 // ---------------------------------------------------------------------------
@@ -144,6 +152,7 @@ function extractMetrics(evidence: Record<string, unknown>, insightType?: string)
 // ---------------------------------------------------------------------------
 
 export default function InsightCard({
+  id,
   title,
   summary,
   insightType,
@@ -151,52 +160,56 @@ export default function InsightCard({
   confidence,
   severity,
   status,
-  userFeedback,
   relevanceScore,
   urgencyLevel,
   suppressed,
   evidence,
   recommendations,
-  actions,
   subjectLabel,
+  onStatusChange,
 }: InsightCardProps) {
   const source = getSourceCategory(insightType ?? "", competitorId ?? null)
   const sourceColors = SOURCE_COLORS[source]
   const SourceIcon = SOURCE_ICONS[source]
   const urgencyStyle = URGENCY_STYLES[urgencyLevel]
   const metrics = extractMetrics(evidence, insightType)
-  const isSaved = status === "read" || userFeedback === "useful"
   const isDismissed = status === "dismissed"
+  const statusBadge = STATUS_BADGES[status]
 
   return (
     <div
       className={`group relative rounded-xl border bg-white transition hover:shadow-md ${
         isDismissed
           ? "border-slate-200 opacity-50"
-          : isSaved
+          : status === "actioned"
             ? "border-emerald-200 bg-emerald-50/30"
-            : suppressed
-              ? "border-slate-200 opacity-60"
-              : "border-slate-200"
+            : status === "todo"
+              ? "border-amber-200 bg-amber-50/20"
+              : suppressed
+                ? "border-slate-200 opacity-60"
+                : "border-slate-200"
       }`}
     >
-      {/* Top bar: source badge + score + actions */}
+      {/* Top bar: source badge + status + score + kebab */}
       <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
         <div className="flex items-center gap-2">
-          {/* Source badge */}
           <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${sourceColors.bg} ${sourceColors.text}`}>
             <SourceIcon className="h-3 w-3" />
             {SOURCE_LABELS[source]}
           </span>
 
-          {/* Subject label */}
           {subjectLabel && (
             <span className="text-[11px] text-slate-400">{subjectLabel}</span>
+          )}
+
+          {statusBadge && status !== "new" && (
+            <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${statusBadge.bg} ${statusBadge.text}`}>
+              {statusBadge.label}
+            </span>
           )}
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Relevance score with label */}
           <span
             className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold ring-1 ${urgencyStyle.bg} ${urgencyStyle.text} ${urgencyStyle.ring}`}
             title={`Relevance score: ${relevanceScore}/100 — based on ${severity} severity, ${confidence} confidence, and your feedback history`}
@@ -206,10 +219,7 @@ export default function InsightCard({
             <span className="opacity-60">{relevanceScore}</span>
           </span>
 
-          {/* Feedback actions */}
-          <div className="flex items-center gap-0.5">
-            {actions}
-          </div>
+          <KebabMenu insightId={id} currentStatus={status} onStatusChange={onStatusChange} />
         </div>
       </div>
 
@@ -223,7 +233,6 @@ export default function InsightCard({
           {summary}
         </p>
 
-        {/* Metric pills */}
         {metrics.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {metrics.map((pill) => (
@@ -237,7 +246,6 @@ export default function InsightCard({
           </div>
         )}
 
-        {/* Recommendations */}
         {recommendations.length > 0 && (
           <div className="mt-3 space-y-1.5">
             {recommendations.slice(0, 2).map((rec, i) => {
@@ -259,24 +267,12 @@ export default function InsightCard({
           </div>
         )}
 
-        {/* Suppressed notice */}
         {suppressed && (
           <p className="mt-2 text-[10px] italic text-slate-400">
             Less relevant based on your feedback
           </p>
         )}
 
-        {/* Saved indicator */}
-        {isSaved && !isDismissed && (
-          <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-emerald-600">
-            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-            </svg>
-            Saved as useful
-          </div>
-        )}
-
-        {/* Expandable evidence */}
         <details className="mt-3 group/details">
           <summary className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600">
             <svg className="h-3 w-3 transition-transform group-open/details:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -81,7 +81,7 @@ export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
           const existingHashes = new Set((existing ?? []).map((r) => r.image_hash))
 
           const compDownloads: Array<FetchedPhoto & { competitorId: string }> = []
-          for (const ref of refs.slice(0, 5)) {
+          for (const ref of refs.slice(0, 30)) {
             try {
               await sleep(250)
               const photo = await downloadPhoto(ref.name)

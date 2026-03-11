@@ -5,6 +5,7 @@ import LocationFilter from "@/components/ui/location-filter"
 import PhotoGrid, { type PhotoGridItem } from "@/components/photos/photo-grid"
 import VisualInsightsCards from "@/components/photos/visual-insights-cards"
 import { Card } from "@/components/ui/card"
+import { fetchPhotosPageData } from "@/lib/cache/photos"
 
 type PhotosPageProps = {
   searchParams?: Promise<{
@@ -46,15 +47,10 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const competitorIds = (competitors ?? []).map((c) => c.id)
   const competitorNameMap = new Map((competitors ?? []).map((c) => [c.id, c.name ?? "Competitor"]))
 
-  const { data: photosRaw } = competitorIds.length > 0
-    ? await supabase
-        .from("competitor_photos")
-        .select("id, competitor_id, image_url, image_hash, analysis_result, first_seen_at, created_at")
-        .in("competitor_id", competitorIds)
-        .order("created_at", { ascending: false })
-    : { data: [] }
+  // Fetch photos + insights (cached, 7-day TTL)
+  const cached = await fetchPhotosPageData(selectedLocationId ?? "", competitorIds)
 
-  const photos: PhotoGridItem[] = (photosRaw ?? []).map((p) => {
+  const photos: PhotoGridItem[] = cached.photos.map((p) => {
     const a = p.analysis_result as Record<string, unknown> | null
     const qs = a?.quality_signals as Record<string, unknown> | null
     return {
@@ -75,20 +71,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
     }
   })
 
-  // -------------------------------------------------------------------------
-  // Fetch photo-related insights
-  // -------------------------------------------------------------------------
-  const { data: photoInsightsRaw } = selectedLocationId
-    ? await supabase
-        .from("insights")
-        .select("id, title, summary, severity, insight_type, date_key, evidence, recommendations")
-        .eq("location_id", selectedLocationId)
-        .or("insight_type.like.photo.%,insight_type.like.visual.%")
-        .order("date_key", { ascending: false })
-        .limit(8)
-    : { data: [] }
-
-  const photoInsights = (photoInsightsRaw ?? []).map((ins) => ({
+  const photoInsights = cached.insights.map((ins) => ({
     id: ins.id,
     title: ins.title,
     summary: ins.summary,

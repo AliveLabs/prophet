@@ -32,13 +32,25 @@ export function generateSocialInsights(
       (c) => c.platform === locSnap.platform
     )
 
+    // Location-only rules (always fire, even without competitors)
     insights.push(
-      ...checkPostingFrequencyGap(locSnap, platformComps),
-      ...checkEngagementComparison(locSnap, platformComps),
-      ...checkFollowerGrowth(locSnap, platformComps),
       ...checkInactiveAccount(locSnap),
-      ...checkHashtagGap(locSnap, platformComps),
+      ...checkPostingFrequencyBenchmark(locSnap),
+      ...checkEngagementBenchmark(locSnap),
+      ...checkContentTypeBreakdown(locSnap),
+      ...checkBestPerformingContent(locSnap),
+      ...checkPostingConsistency(locSnap),
     )
+
+    // Comparative rules (require competitor data)
+    if (platformComps.length > 0) {
+      insights.push(
+        ...checkPostingFrequencyGap(locSnap, platformComps),
+        ...checkEngagementComparison(locSnap, platformComps),
+        ...checkFollowerGrowth(locSnap, platformComps),
+        ...checkHashtagGap(locSnap, platformComps),
+      )
+    }
   }
 
   // Cross-platform checks
@@ -476,6 +488,276 @@ function checkInactiveAccount(location: EntitySnapshot): GeneratedInsight[] {
         {
           title: "Resume posting immediately with behind-the-scenes or seasonal content",
           rationale: "Break the silence with low-effort, authentic content to re-engage followers.",
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// Rule 11: Posting frequency benchmark (location-only)
+// ---------------------------------------------------------------------------
+
+const INDUSTRY_POSTING_BENCHMARKS: Record<string, { min: number; ideal: number }> = {
+  instagram: { min: 3, ideal: 5 },
+  facebook: { min: 2, ideal: 4 },
+  tiktok: { min: 3, ideal: 5 },
+}
+
+function checkPostingFrequencyBenchmark(location: EntitySnapshot): GeneratedInsight[] {
+  const insights: GeneratedInsight[] = []
+  const freq = location.current.aggregateMetrics.postingFrequencyPerWeek
+  const benchmark = INDUSTRY_POSTING_BENCHMARKS[location.platform] ?? { min: 3, ideal: 5 }
+
+  if (freq < benchmark.min && freq > 0) {
+    insights.push({
+      insight_type: "social.posting_frequency_low",
+      title: `You're posting ${Math.round(freq)}x/week on ${platformLabel(location.platform)} — below the recommended ${benchmark.min}x`,
+      summary: `Your ${platformLabel(location.platform)} posting frequency is ${freq.toFixed(1)} posts/week. Industry benchmarks for restaurants suggest at least ${benchmark.min}x/week, with ${benchmark.ideal}x/week being ideal for consistent growth.`,
+      confidence: "high",
+      severity: "warning",
+      evidence: {
+        yourFrequency: freq,
+        recommendedMin: benchmark.min,
+        idealFrequency: benchmark.ideal,
+        platform: location.platform,
+      },
+      recommendations: [
+        {
+          title: `Increase to at least ${benchmark.min} posts/week on ${platformLabel(location.platform)}`,
+          rationale: "Consistent posting improves algorithm visibility and keeps your audience engaged. Batch-create content on slow days.",
+        },
+      ],
+    })
+  } else if (freq >= benchmark.ideal) {
+    insights.push({
+      insight_type: "social.posting_frequency_strong",
+      title: `Great posting cadence: ${Math.round(freq)}x/week on ${platformLabel(location.platform)}`,
+      summary: `You're posting ${freq.toFixed(1)} times per week on ${platformLabel(location.platform)}, meeting or exceeding the recommended ${benchmark.ideal}x/week. Keep this up!`,
+      confidence: "high",
+      severity: "info",
+      evidence: {
+        yourFrequency: freq,
+        idealFrequency: benchmark.ideal,
+        platform: location.platform,
+      },
+      recommendations: [],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// Rule 12: Engagement rate benchmark (location-only)
+// ---------------------------------------------------------------------------
+
+const ENGAGEMENT_BENCHMARKS: Record<string, { low: number; good: number; great: number }> = {
+  instagram: { low: 1.0, good: 3.0, great: 6.0 },
+  facebook: { low: 0.5, good: 1.5, great: 3.0 },
+  tiktok: { low: 2.0, good: 5.0, great: 10.0 },
+}
+
+function checkEngagementBenchmark(location: EntitySnapshot): GeneratedInsight[] {
+  const insights: GeneratedInsight[] = []
+  const rate = location.current.aggregateMetrics.engagementRate
+  if (rate <= 0) return insights
+
+  const bench = ENGAGEMENT_BENCHMARKS[location.platform] ?? { low: 1.0, good: 3.0, great: 6.0 }
+
+  if (rate >= bench.great) {
+    insights.push({
+      insight_type: "social.engagement_excellent",
+      title: `Excellent ${platformLabel(location.platform)} engagement: ${rate.toFixed(1)}%`,
+      summary: `Your engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is well above the industry average of ${bench.good}%. Your content is resonating strongly with your audience.`,
+      confidence: "high",
+      severity: "info",
+      evidence: {
+        yourRate: rate,
+        industryGood: bench.good,
+        industryGreat: bench.great,
+        platform: location.platform,
+      },
+      recommendations: [
+        {
+          title: "Double down on your top-performing content types",
+          rationale: "Your audience is highly engaged. Analyze which posts drive the most interaction and create more similar content.",
+        },
+      ],
+    })
+  } else if (rate < bench.low) {
+    insights.push({
+      insight_type: "social.engagement_below_average",
+      title: `${platformLabel(location.platform)} engagement (${rate.toFixed(1)}%) is below average`,
+      summary: `Your engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is below the industry benchmark of ${bench.low}%. This means your content isn't resonating — try different formats, posting times, or ask questions in captions.`,
+      confidence: "high",
+      severity: "warning",
+      evidence: {
+        yourRate: rate,
+        industryLow: bench.low,
+        industryGood: bench.good,
+        platform: location.platform,
+      },
+      recommendations: [
+        {
+          title: "Experiment with Reels, carousels, and interactive captions",
+          rationale: "Low engagement often means content doesn't stop the scroll. Try short videos, questions, and behind-the-scenes content.",
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// Rule 13: Content type breakdown (location-only)
+// ---------------------------------------------------------------------------
+
+function checkContentTypeBreakdown(location: EntitySnapshot): GeneratedInsight[] {
+  const insights: GeneratedInsight[] = []
+  const posts = location.current.recentPosts
+  if (posts.length < 5) return insights
+
+  const byType = new Map<string, { count: number; totalEngagement: number }>()
+  for (const post of posts) {
+    const entry = byType.get(post.mediaType) ?? { count: 0, totalEngagement: 0 }
+    entry.count++
+    entry.totalEngagement += post.likesCount + post.commentsCount
+    byType.set(post.mediaType, entry)
+  }
+
+  const types = Array.from(byType.entries())
+    .map(([type, stats]) => ({
+      type,
+      count: stats.count,
+      pct: Math.round((stats.count / posts.length) * 100),
+      avgEng: stats.count > 0 ? stats.totalEngagement / stats.count : 0,
+    }))
+    .sort((a, b) => b.avgEng - a.avgEng)
+
+  if (types.length < 2) return insights
+
+  const best = types[0]
+  const worst = types[types.length - 1]
+
+  if (best.avgEng >= worst.avgEng * 2 && best.count >= 3 && worst.count >= 2) {
+    insights.push({
+      insight_type: "social.content_type_self_analysis",
+      title: `Your ${best.type}s get ${Math.round(best.avgEng / worst.avgEng)}x more engagement than ${worst.type}s on ${platformLabel(location.platform)}`,
+      summary: `On ${platformLabel(location.platform)}, your ${best.type} content averages ${formatNumber(Math.round(best.avgEng))} engagements (${best.pct}% of posts) while ${worst.type}s average only ${formatNumber(Math.round(worst.avgEng))}. Shift your content mix toward ${best.type}s.`,
+      confidence: "medium",
+      severity: "info",
+      evidence: {
+        bestType: best.type,
+        bestAvgEng: best.avgEng,
+        bestPct: best.pct,
+        worstType: worst.type,
+        worstAvgEng: worst.avgEng,
+        worstPct: worst.pct,
+        platform: location.platform,
+        contentBreakdown: types,
+      },
+      recommendations: [
+        {
+          title: `Create more ${best.type} content — it's your strongest format`,
+          rationale: `${best.type}s outperform other formats by ${Math.round(best.avgEng / worst.avgEng)}x. Prioritize this format in your content calendar.`,
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// Rule 14: Best performing content highlight (location-only)
+// ---------------------------------------------------------------------------
+
+function checkBestPerformingContent(location: EntitySnapshot): GeneratedInsight[] {
+  const insights: GeneratedInsight[] = []
+  const posts = location.current.recentPosts
+  if (posts.length < 3) return insights
+
+  const avgEng = posts.reduce((s, p) => s + p.likesCount + p.commentsCount, 0) / posts.length
+  if (avgEng <= 0) return insights
+
+  const topPost = [...posts].sort(
+    (a, b) => (b.likesCount + b.commentsCount) - (a.likesCount + a.commentsCount)
+  )[0]
+
+  const topEng = topPost.likesCount + topPost.commentsCount
+  const multiplier = topEng / avgEng
+
+  if (multiplier >= 3 && topEng >= 20) {
+    const snippet = topPost.text
+      ? topPost.text.slice(0, 80) + (topPost.text.length > 80 ? "..." : "")
+      : "(no caption)"
+    insights.push({
+      insight_type: "social.top_performing_post",
+      title: `Your top ${platformLabel(location.platform)} post got ${Math.round(multiplier)}x your average engagement`,
+      summary: `A recent ${topPost.mediaType} got ${formatNumber(topEng)} engagements — ${Math.round(multiplier)}x your average of ${formatNumber(Math.round(avgEng))}. Caption: "${snippet}". Study what made this post work and replicate the formula.`,
+      confidence: "high",
+      severity: "info",
+      evidence: {
+        topPostEngagement: topEng,
+        avgEngagement: avgEng,
+        multiplier: Math.round(multiplier),
+        mediaType: topPost.mediaType,
+        platform: location.platform,
+      },
+      recommendations: [
+        {
+          title: "Replicate the format and style of your top-performing post",
+          rationale: "Top posts reveal what your audience wants. Create variations on the same theme, format, and tone.",
+        },
+      ],
+    })
+  }
+
+  return insights
+}
+
+// ---------------------------------------------------------------------------
+// Rule 15: Posting consistency (location-only)
+// ---------------------------------------------------------------------------
+
+function checkPostingConsistency(location: EntitySnapshot): GeneratedInsight[] {
+  const insights: GeneratedInsight[] = []
+  const posts = location.current.recentPosts
+  if (posts.length < 4) return insights
+
+  const postDates = posts
+    .map((p) => new Date(p.createdTime).getTime())
+    .sort((a, b) => b - a)
+
+  const gaps: number[] = []
+  for (let i = 0; i < postDates.length - 1; i++) {
+    gaps.push((postDates[i] - postDates[i + 1]) / (1000 * 60 * 60 * 24))
+  }
+
+  const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length
+  const maxGap = Math.max(...gaps)
+
+  if (maxGap >= avgGap * 3 && maxGap >= 10) {
+    insights.push({
+      insight_type: "social.posting_inconsistent",
+      title: `Inconsistent posting on ${platformLabel(location.platform)} — gaps up to ${Math.round(maxGap)} days`,
+      summary: `Your posting on ${platformLabel(location.platform)} has gaps of up to ${Math.round(maxGap)} days between posts (avg gap: ${Math.round(avgGap)} days). Inconsistent posting hurts algorithm performance and follower retention.`,
+      confidence: "medium",
+      severity: "warning",
+      evidence: {
+        maxGapDays: Math.round(maxGap),
+        avgGapDays: Math.round(avgGap),
+        postCount: posts.length,
+        platform: location.platform,
+      },
+      recommendations: [
+        {
+          title: "Schedule posts in advance to maintain a regular cadence",
+          rationale: "Use a content calendar and scheduling tool to post consistently. Algorithms reward regular activity.",
         },
       ],
     })
