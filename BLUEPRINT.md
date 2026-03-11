@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 6, 2026
+> **Last updated:** March 11, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -48,8 +48,9 @@
 - **Visual Intelligence (Photos):** Fetches Google Places photos, analyzes via Gemini Vision for quality, ambiance, food presentation, and generates photo-based insights.
 - **Foot Traffic Analysis (Busy Times):** Fetches Google Maps Popular Times data via Outscraper, visualizes hourly/daily traffic patterns, peak comparisons, and generates traffic insights.
 - **Weather Intelligence:** Fetches historical and forecast weather via OpenWeatherMap, provides weather context for cross-signal insights, and suppresses weather-affected metrics.
-- **Social Media Intelligence:** Tracks Instagram, Facebook, and TikTok profiles for locations and competitors via Data365 API. Discovers handles via Firecrawl website scraping and Data365 profile search (parallelized). Collects posts with engagement metrics and images. Persists social post images to Supabase Storage (replacing expiring CDN URLs). Generates 10 deterministic social insight rules + 4 cross-signal rules. Platform-tabbed posts grid with entity filtering.
-- **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather, social). LLM (Gemini) adds priority briefings and narrative summaries. Client-side filtering for instant tab switching.
+- **Social Media Intelligence:** Tracks Instagram, Facebook, and TikTok profiles for locations and competitors via Data365 API. Discovers handles via Firecrawl website scraping and Data365 profile search (parallelized). Collects posts with engagement metrics and images. Persists social post images to Supabase Storage (replacing expiring CDN URLs). Generates 15 deterministic social insight rules (10 comparative + 5 location-only) + 8 cross-signal rules (4 social + 4 visual-aware). Platform-tabbed posts grid with entity filtering.
+- **Social Media Visual Intelligence:** Analyzes social post images via Gemini Vision to extract content categories, food presentation quality, visual quality, brand signals, atmosphere signals, and promotional content. Aggregates per-entity visual profiles and generates 16 visual insight rules (12 comparative + 4 location-only) covering content strategy, competitive intelligence, and visual opportunity detection.
+- **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather, social, visual). LLM (Gemini) adds priority briefings and narrative summaries. Actionable insight card system with kebab menu (Mark as Read, To-Do, Done, Snooze, Dismiss). Dual-view display: category-grouped feed (default) and Kanban board (Inbox/To-Do/Done columns). Optimistic UI updates with `useTransition` and `router.refresh()`. Client-side filtering for instant tab switching.
 - **Real-Time Job System:** Background job pipelines with SSE (Server-Sent Events) streaming, step-by-step progress, ambient insight feeds during long-running operations, and toast notifications on completion.
 - **Server-Side Caching:** All dashboard pages use Next.js `unstable_cache` with 7-day TTL and tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag()`.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
@@ -70,17 +71,18 @@ The application has shipped through most PRD phases:
 - Fire-and-forget competitor enrichment on approval (SEO + content)
 - Social media intelligence with Data365 (Instagram, Facebook, TikTok) (Phase 8)
 - Social post image persistence to Supabase Storage
+- Social media visual intelligence via Gemini Vision (content categorization, quality analysis, brand signals) (Phase 9)
+- Actionable insight card system with expanded status workflow (new/read/todo/actioned/snoozed/dismissed) (Phase 10)
+- Category-grouped feed and Kanban board views for insights
 - Server-side caching with 7-day TTL and automatic revalidation after job completion
 - Parallelized social handle discovery and data collection
 
 ### What is NOT yet shipped
 
-- Social media visual intelligence (Gemini Vision on social post images) -- plan created, not yet implemented
 - Email digests/notifications (Edge Function stub exists)
 - Full "Ask Prophet" chat with LLM
 - Data retention cleanup policies
 - Team management functionality
-- Insight like/dislike feedback UI (database schema ready)
 
 ---
 
@@ -306,9 +308,10 @@ prophet/
 │   ├── home/
 │   │   └── home-charts.tsx                 # Client: Home page charts (rating comparison, review trends, insights by source)
 │   ├── insights/
-│   │   ├── insight-feed.tsx                # Client: Client-side filtered insight feed with tabs
+│   │   ├── insight-feed.tsx                # Client: Category-grouped feed + Kanban board with optimistic updates
 │   │   ├── insight-tabs.tsx                # Client: Source tab navigation
 │   │   ├── insights-dashboard.tsx          # Client: Charts dashboard (Recharts)
+│   │   ├── kebab-menu.tsx                  # Client: Actionable status menu (Read/To-Do/Done/Snooze/Dismiss)
 │   │   ├── photo-gallery.tsx               # Client: Photo gallery for insights
 │   │   ├── priority-briefing.tsx           # Client: Priority briefing display + skeleton
 │   │   ├── social-dashboard.tsx            # Client: Social metrics dashboard (presence matrix, follower/engagement charts)
@@ -323,7 +326,7 @@ prophet/
 │   ├── weather/
 │   │   ├── location-weather-cards.tsx      # Client: Multi-location weather cards
 │   │   └── weather-history.tsx             # Client: Multi-day weather history chart
-│   ├── insight-card.tsx                    # Server: Insight card with evidence + recommendations
+│   ├── insight-card.tsx                    # Insight card with kebab menu, evidence + recommendations
 │   ├── motion/
 │   │   └── fade-in.tsx                     # Client: Framer Motion fade-in wrapper
 │   ├── places/
@@ -419,6 +422,7 @@ prophet/
 │   │   ├── trends.ts                       # buildWeeklyInsights() (T-7 trend analysis)
 │   │   ├── scoring.ts                      # Source categories, relevance scoring weights
 │   │   ├── briefing-cache.ts               # In-memory TTL cache for Gemini priority briefings
+│   │   ├── cached-data.ts                  # Cached insights page data fetcher (unstable_cache, 7-day TTL, tag: insights-data)
 │   │   ├── photo-insights.ts               # generatePhotoInsights() rules
 │   │   ├── traffic-insights.ts             # generateTrafficInsights() + competitive opportunity rules
 │   │   └── weather-context.ts              # shouldSuppressInsight(), addWeatherContext(), generateWeatherCrossSignals()
@@ -435,11 +439,13 @@ prophet/
 │   │   ├── match.ts                        # matchEventsToCompetitors() deterministic matching
 │   │   └── insights.ts                     # generateEventInsights() (5 insight rules)
 │   ├── social/                             # Social media intelligence engine
-│   │   ├── types.ts                        # SocialPlatform, NormalizedSocialProfile/Post, SocialSnapshotData, etc.
+│   │   ├── types.ts                        # SocialPlatform, NormalizedSocialProfile/Post, SocialPostAnalysis, EntityVisualProfile, etc.
 │   │   ├── normalize.ts                    # Raw Data365 response → normalized profiles/posts (Instagram, Facebook, TikTok)
 │   │   ├── enrich.ts                       # Social handle discovery via Firecrawl + Data365 search (parallel, with timeouts)
-│   │   ├── insights.ts                     # 10 deterministic social insight rules (engagement, frequency, growth, etc.)
-│   │   ├── cross-signal.ts                 # 4 cross-signal rules (social+SEO, social+events, social+weather, multi-platform)
+│   │   ├── insights.ts                     # 15 deterministic social insight rules (10 comparative + 5 location-only)
+│   │   ├── visual-analysis.ts              # Gemini Vision image analysis: analyzeSocialPostImage(), analyzePostImages(), aggregateVisualMetrics()
+│   │   ├── visual-insights.ts              # 16 visual insight rules (12 comparative + 4 location-only)
+│   │   ├── cross-signal.ts                 # 8 cross-signal rules (4 social + 4 visual-aware)
 │   │   ├── storage.ts                      # Download & persist social post images to Supabase Storage (admin client)
 │   │   └── index.ts                        # Barrel file re-exporting all social modules
 │   ├── cache/                              # Server-side caching layer (unstable_cache with 7-day TTL)
@@ -478,7 +484,7 @@ prophet/
 │   └── prophet.types.ts                    # ActionResult<T> standard return shape
 │
 ├── supabase/                               # Supabase configuration
-│   ├── migrations/                         # SQL migrations (13 files)
+│   ├── migrations/                         # SQL migrations (14 files)
 │   │   ├── 20260127010101_initial_schema.sql
 │   │   ├── 20260127010200_membership_bootstrap.sql
 │   │   ├── 20260127010300_fix_org_member_policies.sql
@@ -491,7 +497,8 @@ prophet/
 │   │   ├── 20260228010100_social_media_tables.sql
 │   │   ├── 20260228020100_add_social_refresh_all_job_types.sql
 │   │   ├── 20260306010100_social_media_bucket.sql
-│   │   └── 20260306010200_social_snapshots_update_policy.sql
+│   │   ├── 20260306010200_social_snapshots_update_policy.sql
+│   │   └── 20260307010100_expand_insight_status.sql
 │   └── functions/                          # Supabase Edge Functions (Deno)
 │       ├── orchestrator_daily/index.ts     # SEO insight generation rules
 │       ├── job_worker/index.ts             # SEO normalization utilities
@@ -635,7 +642,8 @@ This pipeline applies to all signal sources:
 - **Photo insights:** Google Places photos + Gemini Vision -> analyze -> rules
 - **Traffic insights:** Outscraper Popular Times -> normalize -> rules
 - **Weather insights:** OpenWeatherMap -> cross-signal correlation -> context enrichment
-- **Social insights:** Data365 social profiles/posts -> normalize -> diff -> rules (10 types) + cross-signal rules (4 types)
+- **Social insights:** Data365 social profiles/posts -> normalize -> diff -> rules (15 types) + cross-signal rules (8 types)
+- **Visual insights:** Social post images -> Gemini Vision analysis -> aggregate visual profiles -> rules (16 types)
 
 ---
 
@@ -714,6 +722,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `20260228020100_add_social_refresh_all_job_types.sql` | Extends `refresh_jobs.job_type` CHECK to include `social` and `refresh_all` |
 | `20260306010100_social_media_bucket.sql` | `social-media` storage bucket (public, 10MB, image formats) + RLS policies |
 | `20260306010200_social_snapshots_update_policy.sql` | UPDATE policy on `social_snapshots` for org admin upserts |
+| `20260307010100_expand_insight_status.sql` | Expands `insights.status` CHECK to: new/read/todo/actioned/snoozed/dismissed |
 
 ### 7.2 Tables
 
@@ -832,7 +841,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `severity` | text NOT NULL DEFAULT 'info' | CHECK: info/warning/critical |
 | `evidence` | jsonb DEFAULT '{}' | |
 | `recommendations` | jsonb DEFAULT '[]' | |
-| `status` | text NOT NULL DEFAULT 'new' | CHECK: new/read/dismissed |
+| `status` | text NOT NULL DEFAULT 'new' | CHECK: new/read/todo/actioned/snoozed/dismissed |
 | `user_feedback` | text | CHECK: useful/not_useful |
 | `feedback_at` | timestamptz | |
 | `feedback_by` | uuid | References `auth.users(id)` |
@@ -1112,15 +1121,20 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 - **Handle management:** "Discover Handles" button runs parallel Firecrawl + Data365 discovery for location and competitors. HandleManager component for add/edit/delete/verify per entity.
 - **Social dashboard:** Platform presence matrix, follower bar chart, engagement rate bar chart, quick stats
 - **Posts grid:** Platform tabs (All/Instagram/Facebook/TikTok), entity filter dropdown, post cards with images (persisted to Supabase Storage), engagement stats (likes/comments/shares/views), "You" badge for location's own posts
-- **Insight feed:** Social-specific insights (engagement gap, posting frequency, follower growth, platform presence, viral content, hashtags, inactive accounts) + cross-signal social insights
+- **Insight feed:** Social-specific insights (engagement gap, posting frequency, follower growth, platform presence, viral content, hashtags, inactive accounts, location-only benchmarks) + visual insights (quality, content mix, food photography, brand consistency) + cross-signal social insights (SEO correlation, event promotion, weather opportunity, visual-aware rules). Uses the same category-grouped feed and Kanban board views as `/insights`.
 - **Refresh button:** Triggers `social` pipeline (collect snapshots, persist images, generate insights)
 
 #### `/insights`
-- **Filters:** Location, date range, confidence, severity, source (competitors/events/SEO/content/photos/traffic)
+- **Filters:** Location, date range, confidence, severity, source (competitors/events/SEO/content/photos/traffic), status (All active/New/Read/To-Do/Done/Snoozed/Dismissed)
 - **Priority briefing:** Gemini-generated top 5 priorities with diversity rules (Suspense-streamed with skeleton fallback)
 - **Charts dashboard:** Rating comparison, review count, sentiment distribution
-- **Insight feed:** Client-side tab filtering for instant switching, grouped by date
-- **Insight cards:** Title, summary, badges, evidence accordion, recommendations, mark-read/dismiss
+- **Dual-view insight feed:**
+  - **Category-grouped feed (default):** Groups insights by source category (Social, Visual, Competitors, SEO, etc.) with 6 cards per category and "Show more" expansion. Category tabs function as filters.
+  - **Kanban board (toggle):** 3-column board (Inbox = new+read, To-Do = todo, Done = actioned) with 8 cards per column and "Load more" expansion.
+  - **View toggle:** Switch between Feed and Board views via toolbar buttons.
+  - **Optimistic updates:** Status changes apply instantly via `statusOverrides` Map + `useTransition`, then sync with server via `router.refresh()`.
+  - **Dismissed/snoozed** insights are hidden from both views but accessible via status filter.
+- **Insight cards:** Title, summary, severity/confidence/source badges, status pill, evidence accordion, recommendations, **kebab menu** (Mark as Read, Add to To-Do, Mark as Done, Do Later, Dismiss)
 
 #### `/events`
 - **Controls:** Location selector, period (week/weekend), venue filter, matched-only toggle
@@ -1179,9 +1193,10 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 | `competitors/actions.ts` | `discoverCompetitorsAction` | Gemini discovery + Places enrichment | `/competitors` |
 | `competitors/actions.ts` | `approveCompetitorAction` | Sets approved, fire-and-forget SEO + content enrichment | `/competitors` |
 | `competitors/actions.ts` | `ignoreCompetitorAction` | Sets ignored, is_active=false | `/competitors` |
+| `insights/actions.ts` | `updateInsightStatusAction` | Unified status update (new/read/todo/actioned/snoozed/dismissed), no redirect | None |
+| `insights/actions.ts` | `saveInsightAction` | Legacy: mark as read + redirect (calls `updateInsightStatusAction`) | `/insights` |
+| `insights/actions.ts` | `dismissInsightAction` | Legacy: dismiss + redirect (calls `updateInsightStatusAction`) | `/insights` |
 | `insights/actions.ts` | `generateInsightsAction` | Runs all insight pipelines + cross-source correlation | `/insights` |
-| `insights/actions.ts` | `markInsightReadAction` | Sets insight status=read | `/insights` |
-| `insights/actions.ts` | `dismissInsightAction` | Sets insight status=dismissed | `/insights` |
 | `insights/actions.ts` | `generatePriorityBriefing` | Gemini priority briefing with TTL cache | None (returns data) |
 | `insights/social-actions.ts` | `saveSocialProfileAction` | Creates/updates social profile handle | None |
 | `insights/social-actions.ts` | `deleteSocialProfileAction` | Deletes a social profile | None |
@@ -1271,6 +1286,7 @@ Used in five contexts:
 | Insight narratives | gemini-3-pro-preview | `lib/ai/gemini.ts` | Structured JSON summaries and recommendations |
 | Priority briefing | gemini-3-pro-preview | `insights/actions.ts` | Top 5 priorities with diversity rules (cached with TTL) |
 | Photo analysis | gemini-2.5-flash | `lib/providers/photos.ts` | Gemini Vision for quality, ambiance, food presentation |
+| Social visual analysis | gemini-2.5-flash | `lib/social/visual-analysis.ts` | Gemini Vision for social post content categorization, quality, brand signals |
 | Google menu data | gemini-3-pro-preview | `lib/ai/gemini.ts` | Google Search Grounding to fetch structured menu data |
 
 ### 12.3 Data365 Social Media API
@@ -1434,29 +1450,56 @@ Flow: Fetch OpenWeatherMap data -> Detect severe weather -> Suppress weather-aff
 2. Platform searches run in parallel with 20-second per-platform timeout
 3. Location and all competitors are processed in parallel via `Promise.allSettled`
 
-**Collection flow (pipeline):**
-1. `collect_snapshots` step: Fetches profiles and posts from Data365 for each tracked social profile
-2. Image persistence: Downloads post images from CDN and uploads to `social-media` Supabase Storage bucket (admin client bypasses RLS)
-3. `generate_insights` step: Runs social insight rules + cross-signal rules
+**Collection flow (pipeline -- 4 steps):**
+1. `discover_handles` step: Discovers social handles via Firecrawl + Data365 search (parallel, with timeouts)
+2. `collect_snapshots` step: Fetches profiles and posts from Data365 for each tracked social profile. Downloads post images from CDN and uploads to `social-media` Supabase Storage bucket (admin client bypasses RLS)
+3. `analyze_social_visuals` step: Runs Gemini Vision analysis on top 10 posts per profile (by engagement), stores `visualAnalysis` inline in `social_snapshots.raw_data`, aggregates `EntityVisualProfile` metrics. Uses 3-way concurrency with rate limiting.
+4. `generate_social_insights` step: Runs social metric insight rules + visual insight rules + cross-signal rules, upserts all insights to database
 
 **Platform-specific timeouts:** Instagram/Facebook 90s, TikTok 150s (Data365 needs longer for TikTok).
 
-**10 Social Insight Types:**
+**15 Social Metric Insight Types (10 comparative + 5 location-only):**
 
-| Type | Trigger |
-|---|---|
-| `social.engagement_gap` | Location engagement rate < competitor by significant margin |
-| `social.posting_frequency_low` | Location posts significantly less frequently than competitors |
-| `social.follower_growth_slow` | Location follower growth trailing competitors |
-| `social.platform_presence_gap` | Competitor active on platform location isn't on |
-| `social.competitor_viral_content` | Competitor post with unusually high engagement |
-| `social.hashtag_opportunity` | Trending hashtags used by competitors but not location |
-| `social.competitor_inactive` | Competitor hasn't posted in 30+ days |
-| `social.engagement_declining` | Location engagement rate trending down |
-| `social.content_type_gap` | Competitor succeeding with content types location doesn't use |
-| `social.posting_consistency` | Location posting schedule irregular vs competitors |
+| Type | Trigger | Requires Competitors |
+|---|---|---|
+| `social.engagement_gap` | Location engagement rate < competitor by significant margin | Yes |
+| `social.posting_frequency_low` | Location posts significantly less frequently than competitors | Yes |
+| `social.follower_growth_slow` | Location follower growth trailing competitors | Yes |
+| `social.platform_presence_gap` | Competitor active on platform location isn't on | Yes |
+| `social.competitor_viral_content` | Competitor post with unusually high engagement | Yes |
+| `social.hashtag_opportunity` | Trending hashtags used by competitors but not location | Yes |
+| `social.competitor_inactive` | Competitor hasn't posted in 30+ days | No (location-only) |
+| `social.engagement_declining` | Location engagement rate trending down | Yes |
+| `social.content_type_gap` | Competitor succeeding with content types location doesn't use | Yes |
+| `social.posting_consistency` | Location posting schedule irregular vs competitors | Yes |
+| `social.posting_frequency_benchmark` | Location posting cadence vs industry benchmarks | No (location-only) |
+| `social.engagement_benchmark` | Location engagement rate vs platform benchmarks | No (location-only) |
+| `social.content_type_breakdown` | Breakdown of location's content types with optimization tips | No (location-only) |
+| `social.best_performing_content` | Identifies location's highest-engagement post patterns | No (location-only) |
+| `social.posting_consistency_self` | Location posting regularity assessment | No (location-only) |
 
-**4 Cross-Signal Social Insight Types:**
+**16 Visual Insight Types (12 comparative + 4 location-only):**
+
+| Type | Trigger | Requires Competitors |
+|---|---|---|
+| `social.visual_quality_gap` | Location visual quality score < competitor | Yes |
+| `social.visual_quality_win` | Location visual quality score > competitor | Yes |
+| `social.content_mix_imbalance` | Location content category distribution is imbalanced vs competitor | Yes |
+| `social.food_photography_gap` | Location food photography quality < competitor | Yes |
+| `social.professional_content_gap` | Location professional content % < competitor | Yes |
+| `social.competitor_promo_blitz` | Competitor running high % promotional content | No (competitor-only) |
+| `social.crowd_perception_gap` | Competitor showing higher crowd levels than location | Yes |
+| `social.brand_consistency_low` | Location brand consistency score is low | No (location-only) |
+| `social.ugc_dominance` | Competitor has high UGC content showing strong community | Yes |
+| `social.video_content_opportunity` | Competitor succeeding with video but location isn't using it | No (competitor-only) |
+| `social.seasonal_content_gap` | Competitor posting seasonal content but location isn't | Yes |
+| `social.behind_scenes_opportunity` | Competitor succeeding with behind-the-scenes content | Yes |
+| `social.visual_quality_self_assessment` | Location visual quality assessment with improvement tips | No (location-only) |
+| `social.content_mix_self_analysis` | Location content category analysis with recommendations | No (location-only) |
+| `social.food_photography_self_assessment` | Location food photography quality assessment | No (location-only) |
+| `social.visual_engagement_correlation` | Correlation between visual quality and engagement rate | No (location-only) |
+
+**8 Cross-Signal Social Insight Types (4 social + 4 visual-aware):**
 
 | Type | Trigger |
 |---|---|
@@ -1464,17 +1507,34 @@ Flow: Fetch OpenWeatherMap data -> Detect severe weather -> Suppress weather-aff
 | `social.event_promotion_gap` | Local events not being promoted on social |
 | `social.weather_opportunity` | Weather conditions that favor social engagement |
 | `social.multi_platform_strength` | Multi-platform presence advantage/disadvantage |
+| `social.visual_google_mismatch` | Social visual quality doesn't match Google Photos quality |
+| `social.event_visual_promo` | Upcoming events not being visually promoted on social |
+| `social.weather_seasonal_content` | Weather patterns suggest seasonal content opportunities |
+| `social.menu_visual_alignment` | Menu items not well-represented in social visuals |
 
-### 14.9 Cross-Source Correlation
+### 14.9 Social Media Visual Intelligence Pipeline
+**Modules:** `lib/social/visual-analysis.ts`, `lib/social/visual-insights.ts`
+
+**Analysis flow:**
+1. Filters for posts with Supabase Storage URLs (not expired CDN URLs) that lack existing `visualAnalysis`
+2. Sorts posts by engagement (likes + comments + shares) and takes top 10 per profile
+3. Downloads images and sends to Gemini Vision (gemini-2.5-flash) with a social-media-specific structured prompt
+4. Extracts 15-field `SocialPostAnalysis`: content category, subcategory, tags, OCR text, food presentation (plating/portion/color), visual quality (lighting/composition/editing), brand signals (logo/colors/style), atmosphere signals (crowd/energy/time), promotional content detection
+5. Stores analysis inline in `social_snapshots.raw_data.recentPosts[].visualAnalysis`
+6. Aggregates per-entity `EntityVisualProfile` metrics (content mix distribution, avg visual quality, professional %, food presentation score, brand consistency, promotional %, crowd signal)
+
+**Optimization:** 3-way concurrency with rate limiting (150ms between chunks), 8s download timeout per image, 60s timeout per profile batch.
+
+### 14.10 Cross-Source Correlation
 `generateInsightsAction` runs all pipelines then generates cross-source insights:
 - Event + SEO traffic opportunity
 - Domain authority risk
 - Competitor momentum detection
 
-### 14.10 Priority Briefing
+### 14.11 Priority Briefing
 Gemini 3 Pro Preview generates a top-5 priority briefing with diversity rules (must cover >= 3 source categories, max 2 from same category). Results are cached in an in-memory TTL cache (`lib/insights/briefing-cache.ts`).
 
-### 14.11 Competitor Enrichment on Approval
+### 14.12 Competitor Enrichment on Approval
 When a competitor is approved (`approveCompetitorAction`):
 1. Competitor row is updated immediately (instant redirect)
 2. Background fire-and-forget enrichment runs:
@@ -1483,7 +1543,7 @@ When a competitor is approved (`approveCompetitorAction`):
 
 ---
 
-### 14.12 Server-Side Caching
+### 14.13 Server-Side Caching
 
 **Module:** `lib/cache/`
 
@@ -1492,6 +1552,7 @@ All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server compo
 | Cache Tag | File | Used By |
 |---|---|---|
 | `home-data` | `lib/cache/home.ts` | `/home` dashboard KPIs, recent insights, recent jobs |
+| `insights-data` | `lib/insights/cached-data.ts` | `/insights` filtered insights, preferences, competitors |
 | `social-data` | `lib/cache/social.ts` | `/social` insights and preferences |
 | `content-data` | `lib/cache/content.ts` | `/content` site content, menus, competitor menus |
 | `visibility-data` | `lib/cache/visibility.ts` | `/visibility` SEO data, keywords, intersection |
@@ -1606,8 +1667,9 @@ Events sent during pipeline execution:
 | Component | File | Description |
 |---|---|---|
 | DiscoverForm | `competitors/discover-form.tsx` | Competitor discovery + RefreshOverlay |
-| InsightCard | `insight-card.tsx` | Rich insight card with evidence, recommendations |
-| InsightFeed | `insights/insight-feed.tsx` | Client-side filtered insight feed with tabs |
+| InsightCard | `insight-card.tsx` | Insight card with kebab menu, status pill, evidence, recommendations |
+| InsightFeed | `insights/insight-feed.tsx` | Category-grouped feed + Kanban board with optimistic status updates |
+| KebabMenu | `insights/kebab-menu.tsx` | Actionable status dropdown (Read/To-Do/Done/Snooze/Dismiss) with optimistic UI |
 | InsightsDashboard | `insights/insights-dashboard.tsx` | Recharts charts dashboard |
 | PriorityBriefing | `insights/priority-briefing.tsx` | Priority briefing display + skeleton |
 | MenuViewer | `content/menu-viewer.tsx` | Tabbed menu viewer with item cards |
@@ -1691,16 +1753,14 @@ npm run test:e2e # Playwright E2E tests
 5. **Edge Function code duplication:** SEO logic in `supabase/functions/` duplicates `lib/seo/`.
 6. **No data retention cleanup:** Defined in tier limits but no cleanup job exists.
 7. **Team management placeholder:** `/settings/team` has no functionality.
-8. **Insight feedback UI not built:** Database schema supports `user_feedback` on insights and `insight_preferences` table, but the like/dislike UI is not yet implemented.
+8. **Insight feedback simplified:** The thumbs up/down UI has been replaced by actionable status workflow (Read/To-Do/Done/Snooze/Dismiss). The `insight_preferences` learning loop adjusts weights based on status changes.
 9. **Firecrawl actions limitation:** Browser actions (tab-clicking, accordion-revealing) require Fire Engine which may not be available on all Firecrawl plans. The code falls back gracefully to plain scraping.
 10. **DataForSEO ETV estimates:** For small/local businesses, estimated traffic volume can be approximate.
 
 ### Future Work
 
-- Social media visual intelligence (Gemini Vision analysis of social post images) -- plan created, not yet implemented
 - "Ask Prophet" natural language chat grounded in stored data
 - Email alerts and weekly digests
-- Insight like/dislike feedback UI with learning loop
 - Events page layout redesign
 - Additional providers (Yelp, SerpApi)
 - Real-time monitoring capabilities
@@ -1710,4 +1770,4 @@ npm run test:e2e # Playwright E2E tests
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 6, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 11, 2026.*
