@@ -37,20 +37,23 @@ export type FacebookRawPost = {
   message?: string
   text?: string
   created_time?: string
-  attached_media_display_url?: string
-  type?: string
-  likes_count?: number
+  // Facebook uses "attached_image_url" (NOT "attached_media_display_url" like Instagram)
+  attached_image_url?: string
+  attached_media_display_url?: string // fallback in case some endpoints use this
+  post_type?: string
+  type?: string // fallback
   comments_count?: number
   shares_count?: number
-  reactions?: {
-    like?: number
-    love?: number
-    haha?: number
-    wow?: number
-    sad?: number
-    angry?: number
-    support?: number
-  }
+  // Facebook returns flat reaction counts (NOT nested like we originally assumed)
+  reactions_like_count?: number
+  reactions_love_count?: number
+  reactions_haha_count?: number
+  reactions_wow_count?: number
+  reactions_sad_count?: number
+  reactions_angry_count?: number
+  reactions_support_count?: number
+  reactions_total_count?: number
+  likes_count?: number // fallback
 }
 
 type ProfileResponse = {

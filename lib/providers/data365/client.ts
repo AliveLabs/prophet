@@ -126,7 +126,7 @@ export async function fetchProfile<T>(
   extraParams?: Record<string, string>
 ): Promise<T> {
   const basePath = `/${platform}/profile/${encodeURIComponent(profileId)}`
-  const postParams = { load_posts: "true", max_posts: "20", ...extraParams }
+  const postParams = { load_feed_posts: "true", max_posts: "20", ...extraParams }
 
   await apiRequest<unknown>("POST", `${basePath}/update`, postParams)
   await pollUntilDone(`${basePath}/update`, undefined, `${platform}/${profileId}`)

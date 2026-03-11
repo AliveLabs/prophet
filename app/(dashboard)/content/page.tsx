@@ -6,6 +6,7 @@ import JobRefreshButton from "@/components/ui/job-refresh-button"
 import MenuViewer from "@/components/content/menu-viewer"
 import MenuCompare from "@/components/content/menu-compare"
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 
 type PageProps = {
@@ -81,47 +82,30 @@ export default async function ContentPage({ searchParams }: PageProps) {
   const success = resolvedParams?.success
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
-  // Fetch content snapshots
+  // Fetch content snapshots (cached, 7-day TTL)
+  const cached = selectedLocationId
+    ? await fetchContentPageData(selectedLocationId)
+    : { siteContentSnap: null, menuSnap: null, competitors: [], competitorMenuSnaps: [] }
+
   let siteContentSnap: SiteContentSnapshot | null = null
   let menuSnap: MenuSnapshot | null = null
   let screenshotUrl: string | null = null
   let menuScreenshotUrl: string | null = null
 
-  if (selectedLocationId) {
-    const { data: siteSnap } = await supabase
-      .from("location_snapshots")
-      .select("raw_data, date_key")
-      .eq("location_id", selectedLocationId)
-      .eq("provider", "firecrawl_site_content")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (siteSnap) {
-      siteContentSnap = siteSnap.raw_data as SiteContentSnapshot
-      if (siteContentSnap?.screenshot?.storagePath) {
-        screenshotUrl = await getScreenshotUrl(siteContentSnap.screenshot.storagePath)
-      }
-    }
-
-    const { data: menuSnapRow } = await supabase
-      .from("location_snapshots")
-      .select("raw_data, date_key")
-      .eq("location_id", selectedLocationId)
-      .eq("provider", "firecrawl_menu")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (menuSnapRow) {
-      menuSnap = menuSnapRow.raw_data as MenuSnapshot
-      if (menuSnap?.screenshot?.storagePath) {
-        menuScreenshotUrl = await getScreenshotUrl(menuSnap.screenshot.storagePath)
-      }
+  if (cached.siteContentSnap) {
+    siteContentSnap = cached.siteContentSnap.raw_data as SiteContentSnapshot
+    if (siteContentSnap?.screenshot?.storagePath) {
+      screenshotUrl = await getScreenshotUrl(siteContentSnap.screenshot.storagePath)
     }
   }
 
-  // Fetch competitor menu snapshots
+  if (cached.menuSnap) {
+    menuSnap = cached.menuSnap.raw_data as MenuSnapshot
+    if (menuSnap?.screenshot?.storagePath) {
+      menuScreenshotUrl = await getScreenshotUrl(menuSnap.screenshot.storagePath)
+    }
+  }
+
   type CompetitorMenuDisplay = {
     competitorName: string
     categories: MenuSnapshot["categories"]
@@ -130,48 +114,26 @@ export default async function ContentPage({ searchParams }: PageProps) {
   }
   const competitorMenus: CompetitorMenuDisplay[] = []
 
-  if (selectedLocationId) {
-    const { data: competitors } = await supabase
-      .from("competitors")
-      .select("id, name, metadata, is_active")
-      .eq("location_id", selectedLocationId)
-      .eq("is_active", true)
-
-    const approved = (competitors ?? []).filter(
-      (c) => (c.metadata as Record<string, unknown>)?.status === "approved"
-    )
-
-    for (const comp of approved) {
-      const { data: compMenuSnap } = await supabase
-        .from("snapshots")
-        .select("raw_data")
-        .eq("competitor_id", comp.id)
-        .eq("snapshot_type", "web_menu_weekly")
-        .order("date_key", { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (compMenuSnap) {
-        const compMenu = compMenuSnap.raw_data as MenuSnapshot
-        const prices: number[] = []
-        for (const cat of compMenu.categories ?? []) {
-          for (const item of cat.items ?? []) {
-            if (item.priceValue != null && item.priceValue > 0) {
-              prices.push(item.priceValue)
-            }
-          }
+  for (const cms of cached.competitorMenuSnaps) {
+    const comp = cached.competitors.find((c) => c.id === cms.competitor_id)
+    const compMenu = cms.raw_data as MenuSnapshot
+    const prices: number[] = []
+    for (const cat of compMenu.categories ?? []) {
+      for (const item of cat.items ?? []) {
+        if (item.priceValue != null && item.priceValue > 0) {
+          prices.push(item.priceValue)
         }
-        competitorMenus.push({
-          competitorName: comp.name ?? "Competitor",
-          categories: compMenu.categories ?? [],
-          avgPrice: prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
-          itemCount: (compMenu.categories ?? []).reduce(
-            (s, c) => s + (c.items?.length ?? 0),
-            0
-          ),
-        })
       }
     }
+    competitorMenus.push({
+      competitorName: comp?.name ?? "Competitor",
+      categories: compMenu.categories ?? [],
+      avgPrice: prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
+      itemCount: (compMenu.categories ?? []).reduce(
+        (s, c) => s + (c.items?.length ?? 0),
+        0
+      ),
+    })
   }
 
   // Compute location avg price

@@ -27,6 +27,59 @@ export type NormalizedSocialProfile = {
 
 export type SocialMediaType = "image" | "video" | "carousel" | "reel" | "link" | "status"
 
+export type SocialPostAnalysis = {
+  contentCategory:
+    | "food_dish" | "drink_cocktail" | "interior_ambiance" | "exterior_facade"
+    | "patio_outdoor" | "event_live" | "staff_team" | "behind_the_scenes"
+    | "customer_ugc" | "menu_promo" | "seasonal_holiday" | "repost_meme"
+    | "product_merchandise" | "community_collab" | "other"
+  subcategory: string
+  tags: string[]
+  extractedText: string
+  foodPresentation: {
+    platingQuality: "high" | "medium" | "low" | "n/a"
+    portionAppeal: "generous" | "standard" | "small" | "n/a"
+    colorVibrancy: "vibrant" | "muted" | "n/a"
+  }
+  visualQuality: {
+    lighting: "professional" | "natural_good" | "amateur" | "poor"
+    composition: "professional" | "decent" | "casual" | "poor"
+    editing: "polished" | "filtered" | "minimal" | "none"
+  }
+  brandSignals: {
+    logoVisible: boolean
+    brandColorsPresent: boolean
+    visualStyleConsistency: "on_brand" | "neutral" | "off_brand"
+  }
+  atmosphereSignals: {
+    crowdLevel: "packed" | "busy" | "moderate" | "empty" | "n/a"
+    energy: "high" | "relaxed" | "intimate" | "n/a"
+    timeOfDay: "day" | "evening" | "night" | "unknown"
+  }
+  promotionalContent: boolean
+  promotionalDetails: string
+  confidence: number
+}
+
+export type EntityVisualProfile = {
+  entityType: "location" | "competitor"
+  entityId: string
+  entityName: string
+  platform: SocialPlatform
+  contentMix: Record<string, number>
+  avgVisualQualityScore: number
+  professionalContentPct: number
+  foodPresentationScore: number
+  brandConsistencyScore: number
+  promotionalContentPct: number
+  crowdSignalScore: number
+  postAnalyses: Array<{
+    postId: string
+    analysis: SocialPostAnalysis
+    engagement: number
+  }>
+}
+
 export type NormalizedSocialPost = {
   platformPostId: string
   platform: SocialPlatform
@@ -39,6 +92,7 @@ export type NormalizedSocialPost = {
   viewsCount: number | null
   hashtags: string[]
   createdTime: string
+  visualAnalysis?: SocialPostAnalysis
   reactions?: {
     like?: number
     love?: number

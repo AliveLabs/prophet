@@ -1,6 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
+import { revalidateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getTierFromPriceId } from "@/lib/billing/tiers"
@@ -717,6 +718,8 @@ export async function refreshSeoAction(formData: FormData) {
     if (warnings.length > 0) {
       successMsg += ` (partial: ${warnings.join(", ")})`
     }
+    revalidateTag("visibility-data", { expire: 0 })
+    revalidateTag("home-data", { expire: 0 })
     redirect(`/visibility?location_id=${locationId}&success=${encodeURIComponent(successMsg)}`)
   } catch (error) {
     const digest = (error as { digest?: string })?.digest

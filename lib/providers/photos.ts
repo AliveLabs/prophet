@@ -74,7 +74,7 @@ export async function fetchPhotoReferences(placeId: string): Promise<PhotoRefere
   }
 
   const data = await res.json()
-  const photos: PhotoReference[] = (data.photos ?? []).slice(0, 10).map(
+  const photos: PhotoReference[] = (data.photos ?? []).slice(0, 30).map(
     (p: { name: string; widthPx?: number; heightPx?: number; authorAttributions?: unknown[] }) => ({
       name: p.name,
       widthPx: p.widthPx ?? 0,

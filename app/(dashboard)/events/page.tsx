@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
+import { fetchEventsPageData } from "@/lib/cache/events"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
 
 type EventsPageProps = {
@@ -122,48 +123,31 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const venueFilter = params.venue?.toLowerCase() ?? ""
   const matchedOnly = params.matched === "true"
 
+  const cached = selectedLocationId
+    ? await fetchEventsPageData(selectedLocationId)
+    : { snapshot: null, matchRows: [] }
+
   let snapshot: NormalizedEventsSnapshotV1 | null = null
   let snapshotDate: string | null = null
 
-  if (selectedLocationId) {
-    const { data: snapRow } = await supabase
-      .from("location_snapshots")
-      .select("raw_data, date_key")
-      .eq("location_id", selectedLocationId)
-      .eq("provider", "dataforseo_google_events")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (snapRow) {
-      snapshot = snapRow.raw_data as unknown as NormalizedEventsSnapshotV1
-      snapshotDate = snapRow.date_key
-    }
+  if (cached.snapshot) {
+    snapshot = cached.snapshot.raw_data as unknown as NormalizedEventsSnapshotV1
+    snapshotDate = cached.snapshot.date_key
   }
 
   const matchedUids = new Set<string>()
   const matchedCompetitorNames = new Map<string, string[]>()
 
-  if (selectedLocationId && snapshotDate) {
-    const { data: matchRows } = await supabase
-      .from("event_matches")
-      .select("event_uid, competitor_id, evidence")
-      .eq("location_id", selectedLocationId)
-      .eq("date_key", snapshotDate)
-
-    if (matchRows) {
-      for (const m of matchRows) {
-        matchedUids.add(m.event_uid)
-        const evidence = m.evidence as Record<string, unknown> | null
-        const compName =
-          (evidence?.competitor as Record<string, unknown>)?.name as string ??
-          m.competitor_id ??
-          "Unknown"
-        const existing = matchedCompetitorNames.get(m.event_uid) ?? []
-        existing.push(compName)
-        matchedCompetitorNames.set(m.event_uid, existing)
-      }
-    }
+  for (const m of cached.matchRows) {
+    matchedUids.add(m.event_uid)
+    const evidence = m.evidence as Record<string, unknown> | null
+    const compName =
+      (evidence?.competitor as Record<string, unknown>)?.name as string ??
+      m.competitor_id ??
+      "Unknown"
+    const existing = matchedCompetitorNames.get(m.event_uid) ?? []
+    existing.push(compName)
+    matchedCompetitorNames.set(m.event_uid, existing)
   }
 
   let events: NormalizedEvent[] = snapshot?.events ?? []

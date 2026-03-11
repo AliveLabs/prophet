@@ -114,49 +114,83 @@ type SearchResponse = {
   }
 }
 
+const SEARCH_PER_PLATFORM_TIMEOUT_MS = 20_000
+
 export async function discoverFromSearch(
   businessName: string,
   platforms: SocialPlatform[] = ["instagram", "facebook", "tiktok"]
 ): Promise<DiscoveredHandle[]> {
   if (!businessName) return []
 
+  const results = await Promise.allSettled(
+    platforms.map((platform) =>
+      withSearchTimeout(searchSinglePlatform(platform, businessName), SEARCH_PER_PLATFORM_TIMEOUT_MS, platform, businessName)
+    )
+  )
+
   const discovered: DiscoveredHandle[] = []
-
-  for (const platform of platforms) {
-    try {
-      const data365Platform = platform as Data365Platform
-      const results = await searchProfiles<SearchResponse>(data365Platform, businessName, 5)
-      const items = results.data?.items ?? []
-
-      for (const item of items) {
-        const handle = item.username ?? item.unique_id ?? item.name ?? null
-        if (!handle) continue
-
-        const name = (item.full_name ?? item.name ?? item.nickname ?? "").toLowerCase()
-        const target = businessName.toLowerCase()
-        const similarity = computeSimilarity(name, target)
-
-        if (similarity < 0.3) continue
-
-        const profileUrl = buildProfileUrl(platform, handle)
-        discovered.push({
-          platform,
-          handle,
-          profileUrl,
-          method: "data365_search",
-          confidence: Math.min(0.95, similarity),
-        })
-      }
-    } catch (error) {
-      if (error instanceof Data365Error && (error.statusCode === 501 || error.statusCode === 404)) {
-        continue
-      }
-      console.warn(`[Social Discovery] Data365 search failed for ${platform}/${businessName}:`,
-        error instanceof Error ? error.message : error)
-    }
+  for (const r of results) {
+    if (r.status === "fulfilled") discovered.push(...r.value)
   }
-
   return discovered
+}
+
+async function searchSinglePlatform(
+  platform: SocialPlatform,
+  businessName: string
+): Promise<DiscoveredHandle[]> {
+  try {
+    const data365Platform = platform as Data365Platform
+    const results = await searchProfiles<SearchResponse>(data365Platform, businessName, 5)
+    const items = results.data?.items ?? []
+    const discovered: DiscoveredHandle[] = []
+
+    for (const item of items) {
+      const handle = item.username ?? item.unique_id ?? item.name ?? null
+      if (!handle) continue
+
+      const name = (item.full_name ?? item.name ?? item.nickname ?? "").toLowerCase()
+      const target = businessName.toLowerCase()
+      const similarity = computeSimilarity(name, target)
+
+      if (similarity < 0.3) continue
+
+      const profileUrl = buildProfileUrl(platform, handle)
+      discovered.push({
+        platform,
+        handle,
+        profileUrl,
+        method: "data365_search",
+        confidence: Math.min(0.95, similarity),
+      })
+    }
+
+    return discovered
+  } catch (error) {
+    if (error instanceof Data365Error && (error.statusCode === 501 || error.statusCode === 404)) {
+      return []
+    }
+    console.warn(`[Social Discovery] Data365 search failed for ${platform}/${businessName}:`,
+      error instanceof Error ? error.message : error)
+    return []
+  }
+}
+
+function withSearchTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  platform: string,
+  businessName: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      console.warn(`[Social Discovery] ${platform}/${businessName} search timed out after ${ms / 1000}s — skipping`)
+      reject(new Error(`Search timeout for ${platform}/${businessName}`))
+    }, ms)
+    promise
+      .then((v) => { clearTimeout(timer); resolve(v) })
+      .catch((e) => { clearTimeout(timer); reject(e) })
+  })
 }
 
 // ---------------------------------------------------------------------------

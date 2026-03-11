@@ -3,6 +3,7 @@
 // Starts a pipeline job and streams SSE progress events
 // ---------------------------------------------------------------------------
 
+import { revalidateTag } from "next/cache"
 import { getJobAuthContext } from "@/lib/jobs/auth"
 import { createJob } from "@/lib/jobs/manager"
 import { createSSEStream, sseResponse } from "@/lib/jobs/sse"
@@ -221,6 +222,27 @@ export async function GET(
         sse: controller,
         redirectUrl,
       })
+
+      // Invalidate page caches so the client sees fresh data on redirect
+      const cacheTagMap: Record<string, string[]> = {
+        social: ["social-data", "home-data"],
+        content: ["content-data", "home-data"],
+        visibility: ["visibility-data", "home-data"],
+        events: ["events-data", "home-data"],
+        insights: ["insights-data", "home-data"],
+        photos: ["photos-data", "home-data"],
+        busy_times: ["traffic-data", "home-data"],
+        weather: ["weather-data", "home-data"],
+        refresh_all: [
+          "home-data", "social-data", "content-data", "visibility-data",
+          "events-data", "insights-data", "photos-data", "traffic-data",
+          "weather-data",
+        ],
+      }
+      const tags = cacheTagMap[type] ?? ["home-data"]
+      for (const tag of tags) {
+        try { revalidateTag(tag, { expire: 0 }) } catch { /* ignore */ }
+      }
     } catch (err) {
       console.error("[Jobs] Pipeline error:", err)
       const msg = err instanceof Error ? err.message : "Pipeline setup failed"
