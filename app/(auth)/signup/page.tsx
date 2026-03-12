@@ -28,10 +28,14 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const sent = resolvedSearchParams?.sent
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-warm-white text-near-black">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
-        <Link href="/" className="text-lg font-semibold">
-          Prophet
+        <Link href="/" className="flex items-center gap-2">
+          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Vatic">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span className="font-[family-name:var(--font-cormorant)] text-lg font-medium text-near-black">Vatic</span>
         </Link>
         <Link href="/login">
           <Button variant="secondary" size="sm">
@@ -41,17 +45,17 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
       </div>
       <section className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-12 lg:grid-cols-[1.05fr_0.95fr]">
         <FadeIn className="space-y-6">
-          <h1 className="text-4xl font-semibold tracking-tight">
+          <h1 className="font-[family-name:var(--font-cormorant)] text-4xl font-medium tracking-tight sm:text-5xl">
             Start monitoring in minutes.
           </h1>
-          <p className="text-slate-600">
-            Create an account to discover competitors and receive daily insights
+          <p className="text-deep-violet">
+            Create an account to discover competitors and receive daily intelligence
             for each location.
           </p>
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
-            <p className="font-semibold text-slate-900">Included in every plan</p>
+          <div className="rounded-2xl border border-[#E8E4FF] bg-white p-6 text-sm text-deep-violet shadow-sm">
+            <p className="font-semibold text-near-black">Included in every plan</p>
             <ul className="mt-3 space-y-2">
-              <li>Daily competitor snapshots</li>
+              <li>Continuous competitor monitoring</li>
               <li>Confidence and severity scoring</li>
               <li>Team-based access controls</li>
             </ul>
@@ -59,9 +63,9 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
         </FadeIn>
 
         <FadeIn delay={0.1}>
-          <Card className="bg-white text-slate-900">
+          <Card className="bg-white text-near-black">
             <h2 className="text-xl font-semibold">Create account</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-deep-violet">
               Use a magic link or Google to get started.
             </p>
             {error ? (
@@ -70,7 +74,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
               </p>
             ) : null}
             {sent ? (
-              <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <p className="mt-4 rounded-xl border border-precision-teal/30 bg-precision-teal-light px-4 py-3 text-sm text-precision-teal">
                 Magic link sent. Check your email to continue.
               </p>
             ) : null}
@@ -82,7 +86,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
               </div>
               <Button type="submit">Send magic link</Button>
             </form>
-            <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
+            <div className="my-6 flex items-center gap-3 text-xs text-muted-violet">
               <Separator className="flex-1" />
               or
               <Separator className="flex-1" />
@@ -92,9 +96,9 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
                 Continue with Google
               </Button>
             </form>
-            <p className="mt-6 text-sm text-slate-600">
+            <p className="mt-6 text-sm text-deep-violet">
               Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-slate-900">
+              <Link href="/login" className="font-semibold text-vatic-indigo hover:text-deep-indigo">
                 Sign in
               </Link>
               .

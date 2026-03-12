@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { buildProphetPrompt } from "@/lib/ai/prompts/prophet-chat"
+import { buildVaticPrompt } from "@/lib/ai/prompts/prophet-chat"
 
 export async function POST(req: Request) {
   const supabase = await createServerSupabaseClient()
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     .order("date_key", { ascending: false })
     .limit(20)
 
-  const prompt = buildProphetPrompt({
+  const prompt = buildVaticPrompt({
     question,
     insights: insights ?? [],
     snapshots: snapshots ?? [],

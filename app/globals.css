@@ -1,23 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fb;
-  --foreground: #0f172a;
+  /* Primary Brand Colors */
+  --background: #FAFAF9;
+  --foreground: #1C1840;
+  --vatic-indigo: #5A3FFF;
+  --deep-indigo: #3620D4;
+  --midnight: #0C0825;
+
+  /* Accent Colors */
+  --signal-gold: #F2A11E;
+  --signal-gold-light: #FFF3D6;
+  --precision-teal: #00BFA6;
+  --precision-teal-light: #D6F5F1;
+
+  /* Neutral Palette */
+  --warm-white: #FAFAF9;
+  --pale-lavender: #F0EDFF;
+  --muted-violet: #8883AA;
+  --deep-violet: #4D4975;
+  --near-black: #1C1840;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-vatic-indigo: var(--vatic-indigo);
+  --color-deep-indigo: var(--deep-indigo);
+  --color-midnight: var(--midnight);
+  --color-signal-gold: var(--signal-gold);
+  --color-signal-gold-light: var(--signal-gold-light);
+  --color-precision-teal: var(--precision-teal);
+  --color-precision-teal-light: var(--precision-teal-light);
+  --color-warm-white: var(--warm-white);
+  --color-pale-lavender: var(--pale-lavender);
+  --color-muted-violet: var(--muted-violet);
+  --color-deep-violet: var(--deep-violet);
+  --color-near-black: var(--near-black);
+  --font-display: var(--font-cormorant);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
 }
 
 ::selection {
-  background: rgba(79, 70, 229, 0.18);
+  background: rgba(90, 63, 255, 0.18);
 }

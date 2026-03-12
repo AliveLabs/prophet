@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 120" width="560" height="120">
+  <defs><style><![CDATA[
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&display=swap');
+      .wm { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; }
+    ]]></style></defs>
+  <rect width="560" height="120" fill="#F0EDFF"/>
+  <g transform="translate(10, 10) scale(1.25)">
+    <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+  </g>
+  <line x1="124" y1="22" x2="124" y2="98"
+        stroke="#4D4975" stroke-width="1" stroke-opacity="0.4"/>
+  <text x="140" y="80" class="wm" font-size="64" letter-spacing="6"
+        fill="#1C1840">Vatic</text>
+</svg>

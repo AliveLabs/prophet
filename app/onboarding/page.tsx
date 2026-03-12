@@ -32,7 +32,7 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   const error = resolvedSearchParams?.error
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-warm-white text-near-black">
       <section className="mx-auto w-full max-w-5xl px-6 py-12">
         <FadeIn>
           <Card className="bg-white text-slate-900">
@@ -53,7 +53,7 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
                 </div>
                 <div className="grid gap-2">
                   <Label>Organization slug (optional)</Label>
-                  <Input name="organization_slug" placeholder="prophet-co" />
+                  <Input name="organization_slug" placeholder="vatic-co" />
                 </div>
                 <div className="grid gap-2">
                   <Label>Business search</Label>

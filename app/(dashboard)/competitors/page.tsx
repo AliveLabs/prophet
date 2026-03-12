@@ -388,7 +388,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             </p>
             <p className="mt-1 text-xs text-indigo-700/70">
               Use the &quot;Discover Competitors&quot; button below to find nearby competitors.
-              Once you approve them, Prophet will automatically collect their data and generate insights.
+              Once you approve them, Vatic will automatically collect their data and generate insights.
             </p>
           </div>
         ) : null}

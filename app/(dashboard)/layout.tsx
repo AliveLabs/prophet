@@ -8,6 +8,29 @@ import { Button } from "@/components/ui/button"
 import ActiveJobBar from "@/components/ui/active-job-bar"
 import { Toaster } from "sonner"
 
+function VaticLogo({ className }: { className?: string }) {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 80 80"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-label="Vatic logo"
+    >
+      <path
+        d="M10 14 L40 66 L70 14"
+        stroke="#5A3FFF"
+        strokeWidth="7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="40" cy="66" r="6" fill="#F2A11E" />
+    </svg>
+  )
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -26,82 +49,52 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-warm-white text-near-black">
       <Toaster position="top-right" richColors closeButton />
       <ActiveJobBar />
       <div className="grid min-h-screen w-full grid-cols-[260px_1fr] gap-6 px-6 py-6">
-        <aside className="flex h-[calc(100vh-48px)] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Link href="/home" className="text-lg font-semibold">
-            Prophet
+        <aside className="flex h-[calc(100vh-48px)] flex-col rounded-3xl border border-[#E8E4FF] bg-white p-5 shadow-sm">
+          <Link href="/home" className="flex items-center gap-2.5">
+            <VaticLogo />
+            <span className="font-[family-name:var(--font-cormorant)] text-xl font-medium tracking-tight text-near-black">
+              Vatic
+            </span>
           </Link>
-          <nav className="mt-8 space-y-1 text-sm text-slate-600">
-            <Link className="block rounded-xl px-3 py-2 hover:bg-slate-100" href="/home">
+          <nav className="mt-8 space-y-1 text-sm text-deep-violet">
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/home">
               Home
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/insights"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/insights">
               Insights
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/competitors"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/competitors">
               Competitors
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/social"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/social">
               Social
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/events"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/events">
               Events
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/visibility"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/visibility">
               Visibility
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/content"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/content">
               Content
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/photos"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/photos">
               Photos
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/traffic"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/traffic">
               Busy Times
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/weather"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/weather">
               Weather
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/locations"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/locations">
               Locations
             </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/settings"
-            >
+            <Link className="block rounded-xl px-3 py-2 transition-colors hover:bg-pale-lavender hover:text-vatic-indigo" href="/settings">
               Settings
             </Link>
           </nav>
@@ -113,14 +106,14 @@ export default async function DashboardLayout({
         </aside>
 
         <div className="space-y-6">
-          <header className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
+          <header className="flex items-center justify-between rounded-3xl border border-[#E8E4FF] bg-white px-6 py-4 shadow-sm">
             <div>
-              <p className="text-sm text-slate-500">Welcome back</p>
-              <p className="text-lg font-semibold">Your competitive overview</p>
+              <p className="text-sm text-muted-violet">Welcome back</p>
+              <p className="text-lg font-semibold text-near-black">Your competitive overview</p>
             </div>
-            <div className="flex items-center gap-3 text-sm text-slate-500">
-              <span className="rounded-full border border-slate-200 px-3 py-1">
-                Daily monitoring
+            <div className="flex items-center gap-3 text-sm text-muted-violet">
+              <span className="rounded-full border border-[#E8E4FF] bg-pale-lavender px-3 py-1 text-xs font-semibold uppercase tracking-wider text-vatic-indigo">
+                Intelligence &middot; Live
               </span>
             </div>
           </header>
