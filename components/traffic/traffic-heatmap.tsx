@@ -28,16 +28,16 @@ function formatHour(h: number): string {
 }
 
 function getHeatColor(score: number): string {
-  if (score === 0) return "bg-slate-50"
-  if (score < 20) return "bg-orange-100"
-  if (score < 40) return "bg-orange-200"
-  if (score < 60) return "bg-orange-300"
-  if (score < 80) return "bg-orange-400"
-  return "bg-orange-500"
+  if (score === 0) return "bg-secondary"
+  if (score < 20) return "bg-signal-gold/20"
+  if (score < 40) return "bg-signal-gold/40"
+  if (score < 60) return "bg-signal-gold/60"
+  if (score < 80) return "bg-signal-gold/80"
+  return "bg-signal-gold"
 }
 
 function getHeatTextColor(score: number): string {
-  return score >= 60 ? "text-white" : "text-slate-600"
+  return score >= 60 ? "text-white" : "text-muted-foreground"
 }
 
 function useIsClient() {
@@ -52,7 +52,7 @@ export default function TrafficHeatmap({ data }: Props) {
   const isClient = useIsClient()
   const [selectedCompetitor, setSelectedCompetitor] = useState(data[0]?.competitor_id ?? "")
 
-  if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-slate-100" />
+  if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-secondary" />
   if (data.length === 0) return null
 
   const competitor = data.find((d) => d.competitor_id === selectedCompetitor) ?? data[0]
@@ -60,11 +60,11 @@ export default function TrafficHeatmap({ data }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-sm font-bold text-slate-900">Weekly Heatmap</h3>
+        <h3 className="text-sm font-bold text-foreground">Weekly Heatmap</h3>
         <select
           value={selectedCompetitor}
           onChange={(e) => setSelectedCompetitor(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+          className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground"
         >
           {data.map((d) => (
             <option key={d.competitor_id} value={d.competitor_id}>
@@ -74,13 +74,13 @@ export default function TrafficHeatmap({ data }: Props) {
         </select>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-slate-200">
+      <div className="overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-center text-[10px]">
           <thead>
-            <tr className="bg-slate-50">
-              <th className="px-2 py-2 text-left text-[10px] font-semibold text-slate-500">Day</th>
+            <tr className="bg-secondary">
+              <th className="px-2 py-2 text-left text-[10px] font-semibold text-muted-foreground">Day</th>
               {HOURS.map((h) => (
-                <th key={h} className="px-1 py-2 font-medium text-slate-400">
+                <th key={h} className="px-1 py-2 font-medium text-muted-foreground">
                   {formatHour(h)}
                 </th>
               ))}
@@ -90,8 +90,8 @@ export default function TrafficHeatmap({ data }: Props) {
             {DAY_LABELS.map((dayLabel, dow) => {
               const dayData = competitor.days.find((d) => d.day_of_week === dow)
               return (
-                <tr key={dow} className="border-t border-slate-100">
-                  <td className="px-2 py-1.5 text-left text-[11px] font-semibold text-slate-700">
+                <tr key={dow} className="border-t border-border">
+                  <td className="px-2 py-1.5 text-left text-[11px] font-semibold text-foreground">
                     {dayLabel}
                   </td>
                   {HOURS.map((h) => {
@@ -114,10 +114,10 @@ export default function TrafficHeatmap({ data }: Props) {
         </table>
       </div>
 
-      <div className="flex items-center gap-2 text-[10px] text-slate-400">
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
         <span>Less busy</span>
         <div className="flex gap-0.5">
-          {["bg-slate-50", "bg-orange-100", "bg-orange-200", "bg-orange-300", "bg-orange-400", "bg-orange-500"].map((c) => (
+          {["bg-secondary", "bg-signal-gold/20", "bg-signal-gold/40", "bg-signal-gold/60", "bg-signal-gold/80", "bg-signal-gold"].map((c) => (
             <div key={c} className={`h-3 w-5 rounded ${c}`} />
           ))}
         </div>

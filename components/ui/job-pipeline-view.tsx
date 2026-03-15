@@ -20,7 +20,7 @@ function StepIcon({ status }: { status: JobStep["status"] }) {
   switch (status) {
     case "complete":
       return (
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-precision-teal text-white">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -29,13 +29,13 @@ function StepIcon({ status }: { status: JobStep["status"] }) {
     case "running":
       return (
         <div className="relative flex h-6 w-6 items-center justify-center">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-30" />
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-indigo-600" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-30" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-primary" />
         </div>
       )
     case "failed":
       return (
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-signal-gold text-white">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01" />
           </svg>
@@ -43,7 +43,7 @@ function StepIcon({ status }: { status: JobStep["status"] }) {
       )
     case "skipped":
       return (
-        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-300 text-white">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-muted-foreground text-white">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
           </svg>
@@ -51,7 +51,7 @@ function StepIcon({ status }: { status: JobStep["status"] }) {
       )
     default:
       return (
-        <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-slate-200 bg-white" />
+        <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-border bg-card" />
       )
   }
 }
@@ -64,7 +64,7 @@ function PreviewBadge({ preview }: { preview: Record<string, unknown> }) {
       {entries.map(([key, val]) => (
         <span
           key={key}
-          className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-700"
+          className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
         >
           {key}: {String(val)}
         </span>
@@ -90,23 +90,23 @@ export default function JobPipelineView({
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="relative flex h-5 w-5 items-center justify-center">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-20" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-indigo-600" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-20" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
           </div>
-          <span className="text-sm font-semibold text-slate-800">
+          <span className="text-sm font-semibold text-foreground">
             {pendingLabel ?? "Processing..."}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-slate-500">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{progress}%</span>
           <span className="tabular-nums">{formatElapsed(elapsed)}</span>
         </div>
       </div>
 
       {/* Progress bar */}
-      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-secondary">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500"
+          className="h-full rounded-full bg-gradient-to-r from-primary to-precision-teal"
           initial={{ width: "0%" }}
           animate={{ width: `${progress}%` }}
           transition={{ duration: 0.5, ease: "easeOut" }}
@@ -124,9 +124,9 @@ export default function JobPipelineView({
               transition={{ duration: 0.2, delay: i * 0.03 }}
               className={`flex items-start gap-3 rounded-lg px-3 py-2 transition-colors ${
                 step.status === "running"
-                  ? "bg-indigo-50/60"
+                  ? "bg-primary/10"
                   : step.status === "failed"
-                    ? "bg-amber-50/60"
+                    ? "bg-signal-gold/10"
                     : ""
               }`}
             >
@@ -137,8 +137,8 @@ export default function JobPipelineView({
                   <div
                     className={`mt-1 h-4 w-px ${
                       step.status === "complete"
-                        ? "bg-emerald-300"
-                        : "bg-slate-200"
+                        ? "bg-precision-teal"
+                        : "bg-border"
                     }`}
                   />
                 )}
@@ -149,19 +149,19 @@ export default function JobPipelineView({
                 <p
                   className={`text-sm leading-tight ${
                     step.status === "queued"
-                      ? "text-slate-400"
+                      ? "text-muted-foreground"
                       : step.status === "running"
-                        ? "font-medium text-indigo-700"
+                        ? "font-medium text-primary"
                         : step.status === "failed"
-                          ? "text-amber-700"
-                          : "text-slate-600"
+                          ? "text-signal-gold"
+                          : "text-muted-foreground"
                   }`}
                 >
                   {step.label}
                 </p>
 
                 {step.status === "failed" && step.error && (
-                  <p className="mt-0.5 text-[11px] text-amber-600">
+                  <p className="mt-0.5 text-[11px] text-signal-gold">
                     {step.error}
                   </p>
                 )}

@@ -138,7 +138,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   return (
     <section className="space-y-6">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-600 via-amber-600 to-yellow-600 p-6 text-white shadow-xl shadow-orange-200/50">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-signal-gold via-signal-gold to-signal-gold p-6 text-white shadow-xl shadow-card-sm">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
 
@@ -152,7 +152,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold tracking-tight">Busy Times</h1>
+              <h1 className="text-xl font-display font-bold tracking-tight">Busy Times</h1>
             </div>
             <p className="max-w-md text-sm text-white/70">
               Hourly popularity and foot-traffic patterns for competitors near{" "}
@@ -186,42 +186,42 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
         <>
           {/* KPI Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-white">
-              <p className="text-xs font-medium text-slate-500">Competitors Tracked</p>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{trackedCount}</p>
-              <p className="mt-1 text-[11px] text-slate-400">with busy times data</p>
+            <Card className="bg-card">
+              <p className="text-xs font-medium text-muted-foreground">Competitors Tracked</p>
+              <p className="mt-2 text-3xl font-bold text-foreground">{trackedCount}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">with busy times data</p>
             </Card>
-            <Card className="bg-white">
-              <p className="text-xs font-medium text-slate-500">Busiest Competitor</p>
-              <p className="mt-2 text-lg font-bold text-slate-900">{busiestComp?.competitor_name ?? "N/A"}</p>
-              <p className="mt-1 text-[11px] text-slate-400">Peak: {busiestComp?.peak_score ?? 0}% on {busiestComp?.busiest_day ?? "N/A"}</p>
+            <Card className="bg-card">
+              <p className="text-xs font-medium text-muted-foreground">Busiest Competitor</p>
+              <p className="mt-2 text-lg font-bold text-foreground">{busiestComp?.competitor_name ?? "N/A"}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Peak: {busiestComp?.peak_score ?? 0}% on {busiestComp?.busiest_day ?? "N/A"}</p>
             </Card>
-            <Card className="bg-white">
-              <p className="text-xs font-medium text-slate-500">Most Popular Day</p>
-              <p className="mt-2 text-lg font-bold text-orange-600">{DAY_NAMES[mostPopularDow]}</p>
-              <p className="mt-1 text-[11px] text-slate-400">avg peak: {avgPeak}% across all competitors</p>
+            <Card className="bg-card">
+              <p className="text-xs font-medium text-muted-foreground">Most Popular Day</p>
+              <p className="mt-2 text-lg font-bold text-signal-gold">{DAY_NAMES[mostPopularDow]}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">avg peak: {avgPeak}% across all competitors</p>
             </Card>
-            <Card className="bg-white">
-              <p className="text-xs font-medium text-slate-500">Best Time to Compete</p>
-              <p className="mt-2 text-lg font-bold text-emerald-600">
+            <Card className="bg-card">
+              <p className="text-xs font-medium text-muted-foreground">Best Time to Compete</p>
+              <p className="mt-2 text-lg font-bold text-precision-teal">
                 {DAY_NAMES[bestCompeteDay]} {formatHour(bestCompeteHour)}
               </p>
-              <p className="mt-1 text-[11px] text-slate-400">lowest combined competitor traffic</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">lowest combined competitor traffic</p>
             </Card>
           </div>
 
           {/* Bar Chart */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <TrafficChart data={trafficData} />
           </div>
 
           {/* Heatmap */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <TrafficHeatmap data={trafficData} />
           </div>
 
           {/* Peak Comparison */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <PeakComparison competitors={peakData} />
           </div>
 
@@ -229,12 +229,12 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
           <TrafficInsightsSection data={trafficData} />
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-          <svg className="mx-auto h-12 w-12 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+          <svg className="mx-auto h-12 w-12 text-signal-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
           </svg>
-          <p className="mt-3 text-sm font-medium text-slate-600">No busy times data yet</p>
-          <p className="mt-1 text-xs text-slate-400">Click &quot;Fetch Busy Times&quot; to pull popular hours from Google Maps via Outscraper</p>
+          <p className="mt-3 text-sm font-medium text-muted-foreground">No busy times data yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Click &quot;Fetch Busy Times&quot; to pull popular hours from Google Maps via Outscraper</p>
         </div>
       )}
     </section>

@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vatic — Intelligence Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DESIGN TOKENS — Vatic Brand System
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* Core Brand */
+  --midnight:       #0C0825;
+  --near-black:     #1C1840;
+  --deep-violet:    #4D4975;
+  --muted-violet:   #8883AA;
+  --vatic-indigo:   #5A3FFF;
+  --deep-indigo:    #3620D4;
+  --pale-lavender:  #F0EDFF;
+  --warm-white:     #FAFAF9;
+  --signal-gold:    #F2A11E;
+  --precision-teal: #00BFA6;
+
+  /* Semantic / Contextual */
+  --alert-red:      #FF4757;
+  --indigo-soft:    #9B87FF;
+  --gold-dim:       rgba(242, 161,  30, 0.14);
+  --teal-dim:       rgba(  0, 191, 166, 0.12);
+  --red-dim:        rgba(255,  71,  87, 0.12);
+  --indigo-dim:     rgba( 90,  63, 255, 0.12);
+  --white-2:        rgba(255, 255, 255, 0.02);
+  --white-4:        rgba(255, 255, 255, 0.04);
+  --white-7:        rgba(255, 255, 255, 0.07);
+  --white-10:       rgba(255, 255, 255, 0.10);
+  --border:         rgba(255, 255, 255, 0.07);
+  --border-indigo:  rgba( 90,  63, 255, 0.28);
+  --border-teal:    rgba(  0, 191, 166, 0.28);
+
+  /* Surfaces */
+  --surface-0: var(--midnight);
+  --surface-1: var(--near-black);
+  --surface-2: var(--white-4);
+  --surface-3: var(--white-7);
+
+  /* Text */
+  --text-1: var(--warm-white);
+  --text-2: var(--muted-violet);
+  --text-3: var(--deep-violet);
+
+  /* Typography */
+  --font-display: 'Cormorant Garamond', Georgia, serif;
+  --font-ui:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Spacing (4-pt grid) */
+  --s1:  4px;   --s2:  8px;   --s3:  12px;  --s4:  16px;
+  --s5:  20px;  --s6:  24px;  --s8:  32px;  --s10: 40px;
+  --s12: 48px;  --s16: 64px;
+
+  /* Layout */
+  --sidebar-w: 236px;
+  --header-h:  60px;
+
+  /* Shape */
+  --r-sm: 6px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 18px;
+
+  /* Motion */
+  --ease-fast:   150ms ease;
+  --ease-normal: 250ms ease;
+  --ease-slow:   400ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-ui);
+  background: var(--midnight);
+  color: var(--text-1);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100vh;
+  overflow: hidden;
+}
+a { text-decoration: none; color: inherit; }
+button { font-family: var(--font-ui); cursor: pointer; border: none; background: none; }
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--white-10); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP SHELL
+   ═══════════════════════════════════════════════════════════════════════════ */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--near-black);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Logomark */
+.sidebar-logo {
+  height: var(--header-h);
+  padding: 0 var(--s5);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  flex-shrink: 0;
+}
+.logo-svg { width: 28px; height: 28px; flex-shrink: 0; }
+.logo-wordmark {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--warm-white);
+}
+
+/* Nav */
+.sidebar-nav {
+  flex: 1;
+  padding: var(--s3) var(--s3);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.nav-section {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: var(--s3) var(--s3) var(--s1);
+  margin-top: var(--s2);
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: 9px var(--s3);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: all var(--ease-fast);
+  position: relative;
+  cursor: pointer;
+}
+.nav-item:hover {
+  background: var(--white-4);
+  color: var(--text-1);
+}
+.nav-item.active {
+  background: var(--indigo-dim);
+  color: var(--text-1);
+  font-weight: 500;
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 2px; height: 55%;
+  background: var(--vatic-indigo);
+  border-radius: 2px;
+}
+.nav-item .icon { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.65; }
+.nav-item.active .icon,
+.nav-item:hover .icon { opacity: 1; }
+.badge {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 20px;
+  line-height: 18px;
+  min-width: 20px;
+  text-align: center;
+}
+.badge-indigo { background: var(--vatic-indigo); color: #fff; }
+.badge-gold   { background: var(--signal-gold);  color: var(--midnight); }
+
+/* User Profile */
+.sidebar-footer {
+  padding: var(--s3) var(--s3);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.user-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--ease-fast);
+}
+.user-card:hover { background: var(--white-4); }
+.avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--vatic-indigo), var(--deep-indigo));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+  letter-spacing: 0.03em;
+}
+.user-details { flex: 1; min-width: 0; }
+.user-name { font-size: 12.5px; font-weight: 500; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-org  { font-size: 11px; color: var(--text-3); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MAIN CONTENT
+   ═══════════════════════════════════════════════════════════════════════════ */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.topbar {
+  height: var(--header-h);
+  padding: 0 var(--s6);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--midnight);
+  gap: var(--s4);
+}
+.topbar-left {}
+.topbar-greeting { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
+.topbar-sub      { font-size: 11.5px; color: var(--text-3); margin-top: 1px; }
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0 var(--s3);
+  height: 34px;
+  width: 210px;
+  transition: border-color var(--ease-fast);
+  cursor: text;
+}
+.search-bar:hover { border-color: var(--border-indigo); }
+.search-bar input {
+  background: none; border: none; outline: none;
+  font-family: var(--font-ui); font-size: 12.5px;
+  color: var(--text-1); width: 100%;
+}
+.search-bar input::placeholder { color: var(--text-3); }
+.icon-btn {
+  width: 34px; height: 34px;
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-2);
+  transition: all var(--ease-fast);
+  position: relative;
+  flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--white-7); color: var(--text-1); }
+.notif-dot {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 7px; height: 7px;
+  background: var(--signal-gold);
+  border-radius: 50%;
+  border: 1.5px solid var(--midnight);
+}
+.divider-v {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ─── Page Tab Bar ─────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s6);
+  border-bottom: 1px solid var(--border);
+  background: var(--midnight);
+  flex-shrink: 0;
+  height: 42px;
+}
+.tab {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 0 var(--s3);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all var(--ease-fast);
+  white-space: nowrap;
+}
+.tab:hover { color: var(--text-2); }
+.tab.active {
+  color: var(--indigo-soft);
+  border-bottom-color: var(--vatic-indigo);
+  font-weight: 600;
+}
+.tab-meta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 12px;
+  color: var(--text-3);
+}
+.btn-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px var(--s3);
+  border-radius: var(--r-sm);
+  transition: all var(--ease-fast);
+  cursor: pointer;
+}
+.btn-sm-ghost {
+  color: var(--text-2);
+  background: var(--white-4);
+  border: 1px solid var(--border);
+}
+.btn-sm-ghost:hover { background: var(--white-7); color: var(--text-1); }
+.btn-sm-primary {
+  color: #fff;
+  background: var(--vatic-indigo);
+  border: 1px solid transparent;
+}
+.btn-sm-primary:hover { background: #6B52FF; }
+
+/* ─── Scrollable body ──────────────────────────────────────────────────── */
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--s5) var(--s6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s5);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INTELLIGENCE BRIEF
+   ═══════════════════════════════════════════════════════════════════════════ */
+.brief-card {
+  background: linear-gradient(135deg,
+    rgba(90, 63, 255, 0.13) 0%,
+    rgba(54, 32, 212, 0.06) 60%,
+    rgba(12,  8,  37, 0.0) 100%);
+  border: 1px solid var(--border-indigo);
+  border-radius: var(--r-lg);
+  padding: var(--s5) var(--s6);
+  position: relative;
+  overflow: hidden;
+}
+.brief-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(90,63,255,0.6) 40%, rgba(0,191,166,0.4) 70%, transparent 100%);
+}
+.brief-card::after {
+  content: '';
+  position: absolute; right: var(--s8); top: 50%; transform: translateY(-50%);
+  width: 120px; height: 120px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Cpath d='M10 14 L40 66 L70 14' stroke='%235A3FFF' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='40' cy='66' r='5' fill='%23F2A11E'/%3E%3C/svg%3E") center/contain no-repeat;
+  opacity: 0.06;
+  pointer-events: none;
+}
+.brief-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s3);
+}
+.brief-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--vatic-indigo);
+}
+.pulse {
+  width: 7px; height: 7px;
+  background: var(--precision-teal);
+  border-radius: 50%;
+  animation: pulse-anim 2.2s ease-in-out infinite;
+}
+@keyframes pulse-anim {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+.brief-ts { font-size: 11.5px; color: var(--text-3); }
+.brief-body {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--warm-white);
+  max-width: 720px;
+  margin-bottom: var(--s4);
+}
+.brief-body em {
+  font-style: italic;
+  color: var(--signal-gold);
+}
+
+/* Recommended Action callout inside brief */
+.brief-rec {
+  margin-bottom: var(--s4);
+  padding: var(--s3) var(--s4);
+  background: rgba(0, 191, 166, 0.07);
+  border: 1px solid rgba(0, 191, 166, 0.18);
+  border-left: 3px solid var(--precision-teal);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  max-width: 720px;
+}
+.brief-rec-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--precision-teal);
+  margin-bottom: 5px;
+}
+.brief-rec-text {
+  font-size: 13px;
+  color: var(--warm-white);
+  line-height: 1.55;
+}
+.brief-rec-text strong {
+  color: var(--precision-teal);
+  font-weight: 600;
+}
+
+.brief-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s3);
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity var(--ease-fast);
+}
+.pill:hover { opacity: 0.8; }
+.pill-gold   { background: var(--gold-dim);   color: var(--signal-gold);    border: 1px solid rgba(242,161, 30,0.22); }
+.pill-teal   { background: var(--teal-dim);   color: var(--precision-teal); border: 1px solid rgba(  0,191,166,0.22); }
+.pill-indigo { background: var(--indigo-dim); color: var(--indigo-soft);    border: 1px solid rgba( 90, 63,255,0.22); }
+.brief-cta {
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--vatic-indigo);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--ease-fast);
+}
+.brief-cta:hover { color: var(--indigo-soft); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   METRIC CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--s4);
+}
+.metric {
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s4) var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  transition: all var(--ease-normal);
+  cursor: default;
+}
+.metric:hover {
+  background: var(--white-7);
+  border-color: var(--white-10);
+  transform: translateY(-1px);
+}
+.metric-icon-label {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.metric-val {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+}
+.metric-val.c-indigo { color: var(--indigo-soft); }
+.metric-val.c-gold   { color: var(--signal-gold); }
+.metric-val.c-teal   { color: var(--precision-teal); }
+.metric-val.c-red    { color: #FF8899; }
+.metric-val-name {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.metric-val sup {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--text-2);
+  vertical-align: super;
+}
+.metric-delta {
+  font-size: 11.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.delta-up   { color: var(--precision-teal); }
+.delta-down { color: var(--alert-red); }
+.delta-flat { color: var(--text-3); }
+.delta-warn { color: var(--signal-gold); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONTENT GRID (Activity Feed + Competitor Watch)
+   ═══════════════════════════════════════════════════════════════════════════ */
+.grid-main {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: var(--s5);
+  flex: 1;
+  min-height: 0;
+}
+
+/* Shared Panel */
+.panel {
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+.panel-hd {
+  padding: var(--s3) var(--s5);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  gap: var(--s3);
+}
+.panel-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  white-space: nowrap;
+}
+.panel-title .icon { color: var(--vatic-indigo); opacity: 1; }
+.filter-row {
+  display: flex;
+  gap: var(--s1);
+  align-items: center;
+}
+.filter-pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--white-4);
+  color: var(--text-3);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+}
+.filter-pill:hover { color: var(--text-2); }
+.filter-pill.on {
+  background: var(--indigo-dim);
+  border-color: rgba(90,63,255,0.3);
+  color: var(--indigo-soft);
+  font-weight: 600;
+}
+.panel-body { flex: 1; overflow-y: auto; }
+
+/* ─── Activity Feed Items ─────────────────────────────────────────────── */
+.activity-item {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  gap: var(--s3);
+  padding: var(--s4) var(--s5);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--ease-fast);
+  align-items: start;
+}
+.activity-item:hover { background: var(--white-2); }
+.activity-item:last-child { border-bottom: none; }
+
+.comp-icon {
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ci-a { background: rgba( 90, 63,255,0.18); color: var(--indigo-soft); }
+.ci-b { background: rgba(242,161, 30,0.15); color: var(--signal-gold); }
+.ci-c { background: rgba(  0,191,166,0.14); color: var(--precision-teal); }
+.ci-d { background: rgba(255, 71, 87,0.13); color: #FF8899; }
+.ci-e { background: rgba(139,131,170,0.18); color: var(--muted-violet); }
+
+.activity-main {}
+.activity-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: 3px;
+}
+.comp-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.tb-pricing  { background: var(--gold-dim);   color: var(--signal-gold); }
+.tb-location { background: var(--teal-dim);   color: var(--precision-teal); }
+.tb-menu     { background: var(--indigo-dim); color: var(--indigo-soft); }
+.tb-promo    { background: var(--red-dim);    color: #FF8899; }
+.tb-delivery { background: rgba(139,131,170,0.15); color: var(--muted-violet); }
+
+.activity-desc {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 5px;
+}
+.activity-desc strong { color: var(--text-1); font-weight: 500; }
+.activity-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 11px;
+  color: var(--text-3);
+  margin-bottom: 2px;
+}
+.impact-dot { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; }
+.impact-hi  { color: var(--alert-red); }
+.impact-md  { color: var(--signal-gold); }
+.impact-lo  { color: var(--text-3); }
+
+/* ─── Inline Recommendation Row ──────────────────────────────────────── */
+.rec-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 7px;
+  padding: 7px 10px;
+  background: rgba(0, 191, 166, 0.065);
+  border-left: 2px solid rgba(0, 191, 166, 0.45);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.45;
+}
+.rec-row svg { flex-shrink: 0; margin-top: 1px; color: var(--precision-teal); }
+.rec-row strong { color: var(--precision-teal); font-weight: 600; }
+
+.activity-time {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  padding-top: 4px;
+}
+
+/* ─── Competitor Watch Panel ──────────────────────────────────────────── */
+.signal-item {
+  padding: 12px var(--s5);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--ease-fast);
+}
+.signal-item:hover { background: var(--white-2); }
+.signal-item:last-of-type { border-bottom: none; }
+.signal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+.signal-name { font-size: 12.5px; font-weight: 600; color: var(--text-1); }
+.signal-chg  { font-size: 11.5px; font-weight: 700; }
+.sig-up   { color: var(--precision-teal); }
+.sig-down { color: var(--alert-red); }
+.bar-track {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  margin-bottom: 5px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.bf-a { background: var(--indigo-soft); }
+.bf-b { background: var(--signal-gold); }
+.bf-c { background: var(--precision-teal); }
+.bf-d { background: #FF8899; }
+.bf-e { background: var(--muted-violet); }
+.signal-sub { font-size: 11px; color: var(--text-3); }
+
+/* Trending Topics inset */
+.trending-block {
+  padding: var(--s4) var(--s5);
+  border-top: 1px solid var(--border);
+}
+.trending-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: var(--s3);
+}
+.trending-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+.t-pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: opacity var(--ease-fast);
+}
+.t-pill:hover { opacity: 0.75; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTTOM NAV — mobile only
+   ═══════════════════════════════════════════════════════════════════════════ */
+.bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: 58px;
+  background: var(--near-black);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  align-items: stretch;
+}
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--ease-fast);
+  padding: var(--s1) 0;
+  text-decoration: none;
+  position: relative;
+}
+.bn-item:hover { color: var(--text-2); }
+.bn-item.active { color: var(--indigo-soft); }
+.bn-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: 28px; height: 2px;
+  background: var(--vatic-indigo);
+  border-radius: 0 0 2px 2px;
+}
+.bn-item svg { flex-shrink: 0; }
+.bn-badge {
+  position: absolute;
+  top: 6px;
+  right: calc(50% - 14px);
+  min-width: 14px; height: 14px;
+  background: var(--vatic-indigo);
+  border-radius: 7px;
+  font-size: 9px; font-weight: 700; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px;
+  border: 1.5px solid var(--near-black);
+}
+.bn-badge-gold {
+  background: var(--signal-gold);
+  color: var(--midnight);
+  border-color: var(--near-black);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLET  768–1023 px
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  :root { --sidebar-w: 60px; }
+
+  /* Sidebar collapses to icon rail */
+  .sidebar-logo { justify-content: center; padding: 0; }
+  .logo-wordmark { display: none; }
+  .sidebar-nav { padding: var(--s2); gap: 2px; }
+  .nav-section { display: none; }
+  .nav-item { justify-content: center; padding: 10px; }
+  .nav-item .label { display: none; }
+  .badge {
+    position: absolute; top: 4px; right: 4px;
+    padding: 0 4px; min-width: 14px; height: 14px;
+    font-size: 9px; line-height: 14px;
+  }
+  .sidebar-footer { padding: var(--s2); }
+  .user-card { justify-content: center; padding: var(--s2); }
+  .user-details, .user-card > svg { display: none; }
+  .avatar { width: 28px; height: 28px; font-size: 10px; }
+
+  /* Brief */
+  .brief-card::after { width: 80px; height: 80px; opacity: 0.04; }
+  .brief-body { font-size: 17px; max-width: 100%; }
+  .brief-rec { max-width: 100%; }
+
+  /* Metrics → 2×2 */
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+
+  /* Grid → single column */
+  .grid-main { grid-template-columns: 1fr; }
+
+  /* Tab bar meta: hide location text */
+  .tab-location { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE  < 768 px
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body { overflow: auto; }
+
+  .app-shell { flex-direction: column; height: auto; min-height: 100dvh; overflow: visible; }
+
+  /* Sidebar → hide; bottom nav → show */
+  .sidebar { display: none; }
+  .bottom-nav { display: flex; }
+
+  /* Main area */
+  .main { height: auto; overflow: visible; padding-bottom: 58px; }
+
+  /* Topbar */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    padding: 0 var(--s4); height: 54px;
+    background: var(--midnight);
+  }
+  .topbar-greeting { font-size: 13px; }
+  .topbar-sub { font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .search-bar { width: 140px; }
+  .divider-v { display: none; }
+  .help-btn { display: none; }
+
+  /* Tab bar: scrollable */
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0 var(--s4);
+    height: 40px;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+  .tab-meta { display: none; }
+
+  /* Page body */
+  .page-body { padding: var(--s4); gap: var(--s4); overflow: visible; }
+
+  /* Intelligence Brief */
+  .brief-card { padding: var(--s4); }
+  .brief-card::after { display: none; }
+  .brief-body {
+    font-size: 15.5px;
+    max-width: 100%;
+    margin-bottom: var(--s3);
+    line-height: 1.55;
+  }
+  .brief-rec { max-width: 100%; padding: var(--s2) var(--s3); margin-bottom: var(--s3); }
+  .brief-rec-text { font-size: 12.5px; }
+  .brief-footer { gap: var(--s2); }
+  .brief-cta { display: none; }
+  .pill { font-size: 10.5px; padding: 2px 8px; }
+
+  /* Metrics → 2×2 */
+  .metrics-row { grid-template-columns: repeat(2, 1fr); gap: var(--s3); }
+  .metric { padding: var(--s3) var(--s4); }
+  .metric-val { font-size: 28px; }
+
+  /* Grid → stacked */
+  .grid-main { grid-template-columns: 1fr; }
+
+  /* Activity items: drop timestamp column */
+  .activity-item {
+    grid-template-columns: 32px 1fr;
+    gap: var(--s2);
+    padding: var(--s3) var(--s4);
+  }
+  .activity-time { display: none; }
+  .comp-icon { width: 30px; height: 30px; font-size: 11px; border-radius: 7px; }
+  .activity-desc { font-size: 12px; }
+  .rec-row { font-size: 11px; padding: 6px 8px; }
+
+  /* Filter row: scrollable */
+  .filter-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .filter-row::-webkit-scrollbar { display: none; }
+
+  /* Panel headers */
+  .panel-hd { flex-wrap: wrap; gap: var(--s2); padding: var(--s3) var(--s4); }
+  .panel-title { font-size: 12px; }
+
+  /* Signals panel */
+  .signal-item { padding: 10px var(--s4); }
+  .signal-name { font-size: 12px; }
+  .trending-block { padding: var(--s3) var(--s4); }
+  .trending-pills { gap: var(--s1); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACCESSIBILITY
+   ═══════════════════════════════════════════════════════════════════════════ */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+}
+:focus-visible {
+  outline: 2px solid var(--vatic-indigo);
+  outline-offset: 2px;
+}
+
+  </style>
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SIDEBAR
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" role="navigation" aria-label="Main navigation">
+
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      <svg class="logo-svg" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <path d="M4 6 L14 22 L24 6" stroke="#5A3FFF" stroke-width="2.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="14" cy="22" r="2.6" fill="#F2A11E"/>
+      </svg>
+      <span class="logo-wordmark">vatic</span>
+    </div>
+
+    <!-- Nav -->
+    <nav class="sidebar-nav">
+
+      <a href="#" class="nav-item active" aria-current="page">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <rect x="1" y="1" width="5.5" height="5.5" rx="1"/>
+          <rect x="8.5" y="1" width="5.5" height="5.5" rx="1"/>
+          <rect x="1" y="8.5" width="5.5" height="5.5" rx="1"/>
+          <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/>
+        </svg>
+        <span class="label">Overview</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <path d="M7.5 2 C7.5 2 4 4 1.5 7.5 C4 11 7.5 13 7.5 13 C7.5 13 11 11 13.5 7.5 C11 4 7.5 2 7.5 2Z"/>
+          <circle cx="7.5" cy="7.5" r="2"/>
+        </svg>
+        <span class="label">Intelligence Feed</span>
+        <span class="badge badge-indigo">8</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <circle cx="5" cy="5.5" r="2.8"/>
+          <circle cx="10.5" cy="5.5" r="2.8"/>
+          <path d="M1 13.5 C1 11 2.5 10 5 10"/>
+          <path d="M14 13.5 C14 11 12.5 10 10.5 10"/>
+          <path d="M7.75 10.2 C6.5 10.2 5.5 11 5 13.5M7.75 10.2 C9 10.2 10 11 10.5 13.5"/>
+        </svg>
+        <span class="label">My Competitors</span>
+        <span class="badge badge-gold">5</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <polyline points="1,12 4,8 7,9.5 10,5 14,2.5"/>
+          <path d="M10 2.5 L14 2.5 L14 6.5"/>
+        </svg>
+        <span class="label">Pricing Watch</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <rect x="1" y="2" width="13" height="11" rx="1.5"/>
+          <path d="M4 6 L7 9 L11 4.5"/>
+        </svg>
+        <span class="label">Menu Tracker</span>
+      </a>
+
+      <div class="nav-section">Workspace</div>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <path d="M7.5 1 L7.5 3M7.5 12 L7.5 14M1 7.5 L3 7.5M12 7.5 L14 7.5"/>
+          <path d="M3.2 3.2 L4.6 4.6M10.4 10.4 L11.8 11.8M11.8 3.2 L10.4 4.6M4.6 10.4 L3.2 11.8"/>
+          <circle cx="7.5" cy="7.5" r="2.5"/>
+        </svg>
+        <span class="label">Alerts</span>
+        <span class="badge badge-indigo">3</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <path d="M3 1.5 L12 1.5 L12 13.5 L3 13.5 Z"/>
+          <path d="M5 5 L10 5M5 7.5 L10 7.5M5 10 L8 10"/>
+        </svg>
+        <span class="label">Reports</span>
+      </a>
+
+      <a href="#" class="nav-item">
+        <svg class="icon" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+          <circle cx="7.5" cy="7.5" r="2.2"/>
+          <path d="M7.5 1 L7.5 2.5M7.5 12.5 L7.5 14M1 7.5 L2.5 7.5M12.5 7.5 L14 7.5M3.1 3.1 L4.2 4.2M10.8 10.8 L11.9 11.9M11.9 3.1 L10.8 4.2M4.2 10.8 L3.1 11.9"/>
+        </svg>
+        <span class="label">Settings</span>
+      </a>
+
+    </nav>
+
+    <!-- User -->
+    <div class="sidebar-footer">
+      <div class="user-card" role="button" aria-label="User menu">
+        <div class="avatar" aria-hidden="true">CH</div>
+        <div class="user-details">
+          <div class="user-name">Chris H.</div>
+          <div class="user-org">Prophet · Owner</div>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4"
+             style="color: var(--text-3); flex-shrink:0" aria-hidden="true">
+          <path d="M2.5 4.5 L6.5 8.5 L10.5 4.5"/>
+        </svg>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       MAIN CONTENT
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <main class="main" role="main">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-greeting">Good morning, Chris</div>
+        <div class="topbar-sub">Wednesday, March 11 · 8 new signals near your restaurant</div>
+      </div>
+      <div class="topbar-right">
+
+        <div class="search-bar" role="search">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor"
+               stroke-width="1.4" style="color:var(--text-3);flex-shrink:0" aria-hidden="true">
+            <circle cx="5.5" cy="5.5" r="4"/>
+            <path d="M8.5 8.5 L12 12"/>
+          </svg>
+          <input type="search" placeholder="Search competitors, signals…" aria-label="Search">
+        </div>
+
+        <div class="divider-v" aria-hidden="true"></div>
+
+        <button class="icon-btn" aria-label="Notifications — 3 unread">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M7.5 1.5 C5 1.5 3 3.5 3 6 L3 9.5 L1.5 11 L13.5 11 L12 9.5 L12 6 C12 3.5 10 1.5 7.5 1.5Z"/>
+            <path d="M6 11 C6 11.8 6.7 12.5 7.5 12.5 C8.3 12.5 9 11.8 9 11"/>
+          </svg>
+          <span class="notif-dot" aria-hidden="true"></span>
+        </button>
+
+        <button class="icon-btn help-btn" aria-label="Help">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <circle cx="7.5" cy="7.5" r="5.5"/>
+            <path d="M5.5 5.5 C5.5 4.4 6.4 3.5 7.5 3.5 C8.6 3.5 9.5 4.4 9.5 5.5 C9.5 7 7.5 7.5 7.5 9"/>
+            <circle cx="7.5" cy="11.2" r="0.4" fill="currentColor"/>
+          </svg>
+        </button>
+
+      </div>
+    </header>
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab active" role="tab" aria-selected="true">Overview</button>
+      <button class="tab" role="tab" aria-selected="false">Intelligence Feed</button>
+      <button class="tab" role="tab" aria-selected="false">My Competitors</button>
+      <button class="tab" role="tab" aria-selected="false">Pricing Watch</button>
+      <button class="tab" role="tab" aria-selected="false">Menu Tracker</button>
+      <div class="tab-meta">
+        <span class="tab-location">Wicker Park, Chicago · 5 nearby competitors</span>
+        <button class="btn-sm btn-sm-ghost">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M1 3 L10 3M2.5 5.5 L8.5 5.5M4 8 L7 8"/>
+          </svg>
+          Filter
+        </button>
+        <button class="btn-sm btn-sm-primary">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <path d="M5.5 1 L5.5 10M1 5.5 L10 5.5"/>
+          </svg>
+          Add Competitor
+        </button>
+      </div>
+    </div>
+
+    <!-- Page body -->
+    <div class="page-body" role="region" aria-label="Dashboard content">
+
+      <!-- ── INTELLIGENCE BRIEF ─────────────────────────────────────────── -->
+      <section class="brief-card" aria-label="Daily intelligence brief">
+
+        <div class="brief-eyebrow">
+          <div class="brief-label">
+            <span class="pulse" aria-hidden="true"></span>
+            Your Daily Brief
+          </div>
+          <span class="brief-ts">Updated 8 minutes ago</span>
+        </div>
+
+        <p class="brief-body">
+          Rival Kitchen dropped their delivery fee to <em>$0.99 below yours</em> — the widest gap in six months.
+          A new The Smith &amp;&nbsp;Co. location is opening <em>0.3&nbsp;mi from your restaurant</em> on April&nbsp;4,
+          and Pacific Eats launched a loyalty tier that rewards customers who order 3&nbsp;or more times weekly.
+        </p>
+
+        <div class="brief-rec" role="note" aria-label="Recommended action">
+          <div class="brief-rec-label">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path d="M5.5 1 L6.8 4.2 L10.2 4.5 L7.8 6.8 L8.5 10.2 L5.5 8.5 L2.5 10.2 L3.2 6.8 L0.8 4.5 L4.2 4.2 Z" stroke-linejoin="round"/>
+            </svg>
+            Recommended Action
+          </div>
+          <div class="brief-rec-text">
+            <strong>Run a free delivery weekend promo before April 4.</strong> Match Rival Kitchen's price pressure and get customers into your habit loop before The Smith &amp; Co. opens. One Instagram post today is enough to get it in front of your regulars — Vatic can draft it for you.
+          </div>
+        </div>
+
+        <div class="brief-footer">
+          <span class="pill pill-gold">Pricing · 2 signals</span>
+          <span class="pill pill-teal">New Nearby · 1 signal</span>
+          <span class="pill pill-indigo">Loyalty Programs · 1 signal</span>
+          <span class="brief-cta" role="button" tabindex="0">
+            Read full brief
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+              <path d="M1.5 5.5 L9.5 5.5M6.5 2.5 L9.5 5.5 L6.5 8.5"/>
+            </svg>
+          </span>
+        </div>
+
+      </section>
+
+      <!-- ── METRICS ─────────────────────────────────────────────────────── -->
+      <div class="metrics-row" role="list" aria-label="Key metrics">
+
+        <article class="metric" role="listitem">
+          <div class="metric-icon-label">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+              <circle cx="4" cy="4.5" r="2.5"/>
+              <circle cx="9" cy="4.5" r="2.5"/>
+              <path d="M0.5 10.5 C0.5 8.5 2 7.5 4 7.5M11.5 10.5 C11.5 8.5 10 7.5 8 7.5M6.5 7.8 C5 7.8 4 8.8 4 10.5M6.5 7.8 C8 7.8 9 8.8 9 10.5"/>
+            </svg>
+            Nearby Competitors
+          </div>
+          <div class="metric-val c-indigo" aria-label="5 nearby competitors">5</div>
+          <div class="metric-delta delta-up">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4.5 7.5 L4.5 1.5M1.5 4.5 L4.5 1.5 L7.5 4.5"/></svg>
+            1 added this week
+          </div>
+        </article>
+
+        <article class="metric" role="listitem">
+          <div class="metric-icon-label">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+              <path d="M6 1 C3.2 1 1 3.2 1 6 C1 8.8 3.2 11 6 11 C8.8 11 11 8.8 11 6 C11 3.2 8.8 1 6 1Z"/>
+              <path d="M6 3.5 L6 6.5M6 8 L6 8.2" stroke-linecap="round"/>
+            </svg>
+            Active Alerts
+          </div>
+          <div class="metric-val c-gold" aria-label="3 active alerts">3</div>
+          <div class="metric-delta delta-warn">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="4.5" cy="4.5" r="3.5" fill="none"/><path d="M4.5 2.5 L4.5 4.8M4.5 6.2 L4.5 6.4" stroke-linecap="round"/></svg>
+            2 need your attention
+          </div>
+        </article>
+
+        <article class="metric" role="listitem">
+          <div class="metric-icon-label">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+              <polyline points="1,10 3.5,6.5 6,8 8.5,3.5 11,1.5"/>
+            </svg>
+            New Signals Today
+          </div>
+          <div class="metric-val" aria-label="8 new signals today">8</div>
+          <div class="metric-delta delta-up">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4.5 7.5 L4.5 1.5M1.5 4.5 L4.5 1.5 L7.5 4.5"/></svg>
+            +3 from yesterday
+          </div>
+        </article>
+
+        <article class="metric" role="listitem">
+          <div class="metric-icon-label">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+              <polyline points="1,9.5 3,6.5 6,8 11,2"/>
+              <path d="M8 2 L11 2 L11 5"/>
+            </svg>
+            Top Threat
+          </div>
+          <div class="metric-val-name c-red" style="color: #FF8899;" aria-label="Top threat: Rival Kitchen">Rival Kitchen</div>
+          <div class="metric-delta delta-down">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M4.5 1.5 L4.5 7.5M1.5 4.5 L4.5 7.5 L7.5 4.5"/></svg>
+            ↑ 38% activity this week
+          </div>
+        </article>
+
+      </div>
+
+      <!-- ── MAIN GRID ──────────────────────────────────────────────────── -->
+      <div class="grid-main">
+
+        <!-- ACTIVITY FEED ─────────────────────────────────────────────── -->
+        <div class="panel" aria-label="Competitor activity near your restaurant">
+
+          <div class="panel-hd">
+            <div class="panel-title">
+              <svg class="icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <circle cx="6.5" cy="6.5" r="5"/>
+                <path d="M6.5 3.5 L6.5 6.5 L8.5 8"/>
+              </svg>
+              What Happened Near You
+            </div>
+            <div class="filter-row" role="group" aria-label="Filter activity">
+              <button class="filter-pill on">All</button>
+              <button class="filter-pill">Pricing</button>
+              <button class="filter-pill">Locations</button>
+              <button class="filter-pill">Menu</button>
+              <button class="filter-pill">Promos</button>
+            </div>
+          </div>
+
+          <div class="panel-body" role="feed" aria-label="Competitor activity updates">
+
+            <!-- Item 1 — Pricing (High impact) -->
+            <article class="activity-item">
+              <div class="comp-icon ci-b" aria-hidden="true">RK</div>
+              <div class="activity-main">
+                <div class="activity-top">
+                  <span class="comp-name">Rival Kitchen</span>
+                  <span class="type-badge tb-pricing">Pricing</span>
+                </div>
+                <div class="activity-desc">
+                  Reduced delivery fees from <strong>$3.99 → $2.99</strong>.
+                  Now <strong>$0.99 cheaper than your delivery fee</strong> — the widest gap since last fall.
+                </div>
+                <div class="activity-sub">
+                  <span>0.4 mi from you</span>
+                  <span class="impact-dot impact-hi">● High impact</span>
+                </div>
+                <div class="rec-row" role="note" aria-label="Recommendation">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M5.5 1 L6.8 4.2 L10.2 4.5 L7.8 6.8 L8.5 10.2 L5.5 8.5 L2.5 10.2 L3.2 6.8 L0.8 4.5 L4.2 4.2 Z" stroke-linejoin="round"/>
+                  </svg>
+                  <span>Consider <strong>free delivery on orders $30+</strong> this weekend — protects your Friday volume without permanently cutting your fee.</span>
+                </div>
+              </div>
+              <div class="activity-time">2h ago</div>
+            </article>
+
+            <!-- Item 2 — New Location (High impact) -->
+            <article class="activity-item">
+              <div class="comp-icon ci-a" aria-hidden="true">SC</div>
+              <div class="activity-main">
+                <div class="activity-top">
+                  <span class="comp-name">The Smith &amp; Co.</span>
+                  <span class="type-badge tb-location">New Nearby</span>
+                </div>
+                <div class="activity-desc">
+                  Confirmed opening at <strong>1432 N Milwaukee Ave</strong> — just <strong>0.3&nbsp;mi from your front door</strong>.
+                  Grand opening set for <strong>April&nbsp;4</strong>.
+                </div>
+                <div class="activity-sub">
+                  <span>0.3 mi from you</span>
+                  <span class="impact-dot impact-hi">● High impact</span>
+                </div>
+                <div class="rec-row" role="note" aria-label="Recommendation">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M5.5 1 L6.8 4.2 L10.2 4.5 L7.8 6.8 L8.5 10.2 L5.5 8.5 L2.5 10.2 L3.2 6.8 L0.8 4.5 L4.2 4.2 Z" stroke-linejoin="round"/>
+                  </svg>
+                  <span><strong>Push a neighborhood ad this week</strong> — target your 0.5mi radius before April 4 to lock in regulars before their opening buzz hits.</span>
+                </div>
+              </div>
+              <div class="activity-time">4h ago</div>
+            </article>
+
+            <!-- Item 3 — Promo (Medium impact) -->
+            <article class="activity-item">
+              <div class="comp-icon ci-c" aria-hidden="true">PE</div>
+              <div class="activity-main">
+                <div class="activity-top">
+                  <span class="comp-name">Pacific Eats</span>
+                  <span class="type-badge tb-promo">Promotion</span>
+                </div>
+                <div class="activity-desc">
+                  Launched <strong>Pacific Rewards Tier&nbsp;2</strong> — free delivery and
+                  15% off for members who order 3+ times weekly.
+                </div>
+                <div class="activity-sub">
+                  <span>0.6 mi from you</span>
+                  <span class="impact-dot impact-md">● Med impact</span>
+                </div>
+                <div class="rec-row" role="note" aria-label="Recommendation">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M5.5 1 L6.8 4.2 L10.2 4.5 L7.8 6.8 L8.5 10.2 L5.5 8.5 L2.5 10.2 L3.2 6.8 L0.8 4.5 L4.2 4.2 Z" stroke-linejoin="round"/>
+                  </svg>
+                  <span>A simple <strong>stamp card or "3rd visit free" offer</strong> creates the same repeat behavior — no app or tech required.</span>
+                </div>
+              </div>
+              <div class="activity-time">6h ago</div>
+            </article>
+
+            <!-- Item 4 — Menu (Medium impact) -->
+            <article class="activity-item">
+              <div class="comp-icon ci-d" aria-hidden="true">DG</div>
+              <div class="activity-main">
+                <div class="activity-top">
+                  <span class="comp-name">Downtown Grille</span>
+                  <span class="type-badge tb-menu">Menu Update</span>
+                </div>
+                <div class="activity-desc">
+                  Added a <strong>plant-based section and 12 spring items</strong>.
+                  Average price per item up <strong>$1.20</strong>. 5 underperformers removed.
+                </div>
+                <div class="activity-sub">
+                  <span>0.8 mi from you</span>
+                  <span class="impact-dot impact-md">● Med impact</span>
+                </div>
+                <div class="rec-row" role="note" aria-label="Recommendation">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path d="M5.5 1 L6.8 4.2 L10.2 4.5 L7.8 6.8 L8.5 10.2 L5.5 8.5 L2.5 10.2 L3.2 6.8 L0.8 4.5 L4.2 4.2 Z" stroke-linejoin="round"/>
+                  </svg>
+                  <span>If plant-based is moving there, a <strong>1–2 item test on your spring menu</strong> could capture demand without a full overhaul.</span>
+                </div>
+              </div>
+              <div class="activity-time">Yesterday</div>
+            </article>
+
+            <!-- Item 5 — Delivery (Low impact) -->
+            <article class="activity-item">
+              <div class="comp-icon ci-e" aria-hidden="true">UB</div>
+              <div class="activity-main">
+                <div class="activity-top">
+                  <span class="comp-name">Urban Bites</span>
+                  <span class="type-badge tb-delivery">Delivery</span>
+                </div>
+                <div class="activity-desc">
+                  Switched exclusively to <strong>Uber Eats</strong>. DoorDash listing removed
+                  as of March&nbsp;8.
+                </div>
+                <div class="activity-sub">
+                  <span>1.1 mi from you</span>
+                  <span class="impact-dot impact-lo">● Low impact</span>
+                </div>
+              </div>
+              <div class="activity-time">Yesterday</div>
+            </article>
+
+          </div><!-- /panel-body -->
+        </div><!-- /activity panel -->
+
+        <!-- COMPETITOR WATCH PANEL ────────────────────────────────────── -->
+        <div class="panel" aria-label="Competitor watch — activity levels this week">
+
+          <div class="panel-hd">
+            <div class="panel-title">
+              <svg class="icon" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                <polyline points="1,11 3.5,7 6.5,8.5 9.5,4 12,2"/>
+                <path d="M9.5 2 L12 2 L12 4.5"/>
+              </svg>
+              Competitor Watch
+            </div>
+          </div>
+
+          <div class="panel-body">
+
+            <div class="signal-item">
+              <div class="signal-row">
+                <span class="signal-name">Rival Kitchen</span>
+                <span class="signal-chg sig-up">↑ 38%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bf-b" style="width:82%"></div></div>
+              <div class="signal-sub">8 signals · Pricing &amp; promotions active</div>
+            </div>
+
+            <div class="signal-item">
+              <div class="signal-row">
+                <span class="signal-name">The Smith &amp; Co.</span>
+                <span class="signal-chg sig-up">↑ 22%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bf-a" style="width:65%"></div></div>
+              <div class="signal-sub">6 signals · Opening nearby April 4</div>
+            </div>
+
+            <div class="signal-item">
+              <div class="signal-row">
+                <span class="signal-name">Pacific Eats</span>
+                <span class="signal-chg sig-up">↑ 15%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bf-c" style="width:48%"></div></div>
+              <div class="signal-sub">5 signals · Loyalty program launch</div>
+            </div>
+
+            <div class="signal-item">
+              <div class="signal-row">
+                <span class="signal-name">Downtown Grille</span>
+                <span class="signal-chg sig-down">↓ 4%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bf-d" style="width:34%"></div></div>
+              <div class="signal-sub">3 signals · Spring menu refresh</div>
+            </div>
+
+            <div class="signal-item">
+              <div class="signal-row">
+                <span class="signal-name">Urban Bites</span>
+                <span class="signal-chg sig-down">↓ 11%</span>
+              </div>
+              <div class="bar-track"><div class="bar-fill bf-e" style="width:18%"></div></div>
+              <div class="signal-sub">2 signals · Delivery partner switch</div>
+            </div>
+
+            <div class="trending-block">
+              <div class="trending-label">In Your Neighborhood This Week</div>
+              <div class="trending-pills">
+                <span class="t-pill pill-gold">Delivery Fees</span>
+                <span class="t-pill pill-teal">New Openings</span>
+                <span class="t-pill pill-indigo">Loyalty Offers</span>
+                <span class="t-pill pill-indigo">Plant-Based</span>
+                <span class="t-pill pill-gold">Weekend Promos</span>
+              </div>
+            </div>
+
+          </div><!-- /panel-body -->
+        </div><!-- /competitor watch panel -->
+
+      </div><!-- /grid-main -->
+
+    </div><!-- /page-body -->
+  </main>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       BOTTOM NAV — visible only on mobile
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <nav class="bottom-nav" role="navigation" aria-label="Mobile navigation">
+
+    <a href="#" class="bn-item active" aria-current="page" aria-label="Overview">
+      <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <rect x="1" y="1" width="5.5" height="5.5" rx="1"/>
+        <rect x="8.5" y="1" width="5.5" height="5.5" rx="1"/>
+        <rect x="1" y="8.5" width="5.5" height="5.5" rx="1"/>
+        <rect x="8.5" y="8.5" width="5.5" height="5.5" rx="1"/>
+      </svg>
+      Overview
+    </a>
+
+    <a href="Vatic-Intelligence-Brief.html" class="bn-item" aria-label="Intelligence Feed — 8 unread">
+      <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <path d="M7.5 2 C7.5 2 4 4 1.5 7.5 C4 11 7.5 13 7.5 13 C7.5 13 11 11 13.5 7.5 C11 4 7.5 2 7.5 2Z"/>
+        <circle cx="7.5" cy="7.5" r="2"/>
+      </svg>
+      <span class="bn-badge" aria-hidden="true">8</span>
+      Feed
+    </a>
+
+    <a href="Vatic-Competitors.html" class="bn-item" aria-label="My Competitors">
+      <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="5" cy="5.5" r="2.8"/>
+        <circle cx="10.5" cy="5.5" r="2.8"/>
+        <path d="M1 13.5 C1 11 2.5 10 5 10"/>
+        <path d="M14 13.5 C14 11 12.5 10 10.5 10"/>
+        <path d="M7.75 10.2 C6.5 10.2 5.5 11 5 13.5M7.75 10.2 C9 10.2 10 11 10.5 13.5"/>
+      </svg>
+      Rivals
+    </a>
+
+    <a href="Vatic-Alerts.html" class="bn-item" aria-label="Alerts — 3 active">
+      <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <path d="M7.5 1.5 C5 1.5 3 3.5 3 6 L3 9.5 L1.5 11 L13.5 11 L12 9.5 L12 6 C12 3.5 10 1.5 7.5 1.5Z"/>
+        <path d="M6 11 C6 11.8 6.7 12.5 7.5 12.5 C8.3 12.5 9 11.8 9 11"/>
+      </svg>
+      <span class="bn-badge bn-badge-gold" aria-hidden="true">3</span>
+      Alerts
+    </a>
+
+    <a href="Vatic-Settings.html" class="bn-item" aria-label="More options">
+      <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <circle cx="7.5" cy="3" r="1"/>
+        <circle cx="7.5" cy="7.5" r="1"/>
+        <circle cx="7.5" cy="12" r="1"/>
+      </svg>
+      More
+    </a>
+
+  </nav>
+
+</div><!-- /app-shell -->
+</body>
+</html>

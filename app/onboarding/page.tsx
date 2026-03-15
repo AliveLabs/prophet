@@ -32,16 +32,16 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   const error = resolvedSearchParams?.error
 
   return (
-    <div className="min-h-screen bg-warm-white text-near-black">
+    <div className="min-h-screen bg-background text-foreground">
       <section className="mx-auto w-full max-w-5xl px-6 py-12">
         <FadeIn>
-          <Card className="bg-white text-slate-900">
-            <h1 className="text-2xl font-semibold">Add your first location</h1>
-            <p className="mt-1 text-sm text-slate-600">
+          <Card className="bg-card text-foreground">
+            <h1 className="text-2xl font-display font-semibold">Add your first location</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Search for your business and we’ll auto-populate the details.
             </p>
             {error ? (
-              <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
                 {decodeURIComponent(error)}
               </p>
             ) : null}

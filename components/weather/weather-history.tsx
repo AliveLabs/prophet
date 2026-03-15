@@ -67,7 +67,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   if (!row) return null
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-xl">
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl">
       <div className="flex items-center gap-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -76,45 +76,45 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
           className="h-8 w-8"
         />
         <div>
-          <p className="text-xs font-bold text-slate-900">
+          <p className="text-xs font-bold text-foreground">
             {new Date(row.date + "T12:00:00").toLocaleDateString("en-US", {
               weekday: "short", month: "short", day: "numeric",
             })}
             {row.isForecast && (
-              <span className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-[9px] font-semibold text-blue-600">
+              <span className="ml-1.5 rounded bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
                 FORECAST
               </span>
             )}
           </p>
-          <p className="text-[11px] capitalize text-slate-500">{row.condition.toLowerCase()}</p>
+          <p className="text-[11px] capitalize text-muted-foreground">{row.condition.toLowerCase()}</p>
         </div>
       </div>
       <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-        <span className="text-slate-400">High</span>
-        <span className="font-semibold text-orange-600">{Math.round(row.high)}°F</span>
-        <span className="text-slate-400">Low</span>
-        <span className="font-semibold text-blue-500">{Math.round(row.low)}°F</span>
+        <span className="text-muted-foreground">High</span>
+        <span className="font-semibold text-signal-gold">{Math.round(row.high)}°F</span>
+        <span className="text-muted-foreground">Low</span>
+        <span className="font-semibold text-primary">{Math.round(row.low)}°F</span>
         {row.precipitation > 0 && (
           <>
-            <span className="text-slate-400">Precip</span>
-            <span className="font-semibold text-sky-600">{row.precipitation.toFixed(2)}&quot;</span>
+            <span className="text-muted-foreground">Precip</span>
+            <span className="font-semibold text-primary">{row.precipitation.toFixed(2)}&quot;</span>
           </>
         )}
         {row.humidity != null && (
           <>
-            <span className="text-slate-400">Humidity</span>
-            <span className="font-medium text-slate-600">{row.humidity}%</span>
+            <span className="text-muted-foreground">Humidity</span>
+            <span className="font-medium text-muted-foreground">{row.humidity}%</span>
           </>
         )}
         {row.wind != null && (
           <>
-            <span className="text-slate-400">Wind</span>
-            <span className="font-medium text-slate-600">{Math.round(row.wind)} mph</span>
+            <span className="text-muted-foreground">Wind</span>
+            <span className="font-medium text-muted-foreground">{Math.round(row.wind)} mph</span>
           </>
         )}
       </div>
       {row.isSevere && (
-        <div className="mt-2 flex items-center gap-1 rounded-lg bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-600">
+        <div className="mt-2 flex items-center gap-1 rounded-lg bg-destructive/15 px-2 py-1 text-[10px] font-bold text-destructive">
           <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
           </svg>
@@ -128,7 +128,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
 export default function WeatherHistory({ days, locationName, todayDate }: Props) {
   const isClient = useIsClient()
 
-  if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-slate-100" />
+  if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-secondary" />
   if (days.length === 0) return null
 
   const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date))
@@ -159,24 +159,24 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold text-slate-900">Weather Trend</h3>
-          <span className="text-xs text-slate-400">
+          <h3 className="text-sm font-bold text-foreground">Weather Trend</h3>
+          <span className="text-xs text-muted-foreground">
             {locationName} · {histCount} day{histCount !== 1 ? "s" : ""} history
             {forecastCount > 0 && ` + ${forecastCount} day forecast`}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-[10px] text-slate-400">
+        <div className="flex items-center gap-4 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1">
             <div className="h-2.5 w-5 rounded-sm bg-gradient-to-t from-blue-200 to-orange-200" />
             Temp range
           </div>
           <div className="flex items-center gap-1">
-            <div className="h-2.5 w-2.5 rounded-full bg-sky-400" />
+            <div className="h-2.5 w-2.5 rounded-full bg-primary" />
             Precipitation
           </div>
           {forecastCount > 0 && (
             <div className="flex items-center gap-1">
-              <div className="h-2.5 w-5 rounded-sm border border-dashed border-slate-300 bg-blue-50" />
+              <div className="h-2.5 w-5 rounded-sm border border-dashed border-border bg-primary/10" />
               Forecast
             </div>
           )}
@@ -188,21 +188,21 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
           <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f97316" stopOpacity={0.35} />
-                <stop offset="50%" stopColor="#fbbf24" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.25} />
+              <stop offset="0%" stopColor="#FF4757" stopOpacity={0.35} />
+              <stop offset="50%" stopColor="#F2A11E" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#5A3FFF" stopOpacity={0.25} />
               </linearGradient>
               <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity={0.8} />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity={0.3} />
+              <stop offset="0%" stopColor="#9B87FF" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#9B87FF" stopOpacity={0.3} />
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4FF" vertical={false} />
 
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              tick={{ fontSize: 10, fill: "#8883AA" }}
               axisLine={false}
               tickLine={false}
               interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
@@ -210,7 +210,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="temp"
               domain={[minY, maxY]}
-              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              tick={{ fontSize: 10, fill: "#8883AA" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}°`}
@@ -219,7 +219,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="precip"
               orientation="right"
-              tick={{ fontSize: 10, fill: "#94a3b8" }}
+              tick={{ fontSize: 10, fill: "#8883AA" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}"`}
@@ -232,13 +232,13 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
               <ReferenceLine
                 yAxisId="temp"
                 x={formatDateLabel(todayDate)}
-                stroke="#6366f1"
+                stroke="#5A3FFF"
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 label={{
                   value: "Today",
                   position: "top",
-                  fill: "#6366f1",
+                  fill: "#5A3FFF",
                   fontSize: 10,
                   fontWeight: 700,
                 }}
@@ -257,19 +257,19 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <Line
               yAxisId="temp"
               dataKey="high"
-              stroke="#f97316"
+              stroke="#FF4757"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#f97316", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: "#FF4757", strokeWidth: 0 }}
               isAnimationActive={false}
             />
             <Line
               yAxisId="temp"
               dataKey="low"
-              stroke="#3b82f6"
+              stroke="#5A3FFF"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#3b82f6", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: "#5A3FFF", strokeWidth: 0 }}
               isAnimationActive={false}
             />
 
@@ -285,7 +285,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
         </ResponsiveContainer>
       </div>
 
-      <p className="text-right text-[10px] text-slate-300">Data: OpenWeatherMap</p>
+      <p className="text-right text-[10px] text-muted-foreground">Data: OpenWeatherMap</p>
     </div>
   )
 }

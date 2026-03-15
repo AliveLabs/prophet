@@ -64,7 +64,7 @@ function EventsFiltersInner({
           className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
         >
           {locations.map((l) => (
-            <option key={l.id} value={l.id} className="text-slate-900">
+            <option key={l.id} value={l.id} className="text-foreground">
               {l.name}
             </option>
           ))}
@@ -76,8 +76,8 @@ function EventsFiltersInner({
         onChange={(e) => navigate({ tab: e.target.value })}
         className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
       >
-        <option value="weekend" className="text-slate-900">This Weekend</option>
-        <option value="week" className="text-slate-900">This Week</option>
+        <option value="weekend" className="text-foreground">This Weekend</option>
+        <option value="week" className="text-foreground">This Week</option>
       </select>
 
       <div className="relative">
@@ -104,7 +104,7 @@ function EventsFiltersInner({
         onClick={() => navigate({ matched: matchedOnly ? "" : "true" })}
         className={`rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
           matchedOnly
-            ? "border-emerald-300/40 bg-emerald-400/20 text-emerald-100"
+            ? "border-precision-teal/40 bg-precision-teal/20 text-precision-teal"
             : "border-white/20 bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
         }`}
       >

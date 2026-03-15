@@ -114,7 +114,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   // Snapshots (from cached data)
   // -------------------------------------------------------------------------
 
-  const competitorIds = competitors.map((c) => c.id)
   const snapshotRows = cachedData.snapshots
   const latestByCompetitor = new Map<string, NormalizedSnapshot>()
   const latestDateByCompetitor = new Map<string, string>()
@@ -415,7 +414,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   return (
     <section className="space-y-6">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-600 p-6 text-white shadow-xl shadow-indigo-200/50">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-vatic-indigo-soft to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
 
@@ -427,7 +426,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold tracking-tight">Insights</h1>
+              <h1 className="text-xl font-display font-bold tracking-tight">Insights</h1>
             </div>
             <p className="max-w-md text-sm text-white/70">
               Changes and opportunities across competitors, events, SEO, social media, and content for{" "}
@@ -493,7 +492,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(error)}
         </div>
       )}
@@ -536,7 +535,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Busy Times Traffic Chart */}
       {trafficData.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <TrafficChart data={trafficData} />
         </div>
       )}
@@ -550,7 +549,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Photo Gallery */}
       {photoItems.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <PhotoGallery photos={photoItems} />
         </div>
       )}

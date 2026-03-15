@@ -99,8 +99,8 @@ export default function MenuCompare({
 
   if (competitors.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <p className="text-sm text-slate-500">No competitor menu data available for comparison.</p>
+      <div className="rounded-2xl border border-border bg-card p-6 text-center">
+        <p className="text-sm text-muted-foreground">No competitor menu data available for comparison.</p>
       </div>
     )
   }
@@ -121,16 +121,16 @@ export default function MenuCompare({
   const compUniqueItems = uniqueItems(filteredCompCats, filteredLocCats)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-        <h3 className="text-sm font-semibold text-slate-900">Competitor Menu Compare</h3>
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <h3 className="text-sm font-semibold text-foreground">Competitor Menu Compare</h3>
         <div className="flex items-center gap-2">
           {allMenuTypes.length > 1 && (
             <select
               value={compareType}
               onChange={(e) => setCompareType(e.target.value as MenuType)}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+              className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground"
             >
               {allMenuTypes.map((mt) => (
                 <option key={mt} value={mt}>{COMPARE_TYPE_LABELS[mt] ?? mt}</option>
@@ -141,7 +141,7 @@ export default function MenuCompare({
             <select
               value={selectedComp}
               onChange={(e) => setSelectedComp(Number(e.target.value))}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs text-slate-700"
+              className="rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground"
             >
               {competitors.map((c, idx) => (
                 <option key={idx} value={idx}>
@@ -154,26 +154,26 @@ export default function MenuCompare({
       </div>
 
       {/* Price comparison */}
-      <div className="grid grid-cols-2 gap-4 border-b border-slate-100 p-5">
-        <div className="rounded-xl bg-indigo-50/60 p-3 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">
+      <div className="grid grid-cols-2 gap-4 border-b border-border p-5">
+        <div className="rounded-xl bg-primary/10 p-3 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
             {locationName}
           </p>
-          <p className="mt-1 text-xl font-bold text-indigo-700">
+          <p className="mt-1 text-xl font-bold text-primary">
             {locAvg != null ? `$${locAvg.toFixed(2)}` : "N/A"}
           </p>
-          <p className="text-[10px] text-indigo-500">
+          <p className="text-[10px] text-primary">
             avg {COMPARE_TYPE_LABELS[compareType]?.toLowerCase() ?? ""} price · {locItemCount} items
           </p>
         </div>
-        <div className="rounded-xl bg-slate-50 p-3 text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="rounded-xl bg-secondary p-3 text-center">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             {comp.competitorName}
           </p>
-          <p className="mt-1 text-xl font-bold text-slate-700">
+          <p className="mt-1 text-xl font-bold text-foreground">
             {compAvg != null ? `$${compAvg.toFixed(2)}` : "N/A"}
           </p>
-          <p className="text-[10px] text-slate-500">
+          <p className="text-[10px] text-muted-foreground">
             avg {COMPARE_TYPE_LABELS[compareType]?.toLowerCase() ?? ""} price · {compItemCount} items
           </p>
         </div>
@@ -181,13 +181,13 @@ export default function MenuCompare({
 
       {/* Category coverage */}
       {missingCats.length > 0 && (
-        <div className="border-b border-slate-100 px-5 py-3">
-          <p className="text-xs font-semibold text-slate-700">Categories they have that you don&apos;t</p>
+        <div className="border-b border-border px-5 py-3">
+          <p className="text-xs font-semibold text-foreground">Categories they have that you don&apos;t</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {missingCats.map((cat) => (
               <span
                 key={cat}
-                className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-medium text-amber-700 capitalize"
+                className="rounded-full bg-signal-gold/15 px-2.5 py-0.5 text-[10px] font-medium text-signal-gold capitalize"
               >
                 {cat}
               </span>
@@ -199,21 +199,21 @@ export default function MenuCompare({
       {/* Unique items */}
       {compUniqueItems.length > 0 && (
         <div className="px-5 py-3">
-          <p className="text-xs font-semibold text-slate-700">
+          <p className="text-xs font-semibold text-foreground">
             Items they offer that you don&apos;t ({compUniqueItems.length})
           </p>
           <div className="mt-2 max-h-40 space-y-1 overflow-y-auto">
             {compUniqueItems.slice(0, 15).map((item, idx) => (
               <div
                 key={idx}
-                className="flex items-center gap-2 text-xs text-slate-600"
+                className="flex items-center gap-2 text-xs text-muted-foreground"
               >
-                <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
+                <span className="h-1 w-1 shrink-0 rounded-full bg-muted" />
                 {item}
               </div>
             ))}
             {compUniqueItems.length > 15 && (
-              <p className="text-[10px] text-slate-400">
+              <p className="text-[10px] text-muted-foreground">
                 +{compUniqueItems.length - 15} more
               </p>
             )}

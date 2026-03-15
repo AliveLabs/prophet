@@ -44,7 +44,7 @@ function AutoFilterFormInner({ filters, children }: Props) {
           key={f.name}
           value={searchParams?.get(f.name) ?? f.defaultValue}
           onChange={(e) => handleChange(f.name, e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+          className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground"
         >
           {f.options.map((o) => (
             <option key={o.value} value={o.value}>

@@ -11,22 +11,21 @@ type ActionableInsight = {
 }
 
 const SEVERITY_STYLES: Record<string, string> = {
-  critical: "border-red-200 bg-red-50",
-  warning: "border-amber-200 bg-amber-50",
-  info: "border-blue-200 bg-blue-50",
-  positive: "border-emerald-200 bg-emerald-50",
+  critical: "border-destructive/30 bg-destructive/10",
+  warning: "border-signal-gold/30 bg-signal-gold/10",
+  info: "border-primary/30 bg-primary/10",
+  positive: "border-precision-teal/30 bg-precision-teal/10",
 }
 
 const SEVERITY_ICON_COLORS: Record<string, string> = {
-  critical: "text-red-500",
-  warning: "text-amber-500",
-  info: "text-blue-500",
-  positive: "text-emerald-500",
+  critical: "text-destructive",
+  warning: "text-signal-gold",
+  info: "text-primary",
+  positive: "text-precision-teal",
 }
 
 function generateWeatherActionableInsights(
-  days: WeatherDay[],
-  todayStr: string
+  days: WeatherDay[]
 ): ActionableInsight[] {
   const insights: ActionableInsight[] = []
   const forecast = days.filter((d) => d.isForecast).sort((a, b) => a.date.localeCompare(b.date))
@@ -158,18 +157,17 @@ function generateWeatherActionableInsights(
 
 export default function WeatherActionableInsights({
   days,
-  todayStr,
 }: {
   days: WeatherDay[]
-  todayStr: string
+  todayStr?: string
 }) {
-  const insights = generateWeatherActionableInsights(days, todayStr)
+  const insights = generateWeatherActionableInsights(days)
   if (insights.length === 0) return null
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900">What This Means for Your Business</h3>
-      <p className="mt-0.5 text-xs text-slate-500">Actionable recommendations based on weather data and forecast</p>
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="text-sm font-bold text-foreground">What This Means for Your Business</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">Actionable recommendations based on weather data and forecast</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {insights.map((insight, idx) => (
@@ -182,15 +180,15 @@ export default function WeatherActionableInsights({
                 <InsightIcon type={insight.icon} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-slate-900">{insight.title}</p>
-                <p className="mt-1 text-xs text-slate-600 leading-relaxed">{insight.summary}</p>
+                <p className="text-sm font-semibold text-foreground">{insight.title}</p>
+                <p className="mt-1 text-xs text-muted-foreground leading-relaxed">{insight.summary}</p>
                 <div className="mt-3 space-y-1.5">
                   {insight.actions.map((action, i) => (
                     <div key={i} className="flex items-start gap-1.5">
-                      <svg className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
-                      <span className="text-[11px] text-slate-700">{action}</span>
+                      <span className="text-[11px] text-foreground">{action}</span>
                     </div>
                   ))}
                 </div>

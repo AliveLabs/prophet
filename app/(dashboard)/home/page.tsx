@@ -9,17 +9,17 @@ import { computeRelevanceScore } from "@/lib/insights/scoring"
 import HomeChartsSection from "./home-charts-section"
 
 const SEVERITY_COLORS: Record<string, string> = {
-  critical: "border-red-200 bg-red-50 text-red-800",
-  warning: "border-amber-200 bg-amber-50 text-amber-800",
-  info: "border-blue-200 bg-blue-50 text-blue-800",
-  positive: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  critical: "border-destructive/30 bg-destructive/10 text-destructive",
+  warning: "border-signal-gold/30 bg-signal-gold/10 text-signal-gold",
+  info: "border-primary/30 bg-primary/10 text-primary",
+  positive: "border-precision-teal/30 bg-precision-teal/10 text-precision-teal",
 }
 
 const SEVERITY_ICONS: Record<string, string> = {
-  critical: "text-red-500",
-  warning: "text-amber-500",
-  info: "text-blue-500",
-  positive: "text-emerald-500",
+  critical: "text-destructive",
+  warning: "text-signal-gold",
+  info: "text-primary",
+  positive: "text-precision-teal",
 }
 
 const PIPELINE_LABELS: Record<string, { label: string; href: string }> = {
@@ -80,11 +80,11 @@ export default async function HomePage() {
   return (
     <section className="space-y-6">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-600 p-6 text-white shadow-xl shadow-indigo-200/50">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-vatic-indigo-soft to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
         <div className="relative">
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl font-display font-bold tracking-tight">Dashboard</h1>
           <p className="mt-1 max-w-lg text-sm text-white/70">
             Your competitive intelligence overview. Track competitors, monitor signals, and generate actionable insights.
           </p>
@@ -93,39 +93,39 @@ export default async function HomePage() {
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-white">
-          <p className="text-xs font-medium text-slate-500">Locations</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.locationCount}</p>
-          <Link href="/locations" className="mt-1 text-[11px] text-indigo-600 hover:underline">
+        <Card className="bg-card">
+          <p className="text-xs font-medium text-muted-foreground">Locations</p>
+          <p className="mt-2 text-3xl font-bold text-foreground">{cached.locationCount}</p>
+          <Link href="/locations" className="mt-1 text-[11px] text-primary hover:underline">
             Manage locations
           </Link>
         </Card>
-        <Card className="bg-white">
-          <p className="text-xs font-medium text-slate-500">Competitors Tracked</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.competitorCount}</p>
-          <Link href="/competitors" className="mt-1 text-[11px] text-indigo-600 hover:underline">
+        <Card className="bg-card">
+          <p className="text-xs font-medium text-muted-foreground">Competitors Tracked</p>
+          <p className="mt-2 text-3xl font-bold text-foreground">{cached.competitorCount}</p>
+          <Link href="/competitors" className="mt-1 text-[11px] text-primary hover:underline">
             View competitors
           </Link>
         </Card>
-        <Card className="bg-white">
-          <p className="text-xs font-medium text-slate-500">Total Insights</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{cached.insightCount}</p>
-          <Link href="/insights" className="mt-1 text-[11px] text-indigo-600 hover:underline">
+        <Card className="bg-card">
+          <p className="text-xs font-medium text-muted-foreground">Total Insights</p>
+          <p className="mt-2 text-3xl font-bold text-foreground">{cached.insightCount}</p>
+          <Link href="/insights" className="mt-1 text-[11px] text-primary hover:underline">
             View insights
           </Link>
         </Card>
-        <Card className="bg-white">
-          <p className="text-xs font-medium text-slate-500">Signal Sources</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{jobsByType.size}</p>
-          <p className="mt-1 text-[11px] text-slate-400">pipelines with data</p>
+        <Card className="bg-card">
+          <p className="text-xs font-medium text-muted-foreground">Signal Sources</p>
+          <p className="mt-2 text-3xl font-bold text-foreground">{jobsByType.size}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">pipelines with data</p>
         </Card>
       </div>
 
       {/* Onboarding Checklist (only for new users) */}
       {isNewUser && (
-        <Card className="border-indigo-200 bg-indigo-50/50">
-          <h2 className="text-sm font-bold text-indigo-900">Getting Started</h2>
-          <p className="mt-1 text-xs text-indigo-700/70">
+        <Card className="border-primary/30 bg-primary/10">
+          <h2 className="text-sm font-bold text-foreground">Getting Started</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
             Complete these steps to start receiving competitive insights.
           </p>
           <div className="mt-4 space-y-3">
@@ -138,11 +138,11 @@ export default async function HomePage() {
 
       {/* Quick Actions */}
       {defaultLocationId && hasCompetitors && (
-        <Card className="bg-white">
+        <Card className="bg-card">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Quick Actions</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <h2 className="text-sm font-bold text-foreground">Quick Actions</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Refresh all data or generate insights for{" "}
                 <span className="font-medium">{cached.locations[0]?.name ?? "your location"}</span>
               </p>
@@ -153,7 +153,7 @@ export default async function HomePage() {
                 locationId={defaultLocationId}
                 label="Refresh All Data"
                 pendingLabel="Refreshing all data pipelines"
-                className="!bg-indigo-600 !text-white hover:!bg-indigo-700"
+                className="!bg-primary !text-white hover:!bg-primary/90"
               />
               <JobRefreshButton
                 type="insights"
@@ -170,17 +170,17 @@ export default async function HomePage() {
       {/* TOP 5 PRIORITY ACTIONS                                            */}
       {/* ================================================================= */}
       {scoredInsights.length > 0 && (
-        <Card className="bg-white">
+        <Card className="bg-card">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Top Priority Actions</h2>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <h2 className="text-sm font-bold text-foreground">Top Priority Actions</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 The highest-impact things you should address right now
               </p>
             </div>
             <Link
               href="/insights"
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50"
+              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary"
             >
               View all
             </Link>
@@ -195,7 +195,7 @@ export default async function HomePage() {
                   className={`rounded-xl border px-4 py-3 ${SEVERITY_COLORS[insight.severity ?? "info"] ?? SEVERITY_COLORS.info}`}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white font-bold text-xs ${SEVERITY_ICONS[insight.severity ?? "info"] ?? SEVERITY_ICONS.info}`}>
+                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card font-bold text-xs ${SEVERITY_ICONS[insight.severity ?? "info"] ?? SEVERITY_ICONS.info}`}>
                       {idx + 1}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -216,11 +216,11 @@ export default async function HomePage() {
                       </div>
                       <p className="mt-0.5 text-xs opacity-80">{insight.summary}</p>
                       {firstRec?.title && (
-                        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-white/60 px-2.5 py-1.5">
-                          <svg className="mt-0.5 h-3 w-3 shrink-0 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-card/60 px-2.5 py-1.5">
+                          <svg className="mt-0.5 h-3 w-3 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                           </svg>
-                          <span className="text-[11px] font-medium text-slate-700">{firstRec.title}</span>
+                          <span className="text-[11px] font-medium text-foreground">{firstRec.title}</span>
                         </div>
                       )}
                     </div>
@@ -241,9 +241,9 @@ export default async function HomePage() {
 
       {/* Data Freshness */}
       {jobsByType.size > 0 && (
-        <Card className="bg-white">
-          <h2 className="text-sm font-bold text-slate-900">Data Freshness</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Last refresh time for each pipeline</p>
+        <Card className="bg-card">
+          <h2 className="text-sm font-bold text-foreground">Data Freshness</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">Last refresh time for each pipeline</p>
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {Object.entries(PIPELINE_LABELS).map(([type, { label, href }]) => {
               const job = jobsByType.get(type)
@@ -251,26 +251,26 @@ export default async function HomePage() {
                 <Link
                   key={type}
                   href={href}
-                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 transition-colors hover:bg-slate-50"
+                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 transition-colors hover:bg-secondary"
                 >
-                  <span className="text-xs font-medium text-slate-700">{label}</span>
+                  <span className="text-xs font-medium text-foreground">{label}</span>
                   {job ? (
                     <span className="flex items-center gap-1.5">
                       <span
                         className={`h-1.5 w-1.5 rounded-full ${
                           job.status === "completed"
-                            ? "bg-emerald-500"
+                            ? "bg-precision-teal"
                             : job.status === "running"
-                              ? "bg-amber-500"
-                              : "bg-red-400"
+                              ? "bg-signal-gold"
+                              : "bg-destructive"
                         }`}
                       />
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[10px] text-muted-foreground">
                         {formatRelativeTime(job.updatedAt)}
                       </span>
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-300">No data</span>
+                    <span className="text-[10px] text-muted-foreground">No data</span>
                   )}
                 </Link>
               )
@@ -281,9 +281,9 @@ export default async function HomePage() {
 
       {/* Empty state when no insights */}
       {!hasInsights && hasCompetitors && (
-        <Card className="border-dashed bg-white py-8 text-center">
+        <Card className="border-dashed bg-card py-8 text-center">
           <svg
-            className="mx-auto h-10 w-10 text-slate-300"
+            className="mx-auto h-10 w-10 text-muted-foreground"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -295,10 +295,10 @@ export default async function HomePage() {
               d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18"
             />
           </svg>
-          <p className="mt-3 text-sm font-medium text-slate-600">
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             No insights generated yet
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Refresh your data pipelines first, then generate insights to see intelligence here.
           </p>
         </Card>
@@ -311,18 +311,18 @@ function ChecklistItem({ done, label, href }: { done: boolean; label: string; hr
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 rounded-xl border border-indigo-200/50 bg-white px-4 py-3 transition-colors hover:bg-indigo-50"
+      className="flex items-center gap-3 rounded-xl border border-primary/20 bg-card px-4 py-3 transition-colors hover:bg-primary/10"
     >
       <div
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-          done ? "bg-emerald-500 text-white" : "border-2 border-slate-300 text-transparent"
+          done ? "bg-precision-teal text-white" : "border-2 border-muted-foreground text-transparent"
         }`}
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       </div>
-      <span className={`text-sm ${done ? "text-slate-500 line-through" : "font-medium text-indigo-900"}`}>
+      <span className={`text-sm ${done ? "text-muted-foreground line-through" : "font-medium text-foreground"}`}>
         {label}
       </span>
     </Link>

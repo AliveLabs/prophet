@@ -37,14 +37,14 @@ type TabConfig = {
 }
 
 const TABS: TabConfig[] = [
-  { value: "", label: "All", color: "text-slate-600", activeColor: "bg-slate-900 text-white", dot: "bg-slate-400" },
-  { value: "competitors", label: "Competitors", color: "text-emerald-700", activeColor: "bg-emerald-600 text-white", dot: SOURCE_COLORS.competitors.dot },
-  { value: "events", label: "Events", color: "text-violet-700", activeColor: "bg-violet-600 text-white", dot: SOURCE_COLORS.events.dot },
-  { value: "seo", label: "SEO", color: "text-sky-700", activeColor: "bg-sky-600 text-white", dot: SOURCE_COLORS.seo.dot },
-  { value: "social", label: "Social", color: "text-indigo-700", activeColor: "bg-indigo-600 text-white", dot: SOURCE_COLORS.social.dot },
-  { value: "content", label: "Content", color: "text-teal-700", activeColor: "bg-teal-600 text-white", dot: SOURCE_COLORS.content.dot },
-  { value: "photos", label: "Photos", color: "text-pink-700", activeColor: "bg-pink-600 text-white", dot: SOURCE_COLORS.photos.dot },
-  { value: "traffic", label: "Traffic", color: "text-orange-700", activeColor: "bg-orange-600 text-white", dot: SOURCE_COLORS.traffic.dot },
+  { value: "", label: "All", color: "text-muted-foreground", activeColor: "bg-foreground text-background", dot: "bg-muted-foreground" },
+  { value: "competitors", label: "Competitors", color: "text-precision-teal", activeColor: "bg-precision-teal text-white", dot: SOURCE_COLORS.competitors.dot },
+  { value: "events", label: "Events", color: "text-signal-gold", activeColor: "bg-signal-gold text-white", dot: SOURCE_COLORS.events.dot },
+  { value: "seo", label: "SEO", color: "text-primary", activeColor: "bg-primary text-white", dot: SOURCE_COLORS.seo.dot },
+  { value: "social", label: "Social", color: "text-primary", activeColor: "bg-primary text-white", dot: SOURCE_COLORS.social.dot },
+  { value: "content", label: "Content", color: "text-precision-teal", activeColor: "bg-precision-teal text-white", dot: SOURCE_COLORS.content.dot },
+  { value: "photos", label: "Photos", color: "text-signal-gold", activeColor: "bg-signal-gold text-white", dot: SOURCE_COLORS.photos.dot },
+  { value: "traffic", label: "Traffic", color: "text-signal-gold", activeColor: "bg-signal-gold text-white", dot: SOURCE_COLORS.traffic.dot },
 ]
 
 const CATEGORY_ORDER: SourceCategory[] = [
@@ -56,9 +56,9 @@ const CARDS_PER_CATEGORY = 6
 const CARDS_PER_COLUMN = 8
 
 const KANBAN_COLUMNS = [
-  { key: "inbox", label: "Inbox", statuses: new Set(["new", "read"]), accent: "bg-blue-500", bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-  { key: "todo", label: "To-Do", statuses: new Set(["todo"]), accent: "bg-amber-500", bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-  { key: "done", label: "Done", statuses: new Set(["actioned"]), accent: "bg-emerald-500", bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
+  { key: "inbox", label: "Inbox", statuses: new Set(["new", "read"]), accent: "bg-primary", bg: "bg-primary/15", text: "text-primary", border: "border-primary/30" },
+  { key: "todo", label: "To-Do", statuses: new Set(["todo"]), accent: "bg-signal-gold", bg: "bg-signal-gold/15", text: "text-signal-gold", border: "border-signal-gold/30" },
+  { key: "done", label: "Done", statuses: new Set(["actioned"]), accent: "bg-precision-teal", bg: "bg-precision-teal/15", text: "text-precision-teal", border: "border-precision-teal/30" },
 ] as const
 
 type Props = {
@@ -131,7 +131,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
   const toggleCategory = useCallback((cat: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev)
-      next.has(cat) ? next.delete(cat) : next.add(cat)
+      if (next.has(cat)) next.delete(cat); else next.add(cat)
       return next
     })
   }, [])
@@ -157,7 +157,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
   const toggleColumn = useCallback((key: string) => {
     setExpandedColumns((prev) => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) next.delete(key); else next.add(key)
       return next
     })
   }, [])
@@ -182,7 +182,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                 className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
                   isActive
                     ? tab.activeColor + " shadow-sm"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                    : "bg-card text-muted-foreground ring-1 ring-border hover:bg-secondary"
                 }`}
               >
                 {tab.value && (
@@ -192,7 +192,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                 {count > 0 && (
                   <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
-                      isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                      isActive ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"
                     }`}
                   >
                     {count}
@@ -204,14 +204,14 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white p-0.5">
+        <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
           <button
             type="button"
             onClick={() => setViewMode("feed")}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
               viewMode === "feed"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "bg-foreground text-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             title="Category feed"
           >
@@ -223,8 +223,8 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
             onClick={() => setViewMode("board")}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
               viewMode === "board"
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "bg-foreground text-background shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
             }`}
             title="Kanban board"
           >
@@ -254,8 +254,8 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                       {SOURCE_LABELS[cat]}
                     </span>
                   </div>
-                  <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
-                  <span className="text-[11px] font-medium text-slate-400">
+                  <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+                  <span className="text-[11px] font-medium text-muted-foreground">
                     {catInsights.length} insight{catInsights.length !== 1 ? "s" : ""}
                   </span>
                 </div>
@@ -289,7 +289,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                   <button
                     type="button"
                     onClick={() => toggleCategory(cat)}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm transition hover:bg-secondary"
                   >
                     <ChevronDownIcon className="h-3.5 w-3.5" />
                     Show {remaining} more
@@ -300,7 +300,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                   <button
                     type="button"
                     onClick={() => toggleCategory(cat)}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm transition hover:bg-secondary"
                   >
                     <ChevronUpIcon className="h-3.5 w-3.5" />
                     Show less
@@ -323,11 +323,11 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
             const remaining = colInsights.length - displayLimit
 
             return (
-              <div key={col.key} className="flex flex-col rounded-2xl border border-slate-200 bg-slate-50/50">
+              <div key={col.key} className="flex flex-col rounded-lg border border-border bg-card/50">
                 {/* Column header */}
-                <div className="flex items-center gap-2.5 border-b border-slate-200 px-4 py-3">
+                <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
                   <span className={`h-2.5 w-2.5 rounded-full ${col.accent}`} />
-                  <h3 className="text-sm font-bold text-slate-800">{col.label}</h3>
+                  <h3 className="text-sm font-bold text-foreground">{col.label}</h3>
                   <span className={`ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold ${col.bg} ${col.text}`}>
                     {colInsights.length}
                   </span>
@@ -359,13 +359,13 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                       />
                     ))
                   ) : (
-                    <div className="rounded-xl border border-dashed border-slate-200 bg-white py-8 text-center">
-                      <p className="text-xs font-medium text-slate-400">
+                    <div className="rounded-xl border border-dashed border-border bg-card py-8 text-center">
+                      <p className="text-xs font-medium text-muted-foreground">
                         {col.key === "inbox" && "No new insights"}
                         {col.key === "todo" && "Nothing planned yet"}
                         {col.key === "done" && "No completed actions"}
                       </p>
-                      <p className="mt-0.5 text-[10px] text-slate-300">
+                      <p className="mt-0.5 text-[10px] text-muted-foreground/60">
                         {col.key === "inbox" && "Generate insights or fetch data to see new items"}
                         {col.key === "todo" && "Mark insights as \"To-Do\" to plan actions"}
                         {col.key === "done" && "Mark insights as \"Done\" when actioned"}
@@ -377,7 +377,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                     <button
                       type="button"
                       onClick={() => toggleColumn(col.key)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-white py-2 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-card py-2 text-xs font-medium text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
                     >
                       <ChevronDownIcon className="h-3 w-3" />
                       {remaining} more
@@ -388,7 +388,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                     <button
                       type="button"
                       onClick={() => toggleColumn(col.key)}
-                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-200 bg-white py-2 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-card py-2 text-xs font-medium text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
                     >
                       <ChevronUpIcon className="h-3 w-3" />
                       Show less
@@ -403,13 +403,13 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
 
       {/* ── Empty state ──────────────────────────────────────────────── */}
       {!hasAnyInsights && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
-            <svg className="h-8 w-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15">
+            <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             </svg>
           </div>
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-foreground">
             {activeTab
               ? `No ${TABS.find((t) => t.value === activeTab)?.label.toLowerCase() ?? ""} insights`
               : statusFilter === "dismissed"
@@ -420,7 +420,7 @@ export default function InsightFeed({ insights, baseParams, statusFilter }: Prop
                     ? "No actioned insights"
                     : "No insights yet"}
           </h3>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
             {activeTab
               ? "Try switching to a different category or generate new insights."
               : "Generate insights or fetch data to see changes and opportunities."}

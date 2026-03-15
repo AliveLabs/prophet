@@ -15,22 +15,22 @@ const CATEGORY_META: Record<
 > = {
   from_your_data: {
     label: "From your data",
-    color: "bg-emerald-50 text-emerald-700 border-emerald-200/60",
+    color: "bg-precision-teal/10 text-precision-teal border-precision-teal/30",
     icon: "📊",
   },
   industry_tip: {
     label: "Industry tip",
-    color: "bg-violet-50 text-violet-700 border-violet-200/60",
+    color: "bg-vatic-indigo-soft/10 text-vatic-indigo-soft border-vatic-indigo-soft/30",
     icon: "💡",
   },
   did_you_know: {
     label: "Did you know?",
-    color: "bg-amber-50 text-amber-700 border-amber-200/60",
+    color: "bg-signal-gold/10 text-signal-gold border-signal-gold/30",
     icon: "✨",
   },
   step_result: {
     label: "Just completed",
-    color: "bg-indigo-50 text-indigo-700 border-indigo-200/60",
+    color: "bg-primary/10 text-primary border-primary/30",
     icon: "✅",
   },
 }
@@ -64,8 +64,8 @@ export default function AmbientInsightFeed({
 
   if (uniqueCards.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-slate-200 p-4">
-        <p className="text-xs text-slate-400">
+      <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-border p-4">
+        <p className="text-xs text-muted-foreground">
           Loading insights...
         </p>
       </div>
@@ -113,8 +113,8 @@ export default function AmbientInsightFeed({
                 onClick={() => setIndex(actualIndex < 0 ? i : actualIndex)}
                 className={`h-1.5 rounded-full transition-all ${
                   isActive
-                    ? "w-4 bg-indigo-500"
-                    : "w-1.5 bg-slate-300 hover:bg-slate-400"
+                    ? "w-4 bg-primary"
+                    : "w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground/60"
                 }`}
               />
             )

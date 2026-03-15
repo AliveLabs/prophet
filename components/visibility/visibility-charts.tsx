@@ -25,16 +25,16 @@ type Props = {
 // ---------------------------------------------------------------------------
 
 const COLORS = [
-  "#6366f1", // indigo
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#ef4444", // rose
-  "#ec4899", // pink
-  "#3b82f6", // blue
-  "#14b8a6", // teal
-  "#f97316", // orange
+  "#5A3FFF",
+  "#9B87FF",
+  "#00BFA6",
+  "#F2A11E",
+  "#FF4757",
+  "#8883AA",
+  "#3620D4",
+  "#00BFA6",
+  "#F2A11E",
+  "#9B87FF",
 ]
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
   const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
 
   if (!isClient || sovData.length === 0) {
-    return <p className="text-sm text-slate-400">No share of voice data yet.</p>
+    return <p className="text-sm text-muted-foreground">No share of voice data yet.</p>
   }
 
   // Highlight the location domain
@@ -56,7 +56,7 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
 
   return (
     <div>
-      <p className="mb-3 text-xs text-slate-400">
+      <p className="mb-3 text-xs text-muted-foreground">
         % of tracked keywords where each domain ranks in the Top 10
       </p>
       <div className="h-[280px] w-full min-w-0">
@@ -83,7 +83,7 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
                   key={entry.name}
                   fill={COLORS[index % COLORS.length]}
                   strokeWidth={entry.isLocation ? 3 : 1}
-                  stroke={entry.isLocation ? "#1e1b4b" : "#fff"}
+                  stroke={entry.isLocation ? "var(--foreground)" : "var(--background)"}
                 />
               ))}
             </Pie>
@@ -91,7 +91,7 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
               formatter={(value) => `${value} keywords`}
               contentStyle={{
                 borderRadius: 12,
-                border: "1px solid #e2e8f0",
+                border: "1px solid var(--border)",
                 fontSize: 12,
               }}
             />
@@ -100,7 +100,7 @@ export default function VisibilityCharts({ sovData, locationDomain }: Props) {
               height={36}
               iconType="circle"
               formatter={(value) => (
-                <span className="text-xs text-slate-600">{value}</span>
+                <span className="text-xs text-muted-foreground">{value}</span>
               )}
             />
           </PieChart>

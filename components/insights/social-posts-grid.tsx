@@ -52,16 +52,16 @@ const PLATFORMS: Array<{ key: SocialPlatform | "all"; label: string; icon: React
 ]
 
 const PLATFORM_COLORS: Record<string, { bg: string; text: string; activeBg: string; activeText: string }> = {
-  all: { bg: "bg-slate-100", text: "text-slate-600", activeBg: "bg-slate-900", activeText: "text-white" },
-  instagram: { bg: "bg-pink-50", text: "text-pink-600", activeBg: "bg-gradient-to-r from-pink-500 to-purple-500", activeText: "text-white" },
-  facebook: { bg: "bg-blue-50", text: "text-blue-600", activeBg: "bg-blue-600", activeText: "text-white" },
-  tiktok: { bg: "bg-slate-100", text: "text-slate-700", activeBg: "bg-slate-900", activeText: "text-white" },
+  all: { bg: "bg-secondary", text: "text-muted-foreground", activeBg: "bg-foreground", activeText: "text-background" },
+  instagram: { bg: "bg-signal-gold/10", text: "text-signal-gold", activeBg: "bg-gradient-to-r from-signal-gold to-destructive", activeText: "text-white" },
+  facebook: { bg: "bg-primary/10", text: "text-primary", activeBg: "bg-primary", activeText: "text-white" },
+  tiktok: { bg: "bg-secondary", text: "text-foreground", activeBg: "bg-foreground", activeText: "text-background" },
 }
 
 const PLATFORM_BADGE: Record<string, { bg: string }> = {
-  instagram: { bg: "bg-gradient-to-r from-pink-500 to-purple-500" },
-  facebook: { bg: "bg-blue-600" },
-  tiktok: { bg: "bg-slate-900" },
+  instagram: { bg: "bg-gradient-to-r from-signal-gold to-destructive" },
+  facebook: { bg: "bg-primary" },
+  tiktok: { bg: "bg-foreground" },
 }
 
 const MEDIA_ICONS: Record<SocialMediaType, string> = {
@@ -100,15 +100,15 @@ function PostCard({ post }: { post: PostWithMeta }) {
   const isOwn = post.entityType === "location"
 
   return (
-    <div className={`group relative flex flex-col overflow-hidden rounded-xl border bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${isOwn ? "border-indigo-200/80 ring-1 ring-indigo-100/50" : "border-slate-200"}`}>
+    <div className={`group relative flex flex-col overflow-hidden rounded-lg border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${isOwn ? "border-primary/30 ring-1 ring-primary/15" : "border-border"}`}>
       {/* Platform chip */}
-      <div className={`absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow ${badge?.bg ?? "bg-slate-800"}`}>
+      <div className={`absolute right-2 top-2 z-10 rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow ${badge?.bg ?? "bg-foreground"}`}>
         {post.platform}
       </div>
 
       {/* Image area */}
       {post.mediaUrl && !imgFailed ? (
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-secondary">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={post.mediaUrl}
@@ -122,25 +122,25 @@ function PostCard({ post }: { post: PostWithMeta }) {
             {MEDIA_ICONS[post.mediaType]}
           </div>
           {isOwn && (
-            <div className="absolute bottom-1.5 right-2 rounded-md bg-indigo-500/80 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
+            <div className="absolute bottom-1.5 right-2 rounded-md bg-primary/80 px-1.5 py-0.5 text-[9px] font-semibold text-white backdrop-blur-sm">
               You
             </div>
           )}
         </div>
       ) : (
-        <div className={`flex aspect-[4/3] flex-col items-center justify-center gap-1.5 ${post.platform === "instagram" ? "bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50" : post.platform === "facebook" ? "bg-gradient-to-br from-blue-50 to-indigo-50" : "bg-gradient-to-br from-slate-50 to-slate-100"}`}>
-          <div className="rounded-lg bg-white/60 p-2 shadow-sm">
-            <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className={`flex aspect-[4/3] flex-col items-center justify-center gap-1.5 ${post.platform === "instagram" ? "bg-gradient-to-br from-signal-gold/10 via-primary/5 to-primary/10" : post.platform === "facebook" ? "bg-gradient-to-br from-primary/10 to-primary/5" : "bg-gradient-to-br from-secondary to-muted"}`}>
+          <div className="rounded-lg bg-card/60 p-2 shadow-sm">
+            <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
             </svg>
           </div>
           {post.text && (
-            <p className="mx-3 line-clamp-2 text-center text-[10px] leading-relaxed text-slate-400">
+            <p className="mx-3 line-clamp-2 text-center text-[10px] leading-relaxed text-muted-foreground">
               {post.text.slice(0, 80)}
             </p>
           )}
           {isOwn && (
-            <span className="rounded-md bg-indigo-100 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-600">You</span>
+            <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold text-primary">You</span>
           )}
         </div>
       )}
@@ -149,16 +149,16 @@ function PostCard({ post }: { post: PostWithMeta }) {
       <div className="flex flex-1 flex-col gap-2 p-3">
         {/* Entity + time */}
         <div className="flex items-center gap-1.5">
-          <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${isOwn ? "bg-indigo-500" : "bg-slate-400"}`} />
-          <span className="truncate text-[11px] font-medium text-slate-600">{post.entityName}</span>
+          <span className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${isOwn ? "bg-primary" : "bg-muted-foreground"}`} />
+          <span className="truncate text-[11px] font-medium text-muted-foreground">{post.entityName}</span>
           {post.createdTime && (
-            <span className="ml-auto shrink-0 text-[10px] text-slate-400">{timeAgo(post.createdTime)}</span>
+            <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">{timeAgo(post.createdTime)}</span>
           )}
         </div>
 
         {/* Caption */}
         {post.text && (
-          <p className="line-clamp-2 text-[11px] leading-relaxed text-slate-600">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
             {post.text}
           </p>
         )}
@@ -167,25 +167,25 @@ function PostCard({ post }: { post: PostWithMeta }) {
         {post.hashtags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {post.hashtags.slice(0, 3).map((tag) => (
-              <span key={tag} className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">
+              <span key={tag} className="rounded bg-secondary px-1.5 py-0.5 text-[9px] font-medium text-muted-foreground">
                 #{tag}
               </span>
             ))}
             {post.hashtags.length > 3 && (
-              <span className="text-[9px] text-slate-400">+{post.hashtags.length - 3}</span>
+              <span className="text-[9px] text-muted-foreground">+{post.hashtags.length - 3}</span>
             )}
           </div>
         )}
 
         {/* Engagement row */}
-        <div className="mt-auto flex items-center gap-2.5 border-t border-slate-100 pt-2">
+        <div className="mt-auto flex items-center gap-2.5 border-t border-border pt-2">
           <EngagementStat icon={<HeartIcon />} value={post.likesCount} />
           <EngagementStat icon={<CommentIcon />} value={post.commentsCount} />
           {post.sharesCount > 0 && <EngagementStat icon={<ShareIcon />} value={post.sharesCount} />}
           {post.viewsCount != null && post.viewsCount > 0 && (
             <EngagementStat icon={<ViewIcon />} value={post.viewsCount} />
           )}
-          <span className="ml-auto rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+          <span className="ml-auto rounded-full bg-precision-teal/15 px-2 py-0.5 text-[9px] font-bold text-precision-teal">
             {formatNumber(engagement)}
           </span>
         </div>
@@ -198,22 +198,22 @@ function EngagementStat({ icon, value }: { icon: ReactNode; value: number }) {
   return (
     <div className="flex items-center gap-0.5">
       {icon}
-      <span className="text-[10px] font-semibold tabular-nums text-slate-600">{formatNumber(value)}</span>
+      <span className="text-[10px] font-semibold tabular-nums text-muted-foreground">{formatNumber(value)}</span>
     </div>
   )
 }
 
 function HeartIcon() {
-  return <svg className="h-3 w-3 text-rose-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+  return <svg className="h-3 w-3 text-destructive/70" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
 }
 function CommentIcon() {
-  return <svg className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z" clipRule="evenodd" /></svg>
+  return <svg className="h-3 w-3 text-primary/70" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zm-4 0H9v2h2V9z" clipRule="evenodd" /></svg>
 }
 function ShareIcon() {
-  return <svg className="h-3 w-3 text-emerald-400" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg>
+  return <svg className="h-3 w-3 text-precision-teal/70" viewBox="0 0 20 20" fill="currentColor"><path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" /></svg>
 }
 function ViewIcon() {
-  return <svg className="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
+  return <svg className="h-3 w-3 text-muted-foreground" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z" /><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" /></svg>
 }
 
 export default function SocialPostsGrid({ posts }: Props) {
@@ -256,14 +256,14 @@ export default function SocialPostsGrid({ posts }: Props) {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-pink-100">
-            <svg className="h-4.5 w-4.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-signal-gold/15">
+            <svg className="h-4.5 w-4.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V5.25a1.5 1.5 0 00-1.5-1.5H3.75a1.5 1.5 0 00-1.5 1.5V19.5a1.5 1.5 0 001.5 1.5z" />
             </svg>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-900">Social Media Posts</h3>
-            <p className="text-[11px] text-slate-500">
+            <h3 className="text-sm font-semibold text-foreground">Social Media Posts</h3>
+            <p className="text-[11px] text-muted-foreground">
               {filtered.length} post{filtered.length !== 1 ? "s" : ""} across your profiles &amp; competitors
             </p>
           </div>
@@ -274,7 +274,7 @@ export default function SocialPostsGrid({ posts }: Props) {
           <select
             value={activeEntity}
             onChange={(e) => setActiveEntity(e.target.value)}
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:border-foreground/30 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
             <option value="all">All Entities ({posts.length})</option>
             {entities.map((e) => (
@@ -301,7 +301,7 @@ export default function SocialPostsGrid({ posts }: Props) {
             >
               {p.icon}
               <span>{p.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${isActive ? "bg-white/20" : "bg-black/5"}`}>
+              <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${isActive ? "bg-white/20" : "bg-foreground/5"}`}>
                 {count}
               </span>
             </button>
@@ -317,11 +317,11 @@ export default function SocialPostsGrid({ posts }: Props) {
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 py-12">
-          <svg className="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-secondary/50 py-12">
+          <svg className="h-8 w-8 text-muted-foreground/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909" />
           </svg>
-          <p className="mt-2 text-xs font-medium text-slate-500">No posts found for this filter</p>
+          <p className="mt-2 text-xs font-medium text-muted-foreground">No posts found for this filter</p>
         </div>
       )}
     </div>

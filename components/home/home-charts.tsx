@@ -19,10 +19,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const SEVERITY_CHART_COLORS: Record<string, string> = {
-  critical: "#ef4444",
-  warning: "#f59e0b",
-  info: "#3b82f6",
-  positive: "#10b981",
+  critical: "#FF4757",
+  warning: "#F2A11E",
+  info: "#5A3FFF",
+  positive: "#00BFA6",
 }
 
 type SeverityData = { name: string; value: number; color: string }
@@ -61,8 +61,8 @@ export function SeverityDistribution({
         {data.filter((d) => d.value > 0).map((d) => (
           <div key={d.name} className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-            <span className="text-xs font-medium capitalize text-slate-700">{d.name}</span>
-            <span className="text-xs text-slate-400">{d.value}</span>
+            <span className="text-xs font-medium capitalize text-foreground">{d.name}</span>
+            <span className="text-xs text-muted-foreground">{d.value}</span>
           </div>
         ))}
       </div>
@@ -79,7 +79,7 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
   return Object.entries(counts).map(([name, value]) => ({
     name,
     value,
-    color: SEVERITY_CHART_COLORS[name] ?? "#94a3b8",
+    color: SEVERITY_CHART_COLORS[name] ?? "#8883AA",
   }))
 }
 
@@ -88,14 +88,14 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
 // ---------------------------------------------------------------------------
 
 const SOURCE_CHART_COLORS: Record<string, string> = {
-  Competitors: "#10b981",
-  Events: "#8b5cf6",
-  SEO: "#0ea5e9",
-  Content: "#14b8a6",
-  Photos: "#ec4899",
-  Traffic: "#f97316",
-  Social: "#6366f1",
-  Reviews: "#eab308",
+  Competitors: "#00BFA6",
+  Events: "#9B87FF",
+  SEO: "#5A3FFF",
+  Content: "#00BFA6",
+  Photos: "#F2A11E",
+  Traffic: "#F2A11E",
+  Social: "#5A3FFF",
+  Reviews: "#F2A11E",
 }
 
 type SourceBarData = { name: string; count: number; fill: string }
@@ -113,12 +113,12 @@ export function InsightsBySource({ data }: { data: SourceBarData[] }) {
             type="category"
             dataKey="name"
             width={70}
-            tick={{ fontSize: 11, fill: "#64748b" }}
+            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
-            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--border)" }}
             formatter={(value) => [String(value), "Insights"]}
           />
           <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={14}>
@@ -152,7 +152,7 @@ export function buildSourceBarData(
     .map(([name, count]) => ({
       name,
       count,
-      fill: SOURCE_CHART_COLORS[name] ?? "#94a3b8",
+      fill: SOURCE_CHART_COLORS[name] ?? "#8883AA",
     }))
     .sort((a, b) => b.count - a.count)
 }
@@ -172,20 +172,20 @@ export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
         <AreaChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+              <stop offset="5%" stopColor="#5A3FFF" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#5A3FFF" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis dataKey="day" hide />
           <YAxis hide />
           <Tooltip
-            contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid var(--border)" }}
             formatter={(value) => [String(value), "Insights"]}
           />
           <Area
             type="monotone"
             dataKey="count"
-            stroke="#6366f1"
+            stroke="#5A3FFF"
             strokeWidth={2}
             fill="url(#trendGrad)"
           />

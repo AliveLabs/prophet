@@ -107,7 +107,7 @@ function RefreshOverlayInner({
     return (
       <button
         type="submit"
-        className={`rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 ${className ?? ""}`}
+        className={`rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 ${className ?? ""}`}
       >
         {label}
       </button>
@@ -121,7 +121,7 @@ function RefreshOverlayInner({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       transition={{ duration: 0.35 }}
-      className="w-full rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-5 shadow-lg"
+      className="w-full rounded-2xl border border-border bg-gradient-to-br from-secondary via-card to-secondary p-5 shadow-lg"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
         {/* Left: progress indicator */}
@@ -129,11 +129,11 @@ function RefreshOverlayInner({
           <div className="flex items-center gap-3">
             {/* Pulsing spinner */}
             <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-30" />
-              <span className="relative inline-flex h-4 w-4 rounded-full bg-indigo-600" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-30" />
+              <span className="relative inline-flex h-4 w-4 rounded-full bg-primary" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-indigo-900">
+              <p className="text-sm font-semibold text-foreground">
                 {pendingLabel ?? label}
               </p>
               <AnimatePresence mode="wait">
@@ -143,7 +143,7 @@ function RefreshOverlayInner({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.3 }}
-                  className="text-xs text-indigo-600/70"
+                  className="text-xs text-muted-foreground"
                 >
                   {steps[stepIndex]}
                 </motion.p>
@@ -152,9 +152,9 @@ function RefreshOverlayInner({
           </div>
 
           {/* Progress bar */}
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-indigo-100">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
             <motion.div
-              className="h-full rounded-full bg-indigo-500"
+              className="h-full rounded-full bg-primary"
               initial={{ width: "5%" }}
               animate={{
                 width: `${Math.min(15 + stepIndex * (75 / steps.length), 90)}%`,
@@ -174,12 +174,12 @@ function RefreshOverlayInner({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }}
                 transition={{ duration: 0.4 }}
-                className="rounded-xl border border-slate-200/60 bg-white/80 px-4 py-3 shadow-sm backdrop-blur-sm"
+                className="rounded-xl border border-border bg-card/80 px-4 py-3 shadow-sm backdrop-blur-sm"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-primary">
                   Did you know?
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-700">
+                <p className="mt-1 text-xs leading-relaxed text-foreground">
                   {allFacts[factIndex]}
                 </p>
               </motion.div>

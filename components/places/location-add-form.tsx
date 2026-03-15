@@ -66,12 +66,12 @@ export default function LocationAddForm({
         </>
       ) : null}
       {selected ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">{selected.name}</p>
+        <div className="rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground">
+          <p className="font-semibold text-foreground">{selected.name}</p>
           <p>{selected.address_line1 ?? "Address unavailable"}</p>
         </div>
       ) : (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted-foreground">
           Select a suggestion to continue.
         </p>
       )}

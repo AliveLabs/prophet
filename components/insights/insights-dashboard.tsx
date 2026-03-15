@@ -50,11 +50,11 @@ function useIsClient() {
 function ChartTooltip({ active, payload, label, valueLabel }: { active?: boolean; payload?: Array<{ name?: string; value?: number }>; label?: string; valueLabel?: string }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-lg">
-      <p className="text-[11px] font-semibold text-slate-700">{label}</p>
+    <div className="rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-lg">
+      <p className="text-[11px] font-semibold text-foreground">{label}</p>
       {payload.map((entry, idx) => (
-        <p key={idx} className="text-xs text-slate-500">
-          <span className="font-medium text-slate-900">{entry.value}</span>
+        <p key={idx} className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">{entry.value}</span>
           {" "}{valueLabel ?? entry.name}
         </p>
       ))}
@@ -64,7 +64,7 @@ function ChartTooltip({ active, payload, label, valueLabel }: { active?: boolean
 
 function NoData({ text }: { text: string }) {
   return (
-    <div className="flex h-full items-center justify-center text-xs text-slate-400">
+    <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
       {text}
     </div>
   )
@@ -76,7 +76,7 @@ function StarRating({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
-          className={`h-3 w-3 ${star <= rating ? "text-amber-400" : "text-slate-200"}`}
+          className={`h-3 w-3 ${star <= rating ? "text-signal-gold" : "text-muted-foreground"}`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -99,9 +99,9 @@ export default function InsightsDashboard({
   const isClient = useIsClient()
 
   const sentimentData = [
-    { name: "Positive", value: sentimentCounts.positive, color: "#22c55e" },
-    { name: "Mixed", value: sentimentCounts.mixed, color: "#fbbf24" },
-    { name: "Negative", value: sentimentCounts.negative, color: "#f43f5e" },
+    { name: "Positive", value: sentimentCounts.positive, color: "#00BFA6" },
+    { name: "Mixed", value: sentimentCounts.mixed, color: "#F2A11E" },
+    { name: "Negative", value: sentimentCounts.negative, color: "#FF4757" },
   ]
 
   const sentimentTotal = sentimentData.reduce((s, d) => s + d.value, 0)
@@ -116,26 +116,26 @@ export default function InsightsDashboard({
     <div className="space-y-6">
       {/* KPI Strip */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Avg Competitor Rating</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900">{avgCompetitorRating ?? "—"}</p>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Avg Competitor Rating</p>
+          <p className="mt-1.5 text-3xl font-bold text-foreground">{avgCompetitorRating ?? "—"}</p>
           {locationRating !== null && (
-            <p className="mt-1 text-xs text-slate-500">
-              Your rating: <span className={locationRating >= (avgCompetitorRating ?? 0) ? "font-semibold text-emerald-600" : "font-semibold text-amber-600"}>{locationRating}</span>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your rating: <span className={locationRating >= (avgCompetitorRating ?? 0) ? "font-semibold text-precision-teal" : "font-semibold text-signal-gold"}>{locationRating}</span>
             </p>
           )}
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Review Share</p>
-          <p className="mt-1.5 text-3xl font-bold text-slate-900">{reviewShare !== null ? `${reviewShare}%` : "—"}</p>
-          <p className="mt-1 text-xs text-slate-500">Your share of total reviews</p>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Review Share</p>
+          <p className="mt-1.5 text-3xl font-bold text-foreground">{reviewShare !== null ? `${reviewShare}%` : "—"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your share of total reviews</p>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Dominant Sentiment</p>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Dominant Sentiment</p>
           <p className="mt-1.5 text-3xl font-bold" style={{ color: dominantSentiment.color }}>
             {sentimentTotal > 0 ? dominantSentiment.name : "—"}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-muted-foreground">
             {sentimentTotal > 0 ? `${Math.round((dominantSentiment.value / sentimentTotal) * 100)}% of ${sentimentTotal} themes` : "No data yet"}
           </p>
         </div>
@@ -144,22 +144,22 @@ export default function InsightsDashboard({
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Competitor Overview: grouped bar for rating + review count */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-1">
-          <h3 className="text-sm font-semibold text-slate-800">Competitor Overview</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">Rating comparison</p>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-1">
+          <h3 className="text-sm font-semibold text-foreground">Competitor Overview</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Rating comparison</p>
           <div className="mt-4 h-[240px] w-full">
             {isClient && ratingComparison.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ratingComparison} barCategoryGap="25%">
                   <defs>
                     <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#818cf8" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor="#9B87FF" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#5A3FFF" stopOpacity={0.6} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} {...barSharedProps} />
-                  <YAxis domain={[0, 5]} tick={{ fontSize: 10, fill: "#94a3b8" }} {...barSharedProps} width={28} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} {...barSharedProps} />
+                  <YAxis domain={[0, 5]} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} {...barSharedProps} width={28} />
                   <Tooltip content={<ChartTooltip valueLabel="rating" />} />
                   <Bar dataKey="rating" fill="url(#ratingGrad)" radius={[6, 6, 0, 0]} maxBarSize={36} />
                 </BarChart>
@@ -171,9 +171,9 @@ export default function InsightsDashboard({
         </div>
 
         {/* Sentiment Analysis: donut chart */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-1">
-          <h3 className="text-sm font-semibold text-slate-800">Sentiment Analysis</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">Competitor review themes</p>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-1">
+          <h3 className="text-sm font-semibold text-foreground">Sentiment Analysis</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Competitor review themes</p>
           <div className="relative mt-4 h-[240px] w-full">
             {isClient && sentimentTotal > 0 ? (
               <>
@@ -197,10 +197,10 @@ export default function InsightsDashboard({
                         if (!active || !payload?.length) return null
                         const d = payload[0]
                         return (
-                          <div className="rounded-xl border border-slate-100 bg-white px-3.5 py-2.5 shadow-lg">
-                            <p className="text-[11px] font-semibold text-slate-700">{d?.name}</p>
-                            <p className="text-xs text-slate-500">
-                              <span className="font-medium text-slate-900">{d?.value}</span> themes
+                          <div className="rounded-xl border border-border bg-card px-3.5 py-2.5 shadow-lg">
+                            <p className="text-[11px] font-semibold text-foreground">{d?.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              <span className="font-medium text-foreground">{d?.value}</span> themes
                             </p>
                           </div>
                         )
@@ -209,8 +209,8 @@ export default function InsightsDashboard({
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="text-2xl font-bold text-slate-900">{sentimentTotal}</p>
-                  <p className="text-[10px] font-medium text-slate-400">themes</p>
+                  <p className="text-2xl font-bold text-foreground">{sentimentTotal}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground">themes</p>
                 </div>
               </>
             ) : (
@@ -220,7 +220,7 @@ export default function InsightsDashboard({
           {sentimentTotal > 0 && (
             <div className="mt-2 flex items-center justify-center gap-4">
               {sentimentData.map((d) => (
-                <div key={d.name} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                <div key={d.name} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   <div className="h-2 w-2 rounded-full" style={{ backgroundColor: d.color }} />
                   {d.name}
                 </div>
@@ -230,26 +230,26 @@ export default function InsightsDashboard({
         </div>
 
         {/* Review Momentum: delta bar */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-1">
-          <h3 className="text-sm font-semibold text-slate-800">Review Momentum</h3>
-          <p className="mt-0.5 text-[11px] text-slate-400">Growth since baseline snapshot</p>
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-1">
+          <h3 className="text-sm font-semibold text-foreground">Review Momentum</h3>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">Growth since baseline snapshot</p>
           <div className="mt-4 h-[240px] w-full">
             {isClient && reviewGrowthDelta.some((d) => d.delta !== null) ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={reviewGrowthDelta} barCategoryGap="25%">
                   <defs>
                     <linearGradient id="deltaGradPos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34d399" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor="#00BFA6" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#00BFA6" stopOpacity={0.6} />
                     </linearGradient>
                     <linearGradient id="deltaGradNeg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fb7185" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#f43f5e" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor="#FF4757" stopOpacity={0.9} />
+                      <stop offset="100%" stopColor="#FF4757" stopOpacity={0.6} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} {...barSharedProps} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} {...barSharedProps} width={28} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} {...barSharedProps} />
+                  <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} {...barSharedProps} width={28} />
                   <Tooltip content={<ChartTooltip valueLabel="new reviews" />} />
                   <Bar
                     dataKey="delta"
@@ -274,28 +274,28 @@ export default function InsightsDashboard({
 
       {/* Recent Reviews */}
       {recentReviews.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-800">Recent Reviews</h3>
-              <p className="mt-0.5 text-[11px] text-slate-400">Latest review excerpts from competitors</p>
+              <h3 className="text-sm font-semibold text-foreground">Recent Reviews</h3>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">Latest review excerpts from competitors</p>
             </div>
             <div className="flex items-center gap-3 text-[10px]">
               {sentimentCounts.positive > 0 && (
-                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span className="flex items-center gap-1 rounded-full bg-precision-teal/15 px-2.5 py-1 font-semibold text-precision-teal">
+                  <span className="h-1.5 w-1.5 rounded-full bg-precision-teal" />
                   {sentimentCounts.positive} positive
                 </span>
               )}
               {sentimentCounts.negative > 0 && (
-                <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 font-semibold text-rose-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span className="flex items-center gap-1 rounded-full bg-destructive/15 px-2.5 py-1 font-semibold text-destructive">
+                  <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
                   {sentimentCounts.negative} negative
                 </span>
               )}
               {sentimentCounts.mixed > 0 && (
-                <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                <span className="flex items-center gap-1 rounded-full bg-signal-gold/10 px-2.5 py-1 font-semibold text-signal-gold">
+                  <span className="h-1.5 w-1.5 rounded-full bg-signal-gold" />
                   {sentimentCounts.mixed} mixed
                 </span>
               )}
@@ -304,27 +304,27 @@ export default function InsightsDashboard({
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {recentReviews.slice(0, 6).map((review, idx) => (
-              <div key={idx} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3.5">
+              <div key={idx} className="rounded-xl border border-border bg-secondary p-3.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {typeof review.rating === "number" && <StarRating rating={review.rating} />}
                     {review.competitorName && (
-                      <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
+                      <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
                         {review.competitorName}
                       </span>
                     )}
                   </div>
                   {review.date && (
-                    <span className="text-[10px] text-slate-400">{review.date}</span>
+                    <span className="text-[10px] text-muted-foreground">{review.date}</span>
                   )}
                 </div>
                 {review.text && (
-                  <p className="mt-2 text-[11px] leading-relaxed text-slate-600">
+                  <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
                     {review.text.slice(0, 180)}{review.text.length > 180 ? "..." : ""}
                   </p>
                 )}
                 {review.author && (
-                  <p className="mt-1.5 text-[10px] font-medium text-slate-400">
+                  <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
                     — {review.author}
                   </p>
                 )}

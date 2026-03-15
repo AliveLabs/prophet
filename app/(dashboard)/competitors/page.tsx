@@ -88,7 +88,7 @@ const formatTemperature = (weather: WeatherSnapshot | null) => {
 
 const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
   if (!weather) {
-    return <span className="text-slate-400">—</span>
+    return <span className="text-muted-foreground">—</span>
   }
   return (
     <div className="flex items-center gap-2">
@@ -96,12 +96,12 @@ const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
       ) : null}
-      <div className="text-xs text-slate-600">
-        <p className="text-sm font-semibold text-slate-800">
+      <div className="text-xs text-muted-foreground">
+        <p className="text-sm font-semibold text-foreground">
           {formatTemperature(weather)}
         </p>
         <p>{weather.condition ?? "Conditions unavailable"}</p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-muted-foreground">
           {typeof weather.humidity === "number" ? `Humidity ${weather.humidity}%` : "Humidity —"}
           {typeof weather.windSpeed === "number" && weather.windUnit
             ? ` • Wind ${Math.round(weather.windSpeed)} ${weather.windUnit}`
@@ -136,42 +136,42 @@ const renderPlaceDetails = (placeDetails: Record<string, unknown>) => {
   }> | null | undefined)?.slice(0, 2)
 
   return (
-    <div className="mt-2 space-y-3 text-xs text-slate-600">
+    <div className="mt-2 space-y-3 text-xs text-muted-foreground">
       <div className="flex flex-wrap gap-2">
         {businessStatus ? (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5">
+          <span className="rounded-full bg-secondary px-2 py-0.5">
             {formatType(businessStatus)}
           </span>
         ) : null}
         {priceLevel ? (
-          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+          <span className="rounded-full bg-signal-gold/10 px-2 py-0.5 text-signal-gold">
             {priceLevel}
           </span>
         ) : null}
         {primaryType ? (
-          <span className="rounded-full bg-slate-100 px-2 py-0.5">
+          <span className="rounded-full bg-secondary px-2 py-0.5">
             {formatType(primaryType)}
           </span>
         ) : null}
         {types.map((type) => (
-          <span key={type} className="rounded-full bg-slate-100 px-2 py-0.5">
+          <span key={type} className="rounded-full bg-secondary px-2 py-0.5">
             {formatType(type)}
           </span>
         ))}
       </div>
 
       {editorialSummary ? (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-slate-700">
+        <p className="rounded-lg bg-secondary px-3 py-2 text-foreground">
           {editorialSummary}
         </p>
       ) : null}
 
       {currentOpeningHours?.weekdayDescriptions?.length ? (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Opening Hours
           </p>
-          <ul className="mt-1 space-y-1 text-slate-600">
+          <ul className="mt-1 space-y-1 text-muted-foreground">
             {currentOpeningHours.weekdayDescriptions.slice(0, 3).map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -179,10 +179,10 @@ const renderPlaceDetails = (placeDetails: Record<string, unknown>) => {
         </div>
       ) : regularOpeningHours?.weekdayDescriptions?.length ? (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Opening Hours
           </p>
-          <ul className="mt-1 space-y-1 text-slate-600">
+          <ul className="mt-1 space-y-1 text-muted-foreground">
             {regularOpeningHours.weekdayDescriptions.slice(0, 3).map((line) => (
               <li key={line}>{line}</li>
             ))}
@@ -192,16 +192,16 @@ const renderPlaceDetails = (placeDetails: Record<string, unknown>) => {
 
       {reviews?.length ? (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Recent Reviews
           </p>
           <div className="mt-1 space-y-2">
             {reviews.map((review, index) => (
               <div key={`${review.relativePublishTimeDescription ?? "review"}-${index}`}>
-                <p className="text-slate-700">
+                <p className="text-foreground">
                   {review.text?.text ? `"${review.text.text}"` : "Review available on Maps."}
                 </p>
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   {review.authorAttribution?.displayName ?? "Google user"} •{" "}
                   {review.relativePublishTimeDescription ?? "Recently"}
                 </p>
@@ -216,7 +216,7 @@ const renderPlaceDetails = (placeDetails: Record<string, unknown>) => {
           href={mapsUri}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary"
         >
           <IconGlobe /> Open in Google Maps
         </a>
@@ -356,11 +356,11 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
 
   return (
     <section className="space-y-6">
-      <Card className="bg-white text-slate-900">
+      <Card className="bg-card text-foreground">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Competitors</h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-muted-foreground">
               Discover nearby competitors and approve who should be monitored.
             </p>
           </div>
@@ -372,28 +372,28 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
           )}
         </div>
         {error ? (
-          <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {decodeURIComponent(error)}
           </p>
         ) : null}
         {success ? (
-          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <p className="mt-4 rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
             {decodeURIComponent(success)}
           </p>
         ) : null}
         {isOnboarding ? (
-          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-4">
-            <p className="text-sm font-semibold text-indigo-900">
+          <div className="mt-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-4">
+            <p className="text-sm font-semibold text-foreground">
               Location added! Now discover competitors to start getting insights.
             </p>
-            <p className="mt-1 text-xs text-indigo-700/70">
+            <p className="mt-1 text-xs text-muted-foreground">
               Use the &quot;Discover Competitors&quot; button below to find nearby competitors.
               Once you approve them, Vatic will automatically collect their data and generate insights.
             </p>
           </div>
         ) : null}
         {debugData ? (
-          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <div className="mt-4 rounded-xl border border-signal-gold/30 bg-signal-gold/10 px-4 py-3 text-xs text-signal-gold">
             <p className="text-sm font-semibold">Debug context</p>
             <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-xs">
               {JSON.stringify(debugData, null, 2)}
@@ -402,7 +402,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
         ) : null}
         {searchEntryPointHtml ? (
           <div
-            className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white p-3"
+            className="mt-4 overflow-hidden rounded-xl border border-border bg-card p-3"
             dangerouslySetInnerHTML={{ __html: searchEntryPointHtml }}
           />
         ) : null}
@@ -415,23 +415,23 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
         ) : null}
       </Card>
 
-      <Card className="bg-white text-slate-900">
+      <Card className="bg-card text-foreground">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold">Approved competitors</h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Track the most relevant competitors and key metrics at a glance.
             </p>
           </div>
-          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <span className="rounded-full bg-precision-teal/10 px-3 py-1 text-xs font-semibold text-precision-teal">
             {approvedCompetitors.length} approved
           </span>
         </div>
         {approvedCompetitors.length > 0 ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <thead className="bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Competitor</th>
                   <th className="px-4 py-3">
@@ -469,7 +469,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {approvedCompetitors.map((competitor) => {
                   const metadata = competitor.metadata as Record<string, unknown> | null
                   const placeDetails =
@@ -501,18 +501,18 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                         ?.openNow ?? null
                     : null
                   return (
-                    <tr key={competitor.id} className="text-slate-700 even:bg-slate-50/60">
-                      <td className="px-4 py-3 font-semibold text-slate-900">
+                    <tr key={competitor.id} className="text-foreground even:bg-secondary/60">
+                      <td className="px-4 py-3 font-semibold text-foreground">
                         <div className="space-y-1">
                           <p>{competitor.name ?? "Unknown"}</p>
-                          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                             {businessStatus ? (
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                              <span className="rounded-full bg-secondary px-2 py-0.5">
                                 {formatType(businessStatus)}
                               </span>
                             ) : null}
                             {priceLevel ? (
-                              <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                              <span className="rounded-full bg-signal-gold/10 px-2 py-0.5 text-signal-gold">
                                 {priceLevel}
                               </span>
                             ) : null}
@@ -520,28 +520,28 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                               <span
                                 className={`rounded-full px-2 py-0.5 ${
                                   openNow
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : "bg-rose-50 text-rose-700"
+                                    ? "bg-precision-teal/10 text-precision-teal"
+                                    : "bg-destructive/10 text-destructive"
                                 }`}
                               >
                                 {openNow ? "Open now" : "Closed"}
                               </span>
                             ) : null}
                             {types.slice(0, 2).map((type) => (
-                              <span key={type} className="rounded-full bg-slate-100 px-2 py-0.5">
+                              <span key={type} className="rounded-full bg-secondary px-2 py-0.5">
                                 {formatType(type)}
                               </span>
                             ))}
                           </div>
                           {hasPlaceDetails ? (
-                            <details className="text-xs text-slate-600">
-                              <summary className="cursor-pointer text-slate-500">
+                            <details className="text-xs text-muted-foreground">
+                              <summary className="cursor-pointer text-muted-foreground">
                                 Google Places highlights
                               </summary>
                               {renderPlaceDetails(placeDetails)}
                             </details>
                           ) : (
-                            <p className="text-xs text-slate-400">
+                            <p className="text-xs text-muted-foreground">
                               {placeDetailsError
                                 ? placeDetailsError
                                 : "Google Places details unavailable."}
@@ -551,50 +551,50 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                       </td>
                       <td className="px-4 py-3">
                         {typeof rating === "number" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-signal-gold/10 px-2.5 py-1 text-xs font-medium text-signal-gold">
                             <IconStar /> {rating}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {typeof reviewCount === "number" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                             <IconChat /> {reviewCount}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {typeof distanceMeters === "number" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-precision-teal/10 px-2.5 py-1 text-xs font-medium text-precision-teal">
                             <IconRoute /> {(distanceMeters / 1000).toFixed(1)} km
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {address ? (
-                          <span className="inline-flex items-start gap-1 text-sm text-slate-600">
+                          <span className="inline-flex items-start gap-1 text-sm text-muted-foreground">
                             <IconMapPin /> {address}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {phone ? (
                           <a
                             href={`tel:${phone}`}
-                            className="inline-flex items-center gap-1 text-sm font-medium text-violet-600"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-vatic-indigo-soft"
                           >
                             <IconPhone /> {phone}
                           </a>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -603,12 +603,12 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                             href={website}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600"
+                            className="inline-flex items-center gap-1 text-sm font-medium text-primary"
                           >
                             <IconGlobe /> Visit
                           </a>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -641,13 +641,13 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-slate-600">
+          <p className="mt-3 text-sm text-muted-foreground">
             Approve competitors from the candidates list to see them here.
           </p>
         )}
       </Card>
 
-      <Card className="bg-white text-slate-900">
+      <Card className="bg-card text-foreground">
         <h2 className="text-lg font-semibold">Candidates</h2>
         <div className="mt-4 space-y-4">
           {candidateCompetitors.length > 0 ? (
@@ -689,25 +689,25 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
               return (
                 <div
                   key={competitor.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-white px-5 py-4 shadow-sm"
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-gradient-to-r from-card via-secondary to-card px-5 py-4 shadow-sm"
                 >
                   <div>
-                    <p className="text-lg font-semibold text-slate-900">
+                    <p className="text-lg font-semibold text-foreground">
                       {competitor.name ?? "Unknown"}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {competitor.category ?? "Other"} • Score{" "}
                       {competitor.relevance_score ?? "n/a"} •{" "}
                       {status === "approved" ? "approved" : "pending approval"}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-muted-foreground">
                       {businessStatus ? (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                        <span className="rounded-full bg-secondary px-2 py-0.5">
                           {formatType(businessStatus)}
                         </span>
                       ) : null}
                       {priceLevel ? (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                        <span className="rounded-full bg-signal-gold/10 px-2 py-0.5 text-signal-gold">
                           {priceLevel}
                         </span>
                       ) : null}
@@ -715,41 +715,41 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                         <span
                           className={`rounded-full px-2 py-0.5 ${
                             openNow
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-rose-50 text-rose-700"
+                              ? "bg-precision-teal/10 text-precision-teal"
+                              : "bg-destructive/10 text-destructive"
                           }`}
                         >
                           {openNow ? "Open now" : "Closed"}
                         </span>
                       ) : null}
                       {types.slice(0, 3).map((type) => (
-                        <span key={type} className="rounded-full bg-slate-100 px-2 py-0.5">
+                        <span key={type} className="rounded-full bg-secondary px-2 py-0.5">
                           {formatType(type)}
                         </span>
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       {typeof rating === "number" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-signal-gold/10 px-2.5 py-1 text-signal-gold">
                           <IconStar /> {rating}
                         </span>
                       ) : null}
                       {typeof reviewCount === "number" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-sky-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-primary">
                           <IconChat /> {reviewCount} reviews
                         </span>
                       ) : null}
                       {typeof distanceMeters === "number" ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-precision-teal/10 px-2.5 py-1 text-precision-teal">
                           <IconRoute /> {(distanceMeters / 1000).toFixed(1)} km
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
                           <IconRoute /> Distance unknown
                         </span>
                       )}
                       {phone ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-violet-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-vatic-indigo-soft/10 px-2.5 py-1 text-vatic-indigo-soft">
                           <IconPhone /> {phone}
                         </span>
                       ) : null}
@@ -758,33 +758,33 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
                           href={website}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700"
+                          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-primary"
                         >
                           <IconGlobe /> Website
                         </a>
                       ) : null}
                     </div>
                     {address ? (
-                      <p className="mt-3 flex items-center gap-1 text-xs text-slate-500">
+                      <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
                         <IconMapPin /> {address}
                       </p>
                     ) : null}
                     {hasPlaceDetails ? (
-                      <details className="mt-3 text-xs text-slate-600">
-                        <summary className="cursor-pointer text-slate-500">
+                      <details className="mt-3 text-xs text-muted-foreground">
+                        <summary className="cursor-pointer text-muted-foreground">
                           Google Places highlights
                         </summary>
                         {renderPlaceDetails(placeDetails)}
                       </details>
                     ) : (
-                      <p className="mt-3 text-xs text-slate-400">
+                      <p className="mt-3 text-xs text-muted-foreground">
                         {placeDetailsError
                           ? placeDetailsError
                           : "Google Places details unavailable."}
                       </p>
                     )}
                     {sources.length > 0 ? (
-                      <div className="mt-2 text-xs text-slate-500">
+                      <div className="mt-2 text-xs text-muted-foreground">
                         <span className="mr-2 font-medium">Sources</span>
                         {sources
                           .filter((source) => source?.url)
@@ -848,7 +848,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
               )
             })
           ) : (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               No competitors discovered yet. Run discovery to pull nearby options.
             </p>
           )}
