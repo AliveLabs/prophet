@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vatic — Brand Identity System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── DESIGN TOKENS ─────────────────────────────────────────────────────── */
+    :root {
+      /* Primary Brand Colors */
+      --vatic-indigo:       #5A3FFF;  /* Primary · Brand · CTAs */
+      --deep-indigo:        #3620D4;  /* Hover States · Depth */
+      --midnight:           #0C0825;  /* Dark Mode · Backgrounds */
+
+      /* Accent Colors */
+      --signal-gold:        #F2A11E;  /* Accent · Highlights · Vertex dot */
+      --signal-gold-light:  #FFF3D6;  /* Gold tints */
+      --precision-teal:     #00BFA6;  /* Data · Success · Indicators */
+      --precision-teal-light:#D6F5F1; /* Teal tints */
+
+      /* Neutral Palette */
+      --warm-white:         #FAFAF9;  /* Primary Background */
+      --pale-lavender:      #F0EDFF;  /* Section Backgrounds · Cards */
+      --muted-violet:       #8883AA;  /* Supporting Text · Labels */
+      --deep-violet:        #4D4975;  /* Body Text · Secondary */
+      --near-black:         #1C1840;  /* Headlines · Primary Text */
+
+      /* Typography */
+      --font-display:       'Cormorant Garamond', Georgia, serif;
+      --font-ui:            'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+      /* Spacing */
+      --space-xs:  0.25rem;
+      --space-sm:  0.5rem;
+      --space-md:  1rem;
+      --space-lg:  2rem;
+      --space-xl:  4rem;
+      --space-2xl: 8rem;
+    }
+
+    /* ─── RESET & BASE ───────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--warm-white);
+      color: var(--near-black);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+    }
+
+    section {
+      padding: var(--space-xl) 0;
+      border-bottom: 1px solid #E8E4FF;
+    }
+
+    section:last-child { border-bottom: none; }
+
+    /* ─── TYPOGRAPHY SCALE ───────────────────────────────────────────────────── */
+    .label {
+      font-family: var(--font-ui);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted-violet);
+    }
+
+    h1, h2, h3 { font-family: var(--font-display); font-weight: 500; line-height: 1.15; }
+
+    h1 { font-size: clamp(3rem, 6vw, 5.5rem); }
+    h2 { font-size: clamp(1.8rem, 3vw, 2.6rem); color: var(--near-black); }
+    h3 { font-size: 1.4rem; }
+
+    p {
+      font-family: var(--font-ui);
+      font-size: 0.95rem;
+      color: var(--deep-violet);
+      line-height: 1.7;
+    }
+
+    /* ─── COVER / HERO ───────────────────────────────────────────────────────── */
+    .cover {
+      background: var(--midnight);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: var(--space-xl) var(--space-lg);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cover::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 30% 60%, rgba(90,63,255,0.22) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 35% at 75% 30%, rgba(242,161,30,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cover-logo {
+      margin-bottom: var(--space-lg);
+      position: relative;
+    }
+
+    .cover-wordmark {
+      font-family: var(--font-display);
+      font-size: clamp(4rem, 10vw, 9rem);
+      font-weight: 400;
+      color: #FFFFFF;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: var(--space-sm);
+      position: relative;
+    }
+
+    .cover-tagline {
+      font-family: var(--font-display);
+      font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+      font-weight: 300;
+      font-style: italic;
+      color: var(--signal-gold);
+      letter-spacing: 0.02em;
+      margin-bottom: var(--space-xl);
+    }
+
+    .cover-meta {
+      font-family: var(--font-ui);
+      font-size: 0.75rem;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted-violet);
+    }
+
+    /* ─── SECTION HEADERS ────────────────────────────────────────────────────── */
+    .section-header {
+      margin-bottom: var(--space-lg);
+    }
+
+    .section-header .label {
+      display: block;
+      margin-bottom: var(--space-sm);
+    }
+
+    /* ─── LOGO SECTION ───────────────────────────────────────────────────────── */
+    .logo-showcase {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: var(--space-lg);
+      margin-top: var(--space-lg);
+    }
+
+    .logo-variant {
+      border-radius: 12px;
+      padding: var(--space-xl) var(--space-lg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-md);
+      min-height: 200px;
+    }
+
+    .logo-variant--light {
+      background: var(--warm-white);
+      border: 1px solid #E8E4FF;
+    }
+
+    .logo-variant--dark {
+      background: var(--midnight);
+    }
+
+    .logo-variant--indigo {
+      background: var(--vatic-indigo);
+    }
+
+    .logo-variant--pale {
+      background: var(--pale-lavender);
+      border: 1px solid #DDD8FF;
+    }
+
+    .logo-lockup {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-lockup .wordmark {
+      font-family: var(--font-display);
+      font-size: 2.4rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+
+    .logo-lockup .wordmark--dark  { color: var(--near-black); }
+    .logo-lockup .wordmark--light { color: #FFFFFF; }
+
+    .logo-caption {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .logo-caption--dark  { color: var(--muted-violet); }
+    .logo-caption--light { color: rgba(255,255,255,0.5); }
+
+    /* Icon-only row */
+    .icon-variants {
+      display: flex;
+      gap: var(--space-lg);
+      align-items: center;
+      margin-top: var(--space-lg);
+      flex-wrap: wrap;
+    }
+
+    .icon-card {
+      border-radius: 12px;
+      padding: var(--space-lg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-sm);
+      flex: 1;
+      min-width: 120px;
+    }
+
+    /* Logo construction notes */
+    .logo-anatomy {
+      background: var(--pale-lavender);
+      border-radius: 12px;
+      padding: var(--space-lg);
+      margin-top: var(--space-lg);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--space-lg);
+      align-items: center;
+    }
+
+    .anatomy-notes {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .anatomy-note {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .anatomy-note strong {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--near-black);
+    }
+
+    .anatomy-note span {
+      font-size: 0.82rem;
+      color: var(--deep-violet);
+    }
+
+    /* ─── COLOR SECTION ──────────────────────────────────────────────────────── */
+    .color-group {
+      margin-bottom: var(--space-lg);
+    }
+
+    .color-group-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted-violet);
+      margin-bottom: var(--space-md);
+    }
+
+    .color-row {
+      display: flex;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+    }
+
+    .color-chip {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      flex: 1;
+      min-width: 130px;
+    }
+
+    .color-swatch {
+      border-radius: 10px;
+      height: 88px;
+      width: 100%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    .color-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .color-name {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--near-black);
+    }
+
+    .color-hex {
+      font-size: 0.78rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      color: var(--muted-violet);
+    }
+
+    .color-use {
+      font-size: 0.72rem;
+      color: var(--muted-violet);
+      margin-top: 2px;
+    }
+
+    /* Accessibility badges */
+    .a11y-badges {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+
+    .badge--pass { background: #D6F5F1; color: #007A6B; }
+    .badge--aa   { background: #E8E4FF; color: #5A3FFF; }
+
+    /* ─── TYPOGRAPHY SECTION ─────────────────────────────────────────────────── */
+    .type-specimen {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-lg);
+      margin-top: var(--space-lg);
+    }
+
+    @media (max-width: 680px) {
+      .type-specimen { grid-template-columns: 1fr; }
+    }
+
+    .type-card {
+      background: var(--warm-white);
+      border: 1px solid #E8E4FF;
+      border-radius: 12px;
+      padding: var(--space-lg);
+    }
+
+    .type-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: var(--space-md);
+      padding-bottom: var(--space-md);
+      border-bottom: 1px solid #E8E4FF;
+    }
+
+    .type-meta-info h4 {
+      font-family: var(--font-ui);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--near-black);
+    }
+
+    .type-meta-info p {
+      font-size: 0.75rem;
+      color: var(--muted-violet);
+      margin-top: 2px;
+    }
+
+    .type-role {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: var(--pale-lavender);
+      color: var(--vatic-indigo);
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+
+    .type-sample--display {
+      font-family: var(--font-display);
+    }
+
+    .type-sample--ui {
+      font-family: var(--font-ui);
+    }
+
+    .type-weights {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .weight-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .weight-label {
+      font-size: 0.7rem;
+      color: var(--muted-violet);
+      font-family: var(--font-ui);
+      min-width: 60px;
+    }
+
+    /* Type scale */
+    .type-scale {
+      background: var(--pale-lavender);
+      border-radius: 12px;
+      padding: var(--space-lg);
+      margin-top: var(--space-lg);
+    }
+
+    .scale-row {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-md);
+      padding: var(--space-sm) 0;
+      border-bottom: 1px solid rgba(90,63,255,0.08);
+    }
+
+    .scale-row:last-child { border-bottom: none; }
+
+    .scale-meta {
+      min-width: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+
+    .scale-meta .name {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted-violet);
+    }
+
+    .scale-meta .spec {
+      font-size: 0.68rem;
+      font-family: 'SF Mono', monospace;
+      color: #AAA6CC;
+    }
+
+    /* ─── BRAND VOICE SECTION ────────────────────────────────────────────────── */
+    .traits-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-md);
+      margin-top: var(--space-lg);
+    }
+
+    @media (max-width: 680px) {
+      .traits-grid { grid-template-columns: 1fr; }
+    }
+
+    .trait-card {
+      background: var(--warm-white);
+      border: 1px solid #E8E4FF;
+      border-radius: 12px;
+      padding: var(--space-lg);
+      border-top: 3px solid var(--vatic-indigo);
+    }
+
+    .trait-word {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 500;
+      color: var(--near-black);
+      margin-bottom: var(--space-sm);
+    }
+
+    .trait-not {
+      font-size: 0.75rem;
+      color: var(--muted-violet);
+      margin-top: var(--space-sm);
+    }
+
+    .trait-not strong {
+      font-weight: 600;
+      color: #C4314B;
+    }
+
+    /* Voice do/don't */
+    .voice-examples {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-md);
+      margin-top: var(--space-lg);
+    }
+
+    @media (max-width: 680px) {
+      .voice-examples { grid-template-columns: 1fr; }
+    }
+
+    .voice-col {
+      border-radius: 12px;
+      padding: var(--space-lg);
+    }
+
+    .voice-col--do {
+      background: #D6F5F1;
+      border: 1px solid #00BFA6;
+    }
+
+    .voice-col--dont {
+      background: #FFF0F3;
+      border: 1px solid #FFBFCC;
+    }
+
+    .voice-col-header {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-md);
+    }
+
+    .voice-col--do   .voice-col-header { color: #007A6B; }
+    .voice-col--dont .voice-col-header { color: #C4314B; }
+
+    .voice-example {
+      display: flex;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-md);
+      font-size: 0.87rem;
+      line-height: 1.5;
+    }
+
+    .voice-example:last-child { margin-bottom: 0; }
+
+    .voice-example .icon {
+      flex-shrink: 0;
+      font-size: 0.9rem;
+      margin-top: 1px;
+    }
+
+    .voice-example p {
+      color: var(--near-black);
+      font-size: 0.85rem;
+    }
+
+    /* ─── MICROCOPY / WHIMSY ─────────────────────────────────────────────────── */
+    .microcopy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-md);
+      margin-top: var(--space-lg);
+    }
+
+    .microcopy-card {
+      background: var(--warm-white);
+      border: 1px solid #E8E4FF;
+      border-radius: 10px;
+      padding: var(--space-md);
+    }
+
+    .microcopy-context {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted-violet);
+      margin-bottom: var(--space-sm);
+    }
+
+    .microcopy-text {
+      font-family: var(--font-ui);
+      font-size: 0.87rem;
+      color: var(--near-black);
+      font-style: italic;
+      line-height: 1.5;
+    }
+
+    /* ─── USAGE DON'TS ───────────────────────────────────────────────────────── */
+    .donts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-md);
+      margin-top: var(--space-lg);
+    }
+
+    .dont-card {
+      border-radius: 10px;
+      border: 1px solid #FFBFCC;
+      background: #FFF8F9;
+      padding: var(--space-md);
+    }
+
+    .dont-card .icon {
+      font-size: 1.2rem;
+      margin-bottom: var(--space-sm);
+    }
+
+    .dont-card strong {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--near-black);
+      margin-bottom: 4px;
+    }
+
+    .dont-card p {
+      font-size: 0.78rem;
+      color: var(--deep-violet);
+    }
+
+    /* ─── BRAND IN USE ───────────────────────────────────────────────────────── */
+    .in-use-strip {
+      background: var(--midnight);
+      padding: var(--space-xl);
+      border-radius: 16px;
+      margin-top: var(--space-lg);
+    }
+
+    .notification-mock {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-left: 3px solid var(--signal-gold);
+      border-radius: 10px;
+      padding: var(--space-md);
+      margin-bottom: var(--space-md);
+      max-width: 440px;
+    }
+
+    .notification-mock:last-child { margin-bottom: 0; }
+
+    .notif-source {
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--signal-gold);
+      margin-bottom: 4px;
+    }
+
+    .notif-headline {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .notif-body {
+      font-size: 0.8rem;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.5;
+    }
+
+    /* ─── FOOTER ─────────────────────────────────────────────────────────────── */
+    .brand-footer {
+      background: var(--near-black);
+      color: var(--muted-violet);
+      padding: var(--space-lg) var(--space-lg);
+      text-align: center;
+    }
+
+    .brand-footer p {
+      font-size: 0.75rem;
+      color: var(--muted-violet);
+    }
+
+    .brand-footer strong {
+      color: #FFFFFF;
+    }
+
+    /* ─── NAV ────────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(250,250,249,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid #E8E4FF;
+      padding: var(--space-sm) var(--space-lg);
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      overflow-x: auto;
+    }
+
+    nav a {
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      color: var(--muted-violet);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+
+    nav a:hover { color: var(--vatic-indigo); }
+
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-right: auto;
+    }
+
+    .nav-wordmark {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--near-black);
+    }
+
+    /* ─── CALLOUT ────────────────────────────────────────────────────────────── */
+    .callout {
+      background: var(--pale-lavender);
+      border: 1px solid #DDD8FF;
+      border-left: 4px solid var(--vatic-indigo);
+      border-radius: 0 10px 10px 0;
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-lg) 0;
+    }
+
+    .callout p {
+      font-size: 0.9rem;
+      color: var(--deep-violet);
+    }
+
+    .callout strong {
+      color: var(--vatic-indigo);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  COVER                                                                      -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<div class="cover">
+  <div class="cover-logo">
+    <!-- Primary SVG Logo Mark -->
+    <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Vatic logo mark">
+      <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+    </svg>
+  </div>
+  <div class="cover-wordmark">Vatic</div>
+  <div class="cover-tagline">See further.</div>
+  <div class="cover-meta">Brand Identity System &nbsp;·&nbsp; Version 1.0 &nbsp;·&nbsp; Confidential</div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  STICKY NAV                                                                 -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="nav-logo">
+    <svg width="22" height="22" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="40" cy="66" r="7" fill="#F2A11E"/>
+    </svg>
+    <span class="nav-wordmark">Vatic</span>
+  </div>
+  <a href="#strategy">Strategy</a>
+  <a href="#logo">Logo</a>
+  <a href="#color">Color</a>
+  <a href="#typography">Typography</a>
+  <a href="#voice">Voice</a>
+  <a href="#whimsy">Personality</a>
+  <a href="#usage">In Use</a>
+</nav>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  01 · BRAND STRATEGY                                                        -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="strategy">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">01 · Brand Strategy</span>
+      <h2>The Strategic Knower</h2>
+    </div>
+
+    <div class="callout">
+      <p><strong>Brand Archetype:</strong> The Oracle — a brand that sees what competitors cannot, speaks with quiet authority, and delivers intelligence that changes how decisions get made. Not flashy. Not loud. Precise.</p>
+    </div>
+
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:var(--space-md); margin-top:var(--space-lg);">
+      <div style="background:var(--warm-white);border:1px solid #E8E4FF;border-radius:12px;padding:var(--space-lg);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Purpose</div>
+        <p style="font-size:0.92rem;">To give multi-location restaurant brands the competitive foresight to win — before the market shifts, before the competitor moves, before the opportunity closes.</p>
+      </div>
+      <div style="background:var(--warm-white);border:1px solid #E8E4FF;border-radius:12px;padding:var(--space-lg);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Vision</div>
+        <p style="font-size:0.92rem;">A world where no restaurant brand is ever surprised by a competitor again — where intelligence is continuous, actionable, and arrives before it's needed.</p>
+      </div>
+      <div style="background:var(--warm-white);border:1px solid #E8E4FF;border-radius:12px;padding:var(--space-lg);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Mission</div>
+        <p style="font-size:0.92rem;">Vatic monitors competitor activity across every channel and surface — turning raw signals into strategic intelligence for CMOs and marketing directors at scaled restaurant brands.</p>
+      </div>
+      <div style="background:var(--warm-white);border:1px solid #E8E4FF;border-radius:12px;padding:var(--space-lg);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Promise</div>
+        <p style="font-size:0.92rem;">You will always know what your competitors are doing — and what they're about to do — before they do it publicly. That's the Vatic guarantee.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Positioning Statement</div>
+      <blockquote style="font-family:var(--font-display);font-size:1.6rem;font-weight:400;font-style:italic;color:var(--near-black);line-height:1.4;border-left:3px solid var(--vatic-indigo);padding-left:var(--space-md);">
+        For marketing leaders at multi-location restaurant brands who need to stay ahead of competition, Vatic is the AI-powered intelligence platform that continuously monitors, interprets, and alerts — so you act on insight, not instinct.
+      </blockquote>
+    </div>
+
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Brand Values</div>
+      <div style="display:flex;gap:var(--space-md);flex-wrap:wrap;">
+        <div style="background:var(--pale-lavender);border-radius:8px;padding:var(--space-sm) var(--space-md);font-size:0.85rem;font-weight:600;color:var(--vatic-indigo);">Precision over noise</div>
+        <div style="background:var(--pale-lavender);border-radius:8px;padding:var(--space-sm) var(--space-md);font-size:0.85rem;font-weight:600;color:var(--vatic-indigo);">Foresight over reaction</div>
+        <div style="background:var(--pale-lavender);border-radius:8px;padding:var(--space-sm) var(--space-md);font-size:0.85rem;font-weight:600;color:var(--vatic-indigo);">Clarity over complexity</div>
+        <div style="background:var(--pale-lavender);border-radius:8px;padding:var(--space-sm) var(--space-md);font-size:0.85rem;font-weight:600;color:var(--vatic-indigo);">Velocity over thoroughness</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  02 · LOGO                                                                  -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="logo">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">02 · Logo System</span>
+      <h2>Mark &amp; Wordmark</h2>
+    </div>
+
+    <!-- Logo Variants -->
+    <div class="logo-showcase">
+
+      <!-- Light background -->
+      <div class="logo-variant logo-variant--light">
+        <div class="logo-lockup">
+          <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span class="wordmark wordmark--dark">Vatic</span>
+        </div>
+        <div class="logo-caption logo-caption--dark">Primary — Light Background</div>
+      </div>
+
+      <!-- Dark background -->
+      <div class="logo-variant logo-variant--dark">
+        <div class="logo-lockup">
+          <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span class="wordmark wordmark--light">Vatic</span>
+        </div>
+        <div class="logo-caption logo-caption--light">Primary — Dark Background</div>
+      </div>
+
+      <!-- Indigo background -->
+      <div class="logo-variant logo-variant--indigo">
+        <div class="logo-lockup">
+          <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span class="wordmark wordmark--light">Vatic</span>
+        </div>
+        <div class="logo-caption logo-caption--light">Reversed — Brand Background</div>
+      </div>
+
+      <!-- Pale background -->
+      <div class="logo-variant logo-variant--pale">
+        <div class="logo-lockup">
+          <svg width="40" height="40" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span class="wordmark wordmark--dark">Vatic</span>
+        </div>
+        <div class="logo-caption logo-caption--dark">Primary — Pale Background</div>
+      </div>
+
+    </div>
+
+    <!-- Icon only row -->
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Icon Mark — Standalone Variants</div>
+      <div class="icon-variants">
+        <div class="icon-card" style="background:var(--warm-white);border:1px solid #E8E4FF;">
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:var(--muted-violet);">Light</span>
+        </div>
+        <div class="icon-card" style="background:var(--midnight);">
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:var(--muted-violet);">Dark</span>
+        </div>
+        <div class="icon-card" style="background:var(--vatic-indigo);">
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:rgba(255,255,255,0.5);">Indigo</span>
+        </div>
+        <div class="icon-card" style="background:var(--pale-lavender);border:1px solid #DDD8FF;">
+          <svg width="48" height="48" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:var(--muted-violet);">Pale</span>
+        </div>
+        <div class="icon-card" style="background:#FFFFFF;border:1px solid #E8E4FF;">
+          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:var(--muted-violet);">24px (min)</span>
+        </div>
+        <div class="icon-card" style="background:#FFFFFF;border:1px solid #E8E4FF;">
+          <svg width="16" height="16" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="40" cy="66" r="8" fill="#F2A11E"/>
+          </svg>
+          <span style="font-size:0.7rem;color:var(--muted-violet);">16px favicon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anatomy -->
+    <div class="logo-anatomy">
+      <svg width="120" height="120" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+        <!-- Annotation lines -->
+        <line x1="70" y1="14" x2="82" y2="6" stroke="#DDD8FF" stroke-width="1"/>
+        <line x1="10" y1="14" x2="-2" y2="6" stroke="#DDD8FF" stroke-width="1"/>
+        <line x1="40" y1="66" x2="52" y2="76" stroke="#DDD8FF" stroke-width="1"/>
+      </svg>
+      <div class="anatomy-notes">
+        <div class="anatomy-note">
+          <strong>The V Form</strong>
+          <span>A geometric convergence — two arms pulling in all external intelligence toward a singular focal point. Clean, modern, instantly legible. The V encodes both the brand name and its core activity: collecting and converging signals.</span>
+        </div>
+        <div class="anatomy-note">
+          <strong>Signal Gold Vertex · #F2A11E</strong>
+          <span>The gold dot is the oracle's eye — the moment where disparate data crystallizes into a single insight. It marks the point of highest value. Never remove or recolor this element.</span>
+        </div>
+        <div class="anatomy-note">
+          <strong>Vatic Indigo Arms · #5A3FFF</strong>
+          <span>Rounded endpoints soften the mark's authority without sacrificing precision. Stroke weight 7px at 80×80px. Scale proportionally — do not adjust weight independently.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacing & minimum size -->
+    <div style="margin-top:var(--space-lg);display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);">
+      <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Clear Space Rule</div>
+        <p style="font-size:0.83rem;">Maintain clear space equal to the width of the dot (⌀ vertex circle) on all four sides of the logo lockup. Never crowd the mark with other elements.</p>
+      </div>
+      <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+        <div class="label" style="margin-bottom:var(--space-sm);">Minimum Reproduction</div>
+        <p style="font-size:0.83rem;">Icon mark: 24px minimum for digital, 6mm for print. Lockup (mark + wordmark): 120px minimum digital. Below 24px, use the favicon-optimized version with heavier stroke.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  03 · COLOR                                                                 -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="color">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">03 · Color System</span>
+      <h2>Palette</h2>
+    </div>
+
+    <!-- Primary -->
+    <div class="color-group">
+      <div class="color-group-label">Primary Brand Colors</div>
+      <div class="color-row">
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#5A3FFF;"></div>
+          <div class="color-info">
+            <span class="color-name">Vatic Indigo</span>
+            <span class="color-hex">#5A3FFF</span>
+            <span class="color-use">Primary · Brand · CTAs · Nav · Links</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AA on White</span>
+              <span class="badge badge--pass">AAA on Dark</span>
+            </div>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#3620D4;"></div>
+          <div class="color-info">
+            <span class="color-name">Deep Indigo</span>
+            <span class="color-hex">#3620D4</span>
+            <span class="color-use">Hover states · Active · Depth</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AA on White</span>
+            </div>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#0C0825;"></div>
+          <div class="color-info">
+            <span class="color-name">Midnight</span>
+            <span class="color-hex">#0C0825</span>
+            <span class="color-use">Dark mode BG · Hero sections · Footer</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AAA text on top</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accent -->
+    <div class="color-group">
+      <div class="color-group-label">Accent Colors</div>
+      <div class="color-row">
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#F2A11E;"></div>
+          <div class="color-info">
+            <span class="color-name">Signal Gold</span>
+            <span class="color-hex">#F2A11E</span>
+            <span class="color-use">Logo vertex · Highlights · Alerts · Key stats</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AA on Dark</span>
+            </div>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#FFF3D6;border:1px solid #F2A11E30;"></div>
+          <div class="color-info">
+            <span class="color-name">Gold Light</span>
+            <span class="color-hex">#FFF3D6</span>
+            <span class="color-use">Alert backgrounds · Warning states</span>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#00BFA6;"></div>
+          <div class="color-info">
+            <span class="color-name">Precision Teal</span>
+            <span class="color-hex">#00BFA6</span>
+            <span class="color-use">Data · Success · Active indicators · Charts</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AA on Dark</span>
+            </div>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#D6F5F1;border:1px solid #00BFA620;"></div>
+          <div class="color-info">
+            <span class="color-name">Teal Light</span>
+            <span class="color-hex">#D6F5F1</span>
+            <span class="color-use">Success backgrounds · Confirmation states</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Neutrals -->
+    <div class="color-group">
+      <div class="color-group-label">Neutral Palette</div>
+      <div class="color-row">
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#FAFAF9;border:1px solid #E8E4FF;"></div>
+          <div class="color-info">
+            <span class="color-name">Warm White</span>
+            <span class="color-hex">#FAFAF9</span>
+            <span class="color-use">Primary page background</span>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#F0EDFF;border:1px solid #DDD8FF;"></div>
+          <div class="color-info">
+            <span class="color-name">Pale Lavender</span>
+            <span class="color-hex">#F0EDFF</span>
+            <span class="color-use">Cards · Section backgrounds · Callouts</span>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#8883AA;"></div>
+          <div class="color-info">
+            <span class="color-name">Muted Violet</span>
+            <span class="color-hex">#8883AA</span>
+            <span class="color-use">Supporting text · Labels · Placeholder</span>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#4D4975;"></div>
+          <div class="color-info">
+            <span class="color-name">Deep Violet</span>
+            <span class="color-hex">#4D4975</span>
+            <span class="color-use">Body text · Secondary content</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AA on White</span>
+            </div>
+          </div>
+        </div>
+        <div class="color-chip">
+          <div class="color-swatch" style="background:#1C1840;"></div>
+          <div class="color-info">
+            <span class="color-name">Near Black</span>
+            <span class="color-hex">#1C1840</span>
+            <span class="color-use">Headlines · Primary text · High emphasis</span>
+            <div class="a11y-badges">
+              <span class="badge badge--pass">AAA on White</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Color rules -->
+    <div class="callout">
+      <p><strong>Color rule:</strong> Signal Gold (#F2A11E) is reserved for moments of high value — the logo vertex, key alert states, critical data callouts. Overusing gold dilutes its power. Use it sparingly. When in doubt, reach for Vatic Indigo first.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  04 · TYPOGRAPHY                                                            -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="typography">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">04 · Typography</span>
+      <h2>Type System</h2>
+    </div>
+
+    <div class="type-specimen">
+
+      <!-- Display type -->
+      <div class="type-card">
+        <div class="type-meta">
+          <div class="type-meta-info">
+            <h4>Cormorant Garamond</h4>
+            <p>Display · Headlines · Pull quotes</p>
+          </div>
+          <span class="type-role">Display</span>
+        </div>
+        <div class="type-sample--display type-weights">
+          <div class="weight-row">
+            <span class="weight-label">Light 300</span>
+            <span style="font-family:var(--font-display);font-weight:300;font-size:1.6rem;color:var(--near-black);">Foresight.</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Regular 400</span>
+            <span style="font-family:var(--font-display);font-weight:400;font-size:1.6rem;color:var(--near-black);">Foresight.</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Medium 500</span>
+            <span style="font-family:var(--font-display);font-weight:500;font-size:1.6rem;color:var(--near-black);">Foresight.</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">SemiBold 600</span>
+            <span style="font-family:var(--font-display);font-weight:600;font-size:1.6rem;color:var(--near-black);">Foresight.</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Italic 400</span>
+            <span style="font-family:var(--font-display);font-weight:400;font-style:italic;font-size:1.6rem;color:var(--vatic-indigo);">See further.</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Italic 300</span>
+            <span style="font-family:var(--font-display);font-weight:300;font-style:italic;font-size:1.6rem;color:var(--muted-violet);">Intelligence.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- UI type -->
+      <div class="type-card">
+        <div class="type-meta">
+          <div class="type-meta-info">
+            <h4>Inter</h4>
+            <p>UI · Body · Labels · Data · Interface</p>
+          </div>
+          <span class="type-role">UI / Body</span>
+        </div>
+        <div class="type-sample--ui type-weights">
+          <div class="weight-row">
+            <span class="weight-label">Light 300</span>
+            <span style="font-family:var(--font-ui);font-weight:300;font-size:1rem;color:var(--near-black);">Competitor signal detected</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Regular 400</span>
+            <span style="font-family:var(--font-ui);font-weight:400;font-size:1rem;color:var(--near-black);">Competitor signal detected</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Medium 500</span>
+            <span style="font-family:var(--font-ui);font-weight:500;font-size:1rem;color:var(--near-black);">Competitor signal detected</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">SemiBold 600</span>
+            <span style="font-family:var(--font-ui);font-weight:600;font-size:1rem;color:var(--near-black);">Competitor signal detected</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Bold 700</span>
+            <span style="font-family:var(--font-ui);font-weight:700;font-size:1rem;color:var(--vatic-indigo);">+23% promo spend</span>
+          </div>
+          <div class="weight-row">
+            <span class="weight-label">Label / All Caps</span>
+            <span style="font-family:var(--font-ui);font-weight:600;font-size:0.68rem;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted-violet);">Market Intelligence</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Type scale -->
+    <div class="type-scale">
+      <div class="label" style="margin-bottom:var(--space-md);">Type Scale — Usage Guide</div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">Display / Hero</span>
+          <span class="spec">Cormorant · 64–96px · wt 400–500</span>
+        </div>
+        <span style="font-family:var(--font-display);font-size:clamp(2.4rem,5vw,4rem);font-weight:400;color:var(--near-black);line-height:1;">See further.</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">H1 / Section Header</span>
+          <span class="spec">Cormorant · 40–52px · wt 500</span>
+        </div>
+        <span style="font-family:var(--font-display);font-size:clamp(1.9rem,3.5vw,2.8rem);font-weight:500;color:var(--near-black);">Competitive Intelligence</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">H2 / Sub-section</span>
+          <span class="spec">Cormorant · 28–36px · wt 500</span>
+        </div>
+        <span style="font-family:var(--font-display);font-size:clamp(1.4rem,2.5vw,2rem);font-weight:500;color:var(--near-black);">Market Signals, Interpreted</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">H3 / Card Header</span>
+          <span class="spec">Inter · 18–20px · wt 600</span>
+        </div>
+        <span style="font-family:var(--font-ui);font-size:1.15rem;font-weight:600;color:var(--near-black);">Promotion Tracker</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">Body / Long-form</span>
+          <span class="spec">Inter · 15–16px · wt 400</span>
+        </div>
+        <span style="font-family:var(--font-ui);font-size:0.94rem;color:var(--deep-violet);line-height:1.6;max-width:480px;">Your top competitor just launched a 2-for-1 promotion in the Northeast — active across 47 locations. Here's what that means for your Q2 strategy.</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">Caption / Meta</span>
+          <span class="spec">Inter · 12–13px · wt 400–500</span>
+        </div>
+        <span style="font-family:var(--font-ui);font-size:0.77rem;color:var(--muted-violet);">Detected 14 minutes ago · 47 affected locations</span>
+      </div>
+
+      <div class="scale-row">
+        <div class="scale-meta">
+          <span class="name">Label / Badge</span>
+          <span class="spec">Inter · 10–11px · wt 600 · ALL CAPS</span>
+        </div>
+        <span style="font-family:var(--font-ui);font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted-violet);">Signal · High Confidence</span>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:var(--space-lg);">
+      <p><strong>Pairing principle:</strong> Cormorant Garamond carries gravitas and editorial authority — use it for anything that should feel like a declaration. Inter handles everything operational. The contrast between the two creates Vatic's distinctive tension: ancient knowledge, modern precision.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  05 · BRAND VOICE                                                           -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="voice">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">05 · Brand Voice</span>
+      <h2>How Vatic Speaks</h2>
+    </div>
+
+    <!-- Personality traits -->
+    <div class="traits-grid">
+      <div class="trait-card">
+        <div class="trait-word">Prescient</div>
+        <p style="font-size:0.85rem;">We speak as if we already know what's coming. Not boastful — quiet confidence. The Oracle doesn't need to shout.</p>
+        <div class="trait-not">Not: <strong>Alarmist</strong> or reactive</div>
+      </div>
+      <div class="trait-card">
+        <div class="trait-word">Direct</div>
+        <p style="font-size:0.85rem;">We get to the point. No hedging, no jargon padding, no over-qualification. Every sentence earns its place.</p>
+        <div class="trait-not">Not: <strong>Blunt</strong> or dismissive</div>
+      </div>
+      <div class="trait-card">
+        <div class="trait-word">Sharp</div>
+        <p style="font-size:0.85rem;">Intelligence expressed with precision. We notice what others miss, and we say it clearly. Wit is welcome; fluff is not.</p>
+        <div class="trait-not">Not: <strong>Clever</strong> for its own sake</div>
+      </div>
+    </div>
+
+    <!-- Tagline family -->
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Tagline Family</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-sm);">
+        <div style="display:flex;align-items:baseline;gap:var(--space-md);">
+          <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted-violet);min-width:100px;">Primary</span>
+          <span style="font-family:var(--font-display);font-size:2rem;font-weight:400;font-style:italic;color:var(--vatic-indigo);">See further.</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-md);">
+          <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted-violet);min-width:100px;">Extended</span>
+          <span style="font-family:var(--font-display);font-size:1.5rem;font-weight:300;font-style:italic;color:var(--near-black);">See further. Act sooner.</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-md);">
+          <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted-violet);min-width:100px;">Tactical</span>
+          <span style="font-family:var(--font-display);font-size:1.5rem;font-weight:300;font-style:italic;color:var(--near-black);">Know before they move.</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:var(--space-md);">
+          <span style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted-violet);min-width:100px;">Challenger</span>
+          <span style="font-family:var(--font-display);font-size:1.5rem;font-weight:300;font-style:italic;color:var(--near-black);">Your competitors don't know you're watching.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Do / Don't -->
+    <div class="voice-examples">
+      <div class="voice-col voice-col--do">
+        <div class="voice-col-header">✓ &nbsp; Vatic Voice</div>
+        <div class="voice-example">
+          <span class="icon">✓</span>
+          <p>"Your top competitor just increased paid social spend by 40% in Dallas. Here's what we think it means."</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✓</span>
+          <p>"Three signals this week point to a Q3 menu launch. We flagged it 11 days before the press release."</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✓</span>
+          <p>"Vatic monitors so you don't have to. When something matters, you'll hear from us first."</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✓</span>
+          <p>"New promotional pattern detected. Confidence: High."</p>
+        </div>
+      </div>
+      <div class="voice-col voice-col--dont">
+        <div class="voice-col-header">✗ &nbsp; Off-Brand</div>
+        <div class="voice-example">
+          <span class="icon">✗</span>
+          <p>"We're super excited to share some really amazing insights about your competition!"</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✗</span>
+          <p>"Our cutting-edge AI-powered platform leverages real-time data synergies to optimize competitive intelligence outcomes."</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✗</span>
+          <p>"Stay ahead of the curve with our best-in-class solution! 🚀🔥"</p>
+        </div>
+        <div class="voice-example">
+          <span class="icon">✗</span>
+          <p>"It seems like maybe there could potentially be some activity worth noting in your market."</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  06 · PERSONALITY / WHIMSY                                                  -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="whimsy">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">06 · Personality &amp; Microcopy</span>
+      <h2>Subtle Intelligence</h2>
+    </div>
+
+    <div class="callout">
+      <p><strong>The Vatic personality principle:</strong> Delight through precision, not playfulness. Our "whimsy" is the quiet satisfaction of a perfectly timed alert, an unexpectedly insightful observation, a moment of wit embedded in otherwise functional copy. We are never cute. We are occasionally clever. Always useful.</p>
+    </div>
+
+    <div class="microcopy-grid">
+      <div class="microcopy-card">
+        <div class="microcopy-context">Loading State</div>
+        <div class="microcopy-text">"Reading the market…"</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Empty State — No Alerts</div>
+        <div class="microcopy-text">"All quiet. For now."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">First Sign-in</div>
+        <div class="microcopy-text">"Welcome. Your competitors don't know you're here."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Alert Delivered</div>
+        <div class="microcopy-text">"Signal confirmed. We flagged this 9 days before it went public."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Search — No Results</div>
+        <div class="microcopy-text">"Nothing matches. If it existed, we'd have found it."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Report Generated</div>
+        <div class="microcopy-text">"Your intelligence brief is ready."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Data Sync</div>
+        <div class="microcopy-text">"Scanning 247 signals…"</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Error State</div>
+        <div class="microcopy-text">"Something interrupted us. We're back on it."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Competitor Added</div>
+        <div class="microcopy-text">"Added. We'll start watching immediately."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Onboarding Complete</div>
+        <div class="microcopy-text">"You're set. We'll handle the watching."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">High-confidence Alert</div>
+        <div class="microcopy-text">"High confidence. Act accordingly."</div>
+      </div>
+      <div class="microcopy-card">
+        <div class="microcopy-context">Weekly Digest</div>
+        <div class="microcopy-text">"Here's what moved in your market this week."</div>
+      </div>
+    </div>
+
+    <!-- Interaction principles -->
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Micro-Interaction Principles</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:var(--space-md);">
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <strong style="font-size:0.82rem;color:var(--near-black);display:block;margin-bottom:4px;">Transitions: Decisive</strong>
+          <p style="font-size:0.8rem;">Duration 150–250ms. Ease-out. No bouncing, no spring physics. Vatic moves with purpose, not excitement.</p>
+        </div>
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <strong style="font-size:0.82rem;color:var(--near-black);display:block;margin-bottom:4px;">Hover States: Subtle Lift</strong>
+          <p style="font-size:0.8rem;">Cards lift 2px with a refined shadow increase. Buttons shift slightly deeper on hover. Nothing bounces or scales wildly.</p>
+        </div>
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <strong style="font-size:0.82rem;color:var(--near-black);display:block;margin-bottom:4px;">Alerts: Pulse Once</strong>
+          <p style="font-size:0.8rem;">New high-priority signals pulse with a single gold ring (Signal Gold) — once. Not repeatedly. The Oracle speaks once. You listen.</p>
+        </div>
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <strong style="font-size:0.82rem;color:var(--near-black);display:block;margin-bottom:4px;">Reduced Motion: Respected</strong>
+          <p style="font-size:0.8rem;">All animations respect prefers-reduced-motion. Transitions cut to immediate state change. Personality lives in copy, not motion.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  07 · BRAND IN USE                                                          -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<section id="usage">
+  <div class="container">
+    <div class="section-header">
+      <span class="label">07 · Brand In Use</span>
+      <h2>Live Examples</h2>
+    </div>
+
+    <!-- Alert mockups on dark background -->
+    <div class="in-use-strip">
+      <div style="margin-bottom:var(--space-lg);">
+        <span class="label" style="color:var(--muted-violet);">Intelligence Alert — Dark Mode</span>
+      </div>
+      <div class="notification-mock">
+        <div class="notif-source">Vatic · Signal Detected</div>
+        <div class="notif-headline">Shake Shack increased paid social by 38% in Chicago</div>
+        <div class="notif-body">Detected across Meta and TikTok — 6 days before their nearest earnings call. Likely tied to a summer menu push. Confidence: High.</div>
+      </div>
+      <div class="notification-mock">
+        <div class="notif-source">Vatic · Weekly Brief</div>
+        <div class="notif-headline">3 competitors moved this week. Here's what matters.</div>
+        <div class="notif-body">Chick-fil-A tested a loyalty promotion in Atlanta. Sweetgreen launched a new protein format. CAVA opened 4 net new locations in the Southwest.</div>
+      </div>
+      <div class="notification-mock" style="border-left-color: var(--precision-teal);">
+        <div class="notif-source" style="color:var(--precision-teal);">Vatic · All Clear</div>
+        <div class="notif-headline">No high-priority signals this week</div>
+        <div class="notif-body">All quiet. For now. We're still watching — 247 signals monitored across 12 competitors.</div>
+      </div>
+    </div>
+
+    <!-- Light mode UI sample -->
+    <div style="background:var(--warm-white);border:1px solid #E8E4FF;border-radius:16px;padding:var(--space-lg);margin-top:var(--space-lg);">
+      <div style="display:flex;align-items:center;gap:var(--space-sm);margin-bottom:var(--space-lg);">
+        <svg width="20" height="20" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="40" cy="66" r="7" fill="#F2A11E"/>
+        </svg>
+        <span style="font-family:var(--font-display);font-size:1.1rem;font-weight:500;color:var(--near-black);">Vatic</span>
+        <span style="margin-left:auto;font-size:0.7rem;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;background:var(--pale-lavender);color:var(--vatic-indigo);padding:3px 10px;border-radius:4px;">Intelligence · Live</span>
+      </div>
+
+      <!-- Mock stat cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--space-md);margin-bottom:var(--space-lg);">
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted-violet);margin-bottom:4px;">Signals This Week</div>
+          <div style="font-family:var(--font-display);font-size:2.4rem;font-weight:500;color:var(--near-black);line-height:1;">14</div>
+          <div style="font-size:0.75rem;color:var(--precision-teal);font-weight:600;margin-top:4px;">↑ 3 from last week</div>
+        </div>
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted-violet);margin-bottom:4px;">Competitors Tracked</div>
+          <div style="font-family:var(--font-display);font-size:2.4rem;font-weight:500;color:var(--near-black);line-height:1;">12</div>
+          <div style="font-size:0.75rem;color:var(--muted-violet);font-weight:400;margin-top:4px;">Across 3 segments</div>
+        </div>
+        <div style="background:#FFF3D6;border-radius:10px;padding:var(--space-md);border:1px solid #F2A11E30;">
+          <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#AA6B0A;margin-bottom:4px;">High Priority</div>
+          <div style="font-family:var(--font-display);font-size:2.4rem;font-weight:500;color:var(--near-black);line-height:1;">2</div>
+          <div style="font-size:0.75rem;color:#AA6B0A;font-weight:600;margin-top:4px;">Requires your attention</div>
+        </div>
+        <div style="background:var(--pale-lavender);border-radius:10px;padding:var(--space-md);">
+          <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted-violet);margin-bottom:4px;">Avg. Lead Time</div>
+          <div style="font-family:var(--font-display);font-size:2.4rem;font-weight:500;color:var(--near-black);line-height:1;">9<span style="font-size:1.2rem;font-weight:300"> days</span></div>
+          <div style="font-size:0.75rem;color:var(--precision-teal);font-weight:600;margin-top:4px;">Before public disclosure</div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div style="display:flex;gap:var(--space-sm);flex-wrap:wrap;">
+        <button style="background:var(--vatic-indigo);color:#FFFFFF;border:none;border-radius:8px;padding:10px 20px;font-family:var(--font-ui);font-size:0.85rem;font-weight:600;cursor:pointer;">View intelligence brief</button>
+        <button style="background:transparent;color:var(--deep-violet);border:1px solid #DDD8FF;border-radius:8px;padding:10px 20px;font-family:var(--font-ui);font-size:0.85rem;font-weight:500;cursor:pointer;">Configure alerts</button>
+      </div>
+    </div>
+
+    <!-- Usage don'ts -->
+    <div style="margin-top:var(--space-lg);">
+      <div class="label" style="margin-bottom:var(--space-md);">Logo Usage — Do Not</div>
+      <div class="donts-grid">
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't recolor the gold dot</strong>
+          <p>The Signal Gold vertex is sacred. Never replace it with another color, even other Vatic palette colors.</p>
+        </div>
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't stretch or distort</strong>
+          <p>Scale the mark proportionally only. Never adjust width and height independently.</p>
+        </div>
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't use on busy backgrounds</strong>
+          <p>The mark requires clear contrast. On photography, use the white reversed version with an overlay.</p>
+        </div>
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't add effects</strong>
+          <p>No drop shadows, no gradients, no glows on the logo mark itself. Restraint is the brand.</p>
+        </div>
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't write "VATIC" all caps</strong>
+          <p>The wordmark is always title-case: Vatic. All-caps is never correct outside of label/badge contexts.</p>
+        </div>
+        <div class="dont-card">
+          <div class="icon">🚫</div>
+          <strong>Don't use Cormorant for UI</strong>
+          <p>Cormorant Garamond is for display use only. Never use it for body copy, UI labels, or small text under 18px.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<!--  FOOTER                                                                     -->
+<!-- ─────────────────────────────────────────────────────────────────────────── -->
+<div class="brand-footer">
+  <div style="margin-bottom:var(--space-sm);">
+    <svg width="28" height="28" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:middle;margin-right:8px;">
+      <path d="M10 14 L40 66 L70 14" stroke="#5A3FFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="40" cy="66" r="6" fill="#F2A11E"/>
+    </svg>
+    <span style="font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;color:#FFFFFF;vertical-align:middle;">Vatic</span>
+  </div>
+  <p style="margin-bottom:4px;"><strong>Brand Identity System — Version 1.0</strong></p>
+  <p>Confidential · alive.agency · March 2026</p>
+  <p style="margin-top:var(--space-sm);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:1rem;color:#5A3FFF;">See further.</p>
+</div>
+
+</body>
+</html>

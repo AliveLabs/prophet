@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { generateCrossSignalInsights } from "@/lib/social/cross-signal"
-import type { SocialSnapshotData, SocialPlatform } from "@/lib/social/types"
+import type { SocialSnapshotData } from "@/lib/social/types"
 
 function makeSnapshot(overrides: Partial<SocialSnapshotData> = {}): SocialSnapshotData {
   return {

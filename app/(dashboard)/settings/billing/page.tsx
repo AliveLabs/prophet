@@ -24,30 +24,30 @@ export default async function BillingPage() {
 
   return (
     <section className="space-y-6">
-      <Card className="bg-white text-slate-900">
+      <Card className="bg-card text-foreground">
         <h1 className="text-2xl font-semibold">Billing</h1>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-muted-foreground">
           Manage your subscription and view plan limits.
         </p>
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-            <p className="text-sm text-slate-500">Current tier</p>
+          <div className="rounded-2xl border border-border bg-secondary px-4 py-4">
+            <p className="text-sm text-muted-foreground">Current tier</p>
             <p className="mt-2 text-xl font-semibold">
               {organization?.subscription_tier ?? "free"}
             </p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-            <p className="text-sm text-slate-500">Billing email</p>
+          <div className="rounded-2xl border border-border bg-secondary px-4 py-4">
+            <p className="text-sm text-muted-foreground">Billing email</p>
             <p className="mt-2 text-xl font-semibold">
               {organization?.billing_email ?? "Not set"}
             </p>
           </div>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Badge variant="default" className="border-slate-200 text-slate-600">
+          <Badge variant="default" className="border-border text-muted-foreground">
             Stripe connected
           </Badge>
-          <Badge variant="default" className="border-slate-200 text-slate-600">
+          <Badge variant="default" className="border-border text-muted-foreground">
             Webhooks enabled
           </Badge>
         </div>

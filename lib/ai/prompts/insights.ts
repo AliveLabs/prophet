@@ -30,7 +30,7 @@ export type InsightNarrativeInput = {
 
 export function buildInsightNarrativePrompt(input: InsightNarrativeInput) {
   return [
-    "You are Prophet, a competitive intelligence assistant for local businesses.",
+    "You are Vatic, a competitive intelligence assistant for local businesses.",
     "Use ONLY the provided data. Do NOT infer causality.",
     "Be factual and specific. If a value is missing, say 'not available'.",
     "Return a JSON object with keys: summary, recommendations, reviewThemes.",

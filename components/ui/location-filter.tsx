@@ -28,7 +28,7 @@ function LocationFilterInner({ locations, selectedLocationId }: Props) {
     <select
       value={searchParams?.get("location_id") ?? selectedLocationId}
       onChange={(e) => handleChange(e.target.value)}
-      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+      className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground"
     >
       {locations.map((l) => (
         <option key={l.id} value={l.id}>

@@ -92,7 +92,7 @@ export default function HandleManager({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-slate-700">
+        <h4 className="text-sm font-semibold text-foreground">
           Social Profiles — {entityName}
         </h4>
       </div>
@@ -105,20 +105,20 @@ export default function HandleManager({
             return (
               <div
                 key={h.id}
-                className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2"
               >
                 <span className="text-lg">{meta?.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-slate-700">
+                    <span className="text-xs font-medium text-foreground">
                       @{h.handle}
                     </span>
                     {h.isVerified && (
-                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-600">
+                      <span className="rounded-full bg-precision-teal/15 px-1.5 py-0.5 text-[9px] font-semibold text-precision-teal">
                         Verified
                       </span>
                     )}
-                    <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-500">
+                    <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[9px] text-muted-foreground">
                       {h.discoveryMethod === "auto_scrape"
                         ? "Auto-discovered"
                         : h.discoveryMethod === "data365_search"
@@ -126,7 +126,7 @@ export default function HandleManager({
                           : "Manual"}
                     </span>
                   </div>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-muted-foreground">
                     {meta?.prefix}{h.handle}
                   </span>
                 </div>
@@ -136,7 +136,7 @@ export default function HandleManager({
                       type="button"
                       onClick={() => handleVerify(h.id)}
                       disabled={isPending}
-                      className="rounded-md border border-emerald-200 px-2 py-1 text-[10px] font-medium text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                      className="rounded-md border border-precision-teal/30 px-2 py-1 text-[10px] font-medium text-precision-teal hover:bg-precision-teal/10 disabled:opacity-50"
                     >
                       Verify
                     </button>
@@ -145,7 +145,7 @@ export default function HandleManager({
                     type="button"
                     onClick={() => handleDelete(h.id)}
                     disabled={isPending}
-                    className="rounded-md border border-rose-200 px-2 py-1 text-[10px] font-medium text-rose-500 hover:bg-rose-50 disabled:opacity-50"
+                    className="rounded-md border border-destructive/30 px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -158,17 +158,17 @@ export default function HandleManager({
 
       {/* Add new handle */}
       {adding ? (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3">
+        <div className="rounded-lg border border-primary/30 bg-primary/10 p-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">{PLATFORM_META[adding]?.icon}</span>
-            <div className="flex flex-1 items-center rounded-md border border-slate-200 bg-white px-2">
-              <span className="text-xs text-slate-400">@</span>
+            <div className="flex flex-1 items-center rounded-md border border-border bg-card px-2">
+              <span className="text-xs text-muted-foreground">@</span>
               <input
                 type="text"
                 value={newHandle}
                 onChange={(e) => setNewHandle(e.target.value)}
                 placeholder={PLATFORM_META[adding]?.placeholder}
-                className="flex-1 border-0 bg-transparent px-1 py-1.5 text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none"
+                className="flex-1 border-0 bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleSave()
                   if (e.key === "Escape") setAdding(null)
@@ -180,20 +180,20 @@ export default function HandleManager({
               type="button"
               onClick={handleSave}
               disabled={isPending || !newHandle.trim()}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               Save
             </button>
             <button
               type="button"
               onClick={() => setAdding(null)}
-              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-50"
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary"
             >
               Cancel
             </button>
           </div>
           {error && (
-            <p className="mt-1 text-[11px] text-rose-500">{error}</p>
+            <p className="mt-1 text-[11px] text-destructive">{error}</p>
           )}
         </div>
       ) : (
@@ -204,7 +204,7 @@ export default function HandleManager({
                 key={platform}
                 type="button"
                 onClick={() => handleAdd(platform)}
-                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1.5 text-xs text-slate-500 transition hover:border-indigo-300 hover:text-indigo-600"
+                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground transition hover:border-primary hover:text-primary"
               >
                 <span>{PLATFORM_META[platform]?.icon}</span>
                 Add {PLATFORM_META[platform]?.label}

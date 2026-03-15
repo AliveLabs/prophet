@@ -45,7 +45,7 @@ export async function updateInsightStatusAction(formData: FormData) {
   const user = await requireUser()
   const insightId = String(formData.get("insight_id") ?? "")
   const newStatus = String(formData.get("new_status") ?? "")
-  const currentPath = String(formData.get("current_path") ?? "/insights")
+  
 
   if (!insightId || !VALID_STATUSES.has(newStatus)) return
 

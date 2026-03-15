@@ -27,7 +27,7 @@ export async function persistPostImage(
 
     const response = await fetch(mediaUrl, {
       signal: controller.signal,
-      headers: { "User-Agent": "Prophet/1.0" },
+      headers: { "User-Agent": "Vatic/1.0" },
     })
     clearTimeout(timer)
 

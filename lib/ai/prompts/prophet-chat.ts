@@ -1,4 +1,4 @@
-export function buildProphetPrompt(input: {
+export function buildVaticPrompt(input: {
   question: string
   insights: Array<Record<string, unknown>>
   snapshots: Array<Record<string, unknown>>
@@ -7,7 +7,7 @@ export function buildProphetPrompt(input: {
     {
       role: "system",
       content:
-        "You are Prophet, a competitive intelligence assistant. Answer only using provided data. Do not infer causality.",
+        "You are Vatic, a competitive intelligence assistant. Answer only using provided data. Do not infer causality.",
     },
     {
       role: "user",

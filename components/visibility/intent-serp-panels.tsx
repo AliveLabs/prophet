@@ -22,11 +22,11 @@ type Props = {
 }
 
 const INTENT_COLORS: Record<string, string> = {
-  local: "bg-green-500",
-  commercial: "bg-amber-500",
-  navigational: "bg-purple-500",
-  informational: "bg-blue-500",
-  transactional: "bg-emerald-600",
+  local: "bg-precision-teal",
+  commercial: "bg-signal-gold",
+  navigational: "bg-vatic-indigo-soft",
+  informational: "bg-primary",
+  transactional: "bg-precision-teal",
 }
 
 const SERP_ICONS: Record<string, string> = {
@@ -56,8 +56,8 @@ export default function IntentSerpPanels({ intentData, serpFeatures }: Props) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       {/* Keywords by Intent */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">Keywords by Intent</h3>
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Keywords by Intent</h3>
 
         {/* Stacked bar */}
         {totalIntentKw > 0 && (
@@ -65,7 +65,7 @@ export default function IntentSerpPanels({ intentData, serpFeatures }: Props) {
             {intentData.map((d) => (
               <div
                 key={d.intent}
-                className={`${INTENT_COLORS[d.intent] ?? "bg-slate-400"}`}
+                className={`${INTENT_COLORS[d.intent] ?? "bg-muted-foreground"}`}
                 style={{ width: `${d.percent}%` }}
                 title={`${d.intent}: ${d.percent}%`}
               />
@@ -75,7 +75,7 @@ export default function IntentSerpPanels({ intentData, serpFeatures }: Props) {
 
         <table className="w-full text-left text-xs">
           <thead>
-            <tr className="border-b border-slate-100 text-slate-400">
+            <tr className="border-b border-border text-muted-foreground">
               <th className="py-1.5 font-medium">Intent</th>
               <th className="py-1.5 font-medium text-right">Keywords</th>
               <th className="py-1.5 font-medium text-right">Percent</th>
@@ -84,21 +84,21 @@ export default function IntentSerpPanels({ intentData, serpFeatures }: Props) {
           </thead>
           <tbody>
             {intentData.map((d) => (
-              <tr key={d.intent} className="border-b border-slate-50">
+              <tr key={d.intent} className="border-b border-border">
                 <td className="py-1.5">
                   <div className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${INTENT_COLORS[d.intent] ?? "bg-slate-400"}`} />
-                    <span className="font-medium capitalize text-slate-700">{d.intent}</span>
+                    <span className={`h-2 w-2 rounded-full ${INTENT_COLORS[d.intent] ?? "bg-muted-foreground"}`} />
+                    <span className="font-medium capitalize text-foreground">{d.intent}</span>
                   </div>
                 </td>
-                <td className="py-1.5 text-right text-slate-600">{d.count.toLocaleString()}</td>
-                <td className="py-1.5 text-right text-slate-500">{d.percent.toFixed(1)}%</td>
-                <td className="py-1.5 text-right text-slate-500">{d.traffic.toLocaleString()}</td>
+                <td className="py-1.5 text-right text-muted-foreground">{d.count.toLocaleString()}</td>
+                <td className="py-1.5 text-right text-muted-foreground">{d.percent.toFixed(1)}%</td>
+                <td className="py-1.5 text-right text-muted-foreground">{d.traffic.toLocaleString()}</td>
               </tr>
             ))}
             {intentData.length === 0 && (
               <tr>
-                <td colSpan={4} className="py-3 text-center text-slate-400">No intent data.</td>
+                <td colSpan={4} className="py-3 text-center text-muted-foreground">No intent data.</td>
               </tr>
             )}
           </tbody>
@@ -106,28 +106,28 @@ export default function IntentSerpPanels({ intentData, serpFeatures }: Props) {
       </div>
 
       {/* SERP Features */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">SERP Features</h3>
-        <p className="mb-3 text-xs text-slate-400">Features your domain appears in across tracked keywords.</p>
+      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">SERP Features</h3>
+        <p className="mb-3 text-xs text-muted-foreground">Features your domain appears in across tracked keywords.</p>
 
         {serpFeatures.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {serpFeatures.map((f) => (
               <div
                 key={f.feature}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-2 text-xs"
               >
-                <span className="font-semibold text-slate-700">
+                <span className="font-semibold text-foreground">
                   {SERP_ICONS[f.feature] ?? f.feature.replace(/_/g, " ")}
                 </span>
-                <span className="text-slate-400">
-                  Keywords: <strong className="text-slate-600">{f.count}</strong>
+                <span className="text-muted-foreground">
+                  Keywords: <strong className="text-muted-foreground">{f.count}</strong>
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400">No SERP feature data available.</p>
+          <p className="text-sm text-muted-foreground">No SERP feature data available.</p>
         )}
       </div>
     </div>

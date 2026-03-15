@@ -150,15 +150,15 @@ function generateTrafficInsights(data: HeatmapData[]): TrafficInsight[] {
 }
 
 const SEVERITY_STYLES: Record<string, string> = {
-  positive: "border-emerald-200 bg-emerald-50",
-  warning: "border-amber-200 bg-amber-50",
-  info: "border-blue-200 bg-blue-50",
+  positive: "border-precision-teal/30 bg-precision-teal/10",
+  warning: "border-signal-gold/30 bg-signal-gold/10",
+  info: "border-primary/30 bg-primary/10",
 }
 
 const ICON_COLORS: Record<string, string> = {
-  positive: "text-emerald-500",
-  warning: "text-amber-500",
-  info: "text-blue-500",
+  positive: "text-precision-teal",
+  warning: "text-signal-gold",
+  info: "text-primary",
 }
 
 export default function TrafficInsightsSection({ data }: { data: HeatmapData[] }) {
@@ -166,9 +166,9 @@ export default function TrafficInsightsSection({ data }: { data: HeatmapData[] }
   if (insights.length === 0) return null
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-900">Traffic Intelligence</h3>
-      <p className="mt-0.5 text-xs text-slate-500">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="text-sm font-bold text-foreground">Traffic Intelligence</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">
         Actionable patterns from competitor busy times data
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -182,8 +182,8 @@ export default function TrafficInsightsSection({ data }: { data: HeatmapData[] }
                 <InsightIcon type={ins.icon} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-slate-900">{ins.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-600">{ins.summary}</p>
+                <p className="text-sm font-semibold text-foreground">{ins.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ins.summary}</p>
               </div>
             </div>
           </div>

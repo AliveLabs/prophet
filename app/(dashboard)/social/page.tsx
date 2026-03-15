@@ -135,7 +135,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   return (
     <section className="space-y-6">
       {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-600 p-6 text-white shadow-xl shadow-indigo-200/50">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-vatic-indigo-soft to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
 
@@ -147,7 +147,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
                 </svg>
               </div>
-              <h1 className="text-xl font-bold tracking-tight">Social Intelligence</h1>
+              <h1 className="text-xl font-display font-bold tracking-tight">Social Intelligence</h1>
             </div>
             <p className="max-w-md text-sm text-white/70">
               Track and compare social media presence across Instagram, Facebook &amp; TikTok for{" "}
@@ -180,25 +180,25 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
       {/* KPI Cards */}
       {socialData.profiles.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Total Followers</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{formatNumber(totalFollowers)}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Total Followers</p>
+            <p className="mt-2 text-3xl font-bold text-foreground">{formatNumber(totalFollowers)}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Avg Engagement Rate</p>
-            <p className="mt-2 text-3xl font-bold text-indigo-600">{avgEngagement.toFixed(1)}%</p>
-            <p className="mt-1 text-[11px] text-slate-400">across your profiles</p>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Avg Engagement Rate</p>
+            <p className="mt-2 text-3xl font-bold text-primary">{avgEngagement.toFixed(1)}%</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">across your profiles</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Platforms Tracked</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{platformCount}</p>
-            <p className="mt-1 text-[11px] text-slate-400">Instagram, Facebook, TikTok</p>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Platforms Tracked</p>
+            <p className="mt-2 text-3xl font-bold text-foreground">{platformCount}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Instagram, Facebook, TikTok</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-medium text-slate-500">Competitor Profiles</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{compProfiles.length}</p>
-            <p className="mt-1 text-[11px] text-slate-400">being monitored</p>
+          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+            <p className="text-xs font-medium text-muted-foreground">Competitor Profiles</p>
+            <p className="mt-2 text-3xl font-bold text-foreground">{compProfiles.length}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">being monitored</p>
           </div>
         </div>
       )}
@@ -226,14 +226,14 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
       {/* Social Intelligence Insights */}
       <div className="space-y-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-100 to-orange-100 text-amber-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-signal-gold/20 to-signal-gold/10 text-signal-gold">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
             </svg>
           </div>
           <div>
-            <h2 className="text-base font-semibold text-slate-900">Social Intelligence Insights</h2>
-            <p className="text-xs text-slate-500">AI-powered analysis of your social presence vs competitors</p>
+            <h2 className="text-base font-semibold text-foreground">Social Intelligence Insights</h2>
+            <p className="text-xs text-muted-foreground">AI-powered analysis of your social presence vs competitors</p>
           </div>
         </div>
 
@@ -244,23 +244,23 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
             statusFilter=""
           />
         ) : socialData.profiles.length > 0 ? (
-          <div className="rounded-2xl border border-dashed border-amber-200 bg-gradient-to-br from-amber-50/50 to-orange-50/30 py-12 text-center">
-            <svg className="mx-auto h-10 w-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="rounded-2xl border border-dashed border-signal-gold/30 bg-gradient-to-br from-signal-gold/10 to-signal-gold/5 py-12 text-center">
+            <svg className="mx-auto h-10 w-10 text-signal-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
             </svg>
-            <p className="mt-3 text-sm font-medium text-slate-700">No insights generated yet</p>
-            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-slate-500">
+            <p className="mt-3 text-sm font-medium text-foreground">No insights generated yet</p>
+            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
               Insights are generated automatically when you run &quot;Fetch Social Data&quot;.
               The AI analyzes your posts, engagement, and visual content against competitors to surface actionable recommendations.
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-            <svg className="mx-auto h-12 w-12 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+            <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
             </svg>
-            <p className="mt-3 text-sm font-medium text-slate-600">No social profiles connected yet</p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-3 text-sm font-medium text-muted-foreground">No social profiles connected yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               Add your social media handles above or click &quot;Discover Handles&quot; to automatically find profiles
             </p>
           </div>

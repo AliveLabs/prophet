@@ -25,7 +25,7 @@ type Props = {
   distribution: RankDistribution
 }
 
-const COLORS = ["#22c55e", "#84cc16", "#f59e0b", "#f97316", "#ef4444"]
+const COLORS = ["#00BFA6", "#9B87FF", "#F2A11E", "#5A3FFF", "#FF4757"]
 
 function RankingDistributionInner({ distribution }: Props) {
   const data = [
@@ -44,7 +44,7 @@ function RankingDistributionInner({ distribution }: Props) {
 
   if (total === 0) {
     return (
-      <div className="flex h-48 items-center justify-center text-sm text-slate-400">
+      <div className="flex h-48 items-center justify-center text-sm text-muted-foreground">
         No ranking distribution data.
       </div>
     )
@@ -53,22 +53,22 @@ function RankingDistributionInner({ distribution }: Props) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={dataWithPct} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="range"
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           tickLine={false}
           axisLine={false}
-          label={{ value: "Position", position: "insideBottom", offset: -2, fontSize: 10, fill: "#94a3b8" }}
+          label={{ value: "Position", position: "insideBottom", offset: -2, fontSize: 10, fill: "var(--muted-foreground)" }}
         />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94a3b8" }}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
           tickLine={false}
           axisLine={false}
-          label={{ value: "Keywords", angle: -90, position: "insideLeft", fontSize: 10, fill: "#94a3b8" }}
+          label={{ value: "Keywords", angle: -90, position: "insideLeft", fontSize: 10, fill: "var(--muted-foreground)" }}
         />
         <Tooltip
-          contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+          contentStyle={{ borderRadius: 12, border: "1px solid var(--border)", fontSize: 12 }}
           formatter={(value, _name, item) => {
             const v = typeof value === "number" ? value : Number(value ?? 0)
             const pct = (item?.payload as { pct?: number })?.pct ?? 0
@@ -87,7 +87,7 @@ function RankingDistributionInner({ distribution }: Props) {
 
 export default function RankingDistribution(props: Props) {
   return (
-    <Suspense fallback={<div className="h-48 animate-pulse rounded-xl bg-slate-100" />}>
+    <Suspense fallback={<div className="h-48 animate-pulse rounded-xl bg-secondary" />}>
       <RankingDistributionInner {...props} />
     </Suspense>
   )

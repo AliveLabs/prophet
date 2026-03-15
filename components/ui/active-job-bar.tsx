@@ -124,7 +124,7 @@ export default function ActiveJobBar() {
         className="fixed inset-x-0 top-0 z-50 flex items-center justify-center"
       >
         <div
-          className="mx-auto mt-3 flex max-w-xl items-center gap-3 rounded-full border border-indigo-200/60 bg-white/90 px-4 py-2 shadow-lg backdrop-blur-md cursor-pointer"
+          className="mx-auto mt-3 flex max-w-xl items-center gap-3 rounded-full border border-border bg-card/90 px-4 py-2 shadow-lg backdrop-blur-md cursor-pointer"
           onClick={() => {
             if (meta?.path) {
               router.push(`${meta.path}?location_id=${activeJob.location_id}`)
@@ -132,29 +132,29 @@ export default function ActiveJobBar() {
           }}
         >
           <div className="relative flex h-4 w-4 items-center justify-center">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-30" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-indigo-600" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-30" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
           </div>
 
-          <span className="text-xs font-medium text-slate-700">
+          <span className="text-xs font-medium text-foreground">
             {meta?.label ?? "Processing..."}
           </span>
 
           {currentStep && (
-            <span className="text-xs text-slate-500">
+            <span className="text-xs text-muted-foreground">
               {currentStep.label}
             </span>
           )}
 
-          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-secondary">
             <motion.div
-              className="h-full rounded-full bg-indigo-500"
+              className="h-full rounded-full bg-primary"
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5 }}
             />
           </div>
 
-          <span className="text-[10px] font-medium text-indigo-600">
+          <span className="text-[10px] font-medium text-primary">
             View &rarr;
           </span>
         </div>

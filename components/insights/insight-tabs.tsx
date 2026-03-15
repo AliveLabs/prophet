@@ -41,11 +41,11 @@ function InsightTabsInner({ counts }: Props) {
   )
 
   const tabs: TabConfig[] = [
-    { value: "", label: "All", count: counts.all, color: "text-slate-600", activeColor: "bg-slate-900 text-white" },
-    { value: "competitors", label: "Competitors", count: counts.competitors, color: "text-emerald-700", activeColor: "bg-emerald-600 text-white" },
-    { value: "events", label: "Events", count: counts.events, color: "text-violet-700", activeColor: "bg-violet-600 text-white" },
-    { value: "seo", label: "SEO", count: counts.seo, color: "text-sky-700", activeColor: "bg-sky-600 text-white" },
-    { value: "content", label: "Content", count: counts.content, color: "text-teal-700", activeColor: "bg-teal-600 text-white" },
+    { value: "", label: "All", count: counts.all, color: "text-muted-foreground", activeColor: "bg-foreground text-background" },
+    { value: "competitors", label: "Competitors", count: counts.competitors, color: "text-precision-teal", activeColor: "bg-precision-teal text-primary-foreground" },
+    { value: "events", label: "Events", count: counts.events, color: "text-vatic-indigo-soft", activeColor: "bg-vatic-indigo-soft text-primary-foreground" },
+    { value: "seo", label: "SEO", count: counts.seo, color: "text-primary", activeColor: "bg-primary text-primary-foreground" },
+    { value: "content", label: "Content", count: counts.content, color: "text-precision-teal", activeColor: "bg-precision-teal text-primary-foreground" },
   ]
 
   return (
@@ -60,7 +60,7 @@ function InsightTabsInner({ counts }: Props) {
             className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
               isActive
                 ? tab.activeColor + " shadow-sm"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                : "bg-card text-muted-foreground ring-1 ring-border hover:bg-secondary"
             }`}
           >
             {tab.label}
@@ -69,7 +69,7 @@ function InsightTabsInner({ counts }: Props) {
                 className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                   isActive
                     ? "bg-white/20 text-white"
-                    : "bg-slate-100 text-slate-500"
+                    : "bg-secondary text-muted-foreground"
                 }`}
               >
                 {tab.count}

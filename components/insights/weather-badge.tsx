@@ -22,8 +22,8 @@ export default function WeatherBadge({ weather }: Props) {
   return (
     <div className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs ${
       weather.is_severe
-        ? "border border-rose-200 bg-rose-50"
-        : "border border-slate-200 bg-white"
+        ? "border border-destructive/30 bg-destructive/10"
+        : "border border-border bg-card"
     }`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -33,20 +33,20 @@ export default function WeatherBadge({ weather }: Props) {
       />
       <div>
         <div className="flex items-baseline gap-1">
-          <span className="text-sm font-bold text-slate-900">
+          <span className="text-sm font-bold text-foreground">
             {Math.round(weather.temp_high_f)}°
           </span>
-          <span className="text-slate-400">/</span>
-          <span className="text-slate-500">
+          <span className="text-muted-foreground">/</span>
+          <span className="text-muted-foreground">
             {Math.round(weather.temp_low_f)}°
           </span>
         </div>
-        <p className="text-[10px] text-slate-500 capitalize">
+        <p className="text-[10px] text-muted-foreground capitalize">
           {weather.weather_condition.toLowerCase()}
           {weather.precipitation_in > 0 && ` • ${weather.precipitation_in}" precip`}
         </p>
         {weather.is_severe && (
-          <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-600">
+          <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-bold text-destructive">
             <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
             </svg>
@@ -54,7 +54,7 @@ export default function WeatherBadge({ weather }: Props) {
           </span>
         )}
       </div>
-      <p className="ml-auto text-[9px] text-slate-400">
+      <p className="ml-auto text-[9px] text-muted-foreground">
         Weather data by OpenWeatherMap
       </p>
     </div>

@@ -1,9 +1,17 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Cormorant_Garamond, Inter, Geist_Mono } from "next/font/google"
+import ThemeProvider from "@/components/theme-provider"
 import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+})
+
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 })
 
@@ -13,9 +21,17 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Prophet — Competitive Intelligence",
+  title: "Vatic — Competitive Intelligence",
   description:
-    "Daily competitor intelligence for local businesses with explainable insights.",
+    "AI-powered competitive intelligence for local businesses. See further.",
+  icons: {
+    icon: [
+      { url: "/logos/vatic-favicon.svg", type: "image/svg+xml" },
+      { url: "/logos/vatic-favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/logos/vatic-favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    apple: "/logos/vatic-app-icon.png",
+  },
 }
 
 export default function RootLayout({
@@ -24,9 +40,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${cormorant.variable} ${inter.variable} ${geistMono.variable} antialiased`}>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   )

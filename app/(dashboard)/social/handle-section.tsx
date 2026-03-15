@@ -50,11 +50,11 @@ export default function SocialHandleSection({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">Social Profiles</h2>
-          <p className="text-[11px] text-slate-500">
+          <h2 className="text-sm font-semibold text-foreground">Social Profiles</h2>
+          <p className="text-[11px] text-muted-foreground">
             Manage social media handles for your location and competitors
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function SocialHandleSection({
           type="button"
           onClick={handleDiscover}
           disabled={isDiscovering}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary/90 disabled:opacity-50"
         >
           {isDiscovering ? (
             <>
@@ -86,8 +86,8 @@ export default function SocialHandleSection({
       {discoveryResult && (
         <div className={`mb-4 rounded-lg px-3 py-2 text-xs font-medium ${
           discoveryResult.startsWith("Error")
-            ? "border border-rose-200 bg-rose-50 text-rose-700"
-            : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+            ? "border border-destructive/30 bg-destructive/10 text-destructive"
+            : "border border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
         }`}>
           {discoveryResult}
         </div>

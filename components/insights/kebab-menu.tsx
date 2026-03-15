@@ -58,7 +58,7 @@ export default function KebabMenu({ insightId, currentStatus, onStatusChange }: 
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
-        className={`flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 ${
+        className={`flex h-7 w-7 items-center justify-center rounded-lg border border-border text-muted-foreground transition hover:bg-secondary hover:text-foreground ${
           isPending ? "opacity-50 pointer-events-none" : ""
         }`}
         aria-label="Insight actions"
@@ -77,16 +77,16 @@ export default function KebabMenu({ insightId, currentStatus, onStatusChange }: 
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card shadow-xl shadow-card-sm animate-in fade-in slide-in-from-top-1 duration-150">
           {filteredActions.map((action) => (
             <button
               key={action.status}
               type="button"
               onClick={() => handleAction(action.status)}
-              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium transition hover:bg-slate-50 ${
+              className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium transition hover:bg-secondary ${
                 action.status === "dismissed"
-                  ? "text-rose-600 hover:bg-rose-50"
-                  : "text-slate-700"
+                  ? "text-destructive hover:bg-destructive/10"
+                  : "text-foreground"
               }`}
             >
               <action.icon className="h-3.5 w-3.5 shrink-0" />

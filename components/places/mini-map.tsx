@@ -39,7 +39,7 @@ export default function MiniMap({
 
   return (
     <div className={className}>
-      <div className="overflow-hidden rounded-xl border border-slate-200">
+      <div className="overflow-hidden rounded-xl border border-border">
         <iframe
           title={title ?? "Map"}
           src={mapUrl}
@@ -52,7 +52,7 @@ export default function MiniMap({
         href={mapsLink}
         target="_blank"
         rel="noreferrer"
-        className="mt-2 inline-flex items-center justify-center rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white"
+        className="mt-2 inline-flex items-center justify-center rounded-full bg-foreground px-3 py-1 text-xs font-semibold text-background"
       >
         Open in Google Maps
       </a>

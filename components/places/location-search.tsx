@@ -97,22 +97,22 @@ export default function LocationSearch({ onSelectPlace, onClear }: LocationSearc
           onClear?.()
         }}
         placeholder="Search by business name"
-        className="bg-white text-slate-900"
+        className="bg-card text-foreground"
       />
       {loading ? (
-        <p className="mt-2 text-xs text-slate-500">Searching...</p>
+        <p className="mt-2 text-xs text-muted-foreground">Searching...</p>
       ) : null}
       {error ? (
-        <p className="mt-2 text-xs text-rose-600">{error}</p>
+        <p className="mt-2 text-xs text-destructive">{error}</p>
       ) : null}
       {predictions.length > 0 ? (
-        <div className="absolute z-10 mt-2 w-full rounded-xl border border-slate-200 bg-white p-2 text-sm text-slate-700 shadow-lg">
+        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border bg-card p-2 text-sm text-foreground shadow-lg">
           {predictions.map((prediction) => (
             <button
               key={prediction.place_id}
               type="button"
               onClick={() => handleSelect(prediction)}
-              className="w-full rounded-lg px-3 py-2 text-left hover:bg-slate-100"
+              className="w-full rounded-lg px-3 py-2 text-left hover:bg-secondary"
             >
               {prediction.description}
             </button>
