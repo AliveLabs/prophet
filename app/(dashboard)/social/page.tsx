@@ -133,71 +133,46 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
     .map(([, handles]) => handles)
 
   return (
-    <section className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-vatic-indigo-soft to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-display font-bold tracking-tight">Social Intelligence</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              Track and compare social media presence across Instagram, Facebook &amp; TikTok for{" "}
-              <span className="font-medium text-white/90">
-                {selectedLocation?.name ?? "your locations"}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {locations && locations.length > 1 && selectedLocationId && (
-              <LocationFilter
-                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                selectedLocationId={selectedLocationId}
-              />
-            )}
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="social"
-                locationId={selectedLocationId}
-                label="Fetch Social Data"
-                pendingLabel="Fetching social data"
-                className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-              />
-            )}
-          </div>
-        </div>
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 1 && selectedLocationId && (
+          <LocationFilter
+            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+            selectedLocationId={selectedLocationId}
+          />
+        )}
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="social"
+            locationId={selectedLocationId}
+            label="Fetch Social Data"
+            pendingLabel="Fetching social data"
+          />
+        )}
       </div>
 
       {/* KPI Cards */}
       {socialData.profiles.length > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Total Followers</p>
-            <p className="mt-2 text-3xl font-bold text-foreground">{formatNumber(totalFollowers)}</p>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div className="rounded-lg border border-border bg-card px-5 py-4">
+            <p className="text-[11.5px] font-medium text-muted-foreground">Total Followers</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{formatNumber(totalFollowers)}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Avg Engagement Rate</p>
-            <p className="mt-2 text-3xl font-bold text-primary">{avgEngagement.toFixed(1)}%</p>
+          <div className="rounded-lg border border-border bg-card px-5 py-4">
+            <p className="text-[11.5px] font-medium text-muted-foreground">Avg Engagement Rate</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-primary">{avgEngagement.toFixed(1)}%</p>
             <p className="mt-1 text-[11px] text-muted-foreground">across your profiles</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Platforms Tracked</p>
-            <p className="mt-2 text-3xl font-bold text-foreground">{platformCount}</p>
+          <div className="rounded-lg border border-border bg-card px-5 py-4">
+            <p className="text-[11.5px] font-medium text-muted-foreground">Platforms Tracked</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{platformCount}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">Instagram, Facebook, TikTok</p>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <p className="text-xs font-medium text-muted-foreground">Competitor Profiles</p>
-            <p className="mt-2 text-3xl font-bold text-foreground">{compProfiles.length}</p>
+          <div className="rounded-lg border border-border bg-card px-5 py-4">
+            <p className="text-[11.5px] font-medium text-muted-foreground">Competitor Profiles</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{compProfiles.length}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">being monitored</p>
           </div>
         </div>

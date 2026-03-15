@@ -326,6 +326,30 @@
   }
 }
 
+/* ── Sidebar Responsive ───────────────────────────────────── */
+@media (max-width: 1023px) {
+  .sidebar .sidebar-label { display: none; }
+  .sidebar .sidebar-badge { display: none; }
+  .sidebar .sidebar-nav-item { justify-content: center; padding: 10px; }
+  .sidebar .sidebar-icon { margin: 0; }
+  .sidebar .sidebar-scroll { padding: 8px; }
+  .sidebar .sidebar-label + svg { display: none; }
+  .sidebar-icon-only { display: flex !important; }
+}
+@media (min-width: 1024px) {
+  .sidebar-icon-only { display: none !important; }
+}
+
+/* ── Tab Bar Responsive ───────────────────────────────────── */
+@media (max-width: 767px) {
+  .tab-bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-bar::-webkit-scrollbar { display: none; }
+}
+
 /* ── Scrollbar Styling ─────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

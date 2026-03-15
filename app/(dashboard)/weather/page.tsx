@@ -119,48 +119,23 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   const totalPrecip = historicalDays.reduce((s, d) => s + d.precipitation_in, 0)
 
   return (
-    <section className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-precision-teal to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-display font-bold tracking-tight">Weather Intelligence</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              Historical weather data and its impact on competitor traffic for{" "}
-              <span className="font-medium text-white/90">
-                {selectedLocation?.name ?? "your locations"}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {locations && locations.length > 1 && selectedLocationId && (
-              <LocationFilter
-                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                selectedLocationId={selectedLocationId}
-              />
-            )}
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="weather"
-                locationId={selectedLocationId}
-                label="Update Weather"
-                pendingLabel="Fetching weather data"
-                className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-              />
-            )}
-          </div>
-        </div>
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 1 && selectedLocationId && (
+          <LocationFilter
+            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+            selectedLocationId={selectedLocationId}
+          />
+        )}
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="weather"
+            locationId={selectedLocationId}
+            label="Update Weather"
+            pendingLabel="Fetching weather data"
+          />
+        )}
       </div>
 
       {weatherDays.length > 0 ? (

@@ -5,7 +5,6 @@ import {
   discoverCompetitorsAction,
   ignoreCompetitorAction,
 } from "./actions"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import DiscoverForm from "@/components/competitors/discover-form"
 import MiniMap from "@/components/places/mini-map"
@@ -355,80 +354,75 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
   }
 
   return (
-    <section className="space-y-6">
-      <Card className="bg-card text-foreground">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Competitors</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Discover nearby competitors and approve who should be monitored.
-            </p>
-          </div>
-          {locations && locations.length > 0 && selectedLocationId && (
-            <LocationFilter
-              locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-              selectedLocationId={selectedLocationId}
-            />
-          )}
-        </div>
-        {error ? (
-          <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {decodeURIComponent(error)}
-          </p>
-        ) : null}
-        {success ? (
-          <p className="mt-4 rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
-            {decodeURIComponent(success)}
-          </p>
-        ) : null}
-        {isOnboarding ? (
-          <div className="mt-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-4">
-            <p className="text-sm font-semibold text-foreground">
-              Location added! Now discover competitors to start getting insights.
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Use the &quot;Discover Competitors&quot; button below to find nearby competitors.
-              Once you approve them, Vatic will automatically collect their data and generate insights.
-            </p>
-          </div>
-        ) : null}
-        {debugData ? (
-          <div className="mt-4 rounded-xl border border-signal-gold/30 bg-signal-gold/10 px-4 py-3 text-xs text-signal-gold">
-            <p className="text-sm font-semibold">Debug context</p>
-            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-xs">
-              {JSON.stringify(debugData, null, 2)}
-            </pre>
-          </div>
-        ) : null}
-        {searchEntryPointHtml ? (
-          <div
-            className="mt-4 overflow-hidden rounded-xl border border-border bg-card p-3"
-            dangerouslySetInnerHTML={{ __html: searchEntryPointHtml }}
+    <section className="space-y-5">
+      {/* Filter bar */}
+      {locations && locations.length > 0 && selectedLocationId && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+          <LocationFilter
+            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+            selectedLocationId={selectedLocationId}
           />
-        ) : null}
-        {selectedLocationId ? (
+        </div>
+      )}
+
+      {/* Alerts */}
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {decodeURIComponent(error)}
+        </div>
+      ) : null}
+      {success ? (
+        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
+          {decodeURIComponent(success)}
+        </div>
+      ) : null}
+      {isOnboarding ? (
+        <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-4">
+          <p className="text-sm font-semibold text-foreground">
+            Location added! Now discover competitors to start getting insights.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Use the &quot;Discover Competitors&quot; button below to find nearby competitors.
+            Once you approve them, Vatic will automatically collect their data and generate insights.
+          </p>
+        </div>
+      ) : null}
+      {debugData ? (
+        <div className="rounded-xl border border-signal-gold/30 bg-signal-gold/10 px-4 py-3 text-xs text-signal-gold">
+          <p className="text-sm font-semibold">Debug context</p>
+          <pre className="mt-2 overflow-x-auto whitespace-pre-wrap font-mono text-xs">
+            {JSON.stringify(debugData, null, 2)}
+          </pre>
+        </div>
+      ) : null}
+      {searchEntryPointHtml ? (
+        <div
+          className="overflow-hidden rounded-xl border border-border bg-card p-3"
+          dangerouslySetInnerHTML={{ __html: searchEntryPointHtml }}
+        />
+      ) : null}
+
+      {/* Discovery */}
+      {selectedLocationId ? (
+        <div className="rounded-xl border border-border bg-card p-5">
           <DiscoverForm
             action={discoverCompetitorsAction}
             selectedLocationId={selectedLocationId}
             quickFacts={buildCompetitorQuickFacts(approvedCompetitors)}
           />
-        ) : null}
-      </Card>
+        </div>
+      ) : null}
 
-      <Card className="bg-card text-foreground">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Approved competitors</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Track the most relevant competitors and key metrics at a glance.
-            </p>
-          </div>
-          <span className="rounded-full bg-precision-teal/10 px-3 py-1 text-xs font-semibold text-precision-teal">
+      {/* Approved */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Approved Competitors</span>
+          <span className="rounded-full bg-precision-teal/10 px-3 py-1 text-[10.5px] font-semibold text-precision-teal">
             {approvedCompetitors.length} approved
           </span>
         </div>
         {approvedCompetitors.length > 0 ? (
-          <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
@@ -641,14 +635,17 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             </div>
           </div>
         ) : (
-          <p className="mt-3 text-sm text-muted-foreground">
+          <p className="px-5 py-6 text-sm text-muted-foreground">
             Approve competitors from the candidates list to see them here.
           </p>
         )}
-      </Card>
+      </div>
 
-      <Card className="bg-card text-foreground">
-        <h2 className="text-lg font-semibold">Candidates</h2>
+      {/* Candidates */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Candidates</span>
+        </div>
         <div className="mt-4 space-y-4">
           {candidateCompetitors.length > 0 ? (
             candidateCompetitors.map((competitor) => {
@@ -853,7 +850,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
             </p>
           )}
         </div>
-      </Card>
+      </div>
     </section>
   )
 }
