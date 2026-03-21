@@ -136,50 +136,23 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   }
 
   return (
-    <section className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-signal-gold via-signal-gold to-signal-gold p-6 text-white shadow-xl shadow-card-sm">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-display font-bold tracking-tight">Busy Times</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              Hourly popularity and foot-traffic patterns for competitors near{" "}
-              <span className="font-medium text-white/90">
-                {locations?.find((l) => l.id === selectedLocationId)?.name ?? "your locations"}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {locations && locations.length > 1 && selectedLocationId && (
-              <LocationFilter
-                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                selectedLocationId={selectedLocationId}
-              />
-            )}
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="busy_times"
-                locationId={selectedLocationId}
-                label="Fetch Busy Times"
-                pendingLabel="Fetching busy times data"
-                className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-              />
-            )}
-          </div>
-        </div>
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 1 && selectedLocationId && (
+          <LocationFilter
+            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+            selectedLocationId={selectedLocationId}
+          />
+        )}
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="busy_times"
+            locationId={selectedLocationId}
+            label="Fetch Busy Times"
+            pendingLabel="Fetching busy times data"
+          />
+        )}
       </div>
 
       {trackedCount > 0 ? (

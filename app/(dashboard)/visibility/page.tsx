@@ -227,73 +227,53 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   // -----------------------------------------------------------------------
 
   return (
-    <section className="space-y-6">
-      {/* ================================================================= */}
-      {/* HEADER */}
-      {/* ================================================================= */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-display font-bold text-foreground">Search Visibility</h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Domain overview, organic + paid search performance vs competitors.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-              {freshnessLabel}
-            </span>
-          </div>
-        </div>
-
-        {error && (
-          <p className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {decodeURIComponent(error)}
-          </p>
-        )}
-        {success && (
-          <p className="mt-3 rounded-lg border border-precision-teal/30 bg-precision-teal/10 px-3 py-2 text-sm text-precision-teal">
-            {decodeURIComponent(success)}
-          </p>
-        )}
-
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <VisibilityFilters
           locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
           selectedLocationId={selectedLocationId ?? ""}
           activeTab={activeTab}
         />
-
-        {locationDomain && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
-            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-            </svg>
-            <span>
-              Tracking domain:{" "}
-              <span className="font-medium text-foreground">{locationDomain}</span>
-              {selectedLocation?.website && (
-                <span className="ml-1 text-muted-foreground">({selectedLocation.website})</span>
-              )}
-            </span>
-            <a href="/locations" className="ml-auto text-primary hover:text-primary/80 font-medium">
-              Change URL
-            </a>
-          </div>
-        )}
-
-        {/* Refresh SEO action with interactive overlay */}
         {selectedLocationId && (
-          <div className="mt-4">
-            <JobRefreshButton
-              type="visibility"
-              locationId={selectedLocationId}
-              label="Refresh SEO"
-              pendingLabel="Refreshing SEO data"
-            />
-          </div>
+          <JobRefreshButton
+            type="visibility"
+            locationId={selectedLocationId}
+            label="Refresh SEO"
+            pendingLabel="Refreshing SEO data"
+          />
         )}
+        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+          {freshnessLabel}
+        </span>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {decodeURIComponent(error)}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
+          {decodeURIComponent(success)}
+        </div>
+      )}
+
+      {locationDomain && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+          </svg>
+          <span>
+            Tracking domain:{" "}
+            <span className="font-medium text-foreground">{locationDomain}</span>
+          </span>
+          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
+            Change URL
+          </a>
+        </div>
+      )}
 
       {/* Missing website warning */}
       {selectedLocation && !selectedLocation.website && (

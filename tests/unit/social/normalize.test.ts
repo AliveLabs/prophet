@@ -158,7 +158,10 @@ describe("normalizeFacebookPost", () => {
       likes_count: 50,
       comments_count: 5,
       shares_count: 3,
-      reactions: { like: 30, love: 15, haha: 5 },
+      reactions_like_count: 30,
+      reactions_love_count: 15,
+      reactions_haha_count: 5,
+      reactions_total_count: 50,
     }
 
     const result = normalizeFacebookPost(raw)
@@ -175,7 +178,9 @@ describe("normalizeFacebookPost", () => {
   it("computes total reactions when likes_count is missing", () => {
     const raw: FacebookRawPost = {
       id: "fbpost2",
-      reactions: { like: 10, love: 5, wow: 3 },
+      reactions_like_count: 10,
+      reactions_love_count: 5,
+      reactions_wow_count: 3,
     }
 
     const result = normalizeFacebookPost(raw)

@@ -5,7 +5,7 @@ import LocationFilter from "@/components/ui/location-filter"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import MenuViewer from "@/components/content/menu-viewer"
 import MenuCompare from "@/components/content/menu-compare"
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 
@@ -160,57 +160,44 @@ export default async function ContentPage({ searchParams }: PageProps) {
     : null
 
   return (
-    <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="bg-gradient-to-r from-precision-teal/10 via-card to-primary/10">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <CardTitle>Content &amp; Menu</CardTitle>
-                <CardDescription>
-                  Scrape your website and competitors for menu data, pricing, and site features.
-                </CardDescription>
-              </div>
-              {locations && locations.length > 0 && selectedLocationId && (
-                <LocationFilter
-                  locations={locations.map((l) => ({ id: l.id, name: l.name }))}
-                  selectedLocationId={selectedLocationId}
-                />
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {lastRefreshDate && (
-                <span className="text-xs text-muted-foreground">
-                  Last refresh: {lastRefreshDate}
-                </span>
-              )}
-              <JobRefreshButton
-                type="content"
-                locationId={selectedLocationId ?? ""}
-                label="Refresh Content"
-                pendingLabel="Scraping website content"
-                disabled={!selectedLocationId}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        {selectedLocation?.website && (
-          <div className="border-t border-border px-6 py-2 text-xs text-muted-foreground flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-            </svg>
-            <span>
-              Tracking:{" "}
-              <span className="font-medium text-foreground">{selectedLocation.website}</span>
-            </span>
-            <a href="/locations" className="ml-auto text-primary hover:text-primary/80 font-medium">
-              Change URL
-            </a>
-          </div>
+    <div className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 0 && selectedLocationId && (
+          <LocationFilter
+            locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+            selectedLocationId={selectedLocationId}
+          />
         )}
-      </Card>
+        <JobRefreshButton
+          type="content"
+          locationId={selectedLocationId ?? ""}
+          label="Refresh Content"
+          pendingLabel="Scraping website content"
+          disabled={!selectedLocationId}
+        />
+        {lastRefreshDate && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Last refresh: {lastRefreshDate}
+          </span>
+        )}
+      </div>
+
+      {selectedLocation?.website && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+          </svg>
+          <span>
+            Tracking:{" "}
+            <span className="font-medium text-foreground">{selectedLocation.website}</span>
+          </span>
+          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
+            Change URL
+          </a>
+        </div>
+      )}
 
       {/* Error / Success banners */}
       {error && (

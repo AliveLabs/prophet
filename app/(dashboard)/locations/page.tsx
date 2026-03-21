@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import LocationAddForm from "@/components/places/location-add-form"
 import { createLocationFromPlaceAction, deleteLocationAction, updateLocationAction } from "./actions"
@@ -211,32 +210,32 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   const error = resolvedSearchParams?.error
 
   return (
-    <section className="space-y-6">
-      <Card className="bg-card text-foreground">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">Locations</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Add a new location and keep details up to date.
-            </p>
-          </div>
+    <section className="space-y-5">
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {decodeURIComponent(error)}
         </div>
-        {error ? (
-          <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-            {decodeURIComponent(error)}
-          </p>
-        ) : null}
-        <div className="mt-6">
+      ) : null}
+
+      {/* Add Location */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Add Location</span>
+        </div>
+        <div className="p-5">
           <LocationAddForm
             organizationId={organizationId}
             action={createLocationFromPlaceAction}
             buttonLabel="Add location"
           />
         </div>
-      </Card>
+      </div>
 
-      <Card className="bg-card text-foreground">
-        <h2 className="text-lg font-semibold">Current locations</h2>
+      {/* Current Locations */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Current Locations</span>
+        </div>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           {locations && locations.length > 0 ? (
             locations.map((location) => {
@@ -462,7 +461,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
             <p>No locations yet. Add your first location above.</p>
           )}
         </div>
-      </Card>
+      </div>
     </section>
   )
 }

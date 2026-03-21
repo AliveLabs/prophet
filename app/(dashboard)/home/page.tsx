@@ -2,36 +2,45 @@ import Link from "next/link"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import { fetchHomePageData } from "@/lib/cache/home"
 import { computeRelevanceScore } from "@/lib/insights/scoring"
+import IntelligenceBrief from "@/components/home/intelligence-brief"
+import MetricCards from "@/components/home/metric-cards"
+import ActivityFeed from "@/components/home/activity-feed"
+import CompetitorWatch from "@/components/home/competitor-watch"
 import HomeChartsSection from "./home-charts-section"
 
-const SEVERITY_COLORS: Record<string, string> = {
-  critical: "border-destructive/30 bg-destructive/10 text-destructive",
-  warning: "border-signal-gold/30 bg-signal-gold/10 text-signal-gold",
-  info: "border-primary/30 bg-primary/10 text-primary",
-  positive: "border-precision-teal/30 bg-precision-teal/10 text-precision-teal",
+const TYPE_MAP: Record<string, { badge: string; type: string }> = {
+  competitor_rating_change: { badge: "Review", type: "review" },
+  competitor_review_growth: { badge: "Review", type: "review" },
+  competitor_sentiment: { badge: "Review", type: "review" },
+  social_engagement: { badge: "Social", type: "social" },
+  social_followers: { badge: "Social", type: "social" },
+  social_visual: { badge: "Social", type: "social" },
+  weather_impact: { badge: "Weather", type: "weather" },
+  traffic_peak: { badge: "Traffic", type: "traffic" },
+  visibility_ranking: { badge: "Visibility", type: "visibility" },
+  menu_change: { badge: "Menu", type: "menu" },
+  pricing_change: { badge: "Pricing", type: "pricing" },
 }
 
-const SEVERITY_ICONS: Record<string, string> = {
-  critical: "text-destructive",
-  warning: "text-signal-gold",
-  info: "text-primary",
-  positive: "text-precision-teal",
+const IMPACT_FROM_SEVERITY: Record<string, "high" | "medium" | "low"> = {
+  critical: "high",
+  warning: "medium",
+  info: "low",
+  positive: "low",
 }
 
-const PIPELINE_LABELS: Record<string, { label: string; href: string }> = {
-  content: { label: "Content", href: "/content" },
-  visibility: { label: "Visibility", href: "/visibility" },
-  events: { label: "Events", href: "/events" },
-  insights: { label: "Insights", href: "/insights" },
-  photos: { label: "Photos", href: "/photos" },
-  busy_times: { label: "Busy Times", href: "/traffic" },
-  weather: { label: "Weather", href: "/weather" },
-  social: { label: "Social", href: "/social" },
-}
+const COMP_COLORS = [
+  "bg-primary/[0.18] text-vatic-indigo-soft",
+  "bg-signal-gold/[0.15] text-signal-gold",
+  "bg-precision-teal/[0.14] text-precision-teal",
+  "bg-destructive/[0.13] text-destructive",
+  "bg-muted-violet/[0.18] text-muted-violet",
+]
+
+const BAR_COLOR_KEYS = ["indigo", "gold", "teal", "red", "muted"]
 
 export default async function HomePage() {
   const user = await requireUser()
@@ -52,76 +61,168 @@ export default async function HomePage() {
   const hasLocations = cached.locationCount > 0
   const hasCompetitors = cached.competitorCount > 0
   const hasInsights = cached.insightCount > 0
-
-  const jobsByType = new Map<string, { status: string; updatedAt: string }>()
-  for (const job of cached.recentJobs) {
-    const existing = jobsByType.get(job.job_type)
-    if (!existing || job.updated_at > existing.updatedAt) {
-      jobsByType.set(job.job_type, {
-        status: job.status,
-        updatedAt: job.updated_at,
-      })
-    }
-  }
-
   const isNewUser = !hasCompetitors && !hasInsights
 
-  // -------------------------------------------------------------------------
-  // Top 5 Priority Actions: score + rank all non-dismissed insights
-  // -------------------------------------------------------------------------
   const scoredInsights = cached.recentInsights
     .map((ins) => ({
       ...ins,
       score: computeRelevanceScore(ins.severity, ins.confidence),
     }))
     .sort((a, b) => b.score - a.score)
+    .slice(0, 20)
+
+  // Build brief text from top insight
+  const topInsight = scoredInsights[0]
+  const briefText = topInsight
+    ? `<em>${topInsight.title}</em> — ${topInsight.summary}`
+    : undefined
+  const topRec = topInsight
+    ? ((topInsight.recommendations ?? []) as Array<{ title?: string; rationale?: string }>)[0]
+    : undefined
+
+  // Signal pills from insight categories
+  const typeCounts = new Map<string, number>()
+  for (const ins of scoredInsights.slice(0, 10)) {
+    const t = ins.insight_type
+    typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1)
+  }
+  const signalPills = Array.from(typeCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([type, count]) => {
+      const tm = TYPE_MAP[type]
+      const label = `${tm?.badge ?? type} · ${count} signal${count !== 1 ? "s" : ""}`
+      const color: "gold" | "teal" | "indigo" =
+        tm?.type === "review" || tm?.type === "pricing" || tm?.type === "traffic"
+          ? "gold"
+          : tm?.type === "weather" || tm?.type === "visibility"
+            ? "teal"
+            : "indigo"
+      return { label, color }
+    })
+
+  // Build activity feed items from insights
+  const feedItems = scoredInsights.slice(0, 10).map((ins, idx) => {
+    const tm = TYPE_MAP[ins.insight_type] ?? { badge: "Signal", type: "social" }
+    const recs = (ins.recommendations ?? []) as Array<{ title?: string; rationale?: string }>
+    return {
+      id: ins.id,
+      competitorName: ins.competitor_id ? `Competitor` : "Your Location",
+      initials: ins.competitor_id ? "C" + ((idx % 5) + 1) : "YL",
+      colorClass: COMP_COLORS[idx % COMP_COLORS.length],
+      type: tm.type,
+      typeBadge: tm.badge,
+      description: `<strong>${ins.title}</strong>. ${ins.summary}`,
+      impact: IMPACT_FROM_SEVERITY[ins.severity ?? "info"] ?? ("low" as const),
+      recommendation: recs[0]?.title
+        ? `<strong>${recs[0].title}</strong>${recs[0].rationale ? " — " + recs[0].rationale : ""}`
+        : undefined,
+      timeAgo: formatRelativeTime(ins.created_at),
+    }
+  })
+
+  // Build competitor watch from insight frequency
+  const compSignals = new Map<string, number>()
+  for (const ins of cached.recentInsights) {
+    if (ins.competitor_id) {
+      compSignals.set(ins.competitor_id, (compSignals.get(ins.competitor_id) ?? 0) + 1)
+    }
+  }
+  const competitorWatchItems = Array.from(compSignals.entries())
+    .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
+    .map(([, count], idx) => ({
+      name: `Competitor ${idx + 1}`,
+      changePercent: Math.round((count / Math.max(cached.recentInsights.length, 1)) * 100),
+      changeDir: "up" as const,
+      barPercent: Math.min(100, Math.round((count / 10) * 100)),
+      barColor: BAR_COLOR_KEYS[idx % BAR_COLOR_KEYS.length],
+      signalCount: count,
+      summary: "Active signals this week",
+    }))
+
+  // Trending topics
+  const trendingPills = signalPills.map((p) => ({
+    label: p.label.split(" · ")[0],
+    color: p.color,
+  }))
+
+  // Today's new insights count
+  const today = new Date().toISOString().split("T")[0]
+  const todayCount = cached.recentInsights.filter(
+    (i) => i.created_at.startsWith(today)
+  ).length
+  const yesterdayCount = cached.recentInsights.filter((i) => {
+    const d = new Date(i.created_at)
+    d.setDate(d.getDate() + 1)
+    return d.toISOString().split("T")[0] === today
+  }).length
+
+  // KPI metrics
+  const metrics = [
+    {
+      label: "Nearby Competitors",
+      value: cached.competitorCount,
+      colorClass: "text-vatic-indigo-soft",
+      delta: cached.competitorCount > 0 ? `${cached.competitorCount} tracked` : undefined,
+      deltaType: "up" as const,
+      icon: (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <circle cx="4" cy="4.5" r="2.5" />
+          <circle cx="9" cy="4.5" r="2.5" />
+          <path d="M0.5 10.5 C0.5 8.5 2 7.5 4 7.5" />
+        </svg>
+      ),
+    },
+    {
+      label: "Active Alerts",
+      value: cached.recentInsights.filter((i) => i.severity === "critical" || i.severity === "warning").length,
+      colorClass: "text-signal-gold",
+      delta: "need your attention",
+      deltaType: "warn" as const,
+      icon: (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <path d="M6 1 C3.2 1 1 3.2 1 6 C1 8.8 3.2 11 6 11 C8.8 11 11 8.8 11 6 C11 3.2 8.8 1 6 1Z" />
+          <path d="M6 3.5 L6 6.5M6 8 L6 8.2" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "New Signals Today",
+      value: todayCount,
+      delta: todayCount > yesterdayCount
+        ? `+${todayCount - yesterdayCount} from yesterday`
+        : todayCount < yesterdayCount
+          ? `${yesterdayCount - todayCount} fewer than yesterday`
+          : "same as yesterday",
+      deltaType: todayCount >= yesterdayCount ? ("up" as const) : ("down" as const),
+      icon: (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <polyline points="1,10 3.5,6.5 6,8 8.5,3.5 11,1.5" />
+        </svg>
+      ),
+    },
+    {
+      label: "Top Threat",
+      value: 0,
+      valueName: competitorWatchItems[0]?.name ?? "None",
+      colorClass: competitorWatchItems.length > 0 ? "text-destructive" : "text-muted-foreground",
+      delta: competitorWatchItems[0]
+        ? `${competitorWatchItems[0].signalCount} signals this week`
+        : "No competitor activity",
+      deltaType: competitorWatchItems.length > 0 ? ("down" as const) : ("flat" as const),
+      icon: (
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4">
+          <polyline points="1,9.5 3,6.5 6,8 11,2" />
+          <path d="M8 2 L11 2 L11 5" />
+        </svg>
+      ),
+    },
+  ]
 
   return (
-    <section className="space-y-6">
-      {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-vatic-indigo-soft to-precision-teal p-6 text-white shadow-xl shadow-card-sm">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-        <div className="relative">
-          <h1 className="text-xl font-display font-bold tracking-tight">Dashboard</h1>
-          <p className="mt-1 max-w-lg text-sm text-white/70">
-            Your competitive intelligence overview. Track competitors, monitor signals, and generate actionable insights.
-          </p>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card">
-          <p className="text-xs font-medium text-muted-foreground">Locations</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{cached.locationCount}</p>
-          <Link href="/locations" className="mt-1 text-[11px] text-primary hover:underline">
-            Manage locations
-          </Link>
-        </Card>
-        <Card className="bg-card">
-          <p className="text-xs font-medium text-muted-foreground">Competitors Tracked</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{cached.competitorCount}</p>
-          <Link href="/competitors" className="mt-1 text-[11px] text-primary hover:underline">
-            View competitors
-          </Link>
-        </Card>
-        <Card className="bg-card">
-          <p className="text-xs font-medium text-muted-foreground">Total Insights</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{cached.insightCount}</p>
-          <Link href="/insights" className="mt-1 text-[11px] text-primary hover:underline">
-            View insights
-          </Link>
-        </Card>
-        <Card className="bg-card">
-          <p className="text-xs font-medium text-muted-foreground">Signal Sources</p>
-          <p className="mt-2 text-3xl font-bold text-foreground">{jobsByType.size}</p>
-          <p className="mt-1 text-[11px] text-muted-foreground">pipelines with data</p>
-        </Card>
-      </div>
-
-      {/* Onboarding Checklist (only for new users) */}
+    <section className="space-y-5">
+      {/* Onboarding checklist for new users */}
       {isNewUser && (
         <Card className="border-primary/30 bg-primary/10">
           <h2 className="text-sm font-bold text-foreground">Getting Started</h2>
@@ -136,150 +237,50 @@ export default async function HomePage() {
         </Card>
       )}
 
+      {/* Intelligence Brief */}
+      <IntelligenceBrief
+        briefText={briefText}
+        recommendedAction={topRec?.title ? `<strong>${topRec.title}</strong>${topRec.rationale ? " " + topRec.rationale : ""}` : undefined}
+        signalPills={signalPills}
+        updatedAgo={scoredInsights[0] ? formatRelativeTime(scoredInsights[0].created_at) : "never"}
+      />
+
+      {/* KPI Metric Cards */}
+      <MetricCards metrics={metrics} />
+
       {/* Quick Actions */}
       {defaultLocationId && hasCompetitors && (
-        <Card className="bg-card">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Quick Actions</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Refresh all data or generate insights for{" "}
-                <span className="font-medium">{cached.locations[0]?.name ?? "your location"}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <JobRefreshButton
-                type="refresh_all"
-                locationId={defaultLocationId}
-                label="Refresh All Data"
-                pendingLabel="Refreshing all data pipelines"
-                className="!bg-primary !text-white hover:!bg-primary/90"
-              />
-              <JobRefreshButton
-                type="insights"
-                locationId={defaultLocationId}
-                label="Generate Insights"
-                pendingLabel="Generating insights"
-              />
-            </div>
-          </div>
-        </Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <JobRefreshButton
+            type="refresh_all"
+            locationId={defaultLocationId}
+            label="Refresh All Data"
+            pendingLabel="Refreshing all data pipelines"
+          />
+          <JobRefreshButton
+            type="insights"
+            locationId={defaultLocationId}
+            label="Generate Insights"
+            pendingLabel="Generating insights"
+          />
+        </div>
       )}
 
-      {/* ================================================================= */}
-      {/* TOP 5 PRIORITY ACTIONS                                            */}
-      {/* ================================================================= */}
-      {scoredInsights.length > 0 && (
-        <Card className="bg-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-foreground">Top Priority Actions</h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                The highest-impact things you should address right now
-              </p>
-            </div>
-            <Link
-              href="/insights"
-              className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary"
-            >
-              View all
-            </Link>
-          </div>
-          <div className="mt-4 space-y-3">
-            {scoredInsights.map((insight, idx) => {
-              const recs = (insight.recommendations ?? []) as Array<{ title?: string; rationale?: string }>
-              const firstRec = recs[0]
-              return (
-                <div
-                  key={insight.id}
-                  className={`rounded-xl border px-4 py-3 ${SEVERITY_COLORS[insight.severity ?? "info"] ?? SEVERITY_COLORS.info}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-card font-bold text-xs ${SEVERITY_ICONS[insight.severity ?? "info"] ?? SEVERITY_ICONS.info}`}>
-                      {idx + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-semibold">{insight.title}</p>
-                        <Badge
-                          variant={
-                            insight.confidence === "high"
-                              ? "success"
-                              : insight.confidence === "medium"
-                                ? "warning"
-                                : "default"
-                          }
-                          className="shrink-0 text-[10px]"
-                        >
-                          {insight.confidence ?? "medium"}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 text-xs opacity-80">{insight.summary}</p>
-                      {firstRec?.title && (
-                        <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-card/60 px-2.5 py-1.5">
-                          <svg className="mt-0.5 h-3 w-3 shrink-0 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                          </svg>
-                          <span className="text-[11px] font-medium text-foreground">{firstRec.title}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </Card>
-      )}
+      {/* Two-column grid: Activity Feed + Competitor Watch */}
+      <div className="grid min-h-0 grid-cols-1 gap-5 lg:grid-cols-[1fr_350px]">
+        <ActivityFeed items={feedItems} />
+        <CompetitorWatch
+          competitors={competitorWatchItems}
+          trending={trendingPills}
+        />
+      </div>
 
-      {/* ================================================================= */}
-      {/* CHARTS ROW: Severity + Source + Trend                             */}
-      {/* ================================================================= */}
+      {/* Charts (existing) */}
       {hasInsights && (
         <HomeChartsSection allInsights={cached.allInsights} />
       )}
 
-      {/* Data Freshness */}
-      {jobsByType.size > 0 && (
-        <Card className="bg-card">
-          <h2 className="text-sm font-bold text-foreground">Data Freshness</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">Last refresh time for each pipeline</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {Object.entries(PIPELINE_LABELS).map(([type, { label, href }]) => {
-              const job = jobsByType.get(type)
-              return (
-                <Link
-                  key={type}
-                  href={href}
-                  className="flex items-center justify-between rounded-xl border border-border px-3 py-2.5 transition-colors hover:bg-secondary"
-                >
-                  <span className="text-xs font-medium text-foreground">{label}</span>
-                  {job ? (
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          job.status === "completed"
-                            ? "bg-precision-teal"
-                            : job.status === "running"
-                              ? "bg-signal-gold"
-                              : "bg-destructive"
-                        }`}
-                      />
-                      <span className="text-[10px] text-muted-foreground">
-                        {formatRelativeTime(job.updatedAt)}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">No data</span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </Card>
-      )}
-
-      {/* Empty state when no insights */}
+      {/* Empty state */}
       {!hasInsights && hasCompetitors && (
         <Card className="border-dashed bg-card py-8 text-center">
           <svg
