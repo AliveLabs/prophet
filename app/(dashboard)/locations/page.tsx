@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import LocationAddForm from "@/components/places/location-add-form"
 import { createLocationFromPlaceAction, deleteLocationAction, updateLocationAction } from "./actions"
@@ -67,7 +66,7 @@ const formatTemperature = (weather: WeatherSnapshot | null) => {
 
 const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
   if (!weather) {
-    return <span className="text-slate-400">Weather unavailable</span>
+    return <span className="text-muted-foreground">Weather unavailable</span>
   }
   return (
     <div className="flex items-center gap-3">
@@ -75,10 +74,10 @@ const renderWeatherSummary = (weather: WeatherSnapshot | null) => {
         // eslint-disable-next-line @next/next/no-img-element
         <img src={weather.iconUrl} alt={weather.condition ?? "Weather"} className="h-8 w-8" />
       ) : null}
-      <div className="text-xs text-slate-600">
-        <p className="text-sm font-semibold text-slate-800">{formatTemperature(weather)}</p>
+      <div className="text-xs text-muted-foreground">
+        <p className="text-sm font-semibold text-foreground">{formatTemperature(weather)}</p>
         <p>{weather.condition ?? "Conditions unavailable"}</p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-muted-foreground">
           {typeof weather.humidity === "number" ? `Humidity ${weather.humidity}%` : "Humidity —"}
           {typeof weather.windSpeed === "number" && weather.windUnit
             ? ` • Wind ${Math.round(weather.windSpeed)} ${weather.windUnit}`
@@ -211,33 +210,33 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   const error = resolvedSearchParams?.error
 
   return (
-    <section className="space-y-6">
-      <Card className="bg-white text-slate-900">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">Locations</h1>
-            <p className="mt-2 text-sm text-slate-600">
-              Add a new location and keep details up to date.
-            </p>
-          </div>
+    <section className="space-y-5">
+      {error ? (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {decodeURIComponent(error)}
         </div>
-        {error ? (
-          <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            {decodeURIComponent(error)}
-          </p>
-        ) : null}
-        <div className="mt-6">
+      ) : null}
+
+      {/* Add Location */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Add Location</span>
+        </div>
+        <div className="p-5">
           <LocationAddForm
             organizationId={organizationId}
             action={createLocationFromPlaceAction}
             buttonLabel="Add location"
           />
         </div>
-      </Card>
+      </div>
 
-      <Card className="bg-white text-slate-900">
-        <h2 className="text-lg font-semibold">Current locations</h2>
-        <div className="mt-4 space-y-3 text-sm text-slate-600">
+      {/* Current Locations */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Current Locations</span>
+        </div>
+        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           {locations && locations.length > 0 ? (
             locations.map((location) => {
               const placeDetails = placeProfileMap.get(location.id)
@@ -260,36 +259,36 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
               return (
                 <div
                   key={location.id}
-                  className="rounded-2xl border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-white px-5 py-4 shadow-sm"
+                  className="rounded-2xl border border-border bg-gradient-to-r from-card via-secondary to-card px-5 py-4 shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="text-lg font-semibold text-slate-900">
+                      <p className="text-lg font-semibold text-foreground">
                         {placeDetails?.displayName?.text ?? location.name}
                       </p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-muted-foreground">
                         {placeDetails?.primaryType ?? "Location"} •{" "}
                         {location.city ?? "—"}, {location.region ?? "—"}{" "}
                         {location.country ?? ""}
                       </p>
                       {address ? (
-                        <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                        <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                           <IconMapPin /> {address}
                         </p>
                       ) : null}
                       <div className="mt-3 flex flex-wrap gap-2 text-xs">
                         {typeof rating === "number" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-signal-gold/10 px-2.5 py-1 text-signal-gold">
                             <IconStar /> {rating}
                           </span>
                         ) : null}
                         {typeof reviewCount === "number" ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-sky-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-primary">
                             <IconChat /> {reviewCount} reviews
                           </span>
                         ) : null}
                         {phone ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2.5 py-1 text-violet-700">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-vatic-indigo-soft/10 px-2.5 py-1 text-vatic-indigo-soft">
                             <IconPhone /> {phone}
                           </span>
                         ) : null}
@@ -298,7 +297,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                             href={website}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700"
+                            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-primary"
                           >
                             <IconGlobe /> Website
                           </a>
@@ -311,8 +310,8 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${
                                 contentInfo.menuItemCount > 0
-                                  ? "bg-green-50 text-green-700"
-                                  : "bg-slate-100 text-slate-500"
+                                  ? "bg-precision-teal/10 text-precision-teal"
+                                  : "bg-secondary text-muted-foreground"
                               }`}
                             >
                               {contentInfo.menuItemCount > 0 ? (
@@ -327,19 +326,19 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                               )}
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-600">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-signal-gold/10 px-2.5 py-1 text-signal-gold">
                               Needs content refresh
                             </span>
                           )}
                           {contentInfo.lastScrapedAt && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2.5 py-1 text-slate-500">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
                               Scraped {contentInfo.lastScrapedAt}
                             </span>
                           )}
                         </div>
                       )}
-                      <div className="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-                        <p className="mb-2 text-sm font-semibold text-slate-700">
+                      <div className="mt-3 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+                        <p className="mb-2 text-sm font-semibold text-foreground">
                           Local weather
                         </p>
                         {renderWeatherSummary(weather)}
@@ -347,7 +346,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     </div>
                     <div className="flex w-full flex-col items-start gap-3 sm:w-auto">
                       {contentInfo?.screenshotUrl && (
-                        <div className="overflow-hidden rounded-xl border border-slate-200 w-full sm:w-48">
+                        <div className="overflow-hidden rounded-xl border border-border w-full sm:w-48">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={contentInfo.screenshotUrl}
@@ -374,8 +373,8 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     </div>
                   </div>
                   {hours.length > 0 ? (
-                    <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-                      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+                      <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
                         <IconClock /> Operating hours
                       </p>
                       <div className="grid gap-1">
@@ -386,17 +385,17 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     </div>
                   ) : null}
                   {reviews.length > 0 ? (
-                    <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600">
-                      <p className="mb-2 text-sm font-semibold text-slate-700">
+                    <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-xs text-muted-foreground">
+                      <p className="mb-2 text-sm font-semibold text-foreground">
                         Recent reviews
                       </p>
                       <div className="space-y-2">
                         {reviews.slice(0, 2).map((review, index) => (
                           <div key={`${location.id}-review-${index}`}>
-                            <p className="text-slate-700">
+                            <p className="text-foreground">
                               {review?.text?.text ?? "Review text unavailable."}
                             </p>
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
                               {review?.authorAttribution?.displayName ?? "Google user"} •{" "}
                               {review?.relativePublishTimeDescription ?? "recent"} •{" "}
                               {review?.rating ? `Rating ${review.rating}` : "Rating n/a"}
@@ -407,31 +406,31 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                     </div>
                   ) : null}
                 <details className="mt-3">
-                  <summary className="cursor-pointer text-xs font-semibold text-slate-500">
+                  <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">
                     Edit details
                   </summary>
                   <form action={updateLocationAction} className="mt-3 grid gap-3">
                     <input type="hidden" name="location_id" value={location.id} />
                     <div className="grid gap-2">
-                      <label className="text-xs font-semibold text-slate-500">Name</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Name</label>
                       <input
                         name="name"
                         defaultValue={placeDetails?.displayName?.text ?? location.name ?? ""}
-                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                        className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground"
                       />
                     </div>
                     <div className="grid gap-2">
-                      <label className="text-xs font-semibold text-slate-500">
+                      <label className="text-xs font-semibold text-muted-foreground">
                         Address line 1
                       </label>
                       <input
                         name="address_line1"
                         defaultValue={address ?? ""}
-                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                        className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground"
                       />
                     </div>
                     <div className="grid gap-2">
-                      <label className="text-xs font-semibold text-slate-500">
+                      <label className="text-xs font-semibold text-muted-foreground">
                         Website URL
                       </label>
                       <input
@@ -439,14 +438,14 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
                         type="url"
                         defaultValue={location.website ?? website ?? ""}
                         placeholder="https://example.com/your-branch-page"
-                        className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-900"
+                        className="h-10 rounded-lg border border-border bg-card px-3 text-sm text-foreground"
                       />
                       {website && location.website !== website && (
-                        <p className="text-[11px] text-slate-400">
-                          Google Places detected: <span className="font-medium text-slate-500">{website}</span>
+                        <p className="text-[11px] text-muted-foreground">
+                          Google Places detected: <span className="font-medium text-muted-foreground">{website}</span>
                         </p>
                       )}
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-muted-foreground">
                         Override with a branch-specific URL for Content &amp; Visibility tracking.
                       </p>
                     </div>
@@ -462,7 +461,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
             <p>No locations yet. Add your first location above.</p>
           )}
         </div>
-      </Card>
+      </div>
     </section>
   )
 }

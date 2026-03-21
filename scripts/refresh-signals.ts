@@ -19,7 +19,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 })
 
 async function main() {
-  console.log("=== Prophet Signal Refresh ===\n")
+  console.log("=== Vatic Signal Refresh ===\n")
 
   // 1. Get all locations
   const { data: locations, error: locErr } = await supabase

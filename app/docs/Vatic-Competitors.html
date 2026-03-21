@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vatic — My Competitors</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — Vatic Brand System
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --midnight:       #0C0825;
+  --near-black:     #1C1840;
+  --deep-violet:    #4D4975;
+  --muted-violet:   #8883AA;
+  --vatic-indigo:   #5A3FFF;
+  --deep-indigo:    #3620D4;
+  --pale-lavender:  #F0EDFF;
+  --warm-white:     #FAFAF9;
+  --signal-gold:    #F2A11E;
+  --precision-teal: #00BFA6;
+  --alert-red:      #FF4757;
+  --indigo-soft:    #9B87FF;
+
+  --gold-dim:       rgba(242,161, 30,0.14);
+  --teal-dim:       rgba(  0,191,166,0.12);
+  --red-dim:        rgba(255, 71, 87,0.12);
+  --indigo-dim:     rgba( 90, 63,255,0.12);
+
+  --border:         rgba(255,255,255,0.07);
+  --border-indigo:  rgba( 90, 63,255,0.28);
+  --surface-1:      var(--near-black);
+  --white-4:        rgba(255,255,255,0.04);
+  --white-7:        rgba(255,255,255,0.07);
+  --white-10:       rgba(255,255,255,0.10);
+
+  --text-1:         var(--warm-white);
+  --text-2:         var(--muted-violet);
+  --text-3:         var(--deep-violet);
+
+  --font-display:   'Cormorant Garamond', Georgia, serif;
+  --font-ui:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --s1:  4px;  --s2:  8px;   --s3: 12px;  --s4: 16px;
+  --s5: 20px;  --s6: 24px;   --s8: 32px;  --s10: 40px;  --s12: 48px;
+
+  --r-sm: 6px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 18px;
+
+  --ease-fast:   150ms ease;
+  --ease-normal: 250ms ease;
+  --ease-slow:   400ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--midnight);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: var(--font-ui); cursor: pointer; border: none; background: none; color: inherit; }
+input { font-family: var(--font-ui); }
+
+/* ═══════════════════════════════════════════════════════════
+   STICKY NAV
+   ═══════════════════════════════════════════════════════════ */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s3) var(--s4);
+  background: rgba(12,8,37,0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: var(--s2);
+}
+
+.nav-back {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-sm);
+  transition: color var(--ease-fast), background var(--ease-fast);
+  flex: 1;
+}
+.nav-back:hover { color: var(--text-1); background: var(--white-7); }
+.nav-back svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+.nav-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: 0.01em;
+  text-align: center;
+  flex: 1;
+  white-space: nowrap;
+}
+
+.nav-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1;
+}
+
+.btn-track {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 6px 12px;
+  background: var(--vatic-indigo);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.03em;
+  transition: background var(--ease-fast), transform var(--ease-fast);
+  white-space: nowrap;
+}
+.btn-track:hover  { background: var(--deep-indigo); }
+.btn-track:active { transform: scale(0.96); }
+
+/* ═══════════════════════════════════════════════════════════
+   SCROLLABLE CONTENT
+   ═══════════════════════════════════════════════════════════ */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 78px);
+}
+.content::-webkit-scrollbar { width: 4px; }
+.content::-webkit-scrollbar-track { background: transparent; }
+.content::-webkit-scrollbar-thumb { background: var(--white-10); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════════════════
+   LOCATION CONTEXT BANNER
+   ═══════════════════════════════════════════════════════════ */
+.location-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--border);
+  background: var(--white-4);
+}
+
+.location-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.location-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+.week-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: rgba(90,63,255,0.10);
+  border: 1px solid rgba(90,63,255,0.18);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--indigo-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.week-chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--vatic-indigo);
+  opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SEARCH BAR
+   ═══════════════════════════════════════════════════════════ */
+.search-wrap {
+  padding: var(--s4) var(--s4) var(--s2);
+}
+
+.search-field {
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: var(--s3);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.search-input {
+  width: 100%;
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 10px var(--s3) 10px calc(var(--s3) + 18px + var(--s2));
+  font-size: 14px;
+  color: var(--text-1);
+  outline: none;
+  transition: border-color var(--ease-normal);
+}
+.search-input::placeholder { color: var(--text-3); }
+.search-input:focus { border-color: var(--border-indigo); }
+
+/* ═══════════════════════════════════════════════════════════
+   SORT TABS
+   ═══════════════════════════════════════════════════════════ */
+.sort-strip {
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s2) var(--s4) var(--s3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.sort-strip::-webkit-scrollbar { display: none; }
+
+.sort-tab {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  transition: all var(--ease-fast);
+  letter-spacing: 0.02em;
+}
+.sort-tab:hover { color: var(--text-1); background: var(--white-7); }
+.sort-tab.active {
+  color: var(--indigo-soft);
+  background: rgba(90,63,255,0.14);
+  border-color: rgba(90,63,255,0.30);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SECTION HEADER
+   ═══════════════════════════════════════════════════════════ */
+.section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 var(--s4) var(--s3);
+}
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.section-count {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPETITOR LIST
+   ═══════════════════════════════════════════════════════════ */
+.comp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: 0 var(--s4);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPETITOR CARD
+   ═══════════════════════════════════════════════════════════ */
+.comp-card {
+  display: flex;
+  align-items: stretch;
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  /* Entry animation start state */
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+.comp-card.in {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Hover / active on top of transition */
+.comp-card:hover  { background: rgba(28,24,64,0.95); border-color: var(--white-10); }
+.comp-card:active { transform: scale(0.985) translateY(0); }
+
+/* Severity left stripe */
+.comp-stripe {
+  width: 4px;
+  flex-shrink: 0;
+  transition: opacity var(--ease-normal);
+}
+.comp-stripe.critical { background: var(--alert-red); }
+.comp-stripe.warning  { background: var(--signal-gold); }
+.comp-stripe.info     { background: var(--muted-violet); opacity: 0.4; }
+
+/* Card body */
+.comp-body {
+  flex: 1;
+  min-width: 0;
+  padding: var(--s4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+/* Row 1: name + signal count badge */
+.comp-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.comp-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.15;
+  letter-spacing: 0.01em;
+}
+
+.comp-badge {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.comp-badge.critical { color: var(--alert-red);   background: var(--red-dim);  }
+.comp-badge.warning  { color: var(--signal-gold);  background: var(--gold-dim); }
+.comp-badge.info     { color: var(--muted-violet); background: var(--white-4);  }
+
+.comp-badge-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Row 2: category · distance · rating */
+.comp-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap;
+}
+.comp-meta-item {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.comp-meta-dot {
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--deep-violet);
+  flex-shrink: 0;
+}
+.comp-rating {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.comp-rating-star { color: var(--signal-gold); font-size: 11px; }
+.comp-review-ct   { color: var(--text-3); }
+
+/* Row 3: top signal */
+.comp-signal {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+}
+.comp-signal-type {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.comp-signal-info { flex: 1; min-width: 0; }
+.comp-signal-headline {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.comp-signal-date {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* Arrow */
+.comp-arrow {
+  display: flex;
+  align-items: center;
+  padding: var(--s4) var(--s3) var(--s4) 0;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: color var(--ease-fast);
+}
+.comp-card:hover .comp-arrow { color: var(--text-2); }
+
+/* ═══════════════════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════════════════ */
+.empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s12) var(--s4) var(--s10);
+  text-align: center;
+}
+.empty-state.show { display: flex; }
+.empty-icon  { font-size: 36px; opacity: 0.4; }
+.empty-title { font-size: 15px; font-weight: 500; color: var(--text-2); }
+.empty-sub   { font-size: 13px; color: var(--text-3); }
+
+/* ═══════════════════════════════════════════════════════════
+   ADD COMPETITOR CARD
+   ═══════════════════════════════════════════════════════════ */
+.add-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s4);
+  background: transparent;
+  border: 1.5px dashed rgba(90,63,255,0.22);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: border-color var(--ease-normal), background var(--ease-normal);
+}
+.add-card:hover {
+  border-color: rgba(90,63,255,0.48);
+  background: rgba(90,63,255,0.05);
+}
+.add-card:active { transform: scale(0.98); }
+
+.add-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(90,63,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.add-icon svg { color: var(--indigo-soft); }
+
+.add-text {}
+.add-label { font-size: 14px; font-weight: 500; color: var(--indigo-soft); }
+.add-sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+/* ═══════════════════════════════════════════════════════════
+   COVERAGE FOOTER
+   ═══════════════════════════════════════════════════════════ */
+.coverage-footer {
+  padding: var(--s5) var(--s4) var(--s4);
+}
+
+.coverage-inner {
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--s4) var(--s5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s4);
+}
+
+.coverage-stats {
+  display: flex;
+  gap: var(--s5);
+}
+.cov-stat-val {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1;
+}
+.cov-stat-label {
+  font-size: 10px;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.coverage-live {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.live-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--precision-teal);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0   rgba(0,191,166,0.5); }
+  50%       { box-shadow: 0 0 0 5px rgba(0,191,166,0);   }
+}
+.live-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--precision-teal);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.coverage-refresh {
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM NAV
+   ═══════════════════════════════════════════════════════════ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  display: flex;
+  background: rgba(12,8,37,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  padding: var(--s2) var(--s2) calc(var(--s2) + env(safe-area-inset-bottom));
+}
+
+.bn-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: var(--s2) var(--s1);
+  border-radius: var(--r-sm);
+  color: var(--text-3);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  transition: color var(--ease-fast), background var(--ease-fast);
+  position: relative;
+}
+.bn-item:hover  { color: var(--text-2); background: var(--white-4); }
+.bn-item.active { color: var(--indigo-soft); }
+
+.bn-icon {
+  width: 22px;
+  height: 22px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bn-badge {
+  position: absolute;
+  top: -3px; right: -7px;
+  background: var(--alert-red);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 1px 4px;
+  min-width: 14px;
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════ */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.animate-in {
+  animation: fade-up 300ms ease both;
+}
+
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     STICKY NAV
+     ════════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <a href="Vatic-Dashboard.html" class="nav-back" aria-label="Back to dashboard">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 3L5 8l5 5"/>
+    </svg>
+    Dashboard
+  </a>
+
+  <span class="nav-title">My Competitors</span>
+
+  <div class="nav-action">
+    <button class="btn-track" aria-label="Track a new competitor">
+      + Track
+    </button>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════
+     SCROLLABLE CONTENT
+     ════════════════════════════════════════════════════════ -->
+<div class="content">
+
+  <!-- Location context banner -->
+  <div class="location-banner animate-in">
+    <div>
+      <div class="location-name">Wicker Park, Chicago</div>
+      <div class="location-sub">Your location · 5 competitors nearby</div>
+    </div>
+    <div class="week-chip">
+      <div class="week-chip-dot" aria-hidden="true"></div>
+      Mar 3–9
+    </div>
+  </div>
+
+  <!-- Search bar -->
+  <div class="search-wrap animate-in" style="animation-delay:40ms;">
+    <div class="search-field">
+      <span class="search-icon" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="6.5" cy="6.5" r="4.5"/>
+          <path d="M10.5 10.5l2.5 2.5"/>
+        </svg>
+      </span>
+      <input
+        type="search"
+        class="search-input"
+        id="search-input"
+        placeholder="Search competitors…"
+        aria-label="Search competitors"
+        autocomplete="off"
+        spellcheck="false"
+      >
+    </div>
+  </div>
+
+  <!-- Sort tabs -->
+  <div
+    class="sort-strip animate-in"
+    role="tablist"
+    aria-label="Sort competitors"
+    style="animation-delay:70ms;"
+  >
+    <button class="sort-tab active" data-sort="threat"   role="tab" aria-selected="true">Top Threat</button>
+    <button class="sort-tab"        data-sort="alpha"    role="tab" aria-selected="false">A – Z</button>
+    <button class="sort-tab"        data-sort="activity" role="tab" aria-selected="false">Recent Activity</button>
+    <button class="sort-tab"        data-sort="distance" role="tab" aria-selected="false">Nearest</button>
+  </div>
+
+  <!-- Section header -->
+  <div class="section-header animate-in" style="animation-delay:100ms;">
+    <span class="section-label">Tracked Competitors</span>
+    <span class="section-count" id="section-count">3 of 5 nearby</span>
+  </div>
+
+  <!-- Competitor list — rendered by JS -->
+  <div class="comp-list" id="comp-list" role="list" aria-label="Competitors"></div>
+
+  <!-- Empty state (search no results) -->
+  <div class="empty-state" id="empty-state" role="status" aria-live="polite">
+    <div class="empty-icon" aria-hidden="true">🔍</div>
+    <div class="empty-title">No competitors found</div>
+    <div class="empty-sub">Try a different name or category</div>
+  </div>
+
+  <!-- Add competitor card -->
+  <div class="comp-list" style="margin-top:var(--s1);" id="add-wrap">
+    <button
+      class="add-card animate-in"
+      style="animation-delay:200ms;"
+      aria-label="Track a new competitor"
+    >
+      <div class="add-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M9 3v12M3 9h12"/>
+        </svg>
+      </div>
+      <div class="add-text">
+        <div class="add-label">Track a new competitor</div>
+        <div class="add-sub">Search by name, address, or Google Maps link</div>
+      </div>
+    </button>
+  </div>
+
+  <!-- Coverage footer -->
+  <div class="coverage-footer animate-in" style="animation-delay:240ms;">
+    <div class="coverage-inner">
+      <div class="coverage-stats">
+        <div class="cov-stat">
+          <div class="cov-stat-val">3</div>
+          <div class="cov-stat-label">Tracked</div>
+        </div>
+        <div class="cov-stat">
+          <div class="cov-stat-val">16</div>
+          <div class="cov-stat-label">Signals</div>
+        </div>
+        <div class="cov-stat">
+          <div class="cov-stat-val">6</div>
+          <div class="cov-stat-label">Sources</div>
+        </div>
+      </div>
+      <div class="coverage-live">
+        <div class="live-wrap">
+          <div class="live-dot" aria-hidden="true"></div>
+          <span class="live-label">Live</span>
+        </div>
+        <div class="coverage-refresh" id="cov-refresh">Updated 4m ago</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- ════════════════════════════════════════════════════════
+     BOTTOM NAV
+     ════════════════════════════════════════════════════════ -->
+<nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+
+  <a href="Vatic-Dashboard.html" class="bn-item" aria-label="Overview">
+    <span class="bn-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="8" height="8" rx="1.5"/>
+        <rect x="12" y="2" width="8" height="8" rx="1.5"/>
+        <rect x="2" y="12" width="8" height="8" rx="1.5"/>
+        <rect x="12" y="12" width="8" height="8" rx="1.5"/>
+      </svg>
+    </span>
+    Overview
+  </a>
+
+  <a href="Vatic-Intelligence-Brief.html" class="bn-item" aria-label="Intelligence Brief — 8 unread">
+    <span class="bn-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 6h14M4 10h10M4 14h7"/>
+      </svg>
+      <span class="bn-badge" aria-label="8 unread">8</span>
+    </span>
+    Brief
+  </a>
+
+  <a href="Vatic-Competitors.html" class="bn-item active" aria-current="page" aria-label="My Competitors">
+    <span class="bn-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="8" cy="8" r="3.5"/>
+        <circle cx="15.5" cy="6.5" r="2.5"/>
+        <path d="M2 18.5c0-3 2.5-4.5 6-4.5s6 1.5 6 4.5"/>
+        <path d="M15.5 10.5c2.2.4 4 1.8 4 4"/>
+      </svg>
+    </span>
+    Competitors
+  </a>
+
+  <a href="Vatic-Alerts.html" class="bn-item" aria-label="Alerts — 3 active">
+    <span class="bn-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 2C7.5 2 5 4.7 5 8v5l-1.5 2.5h15L17 13V8c0-3.3-2.5-6-6-6z"/>
+        <path d="M9 19a2 2 0 0 0 4 0"/>
+      </svg>
+      <span class="bn-badge" aria-label="3 alerts">3</span>
+    </span>
+    Alerts
+  </a>
+
+  <a href="Vatic-Settings.html" class="bn-item" aria-label="More options">
+    <span class="bn-icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <circle cx="5"  cy="11" r="1.5" fill="currentColor"/>
+        <circle cx="11" cy="11" r="1.5" fill="currentColor"/>
+        <circle cx="17" cy="11" r="1.5" fill="currentColor"/>
+      </svg>
+    </span>
+    More
+  </a>
+
+</nav>
+
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA
+   Mirrors Prophet's `competitors` + current-week `insights`.
+   ─────────────────────────────────────────────────────────
+   severity  → critical / warning / info  (from insights.severity)
+   signalCount → count of insights this week for this competitor
+   topSignal → the single highest-severity insight this week
+   ═══════════════════════════════════════════════════════════ */
+const COMPETITORS = [
+  {
+    id:          'rival-kitchen',
+    name:        'Rival Kitchen',
+    category:    'American Bistro',
+    distance:    0.3,
+    distLabel:   '0.3 mi',
+    rating:      4.5,
+    reviewCount: 312,
+    severity:    'critical',       /* highest insight.severity this week */
+    signalCount: 8,                /* insight count this week */
+    topSignal: {
+      type:     'menu',
+      label:    'Menu',
+      color:    '#5A3FFF',
+      bg:       'rgba(90,63,255,0.14)',
+      headline: 'Brunch prices dropped 12%',
+      date:     'Today',
+      dateSort: 0
+    },
+    activitySort: 0,               /* lower = more recent */
+    href: 'Vatic-Competitor-Detail.html'
+  },
+  {
+    id:          'fireside-grille',
+    name:        'Fireside Grille',
+    category:    'American Comfort',
+    distance:    0.5,
+    distLabel:   '0.5 mi',
+    rating:      4.3,
+    reviewCount: 187,
+    severity:    'warning',
+    signalCount: 5,
+    topSignal: {
+      type:     'events',
+      label:    'Events',
+      color:    '#F2A11E',
+      bg:       'rgba(242,161,30,0.14)',
+      headline: "St. Patrick's Day event posted",
+      date:     'Fri Mar 6',
+      dateSort: 3
+    },
+    activitySort: 1,
+    href: 'Vatic-Competitor-Detail.html'
+  },
+  {
+    id:          'the-foundry',
+    name:        'The Foundry',
+    category:    'Farm-to-Table',
+    distance:    0.7,
+    distLabel:   '0.7 mi',
+    rating:      4.6,
+    reviewCount: 428,
+    severity:    'info',
+    signalCount: 3,
+    topSignal: {
+      type:     'reviews',
+      label:    'Reviews',
+      color:    '#00BFA6',
+      bg:       'rgba(0,191,166,0.12)',
+      headline: 'Rating held at 4.6 — 9 new reviews',
+      date:     'Sun Mar 8',
+      dateSort: 1
+    },
+    activitySort: 2,
+    href: 'Vatic-Competitor-Detail.html'
+  }
+];
+
+/* ─── severity sort weights ─── */
+const SEV_WEIGHT = { critical: 0, warning: 1, info: 2 };
+
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+let currentSort   = 'threat';
+let currentSearch = '';
+
+/* ═══════════════════════════════════════════════════════════
+   SORT + FILTER
+   ═══════════════════════════════════════════════════════════ */
+function filteredSorted() {
+  let list = [...COMPETITORS];
+
+  /* Search filter — name or category */
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    list = list.filter(c =>
+      c.name.toLowerCase().includes(q) ||
+      c.category.toLowerCase().includes(q)
+    );
+  }
+
+  /* Sort */
+  switch (currentSort) {
+    case 'threat':
+      list.sort((a, b) => {
+        const diff = SEV_WEIGHT[a.severity] - SEV_WEIGHT[b.severity];
+        return diff !== 0 ? diff : b.signalCount - a.signalCount;
+      });
+      break;
+    case 'alpha':
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case 'activity':
+      list.sort((a, b) => a.activitySort - b.activitySort);
+      break;
+    case 'distance':
+      list.sort((a, b) => a.distance - b.distance);
+      break;
+  }
+
+  return list;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER
+   ═══════════════════════════════════════════════════════════ */
+function renderList() {
+  const listEl    = document.getElementById('comp-list');
+  const emptyEl   = document.getElementById('empty-state');
+  const countEl   = document.getElementById('section-count');
+  const addWrapEl = document.getElementById('add-wrap');
+  const sorted    = filteredSorted();
+
+  listEl.innerHTML = '';
+
+  if (sorted.length === 0) {
+    emptyEl.classList.add('show');
+    addWrapEl.style.display = 'none';
+    countEl.textContent = '0 results';
+    return;
+  }
+
+  emptyEl.classList.remove('show');
+  addWrapEl.style.display = '';
+  countEl.textContent = currentSearch
+    ? `${sorted.length} result${sorted.length !== 1 ? 's' : ''}`
+    : '3 of 5 nearby';
+
+  sorted.forEach((comp, i) => {
+    const card = buildCard(comp, i);
+    listEl.appendChild(card);
+    /* double rAF — triggers CSS transition after element is in DOM */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        card.classList.add('in');
+      });
+    });
+  });
+}
+
+/* ─── build a single card ─── */
+function buildCard(comp, index) {
+  const sig = comp.topSignal;
+  const sev = comp.severity;
+
+  /* Staggered transition delay based on position */
+  const delay = index * 50;
+
+  const card = document.createElement('a');
+  card.className   = 'comp-card';
+  card.href        = comp.href;
+  card.style.transitionDelay = `${delay}ms`;
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('aria-label',
+    `${comp.name}, ${sev} threat level, ${comp.signalCount} signals this week`
+  );
+
+  card.innerHTML = `
+    <div class="comp-stripe ${sev}" aria-hidden="true"></div>
+
+    <div class="comp-body">
+
+      <!-- Row 1: name + badge -->
+      <div class="comp-header">
+        <div class="comp-name">${escHtml(comp.name)}</div>
+        <div class="comp-badge ${sev}" aria-label="${comp.signalCount} signals this week">
+          <div class="comp-badge-dot" aria-hidden="true"></div>
+          ${comp.signalCount} this wk
+        </div>
+      </div>
+
+      <!-- Row 2: category · distance · rating -->
+      <div class="comp-meta">
+        <span class="comp-meta-item">${escHtml(comp.category)}</span>
+        <div class="comp-meta-dot" aria-hidden="true"></div>
+        <span class="comp-meta-item">${comp.distLabel}</span>
+        <div class="comp-meta-dot" aria-hidden="true"></div>
+        <span class="comp-rating">
+          <span class="comp-rating-star" aria-hidden="true">★</span>
+          <span>${comp.rating}</span>
+          <span class="comp-review-ct">(${comp.reviewCount.toLocaleString()})</span>
+        </span>
+      </div>
+
+      <!-- Row 3: top signal this week -->
+      <div class="comp-signal">
+        <span
+          class="comp-signal-type"
+          style="color:${sig.color}; background:${sig.bg};"
+          aria-label="${sig.label} signal"
+        >${sig.label}</span>
+        <div class="comp-signal-info">
+          <div class="comp-signal-headline">${escHtml(sig.headline)}</div>
+          <div class="comp-signal-date">${sig.date}</div>
+        </div>
+      </div>
+
+    </div><!-- /comp-body -->
+
+    <div class="comp-arrow" aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"
+           stroke="currentColor" stroke-width="1.8"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h6M7 4l3 3-3 3"/>
+      </svg>
+    </div>
+  `;
+
+  return card;
+}
+
+/* simple HTML escape */
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SORT TAB INTERACTIONS
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.sort-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sort-tab').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected', 'true');
+    currentSort = btn.dataset.sort;
+    renderList();
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   SEARCH
+   ═══════════════════════════════════════════════════════════ */
+document.getElementById('search-input').addEventListener('input', function() {
+  currentSearch = this.value.trim();
+  renderList();
+});
+
+/* ═══════════════════════════════════════════════════════════
+   LIVE REFRESH TIMESTAMP
+   ═══════════════════════════════════════════════════════════ */
+(function() {
+  const el = document.getElementById('cov-refresh');
+  let mins = 4;
+  setInterval(() => {
+    mins += 1;
+    el.textContent = `Updated ${mins}m ago`;
+  }, 60000);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+renderList();
+
+</script>
+</body>
+</html>

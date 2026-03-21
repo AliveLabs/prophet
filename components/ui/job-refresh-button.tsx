@@ -154,7 +154,7 @@ export default function JobRefreshButton({
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className={`rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed ${className ?? ""}`}
+        className={`rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed ${className ?? ""}`}
       >
         {label}
       </button>
@@ -169,14 +169,14 @@ export default function JobRefreshButton({
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -8 }}
         transition={{ duration: 0.35 }}
-        className="w-full rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/80 p-5 shadow-lg"
+        className="w-full rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 via-card to-vatic-indigo-soft/5 p-5 shadow-lg"
       >
         {/* Completion banner */}
         {job.status === "complete" && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+            className="mb-4 flex items-center gap-2 rounded-xl bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -184,7 +184,7 @@ export default function JobRefreshButton({
             <span className="font-medium">
               Done! Refreshing page...
               {job.warnings.length > 0 && (
-                <span className="ml-1 font-normal text-emerald-600">
+                <span className="ml-1 font-normal text-precision-teal">
                   ({job.warnings.length} warning{job.warnings.length !== 1 && "s"})
                 </span>
               )}
@@ -197,7 +197,7 @@ export default function JobRefreshButton({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-4 flex items-center justify-between rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700"
+            className="mb-4 flex items-center justify-between rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive"
           >
             <div className="flex items-center gap-2">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -211,7 +211,7 @@ export default function JobRefreshButton({
             </div>
             <button
               onClick={() => job.reset()}
-              className="rounded-lg bg-red-100 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-200"
+              className="rounded-lg bg-destructive/15 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/20"
             >
               Dismiss
             </button>

@@ -154,73 +154,47 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const proRatio = totalPhotos > 0 ? Math.round((professionalCount / totalPhotos) * 100) : 0
 
   return (
-    <section className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pink-600 via-rose-600 to-fuchsia-600 p-6 text-white shadow-xl shadow-pink-200/50">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold tracking-tight">Visual Intelligence</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              AI-analyzed competitor photos from Google Places for{" "}
-              <span className="font-medium text-white/90">
-                {locations?.find((l) => l.id === selectedLocationId)?.name ?? "your locations"}
-              </span>
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {locations && locations.length > 1 && selectedLocationId && (
-              <LocationFilter
-                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                selectedLocationId={selectedLocationId}
-              />
-            )}
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="photos"
-                locationId={selectedLocationId}
-                label="Scan Photos"
-                pendingLabel="Scanning competitor photos"
-                className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-              />
-            )}
-          </div>
-        </div>
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 1 && selectedLocationId && (
+          <LocationFilter
+            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+            selectedLocationId={selectedLocationId}
+          />
+        )}
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="photos"
+            locationId={selectedLocationId}
+            label="Scan Photos"
+            pendingLabel="Scanning competitor photos"
+          />
+        )}
       </div>
 
       {/* KPI Cards */}
       {totalPhotos > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-white">
-            <p className="text-xs font-medium text-slate-500">Total Photos</p>
-            <p className="mt-2 text-3xl font-bold text-slate-900">{totalPhotos}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{competitorIds.length} competitors</p>
+          <Card className="bg-card">
+            <p className="text-xs font-medium text-muted-foreground">Total Photos</p>
+            <p className="mt-2 text-3xl font-bold text-foreground">{totalPhotos}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{competitorIds.length} competitors</p>
           </Card>
-          <Card className="bg-white">
-            <p className="text-xs font-medium text-slate-500">Top Category</p>
-            <p className="mt-2 text-xl font-bold text-slate-900 capitalize">{topCategory?.[0]?.replace(/_/g, " ") ?? "N/A"}</p>
-            <p className="mt-1 text-[11px] text-slate-400">{topCategory?.[1] ?? 0} photos</p>
+          <Card className="bg-card">
+            <p className="text-xs font-medium text-muted-foreground">Top Category</p>
+            <p className="mt-2 text-xl font-bold text-foreground capitalize">{topCategory?.[0]?.replace(/_/g, " ") ?? "N/A"}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{topCategory?.[1] ?? 0} photos</p>
           </Card>
-          <Card className="bg-white">
-            <p className="text-xs font-medium text-slate-500">Promotions Detected</p>
-            <p className="mt-2 text-3xl font-bold text-rose-600">{promoCount}</p>
-            <p className="mt-1 text-[11px] text-slate-400">across all competitors</p>
+          <Card className="bg-card">
+            <p className="text-xs font-medium text-muted-foreground">Promotions Detected</p>
+            <p className="mt-2 text-3xl font-bold text-destructive">{promoCount}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">across all competitors</p>
           </Card>
-          <Card className="bg-white">
-            <p className="text-xs font-medium text-slate-500">Professional Quality</p>
-            <p className="mt-2 text-3xl font-bold text-emerald-600">{proRatio}%</p>
-            <p className="mt-1 text-[11px] text-slate-400">{professionalCount} of {totalPhotos} photos</p>
+          <Card className="bg-card">
+            <p className="text-xs font-medium text-muted-foreground">Professional Quality</p>
+            <p className="mt-2 text-3xl font-bold text-precision-teal">{proRatio}%</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{professionalCount} of {totalPhotos} photos</p>
           </Card>
         </div>
       )}
@@ -237,17 +211,17 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
 
       {/* Photo Grid */}
       {totalPhotos > 0 ? (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
           <PhotoGrid photos={photos} />
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
-          <svg className="mx-auto h-12 w-12 text-pink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+          <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
           </svg>
-          <p className="mt-3 text-sm font-medium text-slate-600">No photos analyzed yet</p>
-          <p className="mt-1 text-xs text-slate-400">Click &quot;Scan Photos&quot; to fetch and analyze competitor photos with Vision AI</p>
+          <p className="mt-3 text-sm font-medium text-muted-foreground">No photos analyzed yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Click &quot;Scan Photos&quot; to fetch and analyze competitor photos with Vision AI</p>
         </div>
       )}
     </section>

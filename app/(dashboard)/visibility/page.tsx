@@ -227,90 +227,70 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   // -----------------------------------------------------------------------
 
   return (
-    <section className="space-y-6">
-      {/* ================================================================= */}
-      {/* HEADER */}
-      {/* ================================================================= */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Search Visibility</h1>
-            <p className="mt-0.5 text-sm text-slate-500">
-              Domain overview, organic + paid search performance vs competitors.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-500">
-              {freshnessLabel}
-            </span>
-          </div>
-        </div>
-
-        {error && (
-          <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-            {decodeURIComponent(error)}
-          </p>
-        )}
-        {success && (
-          <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            {decodeURIComponent(success)}
-          </p>
-        )}
-
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <VisibilityFilters
           locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
           selectedLocationId={selectedLocationId ?? ""}
           activeTab={activeTab}
         />
-
-        {locationDomain && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-            </svg>
-            <span>
-              Tracking domain:{" "}
-              <span className="font-medium text-slate-700">{locationDomain}</span>
-              {selectedLocation?.website && (
-                <span className="ml-1 text-slate-400">({selectedLocation.website})</span>
-              )}
-            </span>
-            <a href="/locations" className="ml-auto text-indigo-600 hover:text-indigo-700 font-medium">
-              Change URL
-            </a>
-          </div>
-        )}
-
-        {/* Refresh SEO action with interactive overlay */}
         {selectedLocationId && (
-          <div className="mt-4">
-            <JobRefreshButton
-              type="visibility"
-              locationId={selectedLocationId}
-              label="Refresh SEO"
-              pendingLabel="Refreshing SEO data"
-            />
-          </div>
+          <JobRefreshButton
+            type="visibility"
+            locationId={selectedLocationId}
+            label="Refresh SEO"
+            pendingLabel="Refreshing SEO data"
+          />
         )}
+        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
+          {freshnessLabel}
+        </span>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {decodeURIComponent(error)}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
+          {decodeURIComponent(success)}
+        </div>
+      )}
+
+      {locationDomain && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+          </svg>
+          <span>
+            Tracking domain:{" "}
+            <span className="font-medium text-foreground">{locationDomain}</span>
+          </span>
+          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
+            Change URL
+          </a>
+        </div>
+      )}
 
       {/* Missing website warning */}
       {selectedLocation && !selectedLocation.website && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-xl border border-signal-gold/30 bg-signal-gold/10 px-4 py-3 text-sm text-signal-gold">
           <strong>No website configured.</strong> Click &quot;Refresh SEO&quot; to auto-resolve from Google Places, or add a website URL in{" "}
-          <a href="/locations" className="underline hover:text-amber-900">Locations</a>.
+          <a href="/locations" className="underline hover:text-signal-gold">Locations</a>.
         </div>
       )}
 
       {/* Last refreshed */}
       {lastRefreshed && (
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-precision-teal" />
           Last refreshed: {new Date(lastRefreshed + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           {locationDomain && (
-            <span className="ml-2 text-slate-400">
-              Domain: <strong className="text-slate-600">{locationDomain}</strong>
+            <span className="ml-2 text-muted-foreground">
+              Domain: <strong className="text-muted-foreground">{locationDomain}</strong>
             </span>
           )}
         </div>
@@ -356,17 +336,17 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           </div>
 
           {/* ROW 2: Historical Traffic Chart */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-semibold text-slate-900">Traffic Trends</h2>
-            <p className="mb-3 text-xs text-slate-400">Organic and paid traffic over the past 12 months.</p>
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">Traffic Trends</h2>
+            <p className="mb-3 text-xs text-muted-foreground">Organic and paid traffic over the past 12 months.</p>
             <TrafficChart data={historicalData} />
           </div>
 
           {/* ROW 3: Keywords + Organic Competitors */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Organic Keywords with tabs */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">
                 Organic Keywords ({organicKeywords.toLocaleString()})
               </h2>
               <KeywordTabs
@@ -379,15 +359,15 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
 
             {/* Organic Competitors */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">
                 Organic Competitors ({organicCompetitors.length})
               </h2>
               {organicCompetitors.length > 0 ? (
                 <div className="max-h-[400px] overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="border-b border-slate-100 text-slate-400">
+                    <thead className="sticky top-0 bg-card">
+                      <tr className="border-b border-border text-muted-foreground">
                         <th className="py-2 pr-3 font-medium">Domain</th>
                         <th className="py-2 pr-3 font-medium">Overlap</th>
                         <th className="py-2 pr-3 font-medium">Keywords</th>
@@ -399,23 +379,23 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                         const maxOverlap = Math.max(...organicCompetitors.map((c) => c.intersections), 1)
                         const overlapPct = Math.round((comp.intersections / maxOverlap) * 100)
                         return (
-                          <tr key={comp.domain} className="border-b border-slate-50 hover:bg-slate-50/50">
-                            <td className="max-w-[140px] truncate py-2 pr-3 font-medium text-indigo-600">
+                          <tr key={comp.domain} className="border-b border-border hover:bg-secondary/50">
+                            <td className="max-w-[140px] truncate py-2 pr-3 font-medium text-primary">
                               {comp.domain}
                             </td>
                             <td className="py-2 pr-3">
                               <div className="flex items-center gap-1.5">
-                                <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-100">
+                                <div className="h-2 w-16 overflow-hidden rounded-full bg-secondary">
                                   <div
-                                    className="h-full rounded-full bg-gradient-to-r from-rose-400 via-amber-400 to-emerald-400"
+                                    className="h-full rounded-full bg-gradient-to-r from-destructive via-signal-gold to-precision-teal"
                                     style={{ width: `${overlapPct}%` }}
                                   />
                                 </div>
-                                <span className="text-[10px] text-slate-400">{comp.intersections}</span>
+                                <span className="text-[10px] text-muted-foreground">{comp.intersections}</span>
                               </div>
                             </td>
-                            <td className="py-2 pr-3 text-slate-600">{comp.organicKeywords.toLocaleString()}</td>
-                            <td className="py-2 text-slate-500">{comp.organicEtv.toLocaleString()}</td>
+                            <td className="py-2 pr-3 text-muted-foreground">{comp.organicKeywords.toLocaleString()}</td>
+                            <td className="py-2 text-muted-foreground">{comp.organicEtv.toLocaleString()}</td>
                           </tr>
                         )
                       })}
@@ -423,7 +403,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">No organic competitor data yet.</p>
+                <p className="text-sm text-muted-foreground">No organic competitor data yet.</p>
               )}
             </div>
           </div>
@@ -432,8 +412,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
 
           {/* ROW 5: Ranking Distribution */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-slate-900">Keyword Ranking Distribution</h2>
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <h2 className="mb-3 text-sm font-semibold text-foreground">Keyword Ranking Distribution</h2>
             {rankHasData ? (
               <RankingDistribution distribution={rankData!.organic.distribution} />
             ) : rankedKeywords.length > 0 ? (
@@ -446,22 +426,22 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                 pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
               }} />
             ) : (
-              <p className="text-sm text-slate-400">No distribution data available.</p>
+              <p className="text-sm text-muted-foreground">No distribution data available.</p>
             )}
           </div>
 
           {/* ROW 6: Top Pages + Subdomains */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Pages */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">
                 Top Pages in Organic Search ({relevantPages.length})
               </h2>
               {relevantPages.length > 0 ? (
                 <div className="max-h-[300px] overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="border-b border-slate-100 text-slate-400">
+                    <thead className="sticky top-0 bg-card">
+                      <tr className="border-b border-border text-muted-foreground">
                         <th className="py-2 pr-3 font-medium">URL</th>
                         <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
                         <th className="py-2 font-medium text-right">Total Traffic</th>
@@ -469,39 +449,39 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                     </thead>
                     <tbody>
                       {relevantPages.slice(0, 15).map((page) => (
-                        <tr key={page.url} className="border-b border-slate-50">
+                        <tr key={page.url} className="border-b border-border">
                           <td className="max-w-[220px] truncate py-2 pr-3">
                             <a
                               href={page.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-indigo-600 hover:underline"
+                              className="text-primary hover:underline"
                             >
                               {page.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
                             </a>
                           </td>
-                          <td className="py-2 pr-3 text-right text-slate-600">{page.trafficShare}%</td>
-                          <td className="py-2 text-right text-slate-600">{page.organicEtv.toLocaleString()}</td>
+                          <td className="py-2 pr-3 text-right text-muted-foreground">{page.trafficShare}%</td>
+                          <td className="py-2 text-right text-muted-foreground">{page.organicEtv.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">No top pages data yet.</p>
+                <p className="text-sm text-muted-foreground">No top pages data yet.</p>
               )}
             </div>
 
             {/* Subdomains */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">
                 Top Subdomains ({subdomains.length})
               </h2>
               {subdomains.length > 0 ? (
                 <div className="max-h-[300px] overflow-y-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-white">
-                      <tr className="border-b border-slate-100 text-slate-400">
+                    <thead className="sticky top-0 bg-card">
+                      <tr className="border-b border-border text-muted-foreground">
                         <th className="py-2 pr-3 font-medium">URL</th>
                         <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
                         <th className="py-2 font-medium text-right">Total Traffic</th>
@@ -509,32 +489,32 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                     </thead>
                     <tbody>
                       {subdomains.slice(0, 10).map((sub) => (
-                        <tr key={sub.subdomain} className="border-b border-slate-50">
-                          <td className="max-w-[220px] truncate py-2 pr-3 font-medium text-slate-700">
+                        <tr key={sub.subdomain} className="border-b border-border">
+                          <td className="max-w-[220px] truncate py-2 pr-3 font-medium text-foreground">
                             {sub.subdomain}
                           </td>
-                          <td className="py-2 pr-3 text-right text-slate-600">{sub.trafficShare}%</td>
-                          <td className="py-2 text-right text-slate-600">{sub.organicEtv.toLocaleString()}</td>
+                          <td className="py-2 pr-3 text-right text-muted-foreground">{sub.trafficShare}%</td>
+                          <td className="py-2 text-right text-muted-foreground">{sub.organicEtv.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               ) : (
-                <p className="text-sm text-slate-400">No subdomain data yet.</p>
+                <p className="text-sm text-muted-foreground">No subdomain data yet.</p>
               )}
             </div>
           </div>
 
           {/* ROW 7: Keyword Gap Opportunities */}
           {gapOpportunities.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-1 text-sm font-semibold text-slate-900">Keyword Gap Opportunities</h2>
-              <p className="mb-3 text-xs text-slate-400">Keywords competitors rank for that you don&apos;t appear for.</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-1 text-sm font-semibold text-foreground">Keyword Gap Opportunities</h2>
+              <p className="mb-3 text-xs text-muted-foreground">Keywords competitors rank for that you don&apos;t appear for.</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400">
+                    <tr className="border-b border-border text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">Keyword</th>
                       <th className="py-2 pr-4 font-medium">Comp. Rank</th>
                       <th className="py-2 pr-4 font-medium">Volume</th>
@@ -543,11 +523,11 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                   </thead>
                   <tbody>
                     {gapOpportunities.map((g) => (
-                      <tr key={g.keyword} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-medium text-slate-700">{g.keyword}</td>
-                        <td className="py-2 pr-4 text-slate-600">#{g.domain2Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-slate-600">{g.searchVolume?.toLocaleString() ?? "—"}</td>
-                        <td className="py-2 text-slate-500">{g.cpc ? `$${g.cpc.toFixed(2)}` : "—"}</td>
+                      <tr key={g.keyword} className="border-b border-border">
+                        <td className="py-2 pr-4 font-medium text-foreground">{g.keyword}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">#{g.domain2Rank ?? "—"}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">{g.searchVolume?.toLocaleString() ?? "—"}</td>
+                        <td className="py-2 text-muted-foreground">{g.cpc ? `$${g.cpc.toFixed(2)}` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -560,15 +540,15 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {(featuredSnippets > 0 || localPackCount > 0) && (
             <div className="flex flex-wrap gap-3">
               {featuredSnippets > 0 && (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                  <span className="text-xs text-slate-400">Featured Snippets</span>
-                  <p className="text-lg font-bold text-slate-900">{featuredSnippets}</p>
+                <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+                  <span className="text-xs text-muted-foreground">Featured Snippets</span>
+                  <p className="text-lg font-bold text-foreground">{featuredSnippets}</p>
                 </div>
               )}
               {localPackCount > 0 && (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                  <span className="text-xs text-slate-400">Local Pack</span>
-                  <p className="text-lg font-bold text-slate-900">{localPackCount}</p>
+                <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+                  <span className="text-xs text-muted-foreground">Local Pack</span>
+                  <p className="text-lg font-bold text-foreground">{localPackCount}</p>
                 </div>
               )}
             </div>
@@ -576,8 +556,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* Empty state */}
           {kpiSource === "none" && serpEntries.length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-              <p className="text-sm text-slate-500">
+            <div className="rounded-xl border border-border bg-card p-8 text-center">
+              <p className="text-sm text-muted-foreground">
                 No SEO data yet. Click &quot;Refresh SEO&quot; to fetch search visibility data.
               </p>
             </div>
@@ -600,12 +580,12 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* Paid Keyword Overlap table */}
           {paidOverlap.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Paid Keyword Overlap</h2>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Paid Keyword Overlap</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-100 text-slate-400">
+                    <tr className="border-b border-border text-muted-foreground">
                       <th className="py-2 pr-4 font-medium">Keyword</th>
                       <th className="py-2 pr-4 font-medium">Your Rank</th>
                       <th className="py-2 pr-4 font-medium">Comp. Rank</th>
@@ -615,12 +595,12 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                   </thead>
                   <tbody>
                     {paidOverlap.map((r) => (
-                      <tr key={r.keyword} className="border-b border-slate-50">
-                        <td className="py-2 pr-4 font-medium text-slate-700">{r.keyword}</td>
-                        <td className="py-2 pr-4 text-slate-600">#{r.domain1Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-slate-600">#{r.domain2Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-slate-600">{r.searchVolume?.toLocaleString() ?? "—"}</td>
-                        <td className="py-2 text-slate-500">{r.cpc ? `$${r.cpc.toFixed(2)}` : "—"}</td>
+                      <tr key={r.keyword} className="border-b border-border">
+                        <td className="py-2 pr-4 font-medium text-foreground">{r.keyword}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">#{r.domain1Rank ?? "—"}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">#{r.domain2Rank ?? "—"}</td>
+                        <td className="py-2 pr-4 text-muted-foreground">{r.searchVolume?.toLocaleString() ?? "—"}</td>
+                        <td className="py-2 text-muted-foreground">{r.cpc ? `$${r.cpc.toFixed(2)}` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -631,18 +611,18 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* Ad Creatives feed */}
           {adCreatives.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-slate-900">Competitor Ad Creatives</h2>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">Competitor Ad Creatives</h2>
               <div className="space-y-3">
                 {adCreatives.slice(0, 20).map((ad, i) => (
-                  <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                  <div key={i} className="rounded-xl border border-border bg-secondary/50 p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-indigo-700">{ad.headline ?? "Ad creative"}</p>
-                        {ad.description && <p className="mt-0.5 text-xs text-slate-600">{ad.description}</p>}
-                        <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-slate-400">
+                        <p className="text-sm font-semibold text-primary">{ad.headline ?? "Ad creative"}</p>
+                        {ad.description && <p className="mt-0.5 text-xs text-muted-foreground">{ad.description}</p>}
+                        <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
                           {ad.displayUrl && <span>{ad.displayUrl}</span>}
-                          {ad.domain && <span className="font-medium text-slate-500">{ad.domain}</span>}
+                          {ad.domain && <span className="font-medium text-muted-foreground">{ad.domain}</span>}
                           {ad.keyword && <span>kw: {ad.keyword}</span>}
                           {ad.position && <span>pos: #{ad.position}</span>}
                         </div>
@@ -656,11 +636,11 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* Empty paid state */}
           {paidEtv === 0 && adCreatives.length === 0 && paidOverlap.length === 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-8 text-center">
-              <p className="text-sm font-medium text-slate-600">
+            <div className="rounded-xl border border-border bg-card p-8 text-center">
+              <p className="text-sm font-medium text-muted-foreground">
                 No paid advertising detected
               </p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 No Google Ads data found for this domain or its competitors.
                 This is common for local businesses that rely on organic search.
               </p>
@@ -692,32 +672,32 @@ function KpiCard({
   badges?: Array<{ label: string; color: string }>
 }) {
   const colorMap: Record<string, string> = {
-    indigo: "border-l-indigo-500 bg-indigo-50/30",
-    violet: "border-l-violet-500 bg-violet-50/30",
-    emerald: "border-l-emerald-500 bg-emerald-50/30",
-    sky: "border-l-sky-500 bg-sky-50/30",
-    amber: "border-l-amber-500 bg-amber-50/30",
-    orange: "border-l-orange-500 bg-orange-50/30",
-    rose: "border-l-rose-500 bg-rose-50/30",
-    blue: "border-l-blue-500 bg-blue-50/30",
-    slate: "border-l-slate-500 bg-slate-50/30",
+    indigo: "border-l-primary bg-primary/10",
+    violet: "border-l-vatic-indigo-soft bg-vatic-indigo-soft/10",
+    emerald: "border-l-precision-teal bg-precision-teal/10",
+    sky: "border-l-primary bg-primary/10",
+    amber: "border-l-signal-gold bg-signal-gold/10",
+    orange: "border-l-signal-gold bg-signal-gold/10",
+    rose: "border-l-destructive bg-destructive/10",
+    blue: "border-l-primary bg-primary/10",
+    slate: "border-l-muted-foreground bg-secondary",
   }
   const cls = colorMap[accent] ?? colorMap.indigo
 
   const badgeColorMap: Record<string, string> = {
-    emerald: "bg-emerald-100 text-emerald-700",
-    rose: "bg-rose-100 text-rose-700",
-    amber: "bg-amber-100 text-amber-700",
+    emerald: "bg-precision-teal/15 text-precision-teal",
+    rose: "bg-destructive/15 text-destructive",
+    amber: "bg-signal-gold/15 text-signal-gold",
   }
 
   return (
-    <div className={`rounded-xl border border-slate-200 border-l-4 ${cls} p-3 shadow-sm`}>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{label}</p>
+    <div className={`rounded-xl border border-border border-l-4 ${cls} p-3 shadow-sm`}>
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-xl font-bold text-slate-900">{value}</span>
-        {sub && <span className="text-[10px] text-slate-400">{sub}</span>}
+        <span className="text-xl font-bold text-foreground">{value}</span>
+        {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
         {badge && (
-          <span className="ml-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700">
+          <span className="ml-1 rounded-full bg-signal-gold/15 px-1.5 py-0.5 text-[9px] font-medium text-signal-gold">
             {badge}
           </span>
         )}
@@ -727,7 +707,7 @@ function KpiCard({
           {badges.map((b) => (
             <span
               key={b.label}
-              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${badgeColorMap[b.color] ?? "bg-slate-100 text-slate-600"}`}
+              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${badgeColorMap[b.color] ?? "bg-secondary text-muted-foreground"}`}
             >
               {b.label}
             </span>

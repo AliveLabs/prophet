@@ -117,7 +117,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   const locationList = locations ?? []
   const selectedLocationId = params.location_id ?? locationList[0]?.id ?? null
-  const selectedLocation = locationList.find((l) => l.id === selectedLocationId)
 
   const activeTab = params.tab === "week" ? "week" : "weekend"
   const venueFilter = params.venue?.toLowerCase() ?? ""
@@ -180,70 +179,39 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const groupedEvents = groupEventsByDate(events)
 
   return (
-    <section className="space-y-6">
-      {/* ----------------------------------------------------------------- */}
-      {/* Hero Header                                                       */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600 via-purple-600 to-fuchsia-600 p-6 text-white shadow-xl shadow-violet-200/50">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold tracking-tight">Local Events</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              Discover what&rsquo;s happening near{" "}
-              <span className="font-medium text-white/90">
-                {selectedLocation?.name ?? "your locations"}
-              </span>{" "}
-              and track competitor involvement.
-            </p>
-          </div>
-
-          {selectedLocationId && (
-            <JobRefreshButton
-              type="events"
-              locationId={selectedLocationId}
-              label="Fetch Events"
-              pendingLabel="Fetching local events"
-              className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-            />
-          )}
-        </div>
-
-        {/* Filters row */}
-        <div className="relative mt-5">
-          <EventsFilters
-            locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
-            selectedLocationId={selectedLocationId}
-            activeTab={activeTab}
-            venueFilter={venueFilter}
-            matchedOnly={matchedOnly}
+    <section className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <EventsFilters
+          locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
+          selectedLocationId={selectedLocationId}
+          activeTab={activeTab}
+          venueFilter={venueFilter}
+          matchedOnly={matchedOnly}
+        />
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="events"
+            locationId={selectedLocationId}
+            label="Fetch Events"
+            pendingLabel="Fetching local events"
           />
-        </div>
-
+        )}
         {snapshotDate && (
-          <p className="relative mt-3 text-[11px] text-white/40">
+          <span className="ml-auto text-[11px] text-muted-foreground">
             Last fetched: {snapshotDate}
-          </p>
+          </span>
         )}
       </div>
 
       {/* Banners */}
       {params.error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(params.error)}
         </div>
       )}
       {params.success && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
           {decodeURIComponent(params.success)}
         </div>
       )}
@@ -253,59 +221,59 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* ----------------------------------------------------------------- */}
       {snapshot && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md">
+          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 transition group-hover:bg-violet-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary/15">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12V12z" />
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{totalEvents}</p>
-                <p className="text-[11px] font-medium text-slate-500">Total Events</p>
+                <p className="text-2xl font-bold text-foreground">{totalEvents}</p>
+                <p className="text-[11px] font-medium text-muted-foreground">Total Events</p>
               </div>
             </div>
           </div>
 
-          <div className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-emerald-200 hover:shadow-md">
+          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-precision-teal/30 hover:shadow-md">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-precision-teal/10 text-precision-teal transition group-hover:bg-precision-teal/15">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{totalMatched}</p>
-                <p className="text-[11px] font-medium text-slate-500">Competitor Matches</p>
+                <p className="text-2xl font-bold text-foreground">{totalMatched}</p>
+                <p className="text-[11px] font-medium text-muted-foreground">Competitor Matches</p>
               </div>
             </div>
           </div>
 
-          <div className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-amber-200 hover:shadow-md">
+          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-signal-gold/30 hover:shadow-md">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition group-hover:bg-amber-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-signal-gold/10 text-signal-gold transition group-hover:bg-signal-gold/15">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{uniqueVenues}</p>
-                <p className="text-[11px] font-medium text-slate-500">Unique Venues</p>
+                <p className="text-2xl font-bold text-foreground">{uniqueVenues}</p>
+                <p className="text-[11px] font-medium text-muted-foreground">Unique Venues</p>
               </div>
             </div>
           </div>
 
-          <div className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md">
+          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600 transition group-hover:bg-sky-100">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary/15">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-slate-900">{activeDays}</p>
-                <p className="text-[11px] font-medium text-slate-500">Active Days</p>
+                <p className="text-2xl font-bold text-foreground">{activeDays}</p>
+                <p className="text-[11px] font-medium text-muted-foreground">Active Days</p>
               </div>
             </div>
           </div>
@@ -316,21 +284,21 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* Top Venues Bar                                                    */}
       {/* ----------------------------------------------------------------- */}
       {topVenues.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-100 bg-slate-50/50 px-4 py-3">
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/50 px-4 py-3">
+          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Hot Venues
           </span>
           {topVenues.map(([name, count]) => (
             <span
               key={name}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-slate-700 shadow-sm ring-1 ring-slate-200/60"
+              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1 text-xs font-medium text-foreground shadow-sm ring-1 ring-border/60"
             >
-              <svg className="h-3 w-3 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
               </svg>
               {name}
-              <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
                 {count}
               </span>
             </span>
@@ -342,22 +310,22 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* Empty States                                                      */}
       {/* ----------------------------------------------------------------- */}
       {!snapshot && selectedLocationId && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-50">
-            <svg className="h-8 w-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+            <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
             </svg>
           </div>
-          <h3 className="text-base font-semibold text-slate-900">No events data yet</h3>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+          <h3 className="text-base font-semibold text-foreground">No events data yet</h3>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
             Click <strong>Fetch Events</strong> to discover what&rsquo;s happening near your location.
           </p>
         </div>
       )}
 
       {snapshot && events.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
-          <p className="text-sm text-slate-500">No events match your current filters.</p>
+        <div className="rounded-2xl border border-border bg-card p-12 text-center">
+          <p className="text-sm text-muted-foreground">No events match your current filters.</p>
         </div>
       )}
 
@@ -371,15 +339,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               {/* Date separator */}
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-800">{dateLabel}</span>
+                  <span className="text-sm font-semibold text-foreground">{dateLabel}</span>
                   {dayEvents[0]?.startDatetime && getRelativeDay(dayEvents[0].startDatetime) && (
-                    <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700">
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
                       {getRelativeDay(dayEvents[0].startDatetime)}
                     </span>
                   )}
                 </div>
-                <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
-                <span className="text-[11px] font-medium text-slate-400">
+                <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
+                <span className="text-[11px] font-medium text-muted-foreground">
                   {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
                 </span>
               </div>
@@ -395,15 +363,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   return (
                     <div
                       key={ev.uid}
-                      className={`group relative overflow-hidden rounded-2xl border bg-white shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 ${
+                      className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 ${
                         isMatched
-                          ? "border-emerald-200 ring-1 ring-emerald-100"
-                          : "border-slate-200"
+                          ? "border-precision-teal/30 ring-1 ring-precision-teal/20"
+                          : "border-border"
                       }`}
                     >
                       {/* Image */}
                       {ev.imageUrl ? (
-                        <div className="relative h-40 overflow-hidden bg-slate-100">
+                        <div className="relative h-40 overflow-hidden bg-secondary">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={ev.imageUrl}
@@ -420,7 +388,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             </div>
                           )}
                           {isMatched && (
-                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
+                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-precision-teal px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                               </svg>
@@ -429,12 +397,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                           )}
                         </div>
                       ) : (
-                        <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-                          <svg className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                        <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-secondary to-secondary">
+                          <svg className="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                           </svg>
                           {time && (
-                            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+                            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-lg bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
                               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
@@ -442,7 +410,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             </div>
                           )}
                           {isMatched && (
-                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
+                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-precision-teal px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
                               Match
                             </div>
                           )}
@@ -451,13 +419,13 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
                       {/* Content */}
                       <div className="space-y-3 p-4">
-                        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-slate-900">
+                        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
                           {ev.title ?? "Untitled Event"}
                         </h3>
 
                         {/* Date */}
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <svg className="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <svg className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                           </svg>
                           <span>
@@ -470,14 +438,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                         {/* Venue */}
                         {ev.venue?.name && (
                           <div className="flex items-start gap-1.5 text-xs">
-                            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
                             </svg>
                             <div>
-                              <span className="font-medium text-slate-700">{ev.venue.name}</span>
+                              <span className="font-medium text-foreground">{ev.venue.name}</span>
                               {ev.venue.address && (
-                                <span className="block text-slate-400">{ev.venue.address}</span>
+                                <span className="block text-muted-foreground">{ev.venue.address}</span>
                               )}
                             </div>
                           </div>
@@ -485,7 +453,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
                         {/* Description */}
                         {ev.description && (
-                          <p className="line-clamp-2 text-xs leading-relaxed text-slate-500">
+                          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                             {ev.description}
                           </p>
                         )}
@@ -496,9 +464,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             {matchedNames.map((name) => (
                               <span
                                 key={name}
-                                className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 ring-1 ring-emerald-200/50"
+                                className="inline-flex items-center gap-1 rounded-md bg-precision-teal/10 px-2 py-0.5 text-[10px] font-medium text-precision-teal ring-1 ring-precision-teal/30"
                               >
-                                <span className="h-1 w-1 rounded-full bg-emerald-400" />
+                                <span className="h-1 w-1 rounded-full bg-precision-teal" />
                                 {name}
                               </span>
                             ))}
@@ -507,13 +475,13 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                       </div>
 
                       {/* Footer links */}
-                      <div className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2.5">
+                      <div className="flex items-center gap-1.5 border-t border-border px-4 py-2.5">
                         {ev.url && (
                           <a
                             href={ev.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-[10px] font-medium text-violet-700 transition hover:bg-violet-100"
+                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition hover:bg-primary/15"
                           >
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
@@ -527,7 +495,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             href={t.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-700 transition hover:bg-amber-100"
+                            className="inline-flex items-center gap-1 rounded-md bg-signal-gold/10 px-2 py-1 text-[10px] font-medium text-signal-gold transition hover:bg-signal-gold/15"
                           >
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
@@ -540,7 +508,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             href={ev.venue.mapsUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-sky-600 transition hover:text-sky-700"
+                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-primary transition hover:text-primary/80"
                           >
                             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -561,15 +529,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
       {/* No location selected */}
       {!selectedLocationId && (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-            <svg className="h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
+            <svg className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
             </svg>
           </div>
-          <h3 className="text-base font-semibold text-slate-900">No location added</h3>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+          <h3 className="text-base font-semibold text-foreground">No location added</h3>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
             Add a location first to discover nearby events.
           </p>
         </div>

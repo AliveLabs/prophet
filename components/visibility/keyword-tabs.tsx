@@ -28,14 +28,14 @@ type Tab = "all" | "improved" | "decreased" | "new" | "lost"
 function intentBadge(intent: string | null) {
   if (!intent) return null
   const colors: Record<string, string> = {
-    informational: "bg-blue-100 text-blue-700",
-    commercial: "bg-amber-100 text-amber-700",
-    navigational: "bg-purple-100 text-purple-700",
-    transactional: "bg-emerald-100 text-emerald-700",
-    local: "bg-green-100 text-green-700",
+    informational: "bg-primary/15 text-primary",
+    commercial: "bg-signal-gold/15 text-signal-gold",
+    navigational: "bg-vatic-indigo-soft/15 text-vatic-indigo-soft",
+    transactional: "bg-precision-teal/15 text-precision-teal",
+    local: "bg-precision-teal/15 text-precision-teal",
   }
   return (
-    <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colors[intent] ?? "bg-slate-100 text-slate-600"}`}>
+    <span className={`inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colors[intent] ?? "bg-secondary text-muted-foreground"}`}>
       {intent.charAt(0).toUpperCase() + intent.slice(1)}
     </span>
   )
@@ -77,15 +77,15 @@ export default function KeywordTabs({ keywords, newCount, upCount, downCount, lo
   return (
     <div>
       {/* Tab bar */}
-      <div className="mb-3 flex flex-wrap gap-1 border-b border-slate-100 pb-2">
+      <div className="mb-3 flex flex-wrap gap-1 border-b border-border pb-2">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`rounded-full px-3 py-1 text-xs font-medium transition ${
               tab === t.id
-                ? "bg-slate-900 text-white"
-                : "text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             {t.label} ({t.count})
@@ -96,8 +96,8 @@ export default function KeywordTabs({ keywords, newCount, upCount, downCount, lo
       {/* Keywords table */}
       <div className="max-h-[400px] overflow-y-auto">
         <table className="w-full text-left text-xs">
-          <thead className="sticky top-0 bg-white">
-            <tr className="border-b border-slate-100 text-slate-400">
+          <thead className="sticky top-0 bg-card">
+            <tr className="border-b border-border text-muted-foreground">
               <th className="py-2 pr-3 font-medium">Keyword</th>
               <th className="py-2 pr-3 font-medium">Search Vol.</th>
               <th className="py-2 pr-3 font-medium">Position</th>
@@ -109,29 +109,29 @@ export default function KeywordTabs({ keywords, newCount, upCount, downCount, lo
           <tbody>
             {filteredKeywords.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-4 text-center text-slate-400">
+                <td colSpan={6} className="py-4 text-center text-muted-foreground">
                   No keywords for this filter.
                 </td>
               </tr>
             ) : (
               filteredKeywords.slice(0, 50).map((kw) => (
-                <tr key={kw.keyword} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="max-w-[200px] truncate py-2 pr-3 font-medium text-slate-700">
+                <tr key={kw.keyword} className="border-b border-border hover:bg-secondary/50">
+                  <td className="max-w-[200px] truncate py-2 pr-3 font-medium text-foreground">
                     {kw.keyword}
                   </td>
-                  <td className="py-2 pr-3 text-slate-600">
+                  <td className="py-2 pr-3 text-muted-foreground">
                     {kw.searchVolume?.toLocaleString() ?? "—"}
                   </td>
                   <td className="py-2 pr-3">
-                    <span className={`font-semibold ${kw.rank <= 3 ? "text-emerald-600" : kw.rank <= 10 ? "text-sky-600" : "text-slate-600"}`}>
+                    <span className={`font-semibold ${kw.rank <= 3 ? "text-precision-teal" : kw.rank <= 10 ? "text-primary" : "text-muted-foreground"}`}>
                       #{kw.rank}
                     </span>
                   </td>
                   <td className="py-2 pr-3">{intentBadge(kw.intent)}</td>
-                  <td className="py-2 pr-3 text-slate-500">
+                  <td className="py-2 pr-3 text-muted-foreground">
                     {kw.competition !== null ? (kw.competition * 100).toFixed(0) : "—"}
                   </td>
-                  <td className="py-2 text-slate-500">
+                  <td className="py-2 text-muted-foreground">
                     {kw.cpc ? `$${kw.cpc.toFixed(2)}` : "—"}
                   </td>
                 </tr>

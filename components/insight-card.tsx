@@ -31,9 +31,9 @@ type InsightCardProps = {
 // ---------------------------------------------------------------------------
 
 const URGENCY_STYLES = {
-  critical: { bg: "bg-rose-100", text: "text-rose-700", ring: "ring-rose-200", label: "High Priority", barColor: "bg-rose-500" },
-  warning: { bg: "bg-amber-100", text: "text-amber-700", ring: "ring-amber-200", label: "Medium", barColor: "bg-amber-500" },
-  info: { bg: "bg-slate-100", text: "text-slate-500", ring: "ring-slate-200", label: "Low", barColor: "bg-emerald-500" },
+  critical: { bg: "bg-destructive/15", text: "text-destructive", ring: "ring-destructive/30", label: "High Priority", barColor: "bg-destructive" },
+  warning: { bg: "bg-signal-gold/15", text: "text-signal-gold", ring: "ring-signal-gold/30", label: "Medium", barColor: "bg-signal-gold" },
+  info: { bg: "bg-muted", text: "text-muted-foreground", ring: "ring-border", label: "Low", barColor: "bg-precision-teal" },
 } as const
 
 // ---------------------------------------------------------------------------
@@ -116,11 +116,11 @@ const SOURCE_ICONS: Record<SourceCategory, typeof IconCompetitors> = {
 }
 
 const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }> = {
-  read: { bg: "bg-sky-50", text: "text-sky-700", label: "Read" },
-  todo: { bg: "bg-amber-50", text: "text-amber-700", label: "To-Do" },
-  actioned: { bg: "bg-emerald-50", text: "text-emerald-700", label: "Done" },
-  snoozed: { bg: "bg-slate-100", text: "text-slate-500", label: "Snoozed" },
-  dismissed: { bg: "bg-rose-50", text: "text-rose-600", label: "Dismissed" },
+  read: { bg: "bg-primary/15", text: "text-primary", label: "Read" },
+  todo: { bg: "bg-signal-gold/15", text: "text-signal-gold", label: "To-Do" },
+  actioned: { bg: "bg-precision-teal/15", text: "text-precision-teal", label: "Done" },
+  snoozed: { bg: "bg-muted", text: "text-muted-foreground", label: "Snoozed" },
+  dismissed: { bg: "bg-destructive/15", text: "text-destructive", label: "Dismissed" },
 }
 
 // ---------------------------------------------------------------------------
@@ -178,20 +178,20 @@ export default function InsightCard({
 
   return (
     <div
-      className={`group relative rounded-xl border bg-white transition hover:shadow-md ${
+      className={`group relative rounded-lg border bg-card transition hover:shadow-md ${
         isDismissed
-          ? "border-slate-200 opacity-50"
+          ? "border-border opacity-50"
           : status === "actioned"
-            ? "border-emerald-200 bg-emerald-50/30"
+            ? "border-precision-teal/30 bg-precision-teal/5"
             : status === "todo"
-              ? "border-amber-200 bg-amber-50/20"
+              ? "border-signal-gold/30 bg-signal-gold/5"
               : suppressed
-                ? "border-slate-200 opacity-60"
-                : "border-slate-200"
+                ? "border-border opacity-60"
+                : "border-border"
       }`}
     >
       {/* Top bar: source badge + status + score + kebab */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold ${sourceColors.bg} ${sourceColors.text}`}>
             <SourceIcon className="h-3 w-3" />
@@ -199,7 +199,7 @@ export default function InsightCard({
           </span>
 
           {subjectLabel && (
-            <span className="text-[11px] text-slate-400">{subjectLabel}</span>
+            <span className="text-[11px] text-muted-foreground">{subjectLabel}</span>
           )}
 
           {statusBadge && status !== "new" && (
@@ -225,11 +225,11 @@ export default function InsightCard({
 
       {/* Body */}
       <div className="px-4 py-3">
-        <h3 className="text-sm font-semibold leading-snug text-slate-900">
+        <h3 className="text-sm font-semibold leading-snug text-foreground">
           {title}
         </h3>
 
-        <p className="mt-1 text-xs leading-relaxed text-slate-600">
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {summary}
         </p>
 
@@ -253,12 +253,12 @@ export default function InsightCard({
               const recRationale = String((rec as Record<string, unknown>)?.rationale ?? "")
               if (!recTitle) return null
               return (
-                <div key={i} className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2">
-                  <IconLightBulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+                <div key={i} className="flex items-start gap-2 rounded-lg bg-secondary px-3 py-2">
+                  <IconLightBulb className="mt-0.5 h-3 w-3 shrink-0 text-signal-gold" />
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold text-slate-800">{recTitle}</p>
+                    <p className="text-[11px] font-semibold text-foreground">{recTitle}</p>
                     {recRationale && (
-                      <p className="mt-0.5 text-[10px] leading-snug text-slate-500">{recRationale}</p>
+                      <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{recRationale}</p>
                     )}
                   </div>
                 </div>
@@ -268,23 +268,23 @@ export default function InsightCard({
         )}
 
         {suppressed && (
-          <p className="mt-2 text-[10px] italic text-slate-400">
+          <p className="mt-2 text-[10px] italic text-muted-foreground">
             Less relevant based on your feedback
           </p>
         )}
 
         <details className="mt-3 group/details">
-          <summary className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-slate-600">
+          <summary className="flex cursor-pointer items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground">
             <svg className="h-3 w-3 transition-transform group-open/details:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
             Details
           </summary>
-          <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2 text-[11px] text-slate-500">
+          <div className="mt-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-[11px] text-muted-foreground">
             <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span>Confidence: <strong className="text-slate-700">{confidence}</strong></span>
-              <span>Severity: <strong className="text-slate-700">{severity}</strong></span>
-              {insightType && <span>Type: <strong className="text-slate-700">{insightType}</strong></span>}
+              <span>Confidence: <strong className="text-foreground">{confidence}</strong></span>
+              <span>Severity: <strong className="text-foreground">{severity}</strong></span>
+              {insightType && <span>Type: <strong className="text-foreground">{insightType}</strong></span>}
             </div>
             {renderStructuredEvidence(evidence, insightType)}
           </div>
@@ -304,7 +304,7 @@ function StarRating({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <svg
           key={star}
-          className={`h-3 w-3 ${star <= rating ? "text-amber-400" : "text-slate-200"}`}
+          className={`h-3 w-3 ${star <= rating ? "text-signal-gold" : "text-border"}`}
           fill="currentColor"
           viewBox="0 0 20 20"
         >
@@ -327,20 +327,20 @@ function renderReviewEvidence(evidence: Record<string, unknown>) {
       {counts && (counts.positive || counts.negative || counts.mixed) ? (
         <div className="flex items-center gap-3 text-[10px]">
           {(counts.positive ?? 0) > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span className="flex items-center gap-1 rounded-full bg-precision-teal/15 px-2 py-0.5 font-semibold text-precision-teal">
+              <span className="h-1.5 w-1.5 rounded-full bg-precision-teal" />
               {counts.positive} positive
             </span>
           )}
           {(counts.negative ?? 0) > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 font-semibold text-rose-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+            <span className="flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 font-semibold text-destructive">
+              <span className="h-1.5 w-1.5 rounded-full bg-destructive" />
               {counts.negative} negative
             </span>
           )}
           {(counts.mixed ?? 0) > 0 && (
-            <span className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            <span className="flex items-center gap-1 rounded-full bg-signal-gold/15 px-2 py-0.5 font-semibold text-signal-gold">
+              <span className="h-1.5 w-1.5 rounded-full bg-signal-gold" />
               {counts.mixed} mixed
             </span>
           )}
@@ -349,17 +349,17 @@ function renderReviewEvidence(evidence: Record<string, unknown>) {
 
       {themes && themes.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Key themes</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Key themes</p>
           {themes.slice(0, 4).map((t, i) => (
             <div key={i} className="flex items-start gap-2">
               <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${
-                t.sentiment === "positive" ? "bg-emerald-500" :
-                t.sentiment === "negative" ? "bg-rose-500" : "bg-amber-500"
+                t.sentiment === "positive" ? "bg-precision-teal" :
+                t.sentiment === "negative" ? "bg-destructive" : "bg-signal-gold"
               }`} />
               <div className="min-w-0">
-                <span className="text-[11px] font-medium text-slate-700">{t.theme}</span>
+                <span className="text-[11px] font-medium text-foreground">{t.theme}</span>
                 {t.examples?.[0] && (
-                  <p className="mt-0.5 text-[10px] italic leading-snug text-slate-400">
+                  <p className="mt-0.5 text-[10px] italic leading-snug text-muted-foreground">
                     &ldquo;{t.examples[0].slice(0, 80)}{t.examples[0].length > 80 ? "..." : ""}&rdquo;
                   </p>
                 )}
@@ -371,16 +371,16 @@ function renderReviewEvidence(evidence: Record<string, unknown>) {
 
       {sampleReviews && sampleReviews.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Sample reviews</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sample reviews</p>
           {sampleReviews.slice(0, 3).map((r, i) => (
-            <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2">
+            <div key={i} className="rounded-lg border border-border bg-secondary/50 px-3 py-2">
               <div className="flex items-center gap-2">
                 {typeof r.rating === "number" && <StarRating rating={r.rating} />}
-                {r.author && <span className="text-[10px] font-medium text-slate-500">{r.author}</span>}
-                {r.date && <span className="text-[10px] text-slate-400">{r.date}</span>}
+                {r.author && <span className="text-[10px] font-medium text-muted-foreground">{r.author}</span>}
+                {r.date && <span className="text-[10px] text-muted-foreground">{r.date}</span>}
               </div>
               {r.text && (
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
                   {r.text.slice(0, 150)}{r.text.length > 150 ? "..." : ""}
                 </p>
               )}
@@ -417,19 +417,19 @@ function renderStructuredEvidence(evidence: Record<string, unknown>, insightType
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {rows.map((r) => (
             <div key={r.label}>
-              <span className="text-slate-400">{r.label}:</span>{" "}
-              <span className="font-medium text-slate-700">{r.value}</span>
+              <span className="text-muted-foreground">{r.label}:</span>{" "}
+              <span className="font-medium text-foreground">{r.value}</span>
             </div>
           ))}
         </div>
       )}
       {eventList && eventList.length > 0 && (
         <div className="space-y-1">
-          <p className="font-medium text-slate-600">Related events:</p>
+          <p className="font-medium text-muted-foreground">Related events:</p>
           {eventList.slice(0, 3).map((ev, i) => (
-            <div key={i} className="flex items-center gap-2 text-slate-500">
-              <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" />
-              <span className="font-medium text-slate-600">{String(ev.title ?? ev.event_title ?? "Event")}</span>
+            <div key={i} className="flex items-center gap-2 text-muted-foreground">
+              <span className="h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+              <span className="font-medium text-foreground">{String(ev.title ?? ev.event_title ?? "Event")}</span>
             </div>
           ))}
         </div>

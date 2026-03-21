@@ -143,11 +143,11 @@ export const SOURCE_LABELS: Record<SourceCategory, string> = {
 }
 
 export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; border: string; dot: string }> = {
-  competitors: { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200", dot: "bg-emerald-400" },
-  events: { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-400" },
-  seo: { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200", dot: "bg-sky-400" },
-  content: { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200", dot: "bg-teal-400" },
-  photos: { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200", dot: "bg-pink-400" },
-  traffic: { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200", dot: "bg-orange-400" },
-  social: { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200", dot: "bg-indigo-400" },
+  competitors: { bg: "bg-precision-teal/15", text: "text-precision-teal", border: "border-precision-teal/30", dot: "bg-precision-teal" },
+  events: { bg: "bg-signal-gold/15", text: "text-signal-gold", border: "border-signal-gold/30", dot: "bg-signal-gold" },
+  seo: { bg: "bg-primary/15", text: "text-primary", border: "border-primary/30", dot: "bg-primary" },
+  content: { bg: "bg-precision-teal/15", text: "text-precision-teal", border: "border-precision-teal/30", dot: "bg-precision-teal" },
+  photos: { bg: "bg-signal-gold/15", text: "text-signal-gold", border: "border-signal-gold/30", dot: "bg-signal-gold" },
+  traffic: { bg: "bg-signal-gold/15", text: "text-signal-gold", border: "border-signal-gold/30", dot: "bg-signal-gold" },
+  social: { bg: "bg-primary/15", text: "text-primary", border: "border-primary/30", dot: "bg-primary" },
 }

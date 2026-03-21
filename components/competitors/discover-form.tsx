@@ -24,7 +24,7 @@ export default function DiscoverForm({
       <Input
         name="query"
         placeholder="Optional category or keyword"
-        className="max-w-sm bg-white text-slate-900"
+        className="max-w-sm bg-card text-foreground"
       />
 
       <RefreshOverlay
@@ -41,7 +41,7 @@ export default function DiscoverForm({
           "Saving results...",
         ]}
       />
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         This can take ~10-15 seconds while we search and enrich results.
       </p>
     </form>

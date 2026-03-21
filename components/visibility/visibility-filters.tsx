@@ -34,7 +34,7 @@ function VisibilityFiltersInner({ locations, selectedLocationId, activeTab }: Pr
       <select
         value={searchParams?.get("location_id") ?? selectedLocationId}
         onChange={(e) => navigate({ location_id: e.target.value })}
-        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700"
+        className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground"
       >
         {locations.map((l) => (
           <option key={l.id} value={l.id}>{l.name}</option>
@@ -46,8 +46,8 @@ function VisibilityFiltersInner({ locations, selectedLocationId, activeTab }: Pr
           onClick={() => navigate({ tab: "organic" })}
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
             activeTab === "organic"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              ? "bg-foreground text-background"
+              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
           }`}
         >
           Organic
@@ -57,8 +57,8 @@ function VisibilityFiltersInner({ locations, selectedLocationId, activeTab }: Pr
           onClick={() => navigate({ tab: "paid" })}
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
             activeTab === "paid"
-              ? "bg-slate-900 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              ? "bg-foreground text-background"
+              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
           }`}
         >
           Paid

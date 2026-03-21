@@ -38,8 +38,8 @@ export default function HomeChartsSection({
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="bg-white">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <Card className="bg-card">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Severity Breakdown
         </h3>
         <div className="mt-3">
@@ -47,8 +47,8 @@ export default function HomeChartsSection({
         </div>
       </Card>
 
-      <Card className="bg-white">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <Card className="bg-card">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           Insights by Source
         </h3>
         <div className="mt-3">
@@ -56,11 +56,11 @@ export default function HomeChartsSection({
         </div>
       </Card>
 
-      <Card className="bg-white">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+      <Card className="bg-card">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
           14-Day Insight Trend
         </h3>
-        <p className="mt-0.5 text-[10px] text-slate-400">New insights per day</p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground">New insights per day</p>
         <div className="mt-3">
           <WeeklyTrend data={trendData} />
         </div>

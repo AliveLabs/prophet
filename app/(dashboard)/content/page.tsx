@@ -5,7 +5,7 @@ import LocationFilter from "@/components/ui/location-filter"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import MenuViewer from "@/components/content/menu-viewer"
 import MenuCompare from "@/components/content/menu-compare"
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 
@@ -32,8 +32,8 @@ function FeatureBadge({
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
         active
-          ? "bg-green-100 text-green-700"
-          : "bg-slate-100 text-slate-400"
+          ? "bg-precision-teal/15 text-precision-teal"
+          : "bg-secondary text-muted-foreground"
       }`}
     >
       {active ? (
@@ -160,66 +160,53 @@ export default async function ContentPage({ searchParams }: PageProps) {
     : null
 
   return (
-    <div className="space-y-6">
-      {/* Header Card */}
-      <Card className="bg-gradient-to-r from-teal-50 via-white to-cyan-50">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <CardTitle>Content &amp; Menu</CardTitle>
-                <CardDescription>
-                  Scrape your website and competitors for menu data, pricing, and site features.
-                </CardDescription>
-              </div>
-              {locations && locations.length > 0 && selectedLocationId && (
-                <LocationFilter
-                  locations={locations.map((l) => ({ id: l.id, name: l.name }))}
-                  selectedLocationId={selectedLocationId}
-                />
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {lastRefreshDate && (
-                <span className="text-xs text-slate-500">
-                  Last refresh: {lastRefreshDate}
-                </span>
-              )}
-              <JobRefreshButton
-                type="content"
-                locationId={selectedLocationId ?? ""}
-                label="Refresh Content"
-                pendingLabel="Scraping website content"
-                disabled={!selectedLocationId}
-              />
-            </div>
-          </div>
-        </CardHeader>
-        {selectedLocation?.website && (
-          <div className="border-t border-slate-100 px-6 py-2 text-xs text-slate-500 flex items-center gap-2">
-            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-            </svg>
-            <span>
-              Tracking:{" "}
-              <span className="font-medium text-slate-700">{selectedLocation.website}</span>
-            </span>
-            <a href="/locations" className="ml-auto text-indigo-600 hover:text-indigo-700 font-medium">
-              Change URL
-            </a>
-          </div>
+    <div className="space-y-5">
+      {/* Filter + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        {locations && locations.length > 0 && selectedLocationId && (
+          <LocationFilter
+            locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+            selectedLocationId={selectedLocationId}
+          />
         )}
-      </Card>
+        <JobRefreshButton
+          type="content"
+          locationId={selectedLocationId ?? ""}
+          label="Refresh Content"
+          pendingLabel="Scraping website content"
+          disabled={!selectedLocationId}
+        />
+        {lastRefreshDate && (
+          <span className="ml-auto text-xs text-muted-foreground">
+            Last refresh: {lastRefreshDate}
+          </span>
+        )}
+      </div>
+
+      {selectedLocation?.website && (
+        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+          </svg>
+          <span>
+            Tracking:{" "}
+            <span className="font-medium text-foreground">{selectedLocation.website}</span>
+          </span>
+          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
+            Change URL
+          </a>
+        </div>
+      )}
 
       {/* Error / Success banners */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(error.replace(/\+/g, " "))}
         </div>
       )}
       {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
           {decodeURIComponent(success.replace(/\+/g, " "))}
         </div>
       )}
@@ -228,13 +215,13 @@ export default async function ContentPage({ searchParams }: PageProps) {
       {!siteContentSnap && !menuSnap && (
         <Card className="py-12 text-center">
           <div className="mx-auto max-w-sm space-y-3">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-100">
-              <svg className="h-7 w-7 text-teal-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-precision-teal/15">
+              <svg className="h-7 w-7 text-precision-teal" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
             </div>
-            <p className="text-sm font-semibold text-slate-900">No content scraped yet</p>
-            <p className="text-xs text-slate-500">
+            <p className="text-sm font-semibold text-foreground">No content scraped yet</p>
+            <p className="text-xs text-muted-foreground">
               Click &quot;Refresh Content&quot; to scrape your website for menu items, pricing, screenshots, and site feature detection.
             </p>
           </div>
@@ -243,7 +230,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Hero Screenshot */}
       {screenshotUrl && (
-        <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-border shadow-sm">
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -310,7 +297,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
           </div>
           <div className="space-y-4">
             {menuScreenshotUrl && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200">
+              <div className="overflow-hidden rounded-2xl border border-border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={menuScreenshotUrl}
@@ -318,18 +305,18 @@ export default async function ContentPage({ searchParams }: PageProps) {
                   className="w-full object-cover"
                   style={{ maxHeight: "300px" }}
                 />
-                <div className="bg-slate-50 px-3 py-2">
-                  <p className="text-[10px] text-slate-500">Menu page screenshot</p>
+                <div className="bg-secondary px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground">Menu page screenshot</p>
                 </div>
               </div>
             )}
             {menuSnap.parseMeta.notes.length > 0 && (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <div className="rounded-xl border border-border bg-secondary p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Parse Notes
                 </p>
                 {menuSnap.parseMeta.notes.map((note, i) => (
-                  <p key={i} className="mt-1 text-xs text-slate-600">{note}</p>
+                  <p key={i} className="mt-1 text-xs text-muted-foreground">{note}</p>
                 ))}
               </div>
             )}
@@ -340,9 +327,9 @@ export default async function ContentPage({ searchParams }: PageProps) {
       {/* Menu says no items */}
       {menuSnap && menuSnap.categories.length === 0 && (
         <Card className="py-8 text-center">
-          <p className="text-sm text-slate-500">No menu items could be extracted from the website.</p>
+          <p className="text-sm text-muted-foreground">No menu items could be extracted from the website.</p>
           {menuSnap.parseMeta.notes.length > 0 && (
-            <p className="mt-1 text-xs text-slate-400">{menuSnap.parseMeta.notes.join(". ")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{menuSnap.parseMeta.notes.join(". ")}</p>
           )}
         </Card>
       )}

@@ -6,7 +6,33 @@ import { requireUser } from "@/lib/auth/server"
 import { signOutAction } from "./actions"
 import { Button } from "@/components/ui/button"
 import ActiveJobBar from "@/components/ui/active-job-bar"
+import SidebarNav from "@/components/ui/sidebar-nav"
+import Topbar from "@/components/ui/topbar"
+import TabBar from "@/components/ui/tab-bar"
+import BottomNav from "@/components/ui/bottom-nav"
 import { Toaster } from "sonner"
+
+function VaticLogo() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 28 28"
+      fill="none"
+      className="shrink-0"
+      aria-hidden="true"
+    >
+      <path
+        d="M4 6 L14 22 L24 6"
+        stroke="#5A3FFF"
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="14" cy="22" r="2.6" fill="#F2A11E" />
+    </svg>
+  )
+}
 
 export default async function DashboardLayout({
   children,
@@ -25,108 +51,74 @@ export default async function DashboardLayout({
     redirect("/onboarding")
   }
 
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", profile.current_organization_id)
+    .maybeSingle()
+
+  const userName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User"
+  const userOrg = orgRow?.name ?? "Vatic"
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <Toaster position="top-right" richColors closeButton />
+    <div className="app-shell flex h-dvh overflow-hidden bg-background text-foreground">
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          classNames: {
+            success: "!border-l-4 !border-l-precision-teal",
+            error: "!border-l-4 !border-l-destructive",
+            info: "!border-l-4 !border-l-primary",
+          },
+        }}
+      />
       <ActiveJobBar />
-      <div className="grid min-h-screen w-full grid-cols-[260px_1fr] gap-6 px-6 py-6">
-        <aside className="flex h-[calc(100vh-48px)] flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <Link href="/home" className="text-lg font-semibold">
-            Prophet
+
+      {/* ── Sidebar ──────────────────────────────────────────────── */}
+      <aside className="sidebar flex w-[236px] min-w-[236px] flex-col border-r border-border bg-card max-md:hidden max-lg:w-[60px] max-lg:min-w-[60px]">
+        {/* Logo */}
+        <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
+          <Link href="/home" className="flex items-center gap-3">
+            <VaticLogo />
+            <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground">
+              vatic
+            </span>
           </Link>
-          <nav className="mt-8 space-y-1 text-sm text-slate-600">
-            <Link className="block rounded-xl px-3 py-2 hover:bg-slate-100" href="/home">
-              Home
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/insights"
-            >
-              Insights
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/competitors"
-            >
-              Competitors
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/social"
-            >
-              Social
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/events"
-            >
-              Events
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/visibility"
-            >
-              Visibility
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/content"
-            >
-              Content
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/photos"
-            >
-              Photos
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/traffic"
-            >
-              Busy Times
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/weather"
-            >
-              Weather
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/locations"
-            >
-              Locations
-            </Link>
-            <Link
-              className="block rounded-xl px-3 py-2 hover:bg-slate-100"
-              href="/settings"
-            >
-              Settings
-            </Link>
-          </nav>
-          <form action={signOutAction} className="mt-auto pt-6">
-            <Button variant="secondary" className="w-full">
+        </div>
+
+        <SidebarNav userName={userName} userOrg={userOrg} />
+
+        {/* Sign out (collapsed into sidebar footer area) */}
+        <div className="shrink-0 border-t border-border px-3 py-2 max-lg:px-1">
+          <form action={signOutAction}>
+            <Button variant="ghost" size="sm" className="sidebar-label w-full justify-start text-xs text-muted-foreground">
               Sign out
             </Button>
+            <Button variant="ghost" size="sm" className="sidebar-icon-only hidden w-full max-lg:flex" aria-label="Sign out">
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <path d="M5.5 1.5 L1.5 1.5 L1.5 13.5 L5.5 13.5M10.5 4 L13.5 7.5 L10.5 11M5 7.5 L13 7.5" />
+              </svg>
+            </Button>
           </form>
-        </aside>
-
-        <div className="space-y-6">
-          <header className="flex items-center justify-between rounded-3xl border border-slate-200 bg-white px-6 py-4 shadow-sm">
-            <div>
-              <p className="text-sm text-slate-500">Welcome back</p>
-              <p className="text-lg font-semibold">Your competitive overview</p>
-            </div>
-            <div className="flex items-center gap-3 text-sm text-slate-500">
-              <span className="rounded-full border border-slate-200 px-3 py-1">
-                Daily monitoring
-              </span>
-            </div>
-          </header>
-          <main className="space-y-6">{children}</main>
         </div>
+      </aside>
+
+      {/* ── Main area ────────────────────────────────────────────── */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <Topbar userName={userName} />
+        <TabBar />
+
+        <main className="flex-1 overflow-y-auto px-6 py-5 max-md:px-4 max-md:pb-[74px]">
+          <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
+            {children}
+          </div>
+        </main>
       </div>
+
+      {/* ── Mobile bottom nav ────────────────────────────────────── */}
+      <BottomNav />
     </div>
   )
 }

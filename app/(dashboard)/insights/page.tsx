@@ -114,7 +114,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   // Snapshots (from cached data)
   // -------------------------------------------------------------------------
 
-  const competitorIds = competitors.map((c) => c.id)
   const snapshotRows = cachedData.snapshots
   const latestByCompetitor = new Map<string, NormalizedSnapshot>()
   const latestDateByCompetitor = new Map<string, string>()
@@ -413,87 +412,62 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   // -------------------------------------------------------------------------
 
   return (
-    <section className="space-y-6">
-      {/* Hero Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-600 via-blue-600 to-cyan-600 p-6 text-white shadow-xl shadow-indigo-200/50">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/5" />
-        <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/5" />
-
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 backdrop-blur-sm">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold tracking-tight">Insights</h1>
-            </div>
-            <p className="max-w-md text-sm text-white/70">
-              Changes and opportunities across competitors, events, SEO, social media, and content for{" "}
-              <span className="font-medium text-white/90">{selectedLocation?.name ?? "your locations"}</span>.
-            </p>
-          </div>
-
-          {selectedLocationId && (
-            <JobRefreshButton
-              type="insights"
-              locationId={selectedLocationId}
-              label="Generate insights"
-              pendingLabel="Generating insights"
-              className="!bg-white/15 !text-white backdrop-blur-sm hover:!bg-white/25"
-            />
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="relative mt-5">
-          <AutoFilterForm
-            filters={[
-              {
-                name: "location_id",
-                defaultValue: selectedLocationId ?? "",
-                options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
-              },
-              {
-                name: "range",
-                defaultValue: resolvedSearchParams?.range ?? "7",
-                options: [
-                  { value: "7", label: "7 days" },
-                  { value: "30", label: "30 days" },
-                ],
-              },
-              {
-                name: "severity",
-                defaultValue: resolvedSearchParams?.severity ?? "",
-                options: [
-                  { value: "", label: "All severity" },
-                  { value: "critical", label: "Critical" },
-                  { value: "warning", label: "Warning" },
-                  { value: "info", label: "Info" },
-                ],
-              },
-              {
-                name: "status",
-                defaultValue: statusFilter,
-                options: [
-                  { value: "", label: "All active" },
-                  { value: "new", label: "New" },
-                  { value: "read", label: "Read" },
-                  { value: "todo", label: "To-Do" },
-                  { value: "actioned", label: "Done" },
-                  { value: "snoozed", label: "Snoozed" },
-                  { value: "dismissed", label: "Dismissed" },
-                ],
-              },
-            ]}
+    <section className="space-y-5">
+      {/* Filters + Actions Bar */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <AutoFilterForm
+          filters={[
+            {
+              name: "location_id",
+              defaultValue: selectedLocationId ?? "",
+              options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
+            },
+            {
+              name: "range",
+              defaultValue: resolvedSearchParams?.range ?? "7",
+              options: [
+                { value: "7", label: "7 days" },
+                { value: "30", label: "30 days" },
+              ],
+            },
+            {
+              name: "severity",
+              defaultValue: resolvedSearchParams?.severity ?? "",
+              options: [
+                { value: "", label: "All severity" },
+                { value: "critical", label: "Critical" },
+                { value: "warning", label: "Warning" },
+                { value: "info", label: "Info" },
+              ],
+            },
+            {
+              name: "status",
+              defaultValue: statusFilter,
+              options: [
+                { value: "", label: "All active" },
+                { value: "new", label: "New" },
+                { value: "read", label: "Read" },
+                { value: "todo", label: "To-Do" },
+                { value: "actioned", label: "Done" },
+                { value: "snoozed", label: "Snoozed" },
+                { value: "dismissed", label: "Dismissed" },
+              ],
+            },
+          ]}
+        />
+        {selectedLocationId && (
+          <JobRefreshButton
+            type="insights"
+            locationId={selectedLocationId}
+            label="Generate insights"
+            pendingLabel="Generating insights"
           />
-        </div>
+        )}
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(error)}
         </div>
       )}
@@ -536,7 +510,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Busy Times Traffic Chart */}
       {trafficData.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-5">
           <TrafficChart data={trafficData} />
         </div>
       )}
@@ -550,7 +524,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Photo Gallery */}
       {photoItems.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-5">
           <PhotoGallery photos={photoItems} />
         </div>
       )}

@@ -29,13 +29,13 @@ type MenuViewerProps = {
 }
 
 const TAG_COLORS: Record<string, string> = {
-  vegan: "bg-green-100 text-green-700",
-  vegetarian: "bg-emerald-100 text-emerald-700",
-  "gluten-free": "bg-amber-100 text-amber-700",
-  spicy: "bg-red-100 text-red-700",
-  organic: "bg-lime-100 text-lime-700",
-  new: "bg-blue-100 text-blue-700",
-  popular: "bg-purple-100 text-purple-700",
+  vegan: "bg-precision-teal/15 text-precision-teal",
+  vegetarian: "bg-precision-teal/15 text-precision-teal",
+  "gluten-free": "bg-signal-gold/15 text-signal-gold",
+  spicy: "bg-destructive/15 text-destructive",
+  organic: "bg-precision-teal/15 text-precision-teal",
+  new: "bg-primary/15 text-primary",
+  popular: "bg-vatic-indigo-soft/15 text-vatic-indigo-soft",
 }
 
 const MENU_TYPE_LABELS: Record<MenuType, string> = {
@@ -48,18 +48,18 @@ const MENU_TYPE_LABELS: Record<MenuType, string> = {
 }
 
 const MENU_TYPE_COLORS: Record<MenuType, string> = {
-  dine_in: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  catering: "bg-orange-100 text-orange-700 border-orange-200",
-  banquet: "bg-purple-100 text-purple-700 border-purple-200",
-  happy_hour: "bg-amber-100 text-amber-700 border-amber-200",
-  kids: "bg-pink-100 text-pink-700 border-pink-200",
-  other: "bg-slate-100 text-slate-600 border-slate-200",
+  dine_in: "bg-primary/15 text-primary border-primary/30",
+  catering: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
+  banquet: "bg-vatic-indigo-soft/15 text-vatic-indigo-soft border-vatic-indigo-soft/30",
+  happy_hour: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
+  kids: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
+  other: "bg-secondary text-muted-foreground border-border",
 }
 
 function SourceBadge({ source }: { source: MenuSource }) {
   if (source === "firecrawl") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700 border border-cyan-200">
+      <span className="inline-flex items-center gap-1 rounded-full bg-precision-teal/15 px-2 py-0.5 text-[10px] font-medium text-precision-teal border border-precision-teal/30">
         <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
         </svg>
@@ -68,7 +68,7 @@ function SourceBadge({ source }: { source: MenuSource }) {
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary border border-primary/30">
       <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -107,8 +107,8 @@ export default function MenuViewer({
 
   if (categories.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center">
-        <p className="text-sm text-slate-500">No menu items found.</p>
+      <div className="rounded-2xl border border-border bg-card p-6 text-center">
+        <p className="text-sm text-muted-foreground">No menu items found.</p>
       </div>
     )
   }
@@ -116,12 +116,12 @@ export default function MenuViewer({
   const active = filteredCategories[activeCategory] ?? filteredCategories[0]
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="rounded-2xl border border-border bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+      <div className="flex items-center justify-between border-b border-border px-5 py-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">Menu</h3>
-          <p className="mt-0.5 text-xs text-slate-500">
+          <h3 className="text-sm font-semibold text-foreground">Menu</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {itemsTotal} items across {categories.length} categories
             {currency ? ` · ${currency}` : ""}
           </p>
@@ -137,10 +137,10 @@ export default function MenuViewer({
           <span
             className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
               confidence === "high"
-                ? "bg-green-100 text-green-700"
+                ? "bg-precision-teal/15 text-precision-teal"
                 : confidence === "medium"
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-slate-100 text-slate-500"
+                  ? "bg-signal-gold/15 text-signal-gold"
+                  : "bg-secondary text-muted-foreground"
             }`}
           >
             {confidence} confidence
@@ -150,7 +150,7 @@ export default function MenuViewer({
 
       {/* Menu type tabs (dine-in / catering / etc.) */}
       {menuTypes.length > 1 && (
-        <div className="flex gap-2 border-b border-slate-100 px-4 py-2">
+        <div className="flex gap-2 border-b border-border px-4 py-2">
           {menuTypes.map((mt) => {
             const count = categories
               .filter((c) => (c.menuType ?? "dine_in") === mt)
@@ -165,7 +165,7 @@ export default function MenuViewer({
                 className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
                   mt === activeMenuType
                     ? MENU_TYPE_COLORS[mt]
-                    : "border-slate-200 text-slate-400 hover:text-slate-600"
+                    : "border-border text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {MENU_TYPE_LABELS[mt]}
@@ -177,15 +177,15 @@ export default function MenuViewer({
       )}
 
       {/* Category tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-slate-100 px-4 py-2">
+      <div className="flex gap-1 overflow-x-auto border-b border-border px-4 py-2">
         {filteredCategories.map((cat, idx) => (
           <button
             key={cat.name}
             onClick={() => setActiveCategory(idx)}
             className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               idx === activeCategory
-                ? "bg-indigo-100 text-indigo-700"
-                : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             {cat.name}
@@ -196,7 +196,7 @@ export default function MenuViewer({
 
       {/* Filtered totals */}
       {menuTypes.length > 1 && (
-        <div className="px-5 pt-2 text-[10px] text-slate-400">
+        <div className="px-5 pt-2 text-[10px] text-muted-foreground">
           Showing {filteredItemsTotal} {MENU_TYPE_LABELS[activeMenuType].toLowerCase()} items
         </div>
       )}
@@ -207,20 +207,20 @@ export default function MenuViewer({
           {active.items.map((item, idx) => (
             <div
               key={`${item.name}-${idx}`}
-              className="group rounded-xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/50 p-3.5 transition-shadow hover:shadow-sm"
+              className="group rounded-xl border border-border bg-gradient-to-br from-card to-secondary/50 p-3.5 transition-shadow hover:shadow-sm"
             >
               <div className="flex items-start justify-between gap-2">
-                <h4 className="text-sm font-semibold text-slate-900 leading-snug">
+                <h4 className="text-sm font-semibold text-foreground leading-snug">
                   {item.name}
                 </h4>
                 {item.price && (
-                  <span className="shrink-0 rounded-lg bg-indigo-50 px-2 py-0.5 text-sm font-bold text-indigo-700">
+                  <span className="shrink-0 rounded-lg bg-primary/15 px-2 py-0.5 text-sm font-bold text-primary">
                     {item.price}
                   </span>
                 )}
               </div>
               {item.description && (
-                <p className="mt-1 text-xs leading-relaxed text-slate-500 line-clamp-2">
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
                   {item.description}
                 </p>
               )}
@@ -230,7 +230,7 @@ export default function MenuViewer({
                     <span
                       key={tag}
                       className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                        TAG_COLORS[tag] ?? "bg-slate-100 text-slate-600"
+                        TAG_COLORS[tag] ?? "bg-secondary text-muted-foreground"
                       }`}
                     >
                       {tag}

@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vatic — Rival Kitchen</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — Vatic Brand System
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --midnight:       #0C0825;
+  --near-black:     #1C1840;
+  --deep-violet:    #4D4975;
+  --muted-violet:   #8883AA;
+  --vatic-indigo:   #5A3FFF;
+  --deep-indigo:    #3620D4;
+  --pale-lavender:  #F0EDFF;
+  --warm-white:     #FAFAF9;
+  --signal-gold:    #F2A11E;
+  --precision-teal: #00BFA6;
+  --alert-red:      #FF4757;
+  --indigo-soft:    #9B87FF;
+
+  --gold-dim:       rgba(242,161, 30,0.14);
+  --teal-dim:       rgba(  0,191,166,0.12);
+  --red-dim:        rgba(255, 71, 87,0.12);
+  --indigo-dim:     rgba( 90, 63,255,0.12);
+
+  --border:         rgba(255,255,255,0.07);
+  --border-indigo:  rgba( 90, 63,255,0.28);
+  --surface-1:      var(--near-black);
+  --white-4:        rgba(255,255,255,0.04);
+  --white-7:        rgba(255,255,255,0.07);
+  --white-10:       rgba(255,255,255,0.10);
+
+  --text-1:         var(--warm-white);
+  --text-2:         var(--muted-violet);
+  --text-3:         var(--deep-violet);
+
+  --font-display:   'Cormorant Garamond', Georgia, serif;
+  --font-ui:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --s1:  4px;  --s2:  8px;   --s3: 12px;  --s4: 16px;
+  --s5: 20px;  --s6: 24px;   --s8: 32px;  --s10: 40px;  --s12: 48px;
+
+  --r-sm: 6px;  --r-md: 10px;  --r-lg: 14px;  --r-xl: 18px;
+
+  --ease-fast:   150ms ease;
+  --ease-normal: 250ms ease;
+  --ease-slow:   400ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-ui);
+  background: var(--midnight);
+  color: var(--text-1);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+}
+a   { text-decoration: none; color: inherit; }
+button { font-family: var(--font-ui); cursor: pointer; border: none; background: none; }
+::-webkit-scrollbar       { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--white-10); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════════════════════
+   NAV BAR — sticky top, blurred
+   ═══════════════════════════════════════════════════════════ */
+.cd-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 var(--s4);
+  background: rgba(12,8,37,0.80);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Back link */
+.cd-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--indigo-soft);
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--s2) 0 0;
+  transition: opacity var(--ease-fast);
+}
+.cd-back:hover { opacity: 0.75; }
+.cd-back svg { flex-shrink: 0; }
+
+/* Centred title */
+.cd-nav-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  pointer-events: none;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Watch / Watching pill */
+.cd-watch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all var(--ease-fast);
+  white-space: nowrap;
+}
+.cd-watch-btn:hover {
+  border-color: rgba(255,255,255,0.25);
+  color: var(--text-1);
+}
+.cd-watch-btn.watching {
+  border-color: var(--vatic-indigo);
+  background: rgba(90,63,255,0.15);
+  color: var(--indigo-soft);
+}
+.cd-watch-btn.watching .watch-eye-inner {
+  background: var(--indigo-soft);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PAGE SHELL
+   ═══════════════════════════════════════════════════════════ */
+.cd-main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: var(--s6) var(--s5) var(--s12);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO — competitor identity
+   ═══════════════════════════════════════════════════════════ */
+.cd-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  padding-bottom: var(--s6);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--s6);
+}
+
+.hero-emoji {
+  width: 60px;
+  height: 60px;
+  min-width: 60px;
+  border-radius: var(--r-lg);
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  user-select: none;
+}
+
+.hero-body { flex: 1; min-width: 0; }
+
+.hero-name {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: var(--s2);
+}
+
+.hero-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-1);
+  font-weight: 500;
+}
+.hero-rating-ct { color: var(--text-3); font-weight: 400; }
+
+.h-sep { color: var(--text-3); }
+
+.hero-tags {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+
+.hero-tag {
+  padding: 3px 10px;
+  background: var(--white-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.hero-tag.open {
+  color: var(--precision-teal);
+  border-color: rgba(0,191,166,0.22);
+  background: rgba(0,191,166,0.08);
+}
+
+.hero-freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.freshness-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--precision-teal);
+  box-shadow: 0 0 0 3px rgba(0,191,166,0.18);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { box-shadow: 0 0 0 3px rgba(0,191,166,0.18); }
+  50%      { box-shadow: 0 0 0 5px rgba(0,191,166,0.06); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INTELLIGENCE CARD — AI summary + recommended action
+   ═══════════════════════════════════════════════════════════ */
+.cd-intel {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    rgba(90,63,255,0.11) 0%,
+    rgba(155,135,255,0.05) 100%
+  );
+  border: 1px solid rgba(90,63,255,0.28);
+  border-radius: var(--r-xl);
+  padding: var(--s5) var(--s5) var(--s4);
+  margin-bottom: var(--s8);
+  overflow: hidden;
+}
+
+/* ambient glow in top-right */
+.cd-intel::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(90,63,255,0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.intel-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--indigo-soft);
+  margin-bottom: var(--s3);
+}
+.intel-eyebrow svg { flex-shrink: 0; }
+
+.intel-body {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-1);
+  margin-bottom: var(--s4);
+}
+.intel-body strong {
+  color: var(--warm-white);
+  font-weight: 600;
+}
+
+/* Recommended action sub-card */
+.intel-rec {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-lg);
+  padding: var(--s3) var(--s4);
+}
+
+.rec-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--signal-gold);
+  margin-bottom: var(--s2);
+}
+
+.rec-body {
+  font-size: 13px;
+  line-height: 1.62;
+  color: var(--text-2);
+}
+.rec-body strong { color: var(--text-1); font-weight: 500; }
+
+/* ═══════════════════════════════════════════════════════════
+   SIGNAL TIMELINE — filterable feed
+   ═══════════════════════════════════════════════════════════ */
+.cd-signals { margin-bottom: var(--s8); }
+
+.sig-hd {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--s4);
+}
+
+.sig-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.sig-month-ct {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Scrollable filter strip */
+.sig-filters {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  margin-bottom: var(--s5);
+}
+.sig-filters::-webkit-scrollbar { display: none; }
+
+.sf-tab {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 36px;
+  transition: all var(--ease-fast);
+  white-space: nowrap;
+}
+.sf-tab:hover { border-color: rgba(255,255,255,0.16); color: var(--text-1); }
+.sf-tab.active {
+  background: var(--vatic-indigo);
+  border-color: var(--vatic-indigo);
+  color: #fff;
+}
+
+/* Signal list */
+.sig-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.sig-item {
+  display: flex;
+  gap: var(--s3);
+  padding: var(--s4) 0;
+  border-bottom: 1px solid var(--border);
+  animation: sigIn 0.28s ease both;
+}
+.sig-item:last-child { border-bottom: none; }
+
+@keyframes sigIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Vertical timeline gutter */
+.sig-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 3px;
+  width: 20px;
+  flex-shrink: 0;
+}
+
+.sig-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid transparent;
+}
+
+.sig-thread {
+  width: 1px;
+  flex: 1;
+  min-height: 18px;
+  background: var(--border);
+  margin-top: 5px;
+}
+
+/* Signal content */
+.sig-content { flex: 1; min-width: 0; }
+
+.sig-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-bottom: 3px;
+}
+
+.sig-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.sig-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sig-headline {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 3px;
+  line-height: 1.35;
+}
+
+.sig-detail {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SIGNAL BREAKDOWN — bar chart
+   ═══════════════════════════════════════════════════════════ */
+.cd-breakdown { margin-bottom: var(--s8); }
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: var(--s5);
+}
+.section-title .section-sub {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.bd-bars {
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--s4) var(--s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+}
+
+.bd-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 20px;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.bd-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.bd-icon { font-size: 14px; line-height: 1; }
+
+.bd-track {
+  height: 7px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.bd-fill {
+  height: 100%;
+  border-radius: 4px;
+  width: 0;
+  transition: width 1.1s cubic-bezier(0.16,1,0.3,1);
+}
+
+.bd-count {
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RATING TREND — sparkline + stat
+   ═══════════════════════════════════════════════════════════ */
+.cd-rating { margin-bottom: var(--s6); }
+
+.rt-card {
+  background: var(--near-black);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: var(--s4) var(--s5) var(--s4);
+  overflow: hidden;
+}
+
+.rt-chart-area {
+  position: relative;
+  margin-bottom: var(--s1);
+}
+
+.rt-svg {
+  width: 100%;
+  height: 80px;
+  display: block;
+  overflow: visible;
+}
+
+/* Grid lines (decorative) */
+.rt-grid-line {
+  stroke: rgba(255,255,255,0.04);
+  stroke-width: 1;
+}
+
+.rt-x-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 5px;
+  margin-bottom: var(--s4);
+}
+
+.rt-stat-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s3);
+  padding-top: var(--s3);
+  border-top: 1px solid var(--border);
+}
+
+.rt-val {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-1);
+}
+
+.rt-val-label {
+  font-size: 13px;
+  color: var(--text-3);
+  flex: 1;
+}
+
+.rt-delta {
+  font-size: 12px;
+  font-weight: 600;
+}
+.rt-delta.down { color: var(--alert-red); }
+.rt-delta.up   { color: var(--precision-teal); }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE BREAKPOINTS
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 540px) {
+  .cd-main     { padding: var(--s4) var(--s4) var(--s12); }
+  .hero-name   { font-size: 26px; }
+  .cd-intel    { padding: var(--s4); }
+  .bd-row      { grid-template-columns: 64px 1fr 18px; }
+}
+
+@media (max-width: 360px) {
+  .hero-name   { font-size: 22px; }
+  .hero-emoji  { width: 48px; height: 48px; min-width: 48px; font-size: 22px; }
+}
+
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAV ═══════════════════════════════════════════════ -->
+  <nav class="cd-nav" role="navigation" aria-label="Competitor detail">
+    <a class="cd-back" href="Vatic-Competitors.html" aria-label="Back to competitors list">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M10 3L5 8L10 13" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Competitors
+    </a>
+
+    <span class="cd-nav-title" aria-hidden="true">Rival Kitchen</span>
+
+    <button class="cd-watch-btn" id="watchBtn" aria-pressed="false"
+            aria-label="Watch this competitor">
+      <!-- Eye icon -->
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <ellipse cx="7" cy="7" rx="5.5" ry="3.5"
+                 stroke="currentColor" stroke-width="1.3"/>
+        <circle class="watch-eye-inner" cx="7" cy="7" r="1.8" fill="currentColor"/>
+      </svg>
+      <span class="watch-label">Watch</span>
+    </button>
+  </nav>
+
+  <!-- ═══ MAIN SCROLL AREA ════════════════════════════════════ -->
+  <main class="cd-main">
+
+    <!-- ── HERO ────────────────────────────────────────────── -->
+    <section class="cd-hero" aria-label="Competitor overview">
+      <div class="hero-emoji" aria-hidden="true">🍔</div>
+
+      <div class="hero-body">
+        <h1 class="hero-name">Rival Kitchen</h1>
+
+        <div class="hero-meta">
+          <span class="hero-rating" aria-label="Rating: 4.2 out of 5">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M6 1l1.35 2.73 3.01.44-2.18 2.12.51 3-2.69-1.42L3.31 9.29l.51-3L1.64 4.17l3.01-.44L6 1Z"
+                    fill="#F2A11E"/>
+            </svg>
+            4.2
+            <span class="hero-rating-ct">(312)</span>
+          </span>
+          <span class="h-sep" aria-hidden="true">·</span>
+          <span>American Bistro</span>
+          <span class="h-sep" aria-hidden="true">·</span>
+          <span>0.3 mi</span>
+        </div>
+
+        <div class="hero-tags">
+          <span class="hero-tag">$$</span>
+          <span class="hero-tag open">Open now</span>
+          <span class="hero-freshness">
+            <span class="freshness-dot" aria-hidden="true"></span>
+            Signal 3h ago
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── INTELLIGENCE CARD ─────────────────────────────── -->
+    <section class="cd-intel" aria-label="AI intelligence summary">
+      <div class="intel-eyebrow">
+        <!-- sparkle icon -->
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+          <path d="M5.5 0l.88 3.77L10.5 5.5l-4.12 1.73L5.5 11l-.88-3.77L.5 5.5l4.12-1.73L5.5 0Z"
+                fill="var(--indigo-soft)"/>
+        </svg>
+        This week's intelligence
+      </div>
+
+      <p class="intel-body">
+        Rival Kitchen made two moves this week: a <strong>12% brunch price cut</strong>
+        across six overlapping menu items, and a review burst that lifted their
+        search ranking to position 2 on your primary keyword. The pricing shift is the
+        more immediate threat — it directly impacts your Saturday revenue window.
+      </p>
+
+      <div class="intel-rec">
+        <div class="rec-label">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M6 1l1.1 3.2H10.3L7.65 6.1l1.1 3.2L6 7.5 3.25 9.3l1.1-3.2L1.7 4.2H4.9L6 1Z"
+                  fill="var(--signal-gold)"/>
+          </svg>
+          Suggested action
+        </div>
+        <p class="rec-body">
+          Audit your brunch pricing against their updated menu before the weekend.
+          Their <strong>Feb review dip</strong> (3 one-stars citing slow service) signals
+          operational strain — lean into your consistency and response time as a differentiator.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── SIGNAL TIMELINE ──────────────────────────────────── -->
+    <section class="cd-signals" aria-label="Competitor activity signals">
+      <div class="sig-hd">
+        <h2 class="sig-title">Recent signals</h2>
+        <span class="sig-month-ct" id="sigMonthCt">30 this month</span>
+      </div>
+
+      <!-- Filter tabs — match Prophet insight_type categories -->
+      <div class="sig-filters" role="tablist" aria-label="Filter by signal type">
+        <button class="sf-tab active" data-filter="all"
+                role="tab" aria-selected="true">All</button>
+        <button class="sf-tab" data-filter="seo"
+                role="tab" aria-selected="false">SEO</button>
+        <button class="sf-tab" data-filter="events"
+                role="tab" aria-selected="false">Events</button>
+        <button class="sf-tab" data-filter="reviews"
+                role="tab" aria-selected="false">Reviews</button>
+        <button class="sf-tab" data-filter="menu"
+                role="tab" aria-selected="false">Menu</button>
+        <button class="sf-tab" data-filter="photos"
+                role="tab" aria-selected="false">Photos</button>
+        <button class="sf-tab" data-filter="traffic"
+                role="tab" aria-selected="false">Traffic</button>
+      </div>
+
+      <!-- Populated by JS -->
+      <div class="sig-list" id="sigList" role="list" aria-label="Signal feed"></div>
+    </section>
+
+    <!-- ── SIGNAL BREAKDOWN ──────────────────────────────── -->
+    <section class="cd-breakdown" aria-label="Signal breakdown by category">
+      <h2 class="section-title">
+        Signal breakdown
+        <span class="section-sub">· March</span>
+      </h2>
+      <div class="bd-bars" id="bdBars"></div>
+    </section>
+
+    <!-- ── RATING TREND ─────────────────────────────────── -->
+    <section class="cd-rating" aria-label="Rating history">
+      <h2 class="section-title" style="margin-bottom: var(--s4);">Rating trend</h2>
+      <div class="rt-card">
+        <div class="rt-chart-area">
+          <!--
+            SVG viewBox 0 0 300 80, preserveAspectRatio="none"
+            Data: Aug–Mar ratings mapped to y within 5–75 range
+            Rating range plotted: 3.8–4.6 (0.8 span)
+            y = 5 + ((4.6 - rating) / 0.8) * 70
+            Aug 4.5 → y=13.75  ≈ 14
+            Sep 4.4 → y=22.5   ≈ 23
+            Oct 4.3 → y=31.25  ≈ 31
+            Nov 4.3 → y=31
+            Dec 4.2 → y=40
+            Jan 4.1 → y=48.75  ≈ 49
+            Feb 4.2 → y=40
+            Mar 4.2 → y=40
+            x = (i / 7) * 298 + 1: 1, 44, 87, 129, 172, 215, 258, 300
+          -->
+          <svg class="rt-svg" viewBox="0 0 300 80"
+               preserveAspectRatio="none" role="img"
+               aria-label="Rating trend from 4.5 in August to 4.2 now">
+
+            <defs>
+              <linearGradient id="rtFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%"   stop-color="#5A3FFF" stop-opacity="0.28"/>
+                <stop offset="100%" stop-color="#5A3FFF" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Horizontal grid lines at y 14, 31, 49 -->
+            <line class="rt-grid-line" x1="0" y1="14" x2="300" y2="14"/>
+            <line class="rt-grid-line" x1="0" y1="31" x2="300" y2="31"/>
+            <line class="rt-grid-line" x1="0" y1="49" x2="300" y2="49"/>
+
+            <!-- Area fill — closed polygon to bottom edge -->
+            <polygon
+              points="1,14 44,23 87,31 129,31 172,40 215,49 258,40 300,40 300,80 1,80"
+              fill="url(#rtFill)"
+            />
+
+            <!-- Main line -->
+            <polyline
+              points="1,14 44,23 87,31 129,31 172,40 215,49 258,40 300,40"
+              fill="none"
+              stroke="#5A3FFF"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <!-- Current value endpoint -->
+            <circle cx="300" cy="40" r="3.5" fill="#5A3FFF"/>
+            <circle cx="300" cy="40" r="6.5" fill="#5A3FFF" fill-opacity="0.18"/>
+          </svg>
+        </div>
+
+        <div class="rt-x-axis" aria-hidden="true">
+          <span>Aug</span>
+          <span>Oct</span>
+          <span>Dec</span>
+          <span>Feb</span>
+          <span>Now</span>
+        </div>
+
+        <div class="rt-stat-row">
+          <span class="rt-val" aria-label="Current rating: 4.2">4.2</span>
+          <span class="rt-val-label">current rating</span>
+          <span class="rt-delta down" aria-label="Down 0.3 since August">↓ 0.3 since Aug</span>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- /cd-main -->
+
+  <script>
+/* ═══════════════════════════════════════════════════════════
+   SIGNAL DATA
+   ═══════════════════════════════════════════════════════════ */
+/* TYPE_CONFIG maps directly to Prophet's insight_type categories:
+   seo     → seo_organic_visibility_*, seo_keyword_*, seo_domain_rank_*
+   events  → event.venue_match, event.competitor_match
+   reviews → rating_change, review_velocity_*
+   menu    → menu.price_positioning_shift, menu.new_items, menu.section_added
+   photos  → photo.quality_change, photo.new_photos
+   traffic → traffic.peak_hours_*, traffic.busy_times_*               */
+const TYPE_CONFIG = {
+  seo:     { label: 'SEO',     color: '#9B87FF', bg: 'rgba(155,135,255,0.14)' },
+  events:  { label: 'Events',  color: '#F2A11E', bg: 'rgba(242,161,30,0.14)'  },
+  reviews: { label: 'Reviews', color: '#00BFA6', bg: 'rgba(0,191,166,0.12)'   },
+  menu:    { label: 'Menu',    color: '#5A3FFF', bg: 'rgba(90,63,255,0.12)'   },
+  photos:  { label: 'Photos',  color: '#8883AA', bg: 'rgba(136,131,170,0.14)' },
+  traffic: { label: 'Traffic', color: '#26C6DA', bg: 'rgba(38,198,218,0.12)'  },
+};
+
+/* SIGNALS — each entry reflects a real Prophet insight_type output.
+   Data sources: Google Places (reviews), DataForSEO (SEO), DataForSEO Events SERP
+   (events), Firecrawl + Gemini (menu), Gemini Vision (photos), Outscraper (traffic) */
+const SIGNALS = [
+  {
+    type: 'menu', date: 'Today',
+    headline: 'Brunch prices dropped 12%',
+    detail: '6 signature items reduced $3–4 — Eggs Benedict, avocado toast, weekend pancake stack. Now below you on all three.'
+  },
+  {
+    type: 'seo', date: 'Mon Mar 9',
+    headline: 'Search visibility up 23%',
+    detail: 'Rankings rose on "best brunch Wicker Park," "brunch near me," and 3 other tracked terms. Now at position 2.'
+  },
+  {
+    type: 'reviews', date: 'Sun Mar 8',
+    headline: 'Review burst — 14 new this week',
+    detail: '11 five-star, 2 four-star, 1 three-star. Recurring themes: brunch value, quick service, new menu items.'
+  },
+  {
+    type: 'events', date: 'Fri Mar 6',
+    headline: 'St. Patrick\'s Day event posted',
+    detail: 'Mar 15, $5 Irish whiskey flights + live fiddle music from 6pm. Google-indexed and showing in local SERP.'
+  },
+  {
+    type: 'photos', date: 'Wed Mar 4',
+    headline: '5 new food photos posted',
+    detail: 'Gemini Vision rated quality 8.2/10. Subject: new brunch plating and updated interior shots.'
+  },
+  {
+    type: 'traffic', date: 'Tue Mar 3',
+    headline: 'Friday peak hours up 18%',
+    detail: 'Busy score 7–9pm rose from 72 → 85 (Outscraper Popular Times). Consistent with their recent Instagram push.'
+  },
+  {
+    type: 'menu', date: 'Tue Feb 25',
+    headline: 'Spring menu section added',
+    detail: '4 lighter fare items under new "Spring Specials" heading. Catering menu updated with 3 new packages.'
+  },
+  {
+    type: 'seo', date: 'Sun Feb 23',
+    headline: 'Domain rank rose to 28',
+    detail: 'Organic traffic estimate up ~340 visits/mo. New backlink from Chicago Reader "Best Burgers 2026" feature.'
+  },
+  {
+    type: 'reviews', date: 'Thu Feb 19',
+    headline: 'Rating dipped to 4.2 ★',
+    detail: '3 consecutive 1-star reviews citing slow weekend service. Down from 4.4 two months prior.'
+  },
+  {
+    type: 'events', date: 'Mon Feb 17',
+    headline: 'Valentine\'s Day prix-fixe ran Feb 14–15',
+    detail: '$65/person tasting menu, fully booked per their Instagram story. Event venue match: high confidence.'
+  },
+];
+
+/* BREAKDOWN — monthly signal totals per Prophet insight source.
+   Sources map to: DataForSEO (seo), DataForSEO Events SERP (events),
+   Google Places (reviews), Firecrawl+Gemini (menu),
+   Gemini Vision (photos), Outscraper (traffic)              */
+const BREAKDOWN = [
+  { type: 'menu',    count: 8 },
+  { type: 'reviews', count: 7 },
+  { type: 'seo',     count: 5 },
+  { type: 'events',  count: 4 },
+  { type: 'photos',  count: 3 },
+  { type: 'traffic', count: 3 },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   WATCH TOGGLE
+   ═══════════════════════════════════════════════════════════ */
+let watching = false;
+const watchBtn   = document.getElementById('watchBtn');
+const watchLabel = watchBtn.querySelector('.watch-label');
+
+watchBtn.addEventListener('click', () => {
+  watching = !watching;
+  watchBtn.classList.toggle('watching', watching);
+  watchBtn.setAttribute('aria-pressed', String(watching));
+  watchLabel.textContent = watching ? 'Watching' : 'Watch';
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER SIGNALS
+   ═══════════════════════════════════════════════════════════ */
+function renderSignals(filter) {
+  const list     = document.getElementById('sigList');
+  const items    = filter === 'all'
+    ? SIGNALS
+    : SIGNALS.filter(s => s.type === filter);
+
+  list.innerHTML = '';
+
+  items.forEach((sig, i) => {
+    const cfg    = TYPE_CONFIG[sig.type];
+    const isLast = i === items.length - 1;
+
+    const el = document.createElement('div');
+    el.className = 'sig-item';
+    el.style.animationDelay = `${i * 35}ms`;
+    el.setAttribute('role', 'listitem');
+
+    el.innerHTML = `
+      <div class="sig-gutter" aria-hidden="true">
+        <div class="sig-dot"
+             style="background:${cfg.color}; border-color:${cfg.bg}; box-shadow:0 0 0 3px ${cfg.bg};"></div>
+        ${!isLast ? '<div class="sig-thread"></div>' : ''}
+      </div>
+      <div class="sig-content">
+        <div class="sig-top">
+          <span class="sig-date">${sig.date}</span>
+          <span class="sig-badge"
+                style="color:${cfg.color}; background:${cfg.bg};">${cfg.label}</span>
+        </div>
+        <div class="sig-headline">${sig.headline}</div>
+        <div class="sig-detail">${sig.detail}</div>
+      </div>
+    `;
+    list.appendChild(el);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILTER TABS
+   ═══════════════════════════════════════════════════════════ */
+document.querySelectorAll('.sf-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sf-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    renderSignals(tab.dataset.filter);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════
+   RENDER BREAKDOWN BARS
+   ═══════════════════════════════════════════════════════════ */
+function renderBreakdown() {
+  const container = document.getElementById('bdBars');
+  const maxCount  = Math.max(...BREAKDOWN.map(b => b.count));
+
+  const icons = { seo: '🔍', events: '📅', reviews: '⭐', menu: '🍽️', photos: '📸', traffic: '📈' };
+
+  BREAKDOWN.forEach(({ type, count }) => {
+    const cfg = TYPE_CONFIG[type];
+    const pct = (count / maxCount) * 100;
+
+    const row = document.createElement('div');
+    row.className = 'bd-row';
+    row.innerHTML = `
+      <div class="bd-label">
+        <span class="bd-icon" aria-hidden="true">${icons[type]}</span>
+        <span>${cfg.label}</span>
+      </div>
+      <div class="bd-track" role="progressbar"
+           aria-valuenow="${count}" aria-valuemax="${maxCount}"
+           aria-label="${cfg.label} signal count">
+        <div class="bd-fill" data-pct="${pct}"
+             style="background:${cfg.color};"></div>
+      </div>
+      <div class="bd-count">${count}</div>
+    `;
+    container.appendChild(row);
+  });
+
+  /* Animate bars after paint */
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.bd-fill').forEach(fill => {
+        fill.style.width = fill.dataset.pct + '%';
+      });
+    });
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+renderSignals('all');
+renderBreakdown();
+  </script>
+</body>
+</html>

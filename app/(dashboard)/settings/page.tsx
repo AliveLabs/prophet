@@ -1,24 +1,22 @@
 import Link from "next/link"
-import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 export default function SettingsPage() {
   return (
-    <section className="space-y-6">
-      <Card className="bg-white text-slate-900">
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Manage billing, team members, and organization preferences.
-        </p>
-        <div className="mt-4 flex gap-3">
+    <section className="space-y-5">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border px-5 py-3">
+          <span className="text-[12.5px] font-semibold text-foreground">Settings</span>
+        </div>
+        <div className="space-y-2 p-5">
           <Link href="/settings/billing">
-            <Button variant="secondary">Billing</Button>
+            <Button variant="secondary" className="w-full justify-start">Billing</Button>
           </Link>
           <Link href="/settings/team">
-            <Button variant="secondary">Team</Button>
+            <Button variant="secondary" className="w-full justify-start">Team</Button>
           </Link>
         </div>
-      </Card>
+      </div>
     </section>
   )
 }
