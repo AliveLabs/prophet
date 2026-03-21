@@ -357,6 +357,13 @@
 ::-webkit-scrollbar-thumb:hover { background: rgba(136, 131, 170, 0.5); }
 * { scrollbar-width: thin; scrollbar-color: rgba(136, 131, 170, 0.3) transparent; }
 
+/* ── Scrollbar-none utility ─────────────────────────────────── */
+.scrollbar-none {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
 /* ── Selection ─────────────────────────────────────────────── */
 ::selection {
   background: rgba(90, 63, 255, 0.25);
