@@ -4,6 +4,8 @@ import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
+import { ensureLocationLimit } from "@/lib/billing/limits"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -34,6 +36,24 @@ export async function createLocationFromPlaceAction(formData: FormData) {
 
   if (!membership || !["owner", "admin"].includes(membership.role)) {
     redirect("/locations?error=Unauthorized")
+  }
+
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", organizationId)
+    .maybeSingle()
+  const tier = (orgRow?.subscription_tier ?? "free") as SubscriptionTier
+
+  const { count: locationCount } = await supabase
+    .from("locations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+
+  try {
+    ensureLocationLimit(tier, locationCount ?? 0)
+  } catch (err) {
+    redirect(`/locations?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
   }
 
   const geoLatValue = String(formData.get("geo_lat") ?? "").trim()

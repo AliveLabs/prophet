@@ -1,0 +1,103 @@
+/* ============================================================
+   Landing Page — Ambient effects and animations
+   ============================================================ */
+
+.landing-hero-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.landing-hero-ambient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+      ellipse 60% 50% at 20% 20%,
+      rgba(90, 63, 255, 0.07) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 80% 75%,
+      rgba(0, 191, 166, 0.05) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 40% 35% at 55% 10%,
+      rgba(242, 161, 30, 0.03) 0%,
+      transparent 55%
+    );
+}
+
+:is(.dark) .landing-hero-ambient::before {
+  background: radial-gradient(
+      ellipse 60% 50% at 20% 20%,
+      rgba(90, 63, 255, 0.16) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 80% 75%,
+      rgba(0, 191, 166, 0.08) 0%,
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse 40% 35% at 55% 10%,
+      rgba(242, 161, 30, 0.04) 0%,
+      transparent 55%
+    );
+}
+
+:is(.dark) .landing-hero-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(1px 1px at 10% 8%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 22%, rgba(255, 255, 255, 0.18) 0%, transparent 100%),
+    radial-gradient(1px 1px at 65% 5%, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 80% 18%, rgba(255, 255, 255, 0.14) 0%, transparent 100%),
+    radial-gradient(1px 1px at 22% 42%, rgba(255, 255, 255, 0.1) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 55%, rgba(255, 255, 255, 0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 70%, rgba(255, 255, 255, 0.12) 0%, transparent 100%),
+    radial-gradient(1px 1px at 5% 80%, rgba(255, 255, 255, 0.22) 0%, transparent 100%);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Glass card effect for feature cards */
+.glass-card {
+  background: color-mix(in srgb, var(--card) 70%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:is(.dark) .glass-card {
+  background: color-mix(in srgb, var(--card) 50%, transparent);
+}
+
+/* Signal card styling */
+.signal-card {
+  border-left: 3px solid var(--precision-teal);
+  background: var(--card);
+}
+
+/* Landing nav blur */
+.landing-nav-blur {
+  background: color-mix(in srgb, var(--background) 85%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Pricing card highlight */
+.pricing-highlight {
+  border-color: var(--vatic-indigo);
+  box-shadow: 0 0 24px rgba(90, 63, 255, 0.15), 0 0 8px rgba(90, 63, 255, 0.1);
+}
+
+:is(.dark) .pricing-highlight {
+  box-shadow: 0 0 32px rgba(90, 63, 255, 0.25), 0 0 12px rgba(90, 63, 255, 0.15);
+}

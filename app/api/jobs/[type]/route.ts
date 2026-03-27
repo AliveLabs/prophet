@@ -3,7 +3,7 @@
 // Starts a pipeline job and streams SSE progress events
 // ---------------------------------------------------------------------------
 
-import { revalidateTag, revalidatePath } from "next/cache"
+import { updateTag, revalidatePath } from "next/cache"
 import { getJobAuthContext } from "@/lib/jobs/auth"
 import { createJob } from "@/lib/jobs/manager"
 import { createSSEStream, sseResponse } from "@/lib/jobs/sse"
@@ -241,7 +241,7 @@ export async function GET(
       }
       const tags = cacheTagMap[type] ?? ["home-data"]
       for (const tag of tags) {
-        try { revalidateTag(tag, { expire: 0 }) } catch { /* ignore */ }
+        try { updateTag(tag) } catch { /* ignore */ }
       }
 
       // Belt-and-suspenders: also invalidate the page path

@@ -1,10 +1,10 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { revalidateTag } from "next/cache"
+import { updateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { getTierFromPriceId } from "@/lib/billing/tiers"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 import {
   getEventsQueriesPerRun,
   getEventsMaxDepth,
@@ -82,7 +82,7 @@ export async function fetchEventsAction(formData: FormData) {
     .eq("id", organizationId)
     .maybeSingle()
 
-  const tier = getTierFromPriceId(org?.subscription_tier)
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
 
   // Fetch location
   const { data: location } = await supabase
@@ -320,8 +320,8 @@ export async function fetchEventsAction(formData: FormData) {
       }
     }
 
-    revalidateTag("events-data", { expire: 0 })
-    revalidateTag("home-data", { expire: 0 })
+    updateTag("events-data")
+    updateTag("home-data")
     redirect(`/events?location_id=${locationId}&success=Events+fetched+successfully`)
   } catch (error) {
     // Re-throw redirect errors (Next.js uses error.digest starting with NEXT_REDIRECT)

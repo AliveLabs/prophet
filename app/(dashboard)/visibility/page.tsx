@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import { getTierFromPriceId } from "@/lib/billing/tiers"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import VisibilityFilters from "@/components/visibility/visibility-filters"
@@ -55,7 +55,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = getTierFromPriceId(org?.subscription_tier)
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
 
   const { data: locations } = await supabase
     .from("locations")

@@ -387,7 +387,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
   )
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-5">
       {/* Location banner */}
       {locations && locations.length > 0 && selectedLocationId && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-secondary/30 px-1 pb-4">

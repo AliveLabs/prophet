@@ -1,8 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
-import type { ReactNode } from "react"
+import { usePathname, useRouter } from "next/navigation"
+import { type ReactNode, useState, useRef, useEffect, useTransition } from "react"
+import { switchOrganizationAction } from "@/app/(dashboard)/actions"
+
+export interface OrgEntry {
+  id: string
+  name: string
+  tier: string
+  role: string
+}
 
 interface NavItem {
   href: string
@@ -175,10 +183,17 @@ const NAV_GROUPS: NavGroup[] = [
 interface SidebarNavProps {
   userName?: string
   userOrg?: string
+  orgs?: OrgEntry[]
+  currentOrgId?: string
 }
 
-export default function SidebarNav({ userName, userOrg }: SidebarNavProps) {
+export default function SidebarNav({ userName, userOrg, orgs = [], currentOrgId }: SidebarNavProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [open, setOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const popoverRef = useRef<HTMLDivElement>(null)
+
   const initials =
     userName
       ?.split(" ")
@@ -186,6 +201,31 @@ export default function SidebarNav({ userName, userOrg }: SidebarNavProps) {
       .join("")
       .toUpperCase()
       .slice(0, 2) ?? "V"
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside)
+      return () => document.removeEventListener("mousedown", handleClickOutside)
+    }
+  }, [open])
+
+  function handleSwitchOrg(orgId: string) {
+    if (orgId === currentOrgId || isPending) return
+    setOpen(false)
+    startTransition(async () => {
+      await switchOrganizationAction(orgId)
+    })
+  }
+
+  const tierLabel = (tier: string) => {
+    if (tier === "free") return null
+    return tier.charAt(0).toUpperCase() + tier.slice(1)
+  }
 
   return (
     <>
@@ -234,16 +274,70 @@ export default function SidebarNav({ userName, userOrg }: SidebarNavProps) {
         ))}
       </nav>
 
-      <div className="shrink-0 border-t border-border px-3 py-3">
-        <div className="flex items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-secondary">
+      <div className="relative shrink-0 border-t border-border px-3 py-3" ref={popoverRef}>
+        {/* Org switcher popover */}
+        {open && orgs.length > 0 && (
+          <div className="absolute bottom-full left-2 right-2 mb-1 rounded-lg border border-border bg-card shadow-lg">
+            <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Organizations
+            </div>
+            <div className="max-h-[220px] overflow-y-auto">
+              {orgs.map((org) => (
+                <button
+                  key={org.id}
+                  onClick={() => handleSwitchOrg(org.id)}
+                  disabled={isPending}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-[12.5px] transition-colors ${
+                    org.id === currentOrgId
+                      ? "bg-primary/10 font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  } ${isPending ? "opacity-50" : ""}`}
+                >
+                  <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md bg-primary/15 text-[9px] font-bold text-primary">
+                    {org.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{org.name}</span>
+                  {tierLabel(org.tier) && (
+                    <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-px text-[9px] font-medium text-primary">
+                      {tierLabel(org.tier)}
+                    </span>
+                  )}
+                  {org.id === currentOrgId && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" className="shrink-0 text-primary">
+                      <path d="M2 6 L5 9 L10 3" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+            <div className="border-t border-border">
+              <Link
+                href="/organizations/new"
+                onClick={() => setOpen(false)}
+                className="flex w-full items-center gap-2.5 px-3 py-2.5 text-[12.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border border-dashed border-muted-foreground/40 text-[11px] text-muted-foreground">
+                  +
+                </span>
+                <span>New organization</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 transition-colors hover:bg-secondary"
+        >
           <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-deep-indigo text-[11px] font-bold text-primary-foreground">
             {initials}
           </div>
-          <div className="sidebar-label min-w-0 flex-1">
+          <div className="sidebar-label min-w-0 flex-1 text-left">
             <div className="truncate text-[12.5px] font-medium text-foreground">
               {userName ?? "User"}
             </div>
-            <div className="text-[11px] text-muted-foreground">
+            <div className="truncate text-[11px] text-muted-foreground">
               {userOrg ?? "Vatic"}
             </div>
           </div>
@@ -254,11 +348,11 @@ export default function SidebarNav({ userName, userOrg }: SidebarNavProps) {
             fill="none"
             stroke="currentColor"
             strokeWidth="1.4"
-            className="sidebar-label shrink-0 text-muted-foreground"
+            className={`sidebar-label shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
           >
             <path d="M2.5 4.5 L6.5 8.5 L10.5 4.5" />
           </svg>
-        </div>
+        </button>
       </div>
     </>
   )

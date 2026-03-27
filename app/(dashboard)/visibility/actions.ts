@@ -1,10 +1,10 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { revalidateTag } from "next/cache"
+import { updateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { getTierFromPriceId } from "@/lib/billing/tiers"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 import {
   getSeoRankedKeywordsLimit,
   getSeoTrackedKeywordsLimit,
@@ -99,7 +99,7 @@ export async function refreshSeoAction(formData: FormData) {
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = getTierFromPriceId(org?.subscription_tier)
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
 
   const { data: location } = await supabase
     .from("locations")
@@ -718,8 +718,8 @@ export async function refreshSeoAction(formData: FormData) {
     if (warnings.length > 0) {
       successMsg += ` (partial: ${warnings.join(", ")})`
     }
-    revalidateTag("visibility-data", { expire: 0 })
-    revalidateTag("home-data", { expire: 0 })
+    updateTag("visibility-data")
+    updateTag("home-data")
     redirect(`/visibility?location_id=${locationId}&success=${encodeURIComponent(successMsg)}`)
   } catch (error) {
     const digest = (error as { digest?: string })?.digest

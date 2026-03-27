@@ -1,6 +1,6 @@
 "use server"
 
-import { revalidateTag } from "next/cache"
+import { updateTag } from "next/cache"
 import {
   saveSocialProfileAction as _save,
   deleteSocialProfileAction as _delete,
@@ -40,6 +40,6 @@ export async function generateSocialInsightsForLocation(locationId: string, date
 }
 
 export async function revalidateSocialCache() {
-  revalidateTag("social-data", { expire: 0 })
-  revalidateTag("home-data", { expire: 0 })
+  updateTag("social-data")
+  updateTag("home-data")
 }

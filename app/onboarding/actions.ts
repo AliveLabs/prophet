@@ -14,8 +14,12 @@ import {
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
 import { enrichCompetitorContent } from "@/lib/content/enrich"
-import type { SubscriptionTier } from "@/lib/billing/tiers"
+import { type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
+import { ensureLocationLimit } from "@/lib/billing/limits"
+import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import type { Json } from "@/types/database.types"
+import { sendEmail } from "@/lib/email/send"
+import { Welcome } from "@/lib/email/templates/welcome"
 
 function slugify(input: string) {
   return input
@@ -157,6 +161,24 @@ export async function createLocationAction(formData: FormData) {
     redirect("/onboarding?error=Unauthorized")
   }
 
+  const { data: orgRow } = await supabaseAdmin
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", organizationId)
+    .maybeSingle()
+  const tier = (orgRow?.subscription_tier ?? "free") as SubscriptionTier
+
+  const { count: locationCount } = await supabaseAdmin
+    .from("locations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+
+  try {
+    ensureLocationLimit(tier, locationCount ?? 0)
+  } catch (err) {
+    redirect(`/onboarding?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
+  }
+
   const geoLatValue = String(formData.get("geo_lat") ?? "").trim()
   const geoLngValue = String(formData.get("geo_lng") ?? "").trim()
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
@@ -244,6 +266,10 @@ export async function createOrgAndLocationAction(
         name: input.restaurantName,
         slug: slugAttempt,
         billing_email: user.email ?? null,
+        trial_started_at: new Date().toISOString(),
+        trial_ends_at: new Date(
+          Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
+        ).toISOString(),
       })
       .select("id")
       .single()
@@ -642,9 +668,18 @@ export async function completeOnboardingAction(input: {
     return { ok: false, error: settingsError.message }
   }
 
-  // 3. Bulk approve selected competitors
-  if (input.competitorIds.length > 0) {
-    for (const compId of input.competitorIds) {
+  // 3. Bulk approve selected competitors (capped to tier limit)
+  const { data: onboardOrgData } = await admin
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", input.orgId)
+    .maybeSingle()
+  const onboardTier = (onboardOrgData?.subscription_tier ?? "free") as SubscriptionTier
+  const maxCompetitors = TIER_LIMITS[onboardTier].maxCompetitorsPerLocation
+  const cappedCompetitorIds = input.competitorIds.slice(0, maxCompetitors)
+
+  if (cappedCompetitorIds.length > 0) {
+    for (const compId of cappedCompetitorIds) {
       const { data: comp } = await admin
         .from("competitors")
         .select("metadata, name, website, location_id")
@@ -725,6 +760,31 @@ export async function completeOnboardingAction(input: {
         }
       })()
     }
+  }
+
+  // Fire-and-forget welcome email
+  const userEmail = user.email
+  if (userEmail) {
+    const { data: locInfo } = await admin
+      .from("locations")
+      .select("name")
+      .eq("id", input.locationId)
+      .single()
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const userName =
+      user.user_metadata?.full_name ?? userEmail.split("@")[0] ?? "there"
+
+    sendEmail({
+      to: userEmail,
+      subject: "Welcome to Vatic — your intelligence is live",
+      react: Welcome({
+        userName,
+        locationName: locInfo?.name ?? "Your location",
+        competitorCount: input.competitorIds.length,
+        dashboardUrl: `${appUrl}/home`,
+      }),
+    }).catch((err) => console.error("Welcome email failed:", err))
   }
 
   return { ok: true }

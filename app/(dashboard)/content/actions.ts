@@ -1,7 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { revalidateTag } from "next/cache"
+import { updateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
@@ -467,7 +467,7 @@ export async function refreshContentAction(formData: FormData) {
     ? `Content+refreshed+with+${warnings.length}+warning(s)`
     : "Content+refreshed+successfully"
 
-  revalidateTag("content-data", { expire: 0 })
-  revalidateTag("home-data", { expire: 0 })
+  updateTag("content-data")
+  updateTag("home-data")
   redirect(`/content?location_id=${locationId}&success=${successMsg}`)
 }
