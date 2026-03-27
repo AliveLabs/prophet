@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedHomeResult = {
@@ -38,9 +38,13 @@ export type CachedHomeResult = {
   }>
 }
 
-async function fetchHomePageDataRaw(
+export async function fetchHomePageData(
   organizationId: string,
 ): Promise<CachedHomeResult> {
+  "use cache"
+  cacheTag("home-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const [
@@ -97,9 +101,3 @@ async function fetchHomePageDataRaw(
     recentJobs: (recentJobs ?? []) as CachedHomeResult["recentJobs"],
   }
 }
-
-export const fetchHomePageData = unstable_cache(
-  fetchHomePageDataRaw,
-  ["home-page-data"],
-  { revalidate: 604800, tags: ["home-data"] }
-)

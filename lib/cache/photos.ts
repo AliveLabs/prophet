@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedPhotosResult = {
@@ -23,10 +23,14 @@ export type CachedPhotosResult = {
   }>
 }
 
-async function fetchPhotosPageDataRaw(
+export async function fetchPhotosPageData(
   locationId: string,
   competitorIds: string[],
 ): Promise<CachedPhotosResult> {
+  "use cache"
+  cacheTag("photos-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const [{ data: photosRaw }, { data: insightsRaw }] = await Promise.all([
@@ -51,9 +55,3 @@ async function fetchPhotosPageDataRaw(
     insights: (insightsRaw ?? []) as CachedPhotosResult["insights"],
   }
 }
-
-export const fetchPhotosPageData = unstable_cache(
-  fetchPhotosPageDataRaw,
-  ["photos-page-data"],
-  { revalidate: 604800, tags: ["photos-data"] }
-)

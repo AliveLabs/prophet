@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
-import { getTierFromPriceId, type SubscriptionTier } from "@/lib/billing/tiers"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 import {
   getSeoRankedKeywordsLimit,
   getSeoTrackedKeywordsLimit,
@@ -727,7 +727,7 @@ export async function buildVisibilityContext(
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = getTierFromPriceId(org?.subscription_tier)
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
 
   const { data: location } = await supabase
     .from("locations")

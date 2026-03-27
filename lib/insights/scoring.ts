@@ -142,6 +142,48 @@ export const SOURCE_LABELS: Record<SourceCategory, string> = {
   social: "Social Media",
 }
 
+// ---------------------------------------------------------------------------
+// Monitoring-preferences filter
+// Maps insight types to the preference keys stored in
+// locations.settings.monitoring_preferences.
+// ---------------------------------------------------------------------------
+
+export type MonitoringPreferences = {
+  pricing_changes?: boolean
+  menu_updates?: boolean
+  promotions?: boolean
+  review_activity?: boolean
+  new_openings?: boolean
+}
+
+const INSIGHT_TO_PREF: Record<string, keyof MonitoringPreferences> = {
+  "price.change": "pricing_changes",
+  "price.increase": "pricing_changes",
+  "price.decrease": "pricing_changes",
+  "menu.item_added": "menu_updates",
+  "menu.item_removed": "menu_updates",
+  "menu.change": "menu_updates",
+  "content.menu_change": "menu_updates",
+  "promotions.new": "promotions",
+  "promotions.ended": "promotions",
+  "events.upcoming": "promotions",
+  "events.local_event": "promotions",
+  "review.spike": "review_activity",
+  "review.drop": "review_activity",
+  "review.sentiment_shift": "review_activity",
+  "competitor.new_opening": "new_openings",
+}
+
+export function isInsightEnabledByPreferences(
+  insightType: string,
+  preferences: MonitoringPreferences | null | undefined
+): boolean {
+  if (!preferences) return true
+  const prefKey = INSIGHT_TO_PREF[insightType]
+  if (!prefKey) return true
+  return preferences[prefKey] !== false
+}
+
 export const SOURCE_COLORS: Record<SourceCategory, { bg: string; text: string; border: string; dot: string }> = {
   competitors: { bg: "bg-precision-teal/15", text: "text-precision-teal", border: "border-precision-teal/30", dot: "bg-precision-teal" },
   events: { bg: "bg-signal-gold/15", text: "text-signal-gold", border: "border-signal-gold/30", dot: "bg-signal-gold" },

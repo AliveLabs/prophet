@@ -61,7 +61,7 @@ function EventsFiltersInner({
         <select
           value={searchParams?.get("location_id") ?? selectedLocationId ?? ""}
           onChange={(e) => navigate({ location_id: e.target.value })}
-          className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+          className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {locations.map((l) => (
             <option key={l.id} value={l.id} className="text-foreground">
@@ -74,7 +74,7 @@ function EventsFiltersInner({
       <select
         value={searchParams?.get("tab") ?? activeTab}
         onChange={(e) => navigate({ tab: e.target.value })}
-        className="rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+        className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
       >
         <option value="weekend" className="text-foreground">This Weekend</option>
         <option value="week" className="text-foreground">This Week</option>
@@ -82,7 +82,7 @@ function EventsFiltersInner({
 
       <div className="relative">
         <svg
-          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-white/50"
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -95,17 +95,17 @@ function EventsFiltersInner({
           value={venue}
           onChange={(e) => handleVenueChange(e.target.value)}
           placeholder="Search venues..."
-          className="w-40 rounded-lg border border-white/20 bg-white/10 py-1.5 pl-8 pr-3 text-xs font-medium text-white placeholder-white/40 backdrop-blur-sm transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/30"
+          className="w-40 rounded-lg border border-border bg-secondary py-1.5 pl-8 pr-3 text-xs font-medium text-foreground placeholder:text-muted-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>
 
       <button
         type="button"
         onClick={() => navigate({ matched: matchedOnly ? "" : "true" })}
-        className={`rounded-lg border px-3 py-1.5 text-xs font-medium backdrop-blur-sm transition ${
+        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
           matchedOnly
             ? "border-precision-teal/40 bg-precision-teal/20 text-precision-teal"
-            : "border-white/20 bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+            : "border-border bg-secondary text-muted-foreground hover:bg-muted hover:text-foreground"
         }`}
       >
         <span className="flex items-center gap-1.5">

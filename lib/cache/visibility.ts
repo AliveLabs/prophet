@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedVisibilityResult = {
@@ -19,9 +19,13 @@ const SEO_PROVIDERS = [
   "seo_ads_search",
 ] as const
 
-async function fetchVisibilityPageDataRaw(
+export async function fetchVisibilityPageData(
   locationId: string,
 ): Promise<CachedVisibilityResult> {
+  "use cache"
+  cacheTag("visibility-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const snapResults = await Promise.all(
@@ -77,9 +81,3 @@ async function fetchVisibilityPageDataRaw(
     intersectionSnaps,
   }
 }
-
-export const fetchVisibilityPageData = unstable_cache(
-  fetchVisibilityPageDataRaw,
-  ["visibility-page-data"],
-  { revalidate: 604800, tags: ["visibility-data"] }
-)

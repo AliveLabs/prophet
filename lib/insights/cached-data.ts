@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedInsightsResult = {
@@ -58,7 +58,7 @@ export type CachedInsightsResult = {
   }>
 }
 
-async function fetchInsightsDataRaw(
+export async function fetchInsightsPageData(
   organizationId: string,
   locationId: string,
   startDate: string,
@@ -66,6 +66,10 @@ async function fetchInsightsDataRaw(
   confidenceFilter: string,
   severityFilter: string,
 ): Promise<CachedInsightsResult> {
+  "use cache"
+  cacheTag("insights-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   let insightQuery = supabase
@@ -163,9 +167,3 @@ async function fetchInsightsDataRaw(
     busyTimes: (busyTimesRaw ?? []) as CachedInsightsResult["busyTimes"],
   }
 }
-
-export const fetchInsightsPageData = unstable_cache(
-  fetchInsightsDataRaw,
-  ["insights-page-data"],
-  { revalidate: 604800, tags: ["insights-data"] }
-)
