@@ -59,7 +59,10 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     .order("created_at", { ascending: false })
 
   const resolvedSearchParams = await Promise.resolve(searchParams)
-  const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
+  const requestedLocationId = resolvedSearchParams?.location_id ?? null
+  const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
+    ? requestedLocationId
+    : locations?.[0]?.id ?? null
   const startDate = getStartDate(resolvedSearchParams?.range)
   const statusFilter = resolvedSearchParams?.status ?? ""
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null

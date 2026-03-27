@@ -116,7 +116,10 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     .order("created_at", { ascending: true })
 
   const locationList = locations ?? []
-  const selectedLocationId = params.location_id ?? locationList[0]?.id ?? null
+  const requestedLocationId = params.location_id ?? null
+  const selectedLocationId = (requestedLocationId && locationList.some((l: { id: string }) => l.id === requestedLocationId))
+    ? requestedLocationId
+    : locationList[0]?.id ?? null
 
   const activeTab = params.tab === "week" ? "week" : "weekend"
   const venueFilter = params.venue?.toLowerCase() ?? ""

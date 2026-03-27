@@ -383,7 +383,7 @@ export async function discoverCompetitorsForLocation(
   | { ok: true; competitors: DiscoveredCompetitor[] }
   | { ok: false; error: string }
 > {
-  await requireUser()
+  const user = await requireUser()
   const admin = createAdminSupabaseClient()
   const radiusMeters = 5000
 
@@ -397,6 +397,17 @@ export async function discoverCompetitorsForLocation(
 
   if (locError || !location) {
     return { ok: false, error: locError?.message ?? "Location not found" }
+  }
+
+  const { data: membership } = await admin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", location.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!membership) {
+    return { ok: false, error: "You are not a member of this organization." }
   }
 
   if (location.geo_lat === null || location.geo_lng === null) {
@@ -635,6 +646,28 @@ export async function completeOnboardingAction(input: {
   const user = await requireUser()
   const admin = createAdminSupabaseClient()
 
+  const { data: membership } = await admin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", input.orgId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!membership) {
+    return { ok: false, error: "You are not a member of this organization." }
+  }
+
+  const { data: locOwnership } = await admin
+    .from("locations")
+    .select("id")
+    .eq("id", input.locationId)
+    .eq("organization_id", input.orgId)
+    .maybeSingle()
+
+  if (!locOwnership) {
+    return { ok: false, error: "Location does not belong to this organization." }
+  }
+
   // 1. Set current_organization_id on profile
   const { error: profileError } = await admin.from("profiles").upsert({
     id: user.id,
@@ -684,6 +717,7 @@ export async function completeOnboardingAction(input: {
         .from("competitors")
         .select("metadata, name, website, location_id")
         .eq("id", compId)
+        .eq("location_id", input.locationId)
         .single()
 
       if (!comp) continue

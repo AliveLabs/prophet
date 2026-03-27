@@ -35,7 +35,7 @@ import { enrichCompetitorSeo } from "@/lib/seo/enrich"
 import { enrichCompetitorContent } from "@/lib/content/enrich"
 
 export async function discoverCompetitorsAction(formData: FormData) {
-  await requireUser()
+  const user = await requireUser()
   const locationId = String(formData.get("location_id") ?? "")
   const query = String(formData.get("query") ?? "").trim() || undefined
   const radiusMeters = 5000
@@ -53,6 +53,17 @@ export async function discoverCompetitorsAction(formData: FormData) {
 
   if (locationError || !location) {
     redirect(`/competitors?error=${encodeURIComponent(locationError?.message ?? "Location not found")}`)
+  }
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", location.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!membership) {
+    redirect("/competitors?error=You%20are%20not%20a%20member%20of%20this%20organization")
   }
 
   if (location.geo_lat === null || location.geo_lng === null) {

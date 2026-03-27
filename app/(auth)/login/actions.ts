@@ -2,6 +2,9 @@
 
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { sendEmail } from "@/lib/email/send"
+import { MagicLinkEmail } from "@/lib/email/templates/magic-link"
 
 function getRedirectUrl() {
   return `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback`
@@ -27,16 +30,30 @@ export async function sendMagicLinkAction(formData: FormData) {
     redirect(`${redirectPath}?error=Missing%20email`)
   }
 
-  const supabase = await createServerSupabaseClient()
-  const { error } = await supabase.auth.signInWithOtp({
+  const supabase = createAdminSupabaseClient()
+  const redirectTo = getRedirectUrl()
+
+  const { data, error } = await supabase.auth.admin.generateLink({
+    type: "magiclink",
     email,
-    options: {
-      emailRedirectTo: getRedirectUrl(),
-    },
+    options: { redirectTo },
   })
 
-  if (error) {
-    redirect(`${redirectPath}?error=${encodeURIComponent(error.message)}`)
+  if (error || !data?.properties?.action_link) {
+    const msg = error?.message ?? "Could not generate sign-in link"
+    redirect(`${redirectPath}?error=${encodeURIComponent(msg)}`)
+  }
+
+  const result = await sendEmail({
+    to: email,
+    subject: "Sign in to Vatic",
+    react: MagicLinkEmail({ email, magicLinkUrl: data.properties.action_link }),
+  })
+
+  if (!result.ok) {
+    redirect(
+      `${redirectPath}?error=${encodeURIComponent("Failed to send magic link email. Please try again.")}`
+    )
   }
 
   redirect(`${redirectPath}?sent=1`)

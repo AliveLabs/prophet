@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 22, 2026
+> **Last updated:** March 27, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -55,7 +55,7 @@
 - **Server-Side Caching:** All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife()` for 7-day TTL tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag(tag, { expire: 0 })` with `revalidatePath` as a backup.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation. Multi-org support with org switcher in sidebar, allowing users to create and switch between organizations.
 - **Organization Switcher:** Sidebar popover listing all orgs the user belongs to with tier badges, switch action via `profiles.current_organization_id`, and "New organization" link that re-uses the full onboarding wizard.
-- **Marketing Landing Page:** Conversion-focused landing page at `/` with 7 sections (hero, problem statement, how it works, features, trust, pricing, waitlist form). Waitlist signups captured to `waitlist_signups` table via admin Supabase client.
+- **Marketing Landing Page:** Editorial luxury landing page at `/` with 9 sections (hero with animated SVG dashboard, problem statement with noise-to-signal visualization, how-it-works with animated SVG icons, 6-feature bento grid with inline charts/infographics, trust counters, pricing tiers, waitlist form, footer). Full dark/light mode support. Animated SVG visualizations include competitor radar, SEO area chart, menu price bars, social engagement rings, photo grid with AI scan line, and traffic heatmap. All animations via Framer Motion and CSS keyframes with `prefers-reduced-motion` support. Waitlist signups create instant Supabase auth accounts via admin client and send magic link emails.
 - **Transactional Email System:** Resend SDK integration with React Email templates for waitlist confirmation, onboarding welcome, trial expiry reminders (3-day, 1-day), and trial expired notifications. All emails fire-and-forget (non-blocking).
 - **Trial Period System:** 14-day free trial on organization creation. Dashboard layout-level gate blocks access when trial expires (shows TrialExpiredGate with Stripe upgrade CTAs). TrialBanner shown during last 7 days. Daily cron skips expired trial orgs. Trial reminder cron sends emails at 3 days, 1 day, and expiry.
 - **Stripe Checkout:** `/api/stripe/checkout` POST route creates Stripe checkout sessions for Starter/Pro/Agency tier upgrades. Handles customer creation, session creation, and redirects.
@@ -82,13 +82,16 @@ The application has shipped through most PRD phases:
 - Server-side caching with `'use cache'` + `cacheTag` + `cacheLife` (migrated from deprecated `unstable_cache`) and automatic revalidation after job completion
 - Parallelized social handle discovery and data collection
 - Multi-step onboarding wizard with animated transitions (Framer Motion), Google Places integration, AI competitor discovery, and configurable monitoring preferences
-- Marketing landing page with waitlist capture and smooth-scroll navigation
+- Marketing landing page with animated SVG visualizations, Recharts mini-charts, bento grid feature showcase, dark/light mode, and waitlist-to-instant-account creation
 - Resend email integration with 5 React Email templates (waitlist, welcome, trial-3day, trial-1day, trial-expired)
 - 14-day trial period with billing gate, trial banner, and Stripe checkout flow
 - Vercel cron configuration for daily data refresh (6am UTC) and trial reminders (9am UTC)
 - Multi-org support with org switcher in sidebar, "New Organization" wizard, org settings page
 - Tier enforcement: `maxLocations` enforced on location creation, `maxCompetitorsPerLocation` capped during onboarding
 - Fixed critical `getTierFromPriceId` misuse in 5 files (paid users were silently getting free-tier limits)
+- Comprehensive security audit: org-scoped data isolation on all dashboard pages, IDOR prevention, admin client access hardening, cron endpoint auth
+- Waitlist-to-instant-account flow: waitlist form creates Supabase auth user + sends magic link via Resend
+- Login and signup pages refreshed with editorial luxury branding (ambient orbs, glass panels, vatic-gradient CTAs)
 
 ### What is NOT yet shipped
 
@@ -211,7 +214,7 @@ prophet/
 ├── app/                                    # Next.js App Router
 │   ├── layout.tsx                          # Root layout (Geist fonts, metadata)
 │   ├── page.tsx                            # Marketing landing page (/) with waitlist
-│   ├── landing.css                         # Landing page ambient effects, glass cards
+│   ├── landing.css                         # Landing page: utility classes (vatic-gradient, glass-panel, editorial-shadow), animation keyframes (float, draw-line, radar-sweep, glow-pulse, scan-line, orb-drift), dark/light overrides
 │   ├── globals.css                         # Tailwind v4 + CSS custom properties
 │   ├── favicon.ico
 │   │
@@ -340,15 +343,15 @@ prophet/
 │   │   ├── trial-expired-gate.tsx          # Client: Full-page overlay when trial expires (upgrade CTAs)
 │   │   └── trial-banner.tsx                # Client: Dismissible top banner during last 7 trial days
 │   ├── landing/
-│   │   ├── landing-nav.tsx                 # Client: Fixed nav with smooth-scroll + mobile menu
-│   │   ├── hero-section.tsx                # Client: Full-viewport hero with ambient gradient
-│   │   ├── problem-section.tsx             # Client: Problem statement with signal cards
-│   │   ├── how-it-works-section.tsx        # Client: 3-step horizontal flow
-│   │   ├── features-section.tsx            # Client: 6 feature cards with glass styling
-│   │   ├── trust-section.tsx               # Client: Social proof / credibility
-│   │   ├── pricing-section.tsx             # Client: 3-tier pricing cards
-│   │   ├── waitlist-form.tsx               # Client: Waitlist signup form
-│   │   └── waitlist-section.tsx            # Client: Waitlist section + footer
+│   │   ├── landing-nav.tsx                 # Client: Glass nav (h-20), Vatic SVG logo, editorial links, vatic-gradient CTA, animated mobile menu
+│   │   ├── hero-section.tsx                # Client: Two-column hero — left copy with counting KPIs, right animated SVG dashboard mockup (draw-on chart, live signals), floating signal card
+│   │   ├── problem-section.tsx             # Client: Noise-to-signal visualization (animated bars with gold signal highlight), floating prescient-action card
+│   │   ├── how-it-works-section.tsx        # Client: 3 steps with animated SVG icons (radar sweep, prism draw-on, lightning flash)
+│   │   ├── features-section.tsx            # Client: 12-col bento grid — 6 feature cards with inline animated SVGs (competitor radar, SEO area chart, menu price bars, social engagement rings, photo grid scan-line, traffic heatmap)
+│   │   ├── trust-section.tsx               # Client: Animated counter infographic (4 metrics count up on scroll via framer-motion)
+│   │   ├── pricing-section.tsx             # Client: 3 editorial tier cards, Pro with glow-pulse animation + Recommended badge
+│   │   ├── waitlist-form.tsx               # Client: Waitlist signup form (first name, last name, email → instant account creation)
+│   │   └── waitlist-section.tsx            # Client: "Join the cohort" CTA section + editorial footer with brand links
 │   ├── competitors/
 │   │   └── discover-form.tsx               # Client: Competitor discovery form + RefreshOverlay
 │   ├── content/
@@ -747,6 +750,16 @@ Both use `createServerSupabaseClient()` which reads Supabase auth cookies via Ne
 - **Individual pages**: Also call `requireUser()` as the first operation.
 - **Job API routes** (`lib/jobs/auth.ts`): `getJobAuthContext()` validates user session + org membership for job requests.
 - **There is no `middleware.ts`**: All auth is enforced at the layout/page level.
+
+### 6.4.1 Organization Access Control (`lib/auth/org-access.ts`)
+
+Centralized utility functions for organization-level data isolation:
+
+- `getOrgLocationIds(organizationId)` — Returns all location IDs belonging to an organization (admin client, bypasses RLS for cache layers).
+- `validateLocationForOrg(requestedId, orgLocationIds)` — Validates a URL-supplied `location_id` against the org's location set; returns fallback if invalid (IDOR prevention).
+- `requireOrgMembership(supabase, userId, orgId)` — Verifies user is a member of the given organization; throws if not.
+
+Used across all 9 dashboard pages, server actions (onboarding, competitors, insights, social), and the AI chat API route to enforce tenant isolation when `createAdminSupabaseClient()` bypasses RLS.
 
 ### 6.5 Supabase Clients
 
@@ -1946,4 +1959,4 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 22, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 27, 2026.*

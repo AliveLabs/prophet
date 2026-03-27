@@ -7,7 +7,7 @@ interface SendEmailParams {
   react: ReactElement
 }
 
-const FROM_ADDRESS = "Vatic <noreply@vatic.com>"
+const FROM_ADDRESS = "Vatic <info@getvatic.com>"
 
 export async function sendEmail({ to, subject, react }: SendEmailParams) {
   if (!resend) {
