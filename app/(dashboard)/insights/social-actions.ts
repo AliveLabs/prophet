@@ -17,7 +17,7 @@ export async function saveSocialProfileAction(data: {
   platform: string
   handle: string
 }): Promise<{ error?: string }> {
-  const user = await requireUser()
+  await requireUser()
   const supabase = await createServerSupabaseClient()
 
   if (data.entityType === "location") {
