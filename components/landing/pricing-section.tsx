@@ -2,6 +2,12 @@
 
 import { motion } from "framer-motion"
 
+const CHECK_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mt-0.5 shrink-0 text-vatic-indigo">
+    <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 const TIERS = [
   {
     name: "Starter",
@@ -10,6 +16,7 @@ const TIERS = [
       "15 competitors per location",
       "Weekly intelligence refresh",
       "Core signals (reviews, menus, SEO)",
+      "Email intelligence briefings",
     ],
     price: "Early access pricing coming soon",
     highlight: false,
@@ -20,7 +27,9 @@ const TIERS = [
       "10 locations",
       "50 competitors per location",
       "Daily intelligence refresh",
-      "All signals including social and events",
+      "All signals including social & events",
+      "Priority briefings with AI narrative",
+      "Kanban board & insight workflow",
     ],
     price: "Early access pricing coming soon",
     highlight: true,
@@ -31,7 +40,9 @@ const TIERS = [
       "50 locations",
       "200 competitors per location",
       "Daily refresh with priority processing",
+      "Full API access",
       "White-label ready",
+      "Dedicated data analyst",
     ],
     price: "Contact us",
     highlight: false,
@@ -40,100 +51,78 @@ const TIERS = [
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 }
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="border-t border-border/50 py-24">
-      <div className="mx-auto max-w-6xl px-6">
+    <section id="pricing" className="py-24 md:py-32">
+      <div className="mx-auto max-w-7xl px-8">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           variants={fadeUp}
-          className="mb-16 text-center"
+          className="mb-20 text-center"
         >
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-precision-teal">
-            Pricing
-          </p>
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Simple plans. No per-seat pricing.
+          <h2 className="font-display text-tight text-5xl italic text-foreground md:text-6xl">
+            Strategic Tiers
           </h2>
+          <p className="mt-4 text-muted-foreground">
+            Select the resolution of your intelligence briefing.
+          </p>
         </motion.div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-8 lg:grid-cols-3">
           {TIERS.map((tier, i) => (
             <motion.div
               key={tier.name}
               initial="hidden"
               whileInView="visible"
               viewport={{ once: true, margin: "-60px" }}
-              transition={{
-                duration: 0.5,
-                delay: i * 0.1,
-                ease: [0.16, 1, 0.3, 1],
-              }}
+              transition={{ delay: i * 0.1 }}
               variants={fadeUp}
-              className={`flex flex-col rounded-xl border p-6 ${
+              className={`relative flex flex-col rounded-xl p-10 ${
                 tier.highlight
-                  ? "pricing-highlight border-vatic-indigo"
-                  : "border-border"
-              } bg-card`}
+                  ? "animate-glow-pulse border-t-4 border-vatic-indigo bg-card editorial-shadow"
+                  : "border border-border/50 bg-card"
+              }`}
             >
               {tier.highlight && (
-                <span className="mb-3 inline-block self-start rounded-md bg-vatic-indigo px-2.5 py-0.5 text-xs font-semibold text-white">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-vatic-indigo px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white">
                   Recommended
-                </span>
+                </div>
               )}
-              <h3 className="text-xl font-semibold text-foreground">
-                {tier.name}
-              </h3>
-              <ul className="mt-5 flex-1 space-y-3">
+
+              <h3 className="text-xl font-bold text-foreground">{tier.name}</h3>
+
+              <p className="mt-4 text-sm text-muted-foreground">{tier.price}</p>
+
+              <ul className="mt-8 flex-1 space-y-4">
                 {tier.features.map((f) => (
-                  <li
-                    key={f}
-                    className="flex items-start gap-2 text-sm text-muted-foreground"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      className="mt-0.5 shrink-0 text-precision-teal"
-                    >
-                      <path
-                        d="M3 8.5l3 3 7-7"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
+                    {CHECK_ICON}
                     {f}
                   </li>
                 ))}
               </ul>
-              <p className="mt-6 text-sm font-medium text-muted-foreground">
-                {tier.price}
-              </p>
+
               <a
                 href="#waitlist"
-                className={`mt-4 block rounded-lg px-4 py-2.5 text-center text-sm font-semibold transition-opacity hover:opacity-90 ${
+                className={`mt-8 block rounded-md px-4 py-4 text-center text-sm font-bold transition-all ${
                   tier.highlight
-                    ? "bg-precision-teal text-white"
-                    : "bg-secondary text-foreground"
+                    ? "vatic-gradient text-white hover:scale-[0.98]"
+                    : "border border-border text-foreground hover:bg-muted/50"
                 }`}
               >
-                Join the Waitlist
+                {tier.name === "Agency" ? "Contact Analyst" : "Join the Waitlist"}
               </a>
             </motion.div>
           ))}
         </div>
 
-        <p className="mt-10 text-center text-sm text-muted-foreground">
-          Join the waitlist to lock in early access pricing.
+        <p className="mt-12 text-center text-sm text-muted-foreground">
+          Join the waitlist to lock in early access pricing. No credit card required.
         </p>
       </div>
     </section>

@@ -20,6 +20,22 @@ export async function saveSocialProfileAction(data: {
   await requireUser()
   const supabase = await createServerSupabaseClient()
 
+  if (data.entityType === "location") {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("id", data.entityId)
+      .maybeSingle()
+    if (!loc) return { error: "Location not found or access denied." }
+  } else {
+    const { data: comp } = await supabase
+      .from("competitors")
+      .select("id, location_id")
+      .eq("id", data.entityId)
+      .maybeSingle()
+    if (!comp) return { error: "Competitor not found or access denied." }
+  }
+
   const cleanHandle = extractHandle(data.platform as SocialPlatform, data.handle)
   const profileUrl = buildProfileUrl(data.platform as SocialPlatform, cleanHandle)
 
@@ -155,6 +171,7 @@ export async function runSocialDiscoveryAction(locationId: string): Promise<{
 // ---------------------------------------------------------------------------
 
 export async function fetchSocialDashboardData(locationId: string) {
+  await requireUser()
   const supabase = await createServerSupabaseClient()
 
   // Get all social profiles for this location + its competitors

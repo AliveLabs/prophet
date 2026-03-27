@@ -5,43 +5,46 @@ import { WaitlistForm } from "./waitlist-form"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 }
 
 export function WaitlistSection() {
   return (
     <section
       id="waitlist"
-      className="relative border-t border-border/50 py-24"
+      className="relative overflow-hidden py-24 md:py-32"
     >
       <div className="landing-hero-ambient" />
-      <div className="relative z-10 mx-auto max-w-6xl px-6">
+      <div className="absolute inset-0 bg-vatic-indigo/5 opacity-30 pointer-events-none" />
+
+      <div className="relative z-10 mx-auto max-w-3xl px-8 text-center">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          variants={fadeUp}
-          className="mb-10 text-center"
+          variants={{
+            hidden: {},
+            visible: { transition: { staggerChildren: 0.1 } },
+          }}
         >
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            Get early access.
-          </h2>
-          <p className="mt-3 text-lg text-muted-foreground">
-            First 500 signups get priority access and a launch discount.
-          </p>
+          <motion.h2
+            variants={fadeUp}
+            className="font-display text-tight text-5xl italic text-foreground md:text-6xl"
+          >
+            Join the cohort.
+          </motion.h2>
+          <motion.p variants={fadeUp} className="mt-6 text-lg text-muted-foreground">
+            Limited availability for early deployments. Secure your place in the queue.
+          </motion.p>
         </motion.div>
 
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-60px" }}
-          transition={{
-            duration: 0.5,
-            delay: 0.1,
-            ease: [0.16, 1, 0.3, 1],
-          }}
+          transition={{ delay: 0.15 }}
           variants={fadeUp}
+          className="mt-12"
         >
           <WaitlistForm />
         </motion.div>
@@ -52,18 +55,34 @@ export function WaitlistSection() {
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-border/50 py-8">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 text-center text-sm text-muted-foreground md:flex-row md:justify-between md:text-left">
-        <p>&copy; 2026 Vatic. All rights reserved.</p>
-        <div className="flex gap-6">
-          <a href="#" className="transition-colors hover:text-foreground">
-            Privacy Policy
+    <footer className="border-t border-border/30">
+      <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-8 py-12 md:flex-row md:justify-between">
+        <div className="flex items-center gap-2.5">
+          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Vatic">
+            <path d="M10 14 L40 66 L70 14" stroke="var(--vatic-indigo)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+            <circle cx="40" cy="66" r="6" fill="var(--signal-gold)" />
+          </svg>
+          <span className="font-display text-xl italic tracking-tight text-signal-gold">Vatic</span>
+        </div>
+
+        <div className="flex flex-wrap justify-center gap-8">
+          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
+            Privacy Protocol
           </a>
-          <a href="#" className="transition-colors hover:text-foreground">
-            Terms of Service
+          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
+            Terms of Intelligence
+          </a>
+          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
+            API Docs
+          </a>
+          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
+            Contact Analyst
           </a>
         </div>
-        <p>Built by Alive Labs</p>
+
+        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+          &copy; 2026 Vatic Intelligence
+        </p>
       </div>
     </footer>
   )

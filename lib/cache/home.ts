@@ -47,11 +47,21 @@ export async function fetchHomePageData(
 
   const supabase = createAdminSupabaseClient()
 
+  // First, fetch org's location IDs to scope all subsequent queries
+  const { data: orgLocations } = await supabase
+    .from("locations")
+    .select("id, name")
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false })
+
+  const locations = orgLocations ?? []
+  const locationIds = locations.map((l) => l.id)
+  const locationFilter = locationIds.length > 0 ? locationIds : ["__none__"]
+
   const [
     { count: locationCount },
     { count: competitorCount },
     { count: insightCount },
-    { data: locations },
     { data: recentInsights },
     { data: allInsights },
     { data: recentJobs },
@@ -63,24 +73,23 @@ export async function fetchHomePageData(
     supabase
       .from("competitors")
       .select("id", { count: "exact", head: true })
+      .in("location_id", locationFilter)
       .eq("is_active", true),
     supabase
       .from("insights")
-      .select("id", { count: "exact", head: true }),
-    supabase
-      .from("locations")
-      .select("id, name")
-      .eq("organization_id", organizationId)
-      .order("created_at", { ascending: false }),
+      .select("id", { count: "exact", head: true })
+      .in("location_id", locationFilter),
     supabase
       .from("insights")
       .select("id, insight_type, title, summary, severity, confidence, created_at, competitor_id, evidence, recommendations, date_key")
+      .in("location_id", locationFilter)
       .neq("status", "dismissed")
       .order("created_at", { ascending: false })
       .limit(50),
     supabase
       .from("insights")
       .select("id, insight_type, severity, confidence, status, created_at, date_key")
+      .in("location_id", locationFilter)
       .order("created_at", { ascending: false })
       .limit(500),
     supabase

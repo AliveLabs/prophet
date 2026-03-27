@@ -195,7 +195,10 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
     .order("created_at", { ascending: false })
 
   const resolvedSearchParams = await Promise.resolve(searchParams)
-  const selectedLocationId = resolvedSearchParams?.location_id ?? locations?.[0]?.id ?? null
+  const requestedLocationId = resolvedSearchParams?.location_id ?? null
+  const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
+    ? requestedLocationId
+    : locations?.[0]?.id ?? null
   const error = resolvedSearchParams?.error
   const success = resolvedSearchParams?.success
   const debugParam = resolvedSearchParams?.debug

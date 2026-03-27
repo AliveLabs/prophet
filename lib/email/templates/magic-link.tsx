@@ -1,42 +1,38 @@
 import { Section, Text, Link } from "@react-email/components"
 import { EmailLayout } from "./layout"
 
-interface WaitlistConfirmationProps {
+interface MagicLinkEmailProps {
   email: string
-  setupUrl: string
+  magicLinkUrl: string
 }
 
-export function WaitlistConfirmation({ email, setupUrl }: WaitlistConfirmationProps) {
+export function MagicLinkEmail({ email, magicLinkUrl }: MagicLinkEmailProps) {
   return (
-    <EmailLayout preview="Set up your Vatic account">
+    <EmailLayout preview="Your Vatic sign-in link">
       <Section>
-        <Text style={heading}>Set up your Vatic account</Text>
+        <Text style={heading}>Sign in to Vatic</Text>
         <Text style={paragraph}>
-          Thanks for signing up. Your account for{" "}
-          <strong style={{ color: "#E4E4E7" }}>{email}</strong> is ready.
-        </Text>
-        <Text style={paragraph}>
-          Click the button below to get started. You&rsquo;ll set up your
-          restaurant, discover your local competitors, and choose what to
-          monitor &mdash; it takes about two minutes.
+          We received a sign-in request for{" "}
+          <strong style={{ color: "#E4E4E7" }}>{email}</strong>. Click the
+          button below to continue.
         </Text>
 
         <Section style={ctaContainer}>
-          <Link href={setupUrl} style={ctaButton}>
-            Set up your account
+          <Link href={magicLinkUrl} style={ctaButton}>
+            Sign in to Vatic
           </Link>
         </Section>
 
         <Text style={fallback}>
           Or copy and paste this link into your browser:{" "}
-          <Link href={setupUrl} style={fallbackLink}>
-            {setupUrl}
+          <Link href={magicLinkUrl} style={fallbackLink}>
+            {magicLinkUrl}
           </Link>
         </Text>
 
         <Text style={paragraph}>
-          This link expires in 24 hours. If it expires, just visit our site
-          and sign in with your email to get a new one.
+          This link expires in 1 hour. If you didn&rsquo;t request this, you
+          can safely ignore this email.
         </Text>
 
         <Text style={signoff}>&mdash; The Vatic Team</Text>

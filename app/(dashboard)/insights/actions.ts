@@ -45,7 +45,6 @@ export async function updateInsightStatusAction(formData: FormData) {
   const user = await requireUser()
   const insightId = String(formData.get("insight_id") ?? "")
   const newStatus = String(formData.get("new_status") ?? "")
-  
 
   if (!insightId || !VALID_STATUSES.has(newStatus)) return
 
@@ -53,9 +52,30 @@ export async function updateInsightStatusAction(formData: FormData) {
 
   const { data: insight } = await supabase
     .from("insights")
-    .select("insight_type")
+    .select("insight_type, location_id")
     .eq("id", insightId)
     .maybeSingle()
+
+  if (!insight) return
+
+  if (insight.location_id) {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", insight.location_id)
+      .maybeSingle()
+
+    if (loc?.organization_id) {
+      const { data: membership } = await supabase
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", loc.organization_id)
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (!membership) return
+    }
+  }
 
   const userFeedback = newStatus === "dismissed"
     ? "not_useful"

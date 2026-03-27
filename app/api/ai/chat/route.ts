@@ -46,9 +46,18 @@ export async function POST(req: Request) {
     .order("date_key", { ascending: false })
     .limit(50)
 
+  const { data: competitors } = await supabase
+    .from("competitors")
+    .select("id")
+    .in("location_id", locationIds.length > 0 ? locationIds : ["__none__"])
+    .eq("is_active", true)
+
+  const competitorIds = competitors?.map((c) => c.id) ?? []
+
   const { data: snapshots } = await supabase
     .from("snapshots")
     .select("date_key, raw_data")
+    .in("competitor_id", competitorIds.length > 0 ? competitorIds : ["__none__"])
     .order("date_key", { ascending: false })
     .limit(20)
 
