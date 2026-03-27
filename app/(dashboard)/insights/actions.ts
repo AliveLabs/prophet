@@ -1,7 +1,7 @@
 "use server"
 
 import { redirect } from "next/navigation"
-import { revalidateTag } from "next/cache"
+import { updateTag } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
@@ -78,8 +78,8 @@ export async function updateInsightStatusAction(formData: FormData) {
     await updateOrgPreference(supabase, user.id, insight.insight_type, feedback)
   }
 
-  revalidateTag("insights-data", { expire: 0 })
-  revalidateTag("social-data", { expire: 0 })
+  updateTag("insights-data")
+  updateTag("social-data")
 }
 
 // ---------------------------------------------------------------------------
@@ -1318,8 +1318,8 @@ export async function generateInsightsAction(formData: FormData) {
     }
   }
 
-  revalidateTag("insights-data", { expire: 0 })
-  revalidateTag("place-details", { expire: 0 })
+  updateTag("insights-data")
+  updateTag("place-details")
   redirect(`/insights?location_id=${locationId}`)
 }
 

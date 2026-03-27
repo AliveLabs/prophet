@@ -9,6 +9,9 @@ export default function SettingsPage() {
           <span className="text-[12.5px] font-semibold text-foreground">Settings</span>
         </div>
         <div className="space-y-2 p-5">
+          <Link href="/settings/organization">
+            <Button variant="secondary" className="w-full justify-start">Organization</Button>
+          </Link>
           <Link href="/settings/billing">
             <Button variant="secondary" className="w-full justify-start">Billing</Button>
           </Link>

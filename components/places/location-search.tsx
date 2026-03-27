@@ -8,7 +8,7 @@ type Prediction = {
   place_id: string
 }
 
-type PlaceDetails = {
+export type PlaceDetails = {
   primary_place_id: string
   name: string
   category?: string | null
@@ -26,9 +26,11 @@ type PlaceDetails = {
 type LocationSearchProps = {
   onSelectPlace?: (place: PlaceDetails) => void
   onClear?: () => void
+  className?: string
+  placeholder?: string
 }
 
-export default function LocationSearch({ onSelectPlace, onClear }: LocationSearchProps) {
+export default function LocationSearch({ onSelectPlace, onClear, className, placeholder }: LocationSearchProps) {
   const [query, setQuery] = useState("")
   const [predictions, setPredictions] = useState<Prediction[]>([])
   const [selected, setSelected] = useState<PlaceDetails | null>(null)
@@ -96,8 +98,8 @@ export default function LocationSearch({ onSelectPlace, onClear }: LocationSearc
           setSelected(null)
           onClear?.()
         }}
-        placeholder="Search by business name"
-        className="bg-card text-foreground"
+        placeholder={placeholder ?? "Search by business name"}
+        className={className ?? "bg-card text-foreground"}
       />
       {loading ? (
         <p className="mt-2 text-xs text-muted-foreground">Searching...</p>

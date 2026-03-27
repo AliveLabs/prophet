@@ -135,16 +135,15 @@ export default function JobRefreshButton({
     job.start({ location_id: locationId })
   }, [job, locationId])
 
-  // Auto-refresh page when job completes via SSE
+  // Auto-refresh page when job completes via SSE (hard navigation to bypass Router Cache)
   useEffect(() => {
     if (job.status === "complete" && job.redirectUrl) {
       const timer = setTimeout(() => {
-        router.push(job.redirectUrl!)
-        job.reset()
+        window.location.href = job.redirectUrl!
       }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [job.status, job.redirectUrl, router, job])
+  }, [job.status, job.redirectUrl])
 
   const allCards = [...quickFacts, ...job.ambientCards]
 

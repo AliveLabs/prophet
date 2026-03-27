@@ -43,11 +43,13 @@ export async function sendMagicLinkAction(formData: FormData) {
 }
 
 export async function signInWithGoogleAction() {
+  const redirectUrl = getRedirectUrl()
+
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: getRedirectUrl(),
+      redirectTo: redirectUrl,
     },
   })
 

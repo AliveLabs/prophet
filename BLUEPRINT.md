@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 11, 2026
+> **Last updated:** March 22, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -52,8 +52,13 @@
 - **Social Media Visual Intelligence:** Analyzes social post images via Gemini Vision to extract content categories, food presentation quality, visual quality, brand signals, atmosphere signals, and promotional content. Aggregates per-entity visual profiles and generates 16 visual insight rules (12 comparative + 4 location-only) covering content strategy, competitive intelligence, and visual opportunity detection.
 - **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather, social, visual). LLM (Gemini) adds priority briefings and narrative summaries. Actionable insight card system with kebab menu (Mark as Read, To-Do, Done, Snooze, Dismiss). Dual-view display: category-grouped feed (default) and Kanban board (Inbox/To-Do/Done columns). Optimistic UI updates with `useTransition` and `router.refresh()`. Client-side filtering for instant tab switching.
 - **Real-Time Job System:** Background job pipelines with SSE (Server-Sent Events) streaming, step-by-step progress, ambient insight feeds during long-running operations, and toast notifications on completion.
-- **Server-Side Caching:** All dashboard pages use Next.js `unstable_cache` with 7-day TTL and tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag()`.
-- **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
+- **Server-Side Caching:** All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife()` for 7-day TTL tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag(tag, { expire: 0 })` with `revalidatePath` as a backup.
+- **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation. Multi-org support with org switcher in sidebar, allowing users to create and switch between organizations.
+- **Organization Switcher:** Sidebar popover listing all orgs the user belongs to with tier badges, switch action via `profiles.current_organization_id`, and "New organization" link that re-uses the full onboarding wizard.
+- **Marketing Landing Page:** Conversion-focused landing page at `/` with 7 sections (hero, problem statement, how it works, features, trust, pricing, waitlist form). Waitlist signups captured to `waitlist_signups` table via admin Supabase client.
+- **Transactional Email System:** Resend SDK integration with React Email templates for waitlist confirmation, onboarding welcome, trial expiry reminders (3-day, 1-day), and trial expired notifications. All emails fire-and-forget (non-blocking).
+- **Trial Period System:** 14-day free trial on organization creation. Dashboard layout-level gate blocks access when trial expires (shows TrialExpiredGate with Stripe upgrade CTAs). TrialBanner shown during last 7 days. Daily cron skips expired trial orgs. Trial reminder cron sends emails at 3 days, 1 day, and expiry.
+- **Stripe Checkout:** `/api/stripe/checkout` POST route creates Stripe checkout sessions for Starter/Pro/Agency tier upgrades. Handles customer creation, session creation, and redirects.
 
 ### Current state
 
@@ -74,15 +79,22 @@ The application has shipped through most PRD phases:
 - Social media visual intelligence via Gemini Vision (content categorization, quality analysis, brand signals) (Phase 9)
 - Actionable insight card system with expanded status workflow (new/read/todo/actioned/snoozed/dismissed) (Phase 10)
 - Category-grouped feed and Kanban board views for insights
-- Server-side caching with 7-day TTL and automatic revalidation after job completion
+- Server-side caching with `'use cache'` + `cacheTag` + `cacheLife` (migrated from deprecated `unstable_cache`) and automatic revalidation after job completion
 - Parallelized social handle discovery and data collection
+- Multi-step onboarding wizard with animated transitions (Framer Motion), Google Places integration, AI competitor discovery, and configurable monitoring preferences
+- Marketing landing page with waitlist capture and smooth-scroll navigation
+- Resend email integration with 5 React Email templates (waitlist, welcome, trial-3day, trial-1day, trial-expired)
+- 14-day trial period with billing gate, trial banner, and Stripe checkout flow
+- Vercel cron configuration for daily data refresh (6am UTC) and trial reminders (9am UTC)
+- Multi-org support with org switcher in sidebar, "New Organization" wizard, org settings page
+- Tier enforcement: `maxLocations` enforced on location creation, `maxCompetitorsPerLocation` capped during onboarding
+- Fixed critical `getTierFromPriceId` misuse in 5 files (paid users were silently getting free-tier limits)
 
 ### What is NOT yet shipped
 
-- Email digests/notifications (Edge Function stub exists)
 - Full "Ask Prophet" chat with LLM
 - Data retention cleanup policies
-- Team management functionality
+- Team management functionality (invites, role assignment)
 
 ---
 
@@ -153,7 +165,7 @@ The application has shipped through most PRD phases:
 
 | File | Purpose |
 |---|---|
-| `next.config.ts` | Next.js configuration (default, no custom settings) |
+| `next.config.ts` | Next.js configuration (`cacheComponents: true` for `'use cache'` directive support) |
 | `tsconfig.json` | TypeScript strict mode, `@/*` path alias, excludes `supabase/functions/**` |
 | `postcss.config.mjs` | PostCSS with `@tailwindcss/postcss` |
 | `eslint.config.mjs` | ESLint with `eslint-config-next` |
@@ -183,6 +195,7 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `STRIPE_PRICE_ID_STARTER` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Starter tier |
 | `STRIPE_PRICE_ID_PRO` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Pro tier |
 | `STRIPE_PRICE_ID_AGENCY` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Agency tier |
+| `RESEND_API_KEY` | Yes | `lib/email/client.ts` | Resend API key for transactional emails |
 | `NEXT_PUBLIC_APP_URL` | No | `app/(dashboard)/competitors/actions.ts` | App base URL (defaults to `http://localhost:3000`) |
 | `CRON_SECRET` | No | `app/api/cron/daily/route.ts` | Secret for authenticating cron job requests |
 | `DATA365_ACCESS_TOKEN` | Yes | `lib/providers/data365/client.ts` | Data365 Social Media API access token |
@@ -197,12 +210,13 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 prophet/
 ├── app/                                    # Next.js App Router
 │   ├── layout.tsx                          # Root layout (Geist fonts, metadata)
-│   ├── page.tsx                            # Landing page (/)
+│   ├── page.tsx                            # Marketing landing page (/) with waitlist
+│   ├── landing.css                         # Landing page ambient effects, glass cards
 │   ├── globals.css                         # Tailwind v4 + CSS custom properties
 │   ├── favicon.ico
 │   │
 │   ├── (auth)/                             # Auth route group (shared layout)
-│   │   ├── layout.tsx                      # Minimal slate background wrapper
+│   │   ├── layout.tsx                      # Suspense wrapper with auth skeleton
 │   │   ├── login/
 │   │   │   ├── page.tsx                    # Login UI (magic link + Google OAuth)
 │   │   │   └── actions.ts                  # sendMagicLinkAction, signInWithGoogleAction
@@ -215,12 +229,26 @@ prophet/
 │   │       └── route.ts                    # OAuth callback: exchanges code, redirects
 │   │
 │   ├── onboarding/
-│   │   ├── page.tsx                        # First-time setup (org + first location)
-│   │   └── actions.ts                      # createOrganizationAction, createLocationAction
+│   │   ├── layout.tsx                      # Suspense wrapper with loading spinner
+│   │   ├── page.tsx                        # First-time setup (detects resume state, renders wizard)
+│   │   ├── actions.ts                      # createOrgAndLocationAction (sets trial dates), discoverCompetitorsForLocation, completeOnboardingAction (sends welcome email)
+│   │   ├── onboarding-wizard.tsx           # Client: Multi-step wizard with Framer Motion transitions
+│   │   ├── onboarding.css                  # Ambient gradients, starfield, slide animations
+│   │   └── steps/                          # Individual wizard step components
+│   │       ├── splash.tsx                  # Step 0: Branded welcome screen
+│   │       ├── restaurant-info.tsx         # Step 1: Name, address (Google Places), cuisine
+│   │       ├── competitor-selection.tsx     # Step 2: AI-discovered competitors (select up to 5)
+│   │       ├── intelligence-settings.tsx   # Step 3: Monitoring preference toggles
+│   │       └── loading-brief.tsx           # Step 4: Phased loading + mini-brief + dashboard CTA
+│   │
+│   ├── organizations/
+│   │   └── new/
+│   │       ├── layout.tsx                  # Suspense wrapper for new org wizard
+│   │       └── page.tsx                    # Re-uses OnboardingWizard for creating additional orgs
 │   │
 │   ├── (dashboard)/                        # Dashboard route group (auth-gated)
-│   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, ActiveJobBar, Toaster
-│   │   ├── actions.ts                      # signOutAction
+│   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, trial gate/banner, ActiveJobBar, Toaster
+│   │   ├── actions.ts                      # signOutAction, switchOrganizationAction
 │   │   ├── home/
 │   │   │   ├── page.tsx                    # Live dashboard (KPIs, freshness, onboarding checklist, Refresh All)
 │   │   │   └── home-charts-section.tsx     # Client: Home page charts (rating comparison, review trends)
@@ -256,11 +284,17 @@ prophet/
 │   │   │   └── actions.ts                  # refreshWeatherAction
 │   │   ├── locations/
 │   │   │   ├── page.tsx                    # Location management CRUD with website URL override
-│   │   │   └── actions.ts                  # createLocationFromPlace, update (with website), delete
+│   │   │   └── actions.ts                  # createLocationFromPlace (with location limit), update, delete
 │   │   └── settings/
-│   │       ├── page.tsx                    # Settings index
+│   │       ├── page.tsx                    # Settings index (Organization, Billing, Team)
+│   │       ├── organization/
+│   │       │   ├── page.tsx                # Org settings (rename, billing email, details)
+│   │       │   ├── org-settings-form.tsx   # Client: form for org name/billing email
+│   │       │   └── actions.ts              # updateOrganizationAction
 │   │       ├── billing/
-│   │       │   └── page.tsx                # Subscription tier and Stripe status
+│   │       │   ├── page.tsx                # Subscription tier, trial status, upgrade UI
+│   │       │   ├── upgrade-buttons.tsx     # Client: Stripe checkout tier buttons
+│   │       │   └── upgrade-success.tsx     # Client: Success toast on ?upgraded=true
 │   │       └── team/
 │   │           └── page.tsx                # Team management (placeholder)
 │   │
@@ -271,8 +305,10 @@ prophet/
 │   │   │   └── quick-tip/
 │   │   │       └── route.ts                # POST: Lightweight Gemini quick tip
 │   │   ├── cron/
-│   │   │   └── daily/
-│   │   │       └── route.ts                # GET: Daily orchestrator (Vercel Cron / external scheduler)
+│   │   │   ├── daily/
+│   │   │   │   └── route.ts                # GET: Daily orchestrator (skips expired trials)
+│   │   │   └── trial-reminders/
+│   │   │       └── route.ts                # GET: Trial reminder emails (3-day, 1-day, expired)
 │   │   ├── jobs/
 │   │   │   ├── [type]/
 │   │   │   │   └── route.ts                # GET: Starts pipeline job + streams SSE progress
@@ -288,14 +324,31 @@ prophet/
 │   │   │   │   └── route.ts                # GET: Google Places autocomplete proxy
 │   │   │   └── details/
 │   │   │       └── route.ts                # GET: Google Places details proxy
-│   │   └── stripe/
-│   │       └── webhook/
-│   │           └── route.ts                # POST: Stripe webhook handler
+│   │   ├── stripe/
+│   │   │   ├── checkout/
+│   │   │   │   └── route.ts                # POST: Creates Stripe checkout session for tier upgrade
+│   │   │   └── webhook/
+│   │   │       └── route.ts                # POST: Stripe webhook handler
+│   │   └── waitlist/
+│   │       └── route.ts                    # POST: Waitlist signup (admin client, sends confirmation email)
 │   │
 │   └── docs/
 │       └── PRD.md                          # Master Product Requirements Document
 │
 ├── components/                             # React components
+│   ├── billing/
+│   │   ├── trial-expired-gate.tsx          # Client: Full-page overlay when trial expires (upgrade CTAs)
+│   │   └── trial-banner.tsx                # Client: Dismissible top banner during last 7 trial days
+│   ├── landing/
+│   │   ├── landing-nav.tsx                 # Client: Fixed nav with smooth-scroll + mobile menu
+│   │   ├── hero-section.tsx                # Client: Full-viewport hero with ambient gradient
+│   │   ├── problem-section.tsx             # Client: Problem statement with signal cards
+│   │   ├── how-it-works-section.tsx        # Client: 3-step horizontal flow
+│   │   ├── features-section.tsx            # Client: 6 feature cards with glass styling
+│   │   ├── trust-section.tsx               # Client: Social proof / credibility
+│   │   ├── pricing-section.tsx             # Client: 3-tier pricing cards
+│   │   ├── waitlist-form.tsx               # Client: Waitlist signup form
+│   │   └── waitlist-section.tsx            # Client: Waitlist section + footer
 │   ├── competitors/
 │   │   └── discover-form.tsx               # Client: Competitor discovery form + RefreshOverlay
 │   ├── content/
@@ -360,7 +413,17 @@ prophet/
 │   │   └── server.ts                       # getUser(), requireUser()
 │   ├── billing/
 │   │   ├── tiers.ts                        # SubscriptionTier, TIER_LIMITS, getTierFromPriceId()
+│   │   ├── trial.ts                        # TRIAL_DURATION_DAYS, isTrialActive(), getTrialDaysRemaining(), isTrialExpiringSoon()
 │   │   └── limits.ts                       # Guardrail functions (ensure*Limit, get*Cadence, etc.)
+│   ├── email/
+│   │   ├── client.ts                       # Resend instance (graceful if RESEND_API_KEY missing)
+│   │   ├── send.ts                         # sendEmail({ to, subject, react }) wrapper
+│   │   └── templates/
+│   │       ├── layout.tsx                  # Shared email layout (dark bg, Vatic branding, footer)
+│   │       ├── waitlist-confirmation.tsx   # "You're on the Vatic waitlist"
+│   │       ├── welcome.tsx                # "Welcome to Vatic — your intelligence is live"
+│   │       ├── trial-expiring.tsx         # "Your Vatic trial ends in X days"
+│   │       └── trial-expired.tsx          # "Your Vatic trial has ended"
 │   ├── supabase/
 │   │   ├── server.ts                       # createServerSupabaseClient() (SSR cookies)
 │   │   ├── client.ts                       # createBrowserSupabaseClient()
@@ -420,9 +483,9 @@ prophet/
 │   │   ├── diff.ts                         # diffSnapshots() (compare previous vs current)
 │   │   ├── rules.ts                        # buildInsights() (deterministic competitor rules)
 │   │   ├── trends.ts                       # buildWeeklyInsights() (T-7 trend analysis)
-│   │   ├── scoring.ts                      # Source categories, relevance scoring weights
+│   │   ├── scoring.ts                      # Source categories, relevance scoring weights, MonitoringPreferences, isInsightEnabledByPreferences()
 │   │   ├── briefing-cache.ts               # In-memory TTL cache for Gemini priority briefings
-│   │   ├── cached-data.ts                  # Cached insights page data fetcher (unstable_cache, 7-day TTL, tag: insights-data)
+│   │   ├── cached-data.ts                  # Cached insights page data fetcher ('use cache', 7-day TTL, tag: insights-data)
 │   │   ├── photo-insights.ts               # generatePhotoInsights() rules
 │   │   ├── traffic-insights.ts             # generateTrafficInsights() + competitive opportunity rules
 │   │   └── weather-context.ts              # shouldSuppressInsight(), addWeatherContext(), generateWeatherCrossSignals()
@@ -448,7 +511,7 @@ prophet/
 │   │   ├── cross-signal.ts                 # 8 cross-signal rules (4 social + 4 visual-aware)
 │   │   ├── storage.ts                      # Download & persist social post images to Supabase Storage (admin client)
 │   │   └── index.ts                        # Barrel file re-exporting all social modules
-│   ├── cache/                              # Server-side caching layer (unstable_cache with 7-day TTL)
+│   ├── cache/                              # Server-side caching layer ('use cache' + cacheTag + cacheLife, 7-day TTL)
 │   │   ├── home.ts                         # Cached home dashboard data (tag: home-data)
 │   │   ├── social.ts                       # Cached social insights (tag: social-data)
 │   │   ├── content.ts                      # Cached content/menu data (tag: content-data)
@@ -516,6 +579,7 @@ prophet/
 │
 ├── BLUEPRINT.md                            # This file
 ├── README.md
+├── vercel.json                             # Vercel cron schedules (daily 6am, trial-reminders 9am UTC)
 ├── package.json
 ├── package-lock.json
 ├── .gitignore
@@ -736,7 +800,22 @@ public.is_org_admin(org_id uuid) -> boolean
 | `stripe_customer_id` | text | Nullable |
 | `stripe_subscription_id` | text | Nullable |
 | `billing_email` | text | Nullable |
+| `trial_started_at` | timestamptz | Set on org creation |
+| `trial_ends_at` | timestamptz | `trial_started_at + 14 days` |
 | `settings` | jsonb DEFAULT '{}' | |
+| `created_at` / `updated_at` | timestamptz | |
+
+#### `waitlist_signups`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `email` | text NOT NULL UNIQUE | |
+| `business_name` | text | Nullable |
+| `city` | text | Nullable |
+| `source` | text NOT NULL DEFAULT 'landing_page' | |
+| `referred_by` | text | Nullable |
+| `status` | text NOT NULL DEFAULT 'pending' | CHECK: pending/invited/converted/unsubscribed |
+| `notes` | text | Nullable |
 | `created_at` / `updated_at` | timestamptz | |
 
 #### `profiles`
@@ -1042,7 +1121,7 @@ Organization
   └── Job Runs (legacy background processing)
 ```
 
-### 8.2 Organization Context
+### 8.2 Organization Context and Switching
 
 A user's "active" organization is stored in `profiles.current_organization_id`. All dashboard pages:
 
@@ -1051,14 +1130,25 @@ A user's "active" organization is stored in `profiles.current_organization_id`. 
 3. Query `locations` scoped to that organization
 4. All further queries scope through location IDs
 
+**Multi-org support:** A user can belong to multiple organizations via `organization_members` (one row per org membership). The dashboard layout fetches all orgs the user belongs to and passes them to the sidebar org switcher.
+
+**Org switcher:** The sidebar footer shows a popover with all user orgs (name + tier badge + checkmark for current). Selecting a different org calls `switchOrganizationAction` which validates membership, updates `profiles.current_organization_id`, revalidates the layout, and redirects to `/home`.
+
+**New organization:** The "New organization" link in the org switcher navigates to `/organizations/new`, which renders the same `OnboardingWizard` used for initial onboarding. On completion, `completeOnboardingAction` sets `current_organization_id` to the new org.
+
 ### 8.3 Onboarding Flow
+
+The onboarding is a 5-step animated wizard (`OnboardingWizard`) with Framer Motion transitions:
 
 1. User signs up (magic link or Google OAuth)
 2. OAuth callback checks for `current_organization_id` -- none found, redirects to `/onboarding`
-3. Onboarding page collects: organization name, slug, and first location (via Google Places search)
-4. `createOrganizationAction`: creates org, inserts `organization_members` (role: owner), upserts profile with `current_organization_id`, creates first location
-5. **Automatic data trigger:** `triggerInitialLocationData()` fires in the background to scrape website content and fetch weather for the new location
-6. Redirects to `/competitors?location_id=xxx&onboarding=true` with onboarding guidance banner
+3. **Step 0 (Splash):** Branded welcome screen with value propositions and "Set up my restaurant" CTA
+4. **Step 1 (Restaurant Info):** Collects restaurant name, address via Google Places autocomplete (`LocationSearch`), and cuisine type. On submit, calls `createOrgAndLocationAction` which creates the organization (with slug collision retry up to 5 attempts), adds user as owner, creates the location with place details, and triggers initial data scraping — but does **not** set `profiles.current_organization_id` yet (deferred to final step)
+5. **Step 2 (Competitor Selection):** Calls `discoverCompetitorsForLocation` which uses Gemini AI + Google Places to discover nearby competitors, scores them by relevance, and upserts them as `is_active: false`. User selects up to 5 competitors to track
+6. **Step 3 (Intelligence Settings):** Toggle cards for monitoring preferences (pricing changes, menu updates, promotions, review activity, new openings). Saved to `locations.settings.monitoring_preferences`
+7. **Step 4 (Loading Brief):** Calls `completeOnboardingAction` which sets `profiles.current_organization_id`, saves monitoring preferences, activates selected competitors (`is_active: true`), and triggers background SEO + content enrichment for each. Shows phased loading animation, then a mini-brief summarizing selections with a "Go to my Dashboard" CTA
+
+**Resume logic:** If a user refreshes mid-onboarding, `page.tsx` detects they are an org owner without `current_organization_id` set, fetches existing location and pending competitors, and passes them to the wizard to resume from Step 2
 
 ---
 
@@ -1088,14 +1178,15 @@ Root Layout (app/layout.tsx)
 │     ├── /traffic
 │     ├── /weather
 │     ├── /locations
-│     └── /settings (+ /settings/billing, /settings/team)
+│     └── /settings (+ /settings/organization, /settings/billing, /settings/team)
   ├── /onboarding
+  ├── /organizations/new
   └── / (landing page)
 ```
 
 ### 9.3 Sidebar Navigation
 
-The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors, Social, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings.
+The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors, Social, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings. The sidebar footer contains an **org switcher** popover that lists all organizations the user belongs to with tier badges, allows switching between them, and includes a "New organization" link.
 
 ### 9.4 Page Details
 
@@ -1187,9 +1278,12 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 |---|---|---|---|
 | `(auth)/login/actions.ts` | `sendMagicLinkAction` | Sends Supabase magic link email | None |
 | `(auth)/login/actions.ts` | `signInWithGoogleAction` | Initiates Google OAuth redirect | External |
-| `onboarding/actions.ts` | `createOrganizationAction` | Creates org + member + profile + location + triggers initial data | `/competitors` |
-| `onboarding/actions.ts` | `createLocationAction` | Adds a location + triggers initial data | `/competitors` |
+| `onboarding/actions.ts` | `createOrgAndLocationAction` | Creates org (slug retry) + member + location + triggers initial data. Does NOT set current_organization_id | None (returns data) |
+| `onboarding/actions.ts` | `discoverCompetitorsForLocation` | AI competitor discovery via Gemini + Google Places, scores and upserts as inactive | None (returns data) |
+| `onboarding/actions.ts` | `completeOnboardingAction` | Sets current_organization_id, saves monitoring prefs, activates competitors, triggers enrichment | None (returns data) |
 | `(dashboard)/actions.ts` | `signOutAction` | Signs out user | `/login` |
+| `(dashboard)/actions.ts` | `switchOrganizationAction` | Validates membership, updates current_organization_id, revalidates layout | `/home` |
+| `settings/organization/actions.ts` | `updateOrganizationAction` | Renames org, updates billing email (owner/admin only) | `/settings/organization` |
 | `competitors/actions.ts` | `discoverCompetitorsAction` | Gemini discovery + Places enrichment | `/competitors` |
 | `competitors/actions.ts` | `approveCompetitorAction` | Sets approved, fire-and-forget SEO + content enrichment | `/competitors` |
 | `competitors/actions.ts` | `ignoreCompetitorAction` | Sets ignored, is_active=false | `/competitors` |
@@ -1207,7 +1301,7 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 | `events/actions.ts` | `fetchEventsAction` | DataForSEO events, matching, insights | `/events` |
 | `content/actions.ts` | `refreshContentAction` | Firecrawl + Gemini menu, screenshots, insights | `/content` |
 | `visibility/actions.ts` | `refreshSeoAction` | 11 SEO API groups + competitor enrichment + insights | `/visibility` |
-| `locations/actions.ts` | `createLocationFromPlaceAction` | Creates location + triggers initial content/weather | `/locations` |
+| `locations/actions.ts` | `createLocationFromPlaceAction` | Creates location (with tier location limit check) + triggers initial content/weather | `/locations` |
 | `locations/actions.ts` | `updateLocationAction` | Updates location fields including website URL | `/locations` |
 | `locations/actions.ts` | `deleteLocationAction` | Deletes location | `/locations` |
 
@@ -1239,8 +1333,13 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 
 ### `GET /api/cron/daily`
 - **Auth:** `CRON_SECRET` bearer token
-- **Logic:** Iterates all locations, checks org tier and cadence, triggers `refresh_all` jobs for eligible locations
+- **Logic:** Iterates all locations, checks org tier, trial status, and cadence. Skips expired trial orgs. Triggers `refresh_all` jobs for eligible locations.
 - **Output:** `{ processed: number, skipped: number, errors: string[] }`
+
+### `GET /api/cron/trial-reminders`
+- **Auth:** `CRON_SECRET` bearer token
+- **Logic:** Queries free-tier orgs with `trial_ends_at` in range. Sends 3-day, 1-day, and expired emails via Resend to org owners.
+- **Output:** `{ sent: number, details: string[], errors: string[] }`
 
 ### `POST /api/ai/chat`
 - **Auth:** Supabase user session
@@ -1259,10 +1358,22 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 - **Input:** `?place_id=ChIJ...`
 - **Output:** Full place details object
 
+### `POST /api/stripe/checkout`
+- **Auth:** Supabase user session
+- **Input:** `{ tier: "starter" | "pro" | "agency" }`
+- **Logic:** Creates or retrieves Stripe customer for org, creates checkout session with tier price
+- **Output:** `{ url: string }` (redirect to Stripe Checkout)
+
 ### `POST /api/stripe/webhook`
 - **Auth:** Stripe signature verification
 - **Events:** `customer.subscription.created/updated/deleted`
 - **Output:** `{ received: true }`
+
+### `POST /api/waitlist`
+- **Auth:** None (public)
+- **Input:** `{ email: string, business_name?: string, city?: string }`
+- **Logic:** Upserts to `waitlist_signups` via admin client, fires waitlist confirmation email
+- **Output:** `{ ok: true }` or `{ ok: false, error: string }`
 
 ---
 
@@ -1547,7 +1658,18 @@ When a competitor is approved (`approveCompetitorAction`):
 
 **Module:** `lib/cache/`
 
-All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server component data fetches. Each page's data fetcher is wrapped in `unstable_cache()` with a unique cache tag.
+All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife({ revalidate: 604800 })` (7-day TTL) for server component data fetches. This requires `cacheComponents: true` in `next.config.ts`.
+
+Each cache function declares its cache tag inline:
+
+```typescript
+export async function fetchVisibilityPageData(locationId: string) {
+  "use cache"
+  cacheTag("visibility-data")
+  cacheLife({ revalidate: 604800 })
+  // ... data fetching logic ...
+}
+```
 
 | Cache Tag | File | Used By |
 |---|---|---|
@@ -1561,7 +1683,9 @@ All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server compo
 | `traffic-data` | `lib/cache/traffic.ts` | `/traffic` busy times, peak hours |
 | `weather-data` | `lib/cache/weather.ts` | `/weather` history, forecasts, location cards |
 
-**Cache invalidation:** When a pipeline job completes (`app/api/jobs/[type]/route.ts`), the appropriate cache tags are invalidated via `revalidateTag(tag, { expire: 0 })`. The `refresh_all` job invalidates all 8 tags.
+**Cache invalidation:** When a pipeline job completes (`app/api/jobs/[type]/route.ts`), the appropriate cache tags are invalidated via `revalidateTag(tag, { expire: 0 })` and backed up with `revalidatePath()` for the corresponding page path. The `refresh_all` job invalidates all 9 tags. Each dashboard server action also calls `revalidateTag` for its relevant tags before redirecting.
+
+**Note:** The caching layer was migrated from the deprecated `unstable_cache` to `'use cache'` + `cacheTag` in March 2026 to resolve a cache invalidation incompatibility in Next.js 16.
 
 ---
 
@@ -1625,7 +1749,19 @@ Events sent during pipeline execution:
 | Pro | 10 | 50 | 180 days | Daily, 2 queries | 50 tracked, 100 ranked | Labs weekly, SERP daily | 5 |
 | Agency | 50 | 200 | 365 days | Daily, 2 queries | 200 tracked, 500 ranked | Daily | 8 |
 
-### 16.2 Guardrail Functions
+### 16.2 Trial Period
+
+- **Duration:** 14 days from organization creation (`lib/billing/trial.ts: TRIAL_DURATION_DAYS`)
+- **Columns:** `organizations.trial_started_at` / `organizations.trial_ends_at` (set in `createOrgAndLocationAction`)
+- **Backfill:** Existing orgs backfilled with `trial_started_at = created_at`, `trial_ends_at = created_at + 14 days`
+- **Active check:** `isTrialActive(org)` returns true if `subscription_tier !== "free"` OR `trial_ends_at > now()`
+- **Gate:** `app/(dashboard)/layout.tsx` renders `TrialExpiredGate` (full-page upgrade overlay) when trial expired
+- **Banner:** `TrialBanner` shown during last 7 days of trial (dismissible per session)
+- **Cron:** Daily cron (`/api/cron/daily`) skips locations belonging to expired trial orgs
+- **Reminders:** `/api/cron/trial-reminders` sends emails at 3 days, 1 day, and expiry via Resend
+- **Upgrade:** Stripe checkout via `POST /api/stripe/checkout` (Starter/Pro/Agency tiers)
+
+### 16.3 Guardrail Functions
 
 `lib/billing/limits.ts` provides:
 - `ensureLocationLimit`, `ensureCompetitorLimit`, `ensureEventQueryLimit`, `ensureTrackedKeywordLimit`
@@ -1633,6 +1769,12 @@ Events sent during pipeline execution:
 - `getSeoTrackedKeywordsLimit`, `getSeoLabsCadence`, `getSeoSerpCadence`, `getSeoRankedKeywordsLimit`, `getSeoIntersectionLimit`
 - `isSeoIntersectionEnabled`, `isSeoAdsEnabled`
 - `getContentMaxPages`, `getContentCadence`
+
+**Enforcement points:**
+- `ensureLocationLimit` is called in `createLocationFromPlaceAction` (dashboard) and `createLocationAction` (onboarding) before inserting a new location
+- `ensureCompetitorLimit` is called in `approveCompetitorAction` (dashboard) before activating a competitor
+- `maxCompetitorsPerLocation` is enforced in `completeOnboardingAction` by capping the bulk-approved competitor list to the tier limit
+- Tier resolution uses `(org.subscription_tier ?? "free") as SubscriptionTier` (direct cast from stored tier name, NOT via `getTierFromPriceId` which expects Stripe price IDs)
 
 ---
 
@@ -1653,6 +1795,18 @@ Events sent during pipeline execution:
 
 | Component | File | Type | Description |
 |---|---|---|---|
+| TrialExpiredGate | `components/billing/trial-expired-gate.tsx` | Client | Full-page gate with 3-tier Stripe upgrade CTAs |
+| TrialBanner | `components/billing/trial-banner.tsx` | Client | Top banner (dismissible) showing days remaining |
+| OrgSettingsForm | `settings/organization/org-settings-form.tsx` | Client | Org rename + billing email form |
+| LandingNav | `components/landing/landing-nav.tsx` | Client | Fixed nav with smooth-scroll links + mobile menu |
+| HeroSection | `components/landing/hero-section.tsx` | Client | Full-viewport hero with ambient gradient |
+| ProblemSection | `components/landing/problem-section.tsx` | Client | Two-column problem statement + signal cards |
+| HowItWorksSection | `components/landing/how-it-works-section.tsx` | Client | 3-step horizontal flow |
+| FeaturesSection | `components/landing/features-section.tsx` | Client | 6 glass-card feature blocks |
+| TrustSection | `components/landing/trust-section.tsx` | Client | Social proof / credibility copy |
+| PricingSection | `components/landing/pricing-section.tsx` | Client | 3-tier pricing cards |
+| WaitlistForm | `components/landing/waitlist-form.tsx` | Client | Email/business/city form with success state |
+| WaitlistSection | `components/landing/waitlist-section.tsx` | Client | Waitlist CTA section + footer |
 | LocationFilter | `components/ui/location-filter.tsx` | Client | Dropdown navigating via URL params |
 | RefreshOverlay | `components/ui/refresh-overlay.tsx` | Client | Legacy animated loading overlay |
 | JobRefreshButton | `components/ui/job-refresh-button.tsx` | Client | SSE-connected refresh with pipeline view |
@@ -1740,6 +1894,29 @@ npm run lint     # ESLint
 npm run test:e2e # Playwright E2E tests
 ```
 
+### 20.4 Vercel Cron Jobs
+
+Configured in `vercel.json`:
+
+| Schedule | Path | Purpose |
+|---|---|---|
+| `0 6 * * *` (6 AM UTC daily) | `/api/cron/daily` | Data refresh orchestrator for all active locations |
+| `0 9 * * *` (9 AM UTC daily) | `/api/cron/trial-reminders` | Trial expiry emails (3-day, 1-day, expired) |
+
+Both routes require `CRON_SECRET` bearer token for auth.
+
+### 20.5 Production Environment Variables
+
+In addition to the existing variables (Section 3), ensure these are set in Vercel:
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `RESEND_API_KEY` | For emails | Resend API key (emails fail gracefully without it) |
+| `CRON_SECRET` | For crons | Auth token for Vercel cron endpoints |
+| `STRIPE_PRICE_ID_STARTER` | For billing | Stripe price ID for Starter tier |
+| `STRIPE_PRICE_ID_PRO` | For billing | Stripe price ID for Pro tier |
+| `STRIPE_PRICE_ID_AGENCY` | For billing | Stripe price ID for Agency tier |
+
 ---
 
 ## 21. Known Limitations and Future Work
@@ -1760,14 +1937,13 @@ npm run test:e2e # Playwright E2E tests
 ### Future Work
 
 - "Ask Prophet" natural language chat grounded in stored data
-- Email alerts and weekly digests
 - Events page layout redesign
 - Additional providers (Yelp, SerpApi)
 - Real-time monitoring capabilities
 - Data retention enforcement
 - Team invite and role management
-- UX/UI refresh (modern light aesthetic, micro-interactions, 3D background) -- plan on hold
+- Weekly email digest of top insights
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 11, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 22, 2026.*

@@ -7,6 +7,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import { TIER_LIMITS, type SubscriptionTier } from "@/lib/billing/tiers"
+import { isTrialActive } from "@/lib/billing/trial"
 
 export const maxDuration = 300
 
@@ -43,12 +44,17 @@ export async function GET(req: Request) {
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
   const { data: orgs } = await supabase
     .from("organizations")
-    .select("id, subscription_tier")
+    .select("id, subscription_tier, trial_ends_at")
     .in("id", orgIds)
 
   const orgTierMap = new Map<string, SubscriptionTier>()
+  const orgTrialMap = new Map<string, { trial_ends_at: string | null; subscription_tier: string }>()
   for (const org of orgs ?? []) {
     orgTierMap.set(org.id, (org.subscription_tier ?? "free") as SubscriptionTier)
+    orgTrialMap.set(org.id, {
+      trial_ends_at: org.trial_ends_at,
+      subscription_tier: org.subscription_tier ?? "free",
+    })
   }
 
   const jobs: Array<{
@@ -59,6 +65,17 @@ export async function GET(req: Request) {
   }> = []
 
   for (const location of locations) {
+    const orgTrial = orgTrialMap.get(location.organization_id)
+    if (orgTrial && !isTrialActive(orgTrial)) {
+      jobs.push({
+        location_id: location.id,
+        location_name: location.name,
+        pipelines: [],
+        skipped_reason: "Trial expired – no active subscription",
+      })
+      continue
+    }
+
     const tier = orgTierMap.get(location.organization_id) ?? "free"
     const limits = TIER_LIMITS[tier]
 

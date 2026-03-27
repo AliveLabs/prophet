@@ -601,6 +601,8 @@ export type Database = {
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_tier: string
+          trial_ends_at: string | null
+          trial_started_at: string | null
           updated_at: string
         }
         Insert: {
@@ -613,6 +615,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_tier?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -625,6 +629,8 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_tier?: string
+          trial_ends_at?: string | null
+          trial_started_at?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -888,6 +894,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      waitlist_signups: {
+        Row: {
+          business_name: string | null
+          city: string | null
+          created_at: string
+          email: string
+          id: string
+          notes: string | null
+          referred_by: string | null
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          business_name?: string | null
+          city?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          notes?: string | null
+          referred_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          business_name?: string | null
+          city?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          notes?: string | null
+          referred_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

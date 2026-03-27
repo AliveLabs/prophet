@@ -160,7 +160,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
     : null
 
   return (
-    <div className="space-y-5">
+    <section className="space-y-5">
       {/* Filter + Actions Bar */}
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         {locations && locations.length > 0 && selectedLocationId && (
@@ -343,6 +343,6 @@ export default async function ContentPage({ searchParams }: PageProps) {
           competitors={competitorMenus}
         />
       )}
-    </div>
+    </section>
   )
 }

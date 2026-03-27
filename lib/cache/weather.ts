@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedWeatherResult = {
@@ -35,10 +35,14 @@ export type CachedWeatherResult = {
   }>
 }
 
-async function fetchWeatherPageDataRaw(
+export async function fetchWeatherPageData(
   locationId: string,
   allLocationIds: string[],
 ): Promise<CachedWeatherResult> {
+  "use cache"
+  cacheTag("weather-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const thirtyDaysAgo = new Date()
@@ -74,9 +78,3 @@ async function fetchWeatherPageDataRaw(
     weatherInsights: (insightsRaw ?? []) as CachedWeatherResult["weatherInsights"],
   }
 }
-
-export const fetchWeatherPageData = unstable_cache(
-  fetchWeatherPageDataRaw,
-  ["weather-page-data"],
-  { revalidate: 604800, tags: ["weather-data"] }
-)

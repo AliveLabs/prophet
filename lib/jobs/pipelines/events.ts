@@ -4,7 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
-import { getTierFromPriceId, type SubscriptionTier } from "@/lib/billing/tiers"
+import { type SubscriptionTier } from "@/lib/billing/tiers"
 import { getEventsQueriesPerRun, getEventsMaxDepth } from "@/lib/billing/limits"
 import { fetchGoogleEvents } from "@/lib/providers/dataforseo/google-events"
 import { normalizeEventsSnapshot } from "@/lib/events/normalize"
@@ -295,7 +295,7 @@ export async function buildEventsContext(
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = getTierFromPriceId(org?.subscription_tier)
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
 
   const { data: location } = await supabase
     .from("locations")
