@@ -45,7 +45,10 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
     .order("created_at", { ascending: false })
 
   const resolvedParams = await Promise.resolve(searchParams)
-  const selectedLocationId = resolvedParams?.location_id ?? locations?.[0]?.id ?? null
+  const requestedLocationId = resolvedParams?.location_id ?? null
+  const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
+    ? requestedLocationId
+    : locations?.[0]?.id ?? null
 
   const { data: competitors } = selectedLocationId
     ? await supabase

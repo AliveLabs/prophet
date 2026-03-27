@@ -1,66 +1,148 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, useInView } from "framer-motion"
+import { useRef } from "react"
+
+function RadarIcon() {
+  const ref = useRef<SVGSVGElement>(null)
+  const isInView = useInView(ref, { once: false })
+
+  return (
+    <svg ref={ref} width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <circle cx="24" cy="24" r="20" stroke="var(--border)" strokeWidth="1" opacity="0.4" />
+      <circle cx="24" cy="24" r="14" stroke="var(--border)" strokeWidth="1" opacity="0.3" />
+      <circle cx="24" cy="24" r="8" stroke="var(--border)" strokeWidth="1" opacity="0.2" />
+      <circle cx="24" cy="24" r="2.5" fill="var(--vatic-indigo)" />
+      {isInView && (
+        <line
+          x1="24" y1="24" x2="24" y2="4"
+          stroke="var(--vatic-indigo)"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          opacity="0.7"
+          className="animate-radar"
+          style={{ transformOrigin: "24px 24px" }}
+        />
+      )}
+      <circle cx="18" cy="12" r="2" fill="var(--signal-gold)" opacity="0.8">
+        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="34" cy="16" r="2" fill="var(--precision-teal)" opacity="0.7">
+        <animate attributeName="opacity" values="0.7;0.2;0.7" dur="2.5s" repeatCount="indefinite" />
+      </circle>
+      <circle cx="30" cy="34" r="2" fill="var(--vatic-indigo-soft)" opacity="0.6">
+        <animate attributeName="opacity" values="0.6;0.2;0.6" dur="1.8s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+  )
+}
+
+function PrismIcon() {
+  const ref = useRef<SVGSVGElement>(null)
+  const isInView = useInView(ref, { once: true })
+
+  return (
+    <svg ref={ref} width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      {/* Input lines converging */}
+      <line x1="4" y1="10" x2="24" y2="24" stroke="var(--muted-foreground)" strokeWidth="1" opacity="0.3"
+        strokeDasharray="30" strokeDashoffset={isInView ? "0" : "30"}
+        style={{ transition: "stroke-dashoffset 0.8s ease-out 0.2s" }} />
+      <line x1="4" y1="24" x2="24" y2="24" stroke="var(--muted-foreground)" strokeWidth="1" opacity="0.3"
+        strokeDasharray="20" strokeDashoffset={isInView ? "0" : "20"}
+        style={{ transition: "stroke-dashoffset 0.8s ease-out 0.3s" }} />
+      <line x1="4" y1="38" x2="24" y2="24" stroke="var(--muted-foreground)" strokeWidth="1" opacity="0.3"
+        strokeDasharray="30" strokeDashoffset={isInView ? "0" : "30"}
+        style={{ transition: "stroke-dashoffset 0.8s ease-out 0.4s" }} />
+
+      {/* Prism */}
+      <polygon points="20,14 28,14 28,34 20,34" fill="var(--vatic-indigo)" opacity="0.15" stroke="var(--vatic-indigo)" strokeWidth="1.5" />
+
+      {/* Output line - single focused signal */}
+      <line x1="28" y1="24" x2="44" y2="24" stroke="var(--vatic-indigo)" strokeWidth="2" strokeLinecap="round"
+        strokeDasharray="16" strokeDashoffset={isInView ? "0" : "16"}
+        style={{ transition: "stroke-dashoffset 0.6s ease-out 0.7s" }} />
+      <circle cx="44" cy="24" r="3" fill="var(--vatic-indigo)"
+        opacity={isInView ? "1" : "0"}
+        style={{ transition: "opacity 0.3s ease-out 1s" }} />
+    </svg>
+  )
+}
+
+function LightningIcon() {
+  const ref = useRef<SVGSVGElement>(null)
+  const isInView = useInView(ref, { once: true })
+
+  return (
+    <svg ref={ref} width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path
+        d="M26 4 L14 26 H22 L18 44 L36 20 H26 Z"
+        fill="var(--signal-gold)"
+        opacity={isInView ? "0.2" : "0"}
+        stroke="var(--signal-gold)"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        style={{ transition: "opacity 0.4s ease-out 0.3s" }}
+      />
+      {isInView && (
+        <path
+          d="M26 4 L14 26 H22 L18 44 L36 20 H26 Z"
+          fill="var(--signal-gold)"
+          opacity="0.4"
+          strokeLinejoin="round"
+        >
+          <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="3" />
+        </path>
+      )}
+    </svg>
+  )
+}
 
 const STEPS = [
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-        <circle cx="12" cy="10" r="3" />
-      </svg>
-    ),
-    title: "Add your restaurant",
+    number: "01",
+    icon: <RadarIcon />,
+    title: "Collect Signals",
     description:
-      "Enter your business name. Vatic pulls your details from Google automatically. No manual data entry.",
+      "Our crawlers ingest data from social media, local SEO, Google reviews, menu changes, and foot traffic patterns in real-time across your entire competitive landscape.",
   },
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-      </svg>
-    ),
-    title: "We find your competitors",
+    number: "02",
+    icon: <PrismIcon />,
+    title: "Crystallize Insight",
     description:
-      "Our AI identifies the restaurants competing for your customers based on proximity, category, and local search behavior. You approve who to track.",
+      "The Vatic engine isolates patterns across 50+ deterministic rules, stripping away noise to reveal the underlying strategic intent of the market.",
   },
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-      </svg>
-    ),
-    title: "Get weekly intelligence",
+    number: "03",
+    icon: <LightningIcon />,
+    title: "Act Sooner",
     description:
-      "Every week, Vatic tells you what changed, why it matters, and what to consider doing next. Five things. That's it.",
+      "Receive automated intelligence briefings with precise operational and marketing counter-moves. Priority-scored, confidence-rated, and actionable.",
   },
 ]
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
-  visible: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
 }
 
 export function HowItWorksSection() {
   return (
-    <section id="how-it-works" className="border-t border-border/50 py-24">
-      <div className="mx-auto max-w-6xl px-6">
+    <section id="how-it-works" className="bg-muted/30 py-24 md:py-32">
+      <div className="mx-auto max-w-7xl px-8">
         <motion.div
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           variants={fadeUp}
-          className="mb-16 text-center"
+          className="mb-20 text-center"
         >
-          <p className="mb-4 text-sm font-semibold uppercase tracking-widest text-precision-teal">
-            How It Works
-          </p>
-          <h2 className="font-display text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            From zero to intelligence in 3 minutes.
+          <h2 className="font-display text-tight text-4xl italic text-foreground md:text-5xl">
+            The Strategic Architecture
           </h2>
+          <p className="mt-4 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
+            Intelligence at the speed of thought
+          </p>
         </motion.div>
 
         <div className="grid gap-12 md:grid-cols-3 md:gap-8">
@@ -69,27 +151,21 @@ export function HowItWorksSection() {
               key={i}
               initial="hidden"
               whileInView="visible"
-              viewport={{ once: true, margin: "-80px" }}
-              transition={{
-                duration: 0.5,
-                delay: i * 0.12,
-                ease: [0.16, 1, 0.3, 1],
-              }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ delay: i * 0.12 }}
               variants={fadeUp}
-              className="text-center"
+              className="group text-center"
             >
-              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-secondary text-vatic-indigo">
+              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-card border border-border/50">
                 {step.icon}
               </div>
-              <div className="mb-2 flex items-center justify-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-vatic-indigo text-xs font-bold text-white">
-                  {i + 1}
-                </span>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {step.title}
-                </h3>
+              <div className="mb-4 font-display text-5xl italic text-muted-foreground/20 transition-colors group-hover:text-vatic-indigo/50">
+                {step.number}
               </div>
-              <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
+              <h3 className="mb-4 text-xl font-bold text-foreground">
+                {step.title}
+              </h3>
+              <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground">
                 {step.description}
               </p>
             </motion.div>

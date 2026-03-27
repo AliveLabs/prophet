@@ -901,7 +901,9 @@ export type Database = {
           city: string | null
           created_at: string
           email: string
+          first_name: string | null
           id: string
+          last_name: string | null
           notes: string | null
           referred_by: string | null
           source: string
@@ -913,7 +915,9 @@ export type Database = {
           city?: string | null
           created_at?: string
           email: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           notes?: string | null
           referred_by?: string | null
           source?: string
@@ -925,7 +929,9 @@ export type Database = {
           city?: string | null
           created_at?: string
           email?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
           notes?: string | null
           referred_by?: string | null
           source?: string

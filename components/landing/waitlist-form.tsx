@@ -3,9 +3,9 @@
 import { useState, type FormEvent } from "react"
 
 export function WaitlistForm() {
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
-  const [businessName, setBusinessName] = useState("")
-  const [city, setCity] = useState("")
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [errorMsg, setErrorMsg] = useState("")
 
@@ -19,9 +19,9 @@ export function WaitlistForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          first_name: firstName.trim() || undefined,
+          last_name: lastName.trim() || undefined,
           email,
-          business_name: businessName || undefined,
-          city: city || undefined,
         }),
       })
 
@@ -54,14 +54,18 @@ export function WaitlistForm() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M5 12l5 5L20 7" />
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
           </svg>
         </div>
         <h3 className="font-display text-2xl font-semibold text-foreground">
-          You&rsquo;re in.
+          Check your email
         </h3>
         <p className="mt-2 text-muted-foreground">
-          We&rsquo;ll be in touch soon.
+          We just sent a link to set up your account. Click it to get started.
+        </p>
+        <p className="mt-3 text-xs text-muted-foreground/70">
+          Don&rsquo;t see it? Check your spam folder.
         </p>
       </div>
     )
@@ -72,6 +76,43 @@ export function WaitlistForm() {
       onSubmit={handleSubmit}
       className="mx-auto max-w-md space-y-4 rounded-xl border border-border bg-card p-6"
     >
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label
+            htmlFor="wl-first-name"
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            First Name <span className="text-destructive">*</span>
+          </label>
+          <input
+            id="wl-first-name"
+            type="text"
+            required
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder="Jane"
+            className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="wl-last-name"
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            Last Name <span className="text-destructive">*</span>
+          </label>
+          <input
+            id="wl-last-name"
+            type="text"
+            required
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder="Doe"
+            className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+      </div>
+
       <div>
         <label
           htmlFor="wl-email"
@@ -86,41 +127,6 @@ export function WaitlistForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@restaurant.com"
-          className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      <div>
-        <label
-          htmlFor="wl-business"
-          className="mb-1.5 block text-sm font-medium text-foreground"
-        >
-          Business Name{" "}
-          <span className="text-muted-foreground">(optional)</span>
-        </label>
-        <input
-          id="wl-business"
-          type="text"
-          value={businessName}
-          onChange={(e) => setBusinessName(e.target.value)}
-          placeholder="Your Restaurant"
-          className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-
-      <div>
-        <label
-          htmlFor="wl-city"
-          className="mb-1.5 block text-sm font-medium text-foreground"
-        >
-          City <span className="text-muted-foreground">(optional)</span>
-        </label>
-        <input
-          id="wl-city"
-          type="text"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-          placeholder="San Francisco"
           className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </div>

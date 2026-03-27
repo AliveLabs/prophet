@@ -1,7 +1,40 @@
 /* ============================================================
-   Landing Page — Ambient effects and animations
+   Landing Page — Utility classes, effects, and animations
    ============================================================ */
 
+/* ── Vatic Gradient ──────────────────────────────────────────── */
+.vatic-gradient {
+  background: linear-gradient(135deg, #5A3FFF 0%, #9B87FF 100%);
+}
+
+/* ── Glass Panel ─────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+:root:not(.dark) .glass-panel {
+  background: rgba(240, 237, 255, 0.65);
+  border-color: rgba(90, 63, 255, 0.10);
+}
+
+/* ── Editorial Shadow ────────────────────────────────────────── */
+.editorial-shadow {
+  box-shadow: 0 32px 64px -12px rgba(12, 8, 37, 0.18);
+}
+
+.dark .editorial-shadow {
+  box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Text Tight ──────────────────────────────────────────────── */
+.text-tight {
+  letter-spacing: -0.02em;
+}
+
+/* ── Hero Ambient Orbs ───────────────────────────────────────── */
 .landing-hero-ambient {
   position: absolute;
   inset: 0;
@@ -13,91 +46,155 @@
 .landing-hero-ambient::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background: radial-gradient(
-      ellipse 60% 50% at 20% 20%,
-      rgba(90, 63, 255, 0.07) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 50% 50% at 80% 75%,
-      rgba(0, 191, 166, 0.05) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 40% 35% at 55% 10%,
-      rgba(242, 161, 30, 0.03) 0%,
-      transparent 55%
-    );
+  top: -10%;
+  left: 15%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(90, 63, 255, 0.12) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(80px);
+  animation: orb-drift-1 20s ease-in-out infinite alternate;
 }
 
-:is(.dark) .landing-hero-ambient::before {
-  background: radial-gradient(
-      ellipse 60% 50% at 20% 20%,
-      rgba(90, 63, 255, 0.16) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 50% 50% at 80% 75%,
-      rgba(0, 191, 166, 0.08) 0%,
-      transparent 65%
-    ),
-    radial-gradient(
-      ellipse 40% 35% at 55% 10%,
-      rgba(242, 161, 30, 0.04) 0%,
-      transparent 55%
-    );
-}
-
-:is(.dark) .landing-hero-ambient::after {
+.landing-hero-ambient::after {
   content: "";
   position: absolute;
-  inset: 0;
-  background-image: radial-gradient(1px 1px at 10% 8%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 22%, rgba(255, 255, 255, 0.18) 0%, transparent 100%),
-    radial-gradient(1px 1px at 65% 5%, rgba(255, 255, 255, 0.25) 0%, transparent 100%),
-    radial-gradient(1px 1px at 80% 18%, rgba(255, 255, 255, 0.14) 0%, transparent 100%),
-    radial-gradient(1px 1px at 22% 42%, rgba(255, 255, 255, 0.1) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 55%, rgba(255, 255, 255, 0.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 50% 70%, rgba(255, 255, 255, 0.12) 0%, transparent 100%),
-    radial-gradient(1px 1px at 5% 80%, rgba(255, 255, 255, 0.22) 0%, transparent 100%);
+  bottom: -5%;
+  right: 15%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(242, 161, 30, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  animation: orb-drift-2 18s ease-in-out infinite alternate;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+.dark .landing-hero-ambient::before {
+  background: radial-gradient(circle, rgba(90, 63, 255, 0.22) 0%, transparent 70%);
 }
 
-/* Glass card effect for feature cards */
+.dark .landing-hero-ambient::after {
+  background: radial-gradient(circle, rgba(242, 161, 30, 0.12) 0%, transparent 70%);
+}
+
+/* ── Glass Card (landing) ────────────────────────────────────── */
 .glass-card {
   background: color-mix(in srgb, var(--card) 70%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
-:is(.dark) .glass-card {
+.dark .glass-card {
   background: color-mix(in srgb, var(--card) 50%, transparent);
 }
 
-/* Signal card styling */
+/* ── Signal Card ─────────────────────────────────────────────── */
 .signal-card {
   border-left: 3px solid var(--precision-teal);
   background: var(--card);
 }
 
-/* Landing nav blur */
+/* ── Landing Nav Blur ────────────────────────────────────────── */
 .landing-nav-blur {
-  background: color-mix(in srgb, var(--background) 85%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--background) 80%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-/* Pricing card highlight */
+/* ── Pricing Card Highlight ──────────────────────────────────── */
 .pricing-highlight {
   border-color: var(--vatic-indigo);
   box-shadow: 0 0 24px rgba(90, 63, 255, 0.15), 0 0 8px rgba(90, 63, 255, 0.1);
 }
 
-:is(.dark) .pricing-highlight {
+.dark .pricing-highlight {
   box-shadow: 0 0 32px rgba(90, 63, 255, 0.25), 0 0 12px rgba(90, 63, 255, 0.15);
+}
+
+/* ── Smooth Scrolling ────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ============================================================
+   Keyframe Animations
+   ============================================================ */
+
+@keyframes orb-drift-1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, 20px) scale(1.05); }
+}
+
+@keyframes orb-drift-2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-20px, -15px) scale(1.08); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+
+@keyframes draw-line {
+  from { stroke-dashoffset: var(--dash-length, 600); }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(90, 63, 255, 0.15), 0 0 6px rgba(90, 63, 255, 0.10); }
+  50%      { box-shadow: 0 0 32px rgba(90, 63, 255, 0.30), 0 0 12px rgba(90, 63, 255, 0.20); }
+}
+
+@keyframes scan-line {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes heatmap-fill {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Utility animation classes ───────────────────────────────── */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-radar {
+  animation: radar-sweep 4s linear infinite;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+.animate-draw-line {
+  animation: draw-line 1.5s ease-out forwards;
+}
+
+.animate-scan-line {
+  animation: scan-line 2s ease-in-out infinite;
+}
+
+/* ── Reduced Motion ──────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-radar,
+  .animate-glow-pulse,
+  .animate-draw-line,
+  .animate-scan-line,
+  .landing-hero-ambient::before,
+  .landing-hero-ambient::after {
+    animation: none !important;
+  }
 }
