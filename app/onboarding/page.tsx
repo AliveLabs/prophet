@@ -1,21 +1,9 @@
 import { redirect } from "next/navigation"
-import { createOrganizationAction } from "./actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { FadeIn } from "@/components/motion/fade-in"
-import LocationSearch from "@/components/places/location-search"
+import OnboardingWizard from "./onboarding-wizard"
 
-type OnboardingPageProps = {
-  searchParams?: Promise<{
-    error?: string
-  }>
-}
-
-export default async function OnboardingPage({ searchParams }: OnboardingPageProps) {
+export default async function OnboardingPage() {
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()
   const { data: profile } = await supabase
@@ -28,45 +16,65 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
     redirect("/home")
   }
 
-  const resolvedSearchParams = await Promise.resolve(searchParams)
-  const error = resolvedSearchParams?.error
+  // Resume logic: check if user is an owner of an org but current_organization_id is null
+  // (happens when user refreshed at Step 2+ before completing onboarding)
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", user.id)
+    .eq("role", "owner")
+    .limit(1)
+    .maybeSingle()
+
+  let existingOrgId: string | null = null
+  let existingLocationId: string | null = null
+  let existingCompetitors: Array<{
+    id: string
+    name: string | null
+    category: string | null
+    address: string | null
+    metadata: Record<string, unknown>
+    relevance_score: number | null
+  }> = []
+
+  if (membership?.organization_id) {
+    existingOrgId = membership.organization_id
+
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("organization_id", existingOrgId)
+      .limit(1)
+      .maybeSingle()
+
+    if (loc?.id) {
+      existingLocationId = loc.id
+
+      const { data: comps } = await supabase
+        .from("competitors")
+        .select("id, name, category, address, metadata, relevance_score")
+        .eq("location_id", existingLocationId)
+        .eq("is_active", false)
+        .order("relevance_score", { ascending: false })
+
+      existingCompetitors = (comps ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        address: c.address,
+        metadata: (c.metadata as Record<string, unknown>) ?? {},
+        relevance_score: c.relevance_score,
+      }))
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <section className="mx-auto w-full max-w-5xl px-6 py-12">
-        <FadeIn>
-          <Card className="bg-card text-foreground">
-            <h1 className="text-2xl font-display font-semibold">Add your first location</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Search for your business and we’ll auto-populate the details.
-            </p>
-            {error ? (
-              <p className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                {decodeURIComponent(error)}
-              </p>
-            ) : null}
-            <div className="mt-6 grid gap-6">
-              <form action={createOrganizationAction} className="grid gap-4">
-                <div className="grid gap-2">
-                  <Label>Organization name</Label>
-                  <Input name="organization_name" required />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Organization slug (optional)</Label>
-                  <Input name="organization_slug" placeholder="vatic-co" />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Business search</Label>
-                  <LocationSearch />
-                </div>
-                <Button type="submit" size="lg">
-                  Continue
-                </Button>
-              </form>
-            </div>
-          </Card>
-        </FadeIn>
-      </section>
+    <div className="min-h-dvh bg-background text-foreground">
+      <OnboardingWizard
+        existingOrgId={existingOrgId}
+        existingLocationId={existingLocationId}
+        existingCompetitors={existingCompetitors}
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 11, 2026
+> **Last updated:** March 22, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -52,7 +52,7 @@
 - **Social Media Visual Intelligence:** Analyzes social post images via Gemini Vision to extract content categories, food presentation quality, visual quality, brand signals, atmosphere signals, and promotional content. Aggregates per-entity visual profiles and generates 16 visual insight rules (12 comparative + 4 location-only) covering content strategy, competitive intelligence, and visual opportunity detection.
 - **Insight Engine:** Deterministic rules generate structured insights across all signal sources (competitors, SEO, events, content, photos, traffic, weather, social, visual). LLM (Gemini) adds priority briefings and narrative summaries. Actionable insight card system with kebab menu (Mark as Read, To-Do, Done, Snooze, Dismiss). Dual-view display: category-grouped feed (default) and Kanban board (Inbox/To-Do/Done columns). Optimistic UI updates with `useTransition` and `router.refresh()`. Client-side filtering for instant tab switching.
 - **Real-Time Job System:** Background job pipelines with SSE (Server-Sent Events) streaming, step-by-step progress, ambient insight feeds during long-running operations, and toast notifications on completion.
-- **Server-Side Caching:** All dashboard pages use Next.js `unstable_cache` with 7-day TTL and tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag()`.
+- **Server-Side Caching:** All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife()` for 7-day TTL tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag(tag, { expire: 0 })` with `revalidatePath` as a backup.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation.
 
 ### Current state
@@ -74,8 +74,9 @@ The application has shipped through most PRD phases:
 - Social media visual intelligence via Gemini Vision (content categorization, quality analysis, brand signals) (Phase 9)
 - Actionable insight card system with expanded status workflow (new/read/todo/actioned/snoozed/dismissed) (Phase 10)
 - Category-grouped feed and Kanban board views for insights
-- Server-side caching with 7-day TTL and automatic revalidation after job completion
+- Server-side caching with `'use cache'` + `cacheTag` + `cacheLife` (migrated from deprecated `unstable_cache`) and automatic revalidation after job completion
 - Parallelized social handle discovery and data collection
+- Multi-step onboarding wizard with animated transitions (Framer Motion), Google Places integration, AI competitor discovery, and configurable monitoring preferences
 
 ### What is NOT yet shipped
 
@@ -153,7 +154,7 @@ The application has shipped through most PRD phases:
 
 | File | Purpose |
 |---|---|
-| `next.config.ts` | Next.js configuration (default, no custom settings) |
+| `next.config.ts` | Next.js configuration (`cacheComponents: true` for `'use cache'` directive support) |
 | `tsconfig.json` | TypeScript strict mode, `@/*` path alias, excludes `supabase/functions/**` |
 | `postcss.config.mjs` | PostCSS with `@tailwindcss/postcss` |
 | `eslint.config.mjs` | ESLint with `eslint-config-next` |
@@ -215,8 +216,16 @@ prophet/
 │   │       └── route.ts                    # OAuth callback: exchanges code, redirects
 │   │
 │   ├── onboarding/
-│   │   ├── page.tsx                        # First-time setup (org + first location)
-│   │   └── actions.ts                      # createOrganizationAction, createLocationAction
+│   │   ├── page.tsx                        # First-time setup (detects resume state, renders wizard)
+│   │   ├── actions.ts                      # createOrgAndLocationAction, discoverCompetitorsForLocation, completeOnboardingAction
+│   │   ├── onboarding-wizard.tsx           # Client: Multi-step wizard with Framer Motion transitions
+│   │   ├── onboarding.css                  # Ambient gradients, starfield, slide animations
+│   │   └── steps/                          # Individual wizard step components
+│   │       ├── splash.tsx                  # Step 0: Branded welcome screen
+│   │       ├── restaurant-info.tsx         # Step 1: Name, address (Google Places), cuisine
+│   │       ├── competitor-selection.tsx     # Step 2: AI-discovered competitors (select up to 5)
+│   │       ├── intelligence-settings.tsx   # Step 3: Monitoring preference toggles
+│   │       └── loading-brief.tsx           # Step 4: Phased loading + mini-brief + dashboard CTA
 │   │
 │   ├── (dashboard)/                        # Dashboard route group (auth-gated)
 │   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, ActiveJobBar, Toaster
@@ -420,9 +429,9 @@ prophet/
 │   │   ├── diff.ts                         # diffSnapshots() (compare previous vs current)
 │   │   ├── rules.ts                        # buildInsights() (deterministic competitor rules)
 │   │   ├── trends.ts                       # buildWeeklyInsights() (T-7 trend analysis)
-│   │   ├── scoring.ts                      # Source categories, relevance scoring weights
+│   │   ├── scoring.ts                      # Source categories, relevance scoring weights, MonitoringPreferences, isInsightEnabledByPreferences()
 │   │   ├── briefing-cache.ts               # In-memory TTL cache for Gemini priority briefings
-│   │   ├── cached-data.ts                  # Cached insights page data fetcher (unstable_cache, 7-day TTL, tag: insights-data)
+│   │   ├── cached-data.ts                  # Cached insights page data fetcher ('use cache', 7-day TTL, tag: insights-data)
 │   │   ├── photo-insights.ts               # generatePhotoInsights() rules
 │   │   ├── traffic-insights.ts             # generateTrafficInsights() + competitive opportunity rules
 │   │   └── weather-context.ts              # shouldSuppressInsight(), addWeatherContext(), generateWeatherCrossSignals()
@@ -448,7 +457,7 @@ prophet/
 │   │   ├── cross-signal.ts                 # 8 cross-signal rules (4 social + 4 visual-aware)
 │   │   ├── storage.ts                      # Download & persist social post images to Supabase Storage (admin client)
 │   │   └── index.ts                        # Barrel file re-exporting all social modules
-│   ├── cache/                              # Server-side caching layer (unstable_cache with 7-day TTL)
+│   ├── cache/                              # Server-side caching layer ('use cache' + cacheTag + cacheLife, 7-day TTL)
 │   │   ├── home.ts                         # Cached home dashboard data (tag: home-data)
 │   │   ├── social.ts                       # Cached social insights (tag: social-data)
 │   │   ├── content.ts                      # Cached content/menu data (tag: content-data)
@@ -1053,12 +1062,17 @@ A user's "active" organization is stored in `profiles.current_organization_id`. 
 
 ### 8.3 Onboarding Flow
 
+The onboarding is a 5-step animated wizard (`OnboardingWizard`) with Framer Motion transitions:
+
 1. User signs up (magic link or Google OAuth)
 2. OAuth callback checks for `current_organization_id` -- none found, redirects to `/onboarding`
-3. Onboarding page collects: organization name, slug, and first location (via Google Places search)
-4. `createOrganizationAction`: creates org, inserts `organization_members` (role: owner), upserts profile with `current_organization_id`, creates first location
-5. **Automatic data trigger:** `triggerInitialLocationData()` fires in the background to scrape website content and fetch weather for the new location
-6. Redirects to `/competitors?location_id=xxx&onboarding=true` with onboarding guidance banner
+3. **Step 0 (Splash):** Branded welcome screen with value propositions and "Set up my restaurant" CTA
+4. **Step 1 (Restaurant Info):** Collects restaurant name, address via Google Places autocomplete (`LocationSearch`), and cuisine type. On submit, calls `createOrgAndLocationAction` which creates the organization (with slug collision retry up to 5 attempts), adds user as owner, creates the location with place details, and triggers initial data scraping — but does **not** set `profiles.current_organization_id` yet (deferred to final step)
+5. **Step 2 (Competitor Selection):** Calls `discoverCompetitorsForLocation` which uses Gemini AI + Google Places to discover nearby competitors, scores them by relevance, and upserts them as `is_active: false`. User selects up to 5 competitors to track
+6. **Step 3 (Intelligence Settings):** Toggle cards for monitoring preferences (pricing changes, menu updates, promotions, review activity, new openings). Saved to `locations.settings.monitoring_preferences`
+7. **Step 4 (Loading Brief):** Calls `completeOnboardingAction` which sets `profiles.current_organization_id`, saves monitoring preferences, activates selected competitors (`is_active: true`), and triggers background SEO + content enrichment for each. Shows phased loading animation, then a mini-brief summarizing selections with a "Go to my Dashboard" CTA
+
+**Resume logic:** If a user refreshes mid-onboarding, `page.tsx` detects they are an org owner without `current_organization_id` set, fetches existing location and pending competitors, and passes them to the wizard to resume from Step 2
 
 ---
 
@@ -1187,8 +1201,9 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 |---|---|---|---|
 | `(auth)/login/actions.ts` | `sendMagicLinkAction` | Sends Supabase magic link email | None |
 | `(auth)/login/actions.ts` | `signInWithGoogleAction` | Initiates Google OAuth redirect | External |
-| `onboarding/actions.ts` | `createOrganizationAction` | Creates org + member + profile + location + triggers initial data | `/competitors` |
-| `onboarding/actions.ts` | `createLocationAction` | Adds a location + triggers initial data | `/competitors` |
+| `onboarding/actions.ts` | `createOrgAndLocationAction` | Creates org (slug retry) + member + location + triggers initial data. Does NOT set current_organization_id | None (returns data) |
+| `onboarding/actions.ts` | `discoverCompetitorsForLocation` | AI competitor discovery via Gemini + Google Places, scores and upserts as inactive | None (returns data) |
+| `onboarding/actions.ts` | `completeOnboardingAction` | Sets current_organization_id, saves monitoring prefs, activates competitors, triggers enrichment | None (returns data) |
 | `(dashboard)/actions.ts` | `signOutAction` | Signs out user | `/login` |
 | `competitors/actions.ts` | `discoverCompetitorsAction` | Gemini discovery + Places enrichment | `/competitors` |
 | `competitors/actions.ts` | `approveCompetitorAction` | Sets approved, fire-and-forget SEO + content enrichment | `/competitors` |
@@ -1547,7 +1562,18 @@ When a competitor is approved (`approveCompetitorAction`):
 
 **Module:** `lib/cache/`
 
-All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server component data fetches. Each page's data fetcher is wrapped in `unstable_cache()` with a unique cache tag.
+All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife({ revalidate: 604800 })` (7-day TTL) for server component data fetches. This requires `cacheComponents: true` in `next.config.ts`.
+
+Each cache function declares its cache tag inline:
+
+```typescript
+export async function fetchVisibilityPageData(locationId: string) {
+  "use cache"
+  cacheTag("visibility-data")
+  cacheLife({ revalidate: 604800 })
+  // ... data fetching logic ...
+}
+```
 
 | Cache Tag | File | Used By |
 |---|---|---|
@@ -1561,7 +1587,9 @@ All dashboard pages use Next.js `unstable_cache` with 7-day TTL for server compo
 | `traffic-data` | `lib/cache/traffic.ts` | `/traffic` busy times, peak hours |
 | `weather-data` | `lib/cache/weather.ts` | `/weather` history, forecasts, location cards |
 
-**Cache invalidation:** When a pipeline job completes (`app/api/jobs/[type]/route.ts`), the appropriate cache tags are invalidated via `revalidateTag(tag, { expire: 0 })`. The `refresh_all` job invalidates all 8 tags.
+**Cache invalidation:** When a pipeline job completes (`app/api/jobs/[type]/route.ts`), the appropriate cache tags are invalidated via `revalidateTag(tag, { expire: 0 })` and backed up with `revalidatePath()` for the corresponding page path. The `refresh_all` job invalidates all 9 tags. Each dashboard server action also calls `revalidateTag` for its relevant tags before redirecting.
+
+**Note:** The caching layer was migrated from the deprecated `unstable_cache` to `'use cache'` + `cacheTag` in March 2026 to resolve a cache invalidation incompatibility in Next.js 16.
 
 ---
 
@@ -1766,8 +1794,8 @@ npm run test:e2e # Playwright E2E tests
 - Real-time monitoring capabilities
 - Data retention enforcement
 - Team invite and role management
-- UX/UI refresh (modern light aesthetic, micro-interactions, 3D background) -- plan on hold
+- UX/UI refresh (Vatic brand refresh with new colors, typography, and logos has shipped; further refinements ongoing)
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 11, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 22, 2026.*

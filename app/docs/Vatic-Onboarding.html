@@ -1,0 +1,1511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vatic — Get Started</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS — Vatic Brand System
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --midnight:       #0C0825;
+  --near-black:     #1C1840;
+  --deep-violet:    #4D4975;
+  --muted-violet:   #8883AA;
+  --vatic-indigo:   #5A3FFF;
+  --deep-indigo:    #3620D4;
+  --pale-lavender:  #F0EDFF;
+  --warm-white:     #FAFAF9;
+  --signal-gold:    #F2A11E;
+  --precision-teal: #00BFA6;
+  --alert-red:      #FF4757;
+  --indigo-soft:    #9B87FF;
+  --border:         rgba(255,255,255,0.07);
+  --border-indigo:  rgba( 90, 63,255,0.28);
+  --text-1:         #FAFAF9;
+  --text-2:         #8883AA;
+  --text-3:         #4D4975;
+  --font-display:   'Cormorant Garamond', Georgia, serif;
+  --font-ui:        'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --s1: 4px;  --s2: 8px;   --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px;  --s8: 32px; --s10: 40px; --s12: 48px;
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px;
+  --ease-fast:   150ms ease;
+  --ease-normal: 260ms ease;
+  --ease-slow:   400ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-ui);
+  background: var(--midnight);
+  color: var(--text-1);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+a { text-decoration: none; color: inherit; }
+button { font-family: var(--font-ui); cursor: pointer; border: none; background: none; }
+input, textarea { font-family: var(--font-ui); }
+
+/* ambient bg */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 55% at 15% 15%, rgba(90,63,255,0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 55% at 85% 80%, rgba(0,191,166,0.08) 0%, transparent 65%),
+    radial-gradient(ellipse 30% 40% at 60% 5%,  rgba(90,63,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* star field */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12%  8%,  rgba(255,255,255,0.35) 0%, transparent 100%),
+    radial-gradient(1px 1px at 34% 22%,  rgba(255,255,255,0.20) 0%, transparent 100%),
+    radial-gradient(1px 1px at 68%  4%,  rgba(255,255,255,0.30) 0%, transparent 100%),
+    radial-gradient(1px 1px at 82% 17%,  rgba(255,255,255,0.18) 0%, transparent 100%),
+    radial-gradient(1px 1px at 24% 44%,  rgba(255,255,255,0.12) 0%, transparent 100%),
+    radial-gradient(1px 1px at 91% 52%,  rgba(255,255,255,0.22) 0%, transparent 100%),
+    radial-gradient(1px 1px at 54% 68%,  rgba(255,255,255,0.16) 0%, transparent 100%),
+    radial-gradient(1px 1px at 7%  78%,  rgba(255,255,255,0.25) 0%, transparent 100%),
+    radial-gradient(1px 1px at 78% 88%,  rgba(255,255,255,0.20) 0%, transparent 100%),
+    radial-gradient(1px 1px at 46% 93%,  rgba(255,255,255,0.14) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   OUTER SHELL
+   ═══════════════════════════════════════════════════════════ */
+.ob-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════ */
+.ob-header {
+  width: 100%;
+  max-width: 520px;
+  padding: var(--s6) var(--s6) 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: opacity var(--ease-normal), transform var(--ease-normal);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
+.ob-header.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ob-wordmark {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--warm-white);
+}
+.ob-wordmark span { color: var(--vatic-indigo); }
+
+.ob-skip {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: var(--s2) var(--s3);
+  border-radius: var(--r-sm);
+  transition: color var(--ease-fast), background var(--ease-fast);
+}
+.ob-skip:hover {
+  color: var(--text-2);
+  background: rgba(255,255,255,0.04);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ═══════════════════════════════════════════════════════════ */
+.ob-progress {
+  width: 100%;
+  max-width: 520px;
+  padding: var(--s5) var(--s6) 0;
+  transition: opacity var(--ease-normal), transform var(--ease-normal);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+}
+.ob-progress.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.prog-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s2);
+}
+.prog-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--vatic-indigo);
+}
+.prog-count {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.prog-track {
+  width: 100%;
+  height: 2px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--vatic-indigo) 0%, var(--indigo-soft) 100%);
+  border-radius: 2px;
+  transition: width 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 0%;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP CONTAINER + TRANSITIONS
+   ═══════════════════════════════════════════════════════════ */
+.ob-main {
+  flex: 1;
+  width: 100%;
+  max-width: 520px;
+  padding: 0 var(--s6);
+  position: relative;
+}
+
+.ob-step {
+  display: none;
+  flex-direction: column;
+  padding-top: var(--s10);
+  padding-bottom: var(--s8);
+  width: 100%;
+  animation: stepEnter 0.38s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.ob-step.active { display: flex; }
+.ob-step.dir-back { animation-name: stepEnterBack; }
+
+@keyframes stepEnter {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes stepEnterBack {
+  from { opacity: 0; transform: translateX(-22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* splash — centered, no top padding */
+.ob-step[data-step="0"] {
+  min-height: 100dvh;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding-top: 0;
+  padding-bottom: var(--s12);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ═══════════════════════════════════════════════════════════ */
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--precision-teal);
+  margin-bottom: var(--s3);
+}
+
+.step-head {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--warm-white);
+  margin-bottom: var(--s3);
+}
+.step-head em { font-style: italic; color: var(--indigo-soft); }
+
+.step-sub {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: var(--s6);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SPLASH (STEP 0)
+   ═══════════════════════════════════════════════════════════ */
+.splash-logotype {
+  font-family: var(--font-display);
+  font-size: 58px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--warm-white);
+  line-height: 1;
+  margin-bottom: var(--s3);
+}
+.splash-logotype span { color: var(--vatic-indigo); }
+
+.splash-tagline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--precision-teal);
+  margin-bottom: var(--s8);
+}
+
+.splash-headline {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  line-height: 1.22;
+  color: var(--warm-white);
+  max-width: 380px;
+  margin: 0 auto var(--s5);
+}
+.splash-headline em { font-style: italic; color: var(--indigo-soft); }
+
+.splash-body {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.65;
+  max-width: 360px;
+  margin: 0 auto var(--s10);
+}
+
+.splash-trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--s3) var(--s6);
+  margin-top: var(--s8);
+}
+.trust-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.trust-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--precision-teal);
+  opacity: 0.55;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORM FIELDS
+   ═══════════════════════════════════════════════════════════ */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin-bottom: var(--s6);
+}
+
+.field { display: flex; flex-direction: column; gap: var(--s2); }
+
+.f-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.f-input {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: var(--r-md);
+  padding: 13px var(--s4);
+  font-size: 15px;
+  color: var(--text-1);
+  outline: none;
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+  caret-color: var(--indigo-soft);
+}
+.f-input::placeholder { color: var(--text-3); }
+.f-input:focus {
+  border-color: rgba(90,63,255,0.5);
+  box-shadow: 0 0 0 3px rgba(90,63,255,0.12);
+}
+
+/* search wrap */
+.f-search-wrap { position: relative; }
+.f-search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  pointer-events: none;
+}
+.f-search-wrap .f-input { padding-left: 38px; }
+
+/* cuisine chip select */
+.cuisine-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+.c-chip {
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  user-select: none;
+}
+.c-chip:hover {
+  border-color: rgba(90,63,255,0.3);
+  color: var(--text-1);
+}
+.c-chip.on {
+  background: rgba(90,63,255,0.14);
+  border-color: rgba(90,63,255,0.45);
+  color: var(--indigo-soft);
+  font-weight: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPETITOR CARDS (STEP 2)
+   ═══════════════════════════════════════════════════════════ */
+.comp-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s3) 0 var(--s4);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: var(--s4);
+}
+.comp-tally {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.comp-tally strong { color: var(--indigo-soft); font-weight: 600; }
+.comp-tally-note { font-size: 11.5px; color: var(--text-3); }
+
+.comp-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-bottom: var(--s4);
+}
+
+.c-card {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  padding: 13px var(--s4);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  user-select: none;
+}
+.c-card:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+.c-card.on {
+  background: rgba(90,63,255,0.08);
+  border-color: rgba(90,63,255,0.3);
+}
+
+.c-emoji {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  transition: background var(--ease-fast);
+}
+.c-card.on .c-emoji { background: rgba(90,63,255,0.12); }
+
+.c-info { flex: 1; min-width: 0; }
+.c-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.c-meta {
+  font-size: 12px;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.c-sep { margin: 0 6px; opacity: 0.4; }
+
+.c-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--ease-fast);
+}
+.c-card.on .c-check {
+  background: var(--vatic-indigo);
+  border-color: var(--vatic-indigo);
+}
+.c-check-svg { display: none; }
+.c-card.on .c-check-svg { display: block; }
+
+/* ═══════════════════════════════════════════════════════════
+   WATCH TOGGLES (STEP 3)
+   ═══════════════════════════════════════════════════════════ */
+.watch-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  margin-bottom: var(--s6);
+}
+
+.w-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s4);
+  padding: var(--s4);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all var(--ease-fast);
+  user-select: none;
+}
+.w-item.on {
+  background: rgba(90,63,255,0.07);
+  border-color: rgba(90,63,255,0.24);
+}
+
+.w-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+  transition: background var(--ease-fast);
+}
+.w-item.on .w-icon { background: rgba(90,63,255,0.14); }
+
+.w-text { flex: 1; }
+.w-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+.w-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.w-toggle {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.09);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  position: relative;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all var(--ease-normal);
+}
+.w-toggle::after {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-3);
+  top: 2px;
+  left: 2px;
+  transition: left var(--ease-normal), background var(--ease-normal);
+}
+.w-item.on .w-toggle {
+  background: var(--vatic-indigo);
+  border-color: var(--vatic-indigo);
+}
+.w-item.on .w-toggle::after {
+  left: calc(100% - 15px);
+  background: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LOADING & BRIEF (STEP 4)
+   ═══════════════════════════════════════════════════════════ */
+.loading-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  margin: var(--s8) 0;
+}
+
+.ld-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  font-size: 14px;
+  color: var(--text-2);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.ld-row.show { opacity: 1; transform: translateY(0); }
+.ld-row.done { color: var(--text-1); }
+
+.ld-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+.ld-icon.check {
+  background: rgba(0,191,166,0.15);
+  color: var(--precision-teal);
+}
+.ld-icon.spin {
+  background: rgba(90,63,255,0.1);
+  color: var(--indigo-soft);
+}
+
+/* CSS spinner */
+.spinner-ring {
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid rgba(155,135,255,0.25);
+  border-top-color: var(--indigo-soft);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* first brief preview card */
+.brief-preview {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: var(--r-lg);
+  padding: var(--s5) var(--s5);
+  margin: var(--s6) 0;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.6s cubic-bezier(0.16,1,0.3,1),
+              transform 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+.brief-preview.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.bp-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--precision-teal);
+  margin-bottom: var(--s3);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.bp-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--precision-teal);
+  animation: pulse 2s ease infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+.bp-headline {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--warm-white);
+  line-height: 1.3;
+  margin-bottom: var(--s3);
+}
+
+.bp-body {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: var(--s4);
+}
+
+.bp-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.06);
+  margin-bottom: var(--s4);
+}
+
+.bp-rec {
+  display: flex;
+  gap: var(--s2);
+  padding: var(--s3) var(--s4);
+  background: rgba(0,191,166,0.07);
+  border-left: 2px solid rgba(0,191,166,0.4);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-size: 12.5px;
+  color: rgba(255,255,255,0.65);
+  line-height: 1.55;
+}
+.bp-rec strong { color: var(--precision-teal); font-weight: 600; }
+.bp-rec-star { flex-shrink: 0; margin-top: 2px; color: var(--precision-teal); }
+
+.bp-signals {
+  display: flex;
+  gap: var(--s3);
+  margin-top: var(--s4);
+  flex-wrap: wrap;
+}
+.bp-signal {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 20px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.bp-signal-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS
+   ═══════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  border: none;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: all var(--ease-fast);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--vatic-indigo);
+  color: #fff;
+  font-size: 14px;
+  padding: 14px var(--s8);
+}
+.btn-primary:hover {
+  background: #4a2fff;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(90,63,255,0.38);
+}
+.btn-primary:active { transform: translateY(0); box-shadow: none; }
+
+.btn-primary.lg {
+  padding: 16px var(--s10);
+  font-size: 15px;
+  border-radius: var(--r-lg);
+}
+.btn-primary.block {
+  width: 100%;
+  padding: 15px var(--s8);
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-2);
+  font-size: 14px;
+  padding: 14px var(--s5);
+}
+.btn-ghost:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text-1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FOOTER NAV
+   ═══════════════════════════════════════════════════════════ */
+.ob-footer {
+  width: 100%;
+  max-width: 520px;
+  padding: var(--s4) var(--s6) var(--s10);
+  display: flex;
+  gap: var(--s3);
+  align-items: center;
+  transition: opacity var(--ease-normal), transform var(--ease-normal);
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
+.ob-footer.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.ob-footer .btn-primary { flex: 1; }
+#btn-back { display: none; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 540px) {
+  .ob-header   { padding: var(--s4) var(--s4) 0; }
+  .ob-progress { padding: var(--s4) var(--s4) 0; }
+  .ob-main     { padding: 0 var(--s4); }
+  .ob-footer   { padding: var(--s4) var(--s4) var(--s8); }
+
+  .ob-step { padding-top: var(--s8); }
+  .ob-step[data-step="0"] {
+    padding-top: 0;
+    min-height: 100dvh;
+  }
+
+  .splash-logotype { font-size: 48px; }
+  .splash-headline { font-size: 28px; }
+  .step-head       { font-size: 27px; }
+  .bp-headline     { font-size: 19px; }
+
+  .splash-trust { gap: var(--s2) var(--s4); }
+
+  .c-card  { padding: 11px var(--s3); }
+  .c-emoji { width: 36px; height: 36px; font-size: 16px; }
+}
+
+@media (max-width: 360px) {
+  .splash-logotype { font-size: 42px; }
+  .splash-headline { font-size: 24px; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   STEP-0 (SPLASH): remove chrome from flex layout flow
+   ─────────────────────────────────────────────────────────
+   opacity:0 still consumes flex space — use display:none
+   so the splash step fills the full 100dvh cleanly.
+   data-step is written to .ob-shell by syncChrome().
+   ═══════════════════════════════════════════════════════════ */
+.ob-shell[data-step="0"] .ob-header,
+.ob-shell[data-step="0"] .ob-progress,
+.ob-shell[data-step="0"] .ob-footer {
+  display: none;
+}
+
+  </style>
+</head>
+
+<body>
+<div class="ob-shell" data-step="0">
+
+  <!-- ── HEADER ─────────────────────────────────── -->
+  <header class="ob-header" id="ob-header">
+    <div class="ob-wordmark">V<span>atic</span></div>
+    <button class="ob-skip" onclick="skipSetup()">Skip for now</button>
+  </header>
+
+  <!-- ── PROGRESS ───────────────────────────────── -->
+  <div class="ob-progress" id="ob-progress">
+    <div class="prog-meta">
+      <span class="prog-label"  id="prog-label">Your Restaurant</span>
+      <span class="prog-count"  id="prog-count">Step 1 of 4</span>
+    </div>
+    <div class="prog-track">
+      <div class="prog-fill" id="prog-fill"></div>
+    </div>
+  </div>
+
+  <!-- ── STEPS ──────────────────────────────────── -->
+  <main class="ob-main">
+
+    <!-- ════════════════════════════════════════════
+         STEP 0  —  SPLASH
+         ════════════════════════════════════════════ -->
+    <section class="ob-step active" data-step="0">
+      <div class="splash-tagline">Restaurant Intelligence Platform</div>
+      <div class="splash-logotype">V<span>atic</span></div>
+
+      <div class="splash-headline">
+        Know what's happening<br><em>around your block.</em>
+      </div>
+
+      <div class="splash-body">
+        Vatic watches your competitors' pricing, menus, and promotions — so you
+        always know what's coming before it hits your bottom line.
+      </div>
+
+      <button class="btn btn-primary lg" onclick="nextStep()">
+        Set up my restaurant
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="splash-trust">
+        <div class="trust-pill"><div class="trust-dot"></div>No credit card required</div>
+        <div class="trust-pill"><div class="trust-dot"></div>Setup in under 2 minutes</div>
+        <div class="trust-pill"><div class="trust-dot"></div>Cancel any time</div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         STEP 1  —  YOUR RESTAURANT
+         ════════════════════════════════════════════ -->
+    <section class="ob-step" data-step="1">
+      <div class="eyebrow">Your Restaurant</div>
+      <div class="step-head">Tell us about<br><em>your place.</em></div>
+      <div class="step-sub">We'll use this to find what's happening in your neighborhood.</div>
+
+      <div class="field-group">
+
+        <div class="field">
+          <label class="f-label" for="rest-name">Restaurant Name</label>
+          <input
+            class="f-input"
+            type="text"
+            id="rest-name"
+            placeholder="e.g. The Rustic Fork"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          >
+        </div>
+
+        <div class="field">
+          <label class="f-label" for="rest-addr">Address</label>
+          <div class="f-search-wrap">
+            <svg class="f-search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+            </svg>
+            <input
+              class="f-input"
+              type="text"
+              id="rest-addr"
+              placeholder="Street address or neighborhood"
+              autocomplete="off"
+            >
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="f-label">Cuisine Type</label>
+          <div class="cuisine-chips" id="cuisine-chips">
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">American</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Italian</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Mexican</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Asian</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Bar &amp; Grill</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Café</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Seafood</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Pizza</button>
+            <button class="c-chip" type="button" onclick="pickCuisine(this)">Other</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         STEP 2  —  ADD COMPETITORS
+         ════════════════════════════════════════════ -->
+    <section class="ob-step" data-step="2">
+      <div class="eyebrow">Your Competitors</div>
+      <div class="step-head">Who should<br>Vatic watch?</div>
+      <div class="step-sub">We found nearby restaurants. Pick up to 5 to track — you can always add more later.</div>
+
+      <div class="f-search-wrap" style="margin-bottom: var(--s4);">
+        <svg class="f-search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+          <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" stroke-width="1.4"/>
+          <path d="M10 10l3.5 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <input class="f-input" type="text" placeholder="Search for a specific restaurant…" autocomplete="off">
+      </div>
+
+      <div class="comp-topbar">
+        <span class="comp-tally"><strong id="comp-count">0</strong> of 5 selected</span>
+        <span class="comp-tally-note">Near Wicker Park, Chicago</span>
+      </div>
+
+      <div class="comp-list" id="comp-list">
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">🍔</div>
+          <div class="c-info">
+            <div class="c-name">Rival Kitchen</div>
+            <div class="c-meta">
+              <span>0.3 mi</span><span class="c-sep">·</span>
+              <span>American Bistro</span><span class="c-sep">·</span>
+              <span>⭐ 4.2</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">🍺</div>
+          <div class="c-info">
+            <div class="c-name">The Wicker Tap</div>
+            <div class="c-meta">
+              <span>0.2 mi</span><span class="c-sep">·</span>
+              <span>Bar &amp; Grill</span><span class="c-sep">·</span>
+              <span>⭐ 4.0</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">🍕</div>
+          <div class="c-info">
+            <div class="c-name">Napoli Express</div>
+            <div class="c-meta">
+              <span>0.4 mi</span><span class="c-sep">·</span>
+              <span>Italian</span><span class="c-sep">·</span>
+              <span>⭐ 4.5</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">☕</div>
+          <div class="c-info">
+            <div class="c-name">Golden Hour Café</div>
+            <div class="c-meta">
+              <span>0.1 mi</span><span class="c-sep">·</span>
+              <span>Café</span><span class="c-sep">·</span>
+              <span>⭐ 4.7</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">🥘</div>
+          <div class="c-info">
+            <div class="c-name">Seoul Bowl</div>
+            <div class="c-meta">
+              <span>0.5 mi</span><span class="c-sep">·</span>
+              <span>Korean</span><span class="c-sep">·</span>
+              <span>⭐ 4.3</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="c-card" onclick="toggleComp(this)">
+          <div class="c-emoji">🍽️</div>
+          <div class="c-info">
+            <div class="c-name">Two Brothers Kitchen</div>
+            <div class="c-meta">
+              <span>0.6 mi</span><span class="c-sep">·</span>
+              <span>American</span><span class="c-sep">·</span>
+              <span>⭐ 3.8</span>
+            </div>
+          </div>
+          <div class="c-check" aria-hidden="true">
+            <svg class="c-check-svg" width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5L4 7.5L10 1" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         STEP 3  —  WHAT TO WATCH
+         ════════════════════════════════════════════ -->
+    <section class="ob-step" data-step="3">
+      <div class="eyebrow">Intelligence Settings</div>
+      <div class="step-head">What should<br><em>Vatic track?</em></div>
+      <div class="step-sub">All signals are on by default. You can adjust these any time.</div>
+
+      <div class="watch-list">
+
+        <div class="w-item on" onclick="toggleWatch(this)" role="switch" aria-checked="true" tabindex="0">
+          <div class="w-icon">💲</div>
+          <div class="w-text">
+            <div class="w-name">Pricing Changes</div>
+            <div class="w-desc">Menu prices, delivery minimums, happy hour windows</div>
+          </div>
+          <div class="w-toggle" aria-hidden="true"></div>
+        </div>
+
+        <div class="w-item on" onclick="toggleWatch(this)" role="switch" aria-checked="true" tabindex="0">
+          <div class="w-icon">📋</div>
+          <div class="w-text">
+            <div class="w-name">Menu Updates</div>
+            <div class="w-desc">New items, removals, and seasonal specials</div>
+          </div>
+          <div class="w-toggle" aria-hidden="true"></div>
+        </div>
+
+        <div class="w-item on" onclick="toggleWatch(this)" role="switch" aria-checked="true" tabindex="0">
+          <div class="w-icon">🏷️</div>
+          <div class="w-text">
+            <div class="w-name">Promotions &amp; Deals</div>
+            <div class="w-desc">Delivery app specials, buy-one-get-one, limited offers</div>
+          </div>
+          <div class="w-toggle" aria-hidden="true"></div>
+        </div>
+
+        <div class="w-item on" onclick="toggleWatch(this)" role="switch" aria-checked="true" tabindex="0">
+          <div class="w-icon">⭐</div>
+          <div class="w-text">
+            <div class="w-name">Review Activity</div>
+            <div class="w-desc">Rating shifts, review spikes, trending feedback patterns</div>
+          </div>
+          <div class="w-toggle" aria-hidden="true"></div>
+        </div>
+
+        <div class="w-item on" onclick="toggleWatch(this)" role="switch" aria-checked="true" tabindex="0">
+          <div class="w-icon">📍</div>
+          <div class="w-text">
+            <div class="w-name">New Openings Nearby</div>
+            <div class="w-desc">Restaurants opening within half a mile of your location</div>
+          </div>
+          <div class="w-toggle" aria-hidden="true"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         STEP 4  —  GENERATING + BRIEF REVEAL
+         ════════════════════════════════════════════ -->
+    <section class="ob-step" data-step="4">
+      <div class="eyebrow" id="s4-eyebrow">Setting Up</div>
+      <div class="step-head" id="s4-head">Vatic is scanning<br><em>your neighborhood.</em></div>
+      <div class="step-sub" id="s4-sub">Pulling data on your competitors. Usually takes about 15 seconds.</div>
+
+      <div class="loading-rows" id="loading-rows">
+
+        <div class="ld-row" id="lr-1">
+          <div class="ld-icon check" aria-hidden="true">
+            <svg width="10" height="9" viewBox="0 0 10 9" fill="none">
+              <path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span>Restaurant profile created</span>
+        </div>
+
+        <div class="ld-row" id="lr-2">
+          <div class="ld-icon check" aria-hidden="true">
+            <svg width="10" height="9" viewBox="0 0 10 9" fill="none">
+              <path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <span>Competitors added to watch list</span>
+        </div>
+
+        <div class="ld-row" id="lr-3">
+          <div class="ld-icon spin" aria-hidden="true">
+            <div class="spinner-ring"></div>
+          </div>
+          <span>Scanning menus and pricing…</span>
+        </div>
+
+        <div class="ld-row" id="lr-4">
+          <div class="ld-icon spin" aria-hidden="true">
+            <div class="spinner-ring"></div>
+          </div>
+          <span>Checking recent reviews…</span>
+        </div>
+
+        <div class="ld-row" id="lr-5">
+          <div class="ld-icon spin" aria-hidden="true">
+            <div class="spinner-ring"></div>
+          </div>
+          <span>Analyzing nearby promotions…</span>
+        </div>
+
+        <div class="ld-row" id="lr-6">
+          <div class="ld-icon spin" aria-hidden="true">
+            <div class="spinner-ring"></div>
+          </div>
+          <span>Generating your first brief…</span>
+        </div>
+
+      </div>
+
+      <!-- first brief preview — revealed after loading -->
+      <div class="brief-preview" id="brief-preview" aria-live="polite">
+
+        <div class="bp-eyebrow">
+          <div class="bp-live-dot" aria-hidden="true"></div>
+          Your First Intelligence Brief · Today
+        </div>
+
+        <div class="bp-headline">
+          Rival Kitchen just dropped their delivery floor — your Friday crowd may notice.
+        </div>
+
+        <div class="bp-body">
+          Three of your five competitors ran promotions in the last 48 hours.
+          Rival Kitchen cut their delivery minimum to $12 (down from $20), and
+          The Wicker Tap pushed a "Free appetizer Friday" campaign on Instagram.
+          Your weekend foot-traffic window is at risk.
+        </div>
+
+        <div class="bp-divider"></div>
+
+        <div class="bp-rec">
+          <svg class="bp-rec-star" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M6 1L7.5 4.5L11.5 5L8.5 7.8L9.4 11.8L6 9.8L2.6 11.8L3.5 7.8L0.5 5L4.5 4.5Z"
+              fill="currentColor" stroke="currentColor" stroke-width="0.5" stroke-linejoin="round"/>
+          </svg>
+          <span><strong>Suggested action:</strong> Run a free delivery counter-offer on Thursday evening — a 3-hour window before the weekend can recapture digital ordering intent before customers lock in their plans.</span>
+        </div>
+
+        <div class="bp-signals">
+          <div class="bp-signal">
+            <div class="bp-signal-dot" style="background: var(--alert-red);"></div>
+            3 pricing changes
+          </div>
+          <div class="bp-signal">
+            <div class="bp-signal-dot" style="background: var(--signal-gold);"></div>
+            5 new promotions
+          </div>
+          <div class="bp-signal">
+            <div class="bp-signal-dot" style="background: var(--precision-teal);"></div>
+            8 signals total
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ── FOOTER ──────────────────────────────────── -->
+  <footer class="ob-footer" id="ob-footer">
+    <button class="btn btn-ghost" id="btn-back" onclick="prevStep()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <path d="M9 2.5L4 7l5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Back
+    </button>
+    <button class="btn btn-primary" id="btn-next" onclick="nextStep()">
+      Continue
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <path d="M5 2.5l5 4.5-5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  </footer>
+
+</div><!-- /ob-shell -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   STATE
+   ═══════════════════════════════════════════════════════════ */
+let step       = 0;
+let compCount  = 0;
+let loadingRan = false;
+const TOTAL    = 4;
+
+const STEP_LABELS = ['', 'Your Restaurant', 'Your Competitors', 'What to Watch', 'Your First Brief'];
+
+/* ═══════════════════════════════════════════════════════════
+   ELEMENTS
+   ═══════════════════════════════════════════════════════════ */
+const header    = document.getElementById('ob-header');
+const progress  = document.getElementById('ob-progress');
+const footer    = document.getElementById('ob-footer');
+const btnBack   = document.getElementById('btn-back');
+const btnNext   = document.getElementById('btn-next');
+const progFill  = document.getElementById('prog-fill');
+const progLabel = document.getElementById('prog-label');
+const progCount = document.getElementById('prog-count');
+
+/* ═══════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════ */
+function nextStep() {
+  if (step < TOTAL) goTo(step + 1, 'fwd');
+}
+
+function prevStep() {
+  if (step > 1) goTo(step - 1, 'back');
+}
+
+function skipSetup() {
+  // In production this would navigate to the dashboard
+  alert('Skip to dashboard — in production this redirects to Vatic-Dashboard.html');
+}
+
+function goTo(target, dir) {
+  const current = document.querySelector('.ob-step.active');
+  const next    = document.querySelector(`.ob-step[data-step="${target}"]`);
+  if (!next) return;
+
+  if (current) current.classList.remove('active');
+
+  next.classList.remove('dir-back');
+  if (dir === 'back') next.classList.add('dir-back');
+  next.classList.add('active');
+
+  step = target;
+  syncChrome();
+
+  if (step === 4 && !loadingRan) {
+    loadingRan = true;
+    setTimeout(() => runLoadingSequence(), 400);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CHROME SYNC (header / progress / footer visibility + state)
+   ═══════════════════════════════════════════════════════════ */
+function syncChrome() {
+  // Write current step to shell — CSS uses this to display:none
+  // header/progress/footer on step 0 so they don't consume flex space.
+  document.querySelector('.ob-shell').dataset.step = step;
+
+  if (step === 0) {
+    header.classList.remove('show');
+    progress.classList.remove('show');
+    footer.classList.remove('show');
+    return;
+  }
+
+  // progress fill (always update before show transition)
+  const pct = (step / TOTAL) * 100;
+  progFill.style.width = pct + '%';
+  progLabel.textContent = STEP_LABELS[step] || '';
+  progCount.textContent = `Step ${step} of ${TOTAL}`;
+
+  // back button
+  btnBack.style.display = step <= 1 ? 'none' : 'inline-flex';
+
+  // next button label
+  if (step !== 4) {
+    const isLast = step === TOTAL - 1;
+    btnNext.innerHTML = isLast
+      ? 'Generate My Brief <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 2.5l5 4.5-5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      : 'Continue <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M5 2.5l5 4.5-5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
+
+  // Defer .show additions by one rAF so that any display:none→display:flex
+  // transition that just happened (e.g. coming from step 0) has settled
+  // in the style recalculation before we add the opacity class.
+  requestAnimationFrame(() => {
+    header.classList.add('show');
+    progress.classList.add('show');
+    if (step === 4) {
+      // hide footer during loading; showBriefReady() will restore it
+      footer.classList.remove('show');
+    } else {
+      footer.classList.add('show');
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CUISINE CHIP — single select
+   ═══════════════════════════════════════════════════════════ */
+function pickCuisine(el) {
+  document.querySelectorAll('.c-chip').forEach(c => c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   COMPETITOR TOGGLE — max 5
+   ═══════════════════════════════════════════════════════════ */
+function toggleComp(card) {
+  const isOn = card.classList.contains('on');
+  if (!isOn && compCount >= 5) return;
+  card.classList.toggle('on');
+  compCount += isOn ? -1 : 1;
+  document.getElementById('comp-count').textContent = compCount;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   WATCH TOGGLE
+   ═══════════════════════════════════════════════════════════ */
+function toggleWatch(item) {
+  item.classList.toggle('on');
+  const on = item.classList.contains('on');
+  item.setAttribute('aria-checked', on.toString());
+}
+
+/* keyboard support for watch toggles */
+document.addEventListener('keydown', function(e) {
+  if (e.key === ' ' || e.key === 'Enter') {
+    const t = e.target;
+    if (t.getAttribute('role') === 'switch') {
+      e.preventDefault();
+      toggleWatch(t);
+    }
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════
+   LOADING SEQUENCE
+   ═══════════════════════════════════════════════════════════ */
+function runLoadingSequence() {
+  const checkSVG = `<svg width="10" height="9" viewBox="0 0 10 9" fill="none" aria-hidden="true"><path d="M1 4L3.5 6.5L9 1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  function makeCheck(id, delay) {
+    setTimeout(() => {
+      const row  = document.getElementById(id);
+      const icon = row.querySelector('.ld-icon');
+      icon.className = 'ld-icon check';
+      icon.innerHTML = checkSVG;
+      row.classList.add('done');
+    }, delay);
+  }
+
+  // reveal rows
+  const reveals = [
+    { id: 'lr-1', delay: 0   },
+    { id: 'lr-2', delay: 280 },
+    { id: 'lr-3', delay: 650 },
+    { id: 'lr-4', delay: 1050 },
+    { id: 'lr-5', delay: 1450 },
+    { id: 'lr-6', delay: 1850 },
+  ];
+  reveals.forEach(r => {
+    setTimeout(() => document.getElementById(r.id).classList.add('show'), r.delay);
+  });
+
+  // complete spinners → checks
+  makeCheck('lr-3', 2600);
+  makeCheck('lr-4', 3300);
+  makeCheck('lr-5', 4000);
+  makeCheck('lr-6', 4900);
+
+  // reveal brief + update headline
+  setTimeout(() => showBriefReady(), 5400);
+}
+
+function showBriefReady() {
+  // update step copy
+  document.getElementById('s4-eyebrow').textContent   = "You're all set";
+  document.getElementById('s4-head').innerHTML        = 'Your first brief<br>is <em>ready.</em>';
+  document.getElementById('s4-sub').textContent       = 'Vatic found 8 new signals near your restaurant.';
+
+  // reveal brief card
+  document.getElementById('brief-preview').classList.add('show');
+
+  // swap footer to single CTA
+  footer.innerHTML = `
+    <button class="btn btn-primary block" onclick="goToDashboard()">
+      View my dashboard
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+        <path d="M5 2.5l5 4.5-5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+  `;
+  footer.classList.add('show');
+}
+
+function goToDashboard() {
+  window.location.href = 'Vatic-Dashboard.html';
+}
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════════════ */
+syncChrome(); // step 0 — hide chrome
+</script>
+
+</body>
+</html>

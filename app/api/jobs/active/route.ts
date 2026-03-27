@@ -4,10 +4,9 @@
 //   ?include_recent=true  – also return jobs completed in the last 2 min
 // ---------------------------------------------------------------------------
 
+import { connection } from "next/server"
 import { getJobAuthContext } from "@/lib/jobs/auth"
 import { getActiveJobs, getRecentJobs } from "@/lib/jobs/manager"
-
-export const dynamic = "force-dynamic"
 
 const NO_CACHE_HEADERS = {
   "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -15,6 +14,7 @@ const NO_CACHE_HEADERS = {
 }
 
 export async function GET(req: Request) {
+  await connection()
   const auth = await getJobAuthContext()
   if (!auth) {
     return Response.json([], { headers: NO_CACHE_HEADERS })

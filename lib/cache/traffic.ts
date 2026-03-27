@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedTrafficResult = {
@@ -14,9 +14,13 @@ export type CachedTrafficResult = {
   }>
 }
 
-async function fetchTrafficPageDataRaw(
+export async function fetchTrafficPageData(
   competitorIds: string[],
 ): Promise<CachedTrafficResult> {
+  "use cache"
+  cacheTag("traffic-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const { data } = competitorIds.length > 0
@@ -31,9 +35,3 @@ async function fetchTrafficPageDataRaw(
     busyTimes: (data ?? []) as CachedTrafficResult["busyTimes"],
   }
 }
-
-export const fetchTrafficPageData = unstable_cache(
-  fetchTrafficPageDataRaw,
-  ["traffic-page-data"],
-  { revalidate: 604800, tags: ["traffic-data"] }
-)

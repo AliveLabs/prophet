@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedSocialResult = {
@@ -24,10 +24,14 @@ export type CachedSocialResult = {
   }>
 }
 
-async function fetchSocialPageDataRaw(
+export async function fetchSocialPageData(
   organizationId: string,
   locationId: string,
 ): Promise<CachedSocialResult> {
+  "use cache"
+  cacheTag("social-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const startDate = new Date()
@@ -62,9 +66,3 @@ async function fetchSocialPageDataRaw(
     })),
   }
 }
-
-export const fetchSocialPageData = unstable_cache(
-  fetchSocialPageDataRaw,
-  ["social-page-data"],
-  { revalidate: 604800, tags: ["social-data"] }
-)

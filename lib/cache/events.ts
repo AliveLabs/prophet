@@ -1,4 +1,4 @@
-import { unstable_cache } from "next/cache"
+import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type CachedEventsResult = {
@@ -10,9 +10,13 @@ export type CachedEventsResult = {
   }>
 }
 
-async function fetchEventsPageDataRaw(
+export async function fetchEventsPageData(
   locationId: string,
 ): Promise<CachedEventsResult> {
+  "use cache"
+  cacheTag("events-data")
+  cacheLife({ revalidate: 604800 })
+
   const supabase = createAdminSupabaseClient()
 
   const { data: snapRow } = await supabase
@@ -41,9 +45,3 @@ async function fetchEventsPageDataRaw(
     matchRows,
   }
 }
-
-export const fetchEventsPageData = unstable_cache(
-  fetchEventsPageDataRaw,
-  ["events-page-data"],
-  { revalidate: 604800, tags: ["events-data"] }
-)
