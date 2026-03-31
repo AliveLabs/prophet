@@ -27,64 +27,69 @@ export async function POST(request: Request) {
     const normalizedEmail = email.toLowerCase().trim()
     const trimmedFirst = (first_name || "").trim()
     const trimmedLast = (last_name || "").trim()
-    const fullName = [trimmedFirst, trimmedLast].filter(Boolean).join(" ") || null
+    const fullName =
+      [trimmedFirst, trimmedLast].filter(Boolean).join(" ") || null
 
-    const { error } = await supabase.from("waitlist_signups").upsert(
-      {
-        email: normalizedEmail,
-        first_name: trimmedFirst || null,
-        last_name: trimmedLast || null,
-        source: "landing_page",
-      },
-      { onConflict: "email" }
-    )
+    const { data: existing } = await supabase
+      .from("waitlist_signups")
+      .select("id, status")
+      .eq("email", normalizedEmail)
+      .maybeSingle()
 
-    if (error) {
-      console.error("Waitlist insert error:", error)
-      return NextResponse.json(
-        { ok: false, error: "Could not save your signup. Please try again." },
-        { status: 500 }
-      )
-    }
+    if (existing) {
+      if (existing.status === "pending" || existing.status === "approved") {
+        return NextResponse.json(
+          { ok: false, error: "This email is already on our waitlist." },
+          { status: 409 }
+        )
+      }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const redirectTo = `${appUrl}/auth/callback`
-    let actionLink: string | null = null
+      if (existing.status === "declined") {
+        const { error: updateError } = await supabase
+          .from("waitlist_signups")
+          .update({
+            status: "pending",
+            first_name: trimmedFirst || null,
+            last_name: trimmedLast || null,
+            admin_notes: null,
+            reviewed_by: null,
+            reviewed_at: null,
+          })
+          .eq("id", existing.id)
 
-    const userMetadata = fullName ? { full_name: fullName } : undefined
-
-    const { data: inviteData, error: inviteError } =
-      await supabase.auth.admin.generateLink({
-        type: "invite",
-        email: normalizedEmail,
-        options: { redirectTo, data: userMetadata },
-      })
-
-    if (inviteData?.properties?.action_link) {
-      actionLink = inviteData.properties.action_link
-    } else if (inviteError) {
-      const { data: magicData } =
-        await supabase.auth.admin.generateLink({
-          type: "magiclink",
-          email: normalizedEmail,
-          options: { redirectTo },
-        })
-      actionLink = magicData?.properties?.action_link ?? null
-    }
-
-    if (actionLink) {
-      await supabase
+        if (updateError) {
+          console.error("Waitlist reapply error:", updateError)
+          return NextResponse.json(
+            { ok: false, error: "Could not process your signup. Please try again." },
+            { status: 500 }
+          )
+        }
+      }
+    } else {
+      const { error: insertError } = await supabase
         .from("waitlist_signups")
-        .update({ status: "invited" })
-        .eq("email", normalizedEmail)
+        .insert({
+          email: normalizedEmail,
+          first_name: trimmedFirst || null,
+          last_name: trimmedLast || null,
+          source: "landing_page",
+          status: "pending",
+        })
+
+      if (insertError) {
+        console.error("Waitlist insert error:", insertError)
+        return NextResponse.json(
+          { ok: false, error: "Could not save your signup. Please try again." },
+          { status: 500 }
+        )
+      }
     }
 
     sendEmail({
       to: normalizedEmail,
-      subject: "Set up your Vatic account",
+      subject: "You're on the Vatic waitlist",
       react: WaitlistConfirmation({
-        email: normalizedEmail,
-        setupUrl: actionLink ?? `${appUrl}/signup`,
+        name: fullName ?? undefined,
       }),
     }).catch((err) => console.error("Waitlist email failed:", err))
 

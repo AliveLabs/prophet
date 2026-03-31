@@ -1,44 +1,30 @@
-import { Section, Text, Link } from "@react-email/components"
+import { Section, Text } from "@react-email/components"
 import { EmailLayout } from "./layout"
 
 interface WaitlistConfirmationProps {
-  email: string
-  setupUrl: string
+  name?: string
 }
 
-export function WaitlistConfirmation({ email, setupUrl }: WaitlistConfirmationProps) {
+export function WaitlistConfirmation({ name }: WaitlistConfirmationProps) {
   return (
-    <EmailLayout preview="Set up your Vatic account">
+    <EmailLayout preview="You're on the Vatic waitlist">
       <Section>
-        <Text style={heading}>Set up your Vatic account</Text>
-        <Text style={paragraph}>
-          Thanks for signing up. Your account for{" "}
-          <strong style={{ color: "#E4E4E7" }}>{email}</strong> is ready.
+        <Text style={heading}>
+          {name ? `Thanks, ${name}!` : "Thanks for signing up!"}
         </Text>
         <Text style={paragraph}>
-          Click the button below to get started. You&rsquo;ll set up your
-          restaurant, discover your local competitors, and choose what to
-          monitor &mdash; it takes about two minutes.
+          You&rsquo;re now on the Vatic waitlist. We&rsquo;re rolling out access
+          in limited batches to ensure every customer gets the best possible
+          experience.
         </Text>
-
-        <Section style={ctaContainer}>
-          <Link href={setupUrl} style={ctaButton}>
-            Set up your account
-          </Link>
-        </Section>
-
-        <Text style={fallback}>
-          Or copy and paste this link into your browser:{" "}
-          <Link href={setupUrl} style={fallbackLink}>
-            {setupUrl}
-          </Link>
-        </Text>
-
         <Text style={paragraph}>
-          This link expires in 24 hours. If it expires, just visit our site
-          and sign in with your email to get a new one.
+          When your spot is ready, we&rsquo;ll send you an email with everything
+          you need to get started &mdash; including a link to set up your
+          dashboard and begin monitoring your competitive landscape.
         </Text>
-
+        <Text style={paragraph}>
+          In the meantime, sit tight. We&rsquo;ll be in touch soon.
+        </Text>
         <Text style={signoff}>&mdash; The Vatic Team</Text>
       </Section>
     </EmailLayout>
@@ -58,35 +44,6 @@ const paragraph = {
   lineHeight: "1.6",
   color: "#A1A1AA",
   margin: "0 0 12px",
-}
-
-const ctaContainer = {
-  textAlign: "center" as const,
-  margin: "28px 0",
-}
-
-const ctaButton = {
-  backgroundColor: "#00BFA6",
-  color: "#FFFFFF",
-  padding: "12px 32px",
-  borderRadius: "8px",
-  fontSize: "15px",
-  fontWeight: "600" as const,
-  textDecoration: "none",
-  display: "inline-block",
-}
-
-const fallback = {
-  fontSize: "12px",
-  lineHeight: "1.5",
-  color: "#71717A",
-  margin: "0 0 16px",
-  wordBreak: "break-all" as const,
-}
-
-const fallbackLink = {
-  color: "#00BFA6",
-  textDecoration: "underline",
 }
 
 const signoff = {
