@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
+import ThemeToggle from "@/components/ui/theme-toggle"
 
 const NAV_LINKS = [
   { label: "Intelligence", href: "#features" },
@@ -55,6 +56,7 @@ export function LandingNav() {
           >
             Sign In
           </Link>
+          <ThemeToggle />
           <a
             href="#waitlist"
             className="vatic-gradient rounded-md px-6 py-2.5 text-sm font-bold tracking-tight text-white transition-transform hover:scale-[0.97] active:opacity-80"
@@ -107,6 +109,10 @@ export function LandingNav() {
               >
                 Sign In
               </Link>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Theme</span>
+                <ThemeToggle />
+              </div>
               <a
                 href="#waitlist"
                 className="vatic-gradient inline-block rounded-md px-6 py-2.5 text-center text-sm font-bold text-white"

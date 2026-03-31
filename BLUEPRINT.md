@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 27, 2026
+> **Last updated:** March 22, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -55,8 +55,10 @@
 - **Server-Side Caching:** All dashboard pages use the Next.js 16 `'use cache'` directive with `cacheTag()` and `cacheLife()` for 7-day TTL tag-based revalidation. Cache tags are invalidated automatically when pipeline jobs complete via `revalidateTag(tag, { expire: 0 })` with `revalidatePath` as a backup.
 - **Multi-tenant SaaS:** Organizations with roles (owner/admin/member), Stripe billing with tier-based limits, Supabase RLS for data isolation. Multi-org support with org switcher in sidebar, allowing users to create and switch between organizations.
 - **Organization Switcher:** Sidebar popover listing all orgs the user belongs to with tier badges, switch action via `profiles.current_organization_id`, and "New organization" link that re-uses the full onboarding wizard.
-- **Marketing Landing Page:** Editorial luxury landing page at `/` with 9 sections (hero with animated SVG dashboard, problem statement with noise-to-signal visualization, how-it-works with animated SVG icons, 6-feature bento grid with inline charts/infographics, trust counters, pricing tiers, waitlist form, footer). Full dark/light mode support. Animated SVG visualizations include competitor radar, SEO area chart, menu price bars, social engagement rings, photo grid with AI scan line, and traffic heatmap. All animations via Framer Motion and CSS keyframes with `prefers-reduced-motion` support. Waitlist signups create instant Supabase auth accounts via admin client and send magic link emails.
-- **Transactional Email System:** Resend SDK integration with React Email templates for waitlist confirmation, onboarding welcome, trial expiry reminders (3-day, 1-day), and trial expired notifications. All emails fire-and-forget (non-blocking).
+- **Marketing Landing Page:** Editorial luxury landing page at `/` with 9 sections (hero with animated SVG dashboard, problem statement with noise-to-signal visualization, how-it-works with animated SVG icons, 6-feature bento grid with inline charts/infographics, trust counters, pricing tiers, waitlist form, footer). Full dark/light mode support. Animated SVG visualizations include competitor radar, SEO area chart, menu price bars, social engagement rings, photo grid with AI scan line, and traffic heatmap. All animations via Framer Motion and CSS keyframes with `prefers-reduced-motion` support. Waitlist signups go into a `pending` queue for admin review -- no auth account is created until approved.
+- **Admin Dashboard:** Full platform administration suite at `/admin` with six sections: (1) Analytics overview with real-time metrics, recent admin activity log; (2) Waitlist management at `/admin/waitlist` with status filtering, batch operations; (3) User management at `/admin/users` with list/search/filter, invite new users, per-user detail pages with edit profile, send magic link, impersonate, deactivate/activate, send custom email, organization memberships, and admin activity history; (4) Organization management at `/admin/organizations` with list/search/filter by tier, per-org detail pages with change tier, extend/reset trial, suspend/activate, edit info, members table, locations table, and admin activity history; (5) Admin settings at `/admin/settings` to view, invite, and remove platform admins; (6) CSV export API routes for users, organizations, and waitlist data. All admin actions are logged to `admin_activity_log` table. Gated by `platform_admins` table.
+- **Waitlist Approval Flow:** Admin-gated waitlist: homepage form inserts `pending` row (no auth user), admin approves to create Supabase auth user + organization with 14-day trial + sends invitation email with magic link, or declines with polite email. Declined users can reapply.
+- **Transactional Email System:** Resend SDK integration with React Email templates for waitlist confirmation, waitlist invitation (with magic link CTA), waitlist decline, onboarding welcome, trial expiry reminders (3-day, 1-day), and trial expired notifications. All emails fire-and-forget (non-blocking).
 - **Trial Period System:** 14-day free trial on organization creation. Dashboard layout-level gate blocks access when trial expires (shows TrialExpiredGate with Stripe upgrade CTAs). TrialBanner shown during last 7 days. Daily cron skips expired trial orgs. Trial reminder cron sends emails at 3 days, 1 day, and expiry.
 - **Stripe Checkout:** `/api/stripe/checkout` POST route creates Stripe checkout sessions for Starter/Pro/Agency tier upgrades. Handles customer creation, session creation, and redirects.
 
@@ -90,7 +92,9 @@ The application has shipped through most PRD phases:
 - Tier enforcement: `maxLocations` enforced on location creation, `maxCompetitorsPerLocation` capped during onboarding
 - Fixed critical `getTierFromPriceId` misuse in 5 files (paid users were silently getting free-tier limits)
 - Comprehensive security audit: org-scoped data isolation on all dashboard pages, IDOR prevention, admin client access hardening, cron endpoint auth
-- Waitlist-to-instant-account flow: waitlist form creates Supabase auth user + sends magic link via Resend
+- Admin-gated waitlist approval flow: signups stay `pending`, admin approves/declines, auth user + org created on approval
+- Platform admin dashboard (`/admin`) with analytics, waitlist management, and admin settings
+- `platform_admins` table for platform-level admin access control
 - Login and signup pages refreshed with editorial luxury branding (ambient orbs, glass panels, vatic-gradient CTAs)
 
 ### What is NOT yet shipped
@@ -248,6 +252,41 @@ prophet/
 │   │   └── new/
 │   │       ├── layout.tsx                  # Suspense wrapper for new org wizard
 │   │       └── page.tsx                    # Re-uses OnboardingWizard for creating additional orgs
+│   │
+│   ├── admin/                              # Platform admin dashboard (gated by platform_admins table)
+│   │   ├── layout.tsx                      # Admin auth gate (requirePlatformAdmin), admin shell with sidebar nav (Overview, Waitlist, Users, Organizations, Settings)
+│   │   ├── page.tsx                        # Analytics overview + recent admin activity log
+│   │   ├── waitlist/
+│   │   │   ├── page.tsx                    # Waitlist management: stats cards, filterable data table, approve/decline
+│   │   │   └── components/
+│   │   │       ├── stats-cards.tsx         # Total/pending/approved/declined summary cards
+│   │   │       └── waitlist-table.tsx      # Client: search, status filter, checkboxes, batch ops, confirmation dialogs
+│   │   ├── users/
+│   │   │   ├── page.tsx                    # User list: stats row, search/filter, invite user, export CSV
+│   │   │   ├── components/
+│   │   │   │   └── users-table.tsx         # Client: search, filter, invite panel, activate/deactivate toggle
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx               # User detail: server-side fetch of auth user + profile + orgs + activity
+│   │   │       └── user-detail-client.tsx  # Client: edit profile, send magic link, impersonate, deactivate/activate, send email, org list, activity log
+│   │   ├── organizations/
+│   │   │   ├── page.tsx                    # Org list: stats row, search/filter by tier, export CSV
+│   │   │   ├── components/
+│   │   │   │   └── orgs-table.tsx          # Client: search, tier filter, trial status badges
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx               # Org detail: server-side fetch of org + members + locations + competitors + activity
+│   │   │       └── org-detail-client.tsx   # Client: change tier, extend/reset trial, suspend/activate, edit info, members table, locations table, activity log
+│   │   └── settings/
+│   │       ├── page.tsx                    # Admin management: list admins, invite, remove
+│   │       └── components/
+│   │           ├── admin-list.tsx          # Client: admin table with remove + confirm
+│   │           └── invite-admin.tsx        # Client: invite form with email input
+│   │
+│   ├── actions/
+│   │   ├── waitlist.ts                     # approveWaitlistSignup, declineWaitlistSignup, batch variants (with activity logging)
+│   │   ├── admin-management.ts            # invitePlatformAdmin, removePlatformAdmin (with activity logging)
+│   │   ├── user-management.ts             # listPlatformUsers, inviteNewUser, updateUserProfile, deactivateUser, activateUser, sendUserMagicLink, impersonateUser
+│   │   ├── org-management.ts              # updateOrgTier, extendOrgTrial, resetOrgTrial, deactivateOrg, activateOrg, updateOrgInfo
+│   │   └── admin-email.ts                 # sendCustomEmail, broadcastEmail
 │   │
 │   ├── (dashboard)/                        # Dashboard route group (auth-gated)
 │   │   ├── layout.tsx                      # Sidebar nav, auth guard, org check, trial gate/banner, ActiveJobBar, Toaster
@@ -424,9 +463,14 @@ prophet/
 │   │   └── templates/
 │   │       ├── layout.tsx                  # Shared email layout (dark bg, Vatic branding, footer)
 │   │       ├── waitlist-confirmation.tsx   # "You're on the Vatic waitlist"
+│   │       ├── waitlist-invitation.tsx    # "You're in! Your Vatic dashboard is ready" (magic link CTA)
+│   │       ├── waitlist-decline.tsx       # "Update on your Vatic waitlist request"
+│   │       ├── admin-custom.tsx           # Admin custom email wrapper (used by sendCustomEmail + broadcastEmail)
 │   │       ├── welcome.tsx                # "Welcome to Vatic — your intelligence is live"
 │   │       ├── trial-expiring.tsx         # "Your Vatic trial ends in X days"
 │   │       └── trial-expired.tsx          # "Your Vatic trial has ended"
+│   ├── admin/
+│   │   └── activity-log.ts                 # logAdminAction() — audit trail for all admin operations
 │   ├── supabase/
 │   │   ├── server.ts                       # createServerSupabaseClient() (SSR cookies)
 │   │   ├── client.ts                       # createBrowserSupabaseClient()
@@ -761,6 +805,19 @@ Centralized utility functions for organization-level data isolation:
 
 Used across all 9 dashboard pages, server actions (onboarding, competitors, insights, social), and the AI chat API route to enforce tenant isolation when `createAdminSupabaseClient()` bypasses RLS.
 
+### 6.4.2 Platform Admin Access Control (`lib/auth/platform-admin.ts`)
+
+Platform-level admin gating (separate from org-level roles):
+
+- `requirePlatformAdmin()` — Checks if the current user exists in `platform_admins` table; redirects to `/home` if not. Used by `app/admin/layout.tsx`.
+- `isPlatformAdmin(userId)` — Boolean check without redirect. Used internally by server actions.
+
+The `platform_admins` table has RLS `USING (false)` so only the service-role admin client can read/write it.
+
+### 6.4.3 Admin Activity Logging (`lib/admin/activity-log.ts`)
+
+All admin actions (user management, org management, waitlist operations, email sends) are logged to the `admin_activity_log` table via `logAdminAction()`. This provides a full audit trail visible on the admin overview page, user detail pages, and org detail pages. The log captures admin ID, email, action type, target type/ID, and optional details JSON.
+
 ### 6.5 Supabase Clients
 
 | Client | File | Auth | Use Case |
@@ -800,6 +857,8 @@ public.is_org_admin(org_id uuid) -> boolean
 | `20260306010100_social_media_bucket.sql` | `social-media` storage bucket (public, 10MB, image formats) + RLS policies |
 | `20260306010200_social_snapshots_update_policy.sql` | UPDATE policy on `social_snapshots` for org admin upserts |
 | `20260307010100_expand_insight_status.sql` | Expands `insights.status` CHECK to: new/read/todo/actioned/snoozed/dismissed |
+| `20260331010100_waitlist_admin_setup.sql` | Alter `waitlist_signups` (add `admin_notes`, `reviewed_by`, `reviewed_at`; change status CHECK to pending/approved/declined), create `platform_admins` table with RLS, add `waitlist_signup_id` to `organizations`, seed initial admin |
+| `20260322010100_admin_activity_log.sql` | Create `admin_activity_log` table with indexes and RLS `USING (false)` |
 
 ### 7.2 Tables
 
@@ -813,21 +872,52 @@ public.is_org_admin(org_id uuid) -> boolean
 | `stripe_customer_id` | text | Nullable |
 | `stripe_subscription_id` | text | Nullable |
 | `billing_email` | text | Nullable |
-| `trial_started_at` | timestamptz | Set on org creation |
+| `trial_started_at` | timestamptz | Set on admin approval (not signup) |
 | `trial_ends_at` | timestamptz | `trial_started_at + 14 days` |
+| `waitlist_signup_id` | uuid FK | References `waitlist_signups(id)`, nullable |
 | `settings` | jsonb DEFAULT '{}' | |
 | `created_at` / `updated_at` | timestamptz | |
+
+#### `platform_admins`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `user_id` | uuid NOT NULL UNIQUE | FK to `auth.users(id)` ON DELETE CASCADE |
+| `email` | text NOT NULL UNIQUE | |
+| `created_at` | timestamptz | |
+
+RLS: `USING (false)` -- only accessible via service role (admin client).
+
+#### `admin_activity_log`
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | `gen_random_uuid()` |
+| `admin_user_id` | uuid NOT NULL | ID of the admin who performed the action |
+| `admin_email` | text | Email of the admin |
+| `action` | text NOT NULL | e.g. `user.deactivate`, `org.change_tier`, `waitlist.approve` |
+| `target_type` | text NOT NULL | `user`, `org`, `waitlist`, `admin`, `broadcast` |
+| `target_id` | text | ID of the target entity |
+| `details` | jsonb | Additional context (previous tier, email, etc.) |
+| `created_at` | timestamptz | `now()` |
+
+Indexes: `idx_activity_log_created` (created_at DESC), `idx_activity_log_target` (target_type, target_id).
+RLS: `USING (false)` -- only accessible via service role (admin client).
 
 #### `waitlist_signups`
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid PK | `gen_random_uuid()` |
 | `email` | text NOT NULL UNIQUE | |
-| `business_name` | text | Nullable |
-| `city` | text | Nullable |
+| `first_name` | text | Nullable |
+| `last_name` | text | Nullable |
+| `business_name` | text | Nullable (legacy) |
+| `city` | text | Nullable (legacy) |
 | `source` | text NOT NULL DEFAULT 'landing_page' | |
 | `referred_by` | text | Nullable |
-| `status` | text NOT NULL DEFAULT 'pending' | CHECK: pending/invited/converted/unsubscribed |
+| `status` | text NOT NULL DEFAULT 'pending' | CHECK: pending/approved/declined |
+| `admin_notes` | text | Internal notes from admin review |
+| `reviewed_by` | uuid | Admin user ID who reviewed |
+| `reviewed_at` | timestamptz | When review occurred |
 | `notes` | text | Nullable |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -1171,6 +1261,7 @@ The onboarding is a 5-step animated wizard (`OnboardingWizard`) with Framer Moti
 
 - **`(auth)`:** Login and signup pages. Shares a minimal layout.
 - **`(dashboard)`:** All main app pages. Shares a sidebar layout with auth guard, ActiveJobBar, and Sonner Toaster.
+- **`admin`:** Platform admin pages. Separate layout with admin auth gate (`requirePlatformAdmin`), admin sidebar, and no trial gating.
 
 ### 9.2 Layout Hierarchy
 
@@ -1192,6 +1283,14 @@ Root Layout (app/layout.tsx)
 │     ├── /weather
 │     ├── /locations
 │     └── /settings (+ /settings/organization, /settings/billing, /settings/team)
+  ├── admin Layout -- admin auth gate + admin shell sidebar
+  │     ├── /admin (analytics overview + activity log)
+  │     ├── /admin/waitlist (waitlist management)
+  │     ├── /admin/users (user list, search, filter, invite)
+  │     ├── /admin/users/[id] (user detail, edit, impersonate, deactivate)
+  │     ├── /admin/organizations (org list, search, filter by tier)
+  │     ├── /admin/organizations/[id] (org detail, change tier, trial controls, suspend)
+  │     └── /admin/settings (admin management)
   ├── /onboarding
   ├── /organizations/new
   └── / (landing page)
@@ -1315,6 +1414,27 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 | `content/actions.ts` | `refreshContentAction` | Firecrawl + Gemini menu, screenshots, insights | `/content` |
 | `visibility/actions.ts` | `refreshSeoAction` | 11 SEO API groups + competitor enrichment + insights | `/visibility` |
 | `locations/actions.ts` | `createLocationFromPlaceAction` | Creates location (with tier location limit check) + triggers initial content/weather | `/locations` |
+| `actions/waitlist.ts` | `approveWaitlistSignup` | Admin: creates auth user + org + trial + sends invitation email | None |
+| `actions/waitlist.ts` | `declineWaitlistSignup` | Admin: updates status + sends decline email | None |
+| `actions/waitlist.ts` | `batchApproveWaitlistSignups` | Admin: approves multiple signups | None |
+| `actions/waitlist.ts` | `batchDeclineWaitlistSignups` | Admin: declines multiple signups | None |
+| `actions/admin-management.ts` | `invitePlatformAdmin` | Admin: adds user to platform_admins (creates auth user if needed) | None |
+| `actions/admin-management.ts` | `removePlatformAdmin` | Admin: removes admin (self-removal prevented) | None |
+| `actions/user-management.ts` | `listPlatformUsers` | Admin: lists all auth users with profile + org data | None |
+| `actions/user-management.ts` | `inviteNewUser` | Admin: creates auth user, sends magic link email | `/admin/users` |
+| `actions/user-management.ts` | `updateUserProfile` | Admin: updates user name/email in auth + profiles | `/admin/users`, `/admin/users/[id]` |
+| `actions/user-management.ts` | `deactivateUser` | Admin: bans user (876000h ban) | `/admin/users`, `/admin/users/[id]` |
+| `actions/user-management.ts` | `activateUser` | Admin: unbans user | `/admin/users`, `/admin/users/[id]` |
+| `actions/user-management.ts` | `sendUserMagicLink` | Admin: generates + emails magic link to user | `/admin/users/[id]` |
+| `actions/user-management.ts` | `impersonateUser` | Admin: generates magic link URL (returned, not emailed) | None (logged) |
+| `actions/org-management.ts` | `updateOrgTier` | Admin: changes org subscription_tier | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/org-management.ts` | `extendOrgTrial` | Admin: extends trial_ends_at by N days | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/org-management.ts` | `resetOrgTrial` | Admin: resets trial to fresh 14 days, tier to free | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/org-management.ts` | `deactivateOrg` | Admin: sets tier to "suspended" | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/org-management.ts` | `activateOrg` | Admin: resets to free with fresh trial | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/org-management.ts` | `updateOrgInfo` | Admin: updates org name/billing email | `/admin/organizations`, `/admin/organizations/[id]` |
+| `actions/admin-email.ts` | `sendCustomEmail` | Admin: sends custom email to one user via Resend | None (logged) |
+| `actions/admin-email.ts` | `broadcastEmail` | Admin: sends email to all/filtered users in batches | None (logged) |
 | `locations/actions.ts` | `updateLocationAction` | Updates location fields including website URL | `/locations` |
 | `locations/actions.ts` | `deleteLocationAction` | Deletes location | `/locations` |
 
@@ -1384,9 +1504,21 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 
 ### `POST /api/waitlist`
 - **Auth:** None (public)
-- **Input:** `{ email: string, business_name?: string, city?: string }`
-- **Logic:** Upserts to `waitlist_signups` via admin client, fires waitlist confirmation email
-- **Output:** `{ ok: true }` or `{ ok: false, error: string }`
+- **Input:** `{ email: string, first_name?: string, last_name?: string }`
+- **Logic:** Checks for existing signup -- blocks if `pending`/`approved`, resets to `pending` if `declined` (reapply). Inserts new row with `status: pending`. NO auth user created. Sends waitlist confirmation email (fire-and-forget).
+- **Output:** `{ ok: true }` or `{ ok: false, error: string }` (409 for duplicates)
+
+### `GET /api/admin/export/users`
+- **Auth:** Platform admin (requirePlatformAdmin)
+- **Output:** CSV file with all users (email, name, created, last sign in, org count, status)
+
+### `GET /api/admin/export/organizations`
+- **Auth:** Platform admin (requirePlatformAdmin)
+- **Output:** CSV file with all organizations (name, slug, tier, trial dates, billing email, member count, location count, created)
+
+### `GET /api/admin/export/waitlist`
+- **Auth:** Platform admin (requirePlatformAdmin)
+- **Output:** CSV file with all waitlist signups (email, first name, last name, status, admin notes, signed up, reviewed at)
 
 ---
 
@@ -1767,7 +1899,7 @@ Events sent during pipeline execution:
 - **Duration:** 14 days from organization creation (`lib/billing/trial.ts: TRIAL_DURATION_DAYS`)
 - **Columns:** `organizations.trial_started_at` / `organizations.trial_ends_at` (set in `createOrgAndLocationAction`)
 - **Backfill:** Existing orgs backfilled with `trial_started_at = created_at`, `trial_ends_at = created_at + 14 days`
-- **Active check:** `isTrialActive(org)` returns true if `subscription_tier !== "free"` OR `trial_ends_at > now()`
+- **Active check:** `isTrialActive(org)` returns false if `subscription_tier === "suspended"`, returns true if `subscription_tier !== "free"`, otherwise checks `trial_ends_at > now()`
 - **Gate:** `app/(dashboard)/layout.tsx` renders `TrialExpiredGate` (full-page upgrade overlay) when trial expired
 - **Banner:** `TrialBanner` shown during last 7 days of trial (dismissible per session)
 - **Cron:** Daily cron (`/api/cron/daily`) skips locations belonging to expired trial orgs
@@ -1959,4 +2091,4 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 27, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated March 22, 2026.*

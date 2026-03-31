@@ -9,6 +9,7 @@ import CompetitorSelectionStep from "./steps/competitor-selection"
 import IntelligenceSettingsStep from "./steps/intelligence-settings"
 import LoadingBriefStep from "./steps/loading-brief"
 import type { PlaceDetails } from "@/components/places/location-search"
+import ThemeToggle from "@/components/ui/theme-toggle"
 import {
   createOrgAndLocationAction,
   discoverCompetitorsForLocation,
@@ -191,6 +192,7 @@ export default function OnboardingWizard({
         <div className="font-display text-[21px] font-semibold tracking-wide text-foreground">
           V<span className="text-vatic-indigo">atic</span>
         </div>
+        <ThemeToggle />
       </header>
 
       {/* Progress bar */}

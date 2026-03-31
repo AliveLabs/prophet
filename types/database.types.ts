@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_activity_log: {
+        Row: {
+          action: string
+          admin_email: string | null
+          admin_user_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          admin_email?: string | null
+          admin_user_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          admin_email?: string | null
+          admin_user_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       busy_times: {
         Row: {
           competitor_id: string
@@ -604,6 +637,7 @@ export type Database = {
           trial_ends_at: string | null
           trial_started_at: string | null
           updated_at: string
+          waitlist_signup_id: string | null
         }
         Insert: {
           billing_email?: string | null
@@ -618,6 +652,7 @@ export type Database = {
           trial_ends_at?: string | null
           trial_started_at?: string | null
           updated_at?: string
+          waitlist_signup_id?: string | null
         }
         Update: {
           billing_email?: string | null
@@ -632,6 +667,36 @@ export type Database = {
           trial_ends_at?: string | null
           trial_started_at?: string | null
           updated_at?: string
+          waitlist_signup_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_waitlist_signup_id_fkey"
+            columns: ["waitlist_signup_id"]
+            isOneToOne: false
+            referencedRelation: "waitlist_signups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_admins: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -897,6 +962,7 @@ export type Database = {
       }
       waitlist_signups: {
         Row: {
+          admin_notes: string | null
           business_name: string | null
           city: string | null
           created_at: string
@@ -906,11 +972,14 @@ export type Database = {
           last_name: string | null
           notes: string | null
           referred_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           source: string
           status: string
           updated_at: string
         }
         Insert: {
+          admin_notes?: string | null
           business_name?: string | null
           city?: string | null
           created_at?: string
@@ -920,11 +989,14 @@ export type Database = {
           last_name?: string | null
           notes?: string | null
           referred_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source?: string
           status?: string
           updated_at?: string
         }
         Update: {
+          admin_notes?: string | null
           business_name?: string | null
           city?: string | null
           created_at?: string
@@ -934,6 +1006,8 @@ export type Database = {
           last_name?: string | null
           notes?: string | null
           referred_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source?: string
           status?: string
           updated_at?: string
