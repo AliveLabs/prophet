@@ -6,6 +6,7 @@ interface TrialOrg {
 }
 
 export function isTrialActive(org: TrialOrg): boolean {
+  if (org.subscription_tier === "suspended") return false
   if (org.subscription_tier !== "free") return true
   if (!org.trial_ends_at) return false
   return new Date(org.trial_ends_at) > new Date()

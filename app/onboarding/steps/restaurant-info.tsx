@@ -26,11 +26,12 @@ type RestaurantInfoStepProps = {
 export default function RestaurantInfoStep({
   restaurantName,
   onNameChange,
-  selectedPlace,
+  selectedPlace: _selectedPlace,
   onPlaceSelect,
   cuisine,
   onCuisineChange,
 }: RestaurantInfoStepProps) {
+  void _selectedPlace
   return (
     <section className="flex flex-col pt-10 pb-8 max-[540px]:pt-8">
       <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-precision-teal mb-3">

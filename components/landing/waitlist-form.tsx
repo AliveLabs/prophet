@@ -59,13 +59,14 @@ export function WaitlistForm() {
           </svg>
         </div>
         <h3 className="font-display text-2xl font-semibold text-foreground">
-          Check your email
+          You&rsquo;re on the list!
         </h3>
         <p className="mt-2 text-muted-foreground">
-          We just sent a link to set up your account. Click it to get started.
+          Check your email for a confirmation. We&rsquo;ll reach out when your
+          spot is ready.
         </p>
         <p className="mt-3 text-xs text-muted-foreground/70">
-          Don&rsquo;t see it? Check your spam folder.
+          Don&rsquo;t see the email? Check your spam folder.
         </p>
       </div>
     )
