@@ -103,14 +103,14 @@ export async function inviteNewUser(
   const magicLinkUrl =
     linkData?.properties?.action_link ?? `${appUrl}/login`
 
-  sendEmail({
+  const emailResult = await sendEmail({
     to: normalizedEmail,
     subject: "You've been invited to Vatic",
     react: WaitlistInvitation({
       name: fullName,
       magicLinkUrl,
     }),
-  }).catch((err) => console.error("User invite email failed:", err))
+  })
 
   await logAdminAction({
     adminId: admin.id,
@@ -122,7 +122,12 @@ export async function inviteNewUser(
   })
 
   revalidatePath("/admin/users")
-  return { ok: true, message: `Invited ${normalizedEmail} successfully.` }
+
+  if (!emailResult.ok) {
+    return { ok: true, message: `Created ${normalizedEmail} but invitation email failed to send.` }
+  }
+
+  return { ok: true, message: `Invited ${normalizedEmail} — invitation email sent.` }
 }
 
 export async function updateUserProfile(
@@ -242,14 +247,14 @@ export async function sendUserMagicLink(
 
   const fullName = userData.user.user_metadata?.full_name as string | undefined
 
-  sendEmail({
+  const emailResult = await sendEmail({
     to: userData.user.email,
     subject: "Your Vatic sign-in link",
     react: WaitlistInvitation({
       name: fullName,
       magicLinkUrl,
     }),
-  }).catch((err) => console.error("Magic link email failed:", err))
+  })
 
   await logAdminAction({
     adminId: admin.id,
@@ -260,6 +265,11 @@ export async function sendUserMagicLink(
   })
 
   revalidatePath(`/admin/users/${userId}`)
+
+  if (!emailResult.ok) {
+    return { ok: false, error: `Failed to send magic link email to ${userData.user.email}.` }
+  }
+
   return { ok: true, message: `Magic link sent to ${userData.user.email}.` }
 }
 
@@ -296,4 +306,132 @@ export async function impersonateUser(
   })
 
   return { ok: true, url }
+}
+
+export async function deleteUser(userId: string): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const { data: userData } = await supabase.auth.admin.getUserById(userId)
+  if (!userData?.user) {
+    return { ok: false, error: "User not found." }
+  }
+
+  const userEmail = userData.user.email ?? ""
+
+  if (admin.id === userId) {
+    return { ok: false, error: "You cannot delete your own account." }
+  }
+
+  const { data: memberships } = await supabase
+    .from("organization_members")
+    .select("organization_id, role")
+    .eq("user_id", userId)
+
+  const orgIds = (memberships ?? []).map((m) => m.organization_id)
+
+  const soleOwnerOrgIds: string[] = []
+  const multiMemberOrgIds: string[] = []
+
+  for (const orgId of orgIds) {
+    const { count } = await supabase
+      .from("organization_members")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+
+    if ((count ?? 0) <= 1) {
+      soleOwnerOrgIds.push(orgId)
+    } else {
+      multiMemberOrgIds.push(orgId)
+    }
+  }
+
+  for (const orgId of soleOwnerOrgIds) {
+    const { data: locations } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("organization_id", orgId)
+
+    const locationIds = (locations ?? []).map((l) => l.id)
+
+    const { data: competitors } = await supabase
+      .from("competitors")
+      .select("id")
+      .in("location_id", locationIds.length > 0 ? locationIds : ["__none__"])
+
+    const competitorIds = (competitors ?? []).map((c) => c.id)
+
+    if (locationIds.length > 0) {
+      await supabase
+        .from("social_profiles")
+        .delete()
+        .eq("entity_type", "location")
+        .in("entity_id", locationIds)
+    }
+
+    if (competitorIds.length > 0) {
+      await supabase
+        .from("social_profiles")
+        .delete()
+        .eq("entity_type", "competitor")
+        .in("entity_id", competitorIds)
+    }
+  }
+
+  await supabase
+    .from("profiles")
+    .update({ current_organization_id: null })
+    .eq("id", userId)
+
+  for (const orgId of multiMemberOrgIds) {
+    await supabase
+      .from("organization_members")
+      .delete()
+      .eq("organization_id", orgId)
+      .eq("user_id", userId)
+  }
+
+  for (const orgId of soleOwnerOrgIds) {
+    await supabase.from("organizations").delete().eq("id", orgId)
+  }
+
+  await supabase.from("platform_admins").delete().eq("user_id", userId)
+
+  if (userEmail) {
+    await supabase
+      .from("waitlist_signups")
+      .update({
+        status: "declined",
+        admin_notes: "User account deleted by admin",
+        reviewed_by: admin.id,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("email", userEmail.toLowerCase())
+  }
+
+  const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
+
+  if (deleteError) {
+    return { ok: false, error: `Failed to delete auth user: ${deleteError.message}` }
+  }
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "user.delete",
+    targetType: "user",
+    targetId: userId,
+    details: {
+      email: userEmail,
+      soleOwnerOrgsDeleted: soleOwnerOrgIds.length,
+      multiMemberOrgsLeft: multiMemberOrgIds.length,
+    },
+  })
+
+  revalidatePath("/admin/users")
+  revalidatePath("/admin/waitlist")
+  return {
+    ok: true,
+    message: `Deleted ${userEmail} and ${soleOwnerOrgIds.length} sole-owner org(s). Waitlist status reset for reapply.`,
+  }
 }
