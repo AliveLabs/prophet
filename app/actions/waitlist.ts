@@ -47,7 +47,7 @@ export async function approveWaitlistSignup(
 
   const { data: existingUsers } = await supabase.auth.admin.listUsers({
     page: 1,
-    perPage: 1,
+    perPage: 1000,
   })
   const existingUser = existingUsers?.users?.find(
     (u) => u.email === signup.email
@@ -143,14 +143,14 @@ export async function approveWaitlistSignup(
   const magicLinkUrl =
     linkData?.properties?.action_link ?? `${appUrl}/login`
 
-  sendEmail({
+  const emailResult = await sendEmail({
     to: signup.email,
     subject: "You're in! Your Vatic dashboard is ready",
     react: WaitlistInvitation({
       name: fullName ?? undefined,
       magicLinkUrl,
     }),
-  }).catch((err) => console.error("Invitation email failed:", err))
+  })
 
   await logAdminAction({
     adminId: admin.id,
@@ -162,7 +162,15 @@ export async function approveWaitlistSignup(
   })
 
   revalidatePath("/admin/waitlist")
-  return { ok: true, message: `Approved ${signup.email} successfully.` }
+
+  if (!emailResult.ok) {
+    return {
+      ok: true,
+      message: `Approved ${signup.email} but invitation email failed to send. Use "Resend Invite" to retry.`,
+    }
+  }
+
+  return { ok: true, message: `Approved ${signup.email} — invitation email sent.` }
 }
 
 export async function declineWaitlistSignup(
@@ -199,13 +207,13 @@ export async function declineWaitlistSignup(
   const fullName =
     [signup.first_name, signup.last_name].filter(Boolean).join(" ") || null
 
-  sendEmail({
+  const emailResult = await sendEmail({
     to: signup.email,
     subject: "Update on your Vatic waitlist request",
     react: WaitlistDecline({
       name: fullName ?? undefined,
     }),
-  }).catch((err) => console.error("Decline email failed:", err))
+  })
 
   await logAdminAction({
     adminId: admin.id,
@@ -217,7 +225,84 @@ export async function declineWaitlistSignup(
   })
 
   revalidatePath("/admin/waitlist")
-  return { ok: true, message: `Declined ${signup.email}.` }
+
+  if (!emailResult.ok) {
+    return { ok: true, message: `Declined ${signup.email} but notification email failed to send.` }
+  }
+
+  return { ok: true, message: `Declined ${signup.email} — notification email sent.` }
+}
+
+export async function resendWaitlistInvite(
+  signupId: string
+): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const { data: signup, error: fetchError } = await supabase
+    .from("waitlist_signups")
+    .select("*")
+    .eq("id", signupId)
+    .single()
+
+  if (fetchError || !signup) {
+    return { ok: false, error: "Signup not found." }
+  }
+
+  if (signup.status !== "approved") {
+    return { ok: false, error: "Can only resend invites for approved signups." }
+  }
+
+  const { data: existingUsers } = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  })
+  const existingUser = existingUsers?.users?.find(
+    (u) => u.email === signup.email
+  )
+
+  if (!existingUser) {
+    return { ok: false, error: "No auth user found for this email. The user may have been deleted." }
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const { data: linkData } = await supabase.auth.admin.generateLink({
+    type: "magiclink",
+    email: signup.email,
+    options: { redirectTo: `${appUrl}/auth/callback` },
+  })
+
+  const magicLinkUrl =
+    linkData?.properties?.action_link ?? `${appUrl}/login`
+
+  const fullName =
+    [signup.first_name, signup.last_name].filter(Boolean).join(" ") || null
+
+  const emailResult = await sendEmail({
+    to: signup.email,
+    subject: "You're in! Your Vatic dashboard is ready",
+    react: WaitlistInvitation({
+      name: fullName ?? undefined,
+      magicLinkUrl,
+    }),
+  })
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "waitlist.resend_invite",
+    targetType: "waitlist",
+    targetId: signupId,
+    details: { email: signup.email },
+  })
+
+  revalidatePath("/admin/waitlist")
+
+  if (!emailResult.ok) {
+    return { ok: false, error: `Failed to send invitation email to ${signup.email}.` }
+  }
+
+  return { ok: true, message: `Invitation email resent to ${signup.email}.` }
 }
 
 export async function batchApproveWaitlistSignups(

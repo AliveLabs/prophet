@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistConfirmation } from "@/lib/email/templates/waitlist-confirmation"
+import { WaitlistAdminNotification } from "@/lib/email/templates/waitlist-admin-notification"
+
+const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
 export async function POST(request: Request) {
   try {
@@ -37,14 +40,31 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (existing) {
-      if (existing.status === "pending" || existing.status === "approved") {
+      if (existing.status === "pending") {
         return NextResponse.json(
           { ok: false, error: "This email is already on our waitlist." },
           { status: 409 }
         )
       }
 
-      if (existing.status === "declined") {
+      if (existing.status === "approved") {
+        const { data: authUsers } = await supabase.auth.admin.listUsers({
+          page: 1,
+          perPage: 1000,
+        })
+        const authUserExists = authUsers?.users?.some(
+          (u) => u.email === normalizedEmail
+        )
+
+        if (authUserExists) {
+          return NextResponse.json(
+            { ok: false, error: "This email is already on our waitlist." },
+            { status: 409 }
+          )
+        }
+      }
+
+      if (existing.status === "declined" || existing.status === "approved") {
         const { error: updateError } = await supabase
           .from("waitlist_signups")
           .update({
@@ -85,13 +105,29 @@ export async function POST(request: Request) {
       }
     }
 
-    sendEmail({
+    const confirmResult = await sendEmail({
       to: normalizedEmail,
       subject: "You're on the Vatic waitlist",
       react: WaitlistConfirmation({
         name: fullName ?? undefined,
       }),
-    }).catch((err) => console.error("Waitlist email failed:", err))
+    })
+
+    if (!confirmResult.ok) {
+      console.error("Waitlist confirmation email failed:", confirmResult.error)
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+    sendEmail({
+      to: ADMIN_NOTIFY_EMAIL,
+      subject: `New waitlist signup: ${normalizedEmail}`,
+      react: WaitlistAdminNotification({
+        signupEmail: normalizedEmail,
+        signupName: fullName ?? undefined,
+        adminDashboardUrl: `${appUrl}/admin/waitlist`,
+      }),
+    }).catch((err) => console.error("Admin notification email failed:", err))
 
     return NextResponse.json({ ok: true })
   } catch {

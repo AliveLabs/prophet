@@ -6,6 +6,7 @@ import {
   declineWaitlistSignup,
   batchApproveWaitlistSignups,
   batchDeclineWaitlistSignups,
+  resendWaitlistInvite,
 } from "@/app/actions/waitlist"
 
 interface WaitlistSignup {
@@ -92,6 +93,14 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
 
   function clearSelection() {
     setSelected(new Set())
+  }
+
+  function handleResendInvite(id: string) {
+    startTransition(async () => {
+      const result = await resendWaitlistInvite(id)
+      setFeedback(result.ok ? result.message : result.error)
+      setTimeout(() => setFeedback(null), 4000)
+    })
   }
 
   function handleApprove(id: string) {
@@ -288,9 +297,18 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
                           </button>
                         </div>
                       )}
+                      {signup.status === "approved" && (
+                        <button
+                          onClick={() => handleResendInvite(signup.id)}
+                          disabled={isPending}
+                          className="rounded-md bg-vatic-indigo/15 px-2.5 py-1 text-xs font-semibold text-vatic-indigo hover:bg-vatic-indigo/25 disabled:opacity-50"
+                        >
+                          Resend Invite
+                        </button>
+                      )}
                       {signup.status !== "pending" && signup.admin_notes && (
                         <span
-                          className="text-xs text-muted-foreground"
+                          className="ml-2 text-xs text-muted-foreground"
                           title={signup.admin_notes}
                         >
                           Has notes
