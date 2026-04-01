@@ -2,12 +2,14 @@
 
 import { useState, useTransition } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   updateUserProfile,
   deactivateUser,
   activateUser,
   sendUserMagicLink,
   impersonateUser,
+  deleteUser,
 } from "@/app/actions/user-management"
 import { sendCustomEmail } from "@/app/actions/admin-email"
 
@@ -39,10 +41,12 @@ interface UserDetail {
 }
 
 export function UserDetailClient({ user }: { user: UserDetail }) {
+  const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState("")
   const [showEdit, setShowEdit] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const handleToggleStatus = () => {
     if (
@@ -76,6 +80,18 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
         window.open(result.url, "_blank")
       } else {
         setFeedback(result.error)
+      }
+    })
+  }
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const result = await deleteUser(user.id)
+      if (result.ok) {
+        router.push("/admin/users")
+      } else {
+        setFeedback(result.error)
+        setShowDeleteConfirm(false)
       }
     })
   }
@@ -171,6 +187,13 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
             >
               Send Email
             </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={isPending}
+              className="h-9 rounded-lg bg-destructive/10 px-4 text-sm font-semibold text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+            >
+              Delete User
+            </button>
           </div>
 
           {showEdit && (
@@ -187,6 +210,47 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
               toEmail={user.email}
               onClose={() => setShowEmail(false)}
             />
+          )}
+
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+                <h3 className="mb-2 text-lg font-semibold text-foreground">
+                  Permanently Delete User
+                </h3>
+                <p className="mb-2 text-sm text-muted-foreground">
+                  This will permanently delete <strong className="text-foreground">{user.email}</strong> and
+                  all associated data:
+                </p>
+                <ul className="mb-4 space-y-1 text-sm text-muted-foreground">
+                  <li>- Organizations where they are the sole member (and all locations, competitors, insights)</li>
+                  <li>- Their membership in shared organizations</li>
+                  <li>- Their auth account and profile</li>
+                </ul>
+                <p className="mb-4 text-sm text-signal-gold">
+                  Their waitlist entry will be reset so they can reapply if needed.
+                </p>
+                <p className="mb-5 text-sm font-semibold text-destructive">
+                  This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={isPending}
+                    className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={isPending}
+                    className="rounded-md bg-destructive px-4 py-2 text-sm font-semibold text-white hover:bg-destructive/90 disabled:opacity-50"
+                  >
+                    {isPending ? "Deleting..." : "Delete Permanently"}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="rounded-xl border border-border bg-card p-6">
