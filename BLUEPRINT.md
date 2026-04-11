@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** March 22, 2026
+> **Last updated:** April 10, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -177,7 +177,7 @@ The application has shipped through most PRD phases:
 | `postcss.config.mjs` | PostCSS with `@tailwindcss/postcss` |
 | `eslint.config.mjs` | ESLint with `eslint-config-next` |
 | `playwright.config.ts` | E2E test configuration, base URL `http://localhost:3000` |
-| `app/globals.css` | Tailwind v4 import + CSS custom properties for background/foreground/fonts |
+| `app/globals.css` | Tailwind v4 import + **Forge / Alive Labs** CSS custom properties (semantic shadcn tokens, extended palette, legacy Tailwind color aliases). Reference: `app/docs/vatic-alive-rebrand/vatic-forge-token-map.json` |
 
 ---
 
@@ -216,10 +216,10 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 ```
 prophet/
 ├── app/                                    # Next.js App Router
-│   ├── layout.tsx                          # Root layout (Geist fonts, metadata)
+│   ├── layout.tsx                          # Root layout (Space Grotesk, Inter, Space Mono via `next/font`, metadata)
 │   ├── page.tsx                            # Marketing landing page (/) with waitlist
 │   ├── landing.css                         # Landing page: utility classes (vatic-gradient, glass-panel, editorial-shadow), animation keyframes (float, draw-line, radar-sweep, glow-pulse, scan-line, orb-drift), dark/light overrides
-│   ├── globals.css                         # Tailwind v4 + CSS custom properties
+│   ├── globals.css                         # Tailwind v4 + Forge design tokens (`@theme inline`)
 │   ├── favicon.ico
 │   │
 │   ├── (auth)/                             # Auth route group (shared layout)
@@ -1928,6 +1928,8 @@ Events sent during pipeline execution:
 
 ## 17. UI Component Library
 
+**Design system:** The default product UI uses the **Forge** palette (carbon primary `#2B353F`, ember accent `#FF7849`, forge-patina greens, warm neutrals). Display typography is **Space Grotesk**; UI body is **Inter**; monospace is **Space Mono**. Legacy class names such as `vatic-indigo`, `signal-gold`, and `precision-teal` remain in components but resolve to Forge-mapped values in `globals.css`.
+
 ### 17.1 Base UI Components
 
 | Component | File | Type | Description |
@@ -2094,4 +2096,4 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated March 22, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated April 10, 2026.*

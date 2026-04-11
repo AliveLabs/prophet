@@ -69,7 +69,7 @@ export default function SocialDashboard({ profiles }: Props) {
       .map((p) => ({
         name: p.entityName.length > 12 ? p.entityName.slice(0, 12) + "…" : p.entityName,
         followers: p.followerCount,
-        fill: p.entityType === "location" ? "#5A3FFF" : "#8883AA",
+        fill: p.entityType === "location" ? "#2B353F" : "#726A63",
       }))
   }, [profiles])
 
@@ -81,7 +81,7 @@ export default function SocialDashboard({ profiles }: Props) {
       .map((p) => ({
         name: p.entityName.length > 12 ? p.entityName.slice(0, 12) + "…" : p.entityName,
         rate: Math.round(p.engagementRate * 100) / 100,
-        fill: p.entityType === "location" ? "#5A3FFF" : "#8883AA",
+        fill: p.entityType === "location" ? "#2B353F" : "#726A63",
       }))
   }, [profiles])
 

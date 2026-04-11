@@ -188,21 +188,21 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
           <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#FF4757" stopOpacity={0.35} />
-              <stop offset="50%" stopColor="#F2A11E" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#5A3FFF" stopOpacity={0.25} />
+              <stop offset="0%" stopColor="#DC2626" stopOpacity={0.35} />
+              <stop offset="50%" stopColor="#D4880A" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#2B353F" stopOpacity={0.25} />
               </linearGradient>
               <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#9B87FF" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#9B87FF" stopOpacity={0.3} />
+              <stop offset="0%" stopColor="#3D4B58" stopOpacity={0.8} />
+              <stop offset="100%" stopColor="#3D4B58" stopOpacity={0.3} />
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="#E8E4FF" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#F2ECE6" vertical={false} />
 
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: "#8883AA" }}
+              tick={{ fontSize: 10, fill: "#726A63" }}
               axisLine={false}
               tickLine={false}
               interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
@@ -210,7 +210,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="temp"
               domain={[minY, maxY]}
-              tick={{ fontSize: 10, fill: "#8883AA" }}
+              tick={{ fontSize: 10, fill: "#726A63" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}°`}
@@ -219,7 +219,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="precip"
               orientation="right"
-              tick={{ fontSize: 10, fill: "#8883AA" }}
+              tick={{ fontSize: 10, fill: "#726A63" }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}"`}
@@ -232,13 +232,13 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
               <ReferenceLine
                 yAxisId="temp"
                 x={formatDateLabel(todayDate)}
-                stroke="#5A3FFF"
+                stroke="#2B353F"
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 label={{
                   value: "Today",
                   position: "top",
-                  fill: "#5A3FFF",
+                  fill: "#2B353F",
                   fontSize: 10,
                   fontWeight: 700,
                 }}
@@ -257,19 +257,19 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <Line
               yAxisId="temp"
               dataKey="high"
-              stroke="#FF4757"
+              stroke="#DC2626"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#FF4757", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: "#DC2626", strokeWidth: 0 }}
               isAnimationActive={false}
             />
             <Line
               yAxisId="temp"
               dataKey="low"
-              stroke="#5A3FFF"
+              stroke="#2B353F"
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#5A3FFF", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: "#2B353F", strokeWidth: 0 }}
               isAnimationActive={false}
             />
 

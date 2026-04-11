@@ -65,12 +65,12 @@ function TrafficChartInner({ data }: Props) {
         <AreaChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 10 }}>
           <defs>
             <linearGradient id="gradOrganic" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#00BFA6" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#00BFA6" stopOpacity={0} />
+              <stop offset="5%" stopColor="#34775E" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#34775E" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="gradPaid" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#5A3FFF" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#5A3FFF" stopOpacity={0} />
+              <stop offset="5%" stopColor="#2B353F" stopOpacity={0.2} />
+              <stop offset="95%" stopColor="#2B353F" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -106,7 +106,7 @@ function TrafficChartInner({ data }: Props) {
                 type="monotone"
                 dataKey="organicEtv"
                 name="Organic"
-                stroke="#00BFA6"
+                stroke="#34775E"
                 strokeWidth={2}
                 fill="url(#gradOrganic)"
               />
@@ -114,7 +114,7 @@ function TrafficChartInner({ data }: Props) {
                 type="monotone"
                 dataKey="paidEtv"
                 name="Paid"
-                stroke="#5A3FFF"
+                stroke="#2B353F"
                 strokeWidth={2}
                 fill="url(#gradPaid)"
               />
@@ -124,7 +124,7 @@ function TrafficChartInner({ data }: Props) {
               type="monotone"
               dataKey="organicKeywords"
               name="Keywords"
-              stroke="#F2A11E"
+              stroke="#D4880A"
               strokeWidth={2}
               fill="none"
             />

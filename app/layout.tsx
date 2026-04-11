@@ -1,13 +1,12 @@
 import type { Metadata } from "next"
-import { Cormorant_Garamond, Inter, Geist_Mono } from "next/font/google"
+import { Inter, Space_Grotesk, Space_Mono } from "next/font/google"
 import ThemeProvider from "@/components/theme-provider"
 import "./globals.css"
 
-const cormorant = Cormorant_Garamond({
-  variable: "--font-cormorant",
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-space-grotesk",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
 })
 
 const inter = Inter({
@@ -15,9 +14,10 @@ const inter = Inter({
   subsets: ["latin"],
 })
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const spaceMono = Space_Mono({
+  variable: "--font-space-mono",
   subsets: ["latin"],
+  weight: ["400", "700"],
 })
 
 export const metadata: Metadata = {
@@ -41,7 +41,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${cormorant.variable} ${inter.variable} ${geistMono.variable} antialiased`}>
+      <body
+        className={`${spaceGrotesk.variable} ${inter.variable} ${spaceMono.variable} antialiased`}
+      >
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

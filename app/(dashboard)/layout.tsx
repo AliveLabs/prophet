@@ -27,12 +27,12 @@ function VaticLogo() {
     >
       <path
         d="M4 6 L14 22 L24 6"
-        stroke="#5A3FFF"
+        stroke="#2B353F"
         strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="14" cy="22" r="2.6" fill="#F2A11E" />
+      <circle cx="14" cy="22" r="2.6" fill="#D4880A" />
     </svg>
   )
 }

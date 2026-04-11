@@ -62,7 +62,7 @@ const ctaContainer = {
 }
 
 const ctaButton = {
-  backgroundColor: "#00BFA6",
+  backgroundColor: "#FF7849",
   color: "#FFFFFF",
   padding: "12px 32px",
   borderRadius: "8px",
@@ -81,7 +81,7 @@ const fallback = {
 }
 
 const fallbackLink = {
-  color: "#00BFA6",
+  color: "#34775E",
   textDecoration: "underline",
 }
 
