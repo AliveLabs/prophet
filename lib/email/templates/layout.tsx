@@ -77,7 +77,7 @@ const wordmark = {
 }
 
 const divider = {
-  borderColor: "#2E2960",
+  borderColor: "#322A24",
   margin: "0",
 }
 
@@ -97,6 +97,6 @@ const footerText = {
 }
 
 const footerLink = {
-  color: "#00BFA6",
+  color: "#34775E",
   textDecoration: "none",
 }

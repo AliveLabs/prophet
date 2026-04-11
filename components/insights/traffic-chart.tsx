@@ -85,7 +85,7 @@ export default function TrafficChart({ data }: Props) {
             onClick={() => setSelectedDay(i)}
             className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition ${
               selectedDay === i
-                ? "bg-signal-gold text-foreground shadow-sm"
+                ? "bg-signal-gold text-white shadow-sm"
                 : "bg-card text-muted-foreground ring-1 ring-border hover:bg-secondary"
             }`}
           >

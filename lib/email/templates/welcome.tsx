@@ -85,7 +85,7 @@ const paragraph = {
 }
 
 const recapBox = {
-  backgroundColor: "#1C1840",
+  backgroundColor: "#2B353F",
   borderRadius: "8px",
   padding: "16px 20px",
   margin: "16px 0",
@@ -103,7 +103,7 @@ const ctaContainer = {
 }
 
 const ctaButton = {
-  backgroundColor: "#00BFA6",
+  backgroundColor: "#FF7849",
   color: "#FFFFFF",
   padding: "12px 32px",
   borderRadius: "8px",

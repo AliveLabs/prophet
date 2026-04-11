@@ -19,10 +19,10 @@ import {
 // ---------------------------------------------------------------------------
 
 const SEVERITY_CHART_COLORS: Record<string, string> = {
-  critical: "#FF4757",
-  warning: "#F2A11E",
-  info: "#5A3FFF",
-  positive: "#00BFA6",
+  critical: "#DC2626",
+  warning: "#D4880A",
+  info: "#2B353F",
+  positive: "#34775E",
 }
 
 type SeverityData = { name: string; value: number; color: string }
@@ -79,7 +79,7 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
   return Object.entries(counts).map(([name, value]) => ({
     name,
     value,
-    color: SEVERITY_CHART_COLORS[name] ?? "#8883AA",
+    color: SEVERITY_CHART_COLORS[name] ?? "#726A63",
   }))
 }
 
@@ -88,14 +88,14 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
 // ---------------------------------------------------------------------------
 
 const SOURCE_CHART_COLORS: Record<string, string> = {
-  Competitors: "#00BFA6",
-  Events: "#9B87FF",
-  SEO: "#5A3FFF",
-  Content: "#00BFA6",
-  Photos: "#F2A11E",
-  Traffic: "#F2A11E",
-  Social: "#5A3FFF",
-  Reviews: "#F2A11E",
+  Competitors: "#34775E",
+  Events: "#3D4B58",
+  SEO: "#2B353F",
+  Content: "#34775E",
+  Photos: "#D4880A",
+  Traffic: "#D4880A",
+  Social: "#2B353F",
+  Reviews: "#D4880A",
 }
 
 type SourceBarData = { name: string; count: number; fill: string }
@@ -152,7 +152,7 @@ export function buildSourceBarData(
     .map(([name, count]) => ({
       name,
       count,
-      fill: SOURCE_CHART_COLORS[name] ?? "#8883AA",
+      fill: SOURCE_CHART_COLORS[name] ?? "#726A63",
     }))
     .sort((a, b) => b.count - a.count)
 }
@@ -172,8 +172,8 @@ export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
         <AreaChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#5A3FFF" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#5A3FFF" stopOpacity={0} />
+              <stop offset="5%" stopColor="#2B353F" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="#2B353F" stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis dataKey="day" hide />
@@ -185,7 +185,7 @@ export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
           <Area
             type="monotone"
             dataKey="count"
-            stroke="#5A3FFF"
+            stroke="#2B353F"
             strokeWidth={2}
             fill="url(#trendGrad)"
           />

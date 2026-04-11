@@ -25,7 +25,7 @@ type Props = {
   distribution: RankDistribution
 }
 
-const COLORS = ["#00BFA6", "#9B87FF", "#F2A11E", "#5A3FFF", "#FF4757"]
+const COLORS = ["#34775E", "#3D4B58", "#D4880A", "#2B353F", "#DC2626"]
 
 function RankingDistributionInner({ distribution }: Props) {
   const data = [
