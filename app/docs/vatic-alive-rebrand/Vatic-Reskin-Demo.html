@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vatic — Predictive AI Competitive Intelligence</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0E0C0A;
+            color: #F6F8FA;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1F1B18;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #322A24;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #47A280;
+        }
+
+        /* Navigation */
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            background: rgba(14, 12, 10, 0.8);
+            border-bottom: 1px solid #322A24;
+            padding: 1.5rem 2rem;
+        }
+
+        nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: #F6F8FA;
+            font-weight: 600;
+            font-size: 1.25rem;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .nav-logo {
+            width: 24px;
+            height: 24px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+            flex: 1;
+            margin-left: 4rem;
+        }
+
+        .nav-links a {
+            color: #B5ACA4;
+            text-decoration: none;
+            font-size: 0.95rem;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #FF7849;
+        }
+
+        .nav-right {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: #B5ACA4;
+            cursor: pointer;
+            font-size: 1.25rem;
+            transition: color 0.3s;
+        }
+
+        .theme-toggle:hover {
+            color: #FF7849;
+        }
+
+        .btn-waitlist {
+            background: #FF7849;
+            color: #FFFFFF;
+            border: none;
+            padding: 0.75rem 1.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .btn-waitlist:hover {
+            background: #E86535;
+        }
+
+        /* Hero Section */
+        .hero {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 5rem 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .hero-content h1 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            line-height: 1.1;
+            font-style: italic;
+            letter-spacing: -0.02em;
+        }
+
+        .hero-content p {
+            color: #B5ACA4;
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.8;
+        }
+
+        .hero-ctas {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .btn-primary {
+            background: #FF7849;
+            color: #FFFFFF;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+        }
+
+        .btn-primary:hover {
+            background: #E86535;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #F6F8FA;
+            border: 1px solid #322A24;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+        }
+
+        .btn-secondary:hover {
+            border-color: #FF7849;
+            color: #FF7849;
+        }
+
+        .hero-stats {
+            display: flex;
+            gap: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #F6F8FA;
+        }
+
+        .stat-label {
+            color: #9B9086;
+            font-size: 0.9rem;
+        }
+
+        .hero-visual {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .dashboard-mock {
+            background: linear-gradient(135deg, rgba(31, 27, 24, 0.8) 0%, rgba(50, 42, 36, 0.4) 100%);
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(8px);
+        }
+
+        .dashboard-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .dashboard-card {
+            background: rgba(50, 42, 36, 0.5);
+            border: 1px solid #322A24;
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-label {
+            color: #9B9086;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+        }
+
+        .dashboard-value {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #F6F8FA;
+        }
+
+        .dashboard-value.positive {
+            color: #47A280;
+        }
+
+        .chart-container {
+            height: 80px;
+            margin-bottom: 1rem;
+        }
+
+        .live-signals {
+            background: rgba(71, 162, 128, 0.1);
+            border: 1px solid rgba(71, 162, 128, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .live-signals-label {
+            color: #47A280;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #47A280;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .live-text {
+            font-size: 0.9rem;
+            color: #F6F8FA;
+        }
+
+        /* Signal vs Noise */
+        .signal-noise {
+            max-width: 1400px;
+            margin: 5rem auto;
+            padding: 0 2rem;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-subtitle {
+            color: #B5ACA4;
+            font-size: 0.95rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            line-height: 1.2;
+            margin-bottom: 2rem;
+        }
+
+        .signal-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+            margin-bottom: 3rem;
+        }
+
+        .signal-text p {
+            color: #B5ACA4;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+
+        .signal-pipeline {
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .pipeline-step {
+            display: inline-block;
+            margin: 0 1rem;
+            color: #B5ACA4;
+        }
+
+        .pipeline-arrow {
+            display: inline-block;
+            color: #FF7849;
+            margin: 0 1rem;
+            font-weight: bold;
+        }
+
+        .signal-callout {
+            background: rgba(255, 120, 73, 0.1);
+            border: 1px solid #FF7849;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .callout-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #D4880A;
+            margin-bottom: 0.5rem;
+        }
+
+        .callout-label {
+            color: #B5ACA4;
+            font-size: 0.9rem;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            max-width: 1400px;
+            margin: 5rem auto;
+            padding: 0 2rem;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .step-card {
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s;
+        }
+
+        .step-card:hover {
+            border-color: #FF7849;
+            transform: translateY(-4px);
+            background: rgba(31, 27, 24, 0.8);
+        }
+
+        .step-number {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: #FF7849;
+            margin-bottom: 1rem;
+        }
+
+        .step-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #F6F8FA;
+        }
+
+        .step-description {
+            color: #B5ACA4;
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        /* Intelligence Channels */
+        .channels {
+            max-width: 1400px;
+            margin: 5rem auto;
+            padding: 0 2rem;
+        }
+
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .channel-card {
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .channel-card:hover {
+            border-color: #FF7849;
+            background: rgba(31, 27, 24, 0.8);
+        }
+
+        .channel-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #F6F8FA;
+        }
+
+        .channel-visual {
+            height: 120px;
+            background: rgba(50, 42, 36, 0.5);
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FF7849;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        .channel-description {
+            color: #B5ACA4;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            flex-grow: 1;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            max-width: 1400px;
+            margin: 5rem auto;
+            padding: 3rem 2rem;
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat-block {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-block-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #D4880A;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-block-label {
+            color: #B5ACA4;
+            font-size: 0.85rem;
+        }
+
+        .partners {
+            color: #9B9086;
+            font-size: 0.9rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #322A24;
+        }
+
+        .partners-label {
+            color: #9B9086;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        /* Pricing */
+        .pricing {
+            max-width: 1400px;
+            margin: 5rem auto;
+            padding: 0 2rem;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .pricing-card {
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 12px;
+            padding: 2.5rem;
+            transition: all 0.3s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pricing-card.featured {
+            border-color: #FF7849;
+            transform: scale(1.02);
+        }
+
+        .pricing-card:hover {
+            border-color: #FF7849;
+            background: rgba(31, 27, 24, 0.8);
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: #FF7849;
+            color: #FFFFFF;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .pricing-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            margin-top: 1rem;
+            color: #F6F8FA;
+        }
+
+        .pricing-price {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #D4880A;
+            margin-bottom: 0.25rem;
+        }
+
+        .pricing-period {
+            color: #B5ACA4;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-description {
+            color: #B5ACA4;
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 2rem;
+            flex-grow: 1;
+        }
+
+        .pricing-features li {
+            color: #B5ACA4;
+            font-size: 0.9rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(50, 42, 36, 0.5);
+            display: flex;
+            align-items: center;
+        }
+
+        .pricing-features li:before {
+            content: "✓";
+            color: #47A280;
+            font-weight: bold;
+            margin-right: 0.75rem;
+        }
+
+        .pricing-cta {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+
+        .pricing-card.featured .pricing-cta {
+            background: #FF7849;
+            color: #FFFFFF;
+        }
+
+        .pricing-card.featured .pricing-cta:hover {
+            background: #E86535;
+        }
+
+        .pricing-card:not(.featured) .pricing-cta {
+            background: transparent;
+            color: #F6F8FA;
+            border: 1px solid #322A24;
+        }
+
+        .pricing-card:not(.featured) .pricing-cta:hover {
+            border-color: #FF7849;
+            color: #FF7849;
+        }
+
+        /* Waitlist Form */
+        .waitlist {
+            max-width: 600px;
+            margin: 5rem auto;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .waitlist h2 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.75rem;
+            color: #B5ACA4;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem;
+            background: #1F1B18;
+            border: 1px solid #322A24;
+            border-radius: 6px;
+            color: #F6F8FA;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #FF7849;
+            box-shadow: 0 0 0 2px rgba(255, 120, 73, 0.12);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: #FF7849;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .btn-submit:hover {
+            background: #E86535;
+            transform: translateY(-2px);
+        }
+
+        /* Footer */
+        footer {
+            background: #1F1B18;
+            border-top: 1px solid #322A24;
+            margin-top: 5rem;
+            padding: 3rem 2rem;
+        }
+
+        .footer-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #F6F8FA;
+        }
+
+        .footer-section a {
+            display: block;
+            color: #B5ACA4;
+            text-decoration: none;
+            font-size: 0.9rem;
+            margin-bottom: 0.75rem;
+            transition: color 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: #FF7849;
+        }
+
+        .footer-bottom {
+            border-top: 1px solid #322A24;
+            padding-top: 2rem;
+            text-align: center;
+            color: #9B9086;
+            font-size: 0.85rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+
+            .signal-content {
+                grid-template-columns: 1fr;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .channels-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .pricing-card.featured {
+                transform: scale(1);
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .footer-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .hero-content h1 {
+                font-size: 2.5rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            nav {
+                padding: 1rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding: 2rem 1rem;
+            }
+
+            .hero-content h1 {
+                font-size: 2rem;
+            }
+
+            .hero-stats {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+
+            .section-title {
+                font-size: 1.75rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <nav-container>
+            <a href="#" class="nav-brand">
+                <svg class="nav-logo" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#F6F8FA" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+                    <circle cx="12" cy="8" r="2" fill="#FF4500"/>
+                </svg>
+                Vatic
+            </a>
+            <div class="nav-links">
+                <a href="#intelligence">Intelligence</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#signin">Sign In</a>
+            </div>
+            <div class="nav-right">
+                <button class="theme-toggle">🌙</button>
+                <button class="btn-waitlist">Join Waitlist</button>
+            </div>
+        </nav-container>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>See further.</h1>
+            <p>Predictive AI competitive intelligence for the modern restaurant enterprise. Anticipate market shifts before they manifest in your P&L.</p>
+            <div class="hero-ctas">
+                <button class="btn-primary">Join Waitlist</button>
+                <button class="btn-secondary">Explore the Framework</button>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-item">
+                    <div class="stat-value">10,000+</div>
+                    <div class="stat-label">Signals daily</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">50+</div>
+                    <div class="stat-label">Insight types</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">6</div>
+                    <div class="stat-label">Intel channels</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-visual">
+            <div class="dashboard-mock">
+                <div class="dashboard-header">
+                    <div class="dashboard-card">
+                        <div class="dashboard-label">Competitors</div>
+                        <div class="dashboard-value">47</div>
+                    </div>
+                    <div class="dashboard-card">
+                        <div class="dashboard-label">Insights</div>
+                        <div class="dashboard-value">238</div>
+                    </div>
+                </div>
+                <div class="dashboard-header">
+                    <div class="dashboard-card">
+                        <div class="dashboard-label">SEO Score</div>
+                        <div class="dashboard-value positive">+23%</div>
+                    </div>
+                    <div class="dashboard-card" style="grid-column: span 1;">
+                        <svg width="100%" height="60" style="margin-top: 0.5rem;">
+                            <polyline points="0,40 20,30 40,35 60,15 80,25 100,10" stroke="#D4880A" stroke-width="2" fill="none"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="live-signals">
+                    <div class="live-signals-label">Live Signals / Signal Detected</div>
+                    <div class="live-status">
+                        <div class="live-dot"></div>
+                        <div class="live-text">Active monitoring</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Signal vs Noise -->
+    <section class="signal-noise" id="intelligence">
+        <div class="section-header">
+            <div class="section-subtitle">The Signal</div>
+            <h2 class="section-title">The noise is deafening.<br>The signal is silent.</h2>
+        </div>
+
+        <div class="signal-content">
+            <div class="signal-text">
+                <p>Traditional monitoring tools flood you with data. Every price change, every menu update, every social post becomes noise. The real intelligence is knowing what matters.</p>
+                <p>Vatic filters the deafening noise of the market to surface the silent signals that drive real business decisions. We don't give you more data—we give you clarity.</p>
+            </div>
+            <div>
+                <div class="signal-pipeline">
+                    <div class="pipeline-step">RAW MARKET DATA</div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">SIGNAL DETECTED</div>
+                    <div class="pipeline-arrow">→</div>
+                    <div class="pipeline-step">PRESCIENT ACTION</div>
+                </div>
+                <div class="signal-callout">
+                    <div class="callout-value">22 days</div>
+                    <div class="callout-label">ahead of traditional analysis</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="section-header">
+            <div class="section-subtitle">The Architecture</div>
+            <h2 class="section-title">Intelligence at the speed of thought</h2>
+        </div>
+
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">01</div>
+                <h3 class="step-title">Collect Signals</h3>
+                <p class="step-description">Capture data across 6 intelligence channels in real-time. From competitor pricing to foot traffic patterns, we monitor what matters.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">02</div>
+                <h3 class="step-title">Crystallize Insight</h3>
+                <p class="step-description">Our AI transforms raw signals into actionable intelligence. Pattern recognition, trend analysis, and predictive modeling happen automatically.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">03</div>
+                <h3 class="step-title">Act Sooner</h3>
+                <p class="step-description">React to market shifts 22 days faster than traditional analysis. Make strategic decisions with confidence and precision.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Intelligence Channels -->
+    <section class="channels">
+        <div class="section-header">
+            <div class="section-subtitle">Six Vectors</div>
+            <h2 class="section-title">Intelligence channels that see deeper</h2>
+        </div>
+
+        <div class="channels-grid">
+            <div class="channel-card">
+                <h3 class="channel-title">Competitor Monitoring</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <rect x="10" y="30" width="12" height="20" fill="#D4880A" opacity="0.8"/>
+                        <rect x="28" y="20" width="12" height="30" fill="#D4880A" opacity="0.6"/>
+                        <rect x="46" y="10" width="12" height="40" fill="#47A280"/>
+                        <rect x="64" y="25" width="12" height="25" fill="#D4880A" opacity="0.4"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Track competitor pricing, menu changes, promotions, and strategic moves in real-time across your market.</p>
+            </div>
+
+            <div class="channel-card">
+                <h3 class="channel-title">SEO Visibility</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <circle cx="40" cy="30" r="18" fill="none" stroke="#D4880A" stroke-width="2"/>
+                        <circle cx="40" cy="30" r="24" fill="none" stroke="#D4880A" stroke-width="1" opacity="0.5"/>
+                        <circle cx="40" cy="30" r="2" fill="#47A280"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Monitor search rankings, organic traffic trends, keyword performance, and local SEO metrics that drive discoverability.</p>
+            </div>
+
+            <div class="channel-card">
+                <h3 class="channel-title">Menu & Content</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <line x1="15" y1="15" x2="65" y2="15" stroke="#D4880A" stroke-width="2"/>
+                        <line x1="15" y1="25" x2="65" y2="25" stroke="#D4880A" stroke-width="1" opacity="0.6"/>
+                        <line x1="15" y1="35" x2="50" y2="35" stroke="#D4880A" stroke-width="1" opacity="0.6"/>
+                        <line x1="15" y1="45" x2="65" y2="45" stroke="#47A280" stroke-width="2"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Detect menu updates, pricing changes, promotional content, and messaging shifts across your competitive set.</p>
+            </div>
+
+            <div class="channel-card">
+                <h3 class="channel-title">Social Intelligence</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <circle cx="25" cy="25" r="6" fill="#D4880A"/>
+                        <circle cx="55" cy="25" r="6" fill="#D4880A"/>
+                        <circle cx="40" cy="45" r="6" fill="#47A280"/>
+                        <line x1="28" y1="28" x2="52" y2="28" stroke="#D4880A" stroke-width="1" opacity="0.5"/>
+                        <line x1="28" y1="28" x2="40" y2="42" stroke="#D4880A" stroke-width="1" opacity="0.5"/>
+                        <line x1="52" y1="28" x2="40" y2="42" stroke="#D4880A" stroke-width="1" opacity="0.5"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Track social sentiment, engagement trends, influencer activity, and community conversations in real-time.</p>
+            </div>
+
+            <div class="channel-card">
+                <h3 class="channel-title">Visual Intelligence</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <rect x="20" y="20" width="40" height="25" fill="none" stroke="#D4880A" stroke-width="2"/>
+                        <circle cx="35" cy="32" r="3" fill="#47A280"/>
+                        <circle cx="45" cy="28" r="3" fill="#D4880A"/>
+                        <path d="M 20 45 Q 40 35 60 45" stroke="#D4880A" stroke-width="1" fill="none" opacity="0.5"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Analyze restaurant imagery, ambiance changes, operational indicators, and physical space evolution.</p>
+            </div>
+
+            <div class="channel-card">
+                <h3 class="channel-title">Foot Traffic & Events</h3>
+                <div class="channel-visual">
+                    <svg width="80" height="60" viewBox="0 0 80 60">
+                        <path d="M 20 50 L 20 35 M 30 50 L 30 20 M 40 50 L 40 30 M 50 50 L 50 25 M 60 50 L 60 15 M 70 50 L 70 28" stroke="#D4880A" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="40" cy="10" r="4" fill="#47A280"/>
+                    </svg>
+                </div>
+                <p class="channel-description">Track location-based traffic patterns, event attendance, peak hours, and customer movement trends across venues.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats-section">
+        <div class="section-header">
+            <div class="section-subtitle">The Standard</div>
+            <h2 class="section-title">Intelligence that speaks for itself</h2>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-block">
+                <div class="stat-block-value">10,000+</div>
+                <div class="stat-block-label">Market signals processed daily</div>
+            </div>
+            <div class="stat-block">
+                <div class="stat-block-value">50+</div>
+                <div class="stat-block-label">Unique insight types</div>
+            </div>
+            <div class="stat-block">
+                <div class="stat-block-value">6</div>
+                <div class="stat-block-label">Intelligence channels</div>
+            </div>
+            <div class="stat-block">
+                <div class="stat-block-value">0-day</div>
+                <div class="stat-block-label">Free trial setup</div>
+            </div>
+        </div>
+
+        <div class="partners">
+            <div class="partners-label">Powered by</div>
+            <div style="color: #B5ACA4; font-size: 0.95rem;">Google AI, Google Places, DataForSEO, Twitter API, and proprietary ML models</div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing" id="pricing">
+        <div class="section-header">
+            <div class="section-subtitle">Investment</div>
+            <h2 class="section-title">Strategic tiers built to scale with you</h2>
+        </div>
+
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <h3 class="pricing-title">Starter</h3>
+                <div class="pricing-price">$499<span style="font-size: 1rem; color: #B5ACA4;">/mo</span></div>
+                <p class="pricing-period">Billed monthly</p>
+                <p class="pricing-description">Perfect for emerging restaurant groups testing competitive intelligence.</p>
+                <ul class="pricing-features">
+                    <li>Up to 10 competitor profiles</li>
+                    <li>3 intelligence channels</li>
+                    <li>Weekly signal digests</li>
+                    <li>Email alerts</li>
+                    <li>Basic analytics</li>
+                </ul>
+                <button class="pricing-cta">Get Started</button>
+            </div>
+
+            <div class="pricing-card featured">
+                <div class="pricing-badge">Recommended</div>
+                <h3 class="pricing-title">Pro</h3>
+                <div class="pricing-price">$1,499<span style="font-size: 1rem; color: #B5ACA4;">/mo</span></div>
+                <p class="pricing-period">Billed monthly</p>
+                <p class="pricing-description">The complete intelligence platform for serious competitive advantage.</p>
+                <ul class="pricing-features">
+                    <li>Unlimited competitor profiles</li>
+                    <li>All 6 intelligence channels</li>
+                    <li>Real-time signal alerts</li>
+                    <li>Custom reports & analytics</li>
+                    <li>API access</li>
+                    <li>Priority support</li>
+                    <li>Trend forecasting</li>
+                </ul>
+                <button class="pricing-cta">Start Free Trial</button>
+            </div>
+
+            <div class="pricing-card">
+                <h3 class="pricing-title">Agency</h3>
+                <div class="pricing-price">Custom</div>
+                <p class="pricing-period">Billed annually</p>
+                <p class="pricing-description">White-label and multi-client solutions for agencies and enterprises.</p>
+                <ul class="pricing-features">
+                    <li>Unlimited profiles & accounts</li>
+                    <li>All intelligence channels</li>
+                    <li>Custom integrations</li>
+                    <li>Dedicated account manager</li>
+                    <li>SLA guarantees</li>
+                    <li>White-label options</li>
+                    <li>Advanced compliance</li>
+                </ul>
+                <button class="pricing-cta">Contact Sales</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Waitlist Form -->
+    <section class="waitlist">
+        <h2>Join the cohort.</h2>
+        <form>
+            <div class="form-group">
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" name="firstName" required>
+            </div>
+            <div class="form-group">
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" name="lastName" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <button type="submit" class="btn-submit">Join Waitlist</button>
+        </form>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3>Product</h3>
+                <a href="#intelligence">Intelligence</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#pricing">Pricing</a>
+            </div>
+            <div class="footer-section">
+                <h3>Company</h3>
+                <a href="#">About</a>
+                <a href="#">Blog</a>
+                <a href="#">Careers</a>
+            </div>
+            <div class="footer-section">
+                <h3>Legal</h3>
+                <a href="#">Privacy Protocol</a>
+                <a href="#">Terms of Intelligence</a>
+                <a href="#">Contact Analyst</a>
+            </div>
+            <div class="footer-section">
+                <h3>Developers</h3>
+                <a href="#">API Docs</a>
+                <a href="#">Status</a>
+                <a href="#">Support</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Vatic Intelligence. Designed with precision.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        });
+
+        // Form submission
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('Thank you for joining the waitlist! We\'ll be in touch soon.');
+            this.reset();
+        });
+
+        // Theme toggle (visual only)
+        document.querySelector('.theme-toggle').addEventListener('click', function() {
+            this.textContent = this.textContent === '🌙' ? '☀️' : '🌙';
+        });
+    </script>
+</body>
+</html>

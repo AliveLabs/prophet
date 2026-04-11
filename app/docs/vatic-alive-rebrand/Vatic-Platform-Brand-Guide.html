@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vatic — Platform Brand Guide</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ====== ROOT DESIGN TOKENS (PROPHET DEFAULT) ====== */
+        :root {
+            /* Background & Foreground */
+            --background: #F6F8FA;
+            --foreground: #2B353F;
+
+            /* Primary Brand */
+            --primary: #2B353F;
+            --primary-foreground: #FFFFFF;
+
+            /* Secondary */
+            --secondary: #F2ECE6;
+            --secondary-foreground: #2B353F;
+
+            /* Destructive */
+            --destructive: #DC2626;
+            --destructive-foreground: #FFFFFF;
+
+            /* Card */
+            --card: #FFFFFF;
+            --card-foreground: #2B353F;
+
+            /* Popover */
+            --popover: #FFFFFF;
+            --popover-foreground: #2B353F;
+
+            /* Muted */
+            --muted: #F2ECE6;
+            --muted-foreground: #726A63;
+
+            /* Accent (Ember — Alive Labs readable Lava) */
+            --accent: #FF7849;
+            --accent-foreground: #FFFFFF;
+
+            /* Border & Input */
+            --border: #F2ECE6;
+            --input: #F2ECE6;
+
+            /* Focus Ring */
+            --ring: #2B353F;
+
+            /* Base Radius */
+            --radius: 0.625rem;
+
+            /* === Extended Brand Palette (Product UI Extensions) === */
+            --forge-amber: #A0522D;
+            --forge-gold: #D4880A;
+            --forge-gold-tint: #FBF0DA;
+            --forge-patina: #34775E;
+            --patina-tint: #E0F0EB;
+            --carbon-light: #3D4B58;
+
+            /* Forge Surface System */
+            --forge-black: #0E0C0A;
+            --forge: #1F1B18;
+            --forge-card: #322A24;
+            --lumen: #F6F8FA;
+            --warm-lumen: #F2ECE6;
+            --carbon: #2B353F;
+
+            /* Interaction State Companions */
+            --ember-deep: #E86535;
+            --forge-gold-deep: #B8710A;
+            --patina-deep: #2A6049;
+            --surface-emphasis: #FBF0DA;
+
+            /* Alive Labs Identity */
+            --lava: #FF4500;
+            --ember: #FF7849;
+            --lava-deep: #B83A00;
+            --glow: #944828;
+
+            /* Semantic Colors */
+            --success: #22C55E;
+            --success-dark: #15803D;
+            --warning: #F59E0B;
+            --warning-dark: #B45309;
+
+            /* Text Colors */
+            --text-light-primary: #2B353F;
+            --text-light-body: #5C5148;
+            --text-light-secondary: #726A63;
+            --text-dark-primary: #F6F8FA;
+            --text-dark-body: #B5ACA4;
+            --text-dark-secondary: #9B9086;
+
+            /* Typography */
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-ui: 'Inter', sans-serif;
+            --font-code: 'Space Mono', monospace;
+
+            /* Shadow Tokens (Light Mode) */
+            --shadow-card-sm: 0 2px 8px -2px rgba(43, 53, 63, 0.08), 0 1px 2px -1px rgba(43, 53, 63, 0.04);
+            --shadow-card-md: 0 4px 16px rgba(14, 12, 10, 0.18), 0 2px 6px rgba(14, 12, 10, 0.10);
+            --shadow-card-lg: 0 12px 40px rgba(14, 12, 10, 0.28), 0 4px 12px rgba(14, 12, 10, 0.14);
+            --shadow-glow-primary-sm: 0 0 12px -2px rgba(43, 53, 63, 0.35);
+            --shadow-glow-primary: 0 0 20px rgba(43, 53, 63, 0.35), 0 0 6px rgba(43, 53, 63, 0.20);
+            --shadow-glow-gold: 0 0 16px rgba(212, 136, 10, 0.30);
+            --shadow-glow-ember: 0 0 16px rgba(255, 120, 73, 0.30);
+            --shadow-glow-patina: 0 0 16px rgba(52, 119, 94, 0.30);
+
+            /* Animation Tokens */
+            --animate-fade-up: fade-up 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            --animate-fade-in: fade-in 200ms ease both;
+            --animate-slide-in-right: slide-in-right 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+            --animate-shimmer: shimmer 1.4s ease infinite;
+            --animate-success-pop: success-pop 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        /* Dark Mode Overrides */
+        .dark {
+            --background: #0E0C0A;
+            --foreground: #F6F8FA;
+            --card: #1F1B18;
+            --card-foreground: #F6F8FA;
+            --popover: #1F1B18;
+            --popover-foreground: #F6F8FA;
+            --primary: #2B353F;
+            --primary-foreground: #FFFFFF;
+            --secondary: #322A24;
+            --secondary-foreground: #B5ACA4;
+            --muted: #322A24;
+            --muted-foreground: #9B9086;
+            --accent: #FF7849;
+            --accent-foreground: #FFFFFF;
+            --destructive: #EF4444;
+            --destructive-foreground: #FFFFFF;
+            --border: #322A24;
+            --input: #322A24;
+            --ring: #FF7849;
+            --forge-patina: #47A280;
+
+            /* Dark Mode Shadow Overrides */
+            --shadow-card-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.35), 0 1px 2px -1px rgba(0, 0, 0, 0.25);
+            --shadow-card-md: 0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.30);
+            --shadow-card-lg: 0 12px 40px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+            --shadow-glow-primary-sm: 0 0 12px -2px rgba(43, 53, 63, 0.50);
+            --shadow-glow-primary: 0 0 20px rgba(43, 53, 63, 0.50), 0 0 6px rgba(43, 53, 63, 0.30);
+        }
+
+        /* Animation Keyframes */
+        @keyframes fade-up {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slide-in-right {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.1);
+            }
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: -1000px 0;
+            }
+            100% {
+                background-position: 1000px 0;
+            }
+        }
+
+        @keyframes success-pop {
+            0% {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* ====== UTILITY CLASSES ====== */
+        .text-gradient-primary {
+            background: linear-gradient(135deg, #2B353F, #3D4B58);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .text-gradient-insight {
+            background: linear-gradient(135deg, #2B353F, #34775E);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-primary {
+            background: rgba(43, 53, 63, 0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(43, 53, 63, 0.25);
+        }
+
+        .glass-gold {
+            background: rgba(212, 136, 10, 0.10);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(212, 136, 10, 0.22);
+        }
+
+        .glass-patina {
+            background: rgba(52, 119, 94, 0.10);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(52, 119, 94, 0.22);
+        }
+
+        .live-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #34775E;
+            animation: var(--animate-pulse-dot);
+        }
+
+        .signal-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #EF4444;
+            animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--muted) 0%, var(--secondary) 50%, var(--muted) 100%);
+            background-size: 200% 100%;
+            animation: var(--animate-shimmer);
+        }
+
+        /* ====== GLOBAL STYLES ====== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-ui);
+            color: var(--foreground);
+            background: var(--background);
+            line-height: 1.6;
+            letter-spacing: 0.01em;
+        }
+
+        /* ====== TYPOGRAPHY ====== */
+        h1 {
+            font-family: var(--font-display);
+            font-size: clamp(40px, 5vw, 52px);
+            font-weight: 500;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            font-family: var(--font-display);
+            font-size: clamp(28px, 4vw, 36px);
+            font-weight: 600;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h3 {
+            font-family: var(--font-ui);
+            font-size: 18px;
+            font-weight: 600;
+            line-height: 1.3;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+        }
+
+        .caption {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-light-secondary);
+        }
+
+        .label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-light-secondary);
+        }
+
+        code {
+            font-family: var(--font-code);
+            background: var(--secondary);
+            color: var(--forge-amber);
+            padding: 2px 6px;
+            border-radius: calc(var(--radius) / 1.2);
+            font-size: 13px;
+        }
+
+        pre {
+            background: var(--forge-card);
+            color: var(--text-dark-body);
+            padding: 1rem;
+            border-radius: var(--radius);
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            border: 1px solid var(--border);
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        /* ====== LAYOUT ====== */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        section {
+            padding: 4rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        section:last-of-type {
+            border-bottom: none;
+        }
+
+        /* ====== NAVBAR ====== */
+        nav {
+            position: sticky;
+            top: 0;
+            background: var(--background);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(246, 248, 250, 0.95);
+        }
+
+        .dark nav {
+            background: rgba(14, 12, 10, 0.95);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+        }
+
+        nav .logo {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        nav a {
+            color: var(--foreground);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav a:hover {
+            color: var(--accent);
+        }
+
+        /* ====== FOCUS STYLES ====== */
+        :focus-visible {
+            outline: 2px solid var(--ring);
+            outline-offset: 2px;
+            border-radius: calc(var(--radius) * 0.4);
+        }
+
+        nav a:focus-visible {
+            outline: 2px solid var(--forge-amber);
+            outline-offset: 3px;
+        }
+
+        button:focus-visible {
+            outline: 2px solid var(--ring);
+            outline-offset: 2px;
+        }
+
+        /* ====== COVER SECTION ====== */
+        #cover {
+            background: var(--forge-black);
+            color: var(--lumen);
+            padding: 6rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            border-bottom: none;
+        }
+
+        #cover .container {
+            position: relative;
+        }
+
+        #cover h1 {
+            color: var(--lumen);
+            margin-bottom: 1rem;
+            position: relative;
+            display: inline-block;
+        }
+
+        #cover .v-mark {
+            display: inline-block;
+            margin: 0 0.5rem;
+            position: relative;
+        }
+
+        #cover .v-mark svg {
+            width: 60px;
+            height: 60px;
+            vertical-align: middle;
+        }
+
+        #cover p {
+            color: var(--warm-lumen);
+            font-size: 18px;
+            max-width: 600px;
+            margin: 2rem auto;
+        }
+
+        /* ====== GENERAL SECTIONS ====== */
+        section h2 {
+            color: var(--primary);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card-sm);
+            transition: all 0.2s;
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-card-md);
+            transform: translateY(-2px);
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        /* ====== COLOR SWATCHES ====== */
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .color-swatch {
+            text-align: center;
+        }
+
+        .color-box {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            margin-bottom: 0.75rem;
+            transition: transform 0.2s;
+        }
+
+        .color-swatch:hover .color-box {
+            transform: scale(1.05);
+        }
+
+        .color-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--foreground);
+            margin-bottom: 0.25rem;
+        }
+
+        .color-hex {
+            font-family: var(--font-code);
+            font-size: 12px;
+            color: var(--text-light-secondary);
+        }
+
+        /* ====== TOKEN TABLES ====== */
+        .token-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .token-table thead {
+            background: var(--secondary);
+        }
+
+        .token-table th {
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--foreground);
+            border-bottom: 2px solid var(--border);
+        }
+
+        .token-table td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .token-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .token-table tbody tr:hover {
+            background: var(--muted);
+        }
+
+        .token-name {
+            font-family: var(--font-code);
+            font-weight: 600;
+            color: var(--forge-amber);
+        }
+
+        .token-value {
+            font-family: var(--font-code);
+            color: var(--foreground);
+        }
+
+        /* ====== CALLOUT ====== */
+        .callout {
+            background: var(--forge-gold-tint);
+            border-left: 4px solid var(--forge-gold);
+            padding: 1.5rem;
+            border-radius: calc(var(--radius) * 0.8);
+            margin: 2rem 0;
+        }
+
+        .dark .callout {
+            background: rgba(212, 136, 10, 0.15);
+            border-left-color: var(--forge-gold);
+        }
+
+        .callout strong {
+            color: var(--primary);
+        }
+
+        /* ====== FOOTER ====== */
+        footer {
+            background: var(--secondary);
+            color: var(--foreground);
+            padding: 2rem;
+            text-align: center;
+            border-top: 1px solid var(--border);
+        }
+
+        footer p {
+            margin: 0;
+            font-size: 13px;
+        }
+
+        /* ====== RESPONSIVE ====== */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            nav .container {
+                padding: 1rem;
+            }
+
+            nav ul {
+                gap: 1rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .color-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .token-table {
+                font-size: 12px;
+            }
+
+            .token-table th,
+            .token-table td {
+                padding: 0.75rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <nav aria-label="Brand guide navigation">
+        <div class="container">
+            <a href="#cover" class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+                    <circle cx="12" cy="8" r="2" fill="#D4880A"/>
+                </svg>
+                Vatic
+            </a>
+            <ul>
+                <li><a href="#strategy">Strategy</a></li>
+                <li><a href="#logo">Logo</a></li>
+                <li><a href="#color">Color</a></li>
+                <li><a href="#typography">Type</a></li>
+                <li><a href="#voice">Voice</a></li>
+                <li><a href="#tokens">Tokens</a></li>
+                <li><a href="#inuse">Usage</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Cover Section -->
+    <section id="cover">
+        <div class="container">
+            <h1>
+                <span class="v-mark">
+                    <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vatic mark">
+                        <title>Vatic mark</title>
+                        <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#F6F8FA" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                        <circle cx="12" cy="8" r="3" fill="#D4880A"/>
+                    </svg>
+                </span>
+                Vatic
+            </h1>
+            <p>Competitive intelligence for the speed of thought. Platform brand identity by Alive Labs.</p>
+        </div>
+    </section>
+
+    <!-- Brand Strategy -->
+    <section id="strategy">
+        <div class="container">
+            <h2>Brand Strategy</h2>
+            <p>Vatic is the competitive intelligence platform that gives you prescient, actionable insight into market movement. We sit between the world's signals and your decision-making, translating complexity into clarity.</p>
+
+            <h3>Strategic Positioning</h3>
+            <p>As a vertical-skinnable platform within Alive Labs, Vatic provides the foundational architecture for competitive intelligence across industries. Each vertical (Ticket, Neat, Forge) inherits the core platform and extends it with domain-specific signals, terminology, and visual identity.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>Prescient</h3>
+                    <p>We predict before others see. Our signal processing delivers forward-looking intelligence that anticipates market movement.</p>
+                </div>
+                <div class="card">
+                    <h3>Direct</h3>
+                    <p>No noise. No interpretation layer. Just the signal and what it means, delivered with precision and clarity.</p>
+                </div>
+                <div class="card">
+                    <h3>Sharp</h3>
+                    <p>Competitive intelligence is a tool for decisive advantage. We're designed for strategists, operators, and decision-makers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Logo System -->
+    <section id="logo">
+        <div class="container">
+            <h2>Logo System</h2>
+            <p>The Vatic mark is a stylized V with an upward vertex, grounded in the Forge palette. The vertex dot marks the point of insight—where data becomes understanding.</p>
+
+            <h3>Primary Mark</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem; margin: 2rem 0;">
+                <div class="card" style="text-align: center;">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto; display: block; margin-bottom: 1rem;" role="img" aria-label="Vatic mark on light background">
+                        <title>Vatic mark on light background</title>
+                        <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#2B353F" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                        <circle cx="12" cy="8" r="3" fill="#D4880A"/>
+                    </svg>
+                    <p class="label">Light Background</p>
+                </div>
+                <div class="card" style="text-align: center; background: #0E0C0A; border-color: #322A24;">
+                    <svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin: 0 auto; display: block; margin-bottom: 1rem;" role="img" aria-label="Vatic mark on dark background">
+                        <title>Vatic mark on dark background</title>
+                        <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#F6F8FA" stroke-width="2" fill="none" stroke-linejoin="round"/>
+                        <circle cx="12" cy="8" r="3" fill="#D4880A"/>
+                    </svg>
+                    <p class="label" style="color: #B5ACA4;">Dark Background</p>
+                </div>
+            </div>
+
+            <h3>Usage Rules</h3>
+            <ul style="margin-left: 1.5rem; line-height: 2;">
+                <li>The mark always includes the vertex dot in Forge Gold (#D4880A)</li>
+                <li>Minimum size: 40px for digital applications, 10mm for print</li>
+                <li>Clear space: 1/4 of mark height on all sides</li>
+                <li>Never scale disproportionately or rotate</li>
+                <li>On light backgrounds: Carbon (#2B353F) arms, Lumen negative space</li>
+                <li>On dark backgrounds: Lumen (#F6F8FA) arms, Forge Black negative space</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Color System -->
+    <section id="color">
+        <div class="container">
+            <h2>Color System</h2>
+            <p>Vatic inherits the foundational Forge color system from Alive Labs, extended with product-specific semantic colors for competitive intelligence signals.</p>
+
+            <h3>Forge Foundation (Inherited from Alive Labs Identity)</h3>
+            <p>These colors form the structural palette shared across all Alive Labs products:</p>
+
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #2B353F;"></div>
+                    <div class="color-name">Carbon</div>
+                    <div class="color-hex">#2B353F</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #3D4B58;"></div>
+                    <div class="color-name">Carbon Light</div>
+                    <div class="color-hex">#3D4B58</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #0E0C0A;"></div>
+                    <div class="color-name">Forge Black</div>
+                    <div class="color-hex">#0E0C0A</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #1F1B18;"></div>
+                    <div class="color-name">Forge</div>
+                    <div class="color-hex">#1F1B18</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #322A24;"></div>
+                    <div class="color-name">Forge Card</div>
+                    <div class="color-hex">#322A24</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F6F8FA;"></div>
+                    <div class="color-name">Lumen</div>
+                    <div class="color-hex">#F6F8FA</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F2ECE6;"></div>
+                    <div class="color-name">Warm Lumen</div>
+                    <div class="color-hex">#F2ECE6</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #5C5148;"></div>
+                    <div class="color-name">Clay</div>
+                    <div class="color-hex">#5C5148</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #8B8178;"></div>
+                    <div class="color-name">Ash</div>
+                    <div class="color-hex">#8B8178</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #B5ACA4;"></div>
+                    <div class="color-name">Warm Smoke</div>
+                    <div class="color-hex">#B5ACA4</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #FF7849;"></div>
+                    <div class="color-name">Ember</div>
+                    <div class="color-hex">#FF7849</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #B83A00;"></div>
+                    <div class="color-name">Lava Deep</div>
+                    <div class="color-hex">#B83A00</div>
+                </div>
+            </div>
+
+            <h3>Product UI Extensions (Vatic-Specific)</h3>
+            <p>These colors extend the Forge system for competitive intelligence signals and interactive states:</p>
+
+            <div class="color-grid">
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #D4880A;"></div>
+                    <div class="color-name">Forge Gold</div>
+                    <div class="color-hex">#D4880A</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #FBF0DA;"></div>
+                    <div class="color-name">Forge Gold Tint</div>
+                    <div class="color-hex">#FBF0DA</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #A0522D;"></div>
+                    <div class="color-name">Forge Amber</div>
+                    <div class="color-hex">#A0522D</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #34775E;"></div>
+                    <div class="color-name">Forge Patina</div>
+                    <div class="color-hex">#34775E</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #E0F0EB;"></div>
+                    <div class="color-name">Patina Tint</div>
+                    <div class="color-hex">#E0F0EB</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #DC2626;"></div>
+                    <div class="color-name">Error</div>
+                    <div class="color-hex">#DC2626</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #22C55E;"></div>
+                    <div class="color-name">Success</div>
+                    <div class="color-hex">#22C55E</div>
+                </div>
+                <div class="color-swatch">
+                    <div class="color-box" style="background: #F59E0B;"></div>
+                    <div class="color-name">Warning</div>
+                    <div class="color-hex">#F59E0B</div>
+                </div>
+            </div>
+
+            <h3>Color Roles</h3>
+            <div class="grid">
+                <div class="card">
+                    <h3>Primary (Carbon)</h3>
+                    <p>Structural color for headlines, primary buttons, focus states, and key UI elements. Paired with white for maximum contrast.</p>
+                </div>
+                <div class="card">
+                    <h3>Accent (Forge Gold)</h3>
+                    <p>Highlights, key stats, vertex dot in logo, interactive elements that need attention. Warm and energetic.</p>
+                </div>
+                <div class="card">
+                    <h3>Data Positive (Forge Patina)</h3>
+                    <p>Success states, positive signals, upward movement. Tinted backgrounds for success alerts.</p>
+                </div>
+                <div class="card">
+                    <h3>Surface System</h3>
+                    <p>Forge Black (base), Forge (elevated), Forge Card (modals/cards), with Lumen and Warm Lumen for light surfaces.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Typography -->
+    <section id="typography">
+        <div class="container">
+            <h2>Typography</h2>
+            <p>Vatic uses three typeface families, each with a specific role in the information hierarchy and user experience.</p>
+
+            <h3>Display Font: Space Grotesk</h3>
+            <p>A geometric sans-serif used for headlines, cover text, and moments requiring bold visual presence. Weights: 300–700.</p>
+            <p style="font-family: var(--font-display); font-size: 28px; font-weight: 500; margin: 1.5rem 0;">Vatic brings clarity to competitive noise.</p>
+
+            <h3>UI Font: Inter</h3>
+            <p>The primary typeface for body text, labels, and interface elements. Highly legible at small sizes with balanced letterforms. Weights: 300–700.</p>
+            <p style="font-family: var(--font-ui); font-size: 16px; font-weight: 400; margin: 1.5rem 0;">Inter scales perfectly from 12px captions to 18px body text. Its neutral character supports rapid scanning and deep reading.</p>
+
+            <h3>Code Font: Space Mono</h3>
+            <p>A monospace typeface for code blocks, technical documentation, and token names. Weights: 400, 700.</p>
+            <p style="font-family: var(--font-code); font-size: 14px; margin: 1.5rem 0;"><code>--primary: #2B353F; --accent: #FF7849;</code></p>
+
+            <h3>Scale & Weight Matrix</h3>
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Role</th>
+                        <th>Font</th>
+                        <th>Size</th>
+                        <th>Weight</th>
+                        <th>Line Height</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Headline 1</td>
+                        <td>Space Grotesk</td>
+                        <td>40–52px</td>
+                        <td>500</td>
+                        <td>1.1</td>
+                    </tr>
+                    <tr>
+                        <td>Headline 2</td>
+                        <td>Space Grotesk</td>
+                        <td>28–36px</td>
+                        <td>600</td>
+                        <td>1.2</td>
+                    </tr>
+                    <tr>
+                        <td>Headline 3</td>
+                        <td>Inter</td>
+                        <td>18px</td>
+                        <td>600</td>
+                        <td>1.3</td>
+                    </tr>
+                    <tr>
+                        <td>Body</td>
+                        <td>Inter</td>
+                        <td>15px</td>
+                        <td>500</td>
+                        <td>1.6</td>
+                    </tr>
+                    <tr>
+                        <td>Caption</td>
+                        <td>Inter</td>
+                        <td>12px</td>
+                        <td>500</td>
+                        <td>1.4</td>
+                    </tr>
+                    <tr>
+                        <td>Label</td>
+                        <td>Inter</td>
+                        <td>10px</td>
+                        <td>600</td>
+                        <td>1.2</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Brand Voice -->
+    <section id="voice">
+        <div class="container">
+            <h2>Brand Voice & Tone</h2>
+            <p>Vatic's voice is prescient, direct, and sharp. We speak to strategists and operators who value clarity over comfort, insight over interpretation.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h3>Prescient</h3>
+                    <p><strong>We anticipate.</strong> Our language signals forward motion, pattern recognition, and the ability to see what others miss. "Market shift detected." "Competitor expanding into adjacent segment."</p>
+                </div>
+                <div class="card">
+                    <h3>Direct</h3>
+                    <p><strong>No layer of interpretation.</strong> We say what the signal means without hedging or softening. "This matters." "Act on this." Verbs before adjectives. Precision before politeness.</p>
+                </div>
+                <div class="card">
+                    <h3>Sharp</h3>
+                    <p><strong>Competitive advantage is earned.</strong> Our tone respects the user's intelligence and their need for speed. Short sentences. Active voice. Word economy.</p>
+                </div>
+            </div>
+
+            <h3>Example Microcopy</h3>
+            <div class="grid">
+                <div class="card">
+                    <p><strong>Alert header:</strong> "Competitor pricing shift detected"</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary);"><strong>Not:</strong> "We noticed a competitor's pricing may have changed"</p>
+                </div>
+                <div class="card">
+                    <p><strong>CTA:</strong> "View full competitive analysis"</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary);"><strong>Not:</strong> "Click here to see more information"</p>
+                </div>
+                <div class="card">
+                    <p><strong>Empty state:</strong> "No signals yet. Expand your tracking scope."</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary);"><strong>Not:</strong> "There are no items to display at this time"</p>
+                </div>
+                <div class="card">
+                    <p><strong>Error recovery:</strong> "Signal ingestion paused. Reconnect your data source."</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary);"><strong>Not:</strong> "Error: Unable to retrieve data"</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Personality & Microcopy -->
+    <section id="personality">
+        <div class="container">
+            <h2>Personality & Microcopy Patterns</h2>
+            <p>Each interaction with Vatic should feel intelligent, fast, and purposeful. Microcopy guides without hand-holding.</p>
+
+            <h3>Patterns by Context</h3>
+            <div class="grid">
+                <div class="card">
+                    <h3>Onboarding</h3>
+                    <p><strong>"Set up your first signal."</strong> Action-oriented. We're starting somewhere.</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary); margin-top: 0.5rem;">vs. "Welcome to Vatic! Let's get you started."</p>
+                </div>
+                <div class="card">
+                    <h3>Confirmation</h3>
+                    <p><strong>"Tracking 12 competitors in Energy sector."</strong> Specific, concrete, shows what was done.</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary); margin-top: 0.5rem;">vs. "Successfully added!"</p>
+                </div>
+                <div class="card">
+                    <h3>Guidance</h3>
+                    <p><strong>"Add >5 competitors for stronger signals."</strong> Helpful constraint, not a scolding.</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary); margin-top: 0.5rem;">vs. "Please add more competitors."</p>
+                </div>
+                <div class="card">
+                    <h3>Urgency</h3>
+                    <p><strong>"Major shift in competitor Q2 roadmap."</strong> Signal strength is implied by specificity.</p>
+                    <p style="font-size: 13px; color: var(--text-light-secondary); margin-top: 0.5rem;">vs. "URGENT: Something important!"</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skinning Architecture (Most Important) -->
+    <section id="tokens">
+        <div class="container">
+            <h2>Skinning Architecture</h2>
+            <p>This section defines the complete token contract for Vatic. Engineers implementing vertical skins (Ticket, Neat) override these CSS custom properties at :root and .dark, leaving component logic and animation definitions unchanged.</p>
+
+            <div class="callout">
+                <strong>Token Contract:</strong> Vertical skins inherit the platform architecture and customize only the design tokens (colors, sizes, typography families). All HTML structure, component behavior, and responsive logic remain constant.
+            </div>
+
+            <h3>Prophet :root Tokens (Light Mode Defaults)</h3>
+            <p>These 34+ custom properties define the light mode palette and sizing. Vertical skins override values while preserving names.</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Token Name</th>
+                        <th>Value</th>
+                        <th>Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-name">--background</span></td>
+                        <td><span class="token-value">#F6F8FA</span></td>
+                        <td>Primary page background (Lumen)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--foreground</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Primary text color (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--primary</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Primary button, structural color (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--primary-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>Text on primary (white)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--secondary</span></td>
+                        <td><span class="token-value">#F2ECE6</span></td>
+                        <td>Secondary surface (Warm Lumen)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--secondary-foreground</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Text on secondary (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--destructive</span></td>
+                        <td><span class="token-value">#DC2626</span></td>
+                        <td>Error/delete states</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--destructive-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>Text on destructive</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--card</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>Card/modal background (white)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--card-foreground</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Text in cards (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--popover</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>Tooltip/popover background</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--popover-foreground</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Text in popovers (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--muted</span></td>
+                        <td><span class="token-value">#F2ECE6</span></td>
+                        <td>Disabled/secondary background (Warm Lumen)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--muted-foreground</span></td>
+                        <td><span class="token-value">#726A63</span></td>
+                        <td>Disabled/secondary text (Ash, darkened for AA)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--accent</span></td>
+                        <td><span class="token-value">#FF7849</span></td>
+                        <td>Primary accent — Ember (Alive Labs readable Lava)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--accent-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>Text on accent (white)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--border</span></td>
+                        <td><span class="token-value">#F2ECE6</span></td>
+                        <td>Border color (Warm Lumen)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--input</span></td>
+                        <td><span class="token-value">#F2ECE6</span></td>
+                        <td>Input field background (Warm Lumen)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--ring</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Focus ring color (Carbon)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--radius</span></td>
+                        <td><span class="token-value">0.625rem</span></td>
+                        <td>Base border radius (10px)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-amber</span></td>
+                        <td><span class="token-value">#A0522D</span></td>
+                        <td>Links, interactive text</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-gold</span></td>
+                        <td><span class="token-value">#D4880A</span></td>
+                        <td>Data highlights, stat callouts, vertex dot</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-gold-tint</span></td>
+                        <td><span class="token-value">#FBF0DA</span></td>
+                        <td>Alert/warning light backgrounds</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-patina</span></td>
+                        <td><span class="token-value">#34775E</span></td>
+                        <td>Data, positive signals</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--patina-tint</span></td>
+                        <td><span class="token-value">#E0F0EB</span></td>
+                        <td>Success light backgrounds</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--carbon-light</span></td>
+                        <td><span class="token-value">#3D4B58</span></td>
+                        <td>Primary hover state</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--ember-deep</span></td>
+                        <td><span class="token-value">#E86535</span></td>
+                        <td>Ember hover/active state</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-gold-deep</span></td>
+                        <td><span class="token-value">#B8710A</span></td>
+                        <td>Gold hover/active state</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--patina-deep</span></td>
+                        <td><span class="token-value">#2A6049</span></td>
+                        <td>Patina hover/active state</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--surface-emphasis</span></td>
+                        <td><span class="token-value">#FBF0DA</span></td>
+                        <td>Emphasis surface (decoupled from gold-tint semantic)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-black</span></td>
+                        <td><span class="token-value">#0E0C0A</span></td>
+                        <td>Base dark surface</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge</span></td>
+                        <td><span class="token-value">#1F1B18</span></td>
+                        <td>Elevated dark surface (+1)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-card</span></td>
+                        <td><span class="token-value">#322A24</span></td>
+                        <td>Dark cards/modals (+2), dark borders</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--lumen</span></td>
+                        <td><span class="token-value">#F6F8FA</span></td>
+                        <td>Primary light surface</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--warm-lumen</span></td>
+                        <td><span class="token-value">#F2ECE6</span></td>
+                        <td>Warm tinted light surface</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--carbon</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Primary structural color</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--lava</span></td>
+                        <td><span class="token-value">#FF4500</span></td>
+                        <td>Alive Labs corporate accent (reserved)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--ember</span></td>
+                        <td><span class="token-value">#FF7849</span></td>
+                        <td>Badges, notification dots, secondary CTA accent, dark-mode focus ring</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--lava-deep</span></td>
+                        <td><span class="token-value">#B83A00</span></td>
+                        <td>Deep warm tone (hover/active states)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--glow</span></td>
+                        <td><span class="token-value">#944828</span></td>
+                        <td>Warm midtone for depth</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--success</span></td>
+                        <td><span class="token-value">#22C55E</span></td>
+                        <td>Success/positive semantic color</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--warning</span></td>
+                        <td><span class="token-value">#F59E0B</span></td>
+                        <td>Warning semantic color</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-sm</span></td>
+                        <td><span class="token-value">0 2px 8px -2px rgba(43, 53, 63, 0.08), 0 1px 2px -1px rgba(43, 53, 63, 0.04)</span></td>
+                        <td>Small card shadow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-md</span></td>
+                        <td><span class="token-value">0 4px 16px rgba(14, 12, 10, 0.18), 0 2px 6px rgba(14, 12, 10, 0.10)</span></td>
+                        <td>Medium card shadow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-lg</span></td>
+                        <td><span class="token-value">0 12px 40px rgba(14, 12, 10, 0.28), 0 4px 12px rgba(14, 12, 10, 0.14)</span></td>
+                        <td>Large card shadow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-primary-sm</span></td>
+                        <td><span class="token-value">0 0 12px -2px rgba(43, 53, 63, 0.35)</span></td>
+                        <td>Small primary glow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-primary</span></td>
+                        <td><span class="token-value">0 0 20px rgba(43, 53, 63, 0.35), 0 0 6px rgba(43, 53, 63, 0.20)</span></td>
+                        <td>Primary glow (focus, hover)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-gold</span></td>
+                        <td><span class="token-value">0 0 16px rgba(212, 136, 10, 0.30)</span></td>
+                        <td>Gold accent glow</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-patina</span></td>
+                        <td><span class="token-value">0 0 16px rgba(61, 139, 110, 0.30)</span></td>
+                        <td>Patina/success glow</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Prophet .dark Override Tokens</h3>
+            <p>The .dark class on body or root element switches to dark mode. All 20 properties listed below override their :root values:</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Token Name</th>
+                        <th>Dark Mode Value</th>
+                        <th>Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-name">--background</span></td>
+                        <td><span class="token-value">#0E0C0A</span></td>
+                        <td>Forge Black</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--foreground</span></td>
+                        <td><span class="token-value">#F6F8FA</span></td>
+                        <td>Lumen</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--card</span></td>
+                        <td><span class="token-value">#1F1B18</span></td>
+                        <td>Forge</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--card-foreground</span></td>
+                        <td><span class="token-value">#F6F8FA</span></td>
+                        <td>Lumen</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--popover</span></td>
+                        <td><span class="token-value">#1F1B18</span></td>
+                        <td>Forge</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--popover-foreground</span></td>
+                        <td><span class="token-value">#F6F8FA</span></td>
+                        <td>Lumen</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--primary</span></td>
+                        <td><span class="token-value">#2B353F</span></td>
+                        <td>Carbon (unchanged)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--primary-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>White (unchanged)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--secondary</span></td>
+                        <td><span class="token-value">#322A24</span></td>
+                        <td>Forge Card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--secondary-foreground</span></td>
+                        <td><span class="token-value">#B5ACA4</span></td>
+                        <td>Warm Smoke</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--muted</span></td>
+                        <td><span class="token-value">#322A24</span></td>
+                        <td>Forge Card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--muted-foreground</span></td>
+                        <td><span class="token-value">#9B9086</span></td>
+                        <td>Warm Smoke (lightened for AA on dark)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--accent</span></td>
+                        <td><span class="token-value">#FF7849</span></td>
+                        <td>Ember (unchanged from light)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--accent-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>White (unchanged from light)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--destructive</span></td>
+                        <td><span class="token-value">#EF4444</span></td>
+                        <td>Error red (unchanged)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--destructive-foreground</span></td>
+                        <td><span class="token-value">#FFFFFF</span></td>
+                        <td>White (unchanged)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--border</span></td>
+                        <td><span class="token-value">#322A24</span></td>
+                        <td>Forge Card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--input</span></td>
+                        <td><span class="token-value">#322A24</span></td>
+                        <td>Forge Card</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--ring</span></td>
+                        <td><span class="token-value">#FF7849</span></td>
+                        <td>Ember (visible on dark)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--forge-patina</span></td>
+                        <td><span class="token-value">#47A280</span></td>
+                        <td>Lightened for AA on dark surfaces</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Dark Mode Shadow Overrides</h3>
+            <p>Only the shadow tokens listed change in .dark mode. Others (glow-gold, glow-patina, animate-*) remain unchanged:</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Token Name</th>
+                        <th>Dark Mode Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-sm</span></td>
+                        <td><span class="token-value">0 2px 8px -2px rgba(0, 0, 0, 0.35), 0 1px 2px -1px rgba(0, 0, 0, 0.25)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-md</span></td>
+                        <td><span class="token-value">0 4px 16px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.30)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-card-lg</span></td>
+                        <td><span class="token-value">0 12px 40px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-primary-sm</span></td>
+                        <td><span class="token-value">0 0 12px -2px rgba(43, 53, 63, 0.50)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--shadow-glow-primary</span></td>
+                        <td><span class="token-value">0 0 20px rgba(43, 53, 63, 0.50), 0 0 6px rgba(43, 53, 63, 0.30)</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Animation Tokens</h3>
+            <p>These tokens define animation durations, timing functions, and keyframe names. Use them with the <code>animation</code> property:</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Token Name</th>
+                        <th>Value</th>
+                        <th>Use Case</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-name">--animate-fade-up</span></td>
+                        <td><span class="token-value">fade-up 320ms cubic-bezier(0.16, 1, 0.3, 1) both</span></td>
+                        <td>Entrance from below</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--animate-fade-in</span></td>
+                        <td><span class="token-value">fade-in 200ms ease both</span></td>
+                        <td>Quick opacity reveal</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--animate-slide-in-right</span></td>
+                        <td><span class="token-value">slide-in-right 280ms cubic-bezier(0.16, 1, 0.3, 1) both</span></td>
+                        <td>Entrance from left</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--animate-pulse-dot</span></td>
+                        <td><span class="token-value">pulse-dot 2s ease-in-out infinite</span></td>
+                        <td>Live indicator, live dots</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--animate-shimmer</span></td>
+                        <td><span class="token-value">shimmer 1.4s ease infinite</span></td>
+                        <td>Skeleton loaders, placeholder pulse</td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">--animate-success-pop</span></td>
+                        <td><span class="token-value">success-pop 400ms cubic-bezier(0.16, 1, 0.3, 1) both</span></td>
+                        <td>Confirmation checkmark, success alerts</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Utility Classes</h3>
+            <p>These pre-built classes encapsulate common patterns. Use them by adding the class to an element:</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Class Name</th>
+                        <th>Purpose</th>
+                        <th>Example HTML</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-name">.text-gradient-primary</span></td>
+                        <td>Gradient text from Carbon to Carbon Light</td>
+                        <td><code>&lt;h2 class="text-gradient-primary"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.text-gradient-insight</span></td>
+                        <td>Gradient text from Carbon to Forge Patina</td>
+                        <td><code>&lt;h3 class="text-gradient-insight"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.glass-card</span></td>
+                        <td>Frosted glass effect for overlays</td>
+                        <td><code>&lt;div class="glass-card"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.glass-primary</span></td>
+                        <td>Glass with primary color tint</td>
+                        <td><code>&lt;div class="glass-primary"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.glass-gold</span></td>
+                        <td>Glass with gold accent tint</td>
+                        <td><code>&lt;div class="glass-gold"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.glass-patina</span></td>
+                        <td>Glass with patina/success tint</td>
+                        <td><code>&lt;div class="glass-patina"&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.live-dot</span></td>
+                        <td>8px pulsing dot in Forge Patina</td>
+                        <td><code>&lt;span class="live-dot"&gt;&lt;/span&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.signal-dot</span></td>
+                        <td>8px pulsing dot in Error red (slower)</td>
+                        <td><code>&lt;span class="signal-dot"&gt;&lt;/span&gt;</code></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-name">.skeleton</span></td>
+                        <td>Shimmer gradient for placeholder</td>
+                        <td><code>&lt;div class="skeleton"&gt;&lt;/div&gt;</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Token Migration Guide</h3>
+            <p>When updating an existing Vatic or Prophet skin, reference this mapping from old tokens to new ones:</p>
+
+            <table class="token-table">
+                <thead>
+                    <tr>
+                        <th>Old Token Name</th>
+                        <th>Old Value</th>
+                        <th>New Token Name</th>
+                        <th>New Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="token-value">--primary</span></td>
+                        <td><span class="token-value">--vatic-indigo (removed)</span></td>
+                        <td><span class="token-name">--primary</span></td>
+                        <td><span class="token-value">#2B353F (Carbon)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--accent</span></td>
+                        <td><span class="token-value">#F2A11E (old gold)</span></td>
+                        <td><span class="token-name">--accent</span></td>
+                        <td><span class="token-value">#FF7849 (Ember)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--signal-teal</span></td>
+                        <td><span class="token-value">#0D9488 (removed)</span></td>
+                        <td><span class="token-name">--forge-patina</span></td>
+                        <td><span class="token-value">#34775E (Forge Patina)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--accent-light</span></td>
+                        <td><span class="token-value">#FFF3D6 (removed)</span></td>
+                        <td><span class="token-name">--forge-gold-tint</span></td>
+                        <td><span class="token-value">#FBF0DA</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--signal-teal-light</span></td>
+                        <td><span class="token-value">#D6F5F1 (removed)</span></td>
+                        <td><span class="token-name">--patina-tint</span></td>
+                        <td><span class="token-value">#E0F0EB</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--primary-hover</span></td>
+                        <td><span class="token-value">#3D4B58 (removed)</span></td>
+                        <td><span class="token-name">--carbon-light</span></td>
+                        <td><span class="token-value">#3D4B58</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="token-value">--shadow-*</span></td>
+                        <td><span class="token-value">Non-standard names</span></td>
+                        <td><span class="token-name">--shadow-card-sm/md/lg</span></td>
+                        <td><span class="token-value">Prophet naming</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="callout">
+                <strong>Implementation Note for Engineers:</strong> After updating tokens in :root and .dark, run a visual regression test to ensure shadow depth, glassmorphism overlays, and animation timing feel consistent. Vertical skins should never modify component HTML structure or animation keyframes.
+            </div>
+        </div>
+    </section>
+
+    <!-- Brand In Use -->
+    <section id="inuse">
+        <div class="container">
+            <h2>Brand in Use</h2>
+            <p>Real-world examples showing Vatic's design system in action. These mockups demonstrate the complete palette, typography, and interaction patterns.</p>
+
+            <h3>Alert: Competitor Signal</h3>
+            <div class="card" style="background: var(--forge-gold-tint); border: 1px solid var(--accent); border-left: 4px solid var(--accent);">
+                <div style="display: flex; align-items: flex-start; gap: 1rem;">
+                    <div class="signal-dot" style="margin-top: 3px; flex-shrink: 0;"></div>
+                    <div style="flex: 1;">
+                        <h3 style="margin-top: 0; margin-bottom: 0.5rem;">Market shift detected</h3>
+                        <p style="margin-bottom: 0.75rem; color: var(--text-light-body);">Competitor has launched pricing in Enterprise tier. 48% higher than current market average.</p>
+                        <button tabindex="-1" aria-hidden="true" style="background: var(--primary); color: white; border: none; padding: 0.5rem 1rem; border-radius: calc(var(--radius) * 0.8); cursor: default; font-weight: 600; font-size: 13px;">View Analysis</button>
+                    </div>
+                </div>
+            </div>
+
+            <h3>Dashboard: Competitive Landscape</h3>
+            <div style="margin: 2rem 0; padding: 2rem; background: var(--secondary); border-radius: var(--radius); border: 1px solid var(--border);">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                    <div style="padding: 1.5rem; background: white; border-radius: calc(var(--radius) * 0.8); border: 1px solid var(--border);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-light-secondary); text-transform: uppercase; margin-bottom: 0.75rem;">Tracked Competitors</div>
+                        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 600; color: var(--primary); margin-bottom: 0.5rem;">12</div>
+                        <div style="font-size: 13px; color: var(--text-light-body);">+3 this month</div>
+                    </div>
+                    <div style="padding: 1.5rem; background: white; border-radius: calc(var(--radius) * 0.8); border: 1px solid var(--border);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-light-secondary); text-transform: uppercase; margin-bottom: 0.75rem;">Active Signals</div>
+                        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 600;">
+                            <span style="color: var(--accent);">7</span>
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-light-body);">2 High Priority</div>
+                    </div>
+                    <div style="padding: 1.5rem; background: white; border-radius: calc(var(--radius) * 0.8); border: 1px solid var(--border);">
+                        <div style="font-size: 12px; font-weight: 600; color: var(--text-light-secondary); text-transform: uppercase; margin-bottom: 0.75rem;">Resolved This Week</div>
+                        <div style="font-family: var(--font-display); font-size: 32px; font-weight: 600; color: var(--forge-patina);">5</div>
+                        <div style="font-size: 13px; color: var(--text-light-body);">Actionable insights</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Usage Don'ts -->
+    <section id="donts">
+        <div class="container">
+            <h2>Usage Don'ts</h2>
+            <p>Protect the brand by avoiding these mistakes:</p>
+
+            <div class="grid">
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't mix palettes</h3>
+                    <p>The old Vatic indigo (#5B4FFF) and teal (#0D9488) are deprecated. Use Carbon and Forge Patina instead.</p>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't override base tokens</h3>
+                    <p>If you're implementing a skin, override :root and .dark values only. Don't change component structure or animation definitions.</p>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't use Lava (#FF4500)</h3>
+                    <p>Lava is reserved for Alive Labs corporate/display contexts. Use Ember (#FF7849) for warm accent needs in Vatic.</p>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't reduce contrast below WCAG AA</h3>
+                    <p>All foreground-on-background combinations must meet 4.5:1 minimum. Test with color contrast checkers before shipping.</p>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't skip dark mode testing</h3>
+                    <p>The .dark override block must be tested with every UI change. Dark mode is not optional.</p>
+                </div>
+                <div class="card" style="border-left: 4px solid var(--destructive);">
+                    <h3 style="color: var(--destructive);">Don't add unsanctioned colors</h3>
+                    <p>If you need a new color, propose it in the Alive Labs Design System first. Colors are intentional.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>Vatic Platform Brand Guide — Alive Labs 2026. Maintained by Design Systems team.</p>
+    </footer>
+</body>
+
+</html>

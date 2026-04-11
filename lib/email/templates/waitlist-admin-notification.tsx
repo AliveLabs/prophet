@@ -66,7 +66,7 @@ const ctaContainer = {
 }
 
 const ctaButton = {
-  backgroundColor: "#00BFA6",
+  backgroundColor: "#FF7849",
   color: "#FFFFFF",
   padding: "14px 36px",
   borderRadius: "8px",

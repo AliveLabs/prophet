@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vatic — Predictive AI Competitive Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F6F8FA;
+      color: #2B353F;
+      line-height: 1.6;
+    }
+
+    /* Typography */
+    h1, h2, h3, h4 {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    h1 {
+      font-size: 4rem;
+      font-weight: 600;
+      line-height: 1.1;
+      color: #2B353F;
+    }
+
+    h2 {
+      font-size: 2.5rem;
+      font-weight: 600;
+      line-height: 1.2;
+      color: #2B353F;
+    }
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #2B353F;
+    }
+
+    .label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #726A63;
+    }
+
+    body-text {
+      font-size: 1rem;
+      color: #5C5148;
+    }
+
+    .muted {
+      color: #726A63;
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(246, 248, 250, 0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #F2ECE6;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: #2B353F;
+      text-decoration: none;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 3rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: #2B353F;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    .nav-links a:hover {
+      color: #FF7849;
+    }
+
+    .nav-cta {
+      background: #2B353F;
+      color: #FFFFFF;
+      padding: 0.625rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.3s ease;
+      border: 1px solid #2B353F;
+    }
+
+    .nav-cta:hover {
+      background: #1a2228;
+      border-color: #1a2228;
+    }
+
+    .nav-cta:focus-visible {
+      outline: 2px solid #2B353F;
+      outline-offset: 2px;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 6rem 2rem;
+      background: #F6F8FA;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .hero-content h1 {
+      font-style: italic;
+      margin-bottom: 1.5rem;
+      line-height: 1.15;
+    }
+
+    .hero-subtitle {
+      color: #5C5148;
+      font-size: 1.125rem;
+      margin-bottom: 2rem;
+      line-height: 1.7;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 3rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 0.75rem 1.75rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      display: inline-block;
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .btn-primary {
+      background: #2B353F;
+      color: #FFFFFF;
+      border-color: #2B353F;
+    }
+
+    .btn-primary:hover {
+      background: #1a2228;
+      border-color: #1a2228;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: #2B353F;
+      border-color: #2B353F;
+    }
+
+    .btn-secondary:hover {
+      background: #F2ECE6;
+      border-color: #2B353F;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid #2B353F;
+      outline-offset: 2px;
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      text-align: left;
+    }
+
+    .stat-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: #2B353F;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: #726A63;
+      margin-top: 0.25rem;
+    }
+
+    .hero-visual {
+      position: relative;
+    }
+
+    .dashboard-card {
+      background: #FFFFFF;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      border-left: 3px solid #F2ECE6;
+      box-shadow: 0 2px 8px -2px rgba(43, 53, 63, 0.08), 0 1px 2px -1px rgba(43, 53, 63, 0.04);
+      transition: box-shadow 0.3s ease;
+    }
+
+    .dashboard-card:hover {
+      box-shadow: 0 4px 16px rgba(14, 12, 10, 0.12);
+    }
+
+    .mini-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .mini-stat {
+      background: #F6F8FA;
+      padding: 0.875rem;
+      border-radius: 0.375rem;
+      text-align: center;
+    }
+
+    .mini-stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #2B353F;
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .mini-stat-label {
+      font-size: 0.7rem;
+      color: #726A63;
+      margin-top: 0.25rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .mini-stat.patina .mini-stat-value {
+      color: #34775E;
+    }
+
+    .sparkline {
+      height: 40px;
+      margin: 1rem 0;
+    }
+
+    .live-signals {
+      background: #FBF0DA;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      border-left: 3px solid #FF7849;
+    }
+
+    .signal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: #34775E;
+      border-radius: 50%;
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .signal-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #A0522D;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .signal-text {
+      font-size: 0.875rem;
+      color: #2B353F;
+      font-weight: 500;
+    }
+
+    /* Signal vs Noise Section */
+    .signal-noise {
+      background: #FFFFFF;
+      padding: 6rem 2rem;
+    }
+
+    .section-content {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .signal-noise h2 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .signal-noise-text {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      margin-bottom: 3rem;
+    }
+
+    .signal-noise-text p {
+      color: #5C5148;
+      font-size: 1.05rem;
+      line-height: 1.8;
+    }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .pipeline-stage {
+      background: #FFFFFF;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      text-align: center;
+      box-shadow: 0 2px 8px -2px rgba(43, 53, 63, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .pipeline-stage:hover {
+      box-shadow: 0 4px 16px rgba(14, 12, 10, 0.12);
+    }
+
+    .pipeline-stage.raw {
+      border-top: 3px solid #726A63;
+    }
+
+    .pipeline-stage.signal {
+      border-top: 3px solid #FF7849;
+      background: #FFFFFF;
+    }
+
+    .pipeline-stage.action {
+      border-top: 3px solid #B83A00;
+      background: #FFFFFF;
+    }
+
+    .pipeline-stage h4 {
+      font-size: 1rem;
+      color: #2B353F;
+      margin-bottom: 0.5rem;
+    }
+
+    .pipeline-stage p {
+      font-size: 0.875rem;
+      color: #726A63;
+    }
+
+    .insight-callout {
+      background: #FBF0DA;
+      border-left: 4px solid #FF7849;
+      padding: 1.5rem 2rem;
+      border-radius: 0.375rem;
+      text-align: center;
+    }
+
+    .insight-callout p {
+      color: #2B353F;
+      font-weight: 600;
+      font-size: 1.125rem;
+    }
+
+    /* How It Works Section */
+    .how-it-works {
+      background: #F6F8FA;
+      padding: 6rem 2rem;
+    }
+
+    .how-it-works .label {
+      display: block;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .how-it-works h2 {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    .how-subtitle {
+      text-align: center;
+      color: #5C5148;
+      font-size: 1.125rem;
+      margin-bottom: 3rem;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .step-card {
+      background: #FFFFFF;
+      padding: 2rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 8px -2px rgba(43, 53, 63, 0.08);
+      transition: all 0.3s ease;
+    }
+
+    .step-card:hover {
+      box-shadow: 0 4px 16px rgba(14, 12, 10, 0.12);
+    }
+
+    .step-card:nth-child(1) {
+      border-top: 3px solid #FF7849;
+    }
+
+    .step-card:nth-child(2) {
+      border-top: 3px solid #D4880A;
+    }
+
+    .step-card:nth-child(3) {
+      border-top: 3px solid #FF7849;
+    }
+
+    .step-number {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #FF7849;
+      font-family: 'Space Grotesk', sans-serif;
+      margin-bottom: 1rem;
+    }
+
+    .step-card:nth-child(2) .step-number {
+      color: #D4880A;
+    }
+
+    .step-card:nth-child(3) .step-number {
+      color: #FF7849;
+    }
+
+    .step-card h3 {
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .step-card p {
+      color: #5C5148;
+      font-size: 0.95rem;
+      line-height: 1.7;
+    }
+
+    /* Intelligence Channels */
+    .channels {
+      background: #FFFFFF;
+      padding: 6rem 2rem;
+    }
+
+    .channels h2 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .channels-subtitle {
+      text-align: center;
+      color: #5C5148;
+      font-size: 1.125rem;
+      margin-bottom: 3rem;
+    }
+
+    .channels-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .channel-card {
+      background: #FFFFFF;
+      padding: 1.75rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 2px 8px -2px rgba(43, 53, 63, 0.08);
+      transition: all 0.3s ease;
+      border-left: 4px solid #2B353F;
+    }
+
+    .channel-card:nth-child(1) {
+      border-left-color: #FF7849;
+    }
+
+    .channel-card:nth-child(2) {
+      border-left-color: #D4880A;
+    }
+
+    .channel-card:nth-child(3) {
+      border-left-color: #A0522D;
+    }
+
+    .channel-card:nth-child(4) {
+      border-left-color: #FF7849;
+    }
+
+    .channel-card:nth-child(5) {
+      border-left-color: #D4880A;
+    }
+
+    .channel-card:nth-child(6) {
+      border-left-color: #A0522D;
+    }
+
+    .channel-card:hover {
+      box-shadow: 0 4px 16px rgba(14, 12, 10, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .channel-card:nth-child(1):hover,
+    .channel-card:nth-child(4):hover {
+      box-shadow: 0 4px 16px rgba(255, 120, 73, 0.18);
+    }
+
+    .channel-card:nth-child(2):hover,
+    .channel-card:nth-child(5):hover {
+      box-shadow: 0 4px 16px rgba(212, 136, 10, 0.18);
+    }
+
+    .channel-card:nth-child(3):hover,
+    .channel-card:nth-child(6):hover {
+      box-shadow: 0 4px 16px rgba(160, 82, 45, 0.18);
+    }
+
+    .channel-card h3 {
+      font-size: 1.125rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .channel-card p {
+      color: #5C5148;
+      font-size: 0.9rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+
+    .channel-visual {
+      height: 80px;
+      background: #F6F8FA;
+      border-radius: 0.375rem;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-around;
+      padding: 1rem 0.5rem;
+    }
+
+    .vis-bar {
+      width: 6px;
+      background: #D4880A;
+      border-radius: 2px;
+    }
+
+    .channel-card:nth-child(2) .vis-bar {
+      background: #D4880A;
+    }
+
+    .channel-card:nth-child(3) .vis-bar {
+      background: #A0522D;
+    }
+
+    .channel-card:nth-child(4) .vis-bar {
+      background: #D4880A;
+    }
+
+    .channel-card:nth-child(5) .vis-bar {
+      background: #D4880A;
+    }
+
+    .channel-card:nth-child(6) .vis-bar {
+      background: #A0522D;
+    }
+
+    /* Stats Section — dark inversion for visual tension */
+    .stats-section {
+      background: #2B353F;
+      padding: 6rem 2rem;
+    }
+
+    .stats-label {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      color: #9B9086;
+    }
+
+    .stats-section h2 {
+      text-align: center;
+      margin-bottom: 3rem;
+      color: #F6F8FA;
+    }
+
+    .stats-grid {
+      background: rgba(255, 255, 255, 0.06);
+      border-top: 2px solid #D4880A;
+      padding: 3rem 2rem;
+      border-radius: 0.5rem;
+      margin-bottom: 2rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 2rem;
+      text-align: center;
+    }
+
+    .stats-grid .stat-value {
+      font-size: 2rem;
+      color: #F6F8FA;
+    }
+
+    .stats-grid .stat-label {
+      font-size: 0.85rem;
+      color: #9B9086;
+    }
+
+    .stats-power {
+      text-align: center;
+      color: #9B9086;
+      font-size: 0.9rem;
+    }
+
+    /* Pricing Section */
+    .pricing {
+      background: #F6F8FA;
+      padding: 6rem 2rem;
+    }
+
+    .pricing-header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .pricing-header h2 {
+      margin-bottom: 0.5rem;
+    }
+
+    .pricing-subtitle {
+      color: #5C5148;
+      font-size: 1.125rem;
+    }
+
+    .pricing-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .pricing-card {
+      background: #FFFFFF;
+      border-radius: 0.5rem;
+      padding: 2rem;
+      box-shadow: 0 2px 8px -2px rgba(43, 53, 63, 0.08);
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .pricing-card:hover {
+      box-shadow: 0 4px 16px rgba(14, 12, 10, 0.12);
+    }
+
+    .pricing-card.featured {
+      background: #2B353F;
+      border: 2px solid #FF7849;
+      transform: scale(1.05);
+    }
+
+    .pricing-card.featured .pricing-name {
+      color: #F6F8FA;
+    }
+
+    .pricing-card.featured .pricing-description {
+      color: #9B9086;
+    }
+
+    .pricing-card.featured .pricing-features li {
+      color: #B5ACA4;
+      border-bottom-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .pricing-card.featured:hover {
+      transform: scale(1.05);
+    }
+
+    .pricing-badge {
+      display: inline-block;
+      background: #FF7849;
+      color: #FFFFFF;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.25rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 1rem;
+      width: fit-content;
+    }
+
+    .pricing-name {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #2B353F;
+      margin-bottom: 0.5rem;
+    }
+
+    .pricing-description {
+      color: #726A63;
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      flex-grow: 1;
+    }
+
+    .pricing-features {
+      list-style: none;
+      margin-bottom: 1.5rem;
+    }
+
+    .pricing-features li {
+      color: #5C5148;
+      font-size: 0.9rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #F2ECE6;
+    }
+
+    .pricing-features li:last-child {
+      border-bottom: none;
+    }
+
+    .pricing-cta {
+      background: #2B353F;
+      color: #FFFFFF;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      text-decoration: none;
+      font-weight: 600;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 1px solid #2B353F;
+      cursor: pointer;
+    }
+
+    .pricing-cta:hover {
+      background: #1a2228;
+      border-color: #1a2228;
+    }
+
+    .pricing-card.featured .pricing-cta {
+      background: #FF7849;
+      border-color: #FF7849;
+      color: #FFFFFF;
+    }
+
+    .pricing-card.featured .pricing-cta:hover {
+      background: #E86535;
+      border-color: #E86535;
+    }
+
+    .pricing-cta:focus-visible {
+      outline: 2px solid #2B353F;
+      outline-offset: 2px;
+    }
+
+    /* Waitlist Section */
+    .waitlist {
+      background: #0E0C0A;
+      padding: 5rem 2rem;
+      text-align: center;
+    }
+
+    .waitlist h2 {
+      color: #FFFFFF;
+      font-style: italic;
+      margin-bottom: 1rem;
+    }
+
+    .waitlist-subtitle {
+      color: #B5ACA4;
+      font-size: 1.125rem;
+      margin-bottom: 3rem;
+    }
+
+    .waitlist h2 span {
+      color: #FF7849;
+    }
+
+    .form-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+      max-width: 600px;
+      margin: 0 auto 1.5rem;
+    }
+
+    .form-input {
+      background: #1F1B18;
+      border: 1px solid #322A24;
+      border-radius: 0.375rem;
+      padding: 0.875rem 1rem;
+      color: #FFFFFF;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+      transition: all 0.3s ease;
+    }
+
+    .form-input::placeholder {
+      color: #726A63;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #FF7849;
+      background: #2B2218;
+    }
+
+    .form-input:focus-visible {
+      outline: 2px solid #FF7849;
+      outline-offset: 2px;
+    }
+
+    .form-submit {
+      background: #FF7849;
+      color: #FFFFFF;
+      padding: 0.875rem 2.5rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .form-submit:hover {
+      background: #E86535;
+    }
+
+    .form-submit:focus-visible {
+      outline: 2px solid #FF7849;
+      outline-offset: 2px;
+    }
+
+    /* Footer */
+    footer {
+      background: #0E0C0A;
+      color: #A89B93;
+      padding: 3rem 2rem;
+      border-top: 1px solid #322A24;
+    }
+
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 2fr 1fr;
+      gap: 3rem;
+      align-items: start;
+    }
+
+    .footer-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      color: #F6F8FA;
+      text-decoration: none;
+    }
+
+    .footer-links {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    .footer-links a {
+      color: #A89B93;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.3s ease;
+    }
+
+    .footer-links a:hover {
+      color: #FF7849;
+    }
+
+    .footer-copyright {
+      text-align: right;
+      font-size: 0.85rem;
+      color: #726A63;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2.5rem;
+      }
+
+      h2 {
+        font-size: 1.75rem;
+      }
+
+      .hero {
+        grid-template-columns: 1fr;
+        padding: 3rem 1.5rem;
+      }
+
+      .nav-links {
+        gap: 1.5rem;
+      }
+
+      .hero-stats {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .signal-noise-text {
+        grid-template-columns: 1fr;
+      }
+
+      .pipeline {
+        grid-template-columns: 1fr;
+      }
+
+      .steps {
+        grid-template-columns: 1fr;
+      }
+
+      .channels-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .pricing-cards {
+        grid-template-columns: 1fr;
+      }
+
+      .pricing-card.featured {
+        transform: scale(1);
+      }
+
+      .form-group {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      .footer-copyright {
+        text-align: left;
+      }
+
+      nav {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .nav-links {
+        width: 100%;
+        flex-direction: column;
+        gap: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav>
+    <a href="#" class="logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+        <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#2B353F" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+        <circle cx="12" cy="8" r="2" fill="#FF4500"/>
+      </svg>
+      Vatic
+    </a>
+    <ul class="nav-links">
+      <li><a href="#intelligence">Intelligence</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#signin">Sign In</a></li>
+    </ul>
+    <a href="#waitlist" class="nav-cta">Join Waitlist</a>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1>See further.</h1>
+      <p class="hero-subtitle">Predictive AI competitive intelligence for the modern restaurant enterprise. Anticipate market shifts before they manifest in your P&L.</p>
+      <div class="hero-ctas">
+        <a href="#waitlist" class="btn btn-primary">Join Waitlist</a>
+        <a href="#how-it-works" class="btn btn-secondary">Explore the Framework</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-value">10,000+</div>
+          <div class="stat-label">Locations monitored</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">50+</div>
+          <div class="stat-label">Intelligence streams</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">6</div>
+          <div class="stat-label">Days ahead</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="dashboard-card">
+        <div class="mini-stats">
+          <div class="mini-stat">
+            <div class="mini-stat-value">47</div>
+            <div class="mini-stat-label">Competitors</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-stat-value">238</div>
+            <div class="mini-stat-label">Insights</div>
+          </div>
+          <div class="mini-stat patina">
+            <div class="mini-stat-value">+23%</div>
+            <div class="mini-stat-label">SEO Score</div>
+          </div>
+        </div>
+        <svg class="sparkline" viewBox="0 0 340 40" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#D4880A" stop-opacity="0.15"/>
+              <stop offset="100%" stop-color="#D4880A" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <polygon points="0,30 30,25 60,28 90,20 120,22 150,18 180,20 210,15 240,18 270,12 300,10 300,40 0,40" fill="url(#sparkFill)"/>
+          <polyline points="0,30 30,25 60,28 90,20 120,22 150,18 180,20 210,15 240,18 270,12 300,10" fill="none" stroke="#D4880A" stroke-width="2"/>
+          <polyline points="300,10 320,7 340,4" fill="none" stroke="#D4880A" stroke-width="2" stroke-dasharray="4 3" opacity="0.5"/>
+        </svg>
+        <div class="live-signals">
+          <div class="signal-header">
+            <div class="live-dot"></div>
+            <div class="signal-label">Live Signals</div>
+          </div>
+          <div class="signal-text">Competitor X dropped lunch prices 12% this week. Impact: -2.3% comparable traffic.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Signal vs Noise -->
+  <section class="signal-noise" id="intelligence">
+    <div class="section-content">
+      <h2>"The noise is deafening. The signal is silent."</h2>
+      <div class="signal-noise-text">
+        <p>Every restaurant chain generates 50+ data streams daily. Your market generates 1,000x more. Traditional competitive intelligence processes this noise at human speed. You need signal at machine speed.</p>
+        <p>Vatic's predictive AI extracts market signals from the chaos—before they show up in your operations. Not quarterly reports. Not industry trends. Real-time competitive moves that affect your P&L within days.</p>
+      </div>
+      <div class="pipeline">
+        <div class="pipeline-stage raw">
+          <h4>Raw Data</h4>
+          <p>Unstructured competitor data</p>
+        </div>
+        <div class="pipeline-stage signal">
+          <h4>Signal Detected</h4>
+          <p>AI-extracted market intelligence</p>
+        </div>
+        <div class="pipeline-stage action">
+          <h4>Prescient Action</h4>
+          <p>Actionable strategic advantage</p>
+        </div>
+      </div>
+      <div class="insight-callout">
+        <p>22 days ahead of traditional analysis</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-content">
+      <p class="label" style="text-align: center;">The Strategic Architecture</p>
+      <h2>Intelligence at the speed of thought</h2>
+      <p class="how-subtitle">Three layers. One decision engine.</p>
+      <div class="steps">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <h3>Signal Ingestion</h3>
+          <p>Vatic connects to the signals that matter: menu APIs, point-of-sale systems, location data, search trends, social sentiment, and customer review ecosystems. We ingest 50+ real-time feeds per tracked competitor.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <h3>Predictive Analysis</h3>
+          <p>Our ML models detect anomalies, predict market moves 6-22 days ahead, and correlate signals across channels. Every trend. Every threat. Every opportunity gets quantified.</p>
+        </div>
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <h3>Prescient Action</h3>
+          <p>One-click integration with your strategic decision loop. Alerts, dashboards, API access, and analyst briefings keep you ahead of the market. Not just informed—prescient.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Intelligence Channels -->
+  <section class="channels">
+    <div class="section-content">
+      <h2>Six intelligence channels. One dashboard.</h2>
+      <p class="channels-subtitle">Every signal that matters. None of the noise.</p>
+      <div class="channels-grid">
+        <div class="channel-card">
+          <h3>Competitor Monitoring</h3>
+          <p>Track 100+ competitors in real-time across menu, pricing, promotions, staffing, and locations. Detect strategic moves before they reach your market.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 30%;"></div>
+            <div class="vis-bar" style="height: 50%;"></div>
+            <div class="vis-bar" style="height: 65%;"></div>
+            <div class="vis-bar" style="height: 40%;"></div>
+            <div class="vis-bar" style="height: 75%;"></div>
+          </div>
+        </div>
+        <div class="channel-card">
+          <h3>SEO Visibility</h3>
+          <p>Monitor organic search rankings, keyword strategies, and local pack performance for competitors and emerging threats. Predict SEO-driven traffic shifts.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 20%;"></div>
+            <div class="vis-bar" style="height: 35%;"></div>
+            <div class="vis-bar" style="height: 50%;"></div>
+            <div class="vis-bar" style="height: 65%;"></div>
+            <div class="vis-bar" style="height: 80%;"></div>
+          </div>
+        </div>
+        <div class="channel-card">
+          <h3>Menu Intelligence</h3>
+          <p>Every menu change, price shift, and promotional offer gets parsed and analyzed. Understand competitive menu strategy and anticipate customer response.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 40%;"></div>
+            <div class="vis-bar" style="height: 45%;"></div>
+            <div class="vis-bar" style="height: 35%;"></div>
+            <div class="vis-bar" style="height: 50%;"></div>
+            <div class="vis-bar" style="height: 38%;"></div>
+          </div>
+        </div>
+        <div class="channel-card">
+          <h3>Social Intelligence</h3>
+          <p>Track social sentiment, viral moments, influencer mentions, and brand perception shifts. Real-time pulse on competitor reputation and customer sentiment.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 60%;"></div>
+            <div class="vis-bar" style="height: 55%;"></div>
+            <div class="vis-bar" style="height: 50%;"></div>
+            <div class="vis-bar" style="height: 65%;"></div>
+            <div class="vis-bar" style="height: 45%;"></div>
+          </div>
+        </div>
+        <div class="channel-card">
+          <h3>Visual Intelligence</h3>
+          <p>Computer vision analysis of competitor locations, store design, queue behavior, and operational efficiency. See what traditional metrics miss.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 35%;"></div>
+            <div class="vis-bar" style="height: 55%;"></div>
+            <div class="vis-bar" style="height: 25%;"></div>
+            <div class="vis-bar" style="height: 70%;"></div>
+            <div class="vis-bar" style="height: 40%;"></div>
+          </div>
+        </div>
+        <div class="channel-card">
+          <h3>Foot Traffic Intelligence</h3>
+          <p>Aggregate foot traffic patterns, seasonality, day-part trends, and location performance. Predict customer movement and market saturation before it's obvious.</p>
+          <div class="channel-visual">
+            <div class="vis-bar" style="height: 50%;"></div>
+            <div class="vis-bar" style="height: 62%;"></div>
+            <div class="vis-bar" style="height: 48%;"></div>
+            <div class="vis-bar" style="height: 72%;"></div>
+            <div class="vis-bar" style="height: 55%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats Section -->
+  <section class="stats-section">
+    <div class="section-content">
+      <p class="label stats-label">The Standard of Excellence</p>
+      <h2>Intelligence that speaks for itself.</h2>
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value" style="color: #D4880A;">10,000+</div>
+          <div class="stat-label">Locations</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color: #FF7849;">50+</div>
+          <div class="stat-label">Data streams</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color: #F6F8FA;">6</div>
+          <div class="stat-label">Days ahead</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" style="color: #FF7849;">0</div>
+          <div class="stat-label">Manual processing</div>
+        </div>
+      </div>
+      <p class="stats-power">Powered by Google AI, Google Places, DataForSEO, and real-time market data</p>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="pricing" id="pricing">
+    <div class="section-content">
+      <div class="pricing-header">
+        <h2>Strategic Tiers</h2>
+        <p class="pricing-subtitle">Select the resolution of your intelligence briefing.</p>
+      </div>
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <div class="pricing-name">Starter</div>
+          <p class="pricing-description">For emerging brands with focused competitive scope.</p>
+          <ul class="pricing-features">
+            <li>3 locations</li>
+            <li>15 competitors per location</li>
+            <li>Weekly intelligence refresh</li>
+            <li>Core signal channels (5 of 6)</li>
+            <li>Email alerts</li>
+            <li>Early access pricing coming soon</li>
+          </ul>
+          <a href="#waitlist" class="pricing-cta">Join the Waitlist</a>
+        </div>
+        <div class="pricing-card featured">
+          <div class="pricing-badge">Recommended</div>
+          <div class="pricing-name">Pro</div>
+          <p class="pricing-description">For established brands demanding competitive precision.</p>
+          <ul class="pricing-features">
+            <li>10 locations</li>
+            <li>50 competitors per location</li>
+            <li>Daily intelligence refresh</li>
+            <li>All signal channels (6 of 6)</li>
+            <li>API access</li>
+            <li>Analyst briefings (monthly)</li>
+            <li>Early access pricing coming soon</li>
+          </ul>
+          <a href="#waitlist" class="pricing-cta">Join the Waitlist</a>
+        </div>
+        <div class="pricing-card">
+          <div class="pricing-name">Agency</div>
+          <p class="pricing-description">For multi-brand portfolios and strategic consultants.</p>
+          <ul class="pricing-features">
+            <li>Unlimited locations</li>
+            <li>Unlimited competitors</li>
+            <li>Real-time refresh</li>
+            <li>All signal channels + custom feeds</li>
+            <li>Full API + webhooks</li>
+            <li>Dedicated analyst team</li>
+          </ul>
+          <a href="#contact" class="pricing-cta">Contact Analyst</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Waitlist -->
+  <section class="waitlist" id="waitlist">
+    <h2>Join the <span>cohort.</span></h2>
+    <p class="waitlist-subtitle">Limited availability for early deployments. Secure your place in the queue.</p>
+    <form class="form-group" onsubmit="event.preventDefault(); alert('Thank you for joining the waitlist!');">
+      <input type="text" class="form-input" placeholder="First Name" required>
+      <input type="text" class="form-input" placeholder="Last Name" required>
+      <input type="email" class="form-input" placeholder="Email" required>
+      <button type="submit" class="form-submit" style="grid-column: 1 / -1;">Join the Waitlist</button>
+    </form>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-content">
+      <a href="#" class="footer-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2 L6 20 L12 16 L18 20 L12 2" stroke="#F6F8FA" stroke-width="1.5" fill="none" stroke-linejoin="round"/>
+          <circle cx="12" cy="8" r="2" fill="#FF4500"/>
+        </svg>
+        Vatic
+      </a>
+      <div class="footer-links">
+        <div>
+          <a href="#privacy">Privacy Protocol</a><br>
+          <a href="#terms">Terms of Intelligence</a>
+        </div>
+        <div>
+          <a href="#api">API Docs</a><br>
+          <a href="#contact">Contact Analyst</a>
+        </div>
+      </div>
+      <div class="footer-copyright">
+        © 2026 Vatic Intelligence. All rights reserved.
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
