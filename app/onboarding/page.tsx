@@ -2,8 +2,16 @@ import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import OnboardingWizard from "./onboarding-wizard"
+import { getVerticalConfig } from "@/lib/verticals"
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const verticalParam = typeof params.vertical === "string" ? params.vertical : undefined
+  const verticalConfig = getVerticalConfig(verticalParam)
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()
   const { data: profile } = await supabase
@@ -74,6 +82,7 @@ export default async function OnboardingPage() {
         existingOrgId={existingOrgId}
         existingLocationId={existingLocationId}
         existingCompetitors={existingCompetitors}
+        verticalConfig={verticalConfig}
       />
     </div>
   )

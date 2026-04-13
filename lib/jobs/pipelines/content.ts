@@ -31,6 +31,7 @@ import type {
   SiteContentSnapshot,
   MenuSource,
 } from "@/lib/content/types"
+import { getVerticalConfig } from "@/lib/verticals"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -92,6 +93,41 @@ function extractDomain(url: string | null | undefined): string | null {
 // ---------------------------------------------------------------------------
 // Step builders
 // ---------------------------------------------------------------------------
+
+export async function shouldSkipContentPipeline(
+  supabase: SupabaseClient,
+  locationId: string
+): Promise<{ skip: boolean; reason?: string }> {
+  if (process.env.VERTICALIZATION_ENABLED !== "true") {
+    return { skip: false }
+  }
+
+  const { data: loc } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", locationId)
+    .single()
+
+  if (!loc) return { skip: false }
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("industry_type")
+    .eq("id", loc.organization_id)
+    .single()
+
+  if (!org) return { skip: false }
+
+  const config = getVerticalConfig(org.industry_type)
+  if (!config.signals.content) {
+    return {
+      skip: true,
+      reason: `content signal disabled for ${org.industry_type}`,
+    }
+  }
+
+  return { skip: false }
+}
 
 export function buildContentSteps(
   ctx: ContentPipelineCtx
@@ -242,8 +278,12 @@ export function buildContentSteps(
         const locationAddress =
           addressParts.length > 0 ? addressParts.join(", ") : null
 
+        const businessFallback = process.env.VERTICALIZATION_ENABLED === "true"
+          ? getVerticalConfig().labels.businessLabelCapitalized
+          : "Restaurant"
+
         const googleMenu = await fetchGoogleMenuData(
-          c.location.name ?? "Restaurant",
+          c.location.name ?? businessFallback,
           locationAddress
         )
 
@@ -368,8 +408,11 @@ export function buildContentSteps(
           const compAddress =
             (comp.metadata?.placeDetails as Record<string, unknown>)
               ?.formattedAddress as string ?? null
+          const compFallback = process.env.VERTICALIZATION_ENABLED === "true"
+            ? getVerticalConfig().labels.businessLabelCapitalized
+            : "Restaurant"
           const googleCompMenu = await fetchGoogleMenuData(
-            comp.name ?? "Restaurant",
+            comp.name ?? compFallback,
             compAddress
           )
           if (googleCompMenu && googleCompMenu.categories.length > 0) {

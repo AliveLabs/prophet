@@ -1,14 +1,20 @@
 "use client"
 
+import type { VerticalConfig } from "@/lib/verticals"
+
 type SplashStepProps = {
   onContinue: () => void
+  verticalConfig?: VerticalConfig
 }
 
-export default function SplashStep({ onContinue }: SplashStepProps) {
+export default function SplashStep({ onContinue, verticalConfig }: SplashStepProps) {
+  const subtitle = verticalConfig?.onboarding.splash.subtitle ?? "Competitive intelligence for restaurants"
+  const ctaLabel = verticalConfig?.onboarding.splash.ctaLabel ?? "Set up my restaurant"
+
   return (
     <section className="flex min-h-dvh flex-col items-center justify-center pb-12 text-center">
       <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-precision-teal mb-8">
-        Restaurant Intelligence Platform
+        {subtitle}
       </div>
 
       <div className="font-display text-[58px] font-semibold leading-none tracking-wide text-foreground mb-3 max-[540px]:text-5xl max-[360px]:text-[42px]">
@@ -31,7 +37,7 @@ export default function SplashStep({ onContinue }: SplashStepProps) {
         onClick={onContinue}
         className="inline-flex items-center gap-2 rounded-[14px] bg-primary px-10 py-4 text-[15px] font-semibold text-primary-foreground shadow-sm transition-all hover:bg-deep-indigo hover:-translate-y-px hover:shadow-glow-indigo-sm"
       >
-        Set up my restaurant
+        {ctaLabel}
         <svg
           width="16"
           height="16"

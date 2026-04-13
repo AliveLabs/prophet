@@ -11,6 +11,7 @@ import type {
   MenuItem,
 } from "./types"
 import type { ExtractedSiteFeatures } from "@/lib/providers/firecrawl"
+import type { FeatureDefinition } from "@/lib/verticals/types"
 
 // ---------------------------------------------------------------------------
 // Normalize site content from Firecrawl's JSON extraction
@@ -108,7 +109,36 @@ const DELIVERY_PLATFORM_NAMES: Record<string, string> = {
   caviar: "caviar",
 }
 
-export function detectFeatures(text: string): DetectedFeatures {
+export function detectFeatures(
+  text: string,
+  featureDefinitions?: FeatureDefinition[]
+): DetectedFeatures {
+  if (featureDefinitions) {
+    const features: DetectedFeatures = {
+      reservation: false,
+      onlineOrdering: false,
+      privateDining: false,
+      catering: false,
+      happyHour: false,
+      deliveryPlatforms: [],
+    }
+
+    for (const def of featureDefinitions) {
+      const matched = def.detectionPatterns.some((p) =>
+        new RegExp(p, "i").test(text)
+      )
+      if (matched) {
+        if (def.key in features && def.key !== "deliveryPlatforms") {
+          ;(features as Record<string, unknown>)[def.key] = true
+        } else {
+          features.deliveryPlatforms.push(def.key)
+        }
+      }
+    }
+
+    return features
+  }
+
   const features: DetectedFeatures = {
     reservation: false,
     onlineOrdering: false,

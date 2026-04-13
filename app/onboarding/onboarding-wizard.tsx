@@ -4,7 +4,7 @@ import { useState, useCallback, useTransition } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import "./onboarding.css"
 import SplashStep from "./steps/splash"
-import RestaurantInfoStep from "./steps/restaurant-info"
+import BusinessInfoStep from "./steps/business-info"
 import CompetitorSelectionStep from "./steps/competitor-selection"
 import IntelligenceSettingsStep from "./steps/intelligence-settings"
 import LoadingBriefStep from "./steps/loading-brief"
@@ -14,15 +14,20 @@ import {
   createOrgAndLocationAction,
   discoverCompetitorsForLocation,
 } from "./actions"
+import { getVerticalConfig } from "@/lib/verticals"
+import type { VerticalConfig } from "@/lib/verticals"
 
 const TOTAL_STEPS = 4
-const STEP_LABELS = [
-  "",
-  "Your Restaurant",
-  "Your Competitors",
-  "What to Watch",
-  "Your First Brief",
-]
+
+function getStepLabels(config: VerticalConfig): string[] {
+  return [
+    "",
+    config.onboarding.businessInfo.title,
+    "Your Competitors",
+    "What to Watch",
+    "Your First Brief",
+  ]
+}
 
 export type OnboardingCandidate = {
   id: string
@@ -37,20 +42,24 @@ type WizardProps = {
   existingOrgId?: string | null
   existingLocationId?: string | null
   existingCompetitors?: OnboardingCandidate[]
+  verticalConfig?: VerticalConfig
 }
 
 export default function OnboardingWizard({
   existingOrgId,
   existingLocationId,
   existingCompetitors,
+  verticalConfig: externalConfig,
 }: WizardProps) {
+  const verticalConfig = externalConfig ?? getVerticalConfig()
+  const stepLabels = getStepLabels(verticalConfig)
   const initialStep = existingOrgId && existingLocationId ? 2 : 0
 
   const [step, setStep] = useState(initialStep)
   const [direction, setDirection] = useState<"fwd" | "back">("fwd")
 
   // Step 1 state
-  const [restaurantName, setRestaurantName] = useState("")
+  const [businessName, setBusinessName] = useState("")
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetails | null>(null)
   const [cuisine, setCuisine] = useState<string | null>(null)
 
@@ -98,13 +107,14 @@ export default function OnboardingWizard({
   }, [step, goTo])
 
   const handleStep1Continue = useCallback(async () => {
-    if (!restaurantName.trim() || !selectedPlace) return
+    if (!businessName.trim() || !selectedPlace) return
 
     startTransition(async () => {
       const result = await createOrgAndLocationAction({
-        restaurantName: restaurantName.trim(),
+        businessName: businessName.trim(),
         cuisine,
         place: selectedPlace,
+        industryType: verticalConfig.industryType,
       })
 
       if (!result.ok) {
@@ -119,7 +129,11 @@ export default function OnboardingWizard({
       setDiscoveringCompetitors(true)
       setDiscoveryError(null)
       try {
-        const discovered = await discoverCompetitorsForLocation(result.locationId)
+        const discovered = await discoverCompetitorsForLocation(
+          result.locationId,
+          undefined,
+          verticalConfig.placesApiType
+        )
         if (discovered.ok) {
           setCompetitors(discovered.competitors)
         } else {
@@ -131,14 +145,18 @@ export default function OnboardingWizard({
         setDiscoveringCompetitors(false)
       }
     })
-  }, [restaurantName, selectedPlace, cuisine, goTo])
+  }, [businessName, selectedPlace, cuisine, goTo, verticalConfig])
 
   const handleRetryDiscovery = useCallback(async () => {
     if (!locationId) return
     setDiscoveringCompetitors(true)
     setDiscoveryError(null)
     try {
-      const discovered = await discoverCompetitorsForLocation(locationId)
+      const discovered = await discoverCompetitorsForLocation(
+        locationId,
+        undefined,
+        verticalConfig.placesApiType
+      )
       if (discovered.ok) {
         setCompetitors(discovered.competitors)
       } else {
@@ -149,7 +167,7 @@ export default function OnboardingWizard({
     } finally {
       setDiscoveringCompetitors(false)
     }
-  }, [locationId])
+  }, [locationId, verticalConfig])
 
   const toggleCompetitor = useCallback((id: string) => {
     setSelectedCompetitorIds((prev) => {
@@ -205,7 +223,7 @@ export default function OnboardingWizard({
       >
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-bold uppercase tracking-widest text-vatic-indigo">
-            {STEP_LABELS[step] ?? ""}
+            {stepLabels[step] ?? ""}
           </span>
           <span className="text-[11px] text-muted-foreground">
             Step {step} of {TOTAL_STEPS}
@@ -234,15 +252,21 @@ export default function OnboardingWizard({
               ease: [0.16, 1, 0.3, 1],
             }}
           >
-            {step === 0 && <SplashStep onContinue={nextStep} />}
+            {step === 0 && (
+              <SplashStep
+                onContinue={nextStep}
+                verticalConfig={verticalConfig}
+              />
+            )}
             {step === 1 && (
-              <RestaurantInfoStep
-                restaurantName={restaurantName}
-                onNameChange={setRestaurantName}
+              <BusinessInfoStep
+                businessName={businessName}
+                onNameChange={setBusinessName}
                 selectedPlace={selectedPlace}
                 onPlaceSelect={setSelectedPlace}
                 cuisine={cuisine}
                 onCuisineChange={setCuisine}
+                verticalConfig={verticalConfig}
               />
             )}
             {step === 2 && (
@@ -269,7 +293,7 @@ export default function OnboardingWizard({
                 selectedCompetitorIds={Array.from(selectedCompetitorIds)}
                 competitors={competitors}
                 monitoringPrefs={monitoringPrefs}
-                restaurantName={restaurantName}
+                businessName={businessName}
               />
             )}
           </motion.div>
@@ -321,7 +345,7 @@ export default function OnboardingWizard({
             disabled={
               isPending ||
               (step === 1 &&
-                (!restaurantName.trim() ||
+                (!businessName.trim() ||
                   !selectedPlace?.geo_lat ||
                   !selectedPlace?.geo_lng))
             }

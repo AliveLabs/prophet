@@ -12,16 +12,23 @@ interface OrgRow {
   memberCount: number
   locationCount: number
   createdAt: string
+  industryType: string
 }
 
 export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
   const [search, setSearch] = useState("")
   const [tierFilter, setTierFilter] = useState<string>("all")
+  const [industryFilter, setIndustryFilter] = useState<string>("all")
 
   const filtered = orgs.filter((o) => {
     const matchesSearch =
       o.name.toLowerCase().includes(search.toLowerCase()) ||
       o.slug.toLowerCase().includes(search.toLowerCase())
+
+    const matchesIndustry =
+      industryFilter === "all" || o.industryType === industryFilter
+
+    if (!matchesIndustry) return false
 
     if (tierFilter === "all") return matchesSearch
     if (tierFilter === "trial_active") {
@@ -69,6 +76,16 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
           <option value="suspended">Suspended</option>
         </select>
 
+        <select
+          value={industryFilter}
+          onChange={(e) => setIndustryFilter(e.target.value)}
+          className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+        >
+          <option value="all">All Industries</option>
+          <option value="restaurant">Restaurant</option>
+          <option value="liquor_store">Liquor Store</option>
+        </select>
+
         <a
           href="/api/admin/export/organizations"
           className="ml-auto h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors inline-flex items-center"
@@ -83,6 +100,9 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
             <tr className="border-b border-border bg-card text-left">
               <th className="px-4 py-3 font-medium text-muted-foreground">
                 Name
+              </th>
+              <th className="px-4 py-3 font-medium text-muted-foreground">
+                Industry
               </th>
               <th className="px-4 py-3 font-medium text-muted-foreground">
                 Tier
@@ -116,6 +136,9 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
+                  <IndustryBadge industryType={org.industryType} />
+                </td>
+                <td className="px-4 py-3">
                   <TierBadge tier={org.tier} />
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
@@ -142,7 +165,7 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   No organizations found.
                 </td>
               </tr>
@@ -151,6 +174,22 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
         </table>
       </div>
     </div>
+  )
+}
+
+function IndustryBadge({ industryType }: { industryType: string }) {
+  const label = industryType === "liquor_store" ? "Liquor Store" : "Restaurant"
+  const color =
+    industryType === "liquor_store"
+      ? "bg-signal-gold/10 text-signal-gold"
+      : "bg-vatic-indigo/10 text-vatic-indigo"
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+    >
+      {label}
+    </span>
   )
 }
 

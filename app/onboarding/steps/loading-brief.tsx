@@ -19,7 +19,7 @@ type LoadingBriefStepProps = {
   selectedCompetitorIds: string[]
   competitors: OnboardingCandidate[]
   monitoringPrefs: Record<string, boolean>
-  restaurantName: string
+  businessName: string
 }
 
 export default function LoadingBriefStep({
@@ -28,7 +28,7 @@ export default function LoadingBriefStep({
   selectedCompetitorIds,
   competitors,
   monitoringPrefs,
-  restaurantName,
+  businessName,
 }: LoadingBriefStepProps) {
   const router = useRouter()
   const [phase, setPhase] = useState(0)
@@ -173,7 +173,7 @@ export default function LoadingBriefStep({
           <h2 className="font-display text-[32px] font-medium leading-[1.15] text-foreground mb-3 max-[540px]:text-[27px]">
             Welcome to Vatic,
             <br />
-            <em className="text-vatic-indigo-soft italic">{restaurantName || "Chef"}</em>
+            <em className="text-vatic-indigo-soft italic">{businessName || "Chef"}</em>
           </h2>
           <p className="text-sm text-muted-foreground leading-relaxed mb-8 max-w-[380px] mx-auto">
             Your intelligence hub is ready. Here&apos;s a quick summary of

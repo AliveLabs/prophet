@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** April 10, 2026
+> **Last updated:** April 11, 2026
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -35,7 +35,7 @@
 
 ## 1. Executive Summary
 
-**Prophet** is a competitive intelligence platform for local businesses (initially restaurants). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation.
+**Prophet** is a competitive intelligence platform for local businesses (initially restaurants, expanding via verticalization to liquor stores and beyond). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation. The platform supports **industry verticals** through a configurable `VerticalConfig` system gated by the `VERTICALIZATION_ENABLED` feature flag.
 
 ### What it does
 
@@ -208,6 +208,7 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `DATA365_ACCESS_TOKEN` | Yes | `lib/providers/data365/client.ts` | Data365 Social Media API access token |
 | `OPENAI_API_KEY` | No | `app/api/ai/chat/route.ts` | OpenAI key (referenced but not actively used) |
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
+| `VERTICALIZATION_ENABLED` | No | `lib/verticals/`, `lib/jobs/pipelines/content.ts`, `app/onboarding/actions.ts`, AI prompt builders | Feature flag enabling vertical-aware behavior (`"true"` to activate). Defaults to disabled. |
 
 ---
 
@@ -242,8 +243,8 @@ prophet/
 │   │   ├── onboarding-wizard.tsx           # Client: Multi-step wizard with Framer Motion transitions
 │   │   ├── onboarding.css                  # Ambient gradients, starfield, slide animations
 │   │   └── steps/                          # Individual wizard step components
-│   │       ├── splash.tsx                  # Step 0: Branded welcome screen
-│   │       ├── restaurant-info.tsx         # Step 1: Name, address (Google Places), cuisine
+│   │       ├── splash.tsx                  # Step 0: Branded welcome screen (vertical-aware)
+│   │       ├── business-info.tsx           # Step 1: Name, address (Google Places), category (vertical-aware)
 │   │       ├── competitor-selection.tsx     # Step 2: AI-discovered competitors (select up to 5)
 │   │       ├── intelligence-settings.tsx   # Step 3: Monitoring preference toggles
 │   │       └── loading-brief.tsx           # Step 4: Phased loading + mini-brief + dashboard CTA
@@ -516,8 +517,19 @@ prophet/
 │   │       ├── google-events.ts            # SERP Google Events
 │   │       ├── ads-search.ts               # Google Ads Search (Transparency Center)
 │   │       └── backlinks-summary.ts        # Backlinks Summary (subscription-gated)
+│   ├── verticals/                          # Industry verticalization config system
+│   │   ├── types.ts                        # VerticalConfig, FeatureDefinition interfaces
+│   │   ├── index.ts                        # getVerticalConfig(), isValidIndustryType(), vertical registry
+│   │   ├── restaurant/                     # Restaurant vertical
+│   │   │   ├── config.ts                   # Full VerticalConfig for restaurants
+│   │   │   ├── constants.ts               # Cuisines, emojis, promo keywords, content terms
+│   │   │   └── index.ts                   # Barrel export
+│   │   └── liquor-store/                   # Liquor store vertical
+│   │       ├── config.ts                   # Full VerticalConfig for liquor stores
+│   │       ├── constants.ts               # Store types, spirit categories, content terms
+│   │       └── index.ts                   # Barrel export
 │   ├── content/                            # Content & Menu intelligence engine
-│   │   ├── types.ts                        # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory, MenuType
+│   │   ├── types.ts                        # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory, MenuType, CatalogItem/Category/Snapshot aliases
 │   │   ├── normalize.ts                    # detectFeatures(), normalizeSiteContent(), buildMenuSnapshot(), hash
 │   │   ├── menu-parse.ts                   # classifyMenuCategory(), normalizeExtractedMenu(), normalizeGoogleMenuData(), mergeExtractedMenus()
 │   │   ├── enrich.ts                       # enrichCompetitorContent() – multi-URL scrape + Gemini Google menu + merge
@@ -860,6 +872,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `20260307010100_expand_insight_status.sql` | Expands `insights.status` CHECK to: new/read/todo/actioned/snoozed/dismissed |
 | `20260331010100_waitlist_admin_setup.sql` | Alter `waitlist_signups` (add `admin_notes`, `reviewed_by`, `reviewed_at`; change status CHECK to pending/approved/declined), create `platform_admins` table with RLS, add `waitlist_signup_id` to `organizations`, seed initial admin |
 | `20260322010100_admin_activity_log.sql` | Create `admin_activity_log` table with indexes and RLS `USING (false)` |
+| `20260412010100_add_industry_type.sql` | Add `industry_type` column to `organizations` (DEFAULT 'restaurant', NOT NULL, CHECK constraint, index) |
 
 ### 7.2 Tables
 
@@ -876,6 +889,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `trial_started_at` | timestamptz | Set on admin approval (not signup) |
 | `trial_ends_at` | timestamptz | `trial_started_at + 14 days` |
 | `waitlist_signup_id` | uuid FK | References `waitlist_signups(id)`, nullable |
+| `industry_type` | text NOT NULL DEFAULT 'restaurant' | CHECK: restaurant/liquor_store. Added by verticalization. |
 | `settings` | jsonb DEFAULT '{}' | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -2093,7 +2107,8 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 - Data retention enforcement
 - Team invite and role management
 - Weekly email digest of top insights
+- Verticalization Phase 2: subdomain routing, marketing site integration, additional industry verticals
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated April 10, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated April 11, 2026.*
