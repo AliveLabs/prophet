@@ -13,6 +13,7 @@ import {
   Tooltip,
   ReferenceLine,
 } from "recharts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 export type WeatherDay = {
   date: string
@@ -127,6 +128,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
 
 export default function WeatherHistory({ days, locationName, todayDate }: Props) {
   const isClient = useIsClient()
+  const colors = useChartColors()
 
   if (!isClient) return <div className="h-80 animate-pulse rounded-2xl bg-secondary" />
   if (days.length === 0) return null
@@ -188,21 +190,21 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
           <ComposedChart data={chartData} margin={{ top: 10, right: 16, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#DC2626" stopOpacity={0.35} />
-              <stop offset="50%" stopColor="#D4880A" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#2B353F" stopOpacity={0.25} />
+              <stop offset="0%" stopColor={colors.destructive} stopOpacity={0.35} />
+              <stop offset="50%" stopColor={colors.signalGold} stopOpacity={0.15} />
+              <stop offset="100%" stopColor={colors.foreground} stopOpacity={0.25} />
               </linearGradient>
               <linearGradient id="precipGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3D4B58" stopOpacity={0.8} />
-              <stop offset="100%" stopColor="#3D4B58" stopOpacity={0.3} />
+              <stop offset="0%" stopColor={colors.carbonLight} stopOpacity={0.8} />
+              <stop offset="100%" stopColor={colors.carbonLight} stopOpacity={0.3} />
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="#F2ECE6" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke={colors.border} vertical={false} />
 
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: "#726A63" }}
+              tick={{ fontSize: 10, fill: colors.mutedForeground }}
               axisLine={false}
               tickLine={false}
               interval={Math.max(0, Math.floor(chartData.length / 10) - 1)}
@@ -210,7 +212,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="temp"
               domain={[minY, maxY]}
-              tick={{ fontSize: 10, fill: "#726A63" }}
+              tick={{ fontSize: 10, fill: colors.mutedForeground }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}°`}
@@ -219,7 +221,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <YAxis
               yAxisId="precip"
               orientation="right"
-              tick={{ fontSize: 10, fill: "#726A63" }}
+              tick={{ fontSize: 10, fill: colors.mutedForeground }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => `${v}"`}
@@ -232,13 +234,13 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
               <ReferenceLine
                 yAxisId="temp"
                 x={formatDateLabel(todayDate)}
-                stroke="#2B353F"
+                stroke={colors.foreground}
                 strokeWidth={1.5}
                 strokeDasharray="4 4"
                 label={{
                   value: "Today",
                   position: "top",
-                  fill: "#2B353F",
+                  fill: colors.foreground,
                   fontSize: 10,
                   fontWeight: 700,
                 }}
@@ -257,19 +259,19 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
             <Line
               yAxisId="temp"
               dataKey="high"
-              stroke="#DC2626"
+              stroke={colors.destructive}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#DC2626", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: colors.destructive, strokeWidth: 0 }}
               isAnimationActive={false}
             />
             <Line
               yAxisId="temp"
               dataKey="low"
-              stroke="#2B353F"
+              stroke={colors.foreground}
               strokeWidth={2}
               dot={false}
-              activeDot={{ r: 4, fill: "#2B353F", strokeWidth: 0 }}
+              activeDot={{ r: 4, fill: colors.foreground, strokeWidth: 0 }}
               isAnimationActive={false}
             />
 

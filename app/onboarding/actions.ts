@@ -225,8 +225,9 @@ export async function createLocationAction(formData: FormData) {
 // ---------------------------------------------------------------------------
 
 type CreateOrgInput = {
-  restaurantName: string
+  businessName: string
   cuisine: string | null
+  industryType?: string
   place: {
     primary_place_id: string
     name: string
@@ -251,25 +252,29 @@ export async function createOrgAndLocationAction(
   const user = await requireUser()
   const admin = createAdminSupabaseClient()
 
-  const baseSlug = slugify(input.restaurantName)
+  const baseSlug = slugify(input.businessName)
   if (!baseSlug) {
-    return { ok: false, error: "Restaurant name produces an invalid slug" }
+    return { ok: false, error: "Business name produces an invalid slug" }
   }
 
   // Retry slug with numeric suffix on collision (up to 5 attempts)
   let org: { id: string } | null = null
   let slugAttempt = baseSlug
   for (let attempt = 0; attempt < 5; attempt++) {
+    const shouldSetIndustry =
+      process.env.VERTICALIZATION_ENABLED === "true" && input.industryType
+
     const { data, error } = await admin
       .from("organizations")
       .insert({
-        name: input.restaurantName,
+        name: input.businessName,
         slug: slugAttempt,
         billing_email: user.email ?? null,
         trial_started_at: new Date().toISOString(),
         trial_ends_at: new Date(
           Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
         ).toISOString(),
+        ...(shouldSetIndustry ? { industry_type: input.industryType } : {}),
       })
       .select("id")
       .single()
@@ -310,7 +315,7 @@ export async function createOrgAndLocationAction(
     .from("locations")
     .insert({
       organization_id: org.id,
-      name: input.place.name || input.restaurantName,
+      name: input.place.name || input.businessName,
       address_line1: input.place.address_line1 ?? null,
       city: input.place.city ?? null,
       region: input.place.region ?? null,
@@ -378,7 +383,8 @@ type DiscoveredCompetitor = {
 
 export async function discoverCompetitorsForLocation(
   locationId: string,
-  query?: string
+  query?: string,
+  placesApiType?: string
 ): Promise<
   | { ok: true; competitors: DiscoveredCompetitor[] }
   | { ok: false; error: string }
@@ -417,7 +423,11 @@ export async function discoverCompetitorsForLocation(
   const provider = getProvider("gemini")
   const targetCategory =
     (location.settings as { category?: string } | null)?.category ?? null
-  const keywordBase = query ?? targetCategory ?? "restaurant"
+  const defaultType =
+    process.env.VERTICALIZATION_ENABLED === "true" && placesApiType
+      ? placesApiType.replace(/_/g, " ")
+      : "restaurant"
+  const keywordBase = query ?? targetCategory ?? defaultType
   const normalizedBase = keywordBase.replace(/_/g, " ").trim()
   const locationHint = location.city ?? location.name ?? undefined
   const keyword = [normalizedBase, locationHint, location.region]
@@ -818,6 +828,8 @@ export async function completeOnboardingAction(input: {
         competitorCount: input.competitorIds.length,
         dashboardUrl: `${appUrl}/home`,
       }),
+      clientFacing: true,
+      overrideClientEmailPause: false,
     }).catch((err) => console.error("Welcome email failed:", err))
   }
 

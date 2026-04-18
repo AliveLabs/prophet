@@ -95,6 +95,16 @@ export function emptySiteContent(website: string): SiteContentSnapshot {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Generic catalog type aliases (verticalization)
+// These allow new vertical code to use generic names while existing
+// restaurant-specific code continues to use the original types unchanged.
+// ---------------------------------------------------------------------------
+
+export type CatalogItem = MenuItem
+export type CatalogCategory = MenuCategory
+export type CatalogSnapshot = MenuSnapshot
+
 export function emptyMenu(): MenuSnapshot {
   return {
     menuUrl: null,

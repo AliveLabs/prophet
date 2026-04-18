@@ -628,6 +628,7 @@ export type Database = {
           billing_email: string | null
           created_at: string
           id: string
+          industry_type: string
           name: string
           settings: Json
           slug: string
@@ -643,6 +644,7 @@ export type Database = {
           billing_email?: string | null
           created_at?: string
           id?: string
+          industry_type?: string
           name: string
           settings?: Json
           slug: string
@@ -658,6 +660,7 @@ export type Database = {
           billing_email?: string | null
           created_at?: string
           id?: string
+          industry_type?: string
           name?: string
           settings?: Json
           slug?: string

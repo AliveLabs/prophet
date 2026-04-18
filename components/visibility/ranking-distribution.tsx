@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   Cell,
 } from "recharts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 type RankDistribution = {
   pos_1: number
@@ -25,9 +26,9 @@ type Props = {
   distribution: RankDistribution
 }
 
-const COLORS = ["#34775E", "#3D4B58", "#D4880A", "#2B353F", "#DC2626"]
-
 function RankingDistributionInner({ distribution }: Props) {
+  const c = useChartColors()
+  const COLORS = [c.precisionTeal, c.carbonLight, c.signalGold, c.foreground, c.destructive]
   const data = [
     { range: "1-5", count: distribution.pos_1 + distribution.pos_2_3 + Math.round(distribution.pos_4_10 * 0.2) },
     { range: "6-10", count: Math.round(distribution.pos_4_10 * 0.8) },

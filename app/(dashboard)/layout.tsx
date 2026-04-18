@@ -13,9 +13,11 @@ import TabBar from "@/components/ui/tab-bar"
 import BottomNav from "@/components/ui/bottom-nav"
 import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
 import { TrialBanner } from "@/components/billing/trial-banner"
+import { BrandProvider } from "@/components/brand-provider"
+import { getVerticalConfig } from "@/lib/verticals"
 import { Toaster } from "sonner"
 
-function VaticLogo() {
+function BrandLogo() {
   return (
     <svg
       width="28"
@@ -27,12 +29,12 @@ function VaticLogo() {
     >
       <path
         d="M4 6 L14 22 L24 6"
-        stroke="#2B353F"
+        stroke="currentColor"
         strokeWidth="2.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="14" cy="22" r="2.6" fill="#D4880A" />
+      <circle cx="14" cy="22" r="2.6" className="fill-accent" />
     </svg>
   )
 }
@@ -42,8 +44,8 @@ function DashboardSkeleton() {
     <div className="app-shell flex h-dvh overflow-hidden bg-background text-foreground">
       <aside className="sidebar flex w-[236px] min-w-[236px] flex-col border-r border-border bg-card max-md:hidden max-lg:w-[60px] max-lg:min-w-[60px]">
         <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
-          <VaticLogo />
-          <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground">
+          <BrandLogo />
+          <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground text-wordmark">
             vatic
           </span>
         </div>
@@ -95,7 +97,7 @@ async function DashboardShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_ends_at")
+    .select("name, subscription_tier, trial_ends_at, industry_type")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -116,8 +118,16 @@ async function DashboardShell({ children }: { children: ReactNode }) {
       }
     })
 
+  const verticalConfig = getVerticalConfig(orgRow?.industry_type)
+  const dataBrand =
+    process.env.VERTICALIZATION_ENABLED === "true"
+      ? verticalConfig.brand.dataBrand
+      : undefined
+
   const userName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User"
-  const userOrg = orgRow?.name ?? "Vatic"
+  const brandFallback = dataBrand ? verticalConfig.brand.displayName : "Vatic"
+  const userOrg = orgRow?.name ?? brandFallback
+  const brandWordmark = dataBrand ? verticalConfig.brand.wordmark : "vatic"
 
   if (
     orgRow &&
@@ -158,6 +168,7 @@ async function DashboardShell({ children }: { children: ReactNode }) {
         orgName={userOrg}
         insightCount={insightCount ?? 0}
         competitorCount={competitorCount ?? 0}
+        brandName={brandFallback}
       />
     )
   }
@@ -169,6 +180,7 @@ async function DashboardShell({ children }: { children: ReactNode }) {
     orgRow?.subscription_tier === "free" && daysRemaining > 0 && daysRemaining <= 7
 
   return (
+    <BrandProvider brand={dataBrand}>
     <div className="app-shell flex h-dvh overflow-hidden bg-background text-foreground">
       <Toaster
         position="top-right"
@@ -189,9 +201,9 @@ async function DashboardShell({ children }: { children: ReactNode }) {
         {/* Logo */}
         <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
           <Link href="/home" className="flex items-center gap-3">
-            <VaticLogo />
-            <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground">
-              vatic
+            <BrandLogo />
+            <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground text-wordmark">
+              {brandWordmark}
             </span>
           </Link>
         </div>
@@ -230,5 +242,6 @@ async function DashboardShell({ children }: { children: ReactNode }) {
       {/* ── Mobile bottom nav ────────────────────────────────────── */}
       <BottomNav />
     </div>
+    </BrandProvider>
   )
 }

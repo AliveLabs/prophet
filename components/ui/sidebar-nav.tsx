@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { type ReactNode, useState, useRef, useEffect, useTransition } from "react"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
 
@@ -189,7 +189,6 @@ interface SidebarNavProps {
 
 export default function SidebarNav({ userName, userOrg, orgs = [], currentOrgId }: SidebarNavProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
   const popoverRef = useRef<HTMLDivElement>(null)

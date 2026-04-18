@@ -11,6 +11,7 @@ interface OrgRow {
   memberCount: number
   locationCount: number
   createdAt: string
+  industryType: string
 }
 
 async function fetchOrgs(): Promise<{
@@ -23,7 +24,7 @@ async function fetchOrgs(): Promise<{
   const { data: orgsData } = await supabase
     .from("organizations")
     .select(
-      "id, name, slug, subscription_tier, trial_ends_at, created_at"
+      "id, name, slug, subscription_tier, trial_ends_at, created_at, industry_type"
     )
     .order("created_at", { ascending: false })
 
@@ -63,6 +64,7 @@ async function fetchOrgs(): Promise<{
     memberCount: memberCounts.get(o.id) ?? 0,
     locationCount: locationCounts.get(o.id) ?? 0,
     createdAt: o.created_at,
+    industryType: o.industry_type,
   }))
 
   const stats = {

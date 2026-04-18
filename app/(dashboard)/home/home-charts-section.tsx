@@ -9,6 +9,7 @@ import {
   WeeklyTrend,
   buildTrendData,
 } from "@/components/home/home-charts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 type InsightRow = {
   id: string
@@ -25,8 +26,9 @@ export default function HomeChartsSection({
 }: {
   allInsights: InsightRow[]
 }) {
-  const severityData = buildSeverityData(allInsights)
-  const sourceData = buildSourceBarData(allInsights)
+  const chartColors = useChartColors()
+  const severityData = buildSeverityData(allInsights, chartColors)
+  const sourceData = buildSourceBarData(allInsights, chartColors)
   const trendData = buildTrendData(allInsights, 14)
 
   const hasChartData =

@@ -13,6 +13,7 @@ import {
   Pie,
   Cell,
 } from "recharts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 type RatingDatum = {
   name: string
@@ -97,11 +98,12 @@ export default function InsightsDashboard({
   recentReviews = [],
 }: InsightsDashboardProps) {
   const isClient = useIsClient()
+  const chartColors = useChartColors()
 
   const sentimentData = [
-    { name: "Positive", value: sentimentCounts.positive, color: "#34775E" },
-    { name: "Mixed", value: sentimentCounts.mixed, color: "#D4880A" },
-    { name: "Negative", value: sentimentCounts.negative, color: "#DC2626" },
+    { name: "Positive", value: sentimentCounts.positive, color: chartColors.precisionTeal },
+    { name: "Mixed", value: sentimentCounts.mixed, color: chartColors.signalGold },
+    { name: "Negative", value: sentimentCounts.negative, color: chartColors.destructive },
   ]
 
   const sentimentTotal = sentimentData.reduce((s, d) => s + d.value, 0)
@@ -153,8 +155,8 @@ export default function InsightsDashboard({
                 <BarChart data={ratingComparison} barCategoryGap="25%">
                   <defs>
                     <linearGradient id="ratingGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#3D4B58" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#2B353F" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor={chartColors.carbonLight} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={chartColors.foreground} stopOpacity={0.6} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -239,12 +241,12 @@ export default function InsightsDashboard({
                 <BarChart data={reviewGrowthDelta} barCategoryGap="25%">
                   <defs>
                     <linearGradient id="deltaGradPos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#34775E" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#34775E" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor={chartColors.precisionTeal} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={chartColors.precisionTeal} stopOpacity={0.6} />
                     </linearGradient>
                     <linearGradient id="deltaGradNeg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#DC2626" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#DC2626" stopOpacity={0.6} />
+                      <stop offset="0%" stopColor={chartColors.destructive} stopOpacity={0.9} />
+                      <stop offset="100%" stopColor={chartColors.destructive} stopOpacity={0.6} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
