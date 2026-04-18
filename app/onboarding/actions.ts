@@ -828,6 +828,8 @@ export async function completeOnboardingAction(input: {
         competitorCount: input.competitorIds.length,
         dashboardUrl: `${appUrl}/home`,
       }),
+      clientFacing: true,
+      overrideClientEmailPause: false,
     }).catch((err) => console.error("Welcome email failed:", err))
   }
 

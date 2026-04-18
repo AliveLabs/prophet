@@ -7,6 +7,7 @@ interface TrialExpiredGateProps {
   orgName: string
   insightCount: number
   competitorCount: number
+  brandName?: string
 }
 
 const TIERS = [
@@ -46,6 +47,7 @@ export function TrialExpiredGate({
   orgName,
   insightCount,
   competitorCount,
+  brandName = "Vatic",
 }: TrialExpiredGateProps) {
   const [loading, setLoading] = useState<string | null>(null)
 
@@ -97,7 +99,7 @@ export function TrialExpiredGate({
 
         <div className="rounded-xl border border-border bg-card p-5">
           <p className="text-sm text-muted-foreground">
-            During your trial, Vatic generated{" "}
+            During your trial, {brandName} generated{" "}
             <strong className="text-foreground">{insightCount} insights</strong>{" "}
             across{" "}
             <strong className="text-foreground">

@@ -3,7 +3,7 @@ import { CUISINES, CATEGORY_EMOJIS, CONTENT_DISCOVERY_TERMS } from "./constants"
 
 export const restaurantConfig: VerticalConfig = {
   industryType: "restaurant",
-  displayName: "Vatic Restaurant",
+  displayName: "Ticket",
 
   labels: {
     businessLabel: "restaurant",
@@ -21,7 +21,7 @@ export const restaurantConfig: VerticalConfig = {
 
   onboarding: {
     splash: {
-      title: "Welcome to Vatic",
+      title: "Welcome to Ticket",
       subtitle: "Competitive intelligence for restaurants",
       ctaLabel: "Set up my restaurant",
     },
@@ -51,7 +51,7 @@ export const restaurantConfig: VerticalConfig = {
 
   emailCopy: {
     welcome: {
-      subject: "Welcome to Vatic — your intelligence is live",
+      subject: "Welcome to Ticket — your intelligence is live",
       headline: "Your restaurant is being watched (in a good way)",
       intro: "We're scanning your competitors daily. Your first weekly briefing will land in 7 days.",
       tipHeader: "Quick tip",
@@ -131,5 +131,12 @@ export const restaurantConfig: VerticalConfig = {
       "catering",
       "happy hour",
     ],
+  },
+
+  brand: {
+    dataBrand: "ticket",
+    wordmark: "ticket",
+    displayName: "Ticket",
+    tagline: "Read the ticket.",
   },
 }

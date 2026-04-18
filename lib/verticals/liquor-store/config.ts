@@ -3,7 +3,7 @@ import { STORE_TYPES, CATEGORY_EMOJIS, CONTENT_DISCOVERY_TERMS } from "./constan
 
 export const liquorStoreConfig: VerticalConfig = {
   industryType: "liquor_store",
-  displayName: "Vatic Liquor",
+  displayName: "Neat",
 
   labels: {
     businessLabel: "liquor store",
@@ -21,7 +21,7 @@ export const liquorStoreConfig: VerticalConfig = {
 
   onboarding: {
     splash: {
-      title: "Welcome to Vatic Liquor",
+      title: "Welcome to Neat",
       subtitle: "Competitive intelligence for liquor stores",
       ctaLabel: "Set up my store",
     },
@@ -51,7 +51,7 @@ export const liquorStoreConfig: VerticalConfig = {
 
   emailCopy: {
     welcome: {
-      subject: "Welcome to Vatic Liquor — your intelligence is live",
+      subject: "Welcome to Neat — your intelligence is live",
       headline: "Your store is being watched (in a good way)",
       intro: "We're scanning your competitors daily. Your first weekly briefing will land in 7 days.",
       tipHeader: "Quick tip",
@@ -138,5 +138,12 @@ export const liquorStoreConfig: VerticalConfig = {
       "fifth",
       "handle",
     ],
+  },
+
+  brand: {
+    dataBrand: "neat",
+    wordmark: "neat",
+    displayName: "Neat",
+    tagline: "Intelligence, neat.",
   },
 }

@@ -278,12 +278,14 @@ export default function OnboardingWizard({
                 error={discoveryError}
                 onRetry={handleRetryDiscovery}
                 locationCity={selectedPlace?.city ?? null}
+                brandName={verticalConfig.brand.displayName}
               />
             )}
             {step === 3 && (
               <IntelligenceSettingsStep
                 preferences={monitoringPrefs}
                 onChange={setMonitoringPrefs}
+                brandName={verticalConfig.brand.displayName}
               />
             )}
             {step === 4 && (
@@ -294,6 +296,7 @@ export default function OnboardingWizard({
                 competitors={competitors}
                 monitoringPrefs={monitoringPrefs}
                 businessName={businessName}
+                brandName={verticalConfig.brand.displayName}
               />
             )}
           </motion.div>

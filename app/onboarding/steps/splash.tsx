@@ -10,6 +10,7 @@ type SplashStepProps = {
 export default function SplashStep({ onContinue, verticalConfig }: SplashStepProps) {
   const subtitle = verticalConfig?.onboarding.splash.subtitle ?? "Competitive intelligence for restaurants"
   const ctaLabel = verticalConfig?.onboarding.splash.ctaLabel ?? "Set up my restaurant"
+  const brandName = verticalConfig?.brand.displayName ?? "Vatic"
 
   return (
     <section className="flex min-h-dvh flex-col items-center justify-center pb-12 text-center">
@@ -17,8 +18,8 @@ export default function SplashStep({ onContinue, verticalConfig }: SplashStepPro
         {subtitle}
       </div>
 
-      <div className="font-display text-[58px] font-semibold leading-none tracking-wide text-foreground mb-3 max-[540px]:text-5xl max-[360px]:text-[42px]">
-        V<span className="text-vatic-indigo">atic</span>
+      <div className="font-display text-[58px] font-semibold leading-none tracking-wide text-foreground mb-3 max-[540px]:text-5xl max-[360px]:text-[42px] text-wordmark">
+        {brandName}
       </div>
 
       <h1 className="font-display text-[34px] font-normal leading-[1.22] text-foreground max-w-[380px] mx-auto mb-5 max-[540px]:text-[28px] max-[360px]:text-2xl">
@@ -28,7 +29,7 @@ export default function SplashStep({ onContinue, verticalConfig }: SplashStepPro
       </h1>
 
       <p className="text-sm text-muted-foreground leading-relaxed max-w-[360px] mx-auto mb-10">
-        Vatic watches your competitors&apos; pricing, menus, and promotions — so
+        {brandName} watches your competitors&apos; pricing, menus, and promotions — so
         you always know what&apos;s coming before it hits your bottom line.
       </p>
 

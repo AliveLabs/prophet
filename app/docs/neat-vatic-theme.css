@@ -1,0 +1,336 @@
+/* ============================================================
+   Neat — Vatic Theme Override
+   Vertical: Liquor store competitive intelligence
+   Brand: "Intelligence, neat."
+
+   Drop-in theme layer for the Vatic (Prophet) codebase.
+   Overrides globals.css Forge tokens with Neat brand values.
+
+   USAGE:
+   1. Import AFTER globals.css in your app
+   2. Apply [data-brand="neat"] to <html> or <body>
+   3. Load Fraunces via next/font/google in layout.tsx
+      and assign it to --font-fraunces
+
+   Architecture: Every Vatic CSS custom property is remapped.
+   The @theme inline block re-registers Tailwind v4 utilities
+   so `bg-primary`, `text-muted-foreground`, etc. resolve
+   correctly under the Neat brand.
+
+   Source tokens: Neat Brand Identity v1.2 (April 2026)
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="neat"] {
+
+  /* ── Core semantic (shadcn convention) ───────────────────── */
+  --background:            #F7F4EF;  /* Parchment */
+  --foreground:            #251D14;  /* Char */
+  --primary:               #7A4A2A;  /* Barrel Brown — CTAs, links */
+  --primary-foreground:    #FFFFFF;
+  --secondary:             #EBE5DB;  /* Pale Oak — alt surfaces */
+  --secondary-foreground:  #251D14;  /* Char */
+  --destructive:           #9B3B3B;  /* Barrel Red */
+  --destructive-foreground:#FFFFFF;
+  --card:                  #FFFFFF;
+  --card-foreground:       #251D14;  /* Char */
+  --popover:               #FFFFFF;
+  --popover-foreground:    #251D14;  /* Char */
+  --muted:                 #EBE5DB;  /* Pale Oak */
+  --muted-foreground:      #7D6F5C;  /* Worn Cork */
+  --accent:                #B87333;  /* Proof Copper */
+  --accent-foreground:     #FFFFFF;
+  --border:                #EBE5DB;  /* Pale Oak */
+  --input:                 #EBE5DB;  /* Pale Oak */
+  --ring:                  #7A4A2A;  /* Barrel Brown */
+  --radius:                0.625rem; /* Inherited from Vatic */
+
+  /* ── Extended palette (Forge → Neat) ────────────────────── */
+  --forge-amber:           #B87333;  /* Proof Copper */
+  --forge-gold:            #C9942A;  /* Label Gold */
+  --forge-gold-tint:       #FDF6E3;  /* Gold Light */
+  --ember-deep:            #7A4A2A;  /* Barrel Brown */
+  --forge-gold-deep:       #8A6B18;  /* Darker gold (derived) */
+  --forge-patina:          #3D7A5F;  /* Still Green — success, "yours" */
+  --patina-tint:           #E5F0EA;  /* Green Light */
+  --patina-deep:           #2E5A4A;  /* Top Shelf */
+  --surface-emphasis:      #FDF6E3;  /* Gold Light */
+  --carbon-light:          #594A38;  /* Dark Grain */
+  --forge-black:           #14100C;  /* Charred Oak */
+  --forge:                 #1E1710;  /* Char elevated */
+  --forge-card:            #2A2118;  /* Warm dark card */
+  --lumen:                 #F7F4EF;  /* Parchment */
+  --warm-lumen:            #F0E1D0;  /* Copper Wash */
+  --carbon:                #251D14;  /* Char */
+  --lava:                  #B87333;  /* Proof Copper (brand signature) */
+  --ember:                 #C9942A;  /* Label Gold (readable accent) */
+  --lava-deep:             #7A4A2A;  /* Barrel Brown */
+  --glow:                  #5C3D2A;  /* Copper mid-tone (derived) */
+  --success:               #3D7A5F;  /* Still Green */
+  --success-dark:          #2E5A4A;  /* Top Shelf */
+  --warning:               #C9942A;  /* Label Gold */
+  --warning-dark:          #8A6B18;  /* Deep gold (derived) */
+
+  /* ── Text hierarchy ─────────────────────────────────────── */
+  --text-light-primary:    #251D14;  /* Char */
+  --text-light-body:       #594A38;  /* Dark Grain */
+  --text-light-secondary:  #7D6F5C;  /* Worn Cork */
+  --text-dark-primary:     #F7F4EF;  /* Parchment */
+  --text-dark-body:        #D4C8B8;  /* Warm cream (derived) */
+  --text-dark-secondary:   #A89882;  /* Warm mid (derived) */
+
+  /* ── Button depth / hover ───────────────────────────────── */
+  --deep-indigo:           #5C3D2A;  /* Copper mid-tone */
+
+  /* ── Legacy aliases (class names unchanged) ─────────────── */
+  --vatic-indigo:          #251D14;  /* Char → was Carbon */
+  --midnight:              #14100C;  /* Charred Oak */
+  --signal-gold:           #C9942A;  /* Label Gold */
+  --signal-gold-light:     #FDF6E3;  /* Gold Light */
+  --precision-teal:        #3D7A5F;  /* Still Green */
+  --precision-teal-light:  #E5F0EA;  /* Green Light */
+  --warm-white:            #F7F4EF;  /* Parchment */
+  --pale-lavender:         #EBE5DB;  /* Pale Oak */
+  --muted-violet:          #7D6F5C;  /* Worn Cork */
+  --deep-violet:           #251D14;  /* Char */
+  --near-black:            #1E1710;  /* Char elevated */
+  --vatic-indigo-soft:     #594A38;  /* Dark Grain */
+  --vatic-alert-red:       #9B3B3B;  /* Barrel Red */
+
+  /* ── Shadows (warm-shifted) ─────────────────────────────── */
+  --shadow-card-sm:        0 2px 8px -2px rgba(37, 29, 20, 0.08),
+                           0 1px 2px -1px rgba(37, 29, 20, 0.04);
+  --shadow-card-md:        0 4px 16px rgba(20, 16, 12, 0.18),
+                           0 2px 6px rgba(20, 16, 12, 0.10);
+  --shadow-card-lg:        0 12px 40px rgba(20, 16, 12, 0.28),
+                           0 4px 12px rgba(20, 16, 12, 0.14);
+  --shadow-glow-primary-sm:0 0 12px -2px rgba(122, 74, 42, 0.35);
+  --shadow-glow-primary:   0 0 20px rgba(122, 74, 42, 0.35),
+                           0 0 6px rgba(122, 74, 42, 0.20);
+  --shadow-glow-ember:     0 0 16px rgba(201, 148, 42, 0.30);
+  --shadow-glow-gold:      0 0 16px rgba(201, 148, 42, 0.30);
+  --shadow-glow-patina:    0 0 16px rgba(61, 122, 95, 0.30);
+  --shadow-glow-indigo-sm: var(--shadow-glow-primary-sm);
+  --shadow-glow-indigo:    var(--shadow-glow-primary);
+  --shadow-glow-teal:      var(--shadow-glow-patina);
+
+  /* ── Neat-only tokens (not in base Vatic) ───────────────── */
+  --neat-copper:           #B87333;  /* Proof Copper */
+  --neat-copper-wash:      #F0E1D0;  /* Copper Wash */
+  --neat-barrel-red:       #9B3B3B;  /* Barrel Red */
+  --neat-red-light:        #FDF0EF;  /* Red Light */
+  --neat-smoke:            #5C6B7A;  /* Smoke — "theirs" data */
+  --neat-smoke-light:      #EEF1F4;  /* Smoke Light */
+  --neat-top-shelf:        #2E5A4A;  /* Top Shelf — deep green */
+
+  /* ── Font override ──────────────────────────────────────── */
+  --font-display:          var(--font-fraunces), Georgia, serif;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="neat"].dark,
+.dark[data-brand="neat"],
+[data-brand="neat"] .dark {
+
+  /* ── Core semantic ──────────────────────────────────────── */
+  --background:            #14100C;  /* Charred Oak */
+  --foreground:            #F7F4EF;  /* Parchment */
+  --card:                  #1E1710;  /* Char elevated */
+  --card-foreground:       #F7F4EF;  /* Parchment */
+  --popover:               #1E1710;
+  --popover-foreground:    #F7F4EF;
+  --primary:               #B87333;  /* Proof Copper — brighter for dark */
+  --primary-foreground:    #FFFFFF;
+  --secondary:             #2A2118;  /* Warm dark */
+  --secondary-foreground:  #D4C8B8;  /* Warm cream */
+  --muted:                 #2A2118;
+  --muted-foreground:      #A89882;  /* Warm mid */
+  --accent:                #B87333;  /* Proof Copper */
+  --accent-foreground:     #FFFFFF;
+  --destructive:           #B54A4A;  /* Lighter red for dark bg */
+  --destructive-foreground:#FFFFFF;
+  --border:                #2A2118;  /* Warm dark */
+  --input:                 #2A2118;
+  --ring:                  #B87333;  /* Proof Copper */
+
+  /* ── Extended dark overrides ────────────────────────────── */
+  --forge-patina:          #4A9473;  /* Lighter green for dark mode */
+  --deep-indigo:           #5C3D2A;
+
+  --vatic-indigo:          #251D14;
+  --midnight:              #14100C;
+  --signal-gold:           #C9942A;
+  --signal-gold-light:     #FDF6E3;
+  --precision-teal:        #4A9473;  /* Lighter for dark mode */
+  --precision-teal-light:  #E5F0EA;
+  --warm-white:            #F7F4EF;
+  --pale-lavender:         #2A2118;  /* Inverted for dark */
+  --muted-violet:          #A89882;  /* Lighter for dark */
+  --deep-violet:           #251D14;
+  --near-black:            #1E1710;
+  --vatic-indigo-soft:     #4A9473;  /* Teal accent in dark */
+  --vatic-alert-red:       #B54A4A;
+
+  /* ── Dark shadows ───────────────────────────────────────── */
+  --shadow-card-sm:        0 2px 8px -2px rgba(0, 0, 0, 0.35),
+                           0 1px 2px -1px rgba(0, 0, 0, 0.25);
+  --shadow-card-md:        0 4px 16px rgba(0, 0, 0, 0.45),
+                           0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-card-lg:        0 12px 40px rgba(0, 0, 0, 0.55),
+                           0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-glow-primary-sm:0 0 12px -2px rgba(184, 115, 51, 0.40);
+  --shadow-glow-primary:   0 0 20px rgba(184, 115, 51, 0.40),
+                           0 0 6px rgba(184, 115, 51, 0.25);
+  --shadow-glow-indigo-sm: var(--shadow-glow-primary-sm);
+  --shadow-glow-indigo:    var(--shadow-glow-primary);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LANDING PAGE OVERRIDES
+   Replaces landing.css gradient/glass values with Neat palette
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="neat"] .vatic-gradient {
+  background: linear-gradient(135deg, #251D14 0%, #594A38 100%);
+}
+
+[data-brand="neat"] .glass-panel {
+  background: rgba(247, 244, 239, 0.65);
+  border-color: rgba(37, 29, 20, 0.10);
+}
+
+[data-brand="neat"].dark .glass-panel,
+.dark[data-brand="neat"] .glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-brand="neat"] .pricing-highlight {
+  border-color: var(--primary);
+  box-shadow: 0 0 24px rgba(122, 74, 42, 0.15),
+              0 0 8px rgba(122, 74, 42, 0.10);
+}
+
+[data-brand="neat"].dark .pricing-highlight,
+.dark[data-brand="neat"] .pricing-highlight {
+  box-shadow: 0 0 32px rgba(184, 115, 51, 0.25),
+              0 0 12px rgba(184, 115, 51, 0.15);
+}
+
+[data-brand="neat"] .landing-hero-ambient::before {
+  background: radial-gradient(circle, rgba(122, 74, 42, 0.12) 0%, transparent 70%);
+}
+
+[data-brand="neat"] .landing-hero-ambient::after {
+  background: radial-gradient(circle, rgba(201, 148, 42, 0.08) 0%, transparent 70%);
+}
+
+[data-brand="neat"].dark .landing-hero-ambient::before,
+.dark[data-brand="neat"] .landing-hero-ambient::before {
+  background: radial-gradient(circle, rgba(184, 115, 51, 0.18) 0%, transparent 70%);
+}
+
+[data-brand="neat"].dark .landing-hero-ambient::after,
+.dark[data-brand="neat"] .landing-hero-ambient::after {
+  background: radial-gradient(circle, rgba(201, 148, 42, 0.12) 0%, transparent 70%);
+}
+
+/* ── Scrollbar (warm) ─────────────────────────────────────── */
+[data-brand="neat"] ::-webkit-scrollbar-thumb {
+  background: rgba(37, 29, 20, 0.28);
+}
+
+[data-brand="neat"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 29, 20, 0.45);
+}
+
+[data-brand="neat"] * {
+  scrollbar-color: rgba(37, 29, 20, 0.28) transparent;
+}
+
+/* ── Selection ────────────────────────────────────────────── */
+[data-brand="neat"] ::selection {
+  background: rgba(184, 115, 51, 0.20);
+  color: var(--foreground);
+}
+
+/* ── Text utilities (re-pointed) ──────────────────────────── */
+[data-brand="neat"] .text-gradient-indigo {
+  background: linear-gradient(135deg, var(--primary), var(--carbon-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-brand="neat"] .text-gradient-insight {
+  background: linear-gradient(135deg, var(--primary), var(--forge-patina));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass utilities (copper-shifted) ─────────────────────── */
+[data-brand="neat"] .glass-indigo {
+  background: rgba(122, 74, 42, 0.12);
+  border-color: rgba(122, 74, 42, 0.22);
+}
+
+[data-brand="neat"] .glass-gold {
+  background: rgba(201, 148, 42, 0.10);
+  border-color: rgba(201, 148, 42, 0.22);
+}
+
+[data-brand="neat"] .glass-teal {
+  background: rgba(61, 122, 95, 0.10);
+  border-color: rgba(61, 122, 95, 0.22);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY OVERRIDES
+   Fraunces replaces Space Grotesk for display text.
+   Requires loading Fraunces in layout.tsx:
+
+   import { Fraunces } from 'next/font/google';
+   const fraunces = Fraunces({
+     subsets: ['latin'],
+     weight: ['300', '400', '500', '700'],
+     style: ['normal', 'italic'],
+     variable: '--font-fraunces',
+   });
+
+   Then add fraunces.variable to the <body> className.
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="neat"] h1,
+[data-brand="neat"] h2,
+[data-brand="neat"] .font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 400;     /* Fraunces is heavier at the same weight */
+  line-height: 1.15;
+  letter-spacing: -0.01em;  /* Fraunces needs less tracking */
+}
+
+[data-brand="neat"] .text-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+[data-brand="neat"] .text-display-italic {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-style: italic;
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}

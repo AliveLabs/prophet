@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import OnboardingWizard from "./onboarding-wizard"
 import { getVerticalConfig } from "@/lib/verticals"
+import { BrandProvider } from "@/components/brand-provider"
 
 export default async function OnboardingPage({
   searchParams,
@@ -76,14 +77,21 @@ export default async function OnboardingPage({
     }
   }
 
+  const dataBrand =
+    process.env.VERTICALIZATION_ENABLED === "true" && verticalParam
+      ? verticalConfig.brand.dataBrand
+      : undefined
+
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <OnboardingWizard
-        existingOrgId={existingOrgId}
-        existingLocationId={existingLocationId}
-        existingCompetitors={existingCompetitors}
-        verticalConfig={verticalConfig}
-      />
-    </div>
+    <BrandProvider brand={dataBrand}>
+      <div className="min-h-dvh bg-background text-foreground">
+        <OnboardingWizard
+          existingOrgId={existingOrgId}
+          existingLocationId={existingLocationId}
+          existingCompetitors={existingCompetitors}
+          verticalConfig={verticalConfig}
+        />
+      </div>
+    </BrandProvider>
   )
 }

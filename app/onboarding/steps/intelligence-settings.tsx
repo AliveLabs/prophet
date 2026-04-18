@@ -92,11 +92,13 @@ const SETTINGS = [
 type IntelligenceSettingsStepProps = {
   preferences: Preferences
   onChange: (prefs: Preferences) => void
+  brandName?: string
 }
 
 export default function IntelligenceSettingsStep({
   preferences,
   onChange,
+  brandName = "Vatic",
 }: IntelligenceSettingsStepProps) {
   const toggle = (key: keyof Preferences) => {
     onChange({ ...preferences, [key]: !preferences[key] })
@@ -113,7 +115,7 @@ export default function IntelligenceSettingsStep({
         <em className="text-vatic-indigo-soft italic">intelligence.</em>
       </h2>
       <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-        Choose what Vatic should monitor. You can always change these later.
+        Choose what {brandName} should monitor. You can always change these later.
       </p>
 
       <div className="flex flex-col gap-3">

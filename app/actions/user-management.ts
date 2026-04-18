@@ -110,6 +110,8 @@ export async function inviteNewUser(
       name: fullName,
       magicLinkUrl,
     }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   await logAdminAction({
@@ -254,6 +256,8 @@ export async function sendUserMagicLink(
       name: fullName,
       magicLinkUrl,
     }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   await logAdminAction({

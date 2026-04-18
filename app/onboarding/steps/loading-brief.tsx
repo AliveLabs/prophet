@@ -20,6 +20,7 @@ type LoadingBriefStepProps = {
   competitors: OnboardingCandidate[]
   monitoringPrefs: Record<string, boolean>
   businessName: string
+  brandName?: string
 }
 
 export default function LoadingBriefStep({
@@ -29,6 +30,7 @@ export default function LoadingBriefStep({
   competitors,
   monitoringPrefs,
   businessName,
+  brandName = "Vatic",
 }: LoadingBriefStepProps) {
   const router = useRouter()
   const [phase, setPhase] = useState(0)
@@ -171,7 +173,7 @@ export default function LoadingBriefStep({
             Ready
           </div>
           <h2 className="font-display text-[32px] font-medium leading-[1.15] text-foreground mb-3 max-[540px]:text-[27px]">
-            Welcome to Vatic,
+            Welcome to {brandName},
             <br />
             <em className="text-vatic-indigo-soft italic">{businessName || "Chef"}</em>
           </h2>

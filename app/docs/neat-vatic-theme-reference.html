@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neat → Vatic Theme Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-ui: 'Inter', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-ui);
+    background: #F7F4EF;
+    color: #251D14;
+    padding: 48px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: #7D6F5C;
+    margin-bottom: 8px;
+  }
+
+  .meta {
+    font-size: 0.72rem;
+    color: #7D6F5C;
+    margin-bottom: 48px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #EBE5DB;
+  }
+
+  .meta code {
+    background: #EBE5DB;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+  }
+
+  h2 {
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #7D6F5C;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #EBE5DB;
+  }
+
+  section { margin-bottom: 48px; }
+
+  /* ── Token table ── */
+  .token-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  .token-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7D6F5C;
+    padding: 8px 12px;
+    border-bottom: 2px solid #EBE5DB;
+  }
+
+  .token-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #EBE5DB;
+    vertical-align: middle;
+  }
+
+  .token-table tr:hover { background: rgba(235, 229, 219, 0.4); }
+
+  .token-name {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: #594A38;
+  }
+
+  .swatch-pair {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .swatch-sm {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+
+  .hex {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.7rem;
+    color: #7D6F5C;
+  }
+
+  .neat-name {
+    font-size: 0.72rem;
+    color: #594A38;
+    font-weight: 500;
+  }
+
+  .note {
+    font-size: 0.68rem;
+    color: #7D6F5C;
+    font-style: italic;
+  }
+
+  .arrow { color: #B87333; font-weight: 600; }
+
+  /* ── Side-by-side preview ── */
+  .preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .preview-card {
+    border-radius: 12px;
+    padding: 32px;
+    overflow: hidden;
+  }
+
+  .preview-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+
+  .preview-card p {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .preview-card .btn {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    margin-right: 8px;
+  }
+
+  .preview-card .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+
+  .preview-light {
+    background: #F7F4EF;
+    border: 1px solid #EBE5DB;
+    color: #251D14;
+  }
+  .preview-light h3 { color: #251D14; }
+  .preview-light p { color: #594A38; }
+  .preview-light .btn-primary { background: #7A4A2A; color: #fff; }
+  .preview-light .btn-secondary { background: transparent; color: #7A4A2A; border: 1px solid #7A4A2A; }
+  .preview-light .badge-success { background: #E5F0EA; color: #2E5A4A; }
+  .preview-light .badge-warning { background: #FDF6E3; color: #8A6B18; }
+  .preview-light .badge-danger { background: #FDF0EF; color: #9B3B3B; }
+  .preview-light .badge-neutral { background: #EEF1F4; color: #5C6B7A; }
+
+  .preview-dark {
+    background: #14100C;
+    color: #F7F4EF;
+  }
+  .preview-dark h3 { color: #F7F4EF; }
+  .preview-dark p { color: #D4C8B8; }
+  .preview-dark .btn-primary { background: #B87333; color: #fff; }
+  .preview-dark .btn-secondary { background: transparent; color: #B87333; border: 1px solid #B87333; }
+  .preview-dark .badge-success { background: rgba(61,122,95,0.2); color: #4A9473; }
+  .preview-dark .badge-warning { background: rgba(201,148,42,0.2); color: #C9942A; }
+  .preview-dark .badge-danger { background: rgba(155,59,59,0.2); color: #B54A4A; }
+  .preview-dark .badge-neutral { background: rgba(92,107,122,0.2); color: #8A9AAA; }
+
+  /* ── Data viz mock ── */
+  .dataviz-mock {
+    display: flex;
+    align-items: end;
+    gap: 12px;
+    height: 80px;
+    padding: 12px 0;
+    margin-top: 8px;
+  }
+
+  .dataviz-mock .bar-group {
+    display: flex;
+    align-items: end;
+    gap: 3px;
+    flex: 1;
+  }
+
+  .dataviz-mock .bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-width: 16px;
+  }
+
+  .dataviz-mock .bar-label {
+    font-size: 0.6rem;
+    text-align: center;
+    margin-top: 4px;
+    color: #7D6F5C;
+  }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #14100C;
+    color: #D4C8B8;
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    margin-bottom: 16px;
+  }
+
+  .code-block .comment { color: #7D6F5C; }
+  .code-block .key { color: #B87333; }
+  .code-block .value { color: #C9942A; }
+  .code-block .string { color: #3D7A5F; }
+
+  /* ── Integration steps ── */
+  .steps {
+    counter-reset: step;
+  }
+
+  .step {
+    counter-increment: step;
+    padding: 16px 20px 16px 56px;
+    background: #fff;
+    border: 1px solid #EBE5DB;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .step::before {
+    content: counter(step);
+    position: absolute;
+    left: 20px;
+    top: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #7A4A2A;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .step p {
+    font-size: 0.75rem;
+    color: #594A38;
+  }
+
+  .step code {
+    background: #EBE5DB;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+  }
+
+  /* ── Font comparison ── */
+  .font-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .font-card {
+    background: #fff;
+    border: 1px solid #EBE5DB;
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .font-card .label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #7D6F5C;
+    margin-bottom: 12px;
+  }
+
+  .font-card .sample-display {
+    font-size: 1.8rem;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .font-card .sample-body {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #594A38;
+  }
+
+  .font-card--fraunces .sample-display {
+    font-family: 'Fraunces', Georgia, serif;
+    font-weight: 400;
+  }
+
+  .font-card--space .sample-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<h1>Neat → Vatic Theme Map</h1>
+<p class="subtitle">Complete token mapping from Vatic's Forge design system to Neat brand values</p>
+<div class="meta">
+  Activation: <code>data-brand="neat"</code> on the root element &nbsp;·&nbsp;
+  Source: <code>neat-vatic-theme.css</code> &nbsp;·&nbsp;
+  Tokens: 55 overrides across semantic, extended, text, shadow, and legacy layers &nbsp;·&nbsp;
+  Font: Fraunces → <code>--font-fraunces</code> via next/font
+</div>
+
+
+<!-- ════════ LIVE PREVIEW ════════ -->
+<section>
+  <h2>Live Preview — Light & Dark</h2>
+  <div class="preview-grid">
+    <div class="preview-card preview-light">
+      <h3>Know what's moving.</h3>
+      <p>Price changes, new promotions, shelf shifts — before your competitor sees them. Intelligence, neat.</p>
+      <div style="margin-bottom: 12px;">
+        <span class="badge badge-success">+12% your share</span>
+        <span class="badge badge-warning">Price alert</span>
+        <span class="badge badge-danger">New competitor</span>
+        <span class="badge badge-neutral">3 competitors</span>
+      </div>
+      <a class="btn btn-primary" href="#">Request Early Access</a>
+      <a class="btn btn-secondary" href="#">See How It Works</a>
+    </div>
+    <div class="preview-card preview-dark">
+      <h3>Know what's moving.</h3>
+      <p>Price changes, new promotions, shelf shifts — before your competitor sees them. Intelligence, neat.</p>
+      <div style="margin-bottom: 12px;">
+        <span class="badge badge-success">+12% your share</span>
+        <span class="badge badge-warning">Price alert</span>
+        <span class="badge badge-danger">New competitor</span>
+        <span class="badge badge-neutral">3 competitors</span>
+      </div>
+      <a class="btn btn-primary" href="#">Request Early Access</a>
+      <a class="btn btn-secondary" href="#">See How It Works</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ DATA VIZ ════════ -->
+<section>
+  <h2>Data Color Story — Yours vs. Theirs</h2>
+  <div class="preview-grid">
+    <div class="preview-card preview-light" style="padding: 24px;">
+      <div style="font-size: 0.72rem; font-weight: 600; color: #7D6F5C; margin-bottom: 8px;">PRICING COMPARISON</div>
+      <div class="dataviz-mock">
+        <div class="bar-group">
+          <div class="bar" style="background: #3D7A5F; height: 70%;"></div>
+          <div class="bar" style="background: #5C6B7A; height: 55%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #3D7A5F; height: 85%;"></div>
+          <div class="bar" style="background: #5C6B7A; height: 60%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #3D7A5F; height: 60%;"></div>
+          <div class="bar" style="background: #5C6B7A; height: 80%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #C9942A; height: 45%; border: 2px solid #C9942A;"></div>
+          <div class="bar" style="background: #5C6B7A; height: 70%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #9B3B3B; height: 30%;"></div>
+          <div class="bar" style="background: #5C6B7A; height: 90%;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.68rem;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#3D7A5F;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>You</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#5C6B7A;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Competitors</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#C9942A;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Flagged</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#9B3B3B;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Critical</span>
+      </div>
+    </div>
+    <div class="preview-card preview-dark" style="padding: 24px;">
+      <div style="font-size: 0.72rem; font-weight: 600; color: #A89882; margin-bottom: 8px;">PRICING COMPARISON</div>
+      <div class="dataviz-mock">
+        <div class="bar-group">
+          <div class="bar" style="background: #4A9473; height: 70%;"></div>
+          <div class="bar" style="background: rgba(92,107,122,0.6); height: 55%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #4A9473; height: 85%;"></div>
+          <div class="bar" style="background: rgba(92,107,122,0.6); height: 60%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #4A9473; height: 60%;"></div>
+          <div class="bar" style="background: rgba(92,107,122,0.6); height: 80%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #C9942A; height: 45%;"></div>
+          <div class="bar" style="background: rgba(92,107,122,0.6); height: 70%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #B54A4A; height: 30%;"></div>
+          <div class="bar" style="background: rgba(92,107,122,0.6); height: 90%;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.68rem; color: #A89882;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4A9473;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>You</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(92,107,122,0.6);border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Competitors</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#C9942A;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Flagged</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#B54A4A;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Critical</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ FONT SWAP ════════ -->
+<section>
+  <h2>Typography Swap — Space Grotesk → Fraunces</h2>
+  <div class="font-compare">
+    <div class="font-card font-card--space">
+      <div class="label">Vatic (base) — Space Grotesk 600</div>
+      <div class="sample-display">See further.<br>Act sooner.</div>
+      <div class="sample-body">Competitive intelligence that monitors, interprets, and briefs.</div>
+    </div>
+    <div class="font-card font-card--fraunces">
+      <div class="label">Neat (override) — Fraunces 400</div>
+      <div class="sample-display">Know what's moving.<br>Intelligence, neat.</div>
+      <div class="sample-body">Competitive intelligence that monitors, interprets, and briefs.</div>
+    </div>
+  </div>
+  <p style="font-size: 0.72rem; color: #7D6F5C; margin-top: 12px;">
+    Inter (body/UI) and Space Mono (code) stay unchanged — the shared structural thread across all Vatic verticals.
+    Only the display font swaps: <code style="background:#EBE5DB;padding:1px 5px;border-radius:3px;font-size:0.7rem;">--font-display: var(--font-fraunces)</code>
+  </p>
+</section>
+
+
+<!-- ════════ CORE SEMANTIC MAPPING ════════ -->
+<section>
+  <h2>Core Semantic Tokens (shadcn layer)</h2>
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>CSS Variable</th>
+        <th>Vatic (Forge)</th>
+        <th></th>
+        <th>Neat (Light)</th>
+        <th>Neat (Dark)</th>
+        <th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="token-name">--background</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#f6f8fa;"></div><span class="hex">#F6F8FA</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F7F4EF;"></div><span class="hex">#F7F4EF</span> <span class="neat-name">Parchment</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#14100C;"></div><span class="hex">#14100C</span> <span class="neat-name">Charred Oak</span></div></td>
+        <td class="note">Page background</td>
+      </tr>
+      <tr>
+        <td class="token-name">--foreground</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2b353f;"></div><span class="hex">#2B353F</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#251D14;"></div><span class="hex">#251D14</span> <span class="neat-name">Char</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F7F4EF;"></div><span class="hex">#F7F4EF</span> <span class="neat-name">Parchment</span></div></td>
+        <td class="note">Primary text</td>
+      </tr>
+      <tr>
+        <td class="token-name">--primary</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2b353f;"></div><span class="hex">#2B353F</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#7A4A2A;"></div><span class="hex">#7A4A2A</span> <span class="neat-name">Barrel Brown</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B87333;"></div><span class="hex">#B87333</span> <span class="neat-name">Proof Copper</span></div></td>
+        <td class="note">CTAs, links, interactive</td>
+      </tr>
+      <tr>
+        <td class="token-name">--accent</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#ff7849;"></div><span class="hex">#FF7849</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B87333;"></div><span class="hex">#B87333</span> <span class="neat-name">Proof Copper</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B87333;"></div><span class="hex">#B87333</span> <span class="neat-name">Proof Copper</span></div></td>
+        <td class="note">Accent highlight</td>
+      </tr>
+      <tr>
+        <td class="token-name">--destructive</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#dc2626;"></div><span class="hex">#DC2626</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#9B3B3B;"></div><span class="hex">#9B3B3B</span> <span class="neat-name">Barrel Red</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B54A4A;"></div><span class="hex">#B54A4A</span></div></td>
+        <td class="note">Error, danger</td>
+      </tr>
+      <tr>
+        <td class="token-name">--muted-foreground</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#726a63;"></div><span class="hex">#726A63</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#7D6F5C;"></div><span class="hex">#7D6F5C</span> <span class="neat-name">Worn Cork</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#A89882;"></div><span class="hex">#A89882</span></div></td>
+        <td class="note">Secondary text</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 0.72rem; color: #7D6F5C; margin-top: 8px;">
+    Full mapping of all 55 tokens is in <code style="background:#EBE5DB;padding:1px 5px;border-radius:3px;font-size:0.7rem;">neat-vatic-theme.css</code>
+  </p>
+</section>
+
+
+<!-- ════════ INTEGRATION ════════ -->
+<section>
+  <h2>Integration Steps</h2>
+  <div class="steps">
+    <div class="step">
+      <h4>Load Fraunces font in layout.tsx</h4>
+      <p>Add <code>Fraunces</code> via <code>next/font/google</code> with weights 300–700, assign to <code>--font-fraunces</code>. Add the variable class to <code>&lt;body&gt;</code>.</p>
+    </div>
+    <div class="step">
+      <h4>Import the theme CSS</h4>
+      <p>Import <code>neat-vatic-theme.css</code> after <code>globals.css</code> in your app entry. The <code>[data-brand="neat"]</code> selector means it only activates when the attribute is present.</p>
+    </div>
+    <div class="step">
+      <h4>Set the brand attribute</h4>
+      <p>Add <code>data-brand="neat"</code> to the <code>&lt;html&gt;</code> element. This can be conditional (e.g., based on subdomain, org type, or feature flag) so the same codebase serves both Vatic-generic and Neat-branded experiences.</p>
+    </div>
+    <div class="step">
+      <h4>Verify dark mode</h4>
+      <p>The theme handles <code>.dark</code> class combinations. Ensure <code>next-themes</code> applies <code>.dark</code> to <code>&lt;html&gt;</code> as usual — the theme's dark selectors will cascade correctly.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Layout.tsx Font Setup</h2>
+  <div class="code-block">
+<span class="comment">// Add alongside existing font imports</span>
+<span class="key">import</span> { Fraunces } <span class="key">from</span> <span class="string">'next/font/google'</span>;
+
+<span class="key">const</span> fraunces = Fraunces({
+  subsets: [<span class="string">'latin'</span>],
+  weight: [<span class="string">'300'</span>, <span class="string">'400'</span>, <span class="string">'500'</span>, <span class="string">'700'</span>],
+  style: [<span class="string">'normal'</span>, <span class="string">'italic'</span>],
+  variable: <span class="string">'--font-fraunces'</span>,
+});
+
+<span class="comment">// Add to body className:</span>
+&lt;body className={`${inter.variable} ${spaceGrotesk.variable} ${spaceMono.variable} <span class="value">${fraunces.variable}</span>`}&gt;
+  </div>
+</section>
+
+
+<!-- ════════ ARCHITECTURE NOTE ════════ -->
+<section>
+  <h2>Architecture Note — Vertical Theming Pattern</h2>
+  <p style="font-size: 0.82rem; color: #594A38; line-height: 1.7; max-width: 720px;">
+    This is the first vertical theme on the Vatic codebase. The pattern — <code style="background:#EBE5DB;padding:1px 5px;border-radius:3px;font-size:0.72rem;">[data-brand="neat"]</code> scoping all overrides — is designed to scale. Future verticals (Ticket, etc.) follow the same structure: one CSS file per brand, activated by a single attribute. No JS-level branching, no build-time splitting. The base Forge tokens in globals.css remain the default; brand layers are additive overrides only.
+  </p>
+  <p style="font-size: 0.82rem; color: #594A38; line-height: 1.7; max-width: 720px; margin-top: 12px;">
+    Neat adds 7 tokens not in the base Vatic system (<code style="background:#EBE5DB;padding:1px 5px;border-radius:3px;font-size:0.72rem;">--neat-copper</code>, <code style="background:#EBE5DB;padding:1px 5px;border-radius:3px;font-size:0.72rem;">--neat-smoke</code>, etc.) for its "yours vs. theirs" data story. These are namespaced to avoid collision and are only referenced by Neat-branded components.
+  </p>
+</section>
+
+</body>
+</html>

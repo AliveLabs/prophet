@@ -111,6 +111,8 @@ export async function POST(request: Request) {
       react: WaitlistConfirmation({
         name: fullName ?? undefined,
       }),
+      clientFacing: true,
+      overrideClientEmailPause: false,
     })
 
     if (!confirmResult.ok) {
@@ -119,14 +121,19 @@ export async function POST(request: Request) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
+    const adminSubject = fullName
+      ? `New Ticket waitlist signup: ${fullName} (${normalizedEmail})`
+      : `New Ticket waitlist signup: ${normalizedEmail}`
+
     sendEmail({
       to: ADMIN_NOTIFY_EMAIL,
-      subject: `New waitlist signup: ${normalizedEmail}`,
+      subject: adminSubject,
       react: WaitlistAdminNotification({
         signupEmail: normalizedEmail,
         signupName: fullName ?? undefined,
         adminDashboardUrl: `${appUrl}/admin/waitlist`,
       }),
+      clientFacing: false,
     }).catch((err) => console.error("Admin notification email failed:", err))
 
     return NextResponse.json({ ok: true })

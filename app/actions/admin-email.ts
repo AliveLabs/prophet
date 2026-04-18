@@ -25,6 +25,8 @@ export async function sendCustomEmail(
     to,
     subject,
     react: AdminCustomEmail({ subject, body }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   if (!result.ok) {
@@ -125,6 +127,8 @@ export async function broadcastEmail(
         to: email,
         subject,
         react: AdminCustomEmail({ subject, body }),
+        clientFacing: true,
+        overrideClientEmailPause: true,
       })
     )
     const results = await Promise.allSettled(promises)

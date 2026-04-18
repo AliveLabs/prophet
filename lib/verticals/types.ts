@@ -86,4 +86,11 @@ export interface VerticalConfig {
     competitorDescription: string
     industryVocabulary: string[]
   }
+
+  brand: {
+    dataBrand: string
+    wordmark: string
+    displayName: string
+    tagline: string
+  }
 }

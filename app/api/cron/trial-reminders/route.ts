@@ -70,6 +70,8 @@ export async function GET(request: Request) {
             to: profile.email,
             subject: "Your Vatic trial has ended",
             react: TrialExpired({ userName, upgradeUrl }),
+            clientFacing: true,
+            overrideClientEmailPause: false,
           })
         } else {
           const daysLeft = emailType === "3day" ? 3 : 1
@@ -99,6 +101,8 @@ export async function GET(request: Request) {
               insightsGenerated: count ?? 0,
               upgradeUrl,
             }),
+            clientFacing: true,
+            overrideClientEmailPause: false,
           })
         }
         sent.push(`${emailType}:${profile.email}`)
