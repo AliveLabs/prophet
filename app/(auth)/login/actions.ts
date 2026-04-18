@@ -48,6 +48,8 @@ export async function sendMagicLinkAction(formData: FormData) {
     to: email,
     subject: "Sign in to Vatic",
     react: MagicLinkEmail({ email, magicLinkUrl: data.properties.action_link }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   if (!result.ok) {

@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
+import { getVerticalConfig } from "@/lib/verticals"
 import {
   discoverCompetitorsAction,
   ignoreCompetitorAction,
@@ -187,6 +188,17 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
 
   const organizationId = profile?.current_organization_id
   if (!organizationId) return null
+
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("industry_type")
+    .eq("id", organizationId)
+    .maybeSingle()
+  const verticalConfig = getVerticalConfig(orgRow?.industry_type)
+  const brandName =
+    process.env.VERTICALIZATION_ENABLED === "true"
+      ? verticalConfig.brand.displayName
+      : "Vatic"
 
   const { data: locations } = await supabase
     .from("locations")
@@ -429,7 +441,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
       {isOnboarding ? (
         <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-4">
           <p className="text-sm font-semibold text-foreground">Location added! Now discover competitors to start getting insights.</p>
-          <p className="mt-1 text-xs text-muted-foreground">Use the &quot;Track a new competitor&quot; card below to find nearby competitors. Once you approve them, Vatic will automatically collect their data and generate insights.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Use the &quot;Track a new competitor&quot; card below to find nearby competitors. Once you approve them, {brandName} will automatically collect their data and generate insights.</p>
         </div>
       ) : null}
       {debugData ? (

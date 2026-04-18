@@ -10,6 +10,7 @@ import {
   Legend,
 } from "recharts"
 import type { PieLabelRenderProps } from "recharts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 // ---------------------------------------------------------------------------
 // Props
@@ -24,25 +25,18 @@ type Props = {
 // Color palette
 // ---------------------------------------------------------------------------
 
-const COLORS = [
-  "#2B353F",
-  "#3D4B58",
-  "#34775E",
-  "#D4880A",
-  "#DC2626",
-  "#726A63",
-  "#1A2228",
-  "#34775E",
-  "#D4880A",
-  "#3D4B58",
-]
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export default function VisibilityCharts({ sovData, locationDomain }: Props) {
   const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
+  const c = useChartColors()
+  const COLORS = [
+    c.vaticIndigo, c.carbonLight, c.precisionTeal, c.signalGold,
+    c.destructive, c.mutedForeground, c.deepIndigo,
+    c.precisionTeal, c.signalGold, c.carbonLight,
+  ]
 
   if (!isClient || sovData.length === 0) {
     return <p className="text-sm text-muted-foreground">No share of voice data yet.</p>

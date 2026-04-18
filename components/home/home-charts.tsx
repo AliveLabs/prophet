@@ -13,16 +13,19 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts"
+import { useChartColors, type ChartColors } from "@/lib/hooks/use-chart-colors"
 
 // ---------------------------------------------------------------------------
 // Severity Distribution (donut chart)
 // ---------------------------------------------------------------------------
 
-const SEVERITY_CHART_COLORS: Record<string, string> = {
-  critical: "#DC2626",
-  warning: "#D4880A",
-  info: "#2B353F",
-  positive: "#34775E",
+function severityColors(c: ChartColors): Record<string, string> {
+  return {
+    critical: c.destructive,
+    warning: c.signalGold,
+    info: c.foreground,
+    positive: c.precisionTeal,
+  }
 }
 
 type SeverityData = { name: string; value: number; color: string }
@@ -70,7 +73,14 @@ export function SeverityDistribution({
   )
 }
 
-export function buildSeverityData(insights: Array<{ severity: string }>): SeverityData[] {
+export function buildSeverityData(
+  insights: Array<{ severity: string }>,
+  chartColors?: ChartColors
+): SeverityData[] {
+  const palette = chartColors ? severityColors(chartColors) : {
+    critical: "#DC2626", warning: "#D4880A", info: "#2B353F", positive: "#34775E",
+  }
+  const fallback = chartColors?.mutedForeground ?? "#726A63"
   const counts: Record<string, number> = { critical: 0, warning: 0, info: 0, positive: 0 }
   for (const ins of insights) {
     const key = ins.severity ?? "info"
@@ -79,7 +89,7 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
   return Object.entries(counts).map(([name, value]) => ({
     name,
     value,
-    color: SEVERITY_CHART_COLORS[name] ?? "#726A63",
+    color: palette[name] ?? fallback,
   }))
 }
 
@@ -87,15 +97,17 @@ export function buildSeverityData(insights: Array<{ severity: string }>): Severi
 // Insights by Source (bar chart)
 // ---------------------------------------------------------------------------
 
-const SOURCE_CHART_COLORS: Record<string, string> = {
-  Competitors: "#34775E",
-  Events: "#3D4B58",
-  SEO: "#2B353F",
-  Content: "#34775E",
-  Photos: "#D4880A",
-  Traffic: "#D4880A",
-  Social: "#2B353F",
-  Reviews: "#D4880A",
+function sourceColors(c: ChartColors): Record<string, string> {
+  return {
+    Competitors: c.precisionTeal,
+    Events: c.carbonLight,
+    SEO: c.foreground,
+    Content: c.precisionTeal,
+    Photos: c.signalGold,
+    Traffic: c.signalGold,
+    Social: c.foreground,
+    Reviews: c.signalGold,
+  }
 }
 
 type SourceBarData = { name: string; count: number; fill: string }
@@ -133,8 +145,15 @@ export function InsightsBySource({ data }: { data: SourceBarData[] }) {
 }
 
 export function buildSourceBarData(
-  insights: Array<{ insight_type: string }>
+  insights: Array<{ insight_type: string }>,
+  chartColors?: ChartColors
 ): SourceBarData[] {
+  const palette = chartColors ? sourceColors(chartColors) : {
+    Competitors: "#34775E", Events: "#3D4B58", SEO: "#2B353F",
+    Content: "#34775E", Photos: "#D4880A", Traffic: "#D4880A",
+    Social: "#2B353F", Reviews: "#D4880A",
+  }
+  const fallback = chartColors?.mutedForeground ?? "#726A63"
   const counts: Record<string, number> = {}
   for (const ins of insights) {
     const t = ins.insight_type ?? ""
@@ -152,7 +171,7 @@ export function buildSourceBarData(
     .map(([name, count]) => ({
       name,
       count,
-      fill: SOURCE_CHART_COLORS[name] ?? "#726A63",
+      fill: palette[name] ?? fallback,
     }))
     .sort((a, b) => b.count - a.count)
 }
@@ -164,6 +183,7 @@ export function buildSourceBarData(
 type TrendPoint = { day: string; count: number }
 
 export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
+  const colors = useChartColors()
   if (data.length === 0) return null
 
   return (
@@ -172,8 +192,8 @@ export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
         <AreaChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
           <defs>
             <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#2B353F" stopOpacity={0.3} />
-              <stop offset="95%" stopColor="#2B353F" stopOpacity={0} />
+              <stop offset="5%" stopColor={colors.foreground} stopOpacity={0.3} />
+              <stop offset="95%" stopColor={colors.foreground} stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis dataKey="day" hide />
@@ -185,7 +205,7 @@ export function WeeklyTrend({ data }: { data: TrendPoint[] }) {
           <Area
             type="monotone"
             dataKey="count"
-            stroke="#2B353F"
+            stroke={colors.foreground}
             strokeWidth={2}
             fill="url(#trendGrad)"
           />

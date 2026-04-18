@@ -132,11 +132,18 @@ Do NOT invent items or prices. Only include items you can verify from search res
 
 export async function fetchGoogleMenuData(
   restaurantName: string,
-  address: string | null
+  address: string | null,
+  industryType?: string
 ): Promise<GoogleMenuResult | null> {
   try {
     const locationInfo = address ? `${restaurantName} at ${address}` : restaurantName
-    const prompt = `${GOOGLE_MENU_PROMPT}\n\nRestaurant: ${locationInfo}`
+    let contextPrefix = ""
+    if (process.env.VERTICALIZATION_ENABLED === "true" && industryType) {
+      const { getVerticalConfig } = await import("@/lib/verticals")
+      const config = getVerticalConfig(industryType)
+      contextPrefix = `Industry: ${config.llmContext.businessDescription}. `
+    }
+    const prompt = `${contextPrefix}${GOOGLE_MENU_PROMPT}\n\nRestaurant: ${locationInfo}`
 
     const response = await fetch(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
       method: "POST",

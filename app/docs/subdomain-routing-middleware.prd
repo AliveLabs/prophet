@@ -1,0 +1,318 @@
+# PRD: Subdomain Routing Middleware
+**Project:** Vatic / Prophet  
+**Author:** Anand Iyer  
+**Date:** April 14, 2026  
+**Status:** Cursor-ready — Implementation  
+**Scope:** Add `middleware.ts` to enable `ticket.thevatic.com` and `neat.thevatic.com` to be served from the same Next.js application, with per-vertical context injected on every request.
+
+---
+
+## 1. Context and Why This Exists
+
+The Vatic application currently has **no `middleware.ts`**. This is a deliberate design decision documented in BLUEPRINT.md — auth is enforced at the layout/page level, not middleware. That decision must be preserved.
+
+The verticalization roadmap requires that:
+- `ticket.thevatic.com` serves the restaurant vertical (Ticket brand)
+- `neat.thevatic.com` serves the liquor store vertical (Neat brand)
+- Both domains point to the **same single Vercel project** (one codebase, one deployment)
+
+Without middleware, there is no way for the application to know which vertical is being requested before server components render. This PRD introduces a minimal, non-breaking `middleware.ts` that solves this one problem without touching auth or any existing behavior.
+
+---
+
+## 2. What This PRD Covers
+
+This PRD covers only:
+1. Creating `middleware.ts` at the repo root
+2. Adding the `NEXT_PUBLIC_APP_HOSTNAME` environment variable
+3. A local dev testing approach for simulating multiple hostnames
+
+This PRD does NOT cover:
+- Changes to any existing server components, layouts, or pages
+- Changes to any auth logic (`lib/auth/server.ts`, `lib/auth/org-access.ts`, `lib/auth/platform-admin.ts`)
+- Changes to any RLS policies or Supabase configuration
+- The `lib/verticals/` config layer (that is Phase 2 of verticalization, a separate PRD)
+- Any UI or branding changes
+- DNS configuration or Vercel domain setup (infrastructure, not code)
+- Any database migrations
+
+---
+
+## 3. Existing Patterns to Preserve (Do Not Break)
+
+Before writing a single line, Cursor must understand these constraints:
+
+### 3.1 Auth is layout-level, not middleware-level
+From BLUEPRINT.md Section 6.4:
+> "There is no `middleware.ts`: All auth is enforced at the layout/page level."
+
+The new middleware must NOT:
+- Call `requireUser()` or `getUser()`
+- Read or write Supabase auth cookies
+- Redirect unauthenticated users
+- Touch the auth callback route (`/auth/callback`)
+
+Auth continues to work exactly as it does today. The middleware only reads the `Host` header and injects two request headers. That is its entire job.
+
+### 3.2 Existing Supabase SSR cookie behavior
+`lib/supabase/server.ts` uses `@supabase/ssr` with Next.js `cookies()`. The middleware must not interfere with how cookies are set or read. The middleware response must use `NextResponse.next({ request })` to correctly forward request headers, including cookies, to the origin.
+
+### 3.3 Cron routes must not be affected
+`/api/cron/daily` and `/api/cron/trial-reminders` use `CRON_SECRET` bearer token auth and are called by Vercel cron. The middleware matcher must exclude these routes.
+
+### 3.4 Job streaming routes (SSE)
+`/api/jobs/*` handles SSE streams. The middleware must not interfere with streaming responses. Using `NextResponse.next()` is correct here because it passes through unchanged — no response body manipulation.
+
+### 3.5 The `VERTICALIZATION_ENABLED` feature flag
+The existing `lib/verticals/` system (already built, per BLUEPRINT.md) is gated by `VERTICALIZATION_ENABLED=true`. The middleware header injection happens regardless of this flag — it is infrastructure, not a feature. Downstream consumers of `x-vatic-industry-type` may still check the flag before acting on it.
+
+### 3.6 Tailwind v4 constraint
+This PRD introduces no CSS or component changes, so Tailwind v4 compatibility is not a concern here.
+
+---
+
+## 4. The Middleware: Exact Specification
+
+### 4.1 File location
+```
+middleware.ts   (repo root, sibling to next.config.ts)
+```
+
+### 4.2 What it does
+On every matched request:
+1. Read the `Host` header from the incoming request
+2. Look up the hostname in the `HOSTNAME_TO_INDUSTRY` map
+3. If found, inject `x-vatic-industry-type` header into the request
+4. If not found, inject the default: `restaurant`
+5. Also inject `x-vatic-hostname` for debugging and downstream use
+6. Pass the request through with `NextResponse.next({ request: { headers: modifiedHeaders } })`
+
+### 4.3 The hostname map
+
+```typescript
+const HOSTNAME_TO_INDUSTRY: Record<string, 'restaurant' | 'liquor_store'> = {
+  // Production
+  'ticket.thevatic.com': 'restaurant',
+  'neat.thevatic.com': 'liquor_store',
+  
+  // Local dev (Next.js custom hostname simulation via /etc/hosts)
+  'ticket.localhost': 'restaurant',
+  'neat.localhost': 'liquor_store',
+  
+  // Standard local dev — defaults to restaurant
+  'localhost': 'restaurant',
+  'localhost:3000': 'restaurant',
+}
+```
+
+The map should also support reading the default from an environment variable `VATIC_DEFAULT_INDUSTRY` (defaults to `'restaurant'` if not set), so we can change the default without a code deploy.
+
+### 4.4 The matcher
+
+The middleware must run on all routes EXCEPT:
+- `/_next/*` — Next.js internals (static assets, HMR)
+- `/favicon.ico`
+- `/api/cron/*` — Cron endpoints (no need for vertical context, and any interference is risky)
+- `/_vercel/*` — Vercel internals
+
+```typescript
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|api/cron|_vercel).*)',
+  ],
+}
+```
+
+### 4.5 Full implementation
+
+```typescript
+import { NextRequest, NextResponse } from 'next/server'
+
+const HOSTNAME_TO_INDUSTRY: Record<string, 'restaurant' | 'liquor_store'> = {
+  'ticket.thevatic.com': 'restaurant',
+  'neat.thevatic.com': 'liquor_store',
+  'ticket.localhost': 'restaurant',
+  'neat.localhost': 'liquor_store',
+  'localhost': 'restaurant',
+  'localhost:3000': 'restaurant',
+}
+
+const DEFAULT_INDUSTRY = (process.env.VATIC_DEFAULT_INDUSTRY as 'restaurant' | 'liquor_store') ?? 'restaurant'
+
+export function middleware(request: NextRequest) {
+  const hostname = request.headers.get('host') ?? 'localhost'
+  
+  // Strip port from hostname for lookup (e.g. "neat.localhost:3001" -> "neat.localhost")
+  const hostnameWithoutPort = hostname.split(':')[0]
+  const hostnameWithPort = hostname
+  
+  const industryType =
+    HOSTNAME_TO_INDUSTRY[hostnameWithPort] ??
+    HOSTNAME_TO_INDUSTRY[hostnameWithoutPort] ??
+    DEFAULT_INDUSTRY
+
+  // Clone the request headers and inject vertical context
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-vatic-industry-type', industryType)
+  requestHeaders.set('x-vatic-hostname', hostname)
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|api/cron|_vercel).*)',
+  ],
+}
+```
+
+### 4.6 Why `NextResponse.next({ request: { headers: ... } })` and not just `NextResponse.next()`
+
+When you pass modified headers via `request: { headers: ... }`, Next.js forwards those headers to the server component that handles the request. Without this pattern, headers set on the response are not visible to server components via `headers()`. This is the correct pattern for header injection in Next.js App Router middleware.
+
+---
+
+## 5. Reading the Injected Header Downstream
+
+This section is informational — Cursor should NOT implement downstream consumers in this PRD. Downstream wiring is Phase 2 (vertical config layer). This section exists so the middleware contract is clear.
+
+Server components and server actions can read the injected header like this:
+
+```typescript
+import { headers } from 'next/headers'
+
+async function getIndustryType(): Promise<'restaurant' | 'liquor_store'> {
+  const headersList = await headers()
+  const industryType = headersList.get('x-vatic-industry-type')
+  return (industryType === 'liquor_store') ? 'liquor_store' : 'restaurant'
+}
+```
+
+This function does not exist yet and should NOT be created in this PRD. It will be created in Phase 2.
+
+---
+
+## 6. Environment Variables
+
+### 6.1 New variable (optional)
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `VATIC_DEFAULT_INDUSTRY` | No | `'restaurant'` | Fallback industry type for unrecognized hostnames |
+
+This variable does not need to be added to `.env.local` for the app to work. The default is `'restaurant'`, which is correct for the current state of the app. Add it only if we need to override the default for testing.
+
+### 6.2 No changes to existing variables
+All existing environment variables remain unchanged. No new required variables are introduced.
+
+---
+
+## 7. Local Development Testing
+
+Since we run `localhost:3000` in dev, the middleware will always inject `restaurant` by default. To test the `neat.thevatic.com` path locally:
+
+### Option A: `/etc/hosts` override (recommended for thorough testing)
+Add to `/etc/hosts`:
+```
+127.0.0.1 ticket.localhost
+127.0.0.1 neat.localhost
+```
+
+Then run the dev server on port 80 (requires sudo) or configure Next.js to respond on `neat.localhost:3000` and visit `http://neat.localhost:3000` in the browser.
+
+### Option B: Environment variable override
+Set `VATIC_DEFAULT_INDUSTRY=liquor_store` in `.env.local` temporarily to test the liquor store path without hostname tricks. Remember to revert this before committing.
+
+### Option C: Add a dev-only query param escape hatch (optional)
+
+Cursor may add an optional dev-only escape hatch: if `NODE_ENV === 'development'` and the request has a `?vertical=liquor_store` query param, use that to override the hostname lookup. This makes it easy to switch verticals in dev without `/etc/hosts` changes.
+
+If implementing Option C:
+- Only read the query param when `NODE_ENV === 'development'`
+- Never allow query param override in production
+- Strip the query param from the request before passing it downstream (or document clearly that it is preserved)
+
+---
+
+## 8. Verification Checklist
+
+After implementation, verify each item before considering this PRD complete:
+
+### Build verification
+- [ ] `npm run build` passes with no TypeScript errors
+- [ ] `npm run lint` passes with no new warnings
+
+### Behavior verification (local)
+- [ ] Visiting `http://localhost:3000` works exactly as before — login, dashboard, all pages function normally
+- [ ] The middleware does not break the auth flow: magic link login works, Google OAuth works, the callback at `/auth/callback` works
+- [ ] Visiting `/admin/waitlist` still works for platform admins
+- [ ] Visiting `/api/cron/daily` with the correct `CRON_SECRET` header still works (middleware is excluded from cron routes)
+- [ ] SSE job streams work: click a Refresh button on the dashboard and confirm the job progress bar appears and completes normally
+- [ ] Server-side caching is not broken: navigate between dashboard pages and confirm they load correctly
+
+### Header verification
+- [ ] Add a temporary `console.log` in a server component to print `headers().get('x-vatic-industry-type')` and confirm it reads `'restaurant'` on localhost
+- [ ] Remove the `console.log` before committing
+
+### Middleware exclusion verification
+- [ ] Confirm `/_next/static/*` requests do not trigger the middleware (check Vercel function logs or Next.js dev output)
+- [ ] Confirm `/api/cron/*` requests do not trigger the middleware
+
+### No regression verification
+- [ ] The Playwright smoke test passes: `npm run test:e2e`
+
+---
+
+## 9. What Cursor Must Not Do
+
+This is a safety list. If Cursor finds itself doing any of the following, it should stop and re-read this PRD:
+
+- DO NOT modify `lib/auth/server.ts`, `lib/auth/org-access.ts`, or `lib/auth/platform-admin.ts`
+- DO NOT modify `app/(dashboard)/layout.tsx` or any other layout file
+- DO NOT modify `lib/supabase/server.ts`, `lib/supabase/client.ts`, or `lib/supabase/admin.ts`
+- DO NOT add any Supabase calls inside `middleware.ts` — middleware runs on the Edge runtime and the Supabase SSR client requires Node.js `cookies()` from `next/headers`
+- DO NOT add any redirect logic to the middleware
+- DO NOT modify `next.config.ts` unless there is a specific, documented reason
+- DO NOT create any new components, pages, or server actions
+- DO NOT run any database migrations
+- DO NOT modify `vercel.json`
+- DO NOT touch any file in `lib/verticals/` — that is Phase 2
+- DO NOT touch any email templates in `lib/email/templates/`
+- DO NOT add `middleware.ts` inside the `app/` directory — it must be at the repo root (sibling to `next.config.ts`)
+
+---
+
+## 10. Files Changed by This PRD
+
+**Created:**
+- `middleware.ts` (repo root)
+
+**Modified:**
+- `.env.local` (optional: add `VATIC_DEFAULT_INDUSTRY` only if needed for testing)
+
+**Everything else is untouched.** Total diff should be one new file, approximately 35-45 lines.
+
+---
+
+## 11. Phase Sequencing Context
+
+This is Phase 3 of the verticalization roadmap. For reference:
+
+| Phase | Name | Status |
+|---|---|---|
+| 0 | Branch and safety net | Complete (feature/verticalization-v2 branch) |
+| 1 | Schema foundation | Complete (industry_type column added per BLUEPRINT migration log) |
+| 2 | Vertical config layer | Complete (lib/verticals/ exists per BLUEPRINT Section 4) |
+| **3** | **Subdomain routing middleware** | **This PRD** |
+| 4 | Onboarding generalization | Next PRD after this |
+| 5 | Per-vertical dashboard chrome | Follows Phase 4 |
+| 6+ | Email, Stripe, marketing sites | Follows Phase 5 |
+
+Phases 1 and 2 are confirmed complete in BLUEPRINT.md. The `industry_type` migration (`20260412010100_add_industry_type.sql`) and the `lib/verticals/` directory structure are both documented as shipped. This middleware is the missing piece that wires hostname context into the request pipeline before any of the Phase 4+ UI work can use it.
+
+---
+
+*End of PRD. The total implementation is one file, ~40 lines. The value is in getting the contract right so no existing behavior breaks.*

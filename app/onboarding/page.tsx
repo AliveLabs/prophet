@@ -2,8 +2,17 @@ import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import OnboardingWizard from "./onboarding-wizard"
+import { getVerticalConfig } from "@/lib/verticals"
+import { BrandProvider } from "@/components/brand-provider"
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const params = await searchParams
+  const verticalParam = typeof params.vertical === "string" ? params.vertical : undefined
+  const verticalConfig = getVerticalConfig(verticalParam)
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()
   const { data: profile } = await supabase
@@ -68,13 +77,21 @@ export default async function OnboardingPage() {
     }
   }
 
+  const dataBrand =
+    process.env.VERTICALIZATION_ENABLED === "true" && verticalParam
+      ? verticalConfig.brand.dataBrand
+      : undefined
+
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      <OnboardingWizard
-        existingOrgId={existingOrgId}
-        existingLocationId={existingLocationId}
-        existingCompetitors={existingCompetitors}
-      />
-    </div>
+    <BrandProvider brand={dataBrand}>
+      <div className="min-h-dvh bg-background text-foreground">
+        <OnboardingWizard
+          existingOrgId={existingOrgId}
+          existingLocationId={existingLocationId}
+          existingCompetitors={existingCompetitors}
+          verticalConfig={verticalConfig}
+        />
+      </div>
+    </BrandProvider>
   )
 }

@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** April 10, 2026
+> **Last updated:** April 11, 2026 (brand theming update)
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -35,7 +35,7 @@
 
 ## 1. Executive Summary
 
-**Prophet** is a competitive intelligence platform for local businesses (initially restaurants). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation.
+**Prophet** is a competitive intelligence platform for local businesses (initially restaurants, expanding via verticalization to liquor stores and beyond). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation. The platform supports **industry verticals** through a configurable `VerticalConfig` system gated by the `VERTICALIZATION_ENABLED` feature flag. Each vertical has a **brand theme** — restaurant uses "Ticket" and liquor store uses "Neat" — applied via CSS `data-brand` attribute scoping with dynamic font loading and chart color resolution.
 
 ### What it does
 
@@ -208,6 +208,8 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `DATA365_ACCESS_TOKEN` | Yes | `lib/providers/data365/client.ts` | Data365 Social Media API access token |
 | `OPENAI_API_KEY` | No | `app/api/ai/chat/route.ts` | OpenAI key (referenced but not actively used) |
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
+| `VERTICALIZATION_ENABLED` | No | `lib/verticals/`, `lib/jobs/pipelines/content.ts`, `app/onboarding/actions.ts`, AI prompt builders | Feature flag enabling vertical-aware behavior (`"true"` to activate). Defaults to disabled. |
+| `CLIENT_EMAILS_ENABLED` | No | `lib/email/send.ts` | Gates client-facing transactional emails at the `sendEmail()` gateway. Set to `"true"` to enable platform-side client emails (waitlist confirmation, welcome, trial reminders). Defaults to disabled, which means passive client emails are paused while admin-initiated flows (waitlist approve/decline, admin custom emails, admin magic link) and user-initiated auth (self-service magic link) still send via `overrideClientEmailPause: true`. Production: `false` (Chris's Resend drip handles marketing). Dev / preview: `true`. |
 
 ---
 
@@ -216,10 +218,12 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 ```
 prophet/
 ├── app/                                    # Next.js App Router
-│   ├── layout.tsx                          # Root layout (Space Grotesk, Inter, Space Mono via `next/font`, metadata)
+│   ├── layout.tsx                          # Root layout (Space Grotesk, Inter, Space Mono, Barlow Condensed, Instrument Serif, Fraunces via `next/font`, metadata, imports theme CSS)
 │   ├── page.tsx                            # Marketing landing page (/) with waitlist
 │   ├── landing.css                         # Landing page: utility classes (vatic-gradient, glass-panel, editorial-shadow), animation keyframes (float, draw-line, radar-sweep, glow-pulse, scan-line, orb-drift), dark/light overrides
 │   ├── globals.css                         # Tailwind v4 + Forge design tokens (`@theme inline`)
+│   ├── ticket-theme.css                    # Ticket brand overrides: [data-brand="ticket"] CSS custom properties (light, dark, landing, typography)
+│   ├── neat-theme.css                      # Neat brand overrides: [data-brand="neat"] CSS custom properties (light, dark, landing, typography)
 │   ├── favicon.ico
 │   │
 │   ├── (auth)/                             # Auth route group (shared layout)
@@ -242,8 +246,8 @@ prophet/
 │   │   ├── onboarding-wizard.tsx           # Client: Multi-step wizard with Framer Motion transitions
 │   │   ├── onboarding.css                  # Ambient gradients, starfield, slide animations
 │   │   └── steps/                          # Individual wizard step components
-│   │       ├── splash.tsx                  # Step 0: Branded welcome screen
-│   │       ├── restaurant-info.tsx         # Step 1: Name, address (Google Places), cuisine
+│   │       ├── splash.tsx                  # Step 0: Branded welcome screen (vertical-aware)
+│   │       ├── business-info.tsx           # Step 1: Name, address (Google Places), category (vertical-aware)
 │   │       ├── competitor-selection.tsx     # Step 2: AI-discovered competitors (select up to 5)
 │   │       ├── intelligence-settings.tsx   # Step 3: Monitoring preference toggles
 │   │       └── loading-brief.tsx           # Step 4: Phased loading + mini-brief + dashboard CTA
@@ -378,8 +382,9 @@ prophet/
 │       └── PRD.md                          # Master Product Requirements Document
 │
 ├── components/                             # React components
+│   ├── brand-provider.tsx                  # Client: Sets `data-brand` on <html> via useEffect; wraps dashboard/onboarding for brand theming
 │   ├── billing/
-│   │   ├── trial-expired-gate.tsx          # Client: Full-page overlay when trial expires (upgrade CTAs)
+│   │   ├── trial-expired-gate.tsx          # Client: Full-page overlay when trial expires (upgrade CTAs, brand-aware)
 │   │   └── trial-banner.tsx                # Client: Dismissible top banner during last 7 trial days
 │   ├── landing/
 │   │   ├── landing-nav.tsx                 # Client: Glass nav (h-20), Vatic SVG logo, editorial links, vatic-gradient CTA, animated mobile menu
@@ -451,6 +456,8 @@ prophet/
 │
 ├── lib/                                    # Shared business logic
 │   ├── utils.ts                            # cn() class name merger
+│   ├── hooks/
+│   │   └── use-chart-colors.ts            # Client: useChartColors() hook — reads CSS custom properties for Recharts, watches data-brand/class changes via MutationObserver
 │   ├── auth/
 │   │   └── server.ts                       # getUser(), requireUser()
 │   ├── billing/
@@ -516,8 +523,19 @@ prophet/
 │   │       ├── google-events.ts            # SERP Google Events
 │   │       ├── ads-search.ts               # Google Ads Search (Transparency Center)
 │   │       └── backlinks-summary.ts        # Backlinks Summary (subscription-gated)
+│   ├── verticals/                          # Industry verticalization config system
+│   │   ├── types.ts                        # VerticalConfig, FeatureDefinition interfaces
+│   │   ├── index.ts                        # getVerticalConfig(), isValidIndustryType(), vertical registry
+│   │   ├── restaurant/                     # Restaurant vertical
+│   │   │   ├── config.ts                   # Full VerticalConfig for restaurants
+│   │   │   ├── constants.ts               # Cuisines, emojis, promo keywords, content terms
+│   │   │   └── index.ts                   # Barrel export
+│   │   └── liquor-store/                   # Liquor store vertical
+│   │       ├── config.ts                   # Full VerticalConfig for liquor stores
+│   │       ├── constants.ts               # Store types, spirit categories, content terms
+│   │       └── index.ts                   # Barrel export
 │   ├── content/                            # Content & Menu intelligence engine
-│   │   ├── types.ts                        # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory, MenuType
+│   │   ├── types.ts                        # SiteContentSnapshot, MenuSnapshot, MenuItem, MenuCategory, MenuType, CatalogItem/Category/Snapshot aliases
 │   │   ├── normalize.ts                    # detectFeatures(), normalizeSiteContent(), buildMenuSnapshot(), hash
 │   │   ├── menu-parse.ts                   # classifyMenuCategory(), normalizeExtractedMenu(), normalizeGoogleMenuData(), mergeExtractedMenus()
 │   │   ├── enrich.ts                       # enrichCompetitorContent() – multi-URL scrape + Gemini Google menu + merge
@@ -757,6 +775,26 @@ This pipeline applies to all signal sources:
 - **Social insights:** Data365 social profiles/posts -> normalize -> diff -> rules (15 types) + cross-signal rules (8 types)
 - **Visual insights:** Social post images -> Gemini Vision analysis -> aggregate visual profiles -> rules (16 types)
 
+### 5.4 Brand Theming Architecture
+
+The platform supports dynamic brand theming per vertical. Each industry vertical maps to a brand (restaurant -> "Ticket", liquor_store -> "Neat"). The theming system uses CSS `data-brand` attribute scoping.
+
+**How it works:**
+
+1. **CSS layer:** `ticket-theme.css` and `neat-theme.css` override all Forge design tokens (`--foreground`, `--primary`, `--accent`, etc.) under `[data-brand="ticket"]` and `[data-brand="neat"]` selectors. Both light and dark mode overrides are included. When no `data-brand` attribute is present, the base Alive/Vatic theme applies (zero visual change).
+
+2. **Brand resolution:** The `BrandProvider` client component (`components/brand-provider.tsx`) sets `data-brand` on `<html>` via `useEffect`. It wraps:
+   - **Dashboard layout** (`app/(dashboard)/layout.tsx`): Reads `org.industry_type`, calls `getVerticalConfig()`, extracts `brand.dataBrand`. Only set when `VERTICALIZATION_ENABLED=true`.
+   - **Onboarding page** (`app/onboarding/page.tsx`): Reads `?vertical=` query parameter, resolves brand the same way.
+
+3. **Chart colors:** `useChartColors()` hook (`lib/hooks/use-chart-colors.ts`) reads computed CSS variable values at runtime. It uses a `MutationObserver` on `<html>` to re-read colors when `data-brand` or dark mode (`class`) changes. All 7 chart component files use this hook instead of hardcoded hex values.
+
+4. **Font loading:** Three brand-specific Google Fonts (Barlow Condensed, Instrument Serif, Fraunces) are loaded in `app/layout.tsx` via `next/font/google` and assigned CSS variables. The brand CSS files reference these variables for typography overrides -- fonts only render when the matching brand is active.
+
+5. **Sidebar branding:** The logo SVG uses `currentColor` (stroke) and `fill-accent` (dot) so it adapts to brand palette. The wordmark text is driven by `verticalConfig.brand.wordmark`.
+
+**Surfaces that never get branded:** Landing page, login/signup, admin panel -- these always show the base Alive/Vatic theme.
+
 ---
 
 ## 6. Authentication and Authorization
@@ -860,6 +898,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `20260307010100_expand_insight_status.sql` | Expands `insights.status` CHECK to: new/read/todo/actioned/snoozed/dismissed |
 | `20260331010100_waitlist_admin_setup.sql` | Alter `waitlist_signups` (add `admin_notes`, `reviewed_by`, `reviewed_at`; change status CHECK to pending/approved/declined), create `platform_admins` table with RLS, add `waitlist_signup_id` to `organizations`, seed initial admin |
 | `20260322010100_admin_activity_log.sql` | Create `admin_activity_log` table with indexes and RLS `USING (false)` |
+| `20260412010100_add_industry_type.sql` | Add `industry_type` column to `organizations` (DEFAULT 'restaurant', NOT NULL, CHECK constraint, index) |
 
 ### 7.2 Tables
 
@@ -876,6 +915,7 @@ public.is_org_admin(org_id uuid) -> boolean
 | `trial_started_at` | timestamptz | Set on admin approval (not signup) |
 | `trial_ends_at` | timestamptz | `trial_started_at + 14 days` |
 | `waitlist_signup_id` | uuid FK | References `waitlist_signups(id)`, nullable |
+| `industry_type` | text NOT NULL DEFAULT 'restaurant' | CHECK: restaurant/liquor_store. Added by verticalization. |
 | `settings` | jsonb DEFAULT '{}' | |
 | `created_at` / `updated_at` | timestamptz | |
 
@@ -1928,7 +1968,7 @@ Events sent during pipeline execution:
 
 ## 17. UI Component Library
 
-**Design system:** The default product UI uses the **Forge** palette (carbon primary `#2B353F`, ember accent `#FF7849`, forge-patina greens, warm neutrals). Display typography is **Space Grotesk**; UI body is **Inter**; monospace is **Space Mono**. Legacy class names such as `vatic-indigo`, `signal-gold`, and `precision-teal` remain in components but resolve to Forge-mapped values in `globals.css`.
+**Design system:** The default product UI uses the **Forge/Alive** palette (carbon primary `#2B353F`, ember accent `#FF7849`, forge-patina greens, warm neutrals). Display typography is **Space Grotesk**; UI body is **Inter**; monospace is **Space Mono**. Legacy class names such as `vatic-indigo`, `signal-gold`, and `precision-teal` remain in components but resolve to Forge-mapped values in `globals.css`. Brand themes (**Ticket** for restaurant, **Neat** for liquor store) override all Forge tokens via `data-brand` CSS attribute scoping. Ticket adds Barlow Condensed + Instrument Serif fonts; Neat adds Fraunces. Chart components use the `useChartColors()` hook to read computed CSS variables at runtime so they respond to brand changes.
 
 ### 17.1 Base UI Components
 
@@ -1941,11 +1981,18 @@ Events sent during pipeline execution:
 | Label | `components/ui/label.tsx` | Server | Form label |
 | Separator | `components/ui/separator.tsx` | Server | Horizontal rule |
 
-### 17.2 Interactive Components
+### 17.2 Brand Theming Components
 
 | Component | File | Type | Description |
 |---|---|---|---|
-| TrialExpiredGate | `components/billing/trial-expired-gate.tsx` | Client | Full-page gate with 3-tier Stripe upgrade CTAs |
+| BrandProvider | `components/brand-provider.tsx` | Client | Sets `data-brand` attribute on `<html>` via `useEffect`; wraps dashboard/onboarding layouts |
+| useChartColors | `lib/hooks/use-chart-colors.ts` | Client Hook | Reads computed CSS custom properties for Recharts; watches `data-brand` and `class` (dark mode) via `MutationObserver`; returns typed color map |
+
+### 17.3 Interactive Components
+
+| Component | File | Type | Description |
+|---|---|---|---|
+| TrialExpiredGate | `components/billing/trial-expired-gate.tsx` | Client | Full-page gate with 3-tier Stripe upgrade CTAs (brand-aware) |
 | TrialBanner | `components/billing/trial-banner.tsx` | Client | Top banner (dismissible) showing days remaining |
 | OrgSettingsForm | `settings/organization/org-settings-form.tsx` | Client | Org rename + billing email form |
 | LandingNav | `components/landing/landing-nav.tsx` | Client | Fixed nav with smooth-scroll links + mobile menu |
@@ -2093,7 +2140,8 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 - Data retention enforcement
 - Team invite and role management
 - Weekly email digest of top insights
+- Verticalization Phase 2: subdomain routing, marketing site integration, additional industry verticals
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated April 10, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated April 11, 2026.*

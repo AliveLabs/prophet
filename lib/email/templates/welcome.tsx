@@ -1,11 +1,20 @@
 import { Section, Text, Link } from "@react-email/components"
 import { EmailLayout } from "./layout"
 
+interface VerticalEmailCopy {
+  subject: string
+  headline: string
+  intro: string
+  tipHeader: string
+  tipBody: string
+}
+
 interface WelcomeProps {
   userName: string
   locationName: string
   competitorCount: number
   dashboardUrl: string
+  verticalCopy?: VerticalEmailCopy
 }
 
 export function Welcome({
@@ -13,9 +22,13 @@ export function Welcome({
   locationName,
   competitorCount,
   dashboardUrl,
+  verticalCopy,
 }: WelcomeProps) {
+  const previewText = verticalCopy?.subject ?? "Welcome to Vatic — your intelligence is live"
+  const tipText = verticalCopy?.tipBody ?? "Bookmark your dashboard so you can check it between the lunch and dinner rush."
+
   return (
-    <EmailLayout preview="Welcome to Vatic — your intelligence is live">
+    <EmailLayout preview={previewText}>
       <Section>
         <Text style={heading}>Welcome to Vatic, {userName}.</Text>
         <Text style={paragraph}>
@@ -52,8 +65,7 @@ export function Welcome({
         </Section>
 
         <Text style={tip}>
-          Tip: Bookmark your dashboard so you can check it between the lunch and
-          dinner rush.
+          Tip: {tipText}
         </Text>
 
         <Text style={signoff}>— The Vatic Team</Text>

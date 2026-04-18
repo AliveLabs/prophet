@@ -150,6 +150,8 @@ export async function approveWaitlistSignup(
       name: fullName ?? undefined,
       magicLinkUrl,
     }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   await logAdminAction({
@@ -213,6 +215,8 @@ export async function declineWaitlistSignup(
     react: WaitlistDecline({
       name: fullName ?? undefined,
     }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   await logAdminAction({
@@ -285,6 +289,8 @@ export async function resendWaitlistInvite(
       name: fullName ?? undefined,
       magicLinkUrl,
     }),
+    clientFacing: true,
+    overrideClientEmailPause: true,
   })
 
   await logAdminAction({

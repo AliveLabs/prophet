@@ -50,6 +50,7 @@ type CompetitorSelectionStepProps = {
   error: string | null
   onRetry: () => void
   locationCity: string | null
+  brandName?: string
 }
 
 export default function CompetitorSelectionStep({
@@ -60,6 +61,7 @@ export default function CompetitorSelectionStep({
   error,
   onRetry,
   locationCity,
+  brandName = "Vatic",
 }: CompetitorSelectionStepProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -82,7 +84,7 @@ export default function CompetitorSelectionStep({
       <h2 className="font-display text-[32px] font-medium leading-[1.15] text-foreground mb-3 max-[540px]:text-[27px]">
         Who should
         <br />
-        Vatic watch?
+        {brandName} watch?
       </h2>
       <p className="text-sm text-muted-foreground leading-relaxed mb-6">
         {isLoading

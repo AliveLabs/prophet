@@ -12,6 +12,7 @@ import {
   type InsightPreference,
   type SourceCategory,
 } from "@/lib/insights/scoring"
+import { getVerticalConfig } from "@/lib/verticals"
 
 export type PriorityItem = {
   title: string
@@ -49,7 +50,8 @@ export function buildPriorityBriefingPrompt(
   insights: InsightForBriefing[],
   preferences: InsightPreference[],
   locationName: string,
-  context?: BusinessContext | null
+  context?: BusinessContext | null,
+  industryType?: string
 ): string {
   const sorted = [...preferences].sort((a, b) => b.weight - a.weight)
   const topPrefs = sorted.filter((p) => p.weight > 1.0).slice(0, 5)
@@ -101,11 +103,18 @@ export function buildPriorityBriefingPrompt(
     }
   }
 
+  let industryContextLine = ""
+  if (process.env.VERTICALIZATION_ENABLED === "true" && industryType) {
+    const config = getVerticalConfig(industryType)
+    industryContextLine = `\nINDUSTRY: You are advising ${config.llmContext.businessDescription}. Competitors are ${config.llmContext.competitorDescription}. Key vocabulary: ${config.llmContext.industryVocabulary.join(", ")}.\n`
+  }
+
   const contextBlock = contextLines.length > 0
     ? `\nBUSINESS CONTEXT for "${locationName}":\n${contextLines.join("\n")}\n`
     : ""
 
   return `You are Vatic, an AI competitive intelligence assistant for local businesses. You provide sharp, data-driven briefings that help business owners make better decisions.
+${industryContextLine}
 
 Analyze the following ${insights.length} insights for "${locationName}" and produce a priority briefing — the TOP 5 most actionable items the business owner should focus on RIGHT NOW.
 ${contextBlock}

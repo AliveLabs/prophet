@@ -1,7 +1,16 @@
 import type { Metadata } from "next"
-import { Inter, Space_Grotesk, Space_Mono } from "next/font/google"
+import {
+  Inter,
+  Space_Grotesk,
+  Space_Mono,
+  Barlow_Condensed,
+  Instrument_Serif,
+  Fraunces,
+} from "next/font/google"
 import ThemeProvider from "@/components/theme-provider"
 import "./globals.css"
+import "./ticket-theme.css"
+import "./neat-theme.css"
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -18,6 +27,26 @@ const spaceMono = Space_Mono({
   variable: "--font-space-mono",
   subsets: ["latin"],
   weight: ["400", "700"],
+})
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-barlow-condensed",
+})
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-instrument-serif",
+})
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-fraunces",
 })
 
 export const metadata: Metadata = {
@@ -42,7 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${spaceGrotesk.variable} ${inter.variable} ${spaceMono.variable} antialiased`}
+        className={`${spaceGrotesk.variable} ${inter.variable} ${spaceMono.variable} ${barlowCondensed.variable} ${instrumentSerif.variable} ${fraunces.variable} antialiased`}
       >
         <ThemeProvider>{children}</ThemeProvider>
       </body>

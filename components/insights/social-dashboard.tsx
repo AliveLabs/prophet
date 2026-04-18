@@ -10,6 +10,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts"
+import { useChartColors } from "@/lib/hooks/use-chart-colors"
 
 type SocialProfileData = {
   entityName: string
@@ -59,6 +60,7 @@ function ChartTooltip({ active, payload, label }: {
 
 export default function SocialDashboard({ profiles }: Props) {
   const isClient = useIsClient()
+  const chartColors = useChartColors()
 
   const locationProfile = profiles.find((p) => p.entityType === "location")
 
@@ -69,9 +71,9 @@ export default function SocialDashboard({ profiles }: Props) {
       .map((p) => ({
         name: p.entityName.length > 12 ? p.entityName.slice(0, 12) + "…" : p.entityName,
         followers: p.followerCount,
-        fill: p.entityType === "location" ? "#2B353F" : "#726A63",
+        fill: p.entityType === "location" ? chartColors.foreground : chartColors.mutedForeground,
       }))
-  }, [profiles])
+  }, [profiles, chartColors])
 
   const engagementData = useMemo(() => {
     return profiles
@@ -81,9 +83,9 @@ export default function SocialDashboard({ profiles }: Props) {
       .map((p) => ({
         name: p.entityName.length > 12 ? p.entityName.slice(0, 12) + "…" : p.entityName,
         rate: Math.round(p.engagementRate * 100) / 100,
-        fill: p.entityType === "location" ? "#2B353F" : "#726A63",
+        fill: p.entityType === "location" ? chartColors.foreground : chartColors.mutedForeground,
       }))
-  }, [profiles])
+  }, [profiles, chartColors])
 
   const platformPresence = useMemo(() => {
     const platforms: Array<{ platform: string; you: boolean; competitorCount: number }> = []

@@ -28,9 +28,21 @@ export type InsightNarrativeInput = {
   reviewSnippets: ReviewSnippet[]
 }
 
-export function buildInsightNarrativePrompt(input: InsightNarrativeInput) {
+import { getVerticalConfig } from "@/lib/verticals"
+
+export function buildInsightNarrativePrompt(
+  input: InsightNarrativeInput,
+  industryType?: string
+) {
+  let contextLine = ""
+  if (process.env.VERTICALIZATION_ENABLED === "true" && industryType) {
+    const config = getVerticalConfig(industryType)
+    contextLine = `Industry context: You are advising ${config.llmContext.businessDescription}. Competitors are ${config.llmContext.competitorDescription}. Key vocabulary: ${config.llmContext.industryVocabulary.join(", ")}.`
+  }
+
   return [
     "You are Vatic, a competitive intelligence assistant for local businesses.",
+    contextLine,
     "Use ONLY the provided data. Do NOT infer causality.",
     "Be factual and specific. If a value is missing, say 'not available'.",
     "Return a JSON object with keys: summary, recommendations, reviewThemes.",
