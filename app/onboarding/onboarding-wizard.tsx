@@ -350,7 +350,8 @@ export default function OnboardingWizard({
               (step === 1 &&
                 (!businessName.trim() ||
                   !selectedPlace?.geo_lat ||
-                  !selectedPlace?.geo_lng))
+                  !selectedPlace?.geo_lng)) ||
+              (step === 2 && selectedCompetitorIds.size === 0)
             }
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-deep-indigo hover:shadow-glow-indigo-sm disabled:cursor-not-allowed disabled:opacity-60"
           >

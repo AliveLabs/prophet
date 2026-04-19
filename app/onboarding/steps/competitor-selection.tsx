@@ -146,6 +146,20 @@ export default function CompetitorSelectionStep({
         </div>
       )}
 
+      {/* Selection guidance — blocks advancing without at least one competitor */}
+      <p
+        aria-live="polite"
+        className={`-mt-2 mb-4 text-xs transition-colors ${
+          competitors.length > 0 && selectedIds.size === 0
+            ? "text-signal-gold"
+            : "text-muted-foreground"
+        }`}
+      >
+        {competitors.length > 0 && selectedIds.size === 0
+          ? "Select at least one competitor to continue."
+          : "Pick up to 5 competitors to monitor."}
+      </p>
+
       {/* Loading skeleton */}
       {isLoading && (
         <div className="flex flex-col gap-3 mb-4">
