@@ -80,7 +80,7 @@ export default async function OnboardingPage({
   const dataBrand =
     process.env.VERTICALIZATION_ENABLED === "true" && verticalParam
       ? verticalConfig.brand.dataBrand
-      : undefined
+      : "ticket"
 
   return (
     <BrandProvider brand={dataBrand}>

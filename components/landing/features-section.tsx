@@ -254,11 +254,11 @@ export function FeaturesSection() {
           variants={fadeUp}
           className="mb-16 text-center"
         >
-          <h2 className="font-display text-tight text-4xl italic text-foreground md:text-5xl">
-            Six intelligence channels. One dashboard.
+          <h2 className="font-display text-tight text-4xl text-foreground md:text-5xl">
+            Six intelligence channels. <em className="italic">One feed.</em>
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Every signal that matters. None of the noise.
+            Every shift scored and surfaced. None of the noise.
           </p>
         </motion.div>
 

@@ -141,7 +141,7 @@ export function WaitlistForm() {
         disabled={status === "loading"}
         className="w-full rounded-lg bg-precision-teal px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
       >
-        {status === "loading" ? "Joining..." : "Join the Waitlist"}
+        {status === "loading" ? "Submitting..." : "Request Early Access"}
       </button>
     </form>
   )

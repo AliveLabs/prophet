@@ -10,7 +10,7 @@ type SplashStepProps = {
 export default function SplashStep({ onContinue, verticalConfig }: SplashStepProps) {
   const subtitle = verticalConfig?.onboarding.splash.subtitle ?? "Competitive intelligence for restaurants"
   const ctaLabel = verticalConfig?.onboarding.splash.ctaLabel ?? "Set up my restaurant"
-  const brandName = verticalConfig?.brand.displayName ?? "Vatic"
+  const brandName = verticalConfig?.brand.displayName ?? "Ticket"
 
   return (
     <section className="flex min-h-dvh flex-col items-center justify-center pb-12 text-center">

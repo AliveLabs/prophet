@@ -207,8 +207,8 @@ export default function OnboardingWizard({
             : "pointer-events-none -translate-y-1.5 opacity-0"
         }`}
       >
-        <div className="font-display text-[21px] font-semibold tracking-wide text-foreground">
-          V<span className="text-vatic-indigo">atic</span>
+        <div className="text-wordmark text-[21px] font-semibold tracking-tight text-foreground">
+          Ticket
         </div>
         <ThemeToggle />
       </header>

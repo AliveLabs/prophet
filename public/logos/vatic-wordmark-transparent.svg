@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 120" width="500" height="120">
-  <defs><style><![CDATA[
-      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&display=swap');
-      .wm { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; }
-    ]]></style></defs>
-  <text x="250" y="82" class="wm" font-size="72" letter-spacing="8"
-        fill="#5A3FFF" text-anchor="middle">Vatic</text>
-</svg>

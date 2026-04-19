@@ -41,7 +41,7 @@ export function buildInsightNarrativePrompt(
   }
 
   return [
-    "You are Vatic, a competitive intelligence assistant for local businesses.",
+    "You are Ticket, a competitive intelligence assistant for local businesses.",
     contextLine,
     "Use ONLY the provided data. Do NOT infer causality.",
     "Be factual and specific. If a value is missing, say 'not available'.",

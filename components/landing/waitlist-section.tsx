@@ -29,12 +29,13 @@ export function WaitlistSection() {
         >
           <motion.h2
             variants={fadeUp}
-            className="font-display text-tight text-5xl italic text-foreground md:text-6xl"
+            className="font-display text-tight text-5xl text-foreground md:text-6xl"
           >
-            Join the cohort.
+            Stop reacting. <em className="italic">Start anticipating.</em>
           </motion.h2>
           <motion.p variants={fadeUp} className="mt-6 text-lg text-muted-foreground">
-            Limited availability for early deployments. Secure your place in the queue.
+            Your competition moves faster than your current tools can track. Ticket closes the gap
+            so you move first, not last.
           </motion.p>
         </motion.div>
 
@@ -58,30 +59,32 @@ export function LandingFooter() {
     <footer className="border-t border-border/30">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-8 py-12 md:flex-row md:justify-between">
         <div className="flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Vatic">
+          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M10 14 L40 66 L70 14" stroke="var(--vatic-indigo)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="40" cy="66" r="6" fill="var(--signal-gold)" />
+            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
           </svg>
-          <span className="font-display text-xl italic tracking-tight text-signal-gold">Vatic</span>
+          <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">Ticket</span>
         </div>
 
         <div className="flex flex-wrap justify-center gap-8">
           <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Privacy Protocol
+            Privacy
           </a>
           <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Terms of Intelligence
+            Terms
           </a>
           <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
             API Docs
           </a>
           <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Contact Analyst
+            Contact
           </a>
         </div>
 
-        <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-          &copy; 2026 Vatic Intelligence
+        <p className="max-w-xs text-center text-xs tracking-wide text-muted-foreground md:text-right">
+          Ticket is powered by Vatic — competitive intelligence by Alive Labs.
+          <br />
+          &copy; 2026 Alive Labs. All rights reserved.
         </p>
       </div>
     </footer>

@@ -145,7 +145,7 @@ export async function approveWaitlistSignup(
 
   const emailResult = await sendEmail({
     to: signup.email,
-    subject: "You're in! Your Vatic dashboard is ready",
+    subject: "You're in! Your Ticket dashboard is ready",
     react: WaitlistInvitation({
       name: fullName ?? undefined,
       magicLinkUrl,
@@ -211,7 +211,7 @@ export async function declineWaitlistSignup(
 
   const emailResult = await sendEmail({
     to: signup.email,
-    subject: "Update on your Vatic waitlist request",
+    subject: "Update on your Ticket waitlist request",
     react: WaitlistDecline({
       name: fullName ?? undefined,
     }),
@@ -284,7 +284,7 @@ export async function resendWaitlistInvite(
 
   const emailResult = await sendEmail({
     to: signup.email,
-    subject: "You're in! Your Vatic dashboard is ready",
+    subject: "You're in! Your Ticket dashboard is ready",
     react: WaitlistInvitation({
       name: fullName ?? undefined,
       magicLinkUrl,

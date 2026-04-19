@@ -33,7 +33,7 @@ export async function generateCompetitorBrief(
     )
     .join("\n")
 
-  const prompt = `You are Vatic, a competitive intelligence AI for local businesses.
+  const prompt = `You are Ticket, a competitive intelligence AI for local businesses.
 
 Given recent signals about a competitor called "${competitorName}", write a brief intelligence summary.
 

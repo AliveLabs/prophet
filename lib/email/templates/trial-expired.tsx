@@ -8,12 +8,12 @@ interface TrialExpiredProps {
 
 export function TrialExpired({ userName, upgradeUrl }: TrialExpiredProps) {
   return (
-    <EmailLayout preview="Your Vatic trial has ended">
+    <EmailLayout preview="Your Ticket trial has ended">
       <Section>
         <Text style={heading}>Your trial has ended, {userName}.</Text>
 
         <Text style={paragraph}>
-          Your free Vatic trial has expired. Here&rsquo;s what that means:
+          Your free Ticket trial has expired. Here&rsquo;s what that means:
         </Text>
 
         <Section style={statusBox}>
@@ -46,7 +46,7 @@ export function TrialExpired({ userName, upgradeUrl }: TrialExpiredProps) {
           Questions? Reply to this email — we read every response.
         </Text>
 
-        <Text style={signoff}>— The Vatic Team</Text>
+        <Text style={signoff}>— The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

@@ -7,13 +7,13 @@ interface WaitlistConfirmationProps {
 
 export function WaitlistConfirmation({ name }: WaitlistConfirmationProps) {
   return (
-    <EmailLayout preview="You're on the Vatic waitlist">
+    <EmailLayout preview="You're on the Ticket waitlist">
       <Section>
         <Text style={heading}>
           {name ? `Thanks, ${name}!` : "Thanks for signing up!"}
         </Text>
         <Text style={paragraph}>
-          You&rsquo;re now on the Vatic waitlist. We&rsquo;re rolling out access
+          You&rsquo;re now on the Ticket waitlist. We&rsquo;re rolling out access
           in limited batches to ensure every customer gets the best possible
           experience.
         </Text>
@@ -25,7 +25,7 @@ export function WaitlistConfirmation({ name }: WaitlistConfirmationProps) {
         <Text style={paragraph}>
           In the meantime, sit tight. We&rsquo;ll be in touch soon.
         </Text>
-        <Text style={signoff}>&mdash; The Vatic Team</Text>
+        <Text style={signoff}>&mdash; The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

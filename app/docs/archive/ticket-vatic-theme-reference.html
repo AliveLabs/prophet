@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket → Vatic Theme Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-display: 'Instrument Serif', Georgia, serif;
+    --font-condensed: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    --font-ui: 'Inter', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-ui);
+    background: #F5F3EF;
+    color: #1C1917;
+    padding: 48px 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: #6E6862;
+    margin-bottom: 8px;
+  }
+
+  .meta {
+    font-size: 0.72rem;
+    color: #6E6862;
+    margin-bottom: 48px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #EBE8E3;
+  }
+
+  .meta code {
+    background: #EBE8E3;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+  }
+
+  h2 {
+    font-family: var(--font-condensed);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #B85C38;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #EBE8E3;
+  }
+
+  section { margin-bottom: 48px; }
+
+  /* ── Token table ── */
+  .token-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+  }
+
+  .token-table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6E6862;
+    padding: 8px 12px;
+    border-bottom: 2px solid #EBE8E3;
+  }
+
+  .token-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #EBE8E3;
+    vertical-align: middle;
+  }
+
+  .token-table tr:hover { background: rgba(235, 232, 227, 0.4); }
+
+  .token-name {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: #4D4843;
+  }
+
+  .swatch-pair {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .swatch-sm {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.08);
+    flex-shrink: 0;
+  }
+
+  .hex {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.7rem;
+    color: #6E6862;
+  }
+
+  .ticket-name {
+    font-size: 0.72rem;
+    color: #4D4843;
+    font-weight: 500;
+  }
+
+  .note {
+    font-size: 0.68rem;
+    color: #6E6862;
+    font-style: italic;
+  }
+
+  .arrow { color: #B85C38; font-weight: 600; }
+
+  /* ── Side-by-side preview ── */
+  .preview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 32px;
+  }
+
+  .preview-card {
+    border-radius: 12px;
+    padding: 32px;
+    overflow: hidden;
+  }
+
+  .preview-card h3 {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-bottom: 12px;
+    line-height: 1.2;
+  }
+
+  .preview-card p {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+
+  .preview-card .btn {
+    display: inline-block;
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    margin-right: 8px;
+  }
+
+  .preview-card .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-right: 6px;
+    margin-bottom: 6px;
+  }
+
+  .preview-light {
+    background: #F5F3EF;
+    border: 1px solid #EBE8E3;
+    color: #1C1917;
+  }
+  .preview-light h3 { color: #1C1917; }
+  .preview-light p { color: #4D4843; }
+  .preview-light .btn-primary { background: #3D4F5F; color: #fff; }
+  .preview-light .btn-secondary { background: transparent; color: #3D4F5F; border: 1px solid #3D4F5F; }
+  .preview-light .badge-success { background: #E8F5EE; color: #2D6B4F; }
+  .preview-light .badge-warning { background: #FBF0E6; color: #8A6B18; }
+  .preview-light .badge-danger { background: #FDF0EF; color: #C44040; }
+  .preview-light .badge-neutral { background: #EBE8E3; color: #6E6862; }
+
+  .preview-dark {
+    background: #1C1917;
+    color: #F5F3EF;
+  }
+  .preview-dark h3 { color: #F5F3EF; }
+  .preview-dark p { color: #C8C2BA; }
+  .preview-dark .btn-primary { background: #5A7A96; color: #fff; }
+  .preview-dark .btn-secondary { background: transparent; color: #D0714E; border: 1px solid #D0714E; }
+  .preview-dark .badge-success { background: rgba(74,174,128,0.2); color: #4AAE80; }
+  .preview-dark .badge-warning { background: rgba(201,148,42,0.2); color: #C9942A; }
+  .preview-dark .badge-danger { background: rgba(208,80,80,0.2); color: #D05050; }
+  .preview-dark .badge-neutral { background: rgba(155,149,142,0.2); color: #9B958E; }
+
+  /* ── Data viz mock ── */
+  .dataviz-mock {
+    display: flex;
+    align-items: end;
+    gap: 12px;
+    height: 80px;
+    padding: 12px 0;
+    margin-top: 8px;
+  }
+
+  .dataviz-mock .bar-group {
+    display: flex;
+    align-items: end;
+    gap: 3px;
+    flex: 1;
+  }
+
+  .dataviz-mock .bar {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-width: 16px;
+  }
+
+  /* ── Code block ── */
+  .code-block {
+    background: #1C1917;
+    color: #C8C2BA;
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    margin-bottom: 16px;
+  }
+
+  .code-block .comment { color: #6E6862; }
+  .code-block .key { color: #B85C38; }
+  .code-block .value { color: #D08548; }
+  .code-block .string { color: #3A8066; }
+
+  /* ── Integration steps ── */
+  .steps {
+    counter-reset: step;
+  }
+
+  .step {
+    counter-increment: step;
+    padding: 16px 20px 16px 56px;
+    background: #fff;
+    border: 1px solid #EBE8E3;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    position: relative;
+  }
+
+  .step::before {
+    content: counter(step);
+    position: absolute;
+    left: 20px;
+    top: 16px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #3D4F5F;
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step h4 {
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .step p {
+    font-size: 0.75rem;
+    color: #4D4843;
+  }
+
+  .step code {
+    background: #EBE8E3;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+  }
+
+  /* ── Font comparison ── */
+  .font-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+  }
+
+  .font-card {
+    background: #fff;
+    border: 1px solid #EBE8E3;
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .font-card .label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6E6862;
+    margin-bottom: 12px;
+  }
+
+  .font-card .sample-display {
+    font-size: 1.8rem;
+    line-height: 1.2;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .font-card .sample-body {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: #4D4843;
+  }
+
+  .font-card--space .sample-display {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 600;
+  }
+
+  .font-card--instrument .sample-display {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-weight: 400;
+  }
+
+  .font-card--barlow .sample-display {
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+</style>
+</head>
+<body>
+
+<h1>Ticket → Vatic Theme Map</h1>
+<p class="subtitle">Complete token mapping from Vatic's Forge design system to Ticket brand values</p>
+<div class="meta">
+  Activation: <code>data-brand="ticket"</code> on the root element &nbsp;·&nbsp;
+  Source: <code>ticket-vatic-theme.css</code> &nbsp;·&nbsp;
+  Tokens: 65+ overrides across semantic, extended, text, shadow, and legacy layers &nbsp;·&nbsp;
+  Fonts: Instrument Serif → <code>--font-instrument-serif</code>, Barlow Condensed → <code>--font-barlow-condensed</code> via next/font
+</div>
+
+
+<!-- ════════ LIVE PREVIEW ════════ -->
+<section>
+  <h2>Live Preview — Light & Dark</h2>
+  <div class="preview-grid">
+    <div class="preview-card preview-light">
+      <h3>Read the ticket.</h3>
+      <p>Every price change, every new opening, every menu shift — compressed into the time it takes to read a ticket on the line.</p>
+      <div style="margin-bottom: 12px;">
+        <span class="badge badge-success">+8% your share</span>
+        <span class="badge badge-warning">Price alert</span>
+        <span class="badge badge-danger">New competitor</span>
+        <span class="badge badge-neutral">5 competitors</span>
+      </div>
+      <a class="btn btn-primary" href="#">Request Early Access</a>
+      <a class="btn btn-secondary" href="#">See How It Works</a>
+    </div>
+    <div class="preview-card preview-dark">
+      <h3>Read the ticket.</h3>
+      <p>Every price change, every new opening, every menu shift — compressed into the time it takes to read a ticket on the line.</p>
+      <div style="margin-bottom: 12px;">
+        <span class="badge badge-success">+8% your share</span>
+        <span class="badge badge-warning">Price alert</span>
+        <span class="badge badge-danger">New competitor</span>
+        <span class="badge badge-neutral">5 competitors</span>
+      </div>
+      <a class="btn btn-primary" href="#">Request Early Access</a>
+      <a class="btn btn-secondary" href="#">See How It Works</a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ DATA VIZ ════════ -->
+<section>
+  <h2>Data Color Story — Yours vs. Theirs</h2>
+  <div class="preview-grid">
+    <div class="preview-card preview-light" style="padding: 24px;">
+      <div style="font-family: var(--font-condensed); font-size: 0.72rem; font-weight: 600; color: #6E6862; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">Pricing Comparison</div>
+      <div class="dataviz-mock">
+        <div class="bar-group">
+          <div class="bar" style="background: #3A8066; height: 70%;"></div>
+          <div class="bar" style="background: #6E6862; height: 55%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #3A8066; height: 85%;"></div>
+          <div class="bar" style="background: #6E6862; height: 60%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #3A8066; height: 60%;"></div>
+          <div class="bar" style="background: #6E6862; height: 80%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #D08548; height: 45%;"></div>
+          <div class="bar" style="background: #6E6862; height: 70%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #C44040; height: 30%;"></div>
+          <div class="bar" style="background: #6E6862; height: 90%;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.68rem;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#3A8066;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>You</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#6E6862;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Competitors</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#D08548;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Flagged</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#C44040;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Critical</span>
+      </div>
+    </div>
+    <div class="preview-card preview-dark" style="padding: 24px;">
+      <div style="font-family: var(--font-condensed); font-size: 0.72rem; font-weight: 600; color: #9B958E; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">Pricing Comparison</div>
+      <div class="dataviz-mock">
+        <div class="bar-group">
+          <div class="bar" style="background: #4AAE80; height: 70%;"></div>
+          <div class="bar" style="background: rgba(155,149,142,0.5); height: 55%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #4AAE80; height: 85%;"></div>
+          <div class="bar" style="background: rgba(155,149,142,0.5); height: 60%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #4AAE80; height: 60%;"></div>
+          <div class="bar" style="background: rgba(155,149,142,0.5); height: 80%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #C9942A; height: 45%;"></div>
+          <div class="bar" style="background: rgba(155,149,142,0.5); height: 70%;"></div>
+        </div>
+        <div class="bar-group">
+          <div class="bar" style="background: #D05050; height: 30%;"></div>
+          <div class="bar" style="background: rgba(155,149,142,0.5); height: 90%;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 16px; margin-top: 8px; font-size: 0.68rem; color: #9B958E;">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#4AAE80;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>You</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:rgba(155,149,142,0.5);border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Competitors</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#C9942A;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Flagged</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#D05050;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Critical</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════ FONT SWAP ════════ -->
+<section>
+  <h2>Typography Swap — Space Grotesk → Instrument Serif + Barlow Condensed</h2>
+  <div class="font-compare">
+    <div class="font-card font-card--space">
+      <div class="label">Vatic (base) — Space Grotesk 600</div>
+      <div class="sample-display">See further.<br>Act sooner.</div>
+      <div class="sample-body">Competitive intelligence that monitors, interprets, and briefs.</div>
+    </div>
+    <div class="font-card font-card--instrument">
+      <div class="label">Ticket display — Instrument Serif 400</div>
+      <div class="sample-display">Read the ticket.<br>Act on the line.</div>
+      <div class="sample-body">Compressed intelligence for restaurant operators who need to move fast.</div>
+    </div>
+    <div class="font-card font-card--barlow">
+      <div class="label">Ticket condensed — Barlow Condensed 600</div>
+      <div class="sample-display">Ticket</div>
+      <div class="sample-body" style="font-family: var(--font-condensed); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #6E6862;">Wordmark · Nav · Labels · Section Headers</div>
+    </div>
+  </div>
+  <p style="font-size: 0.72rem; color: #6E6862; margin-top: 12px;">
+    Ticket uses a <strong>three-layer type system</strong> where Vatic has two. Instrument Serif handles display/headlines, Barlow Condensed handles wordmark/nav/labels, and Inter stays as the body/UI thread shared across all Vatic verticals.
+    Font overrides: <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.7rem;">--font-display: var(--font-instrument-serif)</code> + <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.7rem;">--font-condensed: var(--font-barlow-condensed)</code>
+  </p>
+  <div style="background: #FBF0E6; border: 1px solid #EBE8E3; border-radius: 8px; padding: 16px 20px; margin-top: 16px;">
+    <div style="font-family: var(--font-condensed); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: #B85C38; margin-bottom: 6px;">Type Rules</div>
+    <ul style="font-size: 0.75rem; color: #4D4843; line-height: 1.8; padding-left: 18px;">
+      <li>Instrument Serif: minimum 1.2rem / 19px on screen</li>
+      <li>Instrument Serif italic: editorial emphasis only</li>
+      <li>Instrument Serif headlines: &lt;60 characters</li>
+      <li>Barlow Condensed weights: 500 (labels/nav) + 600 (headers/wordmark/buttons)</li>
+      <li>Never set Barlow Condensed and Instrument Serif at the same size</li>
+    </ul>
+  </div>
+</section>
+
+
+<!-- ════════ CORE SEMANTIC MAPPING ════════ -->
+<section>
+  <h2>Core Semantic Tokens (shadcn layer)</h2>
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>CSS Variable</th>
+        <th>Vatic (Forge)</th>
+        <th></th>
+        <th>Ticket (Light)</th>
+        <th>Ticket (Dark)</th>
+        <th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="token-name">--background</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#f6f8fa;"></div><span class="hex">#F6F8FA</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F5F3EF;"></div><span class="hex">#F5F3EF</span> <span class="ticket-name">Newsprint</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#1C1917;"></div><span class="hex">#1C1917</span> <span class="ticket-name">Ink</span></div></td>
+        <td class="note">Page background</td>
+      </tr>
+      <tr>
+        <td class="token-name">--foreground</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2b353f;"></div><span class="hex">#2B353F</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#1C1917;"></div><span class="hex">#1C1917</span> <span class="ticket-name">Ink</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F5F3EF;"></div><span class="hex">#F5F3EF</span> <span class="ticket-name">Newsprint</span></div></td>
+        <td class="note">Primary text</td>
+      </tr>
+      <tr>
+        <td class="token-name">--primary</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2b353f;"></div><span class="hex">#2B353F</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#3D4F5F;"></div><span class="hex">#3D4F5F</span> <span class="ticket-name">Slate</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#5A7A96;"></div><span class="hex">#5A7A96</span> <span class="ticket-name">Light Slate</span></div></td>
+        <td class="note">CTAs, links, interactive</td>
+      </tr>
+      <tr>
+        <td class="token-name">--accent</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#ff7849;"></div><span class="hex">#FF7849</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B85C38;"></div><span class="hex">#B85C38</span> <span class="ticket-name">Rust</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#D0714E;"></div><span class="hex">#D0714E</span> <span class="ticket-name">Light Rust</span></div></td>
+        <td class="note">Accent highlight</td>
+      </tr>
+      <tr>
+        <td class="token-name">--destructive</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#dc2626;"></div><span class="hex">#DC2626</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#C44040;"></div><span class="hex">#C44040</span> <span class="ticket-name">Alert</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#D05050;"></div><span class="hex">#D05050</span></div></td>
+        <td class="note">Error, danger</td>
+      </tr>
+      <tr>
+        <td class="token-name">--muted-foreground</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#726a63;"></div><span class="hex">#726A63</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#6E6862;"></div><span class="hex">#6E6862</span> <span class="ticket-name">Ash</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#9B958E;"></div><span class="hex">#9B958E</span></div></td>
+        <td class="note">Secondary text</td>
+      </tr>
+      <tr>
+        <td class="token-name">--secondary</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#f0ecea;"></div><span class="hex">#F0ECEA</span></div></td>
+        <td class="arrow">→</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#EBE8E3;"></div><span class="hex">#EBE8E3</span> <span class="ticket-name">Ledger</span></div></td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2F2B28;"></div><span class="hex">#2F2B28</span> <span class="ticket-name">Counter</span></div></td>
+        <td class="note">Alt surfaces</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 0.72rem; color: #6E6862; margin-top: 8px;">
+    Full mapping of all 65+ tokens is in <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.7rem;">ticket-vatic-theme.css</code>
+  </p>
+</section>
+
+
+<!-- ════════ TICKET-ONLY TOKENS ════════ -->
+<section>
+  <h2>Ticket-Only Tokens (not in base Vatic)</h2>
+  <table class="token-table">
+    <thead>
+      <tr>
+        <th>CSS Variable</th>
+        <th>Value</th>
+        <th>Name</th>
+        <th>Role</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="token-name">--ticket-rust</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#B85C38;"></div><span class="hex">#B85C38</span></div></td>
+        <td class="ticket-name">Rust</td>
+        <td class="note">Brand signature</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-thermal</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#FBF0E6;"></div><span class="hex">#FBF0E6</span></div></td>
+        <td class="ticket-name">Thermal</td>
+        <td class="note">Warm tint surface</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-slate</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#3D4F5F;"></div><span class="hex">#3D4F5F</span></div></td>
+        <td class="ticket-name">Slate</td>
+        <td class="note">Cool counterweight, primary CTA</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-signal</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#D08548;"></div><span class="hex">#D08548</span></div></td>
+        <td class="ticket-name">Signal</td>
+        <td class="note">Flagged / attention</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-wire-gold</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#C9942A;"></div><span class="hex">#C9942A</span></div></td>
+        <td class="ticket-name">Wire Gold</td>
+        <td class="note">Accent, warnings</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-bond</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F0EDE9;"></div><span class="hex">#F0EDE9</span></div></td>
+        <td class="ticket-name">Bond</td>
+        <td class="note">Callout background</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-newsprint</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#F5F3EF;"></div><span class="hex">#F5F3EF</span></div></td>
+        <td class="ticket-name">Newsprint</td>
+        <td class="note">Primary light bg</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-ink</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#1C1917;"></div><span class="hex">#1C1917</span></div></td>
+        <td class="ticket-name">Ink</td>
+        <td class="note">Primary dark</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-press</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#24211E;"></div><span class="hex">#24211E</span></div></td>
+        <td class="ticket-name">Press</td>
+        <td class="note">Elevated dark surface</td>
+      </tr>
+      <tr>
+        <td class="token-name">--ticket-counter</td>
+        <td><div class="swatch-pair"><div class="swatch-sm" style="background:#2F2B28;"></div><span class="hex">#2F2B28</span></div></td>
+        <td class="ticket-name">Counter</td>
+        <td class="note">Dark card surface</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size: 0.72rem; color: #6E6862; margin-top: 8px;">
+    These are namespaced with <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.7rem;">--ticket-</code> to avoid collision. Only referenced by Ticket-branded components.
+  </p>
+</section>
+
+
+<!-- ════════ INTEGRATION ════════ -->
+<section>
+  <h2>Integration Steps</h2>
+  <div class="steps">
+    <div class="step">
+      <h4>Load Barlow Condensed + Instrument Serif in layout.tsx</h4>
+      <p>Add both via <code>next/font/google</code>. Assign <code>Barlow Condensed</code> to <code>--font-barlow-condensed</code> and <code>Instrument Serif</code> to <code>--font-instrument-serif</code>. Add both variable classes to <code>&lt;body&gt;</code>.</p>
+    </div>
+    <div class="step">
+      <h4>Import the theme CSS</h4>
+      <p>Import <code>ticket-vatic-theme.css</code> after <code>globals.css</code> in your app entry. The <code>[data-brand="ticket"]</code> selector means it only activates when the attribute is present.</p>
+    </div>
+    <div class="step">
+      <h4>Set the brand attribute</h4>
+      <p>Add <code>data-brand="ticket"</code> to the <code>&lt;html&gt;</code> element. This can be conditional (e.g., based on subdomain, org type, or feature flag) so the same codebase serves both Vatic-generic and Ticket-branded experiences.</p>
+    </div>
+    <div class="step">
+      <h4>Verify dark mode</h4>
+      <p>The theme handles <code>.dark</code> class combinations. Ensure <code>next-themes</code> applies <code>.dark</code> to <code>&lt;html&gt;</code> as usual — the theme's dark selectors will cascade correctly.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Layout.tsx Font Setup</h2>
+  <div class="code-block">
+<span class="comment">// Add alongside existing font imports</span>
+<span class="key">import</span> { Barlow_Condensed, Instrument_Serif } <span class="key">from</span> <span class="string">'next/font/google'</span>;
+
+<span class="key">const</span> barlowCondensed = Barlow_Condensed({
+  subsets: [<span class="string">'latin'</span>],
+  weight: [<span class="string">'500'</span>, <span class="string">'600'</span>],
+  variable: <span class="string">'--font-barlow-condensed'</span>,
+});
+
+<span class="key">const</span> instrumentSerif = Instrument_Serif({
+  subsets: [<span class="string">'latin'</span>],
+  weight: [<span class="string">'400'</span>],
+  style: [<span class="string">'normal'</span>, <span class="string">'italic'</span>],
+  variable: <span class="string">'--font-instrument-serif'</span>,
+});
+
+<span class="comment">// Add to body className:</span>
+&lt;body className={`${inter.variable} ${spaceGrotesk.variable} ${spaceMono.variable} <span class="value">${barlowCondensed.variable} ${instrumentSerif.variable}</span>`}&gt;
+  </div>
+</section>
+
+
+<!-- ════════ ARCHITECTURE NOTE ════════ -->
+<section>
+  <h2>Architecture Note — Vertical Theming Pattern</h2>
+  <p style="font-size: 0.82rem; color: #4D4843; line-height: 1.7; max-width: 720px;">
+    Ticket is the second vertical theme on the Vatic codebase, following Neat. The pattern — <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.72rem;">[data-brand="ticket"]</code> scoping all overrides — is identical. One CSS file per brand, activated by a single attribute. No JS-level branching, no build-time splitting. The base Forge tokens in globals.css remain the default; brand layers are additive overrides only.
+  </p>
+  <p style="font-size: 0.82rem; color: #4D4843; line-height: 1.7; max-width: 720px; margin-top: 12px;">
+    Ticket adds 10 namespaced tokens not in the base Vatic system (<code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.72rem;">--ticket-rust</code>, <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.72rem;">--ticket-slate</code>, <code style="background:#EBE8E3;padding:1px 5px;border-radius:3px;font-size:0.72rem;">--ticket-signal</code>, etc.) for its print/service vocabulary. Ticket also introduces a third font layer (Barlow Condensed) that Neat doesn't have — Neat uses only one display font (Fraunces) whereas Ticket splits display and condensed/structural duties across two families.
+  </p>
+  <div style="background: #FBF0E6; border: 1px solid #EBE8E3; border-radius: 8px; padding: 16px 20px; margin-top: 20px;">
+    <div style="font-family: var(--font-condensed); font-weight: 600; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: #B85C38; margin-bottom: 6px;">Key Differences from Neat</div>
+    <ul style="font-size: 0.75rem; color: #4D4843; line-height: 1.8; padding-left: 18px;">
+      <li><strong>Primary CTA:</strong> Slate (cool blue-gray) instead of Barrel Brown — gives Ticket a cooler, more institutional feel</li>
+      <li><strong>Accent:</strong> Rust instead of Proof Copper — warmer and more aggressive</li>
+      <li><strong>Typography:</strong> Three-layer system (Instrument Serif + Barlow Condensed + Inter) vs. Neat's two-layer (Fraunces + Inter)</li>
+      <li><strong>Token vocabulary:</strong> Print/service ("Ink", "Press", "Counter", "Thermal") vs. Neat's distillery ("Parchment", "Char", "Oak")</li>
+      <li><strong>Dark surfaces:</strong> Ink/Press/Counter elevation vs. Neat's Charred Oak/Barrel Dark/Stave</li>
+    </ul>
+  </div>
+</section>
+
+</body>
+</html>

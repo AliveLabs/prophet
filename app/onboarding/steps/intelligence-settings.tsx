@@ -98,7 +98,7 @@ type IntelligenceSettingsStepProps = {
 export default function IntelligenceSettingsStep({
   preferences,
   onChange,
-  brandName = "Vatic",
+  brandName = "Ticket",
 }: IntelligenceSettingsStepProps) {
   const toggle = (key: keyof Preferences) => {
     onChange({ ...preferences, [key]: !preferences[key] })

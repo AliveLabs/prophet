@@ -46,7 +46,7 @@ export async function sendMagicLinkAction(formData: FormData) {
 
   const result = await sendEmail({
     to: email,
-    subject: "Sign in to Vatic",
+    subject: "Sign in to Ticket",
     react: MagicLinkEmail({ email, magicLinkUrl: data.properties.action_link }),
     clientFacing: true,
     overrideClientEmailPause: true,

@@ -30,7 +30,7 @@ export function InviteAdmin() {
     <div className="rounded-xl border border-border bg-card p-5">
       <p className="mb-4 text-sm text-muted-foreground">
         Enter the email address of the person you want to grant admin access.
-        If they don&rsquo;t have a Vatic account yet, one will be created
+        If they don&rsquo;t have a Ticket account yet, one will be created
         automatically.
       </p>
 

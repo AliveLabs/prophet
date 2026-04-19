@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <!-- Ticket OG Image — 1200x630 -->
+  <rect width="1200" height="630" fill="#1C1917"/>
+  
+  <!-- Mark (centered, large) -->
+  <g transform="translate(520, 140)">
+    <!-- Crossbar -->
+    <rect x="0" y="0" width="160" height="31" rx="3" fill="#F5F3EF"/>
+    <!-- Stem -->
+    <rect x="40" y="31" width="80" height="222" fill="#F5F3EF"/>
+    <!-- Single perforation -->
+    <circle cx="40" cy="35" r="7.8" fill="#1C1917"/>
+    <circle cx="120" cy="35" r="7.8" fill="#1C1917"/>
+    <line x1="48" y1="35" x2="112" y2="35" stroke="#1C1917" stroke-width="2.6" stroke-dasharray="5.5,4.5"/>
+  </g>
+  
+  <!-- Wordmark -->
+  <text x="600" y="450" text-anchor="middle" font-family="'Arial Narrow', sans-serif" font-weight="600" font-size="52" letter-spacing="2" fill="#F5F3EF" text-decoration="none">TICKET</text>
+  
+  <!-- Tagline -->
+  <text x="600" y="500" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#6E6862" font-style="italic">Read the ticket.</text>
+  
+  <!-- URL -->
+  <text x="600" y="580" text-anchor="middle" font-family="'Arial Narrow', sans-serif" font-weight="500" font-size="16" letter-spacing="3" fill="#4D4843">GETTICKET.AI</text>
+</svg>

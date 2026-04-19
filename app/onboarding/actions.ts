@@ -821,7 +821,7 @@ export async function completeOnboardingAction(input: {
 
     sendEmail({
       to: userEmail,
-      subject: "Welcome to Vatic — your intelligence is live",
+      subject: "Welcome to Ticket — your feed is live",
       react: Welcome({
         userName,
         locationName: locInfo?.name ?? "Your location",

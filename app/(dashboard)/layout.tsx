@@ -46,7 +46,7 @@ function DashboardSkeleton() {
         <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
           <BrandLogo />
           <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground text-wordmark">
-            vatic
+            ticket
           </span>
         </div>
         <div className="flex-1 px-3 py-4">
@@ -122,12 +122,13 @@ async function DashboardShell({ children }: { children: ReactNode }) {
   const dataBrand =
     process.env.VERTICALIZATION_ENABLED === "true"
       ? verticalConfig.brand.dataBrand
-      : undefined
+      : "ticket"
 
   const userName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User"
-  const brandFallback = dataBrand ? verticalConfig.brand.displayName : "Vatic"
+  const isVerticalActive = process.env.VERTICALIZATION_ENABLED === "true"
+  const brandFallback = isVerticalActive ? verticalConfig.brand.displayName : "Ticket"
   const userOrg = orgRow?.name ?? brandFallback
-  const brandWordmark = dataBrand ? verticalConfig.brand.wordmark : "vatic"
+  const brandWordmark = isVerticalActive ? verticalConfig.brand.wordmark : "ticket"
 
   if (
     orgRow &&

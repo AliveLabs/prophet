@@ -22,7 +22,7 @@ interface SendEmailParams {
   overrideClientEmailPause?: boolean
 }
 
-const FROM_ADDRESS = "Vatic <info@getvatic.com>"
+const FROM_ADDRESS = "Ticket <info@getvatic.com>"
 
 export async function sendEmail({
   to,

@@ -65,11 +65,11 @@ export function PricingSection() {
           variants={fadeUp}
           className="mb-20 text-center"
         >
-          <h2 className="font-display text-tight text-5xl italic text-foreground md:text-6xl">
-            Strategic Tiers
+          <h2 className="font-display text-tight text-5xl text-foreground md:text-6xl">
+            <em className="italic">Plans</em> that scale with your set.
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Select the resolution of your intelligence briefing.
+            From your first location to a fifty-unit operation. Same feed, same confidence scoring.
           </p>
         </motion.div>
 
@@ -115,14 +115,14 @@ export function PricingSection() {
                     : "border border-border text-foreground hover:bg-muted/50"
                 }`}
               >
-                {tier.name === "Agency" ? "Contact Analyst" : "Join the Waitlist"}
+                {tier.name === "Agency" ? "Contact Sales" : "Request Early Access"}
               </a>
             </motion.div>
           ))}
         </div>
 
         <p className="mt-12 text-center text-sm text-muted-foreground">
-          Join the waitlist to lock in early access pricing. No credit card required.
+          Request early access to lock in launch pricing. No credit card required.
         </p>
       </div>
     </section>

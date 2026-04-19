@@ -8,9 +8,9 @@ interface MagicLinkEmailProps {
 
 export function MagicLinkEmail({ email, magicLinkUrl }: MagicLinkEmailProps) {
   return (
-    <EmailLayout preview="Your Vatic sign-in link">
+    <EmailLayout preview="Your Ticket sign-in link">
       <Section>
-        <Text style={heading}>Sign in to Vatic</Text>
+        <Text style={heading}>Sign in to Ticket</Text>
         <Text style={paragraph}>
           We received a sign-in request for{" "}
           <strong style={{ color: "#E4E4E7" }}>{email}</strong>. Click the
@@ -19,7 +19,7 @@ export function MagicLinkEmail({ email, magicLinkUrl }: MagicLinkEmailProps) {
 
         <Section style={ctaContainer}>
           <Link href={magicLinkUrl} style={ctaButton}>
-            Sign in to Vatic
+            Sign in to Ticket
           </Link>
         </Section>
 
@@ -35,7 +35,7 @@ export function MagicLinkEmail({ email, magicLinkUrl }: MagicLinkEmailProps) {
           can safely ignore this email.
         </Text>
 
-        <Text style={signoff}>&mdash; The Vatic Team</Text>
+        <Text style={signoff}>&mdash; The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )
