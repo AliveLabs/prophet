@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Input } from "@/components/ui/input"
 
 type Prediction = {
@@ -36,8 +36,33 @@ export default function LocationSearch({ onSelectPlace, onClear, className, plac
   const [selected, setSelected] = useState<PlaceDetails | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null)
 
   const canSearch = useMemo(() => query.trim().length > 2, [query])
+
+  // Best-effort geolocation once on mount so autocomplete can bias results to the
+  // user's region. Failure or denial is non-blocking — autocomplete still works,
+  // just without the bias.
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) return
+    let active = true
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!active) return
+        const { latitude, longitude } = position.coords
+        if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+          coordsRef.current = { lat: latitude, lng: longitude }
+        }
+      },
+      () => {
+        // Permission denied or unavailable; stay unbiased.
+      },
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: 5000 }
+    )
+    return () => {
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -49,7 +74,13 @@ export default function LocationSearch({ onSelectPlace, onClear, className, plac
     const handle = setTimeout(async () => {
       setLoading(true)
       try {
-        const response = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(query)}`)
+        const params = new URLSearchParams({ input: query })
+        const coords = coordsRef.current
+        if (coords) {
+          params.set("lat", String(coords.lat))
+          params.set("lng", String(coords.lng))
+        }
+        const response = await fetch(`/api/places/autocomplete?${params.toString()}`)
         const data = await response.json()
         if (active) {
           setPredictions(data.predictions ?? [])

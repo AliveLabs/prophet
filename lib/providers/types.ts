@@ -33,6 +33,9 @@ export interface Provider {
     lng: number
     radiusMeters: number
     query?: string
+    category?: string
+    city?: string
+    region?: string
   }): Promise<ProviderCandidate[]>
   fetchSnapshot(input: { providerEntityId: string }): Promise<unknown>
   normalizeSnapshot(raw: unknown): NormalizedSnapshot

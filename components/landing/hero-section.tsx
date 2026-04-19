@@ -2,6 +2,7 @@
 
 import { motion, useMotionValue, useTransform, animate, useInView } from "framer-motion"
 import { useEffect, useRef } from "react"
+import { MARKETING_STATS } from "@/lib/marketing/stats"
 
 function AnimatedCounter({ target, suffix = "", duration = 2 }: { target: number; suffix?: string; duration?: number }) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -197,21 +198,36 @@ export function HeroSection() {
             <motion.div variants={fadeUp} className="mt-12 flex gap-8">
               <div>
                 <div className="text-2xl font-bold text-foreground">
-                  <AnimatedCounter target={10000} suffix="+" />
+                  <AnimatedCounter
+                    target={MARKETING_STATS.signalsDaily.value}
+                    suffix={MARKETING_STATS.signalsDaily.suffix}
+                  />
                 </div>
-                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Signals daily</div>
+                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  {MARKETING_STATS.signalsDaily.shortLabel}
+                </div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-foreground">
-                  <AnimatedCounter target={50} suffix="+" />
+                  <AnimatedCounter
+                    target={MARKETING_STATS.insightTypes.value}
+                    suffix={MARKETING_STATS.insightTypes.suffix}
+                  />
                 </div>
-                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Insight types</div>
+                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  {MARKETING_STATS.insightTypes.shortLabel}
+                </div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-foreground">
-                  <AnimatedCounter target={6} />
+                  <AnimatedCounter
+                    target={MARKETING_STATS.intelChannels.value}
+                    suffix={MARKETING_STATS.intelChannels.suffix}
+                  />
                 </div>
-                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">Intel channels</div>
+                <div className="mt-1 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                  {MARKETING_STATS.intelChannels.shortLabel}
+                </div>
               </div>
             </motion.div>
           </motion.div>

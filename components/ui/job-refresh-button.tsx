@@ -117,12 +117,25 @@ export default function JobRefreshButton({
     prevStatusRef.current = job.status
 
     if (prev === "running" && job.status === "complete") {
+      const baseDescription =
+        job.warnings.length > 0
+          ? `Done with ${job.warnings.length} warning(s).`
+          : "Your data has been refreshed."
       toast.success(`${TYPE_LABELS[type] ?? "Job"} completed`, {
-        description:
-          job.warnings.length > 0
-            ? `Done with ${job.warnings.length} warning(s).`
-            : "Your data has been refreshed.",
+        description: baseDescription,
       })
+      // Insights generation only kicks off the initial brief. Background
+      // enrichment (competitor sweeps, SEO rollups, photo analysis, etc.)
+      // continues for ~15 minutes after SSE closes and lands new rows on the
+      // Insights page over time. Surface that explicitly so users don't assume
+      // the feed is frozen.
+      if (type === "insights") {
+        toast.info("More insights incoming", {
+          description:
+            "Data enrichment is still running — new insights will appear here over the next ~15 minutes.",
+          duration: 10000,
+        })
+      }
     } else if (prev === "running" && job.status === "failed") {
       toast.error(`${TYPE_LABELS[type] ?? "Job"} failed`, {
         description: job.errorMessage ?? "Some steps encountered errors.",
@@ -175,19 +188,26 @@ export default function JobRefreshButton({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-4 flex items-center gap-2 rounded-xl bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal"
+            className="mb-4 flex items-start gap-2 rounded-xl bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="font-medium">
-              Done! Refreshing page...
-              {job.warnings.length > 0 && (
-                <span className="ml-1 font-normal text-precision-teal">
-                  ({job.warnings.length} warning{job.warnings.length !== 1 && "s"})
+            <div className="flex flex-col gap-1">
+              <span className="font-medium">
+                Done! Refreshing page...
+                {job.warnings.length > 0 && (
+                  <span className="ml-1 font-normal text-precision-teal">
+                    ({job.warnings.length} warning{job.warnings.length !== 1 && "s"})
+                  </span>
+                )}
+              </span>
+              {type === "insights" && (
+                <span className="text-[11.5px] font-normal text-precision-teal/80">
+                  Data enrichment is still running in the background — new insights will appear over the next ~15 minutes.
                 </span>
               )}
-            </span>
+            </div>
           </motion.div>
         )}
 

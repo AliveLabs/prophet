@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useTransition } from "react"
+import { useState, useCallback, useRef, useTransition } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import "./onboarding.css"
 import SplashStep from "./steps/splash"
@@ -78,6 +78,9 @@ export default function OnboardingWizard({
   )
   const [discoveringCompetitors, setDiscoveringCompetitors] = useState(false)
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
+  const [searchingCompetitors, setSearchingCompetitors] = useState(false)
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRequestIdRef = useRef(0)
 
   // Step 3 state
   const [monitoringPrefs, setMonitoringPrefs] = useState({
@@ -168,6 +171,52 @@ export default function OnboardingWizard({
       setDiscoveringCompetitors(false)
     }
   }, [locationId, verticalConfig])
+
+  // Debounced server-side competitor search. Typing into the step 2 search
+  // box triggers a call to discoverCompetitorsForLocation with the query, and
+  // newly discovered candidates are merged into the existing list (dedup by
+  // id) so users can find competitors outside the initial default sweep.
+  const handleCompetitorSearch = useCallback(
+    (rawQuery: string) => {
+      if (!locationId) return
+      const query = rawQuery.trim()
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current)
+      }
+      if (query.length < 3) {
+        setSearchingCompetitors(false)
+        return
+      }
+      searchDebounceRef.current = setTimeout(async () => {
+        const requestId = ++searchRequestIdRef.current
+        setSearchingCompetitors(true)
+        try {
+          const discovered = await discoverCompetitorsForLocation(
+            locationId,
+            query,
+            verticalConfig.placesApiType
+          )
+          if (requestId !== searchRequestIdRef.current) return
+          if (discovered.ok) {
+            setCompetitors((existing) => {
+              const byId = new Map(existing.map((c) => [c.id, c]))
+              for (const c of discovered.competitors) {
+                byId.set(c.id, c)
+              }
+              return Array.from(byId.values())
+            })
+          }
+        } catch {
+          // Keep existing results; avoid surfacing a hard error for search typos.
+        } finally {
+          if (requestId === searchRequestIdRef.current) {
+            setSearchingCompetitors(false)
+          }
+        }
+      }, 500)
+    },
+    [locationId, verticalConfig]
+  )
 
   const toggleCompetitor = useCallback((id: string) => {
     setSelectedCompetitorIds((prev) => {
@@ -279,6 +328,8 @@ export default function OnboardingWizard({
                 onRetry={handleRetryDiscovery}
                 locationCity={selectedPlace?.city ?? null}
                 brandName={verticalConfig.brand.displayName}
+                onSearch={handleCompetitorSearch}
+                isSearching={searchingCompetitors}
               />
             )}
             {step === 3 && (
@@ -350,7 +401,8 @@ export default function OnboardingWizard({
               (step === 1 &&
                 (!businessName.trim() ||
                   !selectedPlace?.geo_lat ||
-                  !selectedPlace?.geo_lng))
+                  !selectedPlace?.geo_lng)) ||
+              (step === 2 && selectedCompetitorIds.size === 0)
             }
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-deep-indigo hover:shadow-glow-indigo-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
