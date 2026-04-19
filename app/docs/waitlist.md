@@ -179,23 +179,23 @@ Create `app/actions/waitlist.ts`:
 
 ## Phase 3: Transactional Emails
 
-Build three new React Email templates. All use Vatic brand colors (teal #0D9488 + indigo #4F46E5), Cormorant Garamond for headings.
+Build three new React Email templates. All use the shared email `layout.tsx` (Ticket wordmark header, "powered by Vatic — by Alive Labs" footer); body type uses the default system stack for email client compatibility.
 
 ### waitlist-confirmation.tsx
-- **Subject:** You are on the Vatic waitlist
+- **Subject:** You are on the Ticket waitlist
 - **Trigger:** User submits waitlist form
 - **Content:** Thank them. Set expectations ("We are rolling out access in batches and will notify you when your spot is ready."). No login link. No magic link.
 - **Tone:** Warm, brief, professional
 
 ### waitlist-invitation.tsx
-- **Subject:** You are in! Your Vatic dashboard is ready
+- **Subject:** You are in! Your Ticket dashboard is ready
 - **Trigger:** Admin approves signup
 - **Content:** Congratulate them. Prominent CTA button with magic link. Mention 14-day trial.
 - **CTA button text:** Access Your Dashboard
 - **CTA URL:** Magic link from `supabase.auth.admin.generateLink()`
 
 ### waitlist-decline.tsx
-- **Subject:** Update on your Vatic waitlist request
+- **Subject:** Update on your Ticket waitlist request
 - **Trigger:** Admin declines signup
 - **Content:** Polite. Do NOT say "declined" or "rejected". Say: "We are not able to offer access at this time as we roll out in limited batches. We will keep you posted as availability opens up."
 - **Tone:** Respectful, leaves door open

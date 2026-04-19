@@ -105,7 +105,7 @@ export async function inviteNewUser(
 
   const emailResult = await sendEmail({
     to: normalizedEmail,
-    subject: "You've been invited to Vatic",
+    subject: "You've been invited to Ticket",
     react: WaitlistInvitation({
       name: fullName,
       magicLinkUrl,
@@ -251,7 +251,7 @@ export async function sendUserMagicLink(
 
   const emailResult = await sendEmail({
     to: userData.user.email,
-    subject: "Your Vatic sign-in link",
+    subject: "Your Ticket sign-in link",
     react: WaitlistInvitation({
       name: fullName,
       magicLinkUrl,

@@ -101,23 +101,23 @@ const STEPS = [
   {
     number: "01",
     icon: <RadarIcon />,
-    title: "Collect Signals",
+    title: "Name your set",
     description:
-      "Our crawlers ingest data from social media, local SEO, Google reviews, menu changes, and foot traffic patterns in real-time across your entire competitive landscape.",
+      "Your restaurant plus up to ten competitors. Takes five minutes. Ticket starts watching menus, pricing, reviews, social, and local search the moment you finish.",
   },
   {
     number: "02",
     icon: <PrismIcon />,
-    title: "Crystallize Insight",
+    title: "Signals scored",
     description:
-      "The Vatic engine isolates patterns across 50+ deterministic rules, stripping away noise to reveal the underlying strategic intent of the market.",
+      "Every shift is classified High, Medium, or Directional — multi-source verification filters the noise so you only see what&apos;s worth a second look.",
   },
   {
     number: "03",
     icon: <LightningIcon />,
-    title: "Act Sooner",
+    title: "Briefings land",
     description:
-      "Receive automated intelligence briefings with precise operational and marketing counter-moves. Priority-scored, confidence-rated, and actionable.",
+      "Daily alerts with what changed, why it matters, and what to do next. Priority-scored, confidence-rated, and tied to a specific next move you can make Monday morning.",
   },
 ]
 
@@ -137,11 +137,11 @@ export function HowItWorksSection() {
           variants={fadeUp}
           className="mb-20 text-center"
         >
-          <h2 className="font-display text-tight text-4xl italic text-foreground md:text-5xl">
-            The Strategic Architecture
+          <h2 className="font-display text-tight text-4xl text-foreground md:text-5xl">
+            Setup to first alert: <em className="italic">48 hours.</em>
           </h2>
           <p className="mt-4 text-sm font-medium uppercase tracking-[0.2em] text-muted-foreground">
-            Intelligence at the speed of thought
+            How Ticket works
           </p>
         </motion.div>
 

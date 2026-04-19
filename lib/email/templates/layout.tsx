@@ -23,7 +23,7 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
       <Body style={body}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={wordmark}>vatic</Text>
+            <Text style={wordmark}>Ticket</Text>
           </Section>
 
           <Hr style={divider} />
@@ -34,13 +34,14 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
 
           <Section style={footer}>
             <Text style={footerText}>
-              &copy; 2026 Vatic. All rights reserved.
-            </Text>
-            <Text style={footerText}>
-              Built by{" "}
+              Ticket is powered by Vatic — competitive intelligence by{" "}
               <Link href="https://alivelabs.co" style={footerLink}>
                 Alive Labs
               </Link>
+              .
+            </Text>
+            <Text style={footerText}>
+              &copy; 2026 Alive Labs. All rights reserved.
             </Text>
           </Section>
         </Container>
@@ -69,10 +70,11 @@ const header = {
 }
 
 const wordmark = {
-  fontSize: "24px",
+  fontSize: "22px",
   fontWeight: "700" as const,
-  color: "#E4E4E7",
-  letterSpacing: "-0.02em",
+  color: "#F5F3EF",
+  letterSpacing: "0.02em",
+  textTransform: "uppercase" as const,
   margin: "0",
 }
 

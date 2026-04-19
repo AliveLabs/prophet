@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket — Brand Identity System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Identity */
+      --rust:       #B85C38;
+      --slate:      #3D4F5F;
+
+      /* Dark Surfaces */
+      --ink:        #1C1917;
+      --press:      #24211E;
+      --counter:    #2F2B28;
+
+      /* Text */
+      --carbon:     #2E2A26;
+      --print:      #4D4843;
+      --ash:        #6E6862;
+      --smoke:      #756F68;
+
+      /* Light Surfaces */
+      --newsprint:  #F5F3EF;
+      --ledger:     #EBE8E3;
+      --bond:       #F0EDE9;
+
+      /* Data / Functional */
+      --signal:     #D08548;
+      --clear:      #3A8066;
+      --alert:      #C44040;
+
+      /* Extended */
+      --thermal:    #FBF0E6;
+      --clear-wash: #E8F5EE;
+      --wire-gold:  #C9942A;
+
+      /* Typography */
+      --font-wordmark: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+      --font-display:  'Instrument Serif', Georgia, serif;
+      --font-body:     'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+      /* Spacing */
+      --sp-xs: 0.25rem; --sp-sm: 0.5rem; --sp-md: 1rem; --sp-lg: 2rem; --sp-xl: 4rem; --sp-2xl: 6rem;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--font-body); background: var(--newsprint); color: var(--carbon); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+    .container { max-width: 960px; margin: 0 auto; padding: var(--sp-lg) var(--sp-lg); }
+    section { padding: var(--sp-2xl) 0; }
+    section + section { border-top: 1px solid var(--ledger); }
+
+    /* Section chrome */
+    .sec-label { font-family: var(--font-wordmark); font-weight: 500; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rust); margin-bottom: var(--sp-sm); }
+    .sec-title { font-family: var(--font-wordmark); font-weight: 600; font-size: 1.6rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--carbon); margin-bottom: var(--sp-lg); }
+
+    /* Callouts */
+    .callout { background: var(--bond); border-left: 3px solid var(--slate); padding: var(--sp-md) var(--sp-lg); border-radius: 0 6px 6px 0; margin: var(--sp-lg) 0; }
+    .callout p { font-size: 0.82rem; color: var(--print); line-height: 1.65; }
+    .callout strong { color: var(--carbon); }
+    .callout-rust { background: var(--thermal); border-left: 3px solid var(--rust); padding: var(--sp-md) var(--sp-lg); border-radius: 0 6px 6px 0; margin: var(--sp-lg) 0; }
+    .callout-rust p { font-size: 0.82rem; color: var(--print); line-height: 1.65; }
+    .callout-rust strong { color: var(--carbon); }
+
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-lg); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-lg); }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-md); }
+
+    /* Swatch */
+    .swatch-row { display: flex; gap: 2px; border-radius: 8px; overflow: hidden; margin: var(--sp-md) 0; }
+    .swatch { flex: 1; padding: var(--sp-md) var(--sp-sm); min-height: 80px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .swatch-name { font-family: var(--font-wordmark); font-weight: 600; font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .swatch-hex { font-size: 0.62rem; opacity: 0.7; margin-top: 2px; }
+
+    /* Voice trait card */
+    .trait { background: var(--bond); border-radius: 8px; padding: var(--sp-lg); }
+    .trait-word { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; color: var(--carbon); margin-bottom: var(--sp-sm); }
+    .trait-not { font-size: 0.72rem; color: var(--ash); border-top: 1px solid var(--ledger); padding-top: var(--sp-sm); margin-top: var(--sp-md); }
+    .trait-not strong { color: var(--rust); }
+
+    /* Voice examples */
+    .voice-col { border-radius: 8px; padding: var(--sp-lg); }
+    .voice-col--do { background: var(--clear-wash); border: 1px solid var(--clear); }
+    .voice-col--dont { background: #FDF0EF; border: 1px solid #E0B0B0; }
+    .voice-header { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: var(--sp-md); }
+    .voice-col--do .voice-header { color: #2D6B4F; }
+    .voice-col--dont .voice-header { color: var(--alert); }
+    .voice-ex { display: flex; gap: var(--sp-sm); margin-bottom: var(--sp-md); font-size: 0.82rem; line-height: 1.55; }
+    .voice-ex:last-child { margin-bottom: 0; }
+    .voice-ex .icon { flex-shrink: 0; margin-top: 1px; }
+
+    /* Microcopy cards */
+    .mc-card { background: var(--bond); border-radius: 6px; padding: var(--sp-md); }
+    .mc-context { font-family: var(--font-wordmark); font-weight: 500; font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ash); margin-bottom: var(--sp-xs); }
+    .mc-text { font-size: 0.82rem; color: var(--carbon); line-height: 1.5; }
+
+    /* Nav */
+    nav { position: sticky; top: 0; z-index: 100; background: var(--ink); padding: var(--sp-sm) var(--sp-lg); display: flex; align-items: center; gap: var(--sp-lg); overflow-x: auto; }
+    nav a { font-family: var(--font-wordmark); font-weight: 500; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ash); text-decoration: none; white-space: nowrap; transition: color 0.15s; }
+    nav a:hover { color: var(--newsprint); }
+
+    /* Hero */
+    .hero { background: var(--ink); padding: var(--sp-2xl) var(--sp-lg); text-align: center; }
+    .hero h1 { font-family: var(--font-wordmark); font-weight: 600; font-size: 3rem; color: var(--newsprint); line-height: 1.15; text-transform: uppercase; letter-spacing: 0.08em; }
+    .hero .subtitle { font-size: 0.88rem; color: var(--ash); margin-top: var(--sp-sm); max-width: 44rem; margin-left: auto; margin-right: auto; }
+    .hero .version { font-family: var(--font-wordmark); font-weight: 500; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--rust); margin-bottom: var(--sp-md); display: inline-block; border: 1px solid rgba(184,92,56,0.35); padding: 4px 14px; border-radius: 3px; }
+
+    .page-footer { background: var(--ink); padding: var(--sp-xl) var(--sp-lg); text-align: center; }
+    .page-footer p { font-size: 0.72rem; color: var(--ash); line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="#strategy">Strategy</a>
+  <a href="#mark">Mark</a>
+  <a href="#compact-mark">Icons</a>
+  <a href="#wordmark">Wordmark</a>
+  <a href="#color">Color</a>
+  <a href="#typography">Type</a>
+  <a href="#voice">Voice</a>
+  <a href="#microcopy">Microcopy</a>
+  <a href="#visuals">Visuals</a>
+  <a href="#page">Page</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#implementation">Implementation</a>
+</nav>
+
+<div class="hero">
+  <div class="version">Brand Identity System · v1.1</div>
+  <h1>Ticket</h1>
+  <p class="subtitle">Restaurant competitive intelligence, powered by Vatic. This document defines the brand identity — visual, verbal, and structural — for the Ticket product vertical.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  01 · BRAND STRATEGY                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="strategy">
+  <div class="container">
+    <div class="sec-label">01 · Brand Strategy</div>
+    <div class="sec-title">Compressed Intelligence</div>
+
+    <div class="callout-rust">
+      <p><strong>The ticket is the most information-dense document in a restaurant.</strong> Every modification, every fire time, every table position — compressed into a slip of thermal paper that a line cook reads in under two seconds. Ticket (the product) compresses competitive intelligence the same way: everything happening in your market, delivered in the time it takes to read a ticket.</p>
+    </div>
+
+    <p style="font-size:0.88rem;color:var(--print);line-height:1.7;margin:var(--sp-lg) 0;max-width:48rem;">Everything in this identity traces back to this story. The palette is thermal paper warmth — clarity under pressure. The type system is compression without waste. The mark is the physical ticket. The voice is the expeditor — the person at the pass who compresses chaos into calls.</p>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Positioning Statement</div>
+    <p style="font-family:var(--font-display);font-size:1.4rem;color:var(--carbon);line-height:1.35;max-width:44rem;margin:var(--sp-sm) 0 var(--sp-lg);">Ticket is competitive intelligence built for restaurant operators. It sees everything happening in your competitive landscape and delivers it in the order that matters — during the window where you can still act.</p>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Brand Values</div>
+    <div class="grid-3" style="margin-top:var(--sp-sm);">
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.1rem;color:var(--carbon);">Signal over noise</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">Not a dashboard. A briefing. We compress, not collect.</p>
+      </div>
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.1rem;color:var(--carbon);">Speed with confidence</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">Intelligence arrives when it's actionable. Every finding carries a confidence score.</p>
+      </div>
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.1rem;color:var(--carbon);">Operator-first language</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">We speak covers and competitive sets, not dashboards and data lakes.</p>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Powered By</div>
+    <div class="callout">
+      <p><strong>Ticket is powered by Vatic</strong> — Alive Labs' competitive intelligence engine. Vatic is the technology layer; Ticket is the product restaurant operators interact with. Ticket owns: marketing site, wordmark, color tokens, mark, and positioning voice. Ticket inherits from Vatic: the entire product UI, interaction patterns, terminology, data visualization, dark mode, accessibility standards, and email architecture.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  02 · MARK                                                            -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="mark">
+  <div class="container">
+    <div class="sec-label">02 · Mark</div>
+    <div class="sec-title">The Tear-Off T</div>
+
+    <div class="callout-rust">
+      <p><strong>The mark is a T with a single perforation at the crossbar-stem junction.</strong> The crossbar is the machine — the printer, the POS, the source. The stem is the ticket printing out below it. The perforation sits right where you'd tear. The ticket is still attached, still coming. The bottom edge just ends — the receipt is still printing.</p>
+    </div>
+
+    <!-- Mark display -->
+    <div style="display:flex;gap:var(--sp-xl);align-items:flex-start;justify-content:center;flex-wrap:wrap;margin:var(--sp-xl) 0;">
+      <!-- On Ink -->
+      <div style="background:var(--ink);border-radius:12px;padding:var(--sp-xl) 60px;display:flex;flex-direction:column;align-items:center;gap:var(--sp-md);">
+        <svg width="120" height="190" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#1C1917"/>
+          <circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:var(--ash);">Newsprint on Ink</span>
+      </div>
+      <!-- On Newsprint -->
+      <div style="background:var(--newsprint);border:1px solid var(--ledger);border-radius:12px;padding:var(--sp-xl) 60px;display:flex;flex-direction:column;align-items:center;gap:var(--sp-md);">
+        <svg width="120" height="190" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/>
+          <rect x="18" y="14" width="36" height="100" fill="#1C1917"/>
+          <circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/>
+          <circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:var(--ash);">Ink on Newsprint</span>
+      </div>
+      <!-- On Rust -->
+      <div style="background:var(--rust);border-radius:12px;padding:var(--sp-xl) 60px;display:flex;flex-direction:column;align-items:center;gap:var(--sp-md);">
+        <svg width="120" height="190" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#B85C38"/>
+          <circle cx="54" cy="16" r="3.5" fill="#B85C38"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#B85C38" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:rgba(255,255,255,0.6);">Newsprint on Rust</span>
+      </div>
+    </div>
+
+    <!-- Scaling -->
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Scaling Strategy</div>
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;margin-bottom:var(--sp-lg);">Two-tier mark: full mark with perforation at 48+ <em>actual rendered pixels</em>, simplified T (no perforation) below that. On retina displays, a "32px" asset renders at 64 actual pixels — use the full mark. The simplified T is only for the 16px standard-resolution browser tab. The perforation is the brand story — default to showing it.</p>
+
+    <div style="display:flex;align-items:flex-end;gap:var(--sp-xl);flex-wrap:wrap;background:var(--ink);border-radius:12px;padding:var(--sp-xl);justify-content:center;">
+      <!-- 96px -->
+      <div style="text-align:center;">
+        <svg width="60" height="95" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">96px · Full</p>
+      </div>
+      <!-- 64px -->
+      <div style="text-align:center;">
+        <svg width="40" height="63" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">64px · Full</p>
+      </div>
+      <!-- 48px -->
+      <div style="text-align:center;">
+        <svg width="30" height="47" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">48px · Threshold</p>
+      </div>
+      <!-- 32px simplified -->
+      <div style="text-align:center;">
+        <svg width="20" height="32" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+        </svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">32px · Simple</p>
+      </div>
+      <!-- 16px simplified -->
+      <div style="text-align:center;">
+        <svg width="10" height="16" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+        </svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">16px · Simple</p>
+      </div>
+    </div>
+
+    <!-- Lockup -->
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Lockup</div>
+    <div style="background:var(--ink);border-radius:12px;padding:var(--sp-xl);display:flex;align-items:center;gap:14px;width:fit-content;margin:var(--sp-md) 0;">
+      <svg width="28" height="44" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+        <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+        <circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+        <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+      </svg>
+      <span style="font-family:var(--font-wordmark);font-weight:600;font-size:1.4rem;text-transform:uppercase;letter-spacing:-0.01em;color:var(--newsprint);">Ticket</span>
+    </div>
+
+    <div class="callout">
+      <p><strong>SVG specification:</strong> viewBox="0 0 72 114". Crossbar: 72×14, rx=1.5. Stem: 36×100, x=18. Perforation: 2 circles r=3.5 at (18,16) and (54,16), dashed line 1.2px stroke, dasharray 2.5,2. Fill color inverts with background.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  02b · COMPACT MARK & ICONS                                           -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="compact-mark">
+  <div class="container">
+    <div class="sec-label">02b · Compact Mark &amp; Icons</div>
+    <div class="sec-title">The T at Every Size</div>
+
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-lg);">The perforation is the brand story — use the full perforated T everywhere the asset will render at 48+ actual pixels. On retina displays a "32px" favicon is 64 actual pixels, so it gets the perforation. Social avatars are always served at 2x or higher. The only context that gets the simplified T (no perforation) is the 16px standard-resolution browser tab.</p>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Mark Variants</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-lg);margin:var(--sp-md) 0;">
+      <div style="background:var(--ink);border-radius:12px;padding:var(--sp-xl);display:flex;flex-direction:column;align-items:center;gap:var(--sp-sm);">
+        <svg width="50" height="80" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#1C1917"/>
+          <circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:var(--ash);">Newsprint on Ink</span>
+      </div>
+      <div style="background:var(--newsprint);border:1px solid var(--ledger);border-radius:12px;padding:var(--sp-xl);display:flex;flex-direction:column;align-items:center;gap:var(--sp-sm);">
+        <svg width="50" height="80" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/>
+          <rect x="18" y="14" width="36" height="100" fill="#1C1917"/>
+          <circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/>
+          <circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:var(--ash);">Ink on Newsprint</span>
+      </div>
+      <div style="background:var(--rust);border-radius:12px;padding:var(--sp-xl);display:flex;flex-direction:column;align-items:center;gap:var(--sp-sm);">
+        <svg width="50" height="80" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+          <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+          <circle cx="18" cy="16" r="3.5" fill="#B85C38"/>
+          <circle cx="54" cy="16" r="3.5" fill="#B85C38"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#B85C38" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+        </svg>
+        <span style="font-size:0.62rem;color:rgba(255,255,255,0.6);">Newsprint on Rust</span>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Favicon — Ink Circle</div>
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;margin-bottom:var(--sp-md);">The favicon uses the Newsprint mark on an Ink circle. Perforated T at 32px+ (retina renders at 64+ actual pixels). Simplified T only at 16px standard resolution.</p>
+    <div style="display:flex;align-items:flex-end;gap:var(--sp-xl);flex-wrap:wrap;margin:var(--sp-md) 0;">
+      <!-- 16px: simplified (only 16-32 actual pixels) -->
+      <div style="text-align:center;">
+        <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle fill="#1C1917" cx="32" cy="32" r="32"/><rect x="12" y="14" width="40" height="8" rx="1.5" fill="#F5F3EF"/><rect x="22" y="22" width="20" height="30" fill="#F5F3EF"/></svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">16px · <strong>Simple</strong><br><span style="opacity:0.6">Browser tab</span></p>
+      </div>
+      <!-- 32px: perforated (retina = 64px actual) -->
+      <div style="text-align:center;">
+        <svg width="32" height="32" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle fill="#1C1917" cx="32" cy="32" r="32"/><g transform="translate(17,8) scale(0.42)"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/><rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/><circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/></g></svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">32px · <strong>Full</strong><br><span style="opacity:0.6">Retina tab (64px actual)</span></p>
+      </div>
+      <!-- 48px: perforated -->
+      <div style="text-align:center;">
+        <svg width="48" height="48" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle fill="#1C1917" cx="32" cy="32" r="32"/><g transform="translate(17,8) scale(0.42)"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/><rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/><circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/></g></svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">48px · <strong>Full</strong><br><span style="opacity:0.6">Windows</span></p>
+      </div>
+      <!-- 180px: perforated -->
+      <div style="text-align:center;">
+        <svg width="80" height="80" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><circle fill="#1C1917" cx="32" cy="32" r="32"/><g transform="translate(17,8) scale(0.42)"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/><rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/><circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/></g></svg>
+        <p style="font-size:0.55rem;color:var(--ash);margin-top:var(--sp-xs);">180px · <strong>Full</strong><br><span style="opacity:0.6">Apple Touch</span></p>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Social Avatars</div>
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;margin-bottom:var(--sp-sm);">Always perforated — social platforms serve at 2x or higher, so the perforation detail is always legible. Dark variant (Ink background) is the primary avatar.</p>
+    <div class="grid-3" style="margin-top:var(--sp-md);">
+      <div style="background:var(--bond);border-radius:8px;padding:var(--sp-lg);text-align:center;">
+        <p style="font-size:0.68rem;font-weight:600;color:var(--carbon);margin-bottom:var(--sp-sm);">Circle (X / Twitter)</p>
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-sm);overflow:hidden;">
+          <svg width="36" height="57" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/><rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/><circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/></svg>
+        </div>
+        <p style="font-size:0.62rem;color:var(--ash);">@getticket</p>
+      </div>
+      <div style="background:var(--bond);border-radius:8px;padding:var(--sp-lg);text-align:center;">
+        <p style="font-size:0.68rem;font-weight:600;color:var(--carbon);margin-bottom:var(--sp-sm);">Rounded (Instagram)</p>
+        <div style="width:64px;height:64px;border-radius:12px;background:var(--ink);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-sm);overflow:hidden;">
+          <svg width="36" height="57" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/><rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/><circle cx="18" cy="16" r="3.5" fill="#1C1917"/><circle cx="54" cy="16" r="3.5" fill="#1C1917"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/></svg>
+        </div>
+        <p style="font-size:0.62rem;color:var(--ash);">@getticket</p>
+      </div>
+      <div style="background:var(--bond);border-radius:8px;padding:var(--sp-lg);text-align:center;">
+        <p style="font-size:0.68rem;font-weight:600;color:var(--carbon);margin-bottom:var(--sp-sm);">Square (LinkedIn)</p>
+        <div style="width:64px;height:64px;border-radius:4px;background:var(--newsprint);border:1px solid var(--ledger);display:flex;align-items:center;justify-content:center;margin:0 auto var(--sp-sm);overflow:hidden;">
+          <svg width="36" height="57" viewBox="0 0 72 114" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/><rect x="18" y="14" width="36" height="100" fill="#1C1917"/><circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/><circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.2" stroke-dasharray="2.5,2"/></svg>
+        </div>
+        <p style="font-size:0.62rem;color:var(--ash);">Ticket Intelligence</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:var(--sp-lg);">
+      <p><strong>Retina rule:</strong> The 48px threshold is about actual rendered pixels, not CSS pixels. A "32px" retina favicon renders at 64 actual pixels — well above threshold. Social platforms serve at 2x minimum. The simplified T (no perforation) is <em>only</em> for the 16px standard-resolution browser tab. Every other context gets the full perforated mark.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  03 · WORDMARK                                                        -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="wordmark">
+  <div class="container">
+    <div class="sec-label">03 · Wordmark</div>
+    <div class="sec-title">Barlow Condensed 600</div>
+
+    <div style="background:var(--ink);border-radius:12px;padding:var(--sp-xl);text-align:center;margin:var(--sp-lg) 0;">
+      <p style="font-family:var(--font-wordmark);font-weight:600;font-size:4rem;text-transform:uppercase;letter-spacing:-0.01em;color:var(--newsprint);">TICKET</p>
+    </div>
+
+    <div class="grid-2" style="margin-top:var(--sp-lg);">
+      <div>
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--rust);margin-bottom:var(--sp-sm);">Specs</p>
+        <p style="font-size:0.82rem;color:var(--print);line-height:1.7;">Font: Barlow Condensed, weight 600. Case: all uppercase. Tracking: tight (-0.01em). The condensed form is the brand's compression made visible — narrow letterforms, no wasted space.</p>
+      </div>
+      <div>
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--rust);margin-bottom:var(--sp-sm);">Rules</p>
+        <p style="font-size:0.82rem;color:var(--print);line-height:1.7;">Always uppercase. Always Barlow Condensed 600. Never at the same size as an Instrument Serif headline. When adjacent to the mark, the mark provides visual separation — the wordmark never sits directly next to an Instrument Serif headline without a buffer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  04 · COLOR SYSTEM                                                    -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="color">
+  <div class="container">
+    <div class="sec-label">04 · Color System</div>
+    <div class="sec-title">Thermal Paper Warmth</div>
+
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-lg);">All neutrals shifted from blue undertone to warm gray. "Thermal paper warmth, not cozy." Distinct from Neat's bourbon/organic warmth — Ticket's warmth is utilitarian, like a receipt still warm from the printer.</p>
+
+    <div class="sec-label">Identity</div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:var(--rust);"><span class="swatch-name" style="color:#fff;">Rust</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#B85C38</span></div>
+      <div class="swatch" style="background:var(--slate);"><span class="swatch-name" style="color:#fff;">Slate</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#3D4F5F</span></div>
+      <div class="swatch" style="background:var(--wire-gold);"><span class="swatch-name" style="color:#fff;">Wire Gold</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#C9942A</span></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Dark Surfaces</div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:var(--ink);"><span class="swatch-name" style="color:var(--newsprint);">Ink</span><span class="swatch-hex" style="color:var(--ash);">#1C1917</span></div>
+      <div class="swatch" style="background:var(--press);"><span class="swatch-name" style="color:var(--newsprint);">Press</span><span class="swatch-hex" style="color:var(--ash);">#24211E</span></div>
+      <div class="swatch" style="background:var(--counter);"><span class="swatch-name" style="color:var(--newsprint);">Counter</span><span class="swatch-hex" style="color:var(--ash);">#2F2B28</span></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Text</div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:var(--carbon);"><span class="swatch-name" style="color:var(--newsprint);">Carbon</span><span class="swatch-hex" style="color:var(--ash);">#2E2A26</span></div>
+      <div class="swatch" style="background:var(--print);"><span class="swatch-name" style="color:var(--newsprint);">Print</span><span class="swatch-hex" style="color:var(--ash);">#4D4843</span></div>
+      <div class="swatch" style="background:var(--ash);"><span class="swatch-name" style="color:var(--newsprint);">Ash</span><span class="swatch-hex" style="color:var(--ledger);">#6E6862</span></div>
+      <div class="swatch" style="background:var(--smoke);"><span class="swatch-name" style="color:var(--newsprint);">Smoke</span><span class="swatch-hex" style="color:var(--ledger);">#756F68</span></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Light Surfaces</div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:var(--newsprint);border:1px solid var(--ledger);"><span class="swatch-name" style="color:var(--carbon);">Newsprint</span><span class="swatch-hex" style="color:var(--ash);">#F5F3EF</span></div>
+      <div class="swatch" style="background:var(--ledger);"><span class="swatch-name" style="color:var(--carbon);">Ledger</span><span class="swatch-hex" style="color:var(--ash);">#EBE8E3</span></div>
+      <div class="swatch" style="background:var(--bond);"><span class="swatch-name" style="color:var(--carbon);">Bond</span><span class="swatch-hex" style="color:var(--ash);">#F0EDE9</span></div>
+      <div class="swatch" style="background:var(--thermal);"><span class="swatch-name" style="color:var(--carbon);">Thermal</span><span class="swatch-hex" style="color:var(--ash);">#FBF0E6</span></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-lg);">Data / Functional</div>
+    <div class="swatch-row">
+      <div class="swatch" style="background:var(--signal);"><span class="swatch-name" style="color:#fff;">Signal</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#D08548</span></div>
+      <div class="swatch" style="background:var(--clear);"><span class="swatch-name" style="color:#fff;">Clear</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#3A8066</span></div>
+      <div class="swatch" style="background:var(--alert);"><span class="swatch-name" style="color:#fff;">Alert</span><span class="swatch-hex" style="color:rgba(255,255,255,0.7);">#C44040</span></div>
+    </div>
+
+    <div class="callout" style="margin-top:var(--sp-lg);">
+      <p><strong>Token naming:</strong> Print/service vocabulary — Ink, Press, Counter, Print, Bond, Thermal. Not metallurgy (the original Iron, Gunmetal, Steel, Graphite, Frost). The names reference the operator's world: the counter where tickets land, the bond paper of a formal menu, the thermal paper of the receipt printer.</p>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);font-size:0.65rem;">Accessibility Reference</div>
+    <p style="font-size:0.82rem;color:var(--ash);margin-bottom:var(--sp-md);">WCAG 2.1 AA compliance verified April 2026. Minimum contrast ratios: 4.5 : 1 normal text, 3.0 : 1 large text (&ge; 18px / 14px bold) and non-text elements.</p>
+
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.72rem;line-height:1.5;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--ledger);text-align:left;">
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Foreground</th>
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Background</th>
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Ratio</th>
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Normal</th>
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Large</th>
+            <th style="padding:var(--sp-sm);font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);">Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1C1917;vertical-align:middle;margin-right:4px;"></span>Ink</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">15.4 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Primary text pairing</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#2E2A26;vertical-align:middle;margin-right:4px;"></span>Carbon</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#EBE8E3;vertical-align:middle;margin-right:4px;"></span>Ledger</td>
+            <td style="padding:var(--sp-sm);">11.8 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Card / muted surface</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3D4F5F;vertical-align:middle;margin-right:4px;"></span>Slate</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">7.0 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Primary actions, links</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#B85C38;vertical-align:middle;margin-right:4px;"></span>Rust</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1C1917;vertical-align:middle;margin-right:4px;"></span>Ink</td>
+            <td style="padding:var(--sp-sm);">4.8 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Accent on dark surfaces</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#3A8066;vertical-align:middle;margin-right:4px;"></span>Clear</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">5.2 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Success / "your data" green</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#C44040;vertical-align:middle;margin-right:4px;"></span>Alert</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">5.1 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Critical / destructive</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#6E6862;vertical-align:middle;margin-right:4px;"></span>Ash</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">4.6 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Secondary text, captions</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#756F68;vertical-align:middle;margin-right:4px;"></span>Smoke</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">3.8 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);font-size:0.65rem;">Fail</td>
+            <td style="padding:var(--sp-sm);color:var(--signal);font-weight:600;">AA large &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Labels &ge; 18px only</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#C9942A;vertical-align:middle;margin-right:4px;"></span>Wire Gold</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);">2.9 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);font-size:0.65rem;">Fail</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);font-size:0.65rem;">Fail</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Not for text on light; use on dark only</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--ledger);">
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#C9942A;vertical-align:middle;margin-right:4px;"></span>Wire Gold</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1C1917;vertical-align:middle;margin-right:4px;"></span>Ink</td>
+            <td style="padding:var(--sp-sm);">5.3 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Gold text on dark — fully accessible</td>
+          </tr>
+          <tr>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#F5F3EF;border:1px solid #ddd;vertical-align:middle;margin-right:4px;"></span>Newsprint</td>
+            <td style="padding:var(--sp-sm);"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#1C1917;vertical-align:middle;margin-right:4px;"></span>Ink</td>
+            <td style="padding:var(--sp-sm);">15.4 : 1</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--clear);font-weight:600;">AA &#10003;</td>
+            <td style="padding:var(--sp-sm);color:var(--ash);">Primary dark-mode text</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout" style="margin-top:var(--sp-md);">
+      <p><strong>Key rules:</strong> Wire Gold fails on light backgrounds — prefer dark surfaces when using gold for text. Smoke is large-text-only on Newsprint. Rust passes AA on Ink but should be used as accent, not primary text color.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  05 · TYPOGRAPHY                                                      -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="typography">
+  <div class="container">
+    <div class="sec-label">05 · Typography</div>
+    <div class="sec-title">Three Layers, Three Jobs</div>
+
+    <div class="grid-3" style="margin:var(--sp-lg) 0;">
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);margin-bottom:var(--sp-md);">Compression Layer</p>
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:2rem;text-transform:uppercase;letter-spacing:0.02em;color:var(--newsprint);line-height:1;">Barlow Condensed</p>
+        <p style="font-size:0.72rem;color:var(--ash);margin-top:var(--sp-sm);">Wordmark, nav, labels, section headers. Weights: 500 + 600 only.</p>
+      </div>
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);margin-bottom:var(--sp-md);">Intelligence Layer</p>
+        <p style="font-family:var(--font-display);font-weight:400;font-size:2rem;color:var(--newsprint);line-height:1;">Instrument Serif</p>
+        <p style="font-size:0.72rem;color:var(--ash);margin-top:var(--sp-sm);">Display headlines, hero text, stat callouts. Regular + italic. Min 1.2rem.</p>
+      </div>
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);margin-bottom:var(--sp-md);">Clarity Layer</p>
+        <p style="font-family:var(--font-body);font-weight:400;font-size:2rem;color:var(--newsprint);line-height:1;">Inter</p>
+        <p style="font-size:0.72rem;color:var(--ash);margin-top:var(--sp-sm);">Body text, data labels, UI copy. Shared with Vatic and Neat.</p>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Type Rules</div>
+    <div class="callout-rust">
+      <p><strong>1.</strong> Instrument Serif minimum: 1.2rem / 19px on screen. Never smaller.</p>
+      <p style="margin-top:6px;"><strong>2.</strong> Instrument Serif italic: editorial emphasis only — accent phrases, pull quotes. Never in nav, labels, or buttons.</p>
+      <p style="margin-top:6px;"><strong>3.</strong> Instrument Serif headlines: aim for &lt;60 characters. Wide set-width makes long lines unwieldy.</p>
+      <p style="margin-top:6px;"><strong>4.</strong> Barlow Condensed weights: 500 (labels, nav, metadata) and 600 (section headers, wordmark, buttons). No 400 or 700 in production.</p>
+      <p style="margin-top:6px;"><strong>5.</strong> Never set Barlow Condensed and Instrument Serif at the same size. They occupy distinct size bands.</p>
+      <p style="margin-top:6px;"><strong>6.</strong> Wordmark ↔ headline proximity: always separate with the mark, a spatial gap, or a color shift.</p>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Google Fonts</div>
+    <div class="callout">
+      <p><strong>Barlow Condensed:</strong> weights 500, 600. <strong>Instrument Serif:</strong> 400, 400 italic. <strong>Inter:</strong> 300–700 (variable).</p>
+      <p style="margin-top:6px;">Load URL: <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Instrument+Serif:ital@0;1&family=Inter:wght@300..700&display=swap</code></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  06 · VOICE                                                           -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="voice">
+  <div class="container">
+    <div class="sec-label">06 · Brand Voice</div>
+    <div class="sec-title">The Expeditor</div>
+
+    <div class="callout-rust">
+      <p><strong>The Expeditor</strong> is the person at the pass who sees every ticket, orchestrates timing between stations, and ensures nothing leaves the kitchen wrong. They're the calmest person in the room because they're the most informed. When they speak, you listen — not because they're loud, but because they're right.</p>
+    </div>
+
+    <div class="grid-3" style="margin-top:var(--sp-lg);">
+      <div class="trait">
+        <div class="trait-word">Direct</div>
+        <p style="font-size:0.82rem;color:var(--print);line-height:1.6;">Lead with the finding. No throat-clearing, no context-setting. The operator needs the signal, not the methodology.</p>
+        <div class="trait-not">Not: <strong>Blunt</strong> or dismissive</div>
+      </div>
+      <div class="trait">
+        <div class="trait-word">Urgent</div>
+        <p style="font-size:0.82rem;color:var(--print);line-height:1.6;">Speaks in the tempo of service — purposeful, time-aware, forward-moving. Always anchored to when it matters.</p>
+        <div class="trait-not">Not: <strong>Alarmist</strong> or breathless</div>
+      </div>
+      <div class="trait">
+        <div class="trait-word">Grounded</div>
+        <p style="font-size:0.82rem;color:var(--print);line-height:1.6;">We speak the operator's language. Covers, pricing, the competitive set, the market radius. Not data science, not marketing.</p>
+        <div class="trait-not">Not: <strong>Performative</strong> or over-themed</div>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Tagline Family</div>
+    <div style="display:flex;flex-direction:column;gap:var(--sp-md);margin:var(--sp-sm) 0;">
+      <div style="display:flex;align-items:baseline;gap:var(--sp-lg);">
+        <span style="font-family:var(--font-wordmark);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);min-width:90px;">Primary</span>
+        <span style="font-family:var(--font-display);font-size:1.8rem;color:var(--carbon);">Read the ticket.</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:var(--sp-lg);">
+        <span style="font-family:var(--font-wordmark);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);min-width:90px;">Extended</span>
+        <span style="font-family:var(--font-display);font-size:1.3rem;color:var(--print);">Read the ticket. Know what's firing.</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:var(--sp-lg);">
+        <span style="font-family:var(--font-wordmark);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);min-width:90px;">Tactical</span>
+        <span style="font-family:var(--font-display);font-size:1.3rem;color:var(--print);">Know before they open.</span>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:var(--sp-lg);">
+        <span style="font-family:var(--font-wordmark);font-weight:600;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);min-width:90px;">Positional</span>
+        <span style="font-family:var(--font-display);font-size:1.3rem;color:var(--print);">Your market. On the rail.</span>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:var(--sp-xl);">
+      <div class="voice-col voice-col--do">
+        <div class="voice-header">✓ Ticket Voice</div>
+        <div class="voice-ex"><span class="icon">✓</span><p>"The place on Main raised wings $2 overnight. You're now the cheapest in your set."</p></div>
+        <div class="voice-ex"><span class="icon">✓</span><p>"Two competitors launched delivery this month. Neither had it in January."</p></div>
+        <div class="voice-ex"><span class="icon">✓</span><p>"Menu change detected. Confidence: High. They cut four items and added three."</p></div>
+        <div class="voice-ex"><span class="icon">✓</span><p>"Ticket watches your market so you can run your kitchen."</p></div>
+      </div>
+      <div class="voice-col voice-col--dont">
+        <div class="voice-header">✗ Off-Brand</div>
+        <div class="voice-ex"><span class="icon">✗</span><p>"Hey Chef! Ready to CRUSH the competition? Let's see what's cooking!"</p></div>
+        <div class="voice-ex"><span class="icon">✗</span><p>"Our advanced ML algorithms have detected a statistically significant variation in competitor pricing strategies."</p></div>
+        <div class="voice-ex"><span class="icon">✗</span><p>"It looks like there may have been some pricing changes in your area recently."</p></div>
+        <div class="voice-ex"><span class="icon">✗</span><p>"Time to fire on all burners and 86 the competition!"</p></div>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Vocabulary Guide</div>
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-md);">Ticket references the operator's world to show fluency, not to theme every sentence. The line: would an actual operator say this to another operator? If not, it's performance.</p>
+
+    <div class="grid-2" style="margin-top:var(--sp-sm);">
+      <div style="background:var(--clear-wash);border:1px solid var(--clear);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#2D6B4F;margin-bottom:var(--sp-md);">✓ In-Bounds</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-xs) var(--sp-lg);font-size:0.78rem;color:var(--carbon);line-height:1.7;">
+          <span><strong>covers</strong> — capacity/volume</span>
+          <span><strong>competitive set</strong> — tracked rivals</span>
+          <span><strong>the board</strong> — what's being tracked</span>
+          <span><strong>the rail</strong> — where output lands</span>
+          <span><strong>briefing</strong> — the delivery format</span>
+          <span><strong>signal</strong> — a detected change</span>
+          <span><strong>market / market radius</strong> — their zone</span>
+          <span><strong>pricing</strong> — what things cost</span>
+          <span><strong>the pass</strong> — marketing site only</span>
+          <span><strong>fire / firing</strong> — as verb ("what's firing")</span>
+          <span><strong>confidence</strong> — score qualifier</span>
+          <span><strong>service</strong> — the operating window</span>
+        </div>
+      </div>
+      <div style="background:#FDF0EF;border:1px solid #E0B0B0;border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-size:0.68rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--alert);margin-bottom:var(--sp-md);">✗ Out-of-Bounds</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-xs) var(--sp-lg);font-size:0.78rem;color:var(--carbon);line-height:1.7;">
+          <span><strong>86</strong> — kitchen slang, unclear</span>
+          <span><strong>refire</strong> — too deep BOH</span>
+          <span><strong>mise en place</strong> — production, not retail</span>
+          <span><strong>BOH / FOH</strong> — jargon acronyms</span>
+          <span><strong>the walk-in</strong> — kitchen-facing</span>
+          <span><strong>salamander</strong> — equipment flex</span>
+          <span><strong>plating</strong> — production-facing</span>
+          <span><strong>the line</strong> — kitchen-facing</span>
+          <span><strong>ticket time</strong> — kitchen metric</span>
+          <span><strong>expo / expedite</strong> — archetype, not copy</span>
+          <span><strong>comps / comp'd</strong> — operational, not intel</span>
+          <span><strong>on all burners</strong> — cliché metaphor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Severity-to-Tone Mapping</div>
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-md);">Three tiers that map signal severity to the tone spectrum. Use these to systematically apply the right voice temperature to any notification, alert, or briefing section.</p>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2px;border-radius:12px;overflow:hidden;margin:var(--sp-md) 0;">
+      <div style="background:var(--counter);padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--rust);margin-bottom:var(--sp-sm);">High</p>
+        <p style="font-size:0.78rem;color:var(--newsprint);line-height:1.6;margin-bottom:var(--sp-sm);">Competitor pricing change &gt;10%. New opening in radius. Location closure. Menu overhaul detected.</p>
+        <p style="font-size:0.72rem;color:var(--ash);border-top:1px solid var(--print);padding-top:var(--sp-sm);">Tone: <strong style="color:var(--newsprint);">High Alert.</strong> Short sentences. Numbers first. No hedging. The expeditor calling a fire.</p>
+      </div>
+      <div style="background:var(--counter);padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--wire-gold);margin-bottom:var(--sp-sm);">Moderate</p>
+        <p style="font-size:0.78rem;color:var(--newsprint);line-height:1.6;margin-bottom:var(--sp-sm);">Pricing change &lt;10%. New social campaign. Review pattern shift. Delivery/hours change.</p>
+        <p style="font-size:0.72rem;color:var(--ash);border-top:1px solid var(--print);padding-top:var(--sp-sm);">Tone: <strong style="color:var(--newsprint);">Briefing.</strong> Structured, complete, still concise. The pre-service rundown.</p>
+      </div>
+      <div style="background:var(--counter);padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--slate);margin-bottom:var(--sp-sm);">Informational</p>
+        <p style="font-size:0.78rem;color:var(--newsprint);line-height:1.6;margin-bottom:var(--sp-sm);">Minor review volume change. Social post frequency shift. No-overlap new opening. Market summary.</p>
+        <p style="font-size:0.72rem;color:var(--ash);border-top:1px solid var(--print);padding-top:var(--sp-sm);">Tone: <strong style="color:var(--newsprint);">Insight.</strong> More nuance, cooler tempo. Worth watching, not worth worrying about yet.</p>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Closing Rule</div>
+    <div style="background:var(--ink);border-radius:12px;padding:var(--sp-lg);text-align:center;margin:var(--sp-sm) 0;">
+      <p style="font-family:var(--font-display);font-weight:400;font-size:1.4rem;color:var(--newsprint);line-height:1.3;">Every Ticket story ends with <span style="color:var(--rust);font-style:italic;">the operator knowing first.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  07 · MICROCOPY                                                       -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="microcopy">
+  <div class="container">
+    <div class="sec-label">07 · Personality &amp; Microcopy</div>
+    <div class="sec-title">The Expeditor's Shorthand</div>
+
+    <div class="callout">
+      <p><strong>Scope:</strong> These represent the Ticket marketing voice — the marketing site and first-run experience. In-product UI copy is owned by Vatic and inherited by all verticals. The marketing site and onboarding are where Ticket's personality appears; the tool itself speaks Vatic's language.</p>
+    </div>
+
+    <div class="grid-4" style="margin-top:var(--sp-lg);">
+      <div class="mc-card"><div class="mc-context">Loading</div><div class="mc-text">"Reading the board..."</div></div>
+      <div class="mc-card"><div class="mc-context">Empty State</div><div class="mc-text">"All quiet on the line. We're still watching."</div></div>
+      <div class="mc-card"><div class="mc-context">First Sign-in</div><div class="mc-text">"Welcome. Your competitors just went on the board."</div></div>
+      <div class="mc-card"><div class="mc-context">Alert</div><div class="mc-text">"Price change confirmed. Two in your set moved this morning."</div></div>
+      <div class="mc-card"><div class="mc-context">No Results</div><div class="mc-text">"Nothing on that search. We'll flag it if something fires."</div></div>
+      <div class="mc-card"><div class="mc-context">Briefing Ready</div><div class="mc-text">"Your briefing is on the rail."</div></div>
+      <div class="mc-card"><div class="mc-context">Data Sync</div><div class="mc-text">"Scanning 47 signals across your market..."</div></div>
+      <div class="mc-card"><div class="mc-context">Error</div><div class="mc-text">"Couldn't pull that data. Retrying."</div></div>
+      <div class="mc-card"><div class="mc-context">Competitor Added</div><div class="mc-text">"Added. Watching now."</div></div>
+      <div class="mc-card"><div class="mc-context">Onboarding Done</div><div class="mc-text">"You're set. Your market's on the board."</div></div>
+      <div class="mc-card"><div class="mc-context">High Confidence</div><div class="mc-text">"Confidence: High. Worth acting on."</div></div>
+      <div class="mc-card"><div class="mc-context">Weekly Digest</div><div class="mc-text">"Here's what fired in your market this week."</div></div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Content Principles</div>
+    <div class="grid-2" style="margin-top:var(--sp-sm);">
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">Signal first, story second</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">Lead with the number, the change, the finding. Context comes after.</p>
+      </div>
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">Confidence is earned, not declared</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">Show a price change with a timestamp and a confidence score. The data carries the authority.</p>
+      </div>
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">Time-stamp everything</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">"Prices changed" is noise. "Prices changed this morning" is intelligence.</p>
+      </div>
+      <div style="border-left:3px solid var(--rust);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">Scale tone to signal</p>
+        <p style="font-size:0.78rem;color:var(--ash);margin-top:var(--sp-xs);">A competitor closing is urgent. A minor review shift is not. The voice matches the signal.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  08 · VISUAL DIRECTION                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="visuals">
+  <div class="container">
+    <div class="sec-label">08 · Visual Direction</div>
+    <div class="sec-title">Thermal, Not Cozy</div>
+
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-lg);">The marketing site is the window; the tool is the kitchen. Same brand, different energy. The site gets to be stark, confident, data-forward. The tool gets to be focused, clean, functional.</p>
+
+    <div class="grid-2" style="margin-top:var(--sp-lg);">
+      <div style="background:var(--ink);color:#FFFFFF;border-radius:8px;padding:var(--sp-lg);display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--rust);margin-bottom:var(--sp-sm);">Photography</p>
+          <p style="font-size:0.78rem;color:var(--ash);line-height:1.6;">Operator-world close-ups — a phone screen with competitor data, a receipt on a counter, a manager before the doors open. Tight framing that says "we know your world" without faking a kitchen scene. AI-generated is acceptable for detail shots. No wide shots, no lifestyle photography, no plated food.</p>
+        </div>
+        <p style="font-size:0.62rem;color:var(--smoke);margin-top:var(--sp-md);">Supporting · Atmospheric</p>
+      </div>
+      <div style="background:var(--thermal);border-radius:8px;padding:var(--sp-lg);display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);margin-bottom:var(--sp-sm);">Texture</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;">Print-world materials as ambient background layer — thermal paper grain, receipt edges, dot-matrix patterns, warm printer haze. These live as subtle overlays and section textures, not as illustrations. They create warmth and utility without narrating a metaphor.</p>
+        </div>
+        <p style="font-size:0.62rem;color:var(--smoke);margin-top:var(--sp-md);">Ambient · Background</p>
+      </div>
+      <div style="background:var(--bond);border:1px solid var(--ledger);border-radius:8px;padding:var(--sp-lg);display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);margin-bottom:var(--sp-sm);">Data Compositions</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;">Stat-forward hero sections: a price change with a confidence score, a competitive set comparison, a market radius with activity counts. Rendered in the Ticket palette on dark surfaces. Communicates "your market, compressed" as a hero-level visual. Not a screenshot — an art-directed data moment.</p>
+        </div>
+        <p style="font-size:0.62rem;color:var(--smoke);margin-top:var(--sp-md);">Hero-level · Distinctive</p>
+      </div>
+      <div style="background:var(--newsprint);border:1px solid var(--ledger);border-radius:8px;padding:var(--sp-lg);display:flex;flex-direction:column;justify-content:space-between;">
+        <div>
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);margin-bottom:var(--sp-sm);">Product Wireframes</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;">Illustrative wireframes in the brand palette showing what the tool does — alerts, briefings, competitive set views — without committing to specific UI. Same approach as the Vatic and Alive Labs sites. No literal screenshots until the tool is publicly launched and visually locked.</p>
+        </div>
+        <p style="font-size:0.62rem;color:var(--smoke);margin-top:var(--sp-md);">Narrative · Illustrative</p>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:var(--sp-lg);">
+      <div style="background:var(--bond);border-radius:6px;padding:var(--sp-md);">
+        <p style="font-size:0.72rem;font-weight:700;color:var(--carbon);margin-bottom:var(--sp-xs);">No lifestyle food photography</p>
+        <p style="font-size:0.72rem;color:var(--ash);line-height:1.5;">No smiling chefs, no plated dishes, no dining rooms. This is an intelligence tool for operators, not a consumer food app.</p>
+      </div>
+      <div style="background:var(--bond);border-radius:6px;padding:var(--sp-md);">
+        <p style="font-size:0.72rem;font-weight:700;color:var(--carbon);margin-bottom:var(--sp-xs);">No kitchen/BOH imagery</p>
+        <p style="font-size:0.72rem;color:var(--ash);line-height:1.5;">The kitchen line is the operator's stress, not their aspiration. Never show cooking-show imagery. The vocabulary is front-of-house intelligence, not back-of-house operations.</p>
+      </div>
+      <div style="background:var(--bond);border-radius:6px;padding:var(--sp-md);">
+        <p style="font-size:0.72rem;font-weight:700;color:var(--carbon);margin-bottom:var(--sp-xs);">No decorative gradients or soft UI</p>
+        <p style="font-size:0.72rem;color:var(--ash);line-height:1.5;">No soft shadows, no rounded-friendly aesthetic, no data-viz overlaid on photos. Keep data visualization as its own artifact. Sharp contrast, dark dominant.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  09 · PAGE STRUCTURE                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="page">
+  <div class="container">
+    <div class="sec-label">09 · Page Structure</div>
+    <div class="sec-title">The Scroll Story</div>
+
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-lg);">Single page, dark-dominant, story-driven scroll. No light/dark toggle on the marketing site. The page reads like a briefing — each section delivers one signal, in order of importance.</p>
+
+    <div style="display:flex;flex-direction:column;gap:2px;margin:var(--sp-lg) 0;">
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--ink);color:var(--newsprint);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">1</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">The Opening</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">Dark. Ink. The mark, the tagline, and a data composition hero — a price change with confidence score, a competitive set count. The brand introduces itself with a signal, not a sentence.</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--ink);color:var(--ash);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Dark · Urgent</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--thermal);color:var(--carbon);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">2</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">The Problem</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">Warm. Thermal or Newsprint. What it's like to run a restaurant without competitive intelligence — you're the last to know when the place across the street changes pricing. Operator-world photography as texture.</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--thermal);color:var(--print);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Warm · Empathetic</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--bond);border:1px solid var(--ledger);color:var(--carbon);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">3</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">What Ticket Does</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">Core value prop. Narrative wireframes showing the alert flow, competitive set view, briefing format. Each wireframe tells a micro-story. Framed in Ink containers against Newsprint.</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--ledger);color:var(--print);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Evidence · Proof</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--ink);color:var(--rust);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">4</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">The Market View</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">The data composition gets its own moment. A stylized competitive set map or market radius visualization. "Your market. Every competitor. Continuously monitored."</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--ink);color:var(--rust);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Dramatic · Data-Forward</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--ledger);color:var(--print);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">5</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">How It Works</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">Brief, scannable. Three or four steps. Simple, clear. A visual exhale — quieter, more functional.</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--ledger);color:var(--print);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Quiet · Functional</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--sp-lg);align-items:flex-start;padding:var(--sp-md) 0;">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--ink);color:var(--newsprint);display:flex;align-items:center;justify-content:center;font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;flex-shrink:0;">6</div>
+        <div style="flex:1;">
+          <p style="font-family:var(--font-display);font-size:1.05rem;color:var(--carbon);">The Close</p>
+          <p style="font-size:0.78rem;color:var(--print);line-height:1.6;margin-top:var(--sp-xs);">Back to dark. Ink. CTA. The mark. "Read the ticket." The page ends the way it started — definitive.</p>
+          <span style="display:inline-block;font-size:0.58rem;font-family:var(--font-wordmark);font-weight:500;text-transform:uppercase;letter-spacing:0.08em;background:var(--ink);color:var(--ash);padding:3px 10px;border-radius:3px;margin-top:var(--sp-sm);">Dark · Definitive</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  10 · BRAND ARCHITECTURE                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="architecture">
+  <div class="container">
+    <div class="sec-label">10 · Brand Architecture</div>
+    <div class="sec-title">Where Ticket Sits</div>
+
+    <div class="callout-rust">
+      <p><strong>Ticket is a product brand, not a company brand.</strong> It's a thin brand layer on top of Vatic Intelligence — Alive Labs' competitive intelligence platform. Ticket owns: marketing site, wordmark, mark, color tokens, and positioning voice. Ticket inherits from Vatic: the entire product UI, interaction patterns, terminology, data visualization, dark mode, accessibility standards, and email architecture.</p>
+    </div>
+
+    <!-- Architecture Diagram -->
+    <div style="background:var(--ink);border-radius:12px;padding:var(--sp-xl);margin:var(--sp-lg) 0;text-align:center;">
+      <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--ash);margin-bottom:var(--sp-xs);">Intelligence Engine</p>
+      <p style="font-family:var(--font-display);font-size:2rem;color:rgba(245,243,239,0.4);margin-bottom:var(--sp-md);">Vatic</p>
+      <div style="width:50px;height:2px;background:var(--wire-gold);margin:0 auto var(--sp-md);"></div>
+      <div style="width:1px;height:24px;background:linear-gradient(to bottom, var(--wire-gold), transparent);margin:0 auto var(--sp-md);"></div>
+
+      <div class="grid-3" style="gap:var(--sp-sm);">
+        <div style="background:rgba(184,92,56,0.12);border:1px solid rgba(184,92,56,0.25);border-radius:8px;padding:var(--sp-md);">
+          <p style="font-family:var(--font-wordmark);font-weight:600;font-size:1rem;text-transform:uppercase;color:var(--newsprint);">Ticket</p>
+          <p style="font-size:0.62rem;color:var(--ash);">Restaurants</p>
+          <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);margin-top:var(--sp-sm);">You Are Here</p>
+        </div>
+        <div style="background:rgba(184,115,51,0.08);border:1px solid rgba(184,115,51,0.2);border-radius:8px;padding:var(--sp-md);">
+          <p style="font-family:var(--font-display);font-size:1rem;color:rgba(245,243,239,0.5);">neat.</p>
+          <p style="font-size:0.62rem;color:var(--ash);">Liquor Stores</p>
+        </div>
+        <div style="border:1px dashed rgba(245,243,239,0.15);border-radius:8px;padding:var(--sp-md);">
+          <p style="font-size:1rem;color:rgba(245,243,239,0.2);">Next</p>
+          <p style="font-size:0.62rem;color:rgba(245,243,239,0.15);">Future Vertical</p>
+        </div>
+      </div>
+
+      <div style="width:100%;height:1px;background:rgba(245,243,239,0.08);margin:var(--sp-lg) 0 var(--sp-md);"></div>
+      <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--ash);margin-bottom:var(--sp-sm);">Shared Thread Elements</p>
+      <div style="display:flex;justify-content:center;gap:var(--sp-xl);font-size:0.62rem;color:var(--smoke);">
+        <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--wire-gold);"></span> Wire Gold (#C9942A)</div>
+        <div style="display:flex;align-items:center;gap:6px;"><span style="font-family:var(--font-body);font-weight:400;">Aa</span> Inter typeface</div>
+        <div><span style="opacity:0.5;font-size:0.55rem;">POWERED BY</span> Vatic</div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:var(--sp-lg);">
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--rust);margin-bottom:var(--sp-sm);">Ticket Owns</p>
+        <p style="font-size:0.78rem;color:var(--smoke);line-height:1.6;">Marketing site (getticket.ai), wordmark, mark, color tokens, display typography, voice & tone, taglines, microcopy for marketing/onboarding, social/favicon assets</p>
+      </div>
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--rust);margin-bottom:var(--sp-sm);">Ticket Inherits</p>
+        <p style="font-size:0.78rem;color:var(--smoke);line-height:1.6;">Product UI, interaction patterns, data visualization, component library, grid system, Inter body font, dark mode, accessibility standards, email templates</p>
+      </div>
+      <div style="background:var(--ink);border-radius:8px;padding:var(--sp-lg);">
+        <p style="font-family:var(--font-wordmark);font-weight:500;font-size:0.62rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--rust);margin-bottom:var(--sp-sm);">Sibling: Neat</p>
+        <p style="font-size:0.78rem;color:var(--smoke);line-height:1.6;">Same Vatic engine, same architecture. Different palette (bourbon warmth), different display font (Fraunces), different voice (The Insider — unhurried, curated). Liquor retail, not restaurants.</p>
+      </div>
+    </div>
+
+    <div class="callout" style="margin-top:var(--sp-lg);">
+      <p><strong>The Vatic endorsement is infrastructure, not branding.</strong> "Powered by Vatic" sits in the footer, never in the hero. It signals shared technology lineage the way "Intel Inside" does — present but not competing with the product brand. Operators interact with Ticket; they don't need to know (or care) about the engine underneath.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  10 · IMPLEMENTATION                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section id="implementation">
+  <div class="container">
+    <div class="sec-label">11 · Implementation</div>
+    <div class="sec-title">Vatic Theme Override</div>
+
+    <p style="font-size:0.82rem;color:var(--print);line-height:1.65;max-width:48rem;margin-bottom:var(--sp-lg);">Ticket's visual identity is applied via a CSS theme file that overrides Vatic's default tokens. Apply <code style="font-size:0.78rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">[data-brand="ticket"]</code> to <code style="font-size:0.78rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">&lt;html&gt;</code> or <code style="font-size:0.78rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">&lt;body&gt;</code> and import <code style="font-size:0.78rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">ticket-vatic-theme.css</code> after <code style="font-size:0.78rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">globals.css</code>.</p>
+
+    <div class="callout">
+      <p><strong>Setup in layout.tsx:</strong></p>
+      <p style="margin-top:8px;font-family:monospace;font-size:0.72rem;line-height:1.8;white-space:pre;overflow-x:auto;">import { Barlow_Condensed, Instrument_Serif } from 'next/font/google';
+
+const barlowCondensed = Barlow_Condensed({
+  subsets: ['latin'],
+  weight: ['500', '600'],
+  variable: '--font-barlow-condensed',
+});
+
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: ['400'],
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-serif',
+});
+
+// Add both .variable to body className
+// Add data-brand="ticket" to html or body</p>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Core Token Mapping</div>
+    <p style="font-size:0.82rem;color:var(--ash);margin-bottom:var(--sp-md);">Key semantic tokens and their Ticket values. Full mapping covers light/dark modes — see <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">ticket-vatic-theme.css</code> for the complete override set.</p>
+
+    <div style="background:var(--bond);border-radius:8px;padding:var(--sp-md) var(--sp-lg);margin-bottom:var(--sp-md);">
+      <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);margin-bottom:var(--sp-sm);">Light Mode</p>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--background</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#F5F3EF;border:1px solid #ddd;"></span>
+        <span style="color:var(--print);">Newsprint</span>
+        <span style="color:var(--ash);margin-left:auto;">#F5F3EF</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--foreground</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#1C1917;"></span>
+        <span style="color:var(--print);">Ink</span>
+        <span style="color:var(--ash);margin-left:auto;">#1C1917</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--primary</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3D4F5F;"></span>
+        <span style="color:var(--print);">Slate</span>
+        <span style="color:var(--ash);margin-left:auto;">#3D4F5F</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--accent</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#B85C38;"></span>
+        <span style="color:var(--print);">Rust</span>
+        <span style="color:var(--ash);margin-left:auto;">#B85C38</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--muted</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#EBE8E3;"></span>
+        <span style="color:var(--print);">Ledger</span>
+        <span style="color:var(--ash);margin-left:auto;">#EBE8E3</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--card</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#FFFFFF;border:1px solid #ddd;"></span>
+        <span style="color:var(--print);">White</span>
+        <span style="color:var(--ash);margin-left:auto;">#FFFFFF</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--destructive</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#C44040;"></span>
+        <span style="color:var(--print);">Alert</span>
+        <span style="color:var(--ash);margin-left:auto;">#C44040</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bond);border-radius:8px;padding:var(--sp-md) var(--sp-lg);margin-bottom:var(--sp-md);">
+      <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);margin-bottom:var(--sp-sm);">Dark Mode</p>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--background</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#1C1917;"></span>
+        <span style="color:var(--print);">Ink</span>
+        <span style="color:var(--ash);margin-left:auto;">#1C1917</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--foreground</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#F5F3EF;border:1px solid #ddd;"></span>
+        <span style="color:var(--print);">Newsprint</span>
+        <span style="color:var(--ash);margin-left:auto;">#F5F3EF</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--primary</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#B85C38;"></span>
+        <span style="color:var(--print);">Rust</span>
+        <span style="color:var(--ash);margin-left:auto;">#B85C38</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--accent</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#C9942A;"></span>
+        <span style="color:var(--print);">Wire Gold</span>
+        <span style="color:var(--ash);margin-left:auto;">#C9942A</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--muted</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#24211E;"></span>
+        <span style="color:var(--print);">Press</span>
+        <span style="color:var(--ash);margin-left:auto;">#24211E</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--card</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#2F2B28;"></span>
+        <span style="color:var(--print);">Counter</span>
+        <span style="color:var(--ash);margin-left:auto;">#2F2B28</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--destructive</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#D05050;"></span>
+        <span style="color:var(--print);">Alert (lightened)</span>
+        <span style="color:var(--ash);margin-left:auto;">#D05050</span>
+      </div>
+    </div>
+
+    <div style="background:var(--bond);border-radius:8px;padding:var(--sp-md) var(--sp-lg);">
+      <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ash);margin-bottom:var(--sp-sm);">Data Visualization Tokens</p>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--ticket-clear</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3A8066;"></span>
+        <span style="color:var(--print);">Your data</span>
+        <span style="color:var(--ash);margin-left:auto;">#3A8066</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--ticket-slate</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3D4F5F;"></span>
+        <span style="color:var(--print);">Competitor data</span>
+        <span style="color:var(--ash);margin-left:auto;">#3D4F5F</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--ticket-rust</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#B85C38;"></span>
+        <span style="color:var(--print);">Flagged signal</span>
+        <span style="color:var(--ash);margin-left:auto;">#B85C38</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:120px;">--ticket-alert</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#C44040;"></span>
+        <span style="color:var(--print);">Critical alert</span>
+        <span style="color:var(--ash);margin-left:auto;">#C44040</span>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Ticket-Only Tokens</div>
+    <p style="font-size:0.82rem;color:var(--ash);margin-bottom:var(--sp-md);">Additional CSS custom properties exclusive to the Ticket theme, extending the Vatic token set for vertical-specific UI needs.</p>
+
+    <div style="background:var(--bond);border-radius:8px;padding:var(--sp-md) var(--sp-lg);">
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-rust</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#B85C38;"></span>
+        <span style="color:var(--ash);">#B85C38 — identity color, flagged signals</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-thermal</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#FBF0E6;"></span>
+        <span style="color:var(--ash);">#FBF0E6 — warm tint for emphasized surfaces</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-alert</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#C44040;"></span>
+        <span style="color:var(--ash);">#C44040 — destructive / critical states</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-alert-light</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#FDF0EF;"></span>
+        <span style="color:var(--ash);">#FDF0EF — alert tint for backgrounds</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-slate</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3D4F5F;"></span>
+        <span style="color:var(--ash);">#3D4F5F — competitor / secondary data</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;border-bottom:1px solid var(--ledger);font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-clear</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#3A8066;"></span>
+        <span style="color:var(--ash);">#3A8066 — success / "your data" green</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--sp-sm);padding:6px 0;font-size:0.72rem;">
+        <span style="font-family:monospace;color:var(--slate);min-width:140px;">--ticket-clear-wash</span>
+        <span style="color:var(--ash);">&rarr;</span>
+        <span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#E8F5EE;"></span>
+        <span style="color:var(--ash);">#E8F5EE — green tint for info backgrounds</span>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Integration Checklist</div>
+    <div style="background:var(--bond);border-radius:8px;padding:var(--sp-lg);">
+      <div style="display:flex;flex-direction:column;gap:var(--sp-md);font-size:0.82rem;">
+        <div style="display:flex;gap:var(--sp-sm);align-items:flex-start;">
+          <span style="font-weight:700;color:var(--rust);min-width:24px;">1.</span>
+          <div><strong>Load fonts</strong> via <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">next/font/google</code> in layout.tsx — Barlow_Condensed with <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">variable: '--font-barlow-condensed'</code> and Instrument_Serif with <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">variable: '--font-instrument-serif'</code>. Add both variable classes to the html element.</div>
+        </div>
+        <div style="display:flex;gap:var(--sp-sm);align-items:flex-start;">
+          <span style="font-weight:700;color:var(--rust);min-width:24px;">2.</span>
+          <div><strong>Import the theme</strong> — add <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">@import "ticket-vatic-theme.css"</code> after globals.css. Selector specificity ensures overrides work without <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">!important</code>.</div>
+        </div>
+        <div style="display:flex;gap:var(--sp-sm);align-items:flex-start;">
+          <span style="font-weight:700;color:var(--rust);min-width:24px;">3.</span>
+          <div><strong>Set the attribute</strong> — render <code style="font-size:0.72rem;background:var(--ledger);padding:2px 6px;border-radius:3px;">data-brand="ticket"</code> on the html element conditionally (subdomain, org type, or feature flag). Theme activates instantly; remove attribute to revert.</div>
+        </div>
+        <div style="display:flex;gap:var(--sp-sm);align-items:flex-start;">
+          <span style="font-weight:700;color:var(--rust);min-width:24px;">4.</span>
+          <div><strong>Verify</strong> — check both light and dark modes. Landing page overrides (gradients, glass panels, ambient effects) are included. Scrollbar and selection colors adapt automatically.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-label" style="margin-top:var(--sp-xl);">Assets</div>
+    <div class="grid-2" style="margin-top:var(--sp-sm);">
+      <div style="border-left:3px solid var(--slate);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--carbon);">Theme CSS</p>
+        <p style="font-size:0.78rem;color:var(--ash);">ticket-vatic-theme.css — full light + dark mode override</p>
+      </div>
+      <div style="border-left:3px solid var(--slate);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--carbon);">Mark SVGs</p>
+        <p style="font-size:0.78rem;color:var(--ash);">ticket-mark-full.svg (light on dark), ticket-mark-dark.svg (dark on light)</p>
+      </div>
+      <div style="border-left:3px solid var(--slate);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--carbon);">Favicon</p>
+        <p style="font-size:0.78rem;color:var(--ash);">ticket-favicon.svg — simplified T, no perforation at icon size</p>
+      </div>
+      <div style="border-left:3px solid var(--slate);padding-left:var(--sp-md);">
+        <p style="font-family:var(--font-wordmark);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:var(--carbon);">Social</p>
+        <p style="font-size:0.78rem;color:var(--ash);">ticket-social-og.svg (1200×630), ticket-apple-touch-icon.svg (180×180)</p>
+      </div>
+    </div>
+
+    <div class="callout-rust" style="margin-top:var(--sp-lg);">
+      <p><strong>Pattern for future verticals:</strong> This same architecture — a scoped CSS file activated by <code style="font-size:0.72rem;background:rgba(184,92,56,0.15);padding:2px 6px;border-radius:3px;">data-brand</code> — is the template for Neat and any subsequent Vatic vertical. One codebase, many brands, zero runtime cost when inactive.</p>
+    </div>
+  </div>
+</section>
+
+<div class="page-footer">
+  <p>Ticket Brand Identity System · v1.1 · April 2026<br>
+  Alive Labs · getticket.ai<br><br>
+  Developed through five-chair review process:<br>
+  Visual Design Director · Product Designer · UX Writer · Storyteller · Design Review</p>
+</div>
+
+</body>
+</html>

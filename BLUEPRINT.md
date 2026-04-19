@@ -35,7 +35,9 @@
 
 ## 1. Executive Summary
 
-**Prophet** is a competitive intelligence platform for local businesses (initially restaurants, expanding via verticalization to liquor stores and beyond). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation. The platform supports **industry verticals** through a configurable `VerticalConfig` system gated by the `VERTICALIZATION_ENABLED` feature flag. Each vertical has a **brand theme** — restaurant uses "Ticket" and liquor store uses "Neat" — applied via CSS `data-brand` attribute scoping with dynamic font loading and chart color resolution.
+**Prophet** is the internal codename for the **Ticket** product — a competitive intelligence platform for local businesses (initially restaurants, expanding via verticalization to liquor stores and beyond). It automates competitor discovery, daily monitoring, SEO visibility tracking, local event intelligence, website/menu content analysis, visual intelligence (photos), foot traffic analysis, weather correlation, and actionable insight generation. The platform supports **industry verticals** through a configurable `VerticalConfig` system gated by the `VERTICALIZATION_ENABLED` feature flag. Each vertical has a **brand theme** — restaurant uses "Ticket" and liquor store uses "Neat" — applied via CSS `data-brand` attribute scoping with dynamic font loading and chart color resolution.
+
+**Brand posture (post-WS3 rebrand, April 2026):** The customer-facing product is **Ticket** — all UI copy, emails, landing page, auth pages, onboarding, and LLM self-identification use "Ticket." Production sets `<html data-brand="ticket">` at SSR in `app/layout.tsx`, so the Ticket theme is the default render path (no Vatic→Ticket flash on first paint). **Vatic** remains as the engine/internal brand: the platform codebase (`Prophet`/`vatic-core`), Tailwind design tokens (`text-vatic-indigo`, `.vatic-gradient`), CSS variable names (`--vatic-indigo`), code-level identifiers (`buildVaticPrompt`), and footer attribution ("Ticket is powered by Vatic — competitive intelligence by Alive Labs"). Corporate parent is **Alive Labs** (matches `getticket.ai` attribution).
 
 ### What it does
 
@@ -387,7 +389,7 @@ prophet/
 │   │   ├── trial-expired-gate.tsx          # Client: Full-page overlay when trial expires (upgrade CTAs, brand-aware)
 │   │   └── trial-banner.tsx                # Client: Dismissible top banner during last 7 trial days
 │   ├── landing/
-│   │   ├── landing-nav.tsx                 # Client: Glass nav (h-20), Vatic SVG logo, editorial links, vatic-gradient CTA, animated mobile menu
+│   │   ├── landing-nav.tsx                 # Client: Glass nav (h-20), Ticket wordmark, editorial links, vatic-gradient CTA, animated mobile menu
 │   │   ├── hero-section.tsx                # Client: Two-column hero — left copy with counting KPIs, right animated SVG dashboard mockup (draw-on chart, live signals), floating signal card
 │   │   ├── problem-section.tsx             # Client: Noise-to-signal visualization (animated bars with gold signal highlight), floating prescient-action card
 │   │   ├── how-it-works-section.tsx        # Client: 3 steps with animated SVG icons (radar sweep, prism draw-on, lightning flash)
@@ -468,15 +470,15 @@ prophet/
 │   │   ├── client.ts                       # Resend instance (graceful if RESEND_API_KEY missing)
 │   │   ├── send.ts                         # sendEmail({ to, subject, react }) wrapper
 │   │   └── templates/
-│   │       ├── layout.tsx                  # Shared email layout (dark bg, Vatic branding, footer)
-│   │       ├── waitlist-confirmation.tsx   # "You're on the Vatic waitlist"
-│   │       ├── waitlist-invitation.tsx    # "You're in! Your Vatic dashboard is ready" (magic link CTA)
-│   │       ├── waitlist-decline.tsx       # "Update on your Vatic waitlist request"
+│   │       ├── layout.tsx                  # Shared email layout (dark bg, Ticket wordmark header, "powered by Vatic" footer)
+│   │       ├── waitlist-confirmation.tsx   # "You're on the Ticket waitlist"
+│   │       ├── waitlist-invitation.tsx    # "You're in! Your Ticket dashboard is ready" (magic link CTA)
+│   │       ├── waitlist-decline.tsx       # "Update on your Ticket waitlist request"
 │   │       ├── waitlist-admin-notification.tsx # Admin notification: "New waitlist signup" (sent to chris@alivelabs.io)
 │   │       ├── admin-custom.tsx           # Admin custom email wrapper (used by sendCustomEmail + broadcastEmail)
-│   │       ├── welcome.tsx                # "Welcome to Vatic — your intelligence is live"
-│   │       ├── trial-expiring.tsx         # "Your Vatic trial ends in X days"
-│   │       └── trial-expired.tsx          # "Your Vatic trial has ended"
+│   │       ├── welcome.tsx                # "Welcome to Ticket — your feed is live"
+│   │       ├── trial-expiring.tsx         # "Your Ticket trial ends in X days"
+│   │       └── trial-expired.tsx          # "Your Ticket trial has ended"
 │   ├── admin/
 │   │   └── activity-log.ts                 # logAdminAction() — audit trail for all admin operations
 │   ├── supabase/
@@ -781,7 +783,7 @@ The platform supports dynamic brand theming per vertical. Each industry vertical
 
 **How it works:**
 
-1. **CSS layer:** `ticket-theme.css` and `neat-theme.css` override all Forge design tokens (`--foreground`, `--primary`, `--accent`, etc.) under `[data-brand="ticket"]` and `[data-brand="neat"]` selectors. Both light and dark mode overrides are included. When no `data-brand` attribute is present, the base Alive/Vatic theme applies (zero visual change).
+1. **CSS layer:** `ticket-theme.css` and `neat-theme.css` override all Forge design tokens (`--foreground`, `--primary`, `--accent`, etc.) under `[data-brand="ticket"]` and `[data-brand="neat"]` selectors. Both light and dark mode overrides are included. Production defaults to `<html data-brand="ticket">` (set at SSR in `app/layout.tsx`), so the Ticket theme is always applied unless a vertical override swaps it.
 
 2. **Brand resolution:** The `BrandProvider` client component (`components/brand-provider.tsx`) sets `data-brand` on `<html>` via `useEffect`. It wraps:
    - **Dashboard layout** (`app/(dashboard)/layout.tsx`): Reads `org.industry_type`, calls `getVerticalConfig()`, extracts `brand.dataBrand`. Only set when `VERTICALIZATION_ENABLED=true`.
@@ -793,7 +795,7 @@ The platform supports dynamic brand theming per vertical. Each industry vertical
 
 5. **Sidebar branding:** The logo SVG uses `currentColor` (stroke) and `fill-accent` (dot) so it adapts to brand palette. The wordmark text is driven by `verticalConfig.brand.wordmark`.
 
-**Surfaces that never get branded:** Landing page, login/signup, admin panel -- these always show the base Alive/Vatic theme.
+**Surfaces where the brand stays fixed at Ticket:** Landing page, login/signup, admin panel — these do not honour per-org vertical overrides and always render under `data-brand="ticket"`.
 
 ---
 

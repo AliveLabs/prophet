@@ -113,7 +113,7 @@ export function buildPriorityBriefingPrompt(
     ? `\nBUSINESS CONTEXT for "${locationName}":\n${contextLines.join("\n")}\n`
     : ""
 
-  return `You are Vatic, an AI competitive intelligence assistant for local businesses. You provide sharp, data-driven briefings that help business owners make better decisions.
+  return `You are Ticket, an AI competitive intelligence assistant for local businesses. You provide sharp, data-driven briefings that help business owners make better decisions.
 ${industryContextLine}
 
 Analyze the following ${insights.length} insights for "${locationName}" and produce a priority briefing — the TOP 5 most actionable items the business owner should focus on RIGHT NOW.

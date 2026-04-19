@@ -24,13 +24,13 @@ export function Welcome({
   dashboardUrl,
   verticalCopy,
 }: WelcomeProps) {
-  const previewText = verticalCopy?.subject ?? "Welcome to Vatic — your intelligence is live"
+  const previewText = verticalCopy?.subject ?? "Welcome to Ticket — your feed is live"
   const tipText = verticalCopy?.tipBody ?? "Bookmark your dashboard so you can check it between the lunch and dinner rush."
 
   return (
     <EmailLayout preview={previewText}>
       <Section>
-        <Text style={heading}>Welcome to Vatic, {userName}.</Text>
+        <Text style={heading}>Welcome to Ticket, {userName}.</Text>
         <Text style={paragraph}>
           Your competitive intelligence is now live. Here&rsquo;s a quick recap
           of what we set up:
@@ -52,7 +52,7 @@ export function Welcome({
 
         <Text style={heading2}>What happens now?</Text>
         <Text style={paragraph}>
-          Vatic is already collecting data on your competitors. Within 24 hours,
+          Ticket is already collecting data on your competitors. Within 24 hours,
           you&rsquo;ll start seeing your first insights. Check back in a week
           for your first weekly intelligence briefing — the 5 most important
           things happening in your local market.
@@ -68,7 +68,7 @@ export function Welcome({
           Tip: {tipText}
         </Text>
 
-        <Text style={signoff}>— The Vatic Team</Text>
+        <Text style={signoff}>— The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

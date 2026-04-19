@@ -48,16 +48,17 @@ export function TrustSection() {
           variants={fadeUp}
           className="mb-16 text-center"
         >
-          <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-signal-gold">
-            The Standard of Excellence
+          <p className="mb-4 text-xs font-bold uppercase tracking-[0.3em] text-accent">
+            Not just what changed
           </p>
-          <h2 className="font-display text-tight text-4xl italic leading-tight text-foreground md:text-5xl">
-            Intelligence that speaks for itself.
+          <h2 className="font-display text-tight text-4xl leading-tight text-foreground md:text-5xl">
+            <em className="italic">What to do about it.</em>
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-            Vatic was designed alongside restaurant owners who told us the same thing:
+            Ticket was designed alongside restaurant operators who told us the same thing:
             &ldquo;I don&rsquo;t have time for another dashboard.&rdquo;
-            That&rsquo;s why every insight starts with what changed and ends with what to do about it.
+            Every insight comes with a recommended next move — specific enough to act on Monday
+            morning, scored so you know what&apos;s urgent and what can wait.
           </p>
         </motion.div>
 

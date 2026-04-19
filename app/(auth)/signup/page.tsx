@@ -41,12 +41,12 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
 
       {/* Top bar */}
       <div className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-8 py-6">
-        <Link href="/" className="flex items-center gap-2.5">
-          <svg width="28" height="28" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Vatic">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Ticket home">
+          <svg width="28" height="28" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M10 14 L40 66 L70 14" stroke="var(--vatic-indigo)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="40" cy="66" r="6" fill="var(--signal-gold)" />
+            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
           </svg>
-          <span className="font-display text-xl italic tracking-tight text-signal-gold">Vatic</span>
+          <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">Ticket</span>
         </Link>
         <div className="flex items-center gap-3">
           <ThemeToggle />
@@ -61,13 +61,13 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
       {/* Content */}
       <section className="relative z-10 mx-auto grid w-full max-w-6xl gap-12 px-8 py-12 lg:grid-cols-[1.05fr_0.95fr]">
         <FadeIn className="space-y-8">
-          <div className="h-[2px] w-12 bg-signal-gold" />
-          <h1 className="font-display text-tight text-4xl italic text-foreground sm:text-5xl lg:text-6xl">
-            Start monitoring in minutes.
+          <div className="h-[2px] w-12 bg-accent" />
+          <h1 className="font-display text-tight text-4xl text-foreground sm:text-5xl lg:text-6xl">
+            <em className="italic">Setup to first alert: 48 hours.</em>
           </h1>
           <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
-            Create an account to discover competitors and receive daily intelligence
-            for each location.
+            Create an account, name your set of competitors, and Ticket starts watching menus,
+            pricing, reviews, and social from day one.
           </p>
           <div className="glass-panel rounded-xl p-6 text-sm text-muted-foreground">
             <p className="font-bold text-foreground">Included in every plan</p>

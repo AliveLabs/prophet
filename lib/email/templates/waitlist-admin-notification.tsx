@@ -20,12 +20,12 @@ export function WaitlistAdminNotification({
           {signupName ? (
             <>
               <strong style={{ color: "#E4E4E7" }}>{signupName}</strong> (
-              {signupEmail}) just joined the Vatic waitlist.
+              {signupEmail}) just joined the Ticket waitlist.
             </>
           ) : (
             <>
               <strong style={{ color: "#E4E4E7" }}>{signupEmail}</strong> just
-              joined the Vatic waitlist.
+              joined the Ticket waitlist.
             </>
           )}
         </Text>
@@ -39,7 +39,7 @@ export function WaitlistAdminNotification({
           </Link>
         </Section>
 
-        <Text style={signoff}>&mdash; Vatic Platform</Text>
+        <Text style={signoff}>&mdash; Ticket Platform</Text>
       </Section>
     </EmailLayout>
   )

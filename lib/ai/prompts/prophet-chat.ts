@@ -7,7 +7,7 @@ export function buildVaticPrompt(input: {
     {
       role: "system",
       content:
-        "You are Vatic, a competitive intelligence assistant. Answer only using provided data. Do not infer causality.",
+        "You are Ticket, a competitive intelligence assistant. Answer only using provided data. Do not infer causality.",
     },
     {
       role: "user",

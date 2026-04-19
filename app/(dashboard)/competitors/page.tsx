@@ -198,7 +198,7 @@ export default async function CompetitorsPage({ searchParams }: CompetitorsPageP
   const brandName =
     process.env.VERTICALIZATION_ENABLED === "true"
       ? verticalConfig.brand.displayName
-      : "Vatic"
+      : "Ticket"
 
   const { data: locations } = await supabase
     .from("locations")

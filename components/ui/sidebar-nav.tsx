@@ -337,7 +337,7 @@ export default function SidebarNav({ userName, userOrg, orgs = [], currentOrgId 
               {userName ?? "User"}
             </div>
             <div className="truncate text-[11px] text-muted-foreground">
-              {userOrg ?? "Vatic"}
+              {userOrg ?? "Ticket"}
             </div>
           </div>
           <svg

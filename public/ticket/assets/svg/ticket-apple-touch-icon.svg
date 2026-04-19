@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <!-- Ticket Apple Touch Icon — 180x180 -->
+  <rect width="180" height="180" rx="36" fill="#1C1917"/>
+  <!-- Mark at touch icon size (>48px, so full perforations) -->
+  <g transform="translate(54, 28)">
+    <!-- Crossbar -->
+    <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#F5F3EF"/>
+    <!-- Stem -->
+    <rect x="18" y="14" width="36" height="100" fill="#F5F3EF"/>
+    <!-- Single perforation -->
+    <circle cx="18" cy="16" r="3.5" fill="#1C1917"/>
+    <circle cx="54" cy="16" r="3.5" fill="#1C1917"/>
+    <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#1C1917" stroke-width="1.2" stroke-dasharray="2.5,2"/>
+  </g>
+  <!-- Wordmark below mark -->
+  <text x="90" y="160" text-anchor="middle" font-family="'Arial Narrow', sans-serif" font-weight="600" font-size="20" letter-spacing="1.5" fill="#F5F3EF">TICKET</text>
+</svg>

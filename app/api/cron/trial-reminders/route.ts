@@ -68,7 +68,7 @@ export async function GET(request: Request) {
         if (emailType === "expired") {
           await sendEmail({
             to: profile.email,
-            subject: "Your Vatic trial has ended",
+            subject: "Your Ticket trial has ended",
             react: TrialExpired({ userName, upgradeUrl }),
             clientFacing: true,
             overrideClientEmailPause: false,
@@ -93,8 +93,8 @@ export async function GET(request: Request) {
             to: profile.email,
             subject:
               daysLeft === 1
-                ? "Last day of your Vatic trial"
-                : `Your Vatic trial ends in ${daysLeft} days`,
+                ? "Last day of your Ticket trial"
+                : `Your Ticket trial ends in ${daysLeft} days`,
             react: TrialExpiring({
               userName,
               daysLeft,

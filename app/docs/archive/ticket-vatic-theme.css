@@ -1,0 +1,386 @@
+/* ============================================================
+   Ticket — Vatic Theme Override
+   Vertical: Restaurant competitive intelligence
+   Brand: "Read the ticket."
+
+   Drop-in theme layer for the Vatic (Prophet) codebase.
+   Overrides globals.css Forge tokens with Ticket brand values.
+
+   USAGE:
+   1. Import AFTER globals.css in your app
+   2. Apply [data-brand="ticket"] to <html> or <body>
+   3. Load Barlow Condensed + Instrument Serif via next/font/google
+      in layout.tsx and assign to --font-barlow-condensed
+      and --font-instrument-serif
+
+   Architecture: Every Vatic CSS custom property is remapped.
+   The @theme inline block re-registers Tailwind v4 utilities
+   so `bg-primary`, `text-muted-foreground`, etc. resolve
+   correctly under the Ticket brand.
+
+   Source tokens: Ticket Brand Identity (April 2026)
+   Token vocabulary: Print/service ("Ink", "Press", "Counter",
+   "Print", "Bond", "Thermal") — not metallurgy.
+   ============================================================ */
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="ticket"] {
+
+  /* ── Core semantic (shadcn convention) ───────────────────── */
+  --background:            #F5F3EF;  /* Newsprint */
+  --foreground:            #1C1917;  /* Ink */
+  --primary:               #3D4F5F;  /* Slate — CTAs, links */
+  --primary-foreground:    #FFFFFF;
+  --secondary:             #EBE8E3;  /* Ledger — alt surfaces */
+  --secondary-foreground:  #1C1917;  /* Ink */
+  --destructive:           #C44040;  /* Alert */
+  --destructive-foreground:#FFFFFF;
+  --card:                  #FFFFFF;
+  --card-foreground:       #1C1917;  /* Ink */
+  --popover:               #FFFFFF;
+  --popover-foreground:    #1C1917;  /* Ink */
+  --muted:                 #EBE8E3;  /* Ledger */
+  --muted-foreground:      #6E6862;  /* Ash */
+  --accent:                #B85C38;  /* Rust */
+  --accent-foreground:     #FFFFFF;
+  --border:                #EBE8E3;  /* Ledger */
+  --input:                 #EBE8E3;  /* Ledger */
+  --ring:                  #3D4F5F;  /* Slate */
+  --radius:                0.625rem; /* Inherited from Vatic */
+
+  /* ── Extended palette (Forge → Ticket) ──────────────────── */
+  --forge-amber:           #B85C38;  /* Rust */
+  --forge-gold:            #C9942A;  /* Wire Gold */
+  --forge-gold-tint:       #FBF0E6;  /* Thermal */
+  --ember-deep:            #8A3D20;  /* Deep Rust (derived) */
+  --forge-gold-deep:       #8A6B18;  /* Darker gold (derived) */
+  --forge-patina:          #3A8066;  /* Clear — success, "yours" */
+  --patina-tint:           #E8F5EE;  /* Clear Wash */
+  --patina-deep:           #2D6B4F;  /* Deep green (derived) */
+  --surface-emphasis:      #FBF0E6;  /* Thermal */
+  --carbon-light:          #4D4843;  /* Print */
+  --forge-black:           #1C1917;  /* Ink */
+  --forge:                 #24211E;  /* Press */
+  --forge-card:            #2F2B28;  /* Counter */
+  --lumen:                 #F5F3EF;  /* Newsprint */
+  --warm-lumen:            #FBF0E6;  /* Thermal */
+  --carbon:                #1C1917;  /* Ink */
+  --lava:                  #B85C38;  /* Rust (brand signature) */
+  --ember:                 #C9942A;  /* Wire Gold (readable accent) */
+  --lava-deep:             #8A3D20;  /* Deep Rust */
+  --glow:                  #6B4530;  /* Rust mid-tone (derived) */
+  --success:               #3A8066;  /* Clear */
+  --success-dark:          #2D6B4F;  /* Deep green */
+  --warning:               #C9942A;  /* Wire Gold */
+  --warning-dark:          #8A6B18;  /* Deep gold */
+
+  /* ── Text hierarchy ─────────────────────────────────────── */
+  --text-light-primary:    #1C1917;  /* Ink */
+  --text-light-body:       #4D4843;  /* Print */
+  --text-light-secondary:  #6E6862;  /* Ash */
+  --text-dark-primary:     #F5F3EF;  /* Newsprint */
+  --text-dark-body:        #C8C2BA;  /* Warm cream (derived) */
+  --text-dark-secondary:   #9B958E;  /* Warm mid (derived) */
+
+  /* ── Button depth / hover ───────────────────────────────── */
+  --deep-indigo:           #2E3D4A;  /* Deep Slate (derived) */
+
+  /* ── Legacy aliases (class names unchanged) ─────────────── */
+  --vatic-indigo:          #1C1917;  /* Ink → was Carbon */
+  --midnight:              #1C1917;  /* Ink */
+  --signal-gold:           #C9942A;  /* Wire Gold */
+  --signal-gold-light:     #FBF0E6;  /* Thermal */
+  --precision-teal:        #3A8066;  /* Clear */
+  --precision-teal-light:  #E8F5EE;  /* Clear Wash */
+  --warm-white:            #F5F3EF;  /* Newsprint */
+  --pale-lavender:         #EBE8E3;  /* Ledger */
+  --muted-violet:          #6E6862;  /* Ash */
+  --deep-violet:           #1C1917;  /* Ink */
+  --near-black:            #24211E;  /* Press */
+  --vatic-indigo-soft:     #4D4843;  /* Print */
+  --vatic-alert-red:       #C44040;  /* Alert */
+
+  /* ── Shadows (warm-shifted) ─────────────────────────────── */
+  --shadow-card-sm:        0 2px 8px -2px rgba(28, 25, 23, 0.08),
+                           0 1px 2px -1px rgba(28, 25, 23, 0.04);
+  --shadow-card-md:        0 4px 16px rgba(28, 25, 23, 0.18),
+                           0 2px 6px rgba(28, 25, 23, 0.10);
+  --shadow-card-lg:        0 12px 40px rgba(28, 25, 23, 0.28),
+                           0 4px 12px rgba(28, 25, 23, 0.14);
+  --shadow-glow-primary-sm:0 0 12px -2px rgba(61, 79, 95, 0.35);
+  --shadow-glow-primary:   0 0 20px rgba(61, 79, 95, 0.35),
+                           0 0 6px rgba(61, 79, 95, 0.20);
+  --shadow-glow-ember:     0 0 16px rgba(184, 92, 56, 0.30);
+  --shadow-glow-gold:      0 0 16px rgba(201, 148, 42, 0.30);
+  --shadow-glow-patina:    0 0 16px rgba(58, 128, 102, 0.30);
+  --shadow-glow-indigo-sm: var(--shadow-glow-primary-sm);
+  --shadow-glow-indigo:    var(--shadow-glow-primary);
+  --shadow-glow-teal:      var(--shadow-glow-patina);
+
+  /* ── Ticket-only tokens (not in base Vatic) ─────────────── */
+  --ticket-rust:           #B85C38;  /* Rust — brand signature */
+  --ticket-thermal:        #FBF0E6;  /* Thermal — warm tint */
+  --ticket-slate:          #3D4F5F;  /* Slate — cool counterweight */
+  --ticket-signal:         #D08548;  /* Signal — flagged/attention */
+  --ticket-wire-gold:      #C9942A;  /* Wire Gold — accent */
+  --ticket-bond:           #F0EDE9;  /* Bond — callout bg */
+  --ticket-newsprint:      #F5F3EF;  /* Newsprint — primary bg */
+  --ticket-ink:            #1C1917;  /* Ink — primary dark */
+  --ticket-press:          #24211E;  /* Press — elevated dark */
+  --ticket-counter:        #2F2B28;  /* Counter — dark card */
+
+  /* ── Font overrides ─────────────────────────────────────── */
+  --font-display:          var(--font-instrument-serif), Georgia, serif;
+  --font-condensed:        var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="ticket"].dark,
+.dark[data-brand="ticket"],
+[data-brand="ticket"] .dark {
+
+  /* ── Core semantic ──────────────────────────────────────── */
+  --background:            #1C1917;  /* Ink */
+  --foreground:            #F5F3EF;  /* Newsprint */
+  --card:                  #24211E;  /* Press */
+  --card-foreground:       #F5F3EF;  /* Newsprint */
+  --popover:               #24211E;
+  --popover-foreground:    #F5F3EF;
+  --primary:               #5A7A96;  /* Lighter Slate for dark */
+  --primary-foreground:    #FFFFFF;
+  --secondary:             #2F2B28;  /* Counter */
+  --secondary-foreground:  #C8C2BA;  /* Warm cream */
+  --muted:                 #2F2B28;
+  --muted-foreground:      #9B958E;  /* Warm mid */
+  --accent:                #D0714E;  /* Lighter Rust for dark */
+  --accent-foreground:     #FFFFFF;
+  --destructive:           #D05050;  /* Lighter red for dark bg */
+  --destructive-foreground:#FFFFFF;
+  --border:                #2F2B28;  /* Counter */
+  --input:                 #2F2B28;
+  --ring:                  #5A7A96;  /* Lighter Slate */
+
+  /* ── Extended dark overrides ────────────────────────────── */
+  --forge-patina:          #4AAE80;  /* Lighter green for dark mode */
+  --deep-indigo:           #2E3D4A;
+
+  --vatic-indigo:          #1C1917;
+  --midnight:              #1C1917;
+  --signal-gold:           #C9942A;
+  --signal-gold-light:     #FBF0E6;
+  --precision-teal:        #4AAE80;  /* Lighter for dark mode */
+  --precision-teal-light:  #E8F5EE;
+  --warm-white:            #F5F3EF;
+  --pale-lavender:         #2F2B28;  /* Inverted for dark */
+  --muted-violet:          #9B958E;  /* Lighter for dark */
+  --deep-violet:           #1C1917;
+  --near-black:            #24211E;
+  --vatic-indigo-soft:     #4AAE80;  /* Teal accent in dark */
+  --vatic-alert-red:       #D05050;
+
+  /* ── Dark shadows ───────────────────────────────────────── */
+  --shadow-card-sm:        0 2px 8px -2px rgba(0, 0, 0, 0.35),
+                           0 1px 2px -1px rgba(0, 0, 0, 0.25);
+  --shadow-card-md:        0 4px 16px rgba(0, 0, 0, 0.45),
+                           0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-card-lg:        0 12px 40px rgba(0, 0, 0, 0.55),
+                           0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-glow-primary-sm:0 0 12px -2px rgba(90, 122, 150, 0.40);
+  --shadow-glow-primary:   0 0 20px rgba(90, 122, 150, 0.40),
+                           0 0 6px rgba(90, 122, 150, 0.25);
+  --shadow-glow-ember:     0 0 16px rgba(208, 113, 78, 0.35);
+  --shadow-glow-indigo-sm: var(--shadow-glow-primary-sm);
+  --shadow-glow-indigo:    var(--shadow-glow-primary);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   LANDING PAGE OVERRIDES
+   Replaces landing.css gradient/glass values with Ticket palette
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="ticket"] .vatic-gradient {
+  background: linear-gradient(135deg, #1C1917 0%, #3D4F5F 100%);
+}
+
+[data-brand="ticket"] .glass-panel {
+  background: rgba(245, 243, 239, 0.65);
+  border-color: rgba(28, 25, 23, 0.10);
+}
+
+[data-brand="ticket"].dark .glass-panel,
+.dark[data-brand="ticket"] .glass-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-brand="ticket"] .pricing-highlight {
+  border-color: var(--primary);
+  box-shadow: 0 0 24px rgba(61, 79, 95, 0.15),
+              0 0 8px rgba(61, 79, 95, 0.10);
+}
+
+[data-brand="ticket"].dark .pricing-highlight,
+.dark[data-brand="ticket"] .pricing-highlight {
+  box-shadow: 0 0 32px rgba(90, 122, 150, 0.25),
+              0 0 12px rgba(90, 122, 150, 0.15);
+}
+
+[data-brand="ticket"] .landing-hero-ambient::before {
+  background: radial-gradient(circle, rgba(184, 92, 56, 0.12) 0%, transparent 70%);
+}
+
+[data-brand="ticket"] .landing-hero-ambient::after {
+  background: radial-gradient(circle, rgba(201, 148, 42, 0.08) 0%, transparent 70%);
+}
+
+[data-brand="ticket"].dark .landing-hero-ambient::before,
+.dark[data-brand="ticket"] .landing-hero-ambient::before {
+  background: radial-gradient(circle, rgba(184, 92, 56, 0.18) 0%, transparent 70%);
+}
+
+[data-brand="ticket"].dark .landing-hero-ambient::after,
+.dark[data-brand="ticket"] .landing-hero-ambient::after {
+  background: radial-gradient(circle, rgba(201, 148, 42, 0.12) 0%, transparent 70%);
+}
+
+/* ── Scrollbar (warm) ─────────────────────────────────────── */
+[data-brand="ticket"] ::-webkit-scrollbar-thumb {
+  background: rgba(28, 25, 23, 0.28);
+}
+
+[data-brand="ticket"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 25, 23, 0.45);
+}
+
+[data-brand="ticket"] * {
+  scrollbar-color: rgba(28, 25, 23, 0.28) transparent;
+}
+
+/* ── Selection ────────────────────────────────────────────── */
+[data-brand="ticket"] ::selection {
+  background: rgba(184, 92, 56, 0.20);
+  color: var(--foreground);
+}
+
+/* ── Text utilities (re-pointed) ──────────────────────────── */
+[data-brand="ticket"] .text-gradient-indigo {
+  background: linear-gradient(135deg, var(--primary), var(--carbon-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+[data-brand="ticket"] .text-gradient-insight {
+  background: linear-gradient(135deg, var(--accent), var(--forge-patina));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Glass utilities (rust/slate-shifted) ─────────────────── */
+[data-brand="ticket"] .glass-indigo {
+  background: rgba(61, 79, 95, 0.12);
+  border-color: rgba(61, 79, 95, 0.22);
+}
+
+[data-brand="ticket"] .glass-gold {
+  background: rgba(201, 148, 42, 0.10);
+  border-color: rgba(201, 148, 42, 0.22);
+}
+
+[data-brand="ticket"] .glass-teal {
+  background: rgba(58, 128, 102, 0.10);
+  border-color: rgba(58, 128, 102, 0.22);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   TYPOGRAPHY OVERRIDES
+   Ticket uses a three-layer type system:
+   - Barlow Condensed: wordmark, nav, labels, section headers
+   - Instrument Serif: display headlines, hero text, stats
+   - Inter: body, data labels, UI (inherited from Vatic)
+
+   Requires loading both fonts in layout.tsx:
+
+   import { Barlow_Condensed, Instrument_Serif } from 'next/font/google';
+
+   const barlowCondensed = Barlow_Condensed({
+     subsets: ['latin'],
+     weight: ['500', '600'],
+     variable: '--font-barlow-condensed',
+   });
+
+   const instrumentSerif = Instrument_Serif({
+     subsets: ['latin'],
+     weight: ['400'],
+     style: ['normal', 'italic'],
+     variable: '--font-instrument-serif',
+   });
+
+   Then add both .variable to the <body> className.
+
+   TYPE RULES (from band review):
+   - Instrument Serif: minimum 1.2rem / 19px on screen
+   - Instrument Serif italic: editorial emphasis only
+   - Instrument Serif headlines: <60 characters
+   - Barlow Condensed weights: 500 (labels/nav) + 600 (headers/wordmark/buttons)
+   - Never set Barlow Condensed and Instrument Serif at the same size
+   ═══════════════════════════════════════════════════════════════ */
+
+[data-brand="ticket"] h1,
+[data-brand="ticket"] h2,
+[data-brand="ticket"] .font-display {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;        /* Instrument Serif needs no extra tracking */
+}
+
+[data-brand="ticket"] .text-display {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+[data-brand="ticket"] .text-display-italic {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+/* Condensed layer — wordmark, labels, nav, section headers */
+[data-brand="ticket"] .font-condensed,
+[data-brand="ticket"] .text-label,
+[data-brand="ticket"] .text-overline {
+  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+[data-brand="ticket"] .text-section-header {
+  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+[data-brand="ticket"] .text-wordmark {
+  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;   /* Tight tracking for wordmark */
+}

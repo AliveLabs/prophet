@@ -7,13 +7,13 @@ interface WaitlistDeclineProps {
 
 export function WaitlistDecline({ name }: WaitlistDeclineProps) {
   return (
-    <EmailLayout preview="Update on your Vatic waitlist request">
+    <EmailLayout preview="Update on your Ticket waitlist request">
       <Section>
         <Text style={heading}>
           {name ? `Hi ${name},` : "Hi there,"}
         </Text>
         <Text style={paragraph}>
-          Thank you for your interest in Vatic. We truly appreciate you taking
+          Thank you for your interest in Ticket. We truly appreciate you taking
           the time to sign up.
         </Text>
         <Text style={paragraph}>
@@ -28,7 +28,7 @@ export function WaitlistDecline({ name }: WaitlistDeclineProps) {
         <Text style={paragraph}>
           Thank you for your patience and understanding.
         </Text>
-        <Text style={signoff}>&mdash; The Vatic Team</Text>
+        <Text style={signoff}>&mdash; The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )
