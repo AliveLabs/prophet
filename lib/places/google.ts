@@ -71,7 +71,29 @@ function getGoogleKey() {
   return key
 }
 
-export async function fetchAutocomplete(input: string) {
+export type AutocompleteOptions = {
+  lat?: number
+  lng?: number
+  radius?: number
+}
+
+const DEFAULT_LOCATION_BIAS_RADIUS_METERS = 50_000
+
+export async function fetchAutocomplete(input: string, options: AutocompleteOptions = {}) {
+  const { lat, lng, radius } = options
+  const hasCoords = typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)
+  const body: Record<string, unknown> = {
+    input,
+    includedPrimaryTypes: ["establishment"],
+  }
+  if (hasCoords) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: lat, longitude: lng },
+        radius: radius && Number.isFinite(radius) && radius > 0 ? radius : DEFAULT_LOCATION_BIAS_RADIUS_METERS,
+      },
+    }
+  }
   const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
     headers: {
@@ -79,10 +101,7 @@ export async function fetchAutocomplete(input: string) {
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
     },
-    body: JSON.stringify({
-      input,
-      includedPrimaryTypes: ["establishment"],
-    }),
+    body: JSON.stringify(body),
   })
 
   const data = (await response.json()) as GooglePlacesAutocompleteResponse

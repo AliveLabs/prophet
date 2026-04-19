@@ -66,21 +66,6 @@ export function LandingFooter() {
           <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">Ticket</span>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-8">
-          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Privacy
-          </a>
-          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Terms
-          </a>
-          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            API Docs
-          </a>
-          <a href="#" className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground">
-            Contact
-          </a>
-        </div>
-
         <p className="max-w-xs text-center text-xs tracking-wide text-muted-foreground md:text-right">
           Ticket is powered by Vatic — competitive intelligence by Alive Labs.
           <br />

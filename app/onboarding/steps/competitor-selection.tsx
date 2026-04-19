@@ -51,6 +51,8 @@ type CompetitorSelectionStepProps = {
   onRetry: () => void
   locationCity: string | null
   brandName?: string
+  onSearch?: (query: string) => void
+  isSearching?: boolean
 }
 
 export default function CompetitorSelectionStep({
@@ -62,6 +64,8 @@ export default function CompetitorSelectionStep({
   onRetry,
   locationCity,
   brandName = "Ticket",
+  onSearch,
+  isSearching = false,
 }: CompetitorSelectionStepProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -121,11 +125,23 @@ export default function CompetitorSelectionStep({
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value
+              setSearchQuery(value)
+              onSearch?.(value)
+            }}
             placeholder="Search for a specific restaurant…"
             autoComplete="off"
-            className="w-full rounded-[10px] border border-border bg-card/40 pl-[38px] pr-4 py-[13px] text-[15px] text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-vatic-indigo/50 focus:ring-[3px] focus:ring-vatic-indigo/12"
+            className="w-full rounded-[10px] border border-border bg-card/40 pl-[38px] pr-12 py-[13px] text-[15px] text-foreground placeholder:text-muted-foreground outline-none transition-all focus:border-vatic-indigo/50 focus:ring-[3px] focus:ring-vatic-indigo/12"
           />
+          {isSearching && (
+            <span
+              aria-live="polite"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium text-muted-foreground"
+            >
+              Searching…
+            </span>
+          )}
         </div>
       )}
 
@@ -145,6 +161,20 @@ export default function CompetitorSelectionStep({
           )}
         </div>
       )}
+
+      {/* Selection guidance — blocks advancing without at least one competitor */}
+      <p
+        aria-live="polite"
+        className={`-mt-2 mb-4 text-xs transition-colors ${
+          competitors.length > 0 && selectedIds.size === 0
+            ? "text-signal-gold"
+            : "text-muted-foreground"
+        }`}
+      >
+        {competitors.length > 0 && selectedIds.size === 0
+          ? "Select at least one competitor to continue."
+          : "Pick up to 5 competitors to monitor."}
+      </p>
 
       {/* Loading skeleton */}
       {isLoading && (

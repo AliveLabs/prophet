@@ -441,6 +441,9 @@ export async function discoverCompetitorsForLocation(
       lng: location.geo_lng,
       radiusMeters,
       query: keyword,
+      category: targetCategory ?? defaultType,
+      city: location.city ?? undefined,
+      region: location.region ?? undefined,
     })
   } catch (err) {
     return { ok: false, error: `Discovery failed: ${String(err)}` }
@@ -512,6 +515,7 @@ export async function discoverCompetitorsForLocation(
             longitude: mapped.geo_lng,
             placeId: providerEntityId,
             rating: details.rating ?? null,
+            types: mapped.types,
             placeDetails: {
               businessStatus: details.businessStatus ?? null,
               priceLevel: details.priceLevel ?? null,
@@ -519,6 +523,8 @@ export async function discoverCompetitorsForLocation(
               editorialSummary: details.editorialSummary?.text ?? null,
               shortFormattedAddress: details.shortFormattedAddress ?? null,
               reviews: details.reviews ?? null,
+              types: details.types ?? null,
+              primaryType: details.primaryType ?? null,
             },
           }
           if (
@@ -565,12 +571,16 @@ export async function discoverCompetitorsForLocation(
           : typeof raw.shortFormattedAddress === "string"
             ? raw.shortFormattedAddress
             : null
+      const rawTypes = Array.isArray(raw.types)
+        ? (raw.types as unknown[]).filter((t): t is string => typeof t === "string")
+        : null
       const { score, factors } = scoreCompetitor({
         distanceMeters: c.distanceMeters,
         category: c.category,
         targetCategory,
         rating: c.rating,
         reviewCount: c.reviewCount,
+        types: rawTypes,
       })
 
       return {
@@ -599,6 +609,9 @@ export async function discoverCompetitorsForLocation(
         } as Json,
       }
     })
+    // Drop rows scored as zero (hard-excluded non-competitor types like banks,
+    // government offices, schools, etc.) so they never show up in onboarding.
+    .filter((row) => (row.relevance_score ?? 0) > 0)
 
   if (rows.length) {
     const { error } = await admin.from("competitors").upsert(rows, {

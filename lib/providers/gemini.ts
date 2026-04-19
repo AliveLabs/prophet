@@ -69,7 +69,8 @@ function buildPrompt(input: {
     "You are a local business intelligence assistant.",
     "Return a JSON object with a single field 'competitors' that is an array of 5 to 10 items.",
     "Each item must include: name, address, latitude, longitude, distance_meters, rating, review_count, place_id (if known).",
-    "Only include businesses that compete directly with the target business.",
+    "Only include businesses that compete directly with the target business in the same consumer category.",
+    "Do NOT include government offices, courts, police stations, post offices, banks, ATMs, gas stations, car dealers or repair shops, schools, universities, hospitals, clinics, pharmacies, churches or other places of worship, cemeteries, parking lots, storage facilities, or any other non-consumer or non-retail business.",
     "Use the location context provided to find nearby competitors.",
     "Return JSON only. No markdown or commentary.",
   ]
@@ -173,9 +174,12 @@ function haversineMeters(input: {
 
 export const geminiProvider: Provider = {
   name: "gemini",
-  async fetchCompetitorsNear({ lat, lng, radiusMeters, query }) {
+  async fetchCompetitorsNear({ lat, lng, radiusMeters, query, category, city, region }) {
     const prompt = buildPrompt({
       businessName: query,
+      category,
+      city,
+      region,
       centerLat: lat,
       centerLng: lng,
     })

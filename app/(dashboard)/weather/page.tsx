@@ -113,13 +113,25 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
 
   const weatherInsights = cached.weatherInsights
 
-  // KPIs (from historical only)
-  const latestWeather = historicalDays[0]
-  const severeCount = historicalDays.filter((d) => d.is_severe).length
-  const avgTemp = historicalDays.length > 0
-    ? Math.round(historicalDays.reduce((s, d) => s + d.temp_high_f, 0) / historicalDays.length)
+  // Ensure KPI strip and chart share the same source of truth. Previously the
+  // cards read only from cached historical rows while the chart merged in
+  // OpenWeatherMap forecasts, so the cards displayed "N/A" / "0" whenever the
+  // cache was empty but the forecast had data.
+  const kpiDays = weatherDays
+  const latestWeather =
+    kpiDays.find((d) => d.date === todayStr) ??
+    [...kpiDays]
+      .filter((d) => d.date <= todayStr)
+      .sort((a, b) => (a.date < b.date ? 1 : -1))[0] ??
+    kpiDays[0]
+  const severeCount = kpiDays.filter((d) => d.is_severe).length
+  const avgTemp = kpiDays.length > 0
+    ? Math.round(kpiDays.reduce((s, d) => s + d.temp_high_f, 0) / kpiDays.length)
     : 0
-  const totalPrecip = historicalDays.reduce((s, d) => s + d.precipitation_in, 0)
+  const totalPrecip = kpiDays.reduce((s, d) => s + d.precipitation_in, 0)
+  const kpiDaysLabel = historicalDays.length > 0 && forecastDays.length > 0
+    ? `${historicalDays.length} days history + ${forecastDays.length} day forecast`
+    : `${kpiDays.length} ${kpiDays.length === 1 ? "day" : "days"}`
 
   return (
     <section className="space-y-5">
@@ -169,12 +181,12 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
             <Card className="bg-card">
               <p className="text-xs font-medium text-muted-foreground">Avg High Temp</p>
               <p className="mt-2 text-3xl font-bold text-signal-gold">{avgTemp}°F</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">over {historicalDays.length} days</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
             </Card>
             <Card className="bg-card">
               <p className="text-xs font-medium text-muted-foreground">Total Precipitation</p>
               <p className="mt-2 text-3xl font-bold text-primary">{totalPrecip.toFixed(2)}&quot;</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">over {historicalDays.length} days</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
             </Card>
             <Card className="bg-card">
               <p className="text-xs font-medium text-muted-foreground">Severe Weather Days</p>

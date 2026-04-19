@@ -108,6 +108,9 @@ export async function discoverCompetitorsAction(formData: FormData) {
       lng: location.geo_lng,
       radiusMeters,
       query: keyword,
+      category: targetCategory ?? undefined,
+      city: location.city ?? undefined,
+      region: location.region ?? undefined,
     })
   } catch (error) {
     const debug = {
@@ -311,13 +314,22 @@ export async function discoverCompetitorsAction(formData: FormData) {
     const website = typeof raw.website === "string" ? raw.website : null
     const latitude = typeof raw.latitude === "number" ? raw.latitude : null
     const longitude = typeof raw.longitude === "number" ? raw.longitude : null
-    const { score, factors } = scoreCompetitor({
+    const rawTypes = Array.isArray(raw.types)
+      ? (raw.types as unknown[]).filter((t): t is string => typeof t === "string")
+      : Array.isArray((placeDetails as { types?: unknown[] } | null)?.types)
+        ? ((placeDetails as { types?: unknown[] }).types as unknown[]).filter(
+            (t): t is string => typeof t === "string"
+          )
+        : null
+    const scored = scoreCompetitor({
       distanceMeters: candidate.distanceMeters,
       category: candidate.category,
       targetCategory,
       rating: candidate.rating,
       reviewCount: candidate.reviewCount,
+      types: rawTypes,
     })
+    const { score, factors } = scored
 
     const category = candidate.category ?? targetCategory ?? null
     return {
@@ -353,6 +365,10 @@ export async function discoverCompetitorsAction(formData: FormData) {
       },
     }
     })
+    // Drop rows scored as zero — these are candidates whose Google Places
+    // `types` matched the hard-exclusion set (government, banks, schools, etc.)
+    // in scoreCompetitor and should never be presented as competitors.
+    .filter((row) => row.relevance_score > 0)
 
   if (rows.length) {
     const { error } = await supabase
