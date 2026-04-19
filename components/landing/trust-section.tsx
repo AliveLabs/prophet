@@ -2,6 +2,7 @@
 
 import { motion, useInView, useMotionValue, useTransform, animate } from "framer-motion"
 import { useRef, useEffect } from "react"
+import { MARKETING_STATS } from "@/lib/marketing/stats"
 
 function Counter({ target, suffix = "", prefix = "" }: { target: number; suffix?: string; prefix?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
@@ -26,10 +27,30 @@ function Counter({ target, suffix = "", prefix = "" }: { target: number; suffix?
 }
 
 const METRICS = [
-  { target: 10000, suffix: "+", prefix: "", label: "Signals Monitored Daily" },
-  { target: 50, suffix: "+", prefix: "", label: "Insight Types Generated" },
-  { target: 6, suffix: "", prefix: "", label: "Intelligence Channels" },
-  { target: 14, suffix: "-day", prefix: "", label: "Free Trial Included" },
+  {
+    target: MARKETING_STATS.signalsDaily.value,
+    suffix: MARKETING_STATS.signalsDaily.suffix,
+    prefix: MARKETING_STATS.signalsDaily.prefix ?? "",
+    label: MARKETING_STATS.signalsDaily.label,
+  },
+  {
+    target: MARKETING_STATS.insightTypes.value,
+    suffix: MARKETING_STATS.insightTypes.suffix,
+    prefix: MARKETING_STATS.insightTypes.prefix ?? "",
+    label: MARKETING_STATS.insightTypes.label,
+  },
+  {
+    target: MARKETING_STATS.intelChannels.value,
+    suffix: MARKETING_STATS.intelChannels.suffix,
+    prefix: MARKETING_STATS.intelChannels.prefix ?? "",
+    label: MARKETING_STATS.intelChannels.label,
+  },
+  {
+    target: MARKETING_STATS.freeTrialDays.value,
+    suffix: MARKETING_STATS.freeTrialDays.suffix,
+    prefix: MARKETING_STATS.freeTrialDays.prefix ?? "",
+    label: MARKETING_STATS.freeTrialDays.label,
+  },
 ]
 
 const fadeUp = {
