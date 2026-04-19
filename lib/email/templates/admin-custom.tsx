@@ -12,7 +12,7 @@ export function AdminCustomEmail({ subject, body }: AdminCustomEmailProps) {
       <Section>
         <Text style={heading}>{subject}</Text>
         <Text style={paragraph}>{body}</Text>
-        <Text style={signoff}>&mdash; The Vatic Team</Text>
+        <Text style={signoff}>&mdash; The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

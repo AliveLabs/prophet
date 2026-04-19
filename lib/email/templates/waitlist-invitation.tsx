@@ -11,14 +11,14 @@ export function WaitlistInvitation({
   magicLinkUrl,
 }: WaitlistInvitationProps) {
   return (
-    <EmailLayout preview="You're in! Your Vatic dashboard is ready">
+    <EmailLayout preview="You're in! Your Ticket dashboard is ready">
       <Section>
         <Text style={heading}>
-          {name ? `Welcome, ${name}!` : "Welcome to Vatic!"}
+          {name ? `Welcome, ${name}!` : "Welcome to Ticket!"}
         </Text>
         <Text style={paragraph}>
           Great news &mdash; your spot is ready. You now have full access to
-          your Vatic competitive intelligence dashboard.
+          your Ticket competitive intelligence dashboard.
         </Text>
         <Text style={paragraph}>
           Your <strong style={{ color: "#E4E4E7" }}>14-day free trial</strong>{" "}
@@ -45,7 +45,7 @@ export function WaitlistInvitation({
           in with your email to get a new one.
         </Text>
 
-        <Text style={signoff}>&mdash; The Vatic Team</Text>
+        <Text style={signoff}>&mdash; The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

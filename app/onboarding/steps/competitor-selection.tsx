@@ -61,7 +61,7 @@ export default function CompetitorSelectionStep({
   error,
   onRetry,
   locationCity,
-  brandName = "Vatic",
+  brandName = "Ticket",
 }: CompetitorSelectionStepProps) {
   const [searchQuery, setSearchQuery] = useState("")
 

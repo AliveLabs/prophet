@@ -36,7 +36,7 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
             />
           </svg>
           <span className="text-base font-semibold tracking-tight text-foreground">
-            Vatic Admin
+            Ticket Admin
           </span>
         </div>
 

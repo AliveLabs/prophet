@@ -165,17 +165,18 @@ export function HeroSection() {
           >
             <motion.h1
               variants={fadeUp}
-              className="font-display text-tight text-6xl italic leading-none text-foreground md:text-8xl"
+              className="font-display text-tight text-5xl leading-[1.05] text-foreground md:text-7xl"
             >
-              See further.
+              Know what&apos;s <em className="italic text-accent">firing</em>
+              <br className="hidden md:block" /> before it hits your P&amp;L.
             </motion.h1>
 
             <motion.p
               variants={fadeUp}
               className="mt-8 max-w-xl text-lg font-light leading-relaxed tracking-tight text-muted-foreground md:text-xl"
             >
-              Predictive AI competitive intelligence for the modern restaurant enterprise.
-              Anticipate market shifts before they manifest in your P&amp;L.
+              Ticket monitors competitor menus, pricing, reviews, and social — scored by confidence
+              so you move first, not last.
             </motion.p>
 
             <motion.div variants={fadeUp} className="mt-10 flex flex-col gap-4 sm:flex-row sm:gap-6">
@@ -183,13 +184,13 @@ export function HeroSection() {
                 href="#waitlist"
                 className="vatic-gradient inline-flex items-center justify-center rounded-md px-8 py-4 text-lg font-bold tracking-tight text-white transition-transform hover:scale-[0.97]"
               >
-                Join Waitlist
+                Request Early Access
               </a>
               <a
                 href="#features"
-                className="inline-flex items-center justify-center rounded-md border border-border/40 px-8 py-4 text-lg font-bold tracking-tight text-signal-gold transition-colors hover:bg-muted/30"
+                className="inline-flex items-center justify-center rounded-md border border-border/40 px-8 py-4 text-lg font-bold tracking-tight text-accent transition-colors hover:bg-muted/30"
               >
-                Explore the Framework
+                See what Ticket watches
               </a>
             </motion.div>
 

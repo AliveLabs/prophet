@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import ThemeToggle from "@/components/ui/theme-toggle"
 
 const NAV_LINKS = [
-  { label: "Intelligence", href: "#features" },
+  { label: "What We Watch", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
 ]
@@ -17,14 +17,14 @@ export function LandingNav() {
   return (
     <header className="landing-nav-blur fixed inset-x-0 top-0 z-50 border-b border-border/30">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-8">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Ticket home">
           <svg
             width="28"
             height="28"
             viewBox="0 0 80 80"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            aria-label="Vatic"
+            aria-hidden="true"
           >
             <path
               d="M10 14 L40 66 L70 14"
@@ -33,10 +33,10 @@ export function LandingNav() {
               strokeLinecap="round"
               strokeLinejoin="round"
             />
-            <circle cx="40" cy="66" r="6" fill="var(--signal-gold)" />
+            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
           </svg>
-          <span className="font-display text-xl italic tracking-tight text-signal-gold">
-            Vatic
+          <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">
+            Ticket
           </span>
         </Link>
 
@@ -61,7 +61,7 @@ export function LandingNav() {
             href="#waitlist"
             className="vatic-gradient rounded-md px-6 py-2.5 text-sm font-bold tracking-tight text-white transition-transform hover:scale-[0.97] active:opacity-80"
           >
-            Join Waitlist
+            Request Access
           </a>
         </div>
 
@@ -118,7 +118,7 @@ export function LandingNav() {
                 className="vatic-gradient inline-block rounded-md px-6 py-2.5 text-center text-sm font-bold text-white"
                 onClick={() => setMobileOpen(false)}
               >
-                Join Waitlist
+                Request Access
               </a>
             </div>
           </motion.div>

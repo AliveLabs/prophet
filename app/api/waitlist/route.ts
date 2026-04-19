@@ -107,7 +107,7 @@ export async function POST(request: Request) {
 
     const confirmResult = await sendEmail({
       to: normalizedEmail,
-      subject: "You're on the Vatic waitlist",
+      subject: "You're on the Ticket waitlist",
       react: WaitlistConfirmation({
         name: fullName ?? undefined,
       }),

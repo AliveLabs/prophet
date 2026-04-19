@@ -2,6 +2,8 @@
 
 import { useEffect, type ReactNode } from "react"
 
+const DEFAULT_BRAND = "ticket"
+
 export function BrandProvider({
   brand,
   children,
@@ -11,13 +13,9 @@ export function BrandProvider({
 }) {
   useEffect(() => {
     const html = document.documentElement
-    if (brand) {
-      html.setAttribute("data-brand", brand)
-    } else {
-      html.removeAttribute("data-brand")
-    }
+    html.setAttribute("data-brand", brand ?? DEFAULT_BRAND)
     return () => {
-      html.removeAttribute("data-brand")
+      html.setAttribute("data-brand", DEFAULT_BRAND)
     }
   }, [brand])
 

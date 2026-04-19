@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Ticket favicon — single-perforation T mark -->
+  <!-- Background: Ink -->
+  <rect width="32" height="32" rx="6" fill="#1C1917"/>
+  <!-- Simplified T at favicon size (below 48px = no perforations) -->
+  <rect x="6" y="7" width="20" height="4" rx="0.5" fill="#F5F3EF"/>
+  <rect x="11" y="11" width="10" height="17" fill="#F5F3EF"/>
+</svg>

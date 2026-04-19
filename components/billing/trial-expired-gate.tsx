@@ -47,7 +47,7 @@ export function TrialExpiredGate({
   orgName,
   insightCount,
   competitorCount,
-  brandName = "Vatic",
+  brandName = "Ticket",
 }: TrialExpiredGateProps) {
   const [loading, setLoading] = useState<string | null>(null)
 

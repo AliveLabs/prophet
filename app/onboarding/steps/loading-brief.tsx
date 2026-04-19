@@ -30,7 +30,7 @@ export default function LoadingBriefStep({
   competitors,
   monitoringPrefs,
   businessName,
-  brandName = "Vatic",
+  brandName = "Ticket",
 }: LoadingBriefStepProps) {
   const router = useRouter()
   const [phase, setPhase] = useState(0)

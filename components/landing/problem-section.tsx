@@ -100,28 +100,29 @@ export function ProblemSection() {
               visible: { transition: { staggerChildren: 0.1 } },
             }}
           >
-            <motion.div variants={fadeUp} className="mb-8 h-[2px] w-12 bg-signal-gold" />
+            <motion.div variants={fadeUp} className="mb-8 h-[2px] w-12 bg-accent" />
             <motion.h2
               variants={fadeUp}
-              className="font-display text-tight text-4xl italic leading-tight text-foreground md:text-5xl lg:text-6xl"
+              className="font-display text-tight text-4xl leading-tight text-foreground md:text-5xl lg:text-6xl"
             >
-              The noise is deafening.
+              Your competitors moved on Tuesday.
               <br />
-              The signal is silent.
+              <em className="italic">You found out Friday.</em>
             </motion.h2>
             <motion.p
               variants={fadeUp}
               className="mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground"
             >
-              Traditional monitoring systems report on what happened last quarter.
-              By the time you see the trend, your competitors have already captured the territory.
+              A competitor drops prices across three locations. By the time customers mention it,
+              you&apos;ve already lost a week of margin. Your POS tracks what sold — Ticket tracks
+              what&apos;s shifting around you.
             </motion.p>
             <motion.p
               variants={fadeUp}
               className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground"
             >
-              Vatic operates on the threshold of intent, identifying micro-signals across
-              digital ecosystems to provide a prescient view of the competitive landscape.
+              Ticket scores every signal by confidence. High means multiple sources confirmed,
+              Medium means an emerging pattern. You decide what&apos;s worth acting on.
             </motion.p>
           </motion.div>
 
@@ -147,10 +148,10 @@ export function ProblemSection() {
                 <h4 className="text-sm font-bold text-foreground">Prescient Action</h4>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Vatic identified a 14% shift in local menu sentiment 22 days before traditional
+                Ticket flagged a 14% shift in local menu sentiment 22 days before traditional
                 POS data reflected the decline.
               </p>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-signal-gold">
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-accent">
                 22 days ahead of traditional analysis
               </p>
             </div>

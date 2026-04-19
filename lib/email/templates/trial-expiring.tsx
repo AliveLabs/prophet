@@ -16,8 +16,8 @@ export function TrialExpiring({
 }: TrialExpiringProps) {
   const isLastDay = daysLeft <= 1
   const subject = isLastDay
-    ? "Last day of your Vatic trial"
-    : `Your Vatic trial ends in ${daysLeft} days`
+    ? "Last day of your Ticket trial"
+    : `Your Ticket trial ends in ${daysLeft} days`
 
   return (
     <EmailLayout preview={subject}>
@@ -29,9 +29,9 @@ export function TrialExpiring({
         </Text>
 
         <Text style={paragraph}>
-          Your free trial of Vatic{" "}
+          Your free trial of Ticket{" "}
           {isLastDay ? "expires today" : `ends in ${daysLeft} days`}. During
-          your trial, Vatic generated{" "}
+          your trial, Ticket generated{" "}
           <strong style={{ color: "#E4E4E7" }}>
             {insightsGenerated} insights
           </strong>{" "}
@@ -55,7 +55,7 @@ export function TrialExpiring({
           </Link>
         </Section>
 
-        <Text style={signoff}>— The Vatic Team</Text>
+        <Text style={signoff}>— The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )
