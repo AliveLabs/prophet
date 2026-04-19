@@ -35,27 +35,6 @@ export default function Topbar({ userName, signalCount }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Search */}
-        <div className="hidden items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-0 sm:flex" style={{ height: 34, width: 210 }}>
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 13 13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-            className="shrink-0 text-muted-foreground"
-          >
-            <circle cx="5.5" cy="5.5" r="4" />
-            <path d="M8.5 8.5 L12 12" />
-          </svg>
-          <span className="text-[12.5px] text-muted-foreground">
-            Search&hellip;
-          </span>
-        </div>
-
-        <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-
         {/* Notifications */}
         <button
           type="button"
