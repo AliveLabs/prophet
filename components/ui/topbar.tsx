@@ -4,10 +4,9 @@ import ThemeToggle from "./theme-toggle"
 
 interface TopbarProps {
   userName?: string
-  signalCount?: number
 }
 
-export default function Topbar({ userName, signalCount }: TopbarProps) {
+export default function Topbar({ userName }: TopbarProps) {
   const now = new Date()
   const hour = now.getHours()
   const greeting =
@@ -28,28 +27,10 @@ export default function Topbar({ userName, signalCount }: TopbarProps) {
         </div>
         <div className="mt-px text-[11.5px] text-muted-foreground max-md:max-w-[200px] max-md:truncate">
           {dateStr}
-          {signalCount !== undefined && signalCount > 0 && (
-            <> &middot; {signalCount} new signal{signalCount !== 1 ? "s" : ""}</>
-          )}
         </div>
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notifications */}
-        <button
-          type="button"
-          className="relative flex h-[34px] w-[34px] items-center justify-center rounded-md border border-border bg-secondary/50 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
-            <path d="M7.5 1.5 C5 1.5 3 3.5 3 6 L3 9.5 L1.5 11 L13.5 11 L12 9.5 L12 6 C12 3.5 10 1.5 7.5 1.5Z" />
-            <path d="M6 11 C6 11.8 6.7 12.5 7.5 12.5 C8.3 12.5 9 11.8 9 11" />
-          </svg>
-          {signalCount !== undefined && signalCount > 0 && (
-            <span className="absolute right-[5px] top-[5px] h-[7px] w-[7px] rounded-full border-[1.5px] border-background bg-signal-gold" />
-          )}
-        </button>
-
         {/* Theme toggle */}
         <ThemeToggle />
       </div>
