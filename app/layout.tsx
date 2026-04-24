@@ -8,6 +8,7 @@ import {
   Fraunces,
 } from "next/font/google"
 import ThemeProvider from "@/components/theme-provider"
+import PostHogIdentify from "@/components/posthog-identify"
 import "./globals.css"
 import "./ticket-theme.css"
 import "./neat-theme.css"
@@ -105,6 +106,7 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} ${inter.variable} ${spaceMono.variable} ${barlowCondensed.variable} ${instrumentSerif.variable} ${fraunces.variable} antialiased`}
       >
         <ThemeProvider>{children}</ThemeProvider>
+        <PostHogIdentify />
       </body>
     </html>
   )

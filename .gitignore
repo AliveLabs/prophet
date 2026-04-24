@@ -40,3 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# internal notes (meeting transcripts, Gemini notes, etc.) -- these often
+# contain PII / financial commentary and shouldn't land in the public repo.
+app/docs/*Meeting*.md
+app/docs/*Notes by Gemini*.md
