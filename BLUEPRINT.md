@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** April 11, 2026 (brand theming update)
+> **Last updated:** April 24, 2026 (marketing.contacts schema deployed to Supabase; Stream 1 tables + views live; flag flip pending)
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -212,6 +212,9 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `ANTHROPIC_API_KEY` | No | `app/api/ai/chat/route.ts` | Anthropic key (referenced but not actively used) |
 | `VERTICALIZATION_ENABLED` | No | `lib/verticals/`, `lib/jobs/pipelines/content.ts`, `app/onboarding/actions.ts`, AI prompt builders | Feature flag enabling vertical-aware behavior (`"true"` to activate). Defaults to disabled. |
 | `CLIENT_EMAILS_ENABLED` | No | `lib/email/send.ts` | Gates client-facing transactional emails at the `sendEmail()` gateway. Set to `"true"` to enable platform-side client emails (waitlist confirmation, welcome, trial reminders). Defaults to disabled, which means passive client emails are paused while admin-initiated flows (waitlist approve/decline, admin custom emails, admin magic link) and user-initiated auth (self-service magic link) still send via `overrideClientEmailPause: true`. Production: `false` (Chris's Resend drip handles marketing). Dev / preview: `true`. |
+| `MARKETING_CONTACTS_ENABLED` | No | `lib/marketing/contacts.ts`, `app/api/stripe/webhook/route.ts`, `app/api/waitlist/route.ts`, `app/api/marketing/posthog-bridge/route.ts` | Gates the product-side mirror into `marketing.contacts`. When `"true"`, the Stripe webhook upserts `stripe_customer_id` and `status` ('paid' / 'churned') for the org's `billing_email`; `/api/waitlist` upserts new signups with `status='waitlist'`; and `/api/marketing/posthog-bridge` updates `posthog_distinct_id` on the existing row for a signed-in user. Writes are schema-scoped to Chris's `stream1-supabase-schema.sql` v1.2 (`email`, `first_name`, `last_name`, `industry_type`, `status`, `stripe_customer_id`, `posthog_distinct_id`) -- do not add columns here without updating that file. When `"false"` (default), `upsertMarketingContact()` no-ops silently. As of 2026-04-24 the schema is deployed (migrations `20260421225248`, `20260424151835`, `20260424152231`, `20260424152315`) and `marketing` is in the authenticator `pgrst.db_schemas` list, so this flag is safe to flip to `"true"` in Vercel. One deviation from Chris's `stream1-supabase-schema.sql` v1.2: `marketing.contacts.trial_end_date` is trigger-maintained instead of `GENERATED ALWAYS AS ... STORED`, because Postgres 17 classifies `timestamptz + interval` as STABLE and rejects the stored expression. Semantically identical; the three driver views don't reference it. |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Yes | `instrumentation-client.ts`, `components/posthog-identify.tsx` | PostHog project API key (`phc_...`). Browser-safe. Initializes `posthog-js` at client boot for pageview / session-replay / exception capture. |
+| `NEXT_PUBLIC_POSTHOG_HOST` | Yes | `instrumentation-client.ts`, `next.config.ts` | PostHog ingest host. Defaults to `/ingest` which routes through the `next.config.ts` reverse proxy to `us.i.posthog.com`, bypassing tracker-blocking extensions. Set to `https://us.i.posthog.com` in local dev if you want to skip the proxy. |
 
 ---
 
@@ -1565,6 +1568,12 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 - **Auth:** Platform admin (requirePlatformAdmin)
 - **Output:** CSV file with all waitlist signups (email, first name, last name, status, admin notes, signed up, reviewed at)
 
+### `POST /api/marketing/posthog-bridge`
+- **Auth:** Supabase user session (anon-key cookie-based)
+- **Input:** `{ distinct_id: string }`
+- **Logic:** Server-side relay for the browser's `posthog.get_distinct_id()`. Calls `upsertMarketingContact()` with `posthogDistinctId` so Chris's lifecycle views can link a user's PostHog session to their `marketing.contacts` row. The helper uses an UPDATE-if-exists / skip-if-not policy when `industry_type` is not known (as is the case here), so users who haven't yet been seeded via waitlist or Stripe mirror are silently skipped until that happens. Gated internally by `MARKETING_CONTACTS_ENABLED` (no-ops when off). Always returns 200 on marketing-side failures (already logged by the helper) to avoid cascading into UX errors.
+- **Output:** `{ ok: true }` or `{ ok: false, error: string }` (400 on missing distinct_id, 401 when no session)
+
 ---
 
 ## 12. External API Integrations
@@ -1647,6 +1656,14 @@ Used in five contexts:
 
 ### 12.8 Stripe
 Handles subscription lifecycle events via webhook. Maps Stripe price IDs to tiers.
+
+### 12.9 PostHog (product analytics + session replay)
+**Files:** `instrumentation-client.ts`, `components/posthog-identify.tsx`, `app/api/marketing/posthog-bridge/route.ts`, `next.config.ts`
+
+- **Init:** `posthog-js` is initialized at client boot via `instrumentation-client.ts` (Next.js 15+ convention). Config enables `history_change` pageview capture, `capture_pageleave`, `capture_exceptions`, and session replay with `maskAllInputs: true` and `maskTextSelector: "*"` (the rrweb-native way to mask every text node; there is no `maskAllText` boolean). The dashboards render customer / competitor / revenue PII, so replay starts fully masked by default. Any opt-in unmasking should happen behind an explicit audit.
+- **Reverse proxy:** `next.config.ts` adds `rewrites` from `/ingest/static/:path*` -> `us-assets.i.posthog.com/static/:path*` and `/ingest/:path*` -> `us.i.posthog.com/:path*` (order matters -- the static rule must be first since Next rewrites match top-to-bottom). Combined with `NEXT_PUBLIC_POSTHOG_HOST=/ingest`, this lets the browser talk to PostHog through our own origin and bypass tracker-blocking extensions.
+- **Identity bridge:** `components/posthog-identify.tsx` is a zero-render client component mounted in `app/layout.tsx`. It subscribes to `supabase.auth.onAuthStateChange` and, on `SIGNED_IN`, calls `posthog.identify(user.id, { email })` and POSTs the current distinct_id to `/api/marketing/posthog-bridge`. On `SIGNED_OUT` it calls `posthog.reset()` so the next anonymous session starts fresh.
+- **Marketing distinct_id bridge:** `/api/marketing/posthog-bridge` updates `marketing.contacts.posthog_distinct_id` for the signed-in user's email so Chris's n8n flows can cross-reference PostHog events with email lifecycle state. Because Chris's schema requires `industry_type NOT NULL`, the helper only UPDATEs existing rows -- users whose first write would otherwise come from this path (i.e., signed in without a prior waitlist / Stripe mirror) are silently skipped until a row exists. Gated internally by `MARKETING_CONTACTS_ENABLED` and no-ops when the flag is off.
 
 ---
 
@@ -2146,4 +2163,4 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated April 11, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated April 24, 2026.*

@@ -3,6 +3,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistConfirmation } from "@/lib/email/templates/waitlist-confirmation"
 import { WaitlistAdminNotification } from "@/lib/email/templates/waitlist-admin-notification"
+import { upsertMarketingContact } from "@/lib/marketing/contacts"
 
 const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
@@ -104,6 +105,22 @@ export async function POST(request: Request) {
         )
       }
     }
+
+    // Phase 3 marketing automation mirror. Fire-and-forget: a failure to reach
+    // marketing.contacts must never surface as a failed waitlist signup. Chris's
+    // n8n workflows read this row to drive the nurture drip. Industry type is
+    // pinned to 'restaurant' until POST_APRIL16_PRD Workstream 5 adds the
+    // Origin-header derivation for goneat.ai. UTM capture lives in Chris's
+    // n8n intake workflow (via `source` column), not here.
+    upsertMarketingContact({
+      email: normalizedEmail,
+      status: "waitlist",
+      industryType: "restaurant",
+      firstName: trimmedFirst || null,
+      lastName: trimmedLast || null,
+    }).catch((err) =>
+      console.error("marketing.contacts mirror failed:", err)
+    )
 
     const confirmResult = await sendEmail({
       to: normalizedEmail,
