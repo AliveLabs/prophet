@@ -44,15 +44,12 @@ grant marketing_ops to postgres;
 -- 4. Schema access. CREATE is required so marketing_ops can run Chris's DDL
 -- (CREATE TABLE, CREATE VIEW) when his migration is applied with
 -- `SET ROLE marketing_ops;` at the top.
+--
+-- NOTE: service_role USAGE lives in the follow-up 20260424151835 migration,
+-- not here. That's because this file was originally applied on 2026-04-21
+-- before the product backend writes were wired up, and we patched the
+-- service_role grant in a separate migration once the gap was found.
 grant usage, create on schema marketing to marketing_ops;
-
--- The product backend (Stripe webhook, waitlist route, posthog-bridge) writes
--- into marketing.contacts via the service_role key. Grant USAGE explicitly so
--- those writes don't fail with `permission denied for schema marketing` if
--- this migration lands before Chris's schema file (which also does this
--- grant). Tables / sequences grants live in Chris's file because the tables
--- don't exist yet.
-grant usage on schema marketing to service_role;
 
 -- 5. Default privileges. Anything marketing_ops creates in the marketing schema
 -- keeps it accessible to marketing_ops. Also mirror to postgres so DBAs can maintain.
