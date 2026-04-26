@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { WaitlistForm } from "./waitlist-form"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -59,10 +60,7 @@ export function LandingFooter() {
     <footer className="border-t border-border/30">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 px-8 py-12 md:flex-row md:justify-between">
         <div className="flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M10 14 L40 66 L70 14" stroke="var(--vatic-indigo)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
-          </svg>
+          <TicketLogo size={22} className="text-foreground" />
           <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">Ticket</span>
         </div>
 

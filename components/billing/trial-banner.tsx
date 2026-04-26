@@ -4,15 +4,34 @@ import { useState } from "react"
 import Link from "next/link"
 
 interface TrialBannerProps {
+  /**
+   * Days until trial_ends_at. This value is read by the server layout from
+   * `organizations.trial_ends_at` (Stripe-managed when payment_state='trialing',
+   * platform-managed otherwise) — NOT computed from trial_started_at.
+   */
   daysRemaining: number
+  brandName?: "Ticket" | "Neat"
+  /**
+   * True when the trial is the Stripe-native mid-tier trial (payment_state='trialing').
+   * When true, copy reminds users that card-on-file will be charged.
+   */
+  isPaidTrial?: boolean
 }
 
-export function TrialBanner({ daysRemaining }: TrialBannerProps) {
+export function TrialBanner({
+  daysRemaining,
+  brandName = "Ticket",
+  isPaidTrial = false,
+}: TrialBannerProps) {
   const [dismissed, setDismissed] = useState(false)
 
   if (dismissed) return null
 
   const isUrgent = daysRemaining <= 3
+
+  const label = isPaidTrial
+    ? `${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left in your ${brandName} trial — your card will be charged when it ends.`
+    : `${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left in your ${brandName} free trial.`
 
   return (
     <div
@@ -23,13 +42,12 @@ export function TrialBanner({ daysRemaining }: TrialBannerProps) {
       }`}
     >
       <p className="font-medium">
-        {daysRemaining} {daysRemaining === 1 ? "day" : "days"} left in your
-        free trial.{" "}
+        {label}{" "}
         <Link
           href="/settings/billing"
           className="underline underline-offset-2 hover:no-underline"
         >
-          Upgrade now
+          {isPaidTrial ? "Manage billing" : "Upgrade now"}
         </Link>
       </p>
       <button

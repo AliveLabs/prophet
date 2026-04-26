@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import ThemeToggle from "@/components/ui/theme-toggle"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 type SignupPageProps = {
   searchParams?: Promise<{
@@ -42,10 +43,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
       {/* Top bar */}
       <div className="relative z-10 mx-auto flex w-full max-w-6xl items-center justify-between px-8 py-6">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Ticket home">
-          <svg width="28" height="28" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M10 14 L40 66 L70 14" stroke="var(--vatic-indigo)" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
-          </svg>
+          <TicketLogo size={26} className="text-foreground" />
           <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">Ticket</span>
         </Link>
         <div className="flex items-center gap-3">

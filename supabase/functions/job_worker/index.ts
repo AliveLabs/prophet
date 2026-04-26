@@ -734,7 +734,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, skipped: "no_domain" }), { status: 200 })
       }
 
-      const limit = ctx.tier === "free" ? 25 : ctx.tier === "starter" ? 50 : 100
+      const limit = ctx.tier === "free" ? 25 : ctx.tier === "entry" ? 50 : 100
       const result = await callDataForSEOLabs(
         "/v3/dataforseo_labs/google/ranked_keywords/live",
         { target: locDomain, location_code: 2840, language_code: "en", limit }
@@ -791,7 +791,7 @@ serve(async (req) => {
         return new Response(JSON.stringify({ ok: true, skipped: "no_domain" }), { status: 200 })
       }
 
-      const limit = ctx.tier === "starter" ? 50 : ctx.tier === "pro" ? 100 : 500
+      const limit = ctx.tier === "entry" ? 50 : ctx.tier === "mid" ? 100 : 500
 
       for (const comp of ctx.competitors.slice(0, 5)) {
         const compDomain = extractDomain(comp.website)

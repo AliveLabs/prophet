@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import ThemeToggle from "@/components/ui/theme-toggle"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 const NAV_LINKS = [
   { label: "What We Watch", href: "#features" },
@@ -18,23 +19,7 @@ export function LandingNav() {
     <header className="landing-nav-blur fixed inset-x-0 top-0 z-50 border-b border-border/30">
       <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-8">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Ticket home">
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 80 80"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M10 14 L40 66 L70 14"
-              stroke="var(--vatic-indigo)"
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="40" cy="66" r="6" fill="var(--accent)" />
-          </svg>
+          <TicketLogo size={26} className="text-foreground" />
           <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">
             Ticket
           </span>

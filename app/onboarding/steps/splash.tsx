@@ -1,6 +1,7 @@
 "use client"
 
 import type { VerticalConfig } from "@/lib/verticals"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 type SplashStepProps = {
   onContinue: () => void
@@ -17,6 +18,10 @@ export default function SplashStep({ onContinue, verticalConfig }: SplashStepPro
       <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-precision-teal mb-8">
         {subtitle}
       </div>
+
+      {brandName === "Ticket" && (
+        <TicketLogo size={64} className="mb-5 text-foreground" />
+      )}
 
       <div className="font-display text-[58px] font-semibold leading-none tracking-wide text-foreground mb-3 max-[540px]:text-5xl max-[360px]:text-[42px] text-wordmark">
         {brandName}

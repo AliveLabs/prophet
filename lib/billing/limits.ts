@@ -1,3 +1,5 @@
+// Tier guardrails for pipeline + UI. Backed by TIER_LIMITS from tiers.ts.
+
 import { TIER_LIMITS, type SubscriptionTier } from "./tiers"
 
 export function ensureLocationLimit(
@@ -21,7 +23,7 @@ export function ensureCompetitorLimit(
 }
 
 // ---------------------------------------------------------------------------
-// Events Intelligence guardrails
+// Events Intelligence
 // ---------------------------------------------------------------------------
 
 export function getEventsCadence(
@@ -35,7 +37,7 @@ export function getEventsQueriesPerRun(tier: SubscriptionTier): number {
 }
 
 export function getEventsMaxDepth(tier: SubscriptionTier): number {
-  return Math.min(TIER_LIMITS[tier].eventsMaxDepth, 20) // hard cap
+  return Math.min(TIER_LIMITS[tier].eventsMaxDepth, 20)
 }
 
 export function ensureEventQueryLimit(
@@ -51,18 +53,22 @@ export function ensureEventQueryLimit(
 }
 
 // ---------------------------------------------------------------------------
-// SEO Search Intelligence guardrails
+// SEO Search Intelligence
 // ---------------------------------------------------------------------------
 
 export function getSeoTrackedKeywordsLimit(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].seoTrackedKeywords
 }
 
-export function getSeoLabsCadence(tier: SubscriptionTier): "weekly" | "daily" {
+export function getSeoLabsCadence(
+  tier: SubscriptionTier
+): "weekly" | "daily" {
   return TIER_LIMITS[tier].seoLabsCadence
 }
 
-export function getSeoSerpCadence(tier: SubscriptionTier): "weekly" | "daily" {
+export function getSeoSerpCadence(
+  tier: SubscriptionTier
+): "weekly" | "daily" {
   return TIER_LIMITS[tier].seoSerpCadence
 }
 
@@ -95,7 +101,7 @@ export function ensureTrackedKeywordLimit(
 }
 
 // ---------------------------------------------------------------------------
-// Content & Menu Intelligence guardrails
+// Content & Menu Intelligence
 // ---------------------------------------------------------------------------
 
 export function getContentMaxPages(tier: SubscriptionTier): number {
@@ -106,4 +112,30 @@ export function getContentCadence(
   tier: SubscriptionTier
 ): "weekly" | "daily" {
   return TIER_LIMITS[tier].contentRefreshCadence
+}
+
+// ---------------------------------------------------------------------------
+// Pricing-brief features (sold on the pricing page)
+// ---------------------------------------------------------------------------
+
+export function isApiAccessEnabled(tier: SubscriptionTier): boolean {
+  return TIER_LIMITS[tier].apiAccess
+}
+
+export function isWhiteLabelEnabled(tier: SubscriptionTier): boolean {
+  return TIER_LIMITS[tier].whiteLabelReports
+}
+
+export function getPhotoAnalysisDepth(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].photoAnalysisDepth
+}
+
+export function getRetentionDays(tier: SubscriptionTier): number {
+  return TIER_LIMITS[tier].retentionDays
+}
+
+export function getAllowedSocialPlatforms(
+  tier: SubscriptionTier
+): readonly ("instagram" | "facebook" | "tiktok")[] {
+  return TIER_LIMITS[tier].socialPlatforms
 }

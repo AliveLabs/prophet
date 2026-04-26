@@ -121,7 +121,7 @@ serve(async (req) => {
     if (locations) {
       for (const location of locations) {
         const tier = orgTierMap.get(location.organization_id) ?? "free"
-        const seoLabsCadence = tier === "agency" ? "daily" : "weekly"
+        const seoLabsCadence = tier === "top" ? "daily" : "weekly"
 
         // Weekly SEO runs on Mondays; daily runs every day
         if (seoLabsCadence === "weekly" && dayOfWeek !== 1) continue
@@ -158,7 +158,7 @@ serve(async (req) => {
         )
 
         // Paid-tier-only jobs
-        const paidTiers = ["starter", "pro", "agency"]
+        const paidTiers = ["entry", "mid", "top"]
         if (paidTiers.includes(tier)) {
           jobs.push({
             job_type: "seo_domain_intersection",
@@ -169,7 +169,7 @@ serve(async (req) => {
           })
         }
 
-        const adsTiers = ["pro", "agency"]
+        const adsTiers = ["mid", "top"]
         if (adsTiers.includes(tier)) {
           jobs.push({
             job_type: "seo_ads_search",
@@ -220,15 +220,15 @@ serve(async (req) => {
             }
             if (!locationId) continue
 
-            // Determine tier-based cadence: weekly (free), 2x/week (starter), daily (pro/agency)
+            // Determine tier-based cadence: weekly (free/entry), daily (mid), biweekly Mon/Thu (top)
             const location = locations.find((l) => l.id === locationId)
             if (!location) continue
             const tier = orgTierMap.get(location.organization_id) ?? "free"
 
             const shouldRun =
-              tier === "free" ? dayOfWeek === 1 :
-              tier === "starter" ? (dayOfWeek === 1 || dayOfWeek === 4) :
-              true // pro/agency = daily
+              tier === "free" || tier === "entry" ? dayOfWeek === 1 :
+              tier === "mid" ? true :
+              (dayOfWeek === 1 || dayOfWeek === 4) // top = 2x/week
 
             if (!shouldRun) continue
 

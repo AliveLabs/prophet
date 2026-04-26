@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 interface BriefProps {
   briefText?: string
@@ -26,14 +27,10 @@ export default function IntelligenceBrief({
       {/* Top glow line */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
 
-      {/* Watermark */}
-      <div
-        className="pointer-events-none absolute right-8 top-1/2 h-[120px] w-[120px] -translate-y-1/2 opacity-[0.06]"
-        style={{
-          background:
-            "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Cpath d='M10 14 L40 66 L70 14' stroke='%235A3FFF' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='40' cy='66' r='5' fill='%23F2A11E'/%3E%3C/svg%3E\") center/contain no-repeat",
-        }}
-      />
+      {/* Ticket T watermark */}
+      <div className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 opacity-[0.06]">
+        <TicketLogo size={88} className="text-foreground" simplified />
+      </div>
 
       {/* Eyebrow */}
       <div className="relative mb-3 flex items-center justify-between">

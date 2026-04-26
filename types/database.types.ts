@@ -626,13 +626,17 @@ export type Database = {
       organizations: {
         Row: {
           billing_email: string | null
+          cancel_at_period_end: boolean
           created_at: string
+          current_period_end: string | null
           id: string
           industry_type: string
           name: string
+          payment_state: string | null
           settings: Json
           slug: string
           stripe_customer_id: string | null
+          stripe_price_id: string | null
           stripe_subscription_id: string | null
           subscription_tier: string
           trial_ends_at: string | null
@@ -642,13 +646,17 @@ export type Database = {
         }
         Insert: {
           billing_email?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
+          current_period_end?: string | null
           id?: string
           industry_type?: string
           name: string
+          payment_state?: string | null
           settings?: Json
           slug: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           subscription_tier?: string
           trial_ends_at?: string | null
@@ -658,13 +666,17 @@ export type Database = {
         }
         Update: {
           billing_email?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
+          current_period_end?: string | null
           id?: string
           industry_type?: string
           name?: string
+          payment_state?: string | null
           settings?: Json
           slug?: string
           stripe_customer_id?: string | null
+          stripe_price_id?: string | null
           stripe_subscription_id?: string | null
           subscription_tier?: string
           trial_ends_at?: string | null
@@ -838,6 +850,56 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          error: string | null
+          event_id: string
+          event_type: string
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          error?: string | null
+          event_id: string
+          event_type: string
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
+      trial_reminder_sends: {
+        Row: {
+          organization_id: string
+          reminder_day: number
+          sent_at: string
+        }
+        Insert: {
+          organization_id: string
+          reminder_day: number
+          sent_at?: string
+        }
+        Update: {
+          organization_id?: string
+          reminder_day?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_reminder_sends_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
