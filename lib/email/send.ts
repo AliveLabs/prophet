@@ -6,6 +6,12 @@ interface SendEmailParams {
   subject: string
   react: ReactElement
   /**
+   * Overrides the default From address. Used for per-brand sends
+   * (Ticket vs Neat) so a Neat customer never receives a Ticket-branded
+   * From line. Default: FROM_ADDRESS_TICKET.
+   */
+  from?: string
+  /**
    * Mark this email as client-facing (sent to end users / prospects).
    * When true and CLIENT_EMAILS_ENABLED !== "true", the send is paused
    * unless overrideClientEmailPause is also true.
@@ -22,12 +28,15 @@ interface SendEmailParams {
   overrideClientEmailPause?: boolean
 }
 
-const FROM_ADDRESS = "Ticket <info@getvatic.com>"
+export const FROM_ADDRESS_TICKET = "Ticket <info@getvatic.com>"
+export const FROM_ADDRESS_NEAT = "Neat <info@goneat.ai>"
+const DEFAULT_FROM = FROM_ADDRESS_TICKET
 
 export async function sendEmail({
   to,
   subject,
   react,
+  from = DEFAULT_FROM,
   clientFacing = false,
   overrideClientEmailPause = false,
 }: SendEmailParams) {
@@ -51,7 +60,7 @@ export async function sendEmail({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: FROM_ADDRESS,
+      from,
       to: Array.isArray(to) ? to : [to],
       subject,
       react,

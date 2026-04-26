@@ -7,15 +7,27 @@ import {
   Text,
   Hr,
   Link,
+  Img,
 } from "@react-email/components"
 import type { ReactNode } from "react"
+
+export type EmailBrand = "Ticket" | "Neat"
 
 interface EmailLayoutProps {
   children: ReactNode
   preview?: string
+  brand?: EmailBrand
 }
 
-export function EmailLayout({ children, preview }: EmailLayoutProps) {
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://www.thevatic.com"
+
+export function EmailLayout({
+  children,
+  preview,
+  brand = "Ticket",
+}: EmailLayoutProps) {
+  const showLogo = brand === "Ticket"
   return (
     <Html lang="en">
       <Head />
@@ -23,7 +35,16 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
       <Body style={body}>
         <Container style={container}>
           <Section style={header}>
-            <Text style={wordmark}>Ticket</Text>
+            {showLogo && (
+              <Img
+                src={`${APP_URL}/ticket/assets/png/ticket-favicon-192.png`}
+                alt="Ticket"
+                width={48}
+                height={48}
+                style={logoImg}
+              />
+            )}
+            <Text style={wordmark}>{brand}</Text>
           </Section>
 
           <Hr style={divider} />
@@ -34,7 +55,7 @@ export function EmailLayout({ children, preview }: EmailLayoutProps) {
 
           <Section style={footer}>
             <Text style={footerText}>
-              Ticket is powered by Vatic — competitive intelligence by{" "}
+              {brand} is powered by Vatic — competitive intelligence by{" "}
               <Link href="https://alivelabs.co" style={footerLink}>
                 Alive Labs
               </Link>
@@ -67,6 +88,12 @@ const container = {
 const header = {
   textAlign: "center" as const,
   padding: "0 0 16px",
+}
+
+const logoImg = {
+  display: "block",
+  margin: "0 auto 8px",
+  borderRadius: "8px",
 }
 
 const wordmark = {

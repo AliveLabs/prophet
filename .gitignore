@@ -45,3 +45,8 @@ next-env.d.ts
 # contain PII / financial commentary and shouldn't land in the public repo.
 app/docs/*Meeting*.md
 app/docs/*Notes by Gemini*.md
+
+# E2E browser-test artifacts
+/.playwright-browsers
+scripts/stripe/.e2e-screenshots
+.env.local.live.backup

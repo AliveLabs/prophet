@@ -14,29 +14,13 @@ import BottomNav from "@/components/ui/bottom-nav"
 import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
 import { TrialBanner } from "@/components/billing/trial-banner"
 import { BrandProvider } from "@/components/brand-provider"
-import { getVerticalConfig } from "@/lib/verticals"
+import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
+import { DunningBanner } from "@/components/billing/dunning-banner"
 import { Toaster } from "sonner"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 function BrandLogo() {
-  return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 28 28"
-      fill="none"
-      className="shrink-0"
-      aria-hidden="true"
-    >
-      <path
-        d="M4 6 L14 22 L24 6"
-        stroke="currentColor"
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="14" cy="22" r="2.6" className="fill-accent" />
-    </svg>
-  )
+  return <TicketLogo size={24} className="shrink-0 text-foreground" />
 }
 
 function DashboardSkeleton() {
@@ -97,7 +81,9 @@ async function DashboardShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_ends_at, industry_type")
+    .select(
+      "name, subscription_tier, trial_ends_at, industry_type, payment_state"
+    )
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -130,11 +116,17 @@ async function DashboardShell({ children }: { children: ReactNode }) {
   const userOrg = orgRow?.name ?? brandFallback
   const brandWordmark = isVerticalActive ? verticalConfig.brand.wordmark : "ticket"
 
+  const industryForGate =
+    isValidIndustryType(orgRow?.industry_type) ? orgRow.industry_type : "restaurant"
+  const brandNameForGate =
+    industryForGate === "liquor_store" ? "Neat" : "Ticket"
+
   if (
     orgRow &&
     !isTrialActive({
       trial_ends_at: orgRow.trial_ends_at,
       subscription_tier: orgRow.subscription_tier,
+      payment_state: orgRow.payment_state,
     })
   ) {
     const { count: insightCount } = await supabase
@@ -169,7 +161,8 @@ async function DashboardShell({ children }: { children: ReactNode }) {
         orgName={userOrg}
         insightCount={insightCount ?? 0}
         competitorCount={competitorCount ?? 0}
-        brandName={brandFallback}
+        brandName={brandNameForGate}
+        industry={industryForGate}
       />
     )
   }
@@ -177,8 +170,15 @@ async function DashboardShell({ children }: { children: ReactNode }) {
   const daysRemaining = orgRow
     ? getTrialDaysRemaining({ trial_ends_at: orgRow.trial_ends_at })
     : 0
+  // Trial banner: shown for Stripe-native mid-tier trials (payment_state =
+  // 'trialing') and for pre-rollout free-tier internal trials that still have
+  // trial_ends_at set.
   const showTrialBanner =
-    orgRow?.subscription_tier === "free" && daysRemaining > 0 && daysRemaining <= 7
+    daysRemaining > 0 &&
+    daysRemaining <= 7 &&
+    (orgRow?.payment_state === "trialing" ||
+      orgRow?.subscription_tier === "free")
+  const showDunningBanner = orgRow?.payment_state === "past_due"
 
   return (
     <BrandProvider brand={dataBrand}>
@@ -231,7 +231,16 @@ async function DashboardShell({ children }: { children: ReactNode }) {
         <Topbar userName={userName} />
         <TabBar />
 
-        {showTrialBanner && <TrialBanner daysRemaining={daysRemaining} />}
+        {showDunningBanner && (
+          <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />
+        )}
+        {showTrialBanner && (
+          <TrialBanner
+            daysRemaining={daysRemaining}
+            brandName={brandNameForGate}
+            isPaidTrial={orgRow?.payment_state === "trialing"}
+          />
+        )}
 
         <main className="flex-1 overflow-y-auto px-6 py-5 max-md:px-4 max-md:pb-[74px]">
           <div className="mx-auto flex max-w-[1400px] flex-col gap-5">

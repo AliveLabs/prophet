@@ -223,7 +223,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     .filter((r) => r.gapType === "shared" && r.domain1Rank !== null && r.domain2Rank !== null)
     .slice(0, 20)
 
-  const freshnessLabel = tier === "free" || tier === "starter" ? "Weekly refresh" : "Daily refresh"
+  const freshnessLabel =
+    tier === "free" || tier === "entry" ? "Weekly refresh" : "Daily refresh"
 
   // -----------------------------------------------------------------------
   // Render

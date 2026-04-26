@@ -10,7 +10,7 @@ type ActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string }
 
-const VALID_TIERS = ["free", "starter", "pro", "agency"] as const
+const VALID_TIERS = ["free", "entry", "mid", "top", "suspended"] as const
 
 export async function updateOrgTier(
   orgId: string,

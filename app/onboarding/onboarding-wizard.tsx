@@ -16,6 +16,7 @@ import {
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 
 const TOTAL_STEPS = 4
 
@@ -256,7 +257,8 @@ export default function OnboardingWizard({
             : "pointer-events-none -translate-y-1.5 opacity-0"
         }`}
       >
-        <div className="text-wordmark text-[21px] font-semibold tracking-tight text-foreground">
+        <div className="flex items-center gap-2 text-wordmark text-[21px] font-semibold tracking-tight text-foreground">
+          <TicketLogo size={22} className="text-foreground" />
           Ticket
         </div>
         <ThemeToggle />

@@ -1,7 +1,7 @@
 # Prophet -- Codebase Blueprint
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
-> **Last updated:** April 24, 2026 (marketing.contacts schema deployed to Supabase; Stream 1 tables + views live; flag flip pending)
+> **Last updated:** April 26, 2026 (Stripe production rollout complete — 6 products / 12 prices / 2 portal configs / 1 webhook in LIVE mode; 18/18 E2E tests passing in TEST mode; full configuration runbook at `app/docs/Stripe Production.md`)
 > **Branch:** `feature-anand` (merges into `dev` -> `main`)
 > **Purpose:** Complete technical reference for the Prophet codebase. Intended for developers, AI coding tools, and anyone who needs to understand the entire application without reading every source file.
 
@@ -62,7 +62,7 @@
 - **Waitlist Approval Flow:** Admin-gated waitlist: homepage form inserts `pending` row (no auth user), sends confirmation email to user + admin notification to `chris@alivelabs.io`. Admin approves to create Supabase auth user + organization with 14-day trial + sends invitation email with magic link, or declines with polite email. Declined users can reapply. Deleted users (whose auth account was removed) can also reapply.
 - **Transactional Email System:** Resend SDK integration with React Email templates for waitlist confirmation, admin notification (new signup), waitlist invitation (with magic link CTA), waitlist decline, onboarding welcome, trial expiry reminders (3-day, 1-day), and trial expired notifications. Critical emails are awaited with delivery status surfaced to admin UI; supplementary emails (admin notification) are fire-and-forget.
 - **Trial Period System:** 14-day free trial on organization creation. Dashboard layout-level gate blocks access when trial expires (shows TrialExpiredGate with Stripe upgrade CTAs). TrialBanner shown during last 7 days. Daily cron skips expired trial orgs. Trial reminder cron sends emails at 3 days, 1 day, and expiry.
-- **Stripe Checkout:** `/api/stripe/checkout` POST route creates Stripe checkout sessions for Starter/Pro/Agency tier upgrades. Handles customer creation, session creation, and redirects.
+- **Stripe Checkout:** `/api/stripe/checkout` POST route creates Stripe checkout sessions for Entry / Mid / Top tier upgrades (per-brand display names — Table/Shift/House for Ticket, Well/Call/Top Shelf for Neat). Mid tier includes a 14-day card-required trial; Entry and Top do not. See §12.8.
 
 ### Current state
 
@@ -199,11 +199,13 @@ All environment variables are stored in `.env.local` (gitignored). Here is the c
 | `FIRECRAWL_API_KEY` | Yes | `lib/providers/firecrawl.ts` | Firecrawl API key for website scraping and screenshots |
 | `OUTSCRAPER_API_KEY` | Yes | `lib/providers/outscraper.ts` | Outscraper API key for Popular Times |
 | `OPENWEATHERMAP_API_KEY` | Yes | `lib/providers/openweathermap.ts` | OpenWeatherMap One Call API 3.0 key |
-| `STRIPE_SECRET_KEY` | Yes | `app/api/stripe/webhook/route.ts` | Stripe secret key |
+| `STRIPE_SECRET_KEY` | Yes | `lib/stripe/client.ts` | Stripe secret key (sk_test_/sk_live_) |
 | `STRIPE_WEBHOOK_SECRET` | Yes | `app/api/stripe/webhook/route.ts` | Stripe webhook signing secret |
-| `STRIPE_PRICE_ID_STARTER` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Starter tier |
-| `STRIPE_PRICE_ID_PRO` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Pro tier |
-| `STRIPE_PRICE_ID_AGENCY` | Yes | `lib/billing/tiers.ts` | Stripe price ID for Agency tier |
+| `STRIPE_PRICE_ID_TICKET_{ENTRY,MID,TOP}_{MONTHLY,ANNUAL}` | Yes (6) | `lib/stripe/pricing.ts` | Per-tier-per-cadence Price IDs for Ticket (restaurant brand) |
+| `STRIPE_PRICE_ID_NEAT_{ENTRY,MID,TOP}_{MONTHLY,ANNUAL}` | Yes (6) | `lib/stripe/pricing.ts` | Per-tier-per-cadence Price IDs for Neat (liquor_store brand) |
+| `STRIPE_PORTAL_CONFIG_TICKET` | Yes | `app/api/stripe/portal/route.ts` | Customer Portal configuration ID for Ticket brand |
+| `STRIPE_PORTAL_CONFIG_NEAT` | Yes | `app/api/stripe/portal/route.ts` | Customer Portal configuration ID for Neat brand |
+| `CRON_SECRET` | Yes | `app/api/cron/**` | Bearer token for Vercel Cron jobs (trial reminders, daily orchestration) |
 | `RESEND_API_KEY` | Yes | `lib/email/client.ts` | Resend API key for transactional emails |
 | `NEXT_PUBLIC_APP_URL` | No | `app/(dashboard)/competitors/actions.ts` | App base URL (defaults to `http://localhost:3000`) |
 | `CRON_SECRET` | No | `app/api/cron/daily/route.ts` | Secret for authenticating cron job requests |
@@ -913,12 +915,16 @@ public.is_org_admin(org_id uuid) -> boolean
 | `id` | uuid PK | `gen_random_uuid()` |
 | `name` | text NOT NULL | |
 | `slug` | text UNIQUE NOT NULL | |
-| `subscription_tier` | text NOT NULL DEFAULT 'free' | CHECK: free/starter/pro/agency |
+| `subscription_tier` | text NOT NULL DEFAULT 'free' | CHECK: free/entry/mid/top/suspended. `suspended` is admin-only (set via `deactivateOrg`); checkout/portal cannot produce it. |
+| `stripe_price_id` | text | Current Stripe Price ID — identifies tier + cadence + brand in one value |
+| `current_period_end` | timestamptz | Next renewal date (mirrored from Stripe) — drives renewal UI |
+| `cancel_at_period_end` | boolean NOT NULL DEFAULT false | True when user hit "Cancel" in Customer Portal — subscription stays active until `current_period_end` |
+| `payment_state` | text | Mirrors Stripe subscription status: `trialing`/`active`/`past_due`/`canceled`/`incomplete`/`incomplete_expired`/`unpaid`/`paused`. NULL until first subscription. |
 | `stripe_customer_id` | text | Nullable |
 | `stripe_subscription_id` | text | Nullable |
 | `billing_email` | text | Nullable |
 | `trial_started_at` | timestamptz | Set on admin approval (not signup) |
-| `trial_ends_at` | timestamptz | `trial_started_at + 14 days` |
+| `trial_ends_at` | timestamptz | Source of truth for trial end. On legacy rows (`payment_state IS NULL`): `created_at + 14 days`. On Stripe-managed rows: mirrored from `subscription.trial_end` by the webhook. |
 | `waitlist_signup_id` | uuid FK | References `waitlist_signups(id)`, nullable |
 | `industry_type` | text NOT NULL DEFAULT 'restaurant' | CHECK: restaurant/liquor_store. Added by verticalization. |
 | `settings` | jsonb DEFAULT '{}' | |
@@ -1541,7 +1547,7 @@ The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors,
 
 ### `POST /api/stripe/checkout`
 - **Auth:** Supabase user session
-- **Input:** `{ tier: "starter" | "pro" | "agency" }`
+- **Input:** `{ tier: "entry" | "mid" | "top", cadence: "monthly" | "annual" }`
 - **Logic:** Creates or retrieves Stripe customer for org, creates checkout session with tier price
 - **Output:** `{ url: string }` (redirect to Stripe Checkout)
 
@@ -1655,7 +1661,73 @@ Used in five contexts:
 | `fetchForecast(lat, lon)` | Forecast with severe weather detection |
 
 ### 12.8 Stripe
-Handles subscription lifecycle events via webhook. Maps Stripe price IDs to tiers.
+
+Two-brand subscription platform (Ticket = restaurants, Neat = liquor stores) with a shared backend tier schema (`free` / `entry` / `mid` / `top` / `suspended`) and per-brand display names resolved from `organizations.industry_type`.
+
+**Bootstrap:** `scripts/stripe/setup.ts` creates 6 Products, 12 Prices, 2 Portal configurations, and 1 Webhook endpoint. Idempotent via `metadata.vatic_key`. Run once per environment — see `scripts/stripe/README.md` for the runbook.
+
+**Pricing matrix (USD):**
+
+| Tier | Monthly | Annual (−20%) | Trial |
+|------|--------:|-------:|:------|
+| Entry | $149 | $1,428 | — |
+| Mid   | $299 | $2,868 | 14-day, card required |
+| Top   | $499 | $4,788 | — |
+
+**Display names per brand:**
+
+| Backend tier | Ticket (restaurant) | Neat (liquor_store) |
+|---|---|---|
+| `entry` | Table | Well |
+| `mid` | Shift | Call |
+| `top` | House | Top Shelf |
+
+Resolved at render time via `getTierDisplayName(industry, tier)` in `lib/billing/tiers.ts`.
+
+**Checkout (`POST /api/stripe/checkout`):**
+- Accepts `{ tier, cadence }` where tier ∈ {`entry`,`mid`,`top`} and cadence ∈ {`monthly`,`annual`}.
+- Requires `requireOrgOwnerOrAdmin` (members cannot upgrade).
+- Resolves the Stripe Price ID from `(org.industry_type, tier, cadence)` via `resolvePriceIdOrThrow` in `lib/stripe/pricing.ts`. This guarantees a Ticket customer can never be charged against a Neat price (anti-tamper).
+- Sets `subscription_data.trial_period_days = 14` **only when tier === 'mid'**. Other tiers go straight to `active`.
+- Always sets `payment_method_collection: 'always'` and `subscription_data.trial_settings.end_behavior.missing_payment_method = 'cancel'` so the Mid trial behaves as a true card-required conversion funnel.
+- Passes a `randomUUID()` idempotency key on session create.
+
+**Customer Portal (`POST /api/stripe/portal`):**
+- Requires `requireOrgOwnerOrAdmin`.
+- Picks `configuration` from `(industry_type === 'restaurant') ? STRIPE_PORTAL_CONFIG_TICKET : STRIPE_PORTAL_CONFIG_NEAT`. Each portal config is restricted to its own brand's 6 prices, so in-portal upgrades/downgrades can never cross brands.
+
+**Webhook (`POST /api/stripe/webhook`):**
+- Signature-verified via `STRIPE_WEBHOOK_SECRET`.
+- **Idempotency:** every event is recorded in `public.stripe_webhook_events (event_id PK)` with `ON CONFLICT DO NOTHING`. Zero rows inserted ⇒ duplicate, short-circuit with 200.
+- Handles 10 event types: `checkout.session.completed`, `customer.{updated,deleted}`, `customer.subscription.{created,updated,deleted,trial_will_end}`, `invoice.{payment_failed,paid,payment_succeeded}`.
+- Derives `(tier, cadence, industry)` from `subscription.items.data[0].price.id` via `resolvePriceInfo` + `priceBelongsToIndustry` anti-tamper check. If the mapping fails, the handler logs and returns 500 to force Stripe retry.
+- Writes to `organizations`: `stripe_customer_id`, `stripe_subscription_id`, `stripe_price_id`, `subscription_tier`, `cancel_at_period_end`, `trial_ends_at` (from `subscription.trial_end`), `current_period_end`, and `payment_state` (mapped from Stripe subscription status via `normalizePaymentState`).
+- Mirrors lifecycle to `marketing.contacts` (`status` ∈ `trial`/`paid`/`churned`) when `MARKETING_CONTACTS_ENABLED=true`.
+- On `invoice.payment_failed`, sends brand-aware `PaymentFailed` email via Resend using `FROM_ADDRESS_TICKET` or `FROM_ADDRESS_NEAT`.
+
+**Trial reminder cron (`GET /api/cron/trial-reminders`):**
+- Scheduled daily via Vercel Cron (see `vercel.json`).
+- Queries orgs where `payment_state='trialing'` AND `trial_ends_at::date` is 4 or 1 days in the future.
+- Dedupes per (org, reminder_day) via `public.trial_reminder_sends` unique PK — safe to re-run the cron without double-sends.
+- Sends `TrialDay10` (4 days left) / `TrialDay13` (1 day left) React Email templates, brand-aware, to the org's owner and admins.
+- Protected by `Authorization: Bearer ${CRON_SECRET}`.
+
+**Payment state lifecycle (`organizations.payment_state`):**
+
+```
+NULL (never subscribed)
+  └─► trialing (Mid tier, card on file, 14d)
+        ├─► active (trial converted)
+        └─► canceled | incomplete_expired (abandoned → TrialExpiredGate)
+  └─► active (Entry/Top — no trial)
+        ├─► past_due (invoice failed → DunningBanner shown)
+        │     ├─► active (retry succeeded)
+        │     ├─► unpaid (too many retries → dunning escalation)
+        │     └─► canceled
+        └─► canceled (user canceled at period end)
+```
+
+`TrialExpiredGate` blocks dashboard access when `payment_state ∈ {canceled, incomplete_expired, unpaid}` OR (`subscription_tier='free'` AND `trial_ends_at` elapsed). `DunningBanner` is mounted in `app/(dashboard)/layout.tsx` when `payment_state='past_due'`.
 
 ### 12.9 PostHog (product analytics + session replay)
 **Files:** `instrumentation-client.ts`, `components/posthog-identify.tsx`, `app/api/marketing/posthog-bridge/route.ts`, `next.config.ts`
@@ -1949,24 +2021,30 @@ Events sent during pipeline execution:
 
 ### 16.1 Tiers
 
-| Tier | Locations | Competitors/Loc | Retention | Events | SEO Keywords | SEO Cadence | Content Pages/Run |
-|---|---|---|---|---|---|---|---|
-| Free | 1 | 5 | 30 days | Weekly, 1 query | 10 tracked, 50 ranked | Weekly | 2 |
-| Starter | 3 | 15 | 90 days | Daily, 2 queries | 25 tracked, 50 ranked | Weekly | 3 |
-| Pro | 10 | 50 | 180 days | Daily, 2 queries | 50 tracked, 100 ranked | Labs weekly, SERP daily | 5 |
-| Agency | 50 | 200 | 365 days | Daily, 2 queries | 200 tracked, 500 ranked | Daily | 8 |
+Shared backend schema, per-brand display names rendered via `getTierDisplayName(industry, tier)`:
 
-### 16.2 Trial Period
+| Backend tier | Ticket (restaurant) | Neat (liquor_store) | Locations | Competitors/Loc | Monthly | Annual | Trial |
+|---|---|---|---:|---:|---:|---:|:---|
+| `free` | Free | Free | 1 | 3 | — | — | — (no trial on free) |
+| `entry` | Table | Well | 1 | 3 | $149 | $1,428 | — |
+| `mid` | Shift | Call | 1 | 5 | $299 | $2,868 | 14-day, card required |
+| `top` | House | Top Shelf | 3 | 10 | $499 | $4,788 | — |
+| `suspended` | Suspended | Suspended | 0 | 0 | — | — | Admin-only (`deactivateOrg`) |
 
-- **Duration:** 14 days from organization creation (`lib/billing/trial.ts: TRIAL_DURATION_DAYS`)
-- **Columns:** `organizations.trial_started_at` / `organizations.trial_ends_at` (set in `createOrgAndLocationAction`)
-- **Backfill:** Existing orgs backfilled with `trial_started_at = created_at`, `trial_ends_at = created_at + 14 days`
-- **Active check:** `isTrialActive(org)` returns false if `subscription_tier === "suspended"`, returns true if `subscription_tier !== "free"`, otherwise checks `trial_ends_at > now()`
-- **Gate:** `app/(dashboard)/layout.tsx` renders `TrialExpiredGate` (full-page upgrade overlay) when trial expired
-- **Banner:** `TrialBanner` shown during last 7 days of trial (dismissible per session)
-- **Cron:** Daily cron (`/api/cron/daily`) skips locations belonging to expired trial orgs
-- **Reminders:** `/api/cron/trial-reminders` sends emails at 3 days, 1 day, and expiry via Resend
-- **Upgrade:** Stripe checkout via `POST /api/stripe/checkout` (Starter/Pro/Agency tiers)
+Internal operational fields (retention, SEO cadence/quotas, events cadence, content pages-per-run) continue to live in `lib/billing/tiers.ts → TIER_LIMITS`. Only the visible pricing-brief fields are customer-facing; the operational fields are tuning knobs for the daily pipeline.
+
+### 16.2 Trial Period (Stripe-native, Mid-tier only)
+
+- **Duration:** 14 days, managed by Stripe (`subscription_data.trial_period_days = 14` passed in Checkout). **Mid tier only** — Entry and Top have no trial.
+- **Card required:** Checkout passes `payment_method_collection: 'always'` and `subscription_data.trial_settings.end_behavior.missing_payment_method = 'cancel'`. Users cannot start the trial without a valid card; if the card becomes invalid mid-trial, the subscription is canceled at trial end.
+- **Active check:** `isTrialActive(org)` treats `payment_state='trialing'` as the authoritative signal. Falls back to `trial_ends_at > now()` for pre-Stripe-rollout records (free-tier orgs that received the legacy 14-day platform trial on creation).
+- **Columns:** `organizations.trial_ends_at` is mirrored from `subscription.trial_end` by the webhook. `organizations.payment_state='trialing'` marks an active Stripe-managed trial. (The legacy `trial_started_at` column stays populated for audit but is no longer the source of truth.)
+- **Gate:** `app/(dashboard)/layout.tsx` renders `TrialExpiredGate` (full-page upgrade overlay, brand-aware) when `payment_state ∈ {canceled, incomplete_expired, unpaid}` OR (`subscription_tier='free'` AND legacy `trial_ends_at` has elapsed).
+- **Banner:** `TrialBanner` shown during last 7 days of trial, brand-aware copy. When `payment_state='trialing'` the banner adds "your card will be charged when it ends" language.
+- **Daily cron:** `/api/cron/daily` skips locations belonging to orgs with an expired trial (checked via `isTrialActive`).
+- **Reminder cron:** `/api/cron/trial-reminders` sends Day 10 (4 days left) and Day 13 (1 day left) brand-aware emails via Resend, deduped per (org, reminder_day) via `public.trial_reminder_sends`. Only fires for `payment_state='trialing'` rows.
+- **Conversion:** When Stripe auto-charges at trial end, `customer.subscription.updated` fires with `status='active'` → webhook flips `payment_state='active'`. No user action required. If the charge fails → `status='past_due'` → `DunningBanner` appears.
+- **Upgrade path:** Stripe Checkout via `POST /api/stripe/checkout` (Entry / Mid / Top, brand-aware labels) or Customer Portal via `POST /api/stripe/portal`.
 
 ### 16.3 Guardrail Functions
 
@@ -2129,9 +2207,12 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 |---|---|---|
 | `RESEND_API_KEY` | For emails | Resend API key (emails fail gracefully without it) |
 | `CRON_SECRET` | For crons | Auth token for Vercel cron endpoints |
-| `STRIPE_PRICE_ID_STARTER` | For billing | Stripe price ID for Starter tier |
-| `STRIPE_PRICE_ID_PRO` | For billing | Stripe price ID for Pro tier |
-| `STRIPE_PRICE_ID_AGENCY` | For billing | Stripe price ID for Agency tier |
+| `STRIPE_PRICE_ID_TICKET_{ENTRY,MID,TOP}_{MONTHLY,ANNUAL}` (6) | For billing | Ticket-brand Stripe Price IDs (restaurant) |
+| `STRIPE_PRICE_ID_NEAT_{ENTRY,MID,TOP}_{MONTHLY,ANNUAL}` (6) | For billing | Neat-brand Stripe Price IDs (liquor_store) |
+| `STRIPE_PORTAL_CONFIG_TICKET` | For billing | Brand-specific Customer Portal configuration ID |
+| `STRIPE_PORTAL_CONFIG_NEAT` | For billing | Brand-specific Customer Portal configuration ID |
+
+**Production rollout runbook:** `scripts/stripe/README.md` — run `npx tsx scripts/stripe/setup.ts` once per environment to create all Stripe resources and print the env block for Vercel.
 
 ---
 
@@ -2163,4 +2244,4 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated April 24, 2026.*
+*This document was generated from a complete analysis of the Prophet codebase. Last updated April 26, 2026.*

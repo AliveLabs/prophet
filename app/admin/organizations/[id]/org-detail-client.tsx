@@ -345,9 +345,9 @@ function InfoItem({ label, value }: { label: string; value: string }) {
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
     free: "bg-secondary text-foreground",
-    starter: "bg-vatic-indigo/10 text-vatic-indigo",
-    pro: "bg-precision-teal/10 text-precision-teal",
-    agency: "bg-signal-gold/10 text-signal-gold",
+    entry: "bg-vatic-indigo/10 text-vatic-indigo",
+    mid: "bg-precision-teal/10 text-precision-teal",
+    top: "bg-signal-gold/10 text-signal-gold",
     suspended: "bg-destructive/10 text-destructive",
   }
 
@@ -404,9 +404,10 @@ function TierChangePanel({
             className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
           >
             <option value="free">Free</option>
-            <option value="starter">Starter</option>
-            <option value="pro">Pro</option>
-            <option value="agency">Agency</option>
+            <option value="entry">Entry</option>
+            <option value="mid">Mid</option>
+            <option value="top">Top</option>
+            <option value="suspended">Suspended</option>
           </select>
         </div>
         <button
