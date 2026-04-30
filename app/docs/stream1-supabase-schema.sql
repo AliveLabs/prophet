@@ -2,10 +2,25 @@
 -- Alive Labs Phase 3 — Stream 1 Supabase Schema
 -- File: stream1-supabase-schema.sql
 -- Target: Postgres 15+ (Supabase)
--- Version: 1.2 (April 2026) — industry_type enum aligned with product DB
+-- Version: 1.3 (April 2026) — trigger-based trial_end_date + marketing_ops grants
 --
 -- CHANGE LOG
 -- ----------
+-- v1.3 (2026-04-27): Two fixes from Anand's deploy review of v1.2:
+--   (a) trial_end_date can no longer be a GENERATED ALWAYS AS (...) STORED
+--   column. Postgres classifies `timestamptz + interval` as STABLE (not
+--   IMMUTABLE) because the result depends on the session timezone, and only
+--   IMMUTABLE expressions are legal inside a stored generated column. The
+--   v1.2 file failed at CREATE TABLE time on a clean deploy. Replaced with a
+--   plain `timestamptz` column maintained by `marketing.set_trial_end_date()`,
+--   a BEFORE INSERT OR UPDATE OF trial_start_date trigger. Side benefit:
+--   we can swap to a 7- or 21-day trial variant by editing one function
+--   instead of running an ALTER TABLE.
+--   (b) §10 was missing all grants for the `marketing_ops` role created in
+--   the product-side role-setup migration (20260421225248). Added USAGE on
+--   the schema, SELECT/INSERT/UPDATE/DELETE on the four tables, SELECT on
+--   the three views, and USAGE/SELECT on sequences. The existing
+--   service_role grants are kept alongside as belt-and-suspenders.
 -- v1.2 (2026-04-22): Renamed industry_type enum value 'liquor' → 'liquor_store'
 --   to match `public.organizations.industry_type` check constraint in the
 --   Vatic product schema. Flagged by Anand in his 2026-04-21 email review.
@@ -56,10 +71,16 @@
 --
 -- SECURITY
 -- --------
--- Row-level security is enabled on every table. Only the service_role key
--- (used by n8n) can read/write. The anon key is explicitly denied. Grants
--- on the `marketing` schema are scoped — service_role gets USAGE + ALL on
--- tables/sequences/views; anon gets nothing.
+-- Row-level security is enabled on every table. The anon key is explicitly
+-- denied. Two privileged roles can read/write:
+--   • service_role — Phase 3 Day-1 posture for n8n's PostgREST credential.
+--     Trades blast-radius for momentum: a leaked credential is a full-DB
+--     compromise. Acceptable while the operator pool is one person.
+--   • marketing_ops — scoped role created in the product-side migration
+--     20260421225248_marketing_schema_and_role.sql. NOINHERIT NOLOGIN, used
+--     via a JWT with "role": "marketing_ops" claim through PostgREST's
+--     authenticator role. Reserved for n8n cutover off service_role.
+-- Grants on the `marketing` schema (§10) cover both roles; anon gets nothing.
 -- =============================================================================
 
 
@@ -138,11 +159,14 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 --     access_granted_notified_at = when n8n finished sending the email
 --                                  (guards against double-sends if the
 --                                  trigger fires twice).
---   • trial_end_date is a generated column based on trial_start_date + 14
---     days. Kept STORED (not VIRTUAL) so views can index it. Admins who
---     want to extend a trial should UPDATE trial_start_date (rebase) OR
---     we add a separate trial_extension_days column in a later migration —
---     see open questions in architecture doc.
+--   • trial_end_date is maintained by `marketing.set_trial_end_date()`, a
+--     BEFORE INSERT OR UPDATE OF trial_start_date trigger (see §8c). It
+--     used to be a STORED generated column but Postgres rejects the
+--     `timestamptz + interval` expression as non-IMMUTABLE. The trigger
+--     also makes variable trial lengths (7-day, 21-day) a one-function
+--     edit instead of an ALTER TABLE. Admins who want to extend a trial
+--     should UPDATE trial_start_date (rebase); a future trial_extension_days
+--     column can layer on top — see open questions in architecture doc.
 --   • clay_enrichment is jsonb so we can dump the full Clay response
 --     without schema churn.
 --   • tags is a text[] for n8n-friendly tag ops (ANY, @>, array_append).
@@ -164,9 +188,7 @@ CREATE TABLE IF NOT EXISTS marketing.contacts (
   access_granted_date         timestamptz,
   access_granted_notified_at  timestamptz,
   trial_start_date            timestamptz,
-  trial_end_date              timestamptz
-                                GENERATED ALWAYS AS
-                                (trial_start_date + interval '14 days') STORED,
+  trial_end_date              timestamptz,            -- maintained by trg_contacts_set_trial_end_date (§8c)
   paid_date                   timestamptz,
   churn_date                  timestamptz,
   stripe_customer_id          text,
@@ -198,7 +220,7 @@ CREATE TABLE IF NOT EXISTS marketing.contacts (
 
 COMMENT ON TABLE  marketing.contacts IS 'Master contact record. One row per email across Ticket + Neat; industry_type discriminates.';
 COMMENT ON COLUMN marketing.contacts.location_count IS 'Dropdown value 1|2-5|6-20|21-50|50+ — stored raw, mapped to tags by workflow.';
-COMMENT ON COLUMN marketing.contacts.trial_end_date IS 'Generated = trial_start_date + 14d. Rebase by updating trial_start_date.';
+COMMENT ON COLUMN marketing.contacts.trial_end_date IS 'Maintained by trg_contacts_set_trial_end_date = trial_start_date + 14d. Rebase by updating trial_start_date.';
 COMMENT ON COLUMN marketing.contacts.access_granted_notified_at IS 'Set by Workflow C after sending access-granted email. Double-send guard.';
 COMMENT ON COLUMN marketing.contacts.posthog_distinct_id IS 'Written by Ticket/Neat app backend on first login. Same-DB coupling requirement.';
 COMMENT ON COLUMN marketing.contacts.clay_enrichment IS 'Raw Clay response JSON. Schema-agnostic.';
@@ -345,7 +367,28 @@ CREATE TRIGGER trg_contacts_set_updated_at
   FOR EACH ROW EXECUTE FUNCTION marketing.set_updated_at();
 
 
--- 8b. Auto-log lifecycle events on status change
+-- 8b. trial_end_date maintenance (replaces the v1.2 generated column).
+-- Runs BEFORE INSERT/UPDATE so callers can never diverge trial_end_date
+-- from trial_start_date + 14d. Restricted to UPDATE OF trial_start_date so
+-- the trigger does not fire on every column update.
+CREATE OR REPLACE FUNCTION marketing.set_trial_end_date()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.trial_end_date := CASE
+    WHEN NEW.trial_start_date IS NULL THEN NULL
+    ELSE NEW.trial_start_date + interval '14 days'
+  END;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_contacts_set_trial_end_date ON marketing.contacts;
+CREATE TRIGGER trg_contacts_set_trial_end_date
+  BEFORE INSERT OR UPDATE OF trial_start_date ON marketing.contacts
+  FOR EACH ROW EXECUTE FUNCTION marketing.set_trial_end_date();
+
+
+-- 8c. Auto-log lifecycle events on status change
 -- Fires into marketing.events whenever contacts.status changes. Workflow C
 -- (access-granted handler) also subscribes to this table change via a
 -- Supabase database webhook (see architecture doc §6).
@@ -519,9 +562,11 @@ COMMENT ON VIEW marketing.v_auric_crosssell_due IS
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 10. Row-Level Security
 -- ─────────────────────────────────────────────────────────────────────────────
--- n8n uses the service_role key, which bypasses RLS by design. The policies
--- below are belt-and-suspenders: even if someone accidentally exposes the
--- anon key to the webhook, nothing in these tables is readable or writable.
+-- Phase 3 Day-1: n8n uses service_role, which bypasses RLS by design.
+-- marketing_ops is provisioned and grant-complete (below) so the cutover
+-- to a scoped JWT is purely a credential swap on n8n's side. The anon
+-- policies are belt-and-suspenders: even if the anon key ever reaches the
+-- webhook, nothing in these tables is readable or writable.
 
 ALTER TABLE marketing.contacts      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE marketing.email_log     ENABLE ROW LEVEL SECURITY;
@@ -548,6 +593,27 @@ GRANT ALL    ON ALL SEQUENCES IN SCHEMA marketing TO service_role;
 GRANT SELECT ON marketing.v_waitlist_nurture_due   TO service_role;
 GRANT SELECT ON marketing.v_trial_onboarding_due   TO service_role;
 GRANT SELECT ON marketing.v_auric_crosssell_due    TO service_role;
+
+-- marketing_ops grants. Mirror of the product-side migration
+-- 20260424152315_marketing_stream1_grants_for_marketing_ops.sql so a clean
+-- deploy from this file produces the same end state. The role itself
+-- (NOINHERIT NOLOGIN, granted to authenticator) is created in the
+-- product-side migration 20260421225248_marketing_schema_and_role.sql,
+-- which must run before this file on a clean deploy. Schema-level USAGE
+-- and CREATE were granted there; the per-object grants below cover the
+-- tables and views Chris's migration creates after the role exists.
+GRANT SELECT, INSERT, UPDATE, DELETE ON marketing.contacts       TO marketing_ops;
+GRANT SELECT, INSERT, UPDATE, DELETE ON marketing.email_log      TO marketing_ops;
+GRANT SELECT, INSERT, UPDATE, DELETE ON marketing.events         TO marketing_ops;
+GRANT SELECT, INSERT, UPDATE, DELETE ON marketing.failed_events  TO marketing_ops;
+
+GRANT SELECT ON marketing.v_waitlist_nurture_due   TO marketing_ops;
+GRANT SELECT ON marketing.v_trial_onboarding_due   TO marketing_ops;
+GRANT SELECT ON marketing.v_auric_crosssell_due    TO marketing_ops;
+
+-- Sequences: gen_random_uuid() defaults don't need these, but mirror the
+-- service_role pattern in case a serial/identity column gets added later.
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA marketing TO marketing_ops;
 
 -- Explicitly revoke everything from anon. Supabase's default grants include
 -- USAGE on `public` schema for anon — we do not grant USAGE on `marketing`.

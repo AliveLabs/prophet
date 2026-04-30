@@ -33,14 +33,14 @@ Pricing matrix (USD / month, USD / year), from `Ticket_Neat_Pricing_Brief_Apr202
 ## Usage
 
 ```bash
-# Staging
+# Staging / preview (replace with your preview URL)
 STRIPE_SECRET_KEY=sk_test_... \
-APP_URL=https://staging.getvatic.com \
+APP_URL=https://prophet-git-main-alive-labs.vercel.app \
 npx tsx scripts/stripe/setup.ts
 
 # Production
 STRIPE_SECRET_KEY=sk_live_... \
-APP_URL=https://getvatic.com \
+APP_URL=https://app.getticket.ai \
 npx tsx scripts/stripe/setup.ts
 ```
 

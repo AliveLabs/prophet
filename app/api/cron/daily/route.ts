@@ -104,10 +104,20 @@ export async function GET(req: Request) {
 
     pipelines.push("insights")
 
-    // Queue the refresh_all job via internal API
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000"
+    // Queue the refresh_all job via internal API.
+    // Operator-precedence note: the previous form
+    //   NEXT_PUBLIC_APP_URL ?? VERCEL_URL ? `https://${VERCEL_URL}` : localhost
+    // parsed as `(A ?? B) ? https://${VERCEL_URL} : localhost`, so when
+    // NEXT_PUBLIC_APP_URL was set in production we silently routed the
+    // internal refresh job at `https://${VERCEL_URL}` (the auto-generated
+    // deployment hostname) instead of the canonical app URL. Fixed here:
+    // prefer the explicit prod URL, fall back to the Vercel-assigned URL,
+    // fall back to localhost only in dev.
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ??
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000")
 
     try {
       const jobUrl = new URL(`/api/jobs/refresh_all`, baseUrl)

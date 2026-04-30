@@ -28,8 +28,16 @@ interface SendEmailParams {
   overrideClientEmailPause?: boolean
 }
 
-export const FROM_ADDRESS_TICKET = "Ticket <info@getvatic.com>"
-export const FROM_ADDRESS_NEAT = "Neat <info@goneat.ai>"
+// Ticket sends from `getticket.ai` once Resend has verified the domain (DKIM/SPF/DMARC).
+// Until verification is complete, set `RESEND_FROM_TICKET` env var to a Resend-verified
+// address (e.g. `Ticket <onboarding@resend.dev>`) and this constant is overridden.
+export const FROM_ADDRESS_TICKET =
+  process.env.RESEND_FROM_TICKET || "Ticket <hello@getticket.ai>"
+// Neat stays on `goneat.ai` until the Neat clone ships from `vatic-core` and we cut its
+// marketing/app domain over to `useneat.ai`. The `marketing.contacts.contacts_source_chk`
+// CHECK constraint still allows `'goneat.ai'` so this is safe.
+export const FROM_ADDRESS_NEAT =
+  process.env.RESEND_FROM_NEAT || "Neat <info@goneat.ai>"
 const DEFAULT_FROM = FROM_ADDRESS_TICKET
 
 export async function sendEmail({

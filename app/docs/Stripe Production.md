@@ -36,7 +36,7 @@ If you only have time to read one section, read **§3 Pre-launch checklist**.
 
 ```text
 ┌───────────────────┐       ┌──────────────────────┐       ┌──────────────────────┐
-│  thevatic.com     │       │  Stripe (LIVE)       │       │  Supabase (prod)     │
+│  app.getticket.ai │       │  Stripe (LIVE)       │       │  Supabase (prod)     │
 │  Next.js on       │       │  Account: Alive Labs │       │  Project: triodvds…  │
 │  Vercel           │       │                      │       │                      │
 │                   │       │  • 6 Products        │       │  • organizations     │
@@ -117,7 +117,7 @@ If every box below is ticked, you can accept real payments.
 - [ ] `STRIPE_WEBHOOK_SECRET=whsec_…` (the one printed by `setup.ts` on first run, OR pulled from Dashboard → Webhooks → endpoint → Signing secret).
 - [ ] All 12 `STRIPE_PRICE_ID_*` values set.
 - [ ] Both `STRIPE_PORTAL_CONFIG_*` values set.
-- [ ] `NEXT_PUBLIC_APP_URL` matches the public origin Stripe will redirect to (e.g. `https://www.thevatic.com`).
+- [ ] `NEXT_PUBLIC_APP_URL` matches the public origin Stripe will redirect to (e.g. `https://app.getticket.ai`).
 - [ ] `RESEND_API_KEY` set (for trial reminders + dunning emails).
 - [ ] `CRON_SECRET` set (gates the trial-reminder cron).
 - [ ] `CLIENT_EMAILS_ENABLED=true` in production.
@@ -127,7 +127,7 @@ If every box below is ticked, you can accept real payments.
 - [ ] Same env block as `.env.local` configured under **Settings → Environment Variables** for the **Production** environment.
 - [ ] Preview environment uses TEST keys (`sk_test_…`) so PRs don't hit live Stripe.
 - [ ] `vercel.json` cron schedule deployed (verify in **Settings → Cron Jobs**).
-- [ ] Domain `thevatic.com` (or `www.thevatic.com`) resolved and HTTPS active — Stripe webhooks **must** be HTTPS.
+- [ ] Domain `app.getticket.ai` resolved and HTTPS active — Stripe webhooks **must** be HTTPS.
 
 ### Supabase
 - [ ] Migration `20260424182306_stripe_production.sql` applied to the **production** project.
@@ -135,7 +135,7 @@ If every box below is ticked, you can accept real payments.
 - [ ] RLS policies allow `service_role` full access to `organizations`, `stripe_webhook_events`, `trial_reminder_sends`.
 
 ### Webhook
-- [ ] Endpoint URL is `https://www.thevatic.com/api/stripe/webhook` (or whatever your prod origin is).
+- [ ] Endpoint URL is `https://app.getticket.ai/api/stripe/webhook` (or whatever your prod origin is).
 - [ ] Endpoint shows status **enabled** in Stripe Dashboard.
 - [ ] All 10 events subscribed (see §9).
 - [ ] Signing secret matches `STRIPE_WEBHOOK_SECRET` in Vercel.
@@ -199,7 +199,7 @@ All variables live in `.env.local` (development) and Vercel → Settings → Env
 
 | Variable | Example | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_APP_URL` | `https://www.thevatic.com` | Used as `success_url`/`cancel_url` for Checkout and `return_url` for Portal. **Must match a real public origin** — Stripe will refuse `localhost` for live mode. |
+| `NEXT_PUBLIC_APP_URL` | `https://app.getticket.ai` | Used as `success_url`/`cancel_url` for Checkout and `return_url` for Portal. **Must match a real public origin** — Stripe will refuse `localhost` for live mode. |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | OAuth IDs from Google Cloud Console. | Sign-in. Authorized redirect URI must be `https://<SUPABASE_URL>/auth/v1/callback`. |
 
 ### Resend (transactional email)
@@ -231,7 +231,7 @@ Most of this is automated by `scripts/stripe/setup.ts`, but a few items must be 
 ### 5.1 Account activation (manual, one-time)
 
 1. Sign in to [dashboard.stripe.com](https://dashboard.stripe.com).
-2. **Settings → Account details:** business name (`Alive Labs LLC`), business URL (`https://www.thevatic.com`), support email, support phone.
+2. **Settings → Account details:** business name (`Alive Labs LLC`), business URL (`https://www.getticket.ai`), support email, support phone. Note: business URL points at the **marketing site** (Bryan-managed), not the app URL — Stripe surfaces this in customer-facing emails and receipts.
 3. **Settings → Verification:** complete all KYC documents. Stripe holds payouts until this is finished.
 4. **Settings → Payouts:** connect business bank account.
 5. **Settings → Public details:** statement descriptor — keep it short and recognizable, e.g. `THEVATIC` or `TICKET`. Customers see this on their card statement; an unfamiliar descriptor is the #1 driver of chargebacks.
@@ -240,7 +240,7 @@ Most of this is automated by `scripts/stripe/setup.ts`, but a few items must be 
 ### 5.2 Provisioning script (automated)
 
 ```bash
-# From repo root, with .env.local containing sk_live_… and APP_URL=https://www.thevatic.com:
+# From repo root, with .env.local containing sk_live_… and APP_URL=https://app.getticket.ai:
 npx tsx scripts/stripe/setup.ts
 ```
 
@@ -262,7 +262,7 @@ When in doubt: **enable Stripe Tax** and let it auto-calculate. The cost is 0.5%
 
 For each brand:
 - Headline: `Ticket — Manage your subscription` / `Neat — Manage your subscription`.
-- Privacy & ToS URLs: `https://getvatic.com/{brand}/privacy` and `/{brand}/terms`. **Update these to the real URLs** under your domain after launch (edit `setup.ts` and re-run).
+- Privacy & ToS URLs: now point at the marketing sites — `https://www.getticket.ai/privacy`/`/terms` for Ticket and `https://www.useneat.ai/privacy`/`/terms` for Neat (set in `scripts/stripe/setup.ts:upsertPortalConfig`). Re-run the setup script after changing this if portals are already provisioned.
 - Features enabled: customer update (email/name/phone/address/tax_id), invoice history, payment method update, subscription cancel (at_period_end with reason capture), subscription update (price changes only, with prorations).
 - Allowed price changes are **scoped to the same brand only** — Ticket customers cannot pick Neat tiers and vice versa.
 
@@ -360,8 +360,8 @@ grant select, insert         on public.trial_reminder_sends   to service_role;
 ### 6.3 Auth redirect URLs
 
 Supabase → Authentication → URL Configuration:
-- **Site URL:** `https://www.thevatic.com`
-- **Redirect URLs:** add `https://www.thevatic.com/auth/callback`, `https://www.thevatic.com/**`, `http://localhost:3000/**`.
+- **Site URL:** `https://app.getticket.ai`
+- **Redirect URLs:** add `https://app.getticket.ai/auth/callback`, `https://app.getticket.ai/**`, `http://localhost:3000/**`.
 
 (Without these, magic-link sign-in redirects to a 404.)
 
@@ -384,7 +384,7 @@ Vercel has three environments per project: **Production**, **Preview**, **Develo
 
 | Environment | Stripe key | Notes |
 | --- | --- | --- |
-| Production | `sk_live_…` | Real money. Webhook endpoint points at `www.thevatic.com`. |
+| Production | `sk_live_…` | Real money. Webhook endpoint points at `app.getticket.ai`. |
 | Preview | `sk_test_…` | PR previews shouldn't hit live Stripe. Use TEST price IDs and a separate TEST webhook. |
 | Development | not used (local `.env.local` instead) | |
 
@@ -395,14 +395,14 @@ In Vercel → Project → **Settings → Environment Variables**, paste every va
 - Stripe TEST keys → Preview only (optional).
 - `NEXT_PUBLIC_SUPABASE_URL` → all envs.
 - `SUPABASE_SERVICE_ROLE_KEY` → all envs (production + preview should use *the same* Supabase project for now; if you spin up a separate staging Supabase, give Preview its own keys).
-- `NEXT_PUBLIC_APP_URL` → set per env: `https://www.thevatic.com` (prod) and `https://<branch>.vercel.app` (preview, but in practice `Vercel preview URL` lookups are awkward — leave preview blank and Vercel will auto-set `VERCEL_URL`).
+- `NEXT_PUBLIC_APP_URL` → set per env: `https://app.getticket.ai` (prod) and `https://<branch>.vercel.app` (preview, but in practice `Vercel preview URL` lookups are awkward — leave preview blank and Vercel will auto-set `VERCEL_URL`).
 
 > **One-time gotcha:** changing env vars in Vercel only affects new deployments. If a value changes, redeploy.
 
 ### 7.3 Domain
 
 Project → **Settings → Domains:**
-1. Add `thevatic.com` and `www.thevatic.com` (set `www` as primary; redirect apex to www).
+1. Add `app.getticket.ai` to the `prophet` Vercel project. (`getticket.ai` apex + `www.getticket.ai` are on the separate `ticket-marketing` Vercel project, Bryan-managed.)
 2. Vercel issues an SSL cert automatically.
 3. In your DNS provider, point `www` (CNAME) and `@`/apex (A or ALIAS) to Vercel's targets shown in the panel.
 
@@ -425,7 +425,7 @@ After deploy, verify in **Settings → Cron Jobs** that both rows show up. To ma
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" \
-  https://www.thevatic.com/api/cron/trial-reminders
+  https://app.getticket.ai/api/cron/trial-reminders
 ```
 
 ### 7.5 Function configuration
@@ -437,10 +437,10 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 ## 8. Resend configuration
 
 1. Sign up at [resend.com](https://resend.com).
-2. **Domains → Add domain:** add `thevatic.com`. Resend prints DNS records (SPF, DKIM, MX, optional DMARC). Paste each into your DNS provider.
+2. **Domains → Add domain:** add `getticket.ai`. Resend prints DNS records (SPF, DKIM, MX, optional DMARC). Paste each into the `getticket.ai` DNS provider (Bryan controls).
 3. Wait until **Verified** (usually under 5 min).
 4. **API Keys → Create:** scope = "Full access". Save as `RESEND_API_KEY` in Vercel env.
-5. Verify the sender in `lib/email/send.ts` defaults to a `*@thevatic.com` address that lives under the verified domain.
+5. Verify the sender in `lib/email/send.ts` defaults to a `*@getticket.ai` address that lives under the verified domain. Pre-verification: set `RESEND_FROM_TICKET=Ticket <onboarding@resend.dev>` in env to use Resend's shared sandbox domain so emails still send.
 6. Send a test email locally:
    ```bash
    npx tsx -e 'require("dotenv").config({path:".env.local"}); require("./lib/email/send").sendEmail({to:"you@example.com",subject:"test",react:require("react").createElement("p",{},"hello")}).then(console.log)'
@@ -454,7 +454,7 @@ If Resend bounces the domain, double-check the DKIM record — quoted dots in TX
 
 ### 9.1 Endpoint setup
 
-Endpoint URL: `https://www.thevatic.com/api/stripe/webhook`.
+Endpoint URL: `https://app.getticket.ai/api/stripe/webhook`.
 
 10 events subscribed (configured by `setup.ts`):
 
@@ -534,7 +534,7 @@ Dedupe is *strict* — even across multiple cron runs in the same day, an org wo
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" \
-  https://www.thevatic.com/api/cron/trial-reminders | jq .
+  https://app.getticket.ai/api/cron/trial-reminders | jq .
 
 # Expected:
 # { "sent": 2, "skipped": 5, "errors": [] }
@@ -606,7 +606,7 @@ Order of operations matters. Do this once.
 2. **Confirm Stripe LIVE prerequisites** (§5.1). Activation can take Stripe up to 24 h to approve.
 3. **Run `setup.ts` against LIVE:**
    ```bash
-   STRIPE_SECRET_KEY=sk_live_… APP_URL=https://www.thevatic.com npx tsx scripts/stripe/setup.ts
+   STRIPE_SECRET_KEY=sk_live_… APP_URL=https://app.getticket.ai npx tsx scripts/stripe/setup.ts
    ```
 4. **Capture the printed env block.** This is your only chance to grab `STRIPE_WEBHOOK_SECRET` automatically.
 5. **Update Vercel Production env** with all values. Save.
@@ -679,7 +679,7 @@ Manually trigger:
 
 ```bash
 curl -H "Authorization: Bearer $CRON_SECRET" \
-  https://www.thevatic.com/api/cron/trial-reminders
+  https://app.getticket.ai/api/cron/trial-reminders
 ```
 
 ### 13.4 "Refund a charge"
