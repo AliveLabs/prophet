@@ -10,7 +10,7 @@ import {
 } from "@/lib/stripe/helpers"
 import { resolvePriceInfo } from "@/lib/stripe/pricing"
 import { type SubscriptionTier } from "@/lib/billing/tiers"
-import { sendEmail } from "@/lib/email/send"
+import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
 import { PaymentFailed } from "@/lib/email/templates/payment-failed"
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
 import {
@@ -278,10 +278,11 @@ async function handleInvoicePaymentFailed(
     ? org.industry_type
     : "restaurant"
   const brand: "Ticket" | "Neat" = industryType === "liquor_store" ? "Neat" : "Ticket"
+  // Use the shared FROM_ADDRESS_* constants from lib/email/send.ts so we have a
+  // single source of truth for sender addresses (and so a domain rebrand only
+  // touches one file). Previously these were duplicated string literals.
   const fromAddress =
-    industryType === "liquor_store"
-      ? "Neat <info@goneat.ai>"
-      : "Ticket <info@getvatic.com>"
+    industryType === "liquor_store" ? FROM_ADDRESS_NEAT : FROM_ADDRESS_TICKET
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   const amountDue = (invoice.amount_due ?? 0) / 100

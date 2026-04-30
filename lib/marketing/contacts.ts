@@ -24,10 +24,24 @@ export type MarketingStatus =
   | "paid"
   | "churned"
 
+// Must match marketing.contacts.contacts_source_chk in
+// supabase/migrations/20260424152231_marketing_stream1_schema.sql:65-67.
+// Adding a new value here requires a CHECK-constraint migration on Chris's
+// schema first or the INSERT will be rejected by Postgres.
+export type MarketingSource =
+  | "getticket.ai"
+  | "goneat.ai"
+  | "auricmobile.app"
+  | "outbound"
+  | "referral"
+  | "import"
+  | "manual"
+
 export interface UpsertMarketingContactInput {
   email: string
   industryType?: MarketingIndustryType
   status?: MarketingStatus
+  source?: MarketingSource
   stripeCustomerId?: string | null
   posthogDistinctId?: string | null
   firstName?: string | null
@@ -93,6 +107,7 @@ export async function upsertMarketingContact(
   const payload: Record<string, unknown> = {}
   if (input.industryType !== undefined) payload.industry_type = input.industryType
   if (input.status !== undefined) payload.status = input.status
+  if (input.source !== undefined) payload.source = input.source
   if (input.stripeCustomerId !== undefined)
     payload.stripe_customer_id = input.stripeCustomerId
   if (input.posthogDistinctId !== undefined)

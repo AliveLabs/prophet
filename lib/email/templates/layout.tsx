@@ -20,7 +20,7 @@ interface EmailLayoutProps {
 }
 
 const APP_URL =
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://www.thevatic.com"
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://app.getticket.ai"
 
 export function EmailLayout({
   children,

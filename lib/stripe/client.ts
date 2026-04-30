@@ -20,8 +20,8 @@ export function getStripeClient(): Stripe {
   cached = new Stripe(key, {
     typescript: true,
     appInfo: {
-      name: "vatic",
-      url: "https://getvatic.com",
+      name: "ticket",
+      url: "https://app.getticket.ai",
     },
   })
   return cached

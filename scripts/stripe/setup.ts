@@ -13,7 +13,7 @@
  *
  * Usage:
  *   STRIPE_SECRET_KEY=sk_test_... \
- *   APP_URL=https://staging.getvatic.com \
+ *   APP_URL=https://app.getticket.ai \
  *   npx tsx scripts/stripe/setup.ts
  *
  * After it finishes, paste the printed env-var block into `.env.local` (dev)
@@ -164,11 +164,17 @@ async function upsertPortalConfig(
     key,
   )
   const brandName = brand === "ticket" ? "Ticket" : "Neat"
+  // Brand portal pages live on the marketing site (Bryan-managed), not the
+  // product app. Restaurant -> getticket.ai. Liquor -> useneat.ai once Neat
+  // launches; until then the URL is informational only because Neat customers
+  // do not exist in production.
+  const marketingBase =
+    brand === "ticket" ? "https://www.getticket.ai" : "https://www.useneat.ai"
   const params: Stripe.BillingPortal.ConfigurationUpdateParams = {
     business_profile: {
       headline: `${brandName} — Manage your subscription`,
-      privacy_policy_url: `https://getvatic.com/${brand}/privacy`,
-      terms_of_service_url: `https://getvatic.com/${brand}/terms`,
+      privacy_policy_url: `${marketingBase}/privacy`,
+      terms_of_service_url: `${marketingBase}/terms`,
     },
     features: {
       customer_update: { enabled: true, allowed_updates: ["email", "name", "phone", "address", "tax_id"] },
@@ -260,7 +266,7 @@ async function main() {
   const stripeKey = process.env.STRIPE_SECRET_KEY
   const appUrl = process.env.APP_URL
   if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set")
-  if (!appUrl) throw new Error("APP_URL is not set (e.g. https://staging.getvatic.com)")
+  if (!appUrl) throw new Error("APP_URL is not set (e.g. https://app.getticket.ai)")
 
   const stripe = new Stripe(stripeKey, { typescript: true })
 

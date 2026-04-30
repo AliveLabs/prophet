@@ -3,6 +3,17 @@
 > **Author:** Anand Iyer
 > **Date:** April 17, 2026
 > **Status:** Locked — Ready for Cursor Execution
+>
+> **2026-04-29 amendment (cutover decision):** The placeholder URLs in this PRD
+> (`<ticket-production-url>`, `https://ticket.thevatic.ai`, etc.) all resolve
+> to **`https://app.getticket.ai`** for the Ticket / restaurant vertical.
+> Architecture: marketing on `https://www.getticket.ai` (separate
+> `ticket-marketing` Vercel project), app on `https://app.getticket.ai`
+> (existing `prophet` project, cut over from `https://www.thevatic.com`).
+> Neat will follow the same pattern when it clones from `vatic-core` —
+> marketing on `https://www.useneat.ai`, app on `https://app.useneat.ai`.
+> Workstream 5 has shipped: `/api/waitlist` accepts cross-origin POSTs from
+> `getticket.ai` with CORS + UTM + `marketing.contacts` mirror.
 > **Supersedes:** VERTICALIZATION_V2.md Phases 3, 4, 8, 10 (subdomain routing approach is dead)
 > **Preserves:** VERTICALIZATION_V2.md Phases 0, 1, 2, 5, 6, 7, 11 (schema, config, chrome, email, Stripe, content intel remain valid)
 > **Purpose:** Translate the April 16 meeting decisions into a sequenced, Cursor-ready implementation plan. This document is the single source of truth for the next 4 to 6 weeks of work.
