@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { sendEmail } from "@/lib/email/send"
+import {
+  sendEmail,
+  FROM_ADDRESS_TICKET,
+  FROM_ADDRESS_NEAT,
+} from "@/lib/email/send"
 import { WaitlistConfirmation } from "@/lib/email/templates/waitlist-confirmation"
 import { WaitlistAdminNotification } from "@/lib/email/templates/waitlist-admin-notification"
 import {
@@ -11,22 +15,59 @@ import {
 
 const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
-// CORS allow-list. The marketing site at getticket.ai (a separate Vercel
-// project, `ticket-marketing`) posts cross-origin to this endpoint. Anything
-// not in this list is treated as same-origin (in-app landing page) or denied.
-//
-// useneat.ai placeholder is left commented until Neat actually launches via the
-// vatic-core clone — the production rebrand for liquor lives on a separate
-// Vercel project so it would not POST here anyway, but keeping the marker
-// makes the intent visible in code review.
+// CORS allow-list. The marketing sites for each vertical post cross-origin
+// here:
+//   - getticket.ai  → Ticket  (separate Vercel project `ticket-marketing`)
+//   - useneat.ai    → Neat    (separate Vercel project, owned by Bryan)
+// Anything not in this list is treated as same-origin (in-app landing page)
+// or denied at preflight.
 const ALLOWED_ORIGINS = new Set<string>([
   "https://getticket.ai",
   "https://www.getticket.ai",
-  // Local dev for the marketing site running on a different port.
+  "https://useneat.ai",
+  "https://www.useneat.ai",
+  // Local dev for the marketing sites running on different ports.
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:3002",
 ])
+
+// Internal product brand. Drives email From-address, copy, admin-notification
+// subject, and the (source, industry_type) tuple written to marketing.contacts.
+type Brand = "ticket" | "neat"
+
+interface BrandConfig {
+  source: MarketingSource
+  industryType: MarketingIndustryType
+  fromAddress: string
+  productName: string
+  // Marketing-site host the brand owns (used in admin emails). The Vercel
+  // domain alias is on app.<host>; the marketing site is on www.<host>.
+  marketingHost: string
+}
+
+const BRAND_CONFIG: Record<Brand, BrandConfig> = {
+  ticket: {
+    source: "getticket.ai",
+    industryType: "restaurant",
+    fromAddress: FROM_ADDRESS_TICKET,
+    productName: "Ticket",
+    marketingHost: "getticket.ai",
+  },
+  neat: {
+    // marketing.contacts.contacts_source_chk currently allows 'goneat.ai' but
+    // not 'useneat.ai'. We attribute Neat signups under 'goneat.ai' until the
+    // CHECK constraint adds the new value (separate migration owned by Chris).
+    source: "goneat.ai",
+    industryType: "liquor_store",
+    // FROM_ADDRESS_NEAT is `Neat <info@goneat.ai>` because goneat.ai is the
+    // verified Resend domain. When useneat.ai is verified in Resend, set
+    // RESEND_FROM_NEAT=Neat <hello@useneat.ai> as a one-line Vercel env flip.
+    fromAddress: FROM_ADDRESS_NEAT,
+    productName: "Neat",
+    marketingHost: "useneat.ai",
+  },
+}
 
 function corsHeadersFor(origin: string | null): Record<string, string> {
   if (origin && ALLOWED_ORIGINS.has(origin)) {
@@ -102,18 +143,19 @@ function pickUtm(body: WaitlistRequestBody): UtmStash | null {
   return Object.keys(utm).length > 0 ? utm : null
 }
 
-function deriveSourceFromOrigin(origin: string | null): MarketingSource {
-  // `https://getticket.ai` and `www.getticket.ai` both attribute as
-  // `getticket.ai`. Same-origin POSTs from the in-app landing page (e.g. a dev
-  // running on localhost) get `manual` so they are never confused with real
-  // marketing-site signups in the funnel reports.
-  if (
-    origin === "https://getticket.ai" ||
-    origin === "https://www.getticket.ai"
-  ) {
-    return "getticket.ai"
+// Map a request Origin to its brand. Cross-origin POSTs from a marketing
+// site are authoritatively branded by their host (a Neat marketing form
+// cannot pretend to be a Ticket signup). Same-origin requests (in-app
+// landing page, admin tooling, localhost dev) return null and the caller
+// falls back to body-supplied or default values.
+function brandFromOrigin(origin: string | null): Brand | null {
+  if (origin === "https://getticket.ai" || origin === "https://www.getticket.ai") {
+    return "ticket"
   }
-  return "manual"
+  if (origin === "https://useneat.ai" || origin === "https://www.useneat.ai") {
+    return "neat"
+  }
+  return null
 }
 
 function isAllowedSource(value: string): value is MarketingSource {
@@ -164,42 +206,45 @@ export async function POST(request: Request) {
     const fullName =
       [trimmedFirst, trimmedLast].filter(Boolean).join(" ") || null
 
-    // Resolve attribution. Origin is authoritative for the brand mapping (a
-    // restaurant marketing site cannot pretend to be a liquor signup), and the
-    // body provides UTM details for downstream attribution.
-    const isCrossOriginGetticket =
-      origin === "https://getticket.ai" || origin === "https://www.getticket.ai"
+    // Resolve brand + attribution. Origin is authoritative for the brand
+    // mapping (a Neat marketing form cannot claim a Ticket signup); body
+    // fields provide UTM details and let admin tooling set values explicitly.
+    const originBrand = brandFromOrigin(origin)
 
+    let resolvedBrand: Brand
     let resolvedIndustry: MarketingIndustryType
-    if (isCrossOriginGetticket) {
-      // getticket.ai is restaurant-only; ignore any body-supplied value.
-      resolvedIndustry = "restaurant"
-    } else if (
-      typeof body.industry_type === "string" &&
-      isAllowedIndustryType(body.industry_type)
-    ) {
-      resolvedIndustry = body.industry_type
+    let resolvedSource: MarketingSource
+
+    if (originBrand) {
+      // Cross-origin POST from a known marketing site: brand-driven config wins.
+      // Body-supplied industry_type/source are ignored to prevent attribution
+      // spoofing across verticals.
+      const cfg = BRAND_CONFIG[originBrand]
+      resolvedBrand = originBrand
+      resolvedIndustry = cfg.industryType
+      resolvedSource = cfg.source
     } else {
-      // Same-origin landing pages and admin tooling default to restaurant
-      // because Ticket is the only customer-facing vertical in production.
-      resolvedIndustry = "restaurant"
+      // Same-origin (in-app landing page, admin tooling, localhost dev). Body
+      // values, if valid, win; otherwise default to Ticket because that's the
+      // only customer-facing vertical with a same-origin in-app signup form.
+      if (
+        typeof body.industry_type === "string" &&
+        isAllowedIndustryType(body.industry_type)
+      ) {
+        resolvedIndustry = body.industry_type
+      } else {
+        resolvedIndustry = "restaurant"
+      }
+      resolvedBrand = resolvedIndustry === "liquor_store" ? "neat" : "ticket"
+
+      if (typeof body.source === "string" && isAllowedSource(body.source)) {
+        resolvedSource = body.source
+      } else {
+        resolvedSource = "manual"
+      }
     }
 
-    let resolvedSource: MarketingSource
-    if (typeof body.source === "string" && isAllowedSource(body.source)) {
-      // Cross-origin from getticket.ai must not claim a non-getticket source.
-      if (
-        isCrossOriginGetticket &&
-        body.source !== "getticket.ai" &&
-        body.source !== "manual"
-      ) {
-        resolvedSource = "getticket.ai"
-      } else {
-        resolvedSource = body.source
-      }
-    } else {
-      resolvedSource = deriveSourceFromOrigin(origin)
-    }
+    const brandConfig = BRAND_CONFIG[resolvedBrand]
 
     // Encode UTMs as JSON in waitlist_signups.notes (existing column). No
     // schema migration needed; admin sees attribution via /admin/waitlist.
@@ -312,9 +357,11 @@ export async function POST(request: Request) {
 
     const confirmResult = await sendEmail({
       to: normalizedEmail,
-      subject: "You're on the Ticket waitlist",
+      subject: `You're on the ${brandConfig.productName} waitlist`,
+      from: brandConfig.fromAddress,
       react: WaitlistConfirmation({
         name: fullName ?? undefined,
+        brand: resolvedBrand,
       }),
       clientFacing: true,
       overrideClientEmailPause: false,
@@ -324,11 +371,14 @@ export async function POST(request: Request) {
       console.error("Waitlist confirmation email failed:", confirmResult.error)
     }
 
+    // Admin dashboard always lives on the Ticket app domain regardless of
+    // brand — there's one shared admin surface; the brand badge is rendered
+    // by the row, not the URL.
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://app.getticket.ai"
 
     const adminSubject = fullName
-      ? `New Ticket waitlist signup: ${fullName} (${normalizedEmail})`
-      : `New Ticket waitlist signup: ${normalizedEmail}`
+      ? `New ${brandConfig.productName} waitlist signup: ${fullName} (${normalizedEmail})`
+      : `New ${brandConfig.productName} waitlist signup: ${normalizedEmail}`
 
     sendEmail({
       to: ADMIN_NOTIFY_EMAIL,
@@ -337,6 +387,7 @@ export async function POST(request: Request) {
         signupEmail: normalizedEmail,
         signupName: fullName ?? undefined,
         adminDashboardUrl: `${appUrl}/admin/waitlist`,
+        brand: resolvedBrand,
       }),
       clientFacing: false,
     }).catch((err) => console.error("Admin notification email failed:", err))

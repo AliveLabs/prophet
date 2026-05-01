@@ -159,8 +159,12 @@ async function upsertPortalConfig(
   priceIds: string[],
 ): Promise<Stripe.BillingPortal.Configuration> {
   const key = portalConfigKey(brand)
+  // NOTE: do NOT pass `is_default: false` here. Stripe creates one default
+  // portal config per account, and if our brand-A config happens to be the
+  // default, filtering it out makes the lookup miss it and we'd create an
+  // orphan duplicate on every re-run. The metadata lookup is unique enough.
   const existing = await findByMetadata(
-    () => stripe.billingPortal.configurations.list({ limit: 100, is_default: false }),
+    () => stripe.billingPortal.configurations.list({ limit: 100 }),
     key,
   )
   const brandName = brand === "ticket" ? "Ticket" : "Neat"
