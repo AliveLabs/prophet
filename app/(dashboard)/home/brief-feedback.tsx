@@ -10,11 +10,13 @@ export default function BriefFeedback({
   dateKey,
   playKey,
   severity = 0,
+  readOnly = false,
 }: {
   locationId: string
   dateKey: string
   playKey: string
   severity?: number
+  readOnly?: boolean
 }) {
   const [picked, setPicked] = useState<Verdict | null>(null)
   const [, startTransition] = useTransition()
@@ -22,6 +24,7 @@ export default function BriefFeedback({
   function vote(verdict: Verdict) {
     if (picked) return
     setPicked(verdict)
+    if (readOnly) return
     startTransition(() => {
       void submitPlayFeedback({ locationId, dateKey, playKey, verdict, severity })
     })

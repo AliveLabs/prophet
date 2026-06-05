@@ -87,12 +87,14 @@ function PlayCard({
   isLead,
   locationId,
   dateKey,
+  readOnly,
 }: {
   play: EnrichedRecommendation
   rank: number
   isLead: boolean
   locationId: string
   dateKey: string
+  readOnly?: boolean
 }) {
   const refs = dedupeRefs(play.evidenceRefs)
   const domains = distinctDomains(play.evidenceRefs)
@@ -141,7 +143,7 @@ function PlayCard({
       ) : null}
 
       <div className="movecard__foot">
-        <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} />
+        <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} readOnly={readOnly} />
       </div>
     </article>
   )
@@ -153,12 +155,14 @@ export default function BriefView({
   locationName,
   competitors,
   brandTolerance,
+  readOnly = false,
 }: {
   brief: Brief
   locationId: string
   locationName: string
   competitors: string[]
   brandTolerance: number
+  readOnly?: boolean
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
   const leadConf = brief.plays.reduce<EnrichedRecommendation["confidence"]>(
@@ -201,6 +205,7 @@ export default function BriefView({
                 isLead={i === 0}
                 locationId={locationId}
                 dateKey={brief.dateKey}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -227,9 +232,24 @@ export default function BriefView({
             </div>
           </div>
 
+          {brief.coverage?.length ? (
+            <div className="rail-card">
+              <div className="rail-head"><span>What we checked</span></div>
+              <ul className="coverage">
+                {brief.coverage.map((c) => (
+                  <li key={c.label} className={`cov${c.present ? " cov--on" : " cov--off"}`}>
+                    <span className="cov-mark">{c.present ? "✓" : "—"}</span>
+                    <span className="cov-label">{c.label}</span>
+                    {c.detail ? <span className="cov-detail">{c.detail}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           <div className="rail-card">
             <div className="rail-head"><span>Tune your briefs</span></div>
-            <ToleranceSlider locationId={locationId} initial={brandTolerance} />
+            <ToleranceSlider locationId={locationId} initial={brandTolerance} readOnly={readOnly} />
           </div>
 
           <div className="rail-card ask-card">

@@ -188,6 +188,17 @@
 .ticket-brief .chip{ font-family:var(--font-cond); font-weight:500; text-transform:uppercase; letter-spacing:.05em; font-size:11px; color:var(--slate); border:1px solid var(--rule); border-radius:100px; padding:5px 12px; background:transparent; cursor:default; }
 .ticket-brief .ask-foot{ margin-top:12px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash); line-height:1.5; }
 
+/* coverage — "what we checked" */
+.ticket-brief .coverage{ list-style:none; margin:0; padding:0; }
+.ticket-brief .cov{ display:flex; align-items:baseline; gap:9px; padding:7px 0; border-bottom:1px solid var(--rule); }
+.ticket-brief .cov:last-child{ border-bottom:0; }
+.ticket-brief .cov-mark{ width:14px; flex:0 0 auto; font-family:var(--font-mono); font-size:12px; text-align:center; }
+.ticket-brief .cov--on .cov-mark{ color:var(--clear); }
+.ticket-brief .cov--off .cov-mark{ color:var(--ash-2); }
+.ticket-brief .cov-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ink); }
+.ticket-brief .cov--off .cov-label{ color:var(--ash); }
+.ticket-brief .cov-detail{ margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
+
 /* on-watch reach */
 .ticket-brief .reach{ display:flex; flex-wrap:wrap; gap:7px; }
 .ticket-brief .reach .r{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.04em; font-size:11.5px; color:var(--slate); border:1px solid var(--rule); border-radius:var(--radius); padding:6px 10px; }

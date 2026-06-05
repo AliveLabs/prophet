@@ -39,7 +39,8 @@ describe("golden-set scenarios (deterministic engine)", () => {
       const brief = await run(dossier)
       const index = buildRefIndex(dossier)
       expect(brief.plays.length).toBeGreaterThan(0)
-      expect(brief.plays.length).toBeLessThanOrEqual(3)
+      // weekly brief = the deep spine (cap 7); a daily glance trims further
+      expect(brief.plays.length).toBeLessThanOrEqual(7)
       for (const p of brief.plays) {
         expect(p.evidenceRefs.length).toBeGreaterThan(0)
         expect(p.evidenceRefs.every((r) => index.allowedRefs.has(r))).toBe(true)

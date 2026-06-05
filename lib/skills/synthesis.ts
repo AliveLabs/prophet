@@ -11,9 +11,32 @@
 import { generateStructured, type Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
-import type { Brief, EnrichedRecommendation, Confidence, RecKind } from "@/lib/skills/types"
+import type { Brief, BriefCoverage, EnrichedRecommendation, Confidence, RecKind } from "@/lib/skills/types"
 
 export type SynthOptions = { transport?: Transport; maxPlays?: number }
+
+// The weekly brief is the spine (deep), so it carries the strongest plays across the
+// distinct kinds of opportunity. A daily glance can pass a smaller maxPlays.
+const WEEKLY_MAX = 7
+
+/** What the engine checked for this location — fired vs missing — for the "what we checked" view. */
+function buildCoverage(d: Dossier): BriefCoverage[] {
+  const events = d.demandCalendar.events ?? []
+  const wx = d.demandCalendar.weather ?? []
+  const comps = d.competitors ?? []
+  const scraped = comps.filter((c) => c.listing || c.menu).length
+  const reviewThemes = d.location.reviews?.themes?.length ?? 0
+  const hasSocial = d.ruleOutputs.some((r) => r.insight_type.startsWith("social"))
+  return [
+    { label: "Events", present: events.length > 0, detail: events.length ? `${events.length} upcoming` : "none upcoming" },
+    { label: "Weather", present: wx.length > 0, detail: wx.length ? `${wx.length}-day forecast` : "no forecast" },
+    { label: "Reviews", present: reviewThemes > 0, detail: reviewThemes ? `${reviewThemes} themes` : "none" },
+    { label: "Foot traffic", present: !!d.location.busyTimes, detail: d.location.busyTimes ? "your patterns" : "missing" },
+    { label: "Your menu", present: !!d.location.menu, detail: d.location.menu ? "parsed" : "missing" },
+    { label: "Competitors", present: comps.length > 0, detail: `${scraped} of ${comps.length} scraped` },
+    { label: "Social", present: hasSocial, detail: hasSocial ? "tracked" : "not connected" },
+  ]
+}
 
 const CONF_RANK: Record<Confidence, number> = { high: 3, medium: 2, directional: 1 }
 // forward-demand kinds lead; standing competitive moves sit below.
@@ -35,19 +58,22 @@ function quietBrief(d: Dossier): Brief {
     deck: "No urgent moves and nothing on the calendar or forecast worth flagging. We will surface the moment something moves.",
     plays: [],
     asOf: d.generatedAt,
+    coverage: buildCoverage(d),
   }
 }
 
 export async function synthesize(d: Dossier, results: SkillResult[], opts: SynthOptions = {}): Promise<Brief> {
-  const max = opts.maxPlays ?? 3
+  const max = opts.maxPlays ?? WEEKLY_MAX
+  const coverage = buildCoverage(d)
   const candidates = results.flatMap((r) => r.plays)
   if (candidates.length === 0) return quietBrief(d)
 
   const system = [
-    "You are the Chief of Staff assembling a restaurant's brief from candidate plays produced by expert skills.",
-    "Be ruthlessly SUBTRACTIVE: pick the 1-3 that genuinely matter THIS week. A brief may be a single play.",
-    "Forward demand (events/weather this week) outranks standing competitive rivalry. Do NOT force variety.",
-    "Write a 3-8 word headline and a 140-250 character deck. Plain language, no em dashes, no chef jargon.",
+    "You are the Chief of Staff assembling a restaurant's WEEKLY brief from candidate plays produced by expert skills.",
+    `Select the strongest plays that genuinely matter this week, up to ${max}. This is the weekly deep brief, so cover the DISTINCT kinds of opportunity that are real for this place: forward demand (events/weather), reputation, positioning, marketing, and operations.`,
+    "Quality bar stays high: drop weak, generic, or near-duplicate plays, and never pad to hit the number. A calm week may have few; a busy one more.",
+    "Order them best-first. Forward demand (events/weather this week) leads; standing competitive and operational moves follow. Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
+    "Write a 3-8 word headline and a 140-250 character deck that frame the week as a whole. Plain language, no em dashes, no chef jargon.",
     "Do NOT edit the plays. Only select and order them, and state any number ONLY if it appears in the plays.",
     'Return JSON: { "headline": string, "deck": string, "order": number[] (indices into the candidates array, best first) }.',
   ].join("\n")
@@ -90,5 +116,6 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     deck: selection.deck,
     plays,
     asOf: d.generatedAt,
+    coverage,
   }
 }

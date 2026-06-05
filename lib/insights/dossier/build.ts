@@ -18,6 +18,7 @@ import type { DailyWeatherSummary } from "@/lib/providers/openweathermap"
 import type { Transport } from "@/lib/ai/provider"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
+import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
 
 type SB = ReturnType<typeof createAdminSupabaseClient>
@@ -63,7 +64,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // ── location ──
   const { data: loc } = await sb
     .from("locations")
-    .select("id, name, primary_place_id, organization_id, website, timezone")
+    .select("id, name, primary_place_id, organization_id, website, timezone, geo_lat, geo_lng")
     .eq("id", locationId)
     .maybeSingle()
   if (!loc) throw new Error(`Location not found: ${locationId}`)
@@ -101,21 +102,42 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
 
   // ── demand calendar (events + weather) ──
   const eventsRaw = await latestSnapshotRaw(sb, locationId, "dataforseo_google_events")
-  const events = ((eventsRaw?.events as NormalizedEvent[]) ?? []) as NormalizedEvent[]
+  const allEvents = ((eventsRaw?.events as NormalizedEvent[]) ?? []) as NormalizedEvent[]
+  // Guard: only UPCOMING events feed the forward-looking demand calendar. A stale
+  // snapshot must never surface as "prepare for" a date that has already passed.
+  const events = allEvents.filter((e) => {
+    const when = (e.endDatetime ?? e.startDatetime ?? "") as string
+    return !when || when.slice(0, 10) >= dateKey
+  })
+  // Weather = a LIVE forward forecast (fetched here like own reviews/traffic), so the
+  // demand calendar always looks AHEAD. The weather pipeline writes historical rows to
+  // a different table that the dossier never read, so the forecast never reached the
+  // brief; this is the fix. Falls back to any stored snapshot if the forecast fails.
   let weather: DailyWeatherSummary[] = []
-  try {
-    const { data: w } = await sb
-      .from("location_snapshots")
-      .select("raw_data")
-      .eq("location_id", locationId)
-      .in("provider", ["openweathermap", "openweathermap_day_summary", "weather_daily"])
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    const raw = w?.raw_data as Record<string, unknown> | undefined
-    weather = (raw?.days as DailyWeatherSummary[]) ?? (Array.isArray(raw) ? (raw as DailyWeatherSummary[]) : [])
-  } catch {
-    weather = []
+  const lat = (loc as Record<string, unknown>).geo_lat as number | null
+  const lng = (loc as Record<string, unknown>).geo_lng as number | null
+  if (lat != null && lng != null) {
+    try {
+      weather = await fetchForecast(lat, lng)
+    } catch {
+      /* fall back to a stored snapshot below */
+    }
+  }
+  if (weather.length === 0) {
+    try {
+      const { data: w } = await sb
+        .from("location_snapshots")
+        .select("raw_data")
+        .eq("location_id", locationId)
+        .in("provider", ["openweathermap", "openweathermap_day_summary", "weather_daily"])
+        .order("date_key", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const raw = w?.raw_data as Record<string, unknown> | undefined
+      weather = (raw?.days as DailyWeatherSummary[]) ?? (Array.isArray(raw) ? (raw as DailyWeatherSummary[]) : [])
+    } catch {
+      weather = []
+    }
   }
 
   // ── own location signals ──
@@ -189,6 +211,11 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     capability: {}, // operator-capability profile lands with onboarding; empty until then
   }
 
+  // Guard: with no UPCOMING events, every event-dependent rule-output (new-event
+  // signals AND cross-event SEO opportunities) is stale and must not seed "prepare
+  // for <past date>" plays. A coherent data refresh repopulates current events + insights.
+  const groundedRuleOutputs = events.length > 0 ? ruleOutputs : ruleOutputs.filter((r) => !r.insight_type.includes("event"))
+
   return {
     locationId: loc.id as string,
     dateKey,
@@ -198,6 +225,6 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     location,
     competitors,
     demandCalendar: { events, weather },
-    ruleOutputs,
+    ruleOutputs: groundedRuleOutputs,
   }
 }

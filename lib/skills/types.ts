@@ -60,16 +60,25 @@ export type EnrichedRecommendation = {
   knowledgeVersion: string
 }
 
-/** The synthesized daily brief that the home renders (persisted to daily_briefs + brief_plays). */
+/** One signal source the engine checked when building the brief (the "what we checked" view). */
+export type BriefCoverage = {
+  label: string
+  present: boolean
+  detail?: string
+}
+
+/** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */
 export type Brief = {
   locationId: string
   dateKey: string
   headline: string
   deck: string
-  /** Per the synthesis decision: a small, ranked set (cap 1-3 on the daily surface). */
+  /** The ranked set of plays. Weekly brief = the deep spine (up to ~7); a daily glance trims to 1-3. */
   plays: EnrichedRecommendation[]
   /** "as of" freshness stamp for the freshness/staleness model. */
   asOf: string
+  /** Which signal sources fired vs were missing when this brief was built (transparency). */
+  coverage?: BriefCoverage[]
   /** true when this brief was served from a model failure fallback (e.g. yesterday's good brief). */
   fallback?: boolean
 }

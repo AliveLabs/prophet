@@ -10,7 +10,7 @@ function band(v: number): { label: string; note: string } {
 }
 
 /** Brand-tolerance slider (0 tame .. 100 adventurous). Debounced save to the location. */
-export default function ToleranceSlider({ locationId, initial }: { locationId: string; initial: number }) {
+export default function ToleranceSlider({ locationId, initial, readOnly = false }: { locationId: string; initial: number; readOnly?: boolean }) {
   const [value, setValue] = useState(initial)
   const [, startTransition] = useTransition()
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -18,6 +18,7 @@ export default function ToleranceSlider({ locationId, initial }: { locationId: s
 
   function onChange(next: number) {
     setValue(next)
+    if (readOnly) return
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       startTransition(() => {
