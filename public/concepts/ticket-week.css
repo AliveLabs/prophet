@@ -1,0 +1,66 @@
+/* ============================================================
+   TICKET — Situational / adaptive components (round 3)
+   "What matters THIS week." Layers on ticket-system.css +
+   ticket-components.css. Adds the HEADS-UP register, the
+   adaptive YOUR WEEK demand lens, inferred-profile chips, and
+   the scenario toggle used to demo flexibility. Prototype CSS.
+   ============================================================ */
+
+/* ── Scenario toggle (demo scaffold only, not product chrome) ─ */
+.scenarios { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 4px; background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--rule); padding: 9px 40px; }
+.scenarios .demo-tag { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .12em; font-size: 10.5px; color: var(--ash); margin-right: 14px; }
+.scenario-tab { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; color: var(--ash); padding: 8px 15px; cursor: pointer; border: 0; background: transparent; border-bottom: 2px solid transparent; }
+.scenario-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--rust); }
+.scenario-tab:hover { color: var(--ink); }
+.scenario { display: none; }
+.scenario[data-active="true"] { display: block; }
+
+/* ── Inferred profile ("what Ticket knows about you") ───────── */
+.profile { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.profile .p-label { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--ash); }
+.p-chip { font-family: var(--font-cond); font-weight: 500; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; color: var(--print); border: 1px solid var(--rule); border-radius: 100px; padding: 4px 11px; display: inline-flex; align-items: center; gap: 6px; }
+.p-chip .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--slate); }
+.p-chip.on .dot { background: var(--clear); }
+
+/* ── YOUR WEEK — the adaptive demand-outlook lens ───────────── */
+.yourweek { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-chit); }
+.yourweek__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--rule); }
+.yourweek__title { font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 9px; }
+.yourweek__verdict { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; }
+.yourweek__body { padding: 17px 20px; }
+/* impact skins */
+.yourweek--big  { border-color: rgba(58,128,102,.45); }
+.yourweek--big  .yourweek__head { background: var(--clear-wash); }
+.yourweek--big  .yourweek__verdict { color: var(--clear); }
+.yourweek--slow { border-color: rgba(184,92,56,.45); }
+.yourweek--slow .yourweek__head { background: var(--thermal); }
+.yourweek--slow .yourweek__verdict { color: var(--rust); }
+.yourweek--watch .yourweek__verdict { color: var(--slate); }
+/* collapsed one-line mode (when the week is unremarkable) */
+.yourweek--quiet { display: flex; align-items: center; gap: 10px; padding: 13px 20px; box-shadow: none; }
+.yourweek--quiet .yw-tag { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; color: var(--ash); }
+.yourweek--quiet .yw-q { font-size: 14px; color: var(--print); }
+
+/* ── HEADS-UP item (forward-looking: event / weather / demand) ─ */
+.headsup { display: flex; gap: 15px; }
+.headsup + .headsup { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--rule); }
+.headsup__when { flex: 0 0 46px; height: 46px; border-radius: var(--radius); border: 1px solid var(--rule); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+.headsup__when .d-dow { font-family: var(--font-cond); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--ash); }
+.headsup__when .d-num { font-family: var(--font-cond); font-size: 19px; font-weight: 700; color: var(--ink); line-height: 1; }
+.headsup__main { flex: 1; min-width: 0; }
+.headsup__topline { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.headsup__tag { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 11px; padding: 3px 9px; border-radius: 3px; }
+.tag-big   { color: var(--clear); border: 1px solid var(--clear); background: var(--clear-wash); }
+.tag-slow  { color: var(--rust);  border: 1px solid var(--rust);  background: rgba(184,92,56,.07); }
+.tag-watch { color: var(--slate); border: 1px solid var(--rule-strong); }
+.headsup__what { font-family: var(--font-display); font-size: 22px; line-height: 1.15; color: var(--ink); }
+.headsup__why { margin-top: 6px; font-size: 14px; line-height: 1.5; color: var(--print); }
+.headsup__why .num { font-weight: 600; color: var(--ink); }
+.headsup__why .name { color: var(--slate); font-weight: 500; }
+.headsup__prep { margin-top: 10px; background: var(--bond); border-left: 2px solid var(--slate); padding: 9px 12px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 13.5px; color: var(--ink); }
+.headsup__prep .pre-label { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--slate); margin-right: 7px; }
+.headsup__prep.none { color: var(--ash); border-left-color: var(--rule-strong); }
+
+/* small relevance footnote under a heads-up (why it matters to YOU) */
+.relevance { font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--ash); margin-top: 9px; }
+.relevance .pin { color: var(--rust); }

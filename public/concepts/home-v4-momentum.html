@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket · Your Brief (Acted-on + Doorways)</title>
+<link rel="stylesheet" href="ticket-system.css">
+<link rel="stylesheet" href="ticket-components.css">
+<link rel="stylesheet" href="ticket-week.css">
+<link rel="stylesheet" href="ticket-momentum.css">
+<style>
+  /* ──────────────────────────────────────────────────────────
+     home-v4-momentum - concept-specific shell only.
+     PROVES TWO THINGS at once:
+       (1) ACTED-ON MOMENTUM - a mid-week home where done / saved /
+           snoozed / cleared items sit MIXED with fresh ones. The
+           home reflects history, not a daily reset.
+       (2) GO-DEEPER INGRESS - the drill-down doorways into the rest
+           of the app, made visible, with a demo toggle that outlines
+           every doorway at once.
+     The visual system (movecard, note, cleared, momentum, ingress,
+     deeper, entity, rail-*) all comes from the four linked
+     stylesheets. Nothing new is invented here.
+     ────────────────────────────────────────────────────────── */
+
+  .app {
+    display: grid;
+    grid-template-columns: 208px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Slim fixed sidebar (bond / right hairline) ─────────── */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 208px;
+    background: var(--bond);
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    padding: 26px 0 20px;
+    z-index: 5;
+  }
+  .sidebar__brand { padding: 0 22px 22px; }
+  .sidebar__brand .wordmark { gap: 11px; }
+
+  .nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 0; }
+  .nav a {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 13px;
+    color: var(--ash);
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    transition: color .15s ease;
+  }
+  .nav a:hover { color: var(--ink); text-decoration: none; }
+  .nav a .tick {
+    width: 3px; height: 14px; align-self: center;
+    background: var(--ledger); border-radius: 2px;
+    margin-left: -22px; margin-right: 9px;
+    flex: 0 0 auto;
+  }
+  .nav a.is-active { color: var(--ink); }
+  .nav a.is-active .tick { background: var(--rust); }
+
+  .sidebar__spacer { flex: 1 1 auto; }
+
+  .sidebar__foot {
+    padding: 16px 22px 0;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .monogram {
+    width: 34px; height: 34px; flex: 0 0 auto;
+    border: 1.5px solid var(--ink); border-radius: 4px;
+    display: grid; place-items: center;
+    font-family: var(--font-cond); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.06em; color: var(--ink);
+    background: var(--card);
+  }
+  .sidebar__who { line-height: 1.25; }
+  .sidebar__who b { font-family: var(--font-sans); font-weight: 600; font-size: 13px; color: var(--ink); display: block; }
+  .sidebar__who span { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; color: var(--ash); }
+
+  /* ── Main ───────────────────────────────────────────────── */
+  .main {
+    grid-column: 2;
+    padding: 30px 0 0;
+  }
+
+  /* The brief header (kicker + dateline) */
+  .brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+  .brief-head .kicker { font-size: 12.5px; }
+  .brief-head .dateline-mono {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ash);
+  }
+
+  /* ── Zones + the split (Do / Know) ──────────────────────── */
+  .zone { margin-top: 30px; }
+  .zone--know { margin-top: 0; }
+
+  .zone-split { margin: 36px 0 30px; position: relative; }
+  .zone-split hr { margin: 0; }
+  .zone-split .tab {
+    position: absolute; left: 0; top: -9px;
+    background: var(--paper); padding-right: 14px;
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ash-2);
+  }
+
+  .zone-head { border-bottom: 1.5px solid var(--ink); padding-bottom: 10px; margin-bottom: 18px; }
+  .zone--know .zone-head { border-bottom-color: var(--rule-strong); }
+
+  .movecard--lead { box-shadow: var(--shadow-lift); }
+  .movecard__rank-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+
+  /* the momentum strip sits right under the answer-meta */
+  .momentum { margin-top: 18px; }
+
+  /* the saved / in-progress move: a quieter, knocked-back card */
+  .movecard__started {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .03em;
+    text-transform: uppercase; color: var(--ash); margin-top: 11px;
+    display: flex; align-items: center; gap: 14px;
+  }
+
+  /* "cleared this week" gets a touch of air above it */
+  .cleared { margin-top: 16px; }
+
+  /* ── YOUR WEEK collapsed placement ──────────────────────── */
+  .yourweek--quiet { margin-top: 22px; }
+
+  /* the search note carries a trailing doorway on its own line */
+  .note__deeper { margin-top: 8px; }
+
+  /* ── Right rail ─────────────────────────────────────────── */
+  .rail-col { position: sticky; top: 30px; }
+  .reach a:hover { border-color: var(--slate); text-decoration: none; }
+  .reach .reach-div { flex: 0 0 100%; height: 0; border-top: 1px dotted var(--rule); margin: 4px 0; }
+  .profile-note { font-size: 11.5px; line-height: 1.45; color: var(--ash); margin-top: 12px; }
+
+  /* layout: reuse .home + .home-grid from components for wide-main + 348 rail */
+  .home { padding-top: 0; }
+
+  @media (max-width: 1180px) { .main { padding: 26px 0 0; } }
+</style>
+</head>
+<body>
+
+<!-- ════════ DEMO BAR (sticky scaffold, above the app) ════════ -->
+<div class="scenarios" aria-label="Prototype controls">
+  <span class="demo-tag">Prototype · Acted-on + where you go deeper</span>
+  <button class="door-toggle" type="button" aria-pressed="false" aria-label="Highlight every doorway into the rest of the app">
+    <span class="sw"></span>
+    Show doorways
+  </button>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar ────────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="wordmark">
+        <svg width="18" height="29" viewBox="0 0 72 114" aria-hidden="true">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/>
+          <rect x="18" y="14" width="36" height="100" fill="#1C1917"/>
+          <circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/>
+          <circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.6" stroke-dasharray="2.5,2"/>
+        </svg>
+        TICKET
+      </span>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="is-active"><span class="tick"></span>Today</a>
+      <a href="#"><span class="tick"></span>Competitors</a>
+      <a href="#"><span class="tick"></span>Ask</a>
+      <a href="#"><span class="tick"></span>Settings</a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <div class="sidebar__foot">
+      <span class="monogram">AI</span>
+      <span class="sidebar__who">
+        <b>Anand</b>
+        <span>Wagyu House Atlanta</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ── Main ─────────────────────────────────────────────── -->
+  <main class="main">
+    <div class="home">
+      <div class="home-grid">
+
+        <!-- ════════ WIDE MAIN COLUMN ════════ -->
+        <section>
+
+          <!-- 1 · BRIEF HEADER -->
+          <header class="brief-head">
+            <span class="kicker">Your Brief</span>
+            <span class="dateline-mono">Thursday, June 5 · Swept 6:02a</span>
+          </header>
+          <hr class="rule rule-ink" style="margin:12px 0 26px;">
+
+          <!-- 2 · THE ANSWER (mid-week, reflects progress) -->
+          <p class="answer">
+            Two days into the week. You're on Instagram now and your weekend
+            pricing test is set. One competitive move is still worth doing,
+            plus a couple worth a look. Your rivals,
+            <span class="entity">Chirori</span> and <span class="entity">Bachi Box</span>
+            included, have been quiet since Tuesday.
+          </p>
+          <!-- 3 · ANSWER META -->
+          <p class="answer-meta">Synthesized from 12 signals across 5 competitors. Confidence: High.</p>
+
+          <!-- 4 · MOMENTUM STRIP (your week's action history) -->
+          <div class="momentum">
+            <span class="m-item"><span class="m-dot m-dot--done"></span><b>2</b> actioned</span>
+            <span class="m-item"><span class="m-dot m-dot--saved"></span><b>1</b> saved</span>
+            <span class="m-item"><span class="m-dot m-dot--snoozed"></span><b>1</b> snoozed</span>
+            <span class="m-spacer"></span>
+            <span class="m-item">8 cleared as read</span>
+          </div>
+
+          <!-- 5 · BEARINGS -->
+          <div class="bearings">
+            <div class="bearing">
+              <span class="b-label">Standing</span>
+              <span class="b-val good">Gaining a step</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Top threat</span>
+              <span class="b-val"><span class="entity">Chirori</span></span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">To act on</span>
+              <span class="b-val">1 of 12 left</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Last swept</span>
+              <span class="b-val">6:02a</span>
+            </div>
+          </div>
+
+          <!-- 6 · YOUR WEEK - COLLAPSED (nothing about the week to flag) -->
+          <div class="yourweek yourweek--quiet">
+            <span class="yw-tag">Your week</span>
+            <span class="yw-q">Clear and steady. Nothing on the calendar or forecast to flag.</span>
+          </div>
+
+          <!-- 7 · WHAT TO DO -->
+          <div class="zone zone--do">
+            <div class="zone-head">
+              <span class="zh">What to do <span class="count">1 left</span></span>
+              <span class="zone-sub">Tied to what changed, ranked by what matters.</span>
+            </div>
+
+            <!-- FRESH pending MOVE 03 - full, expanded, the one left to do -->
+            <article class="movecard movecard--lead">
+              <div class="movecard__rank-row"><span class="movecard__rank">MOVE 03</span></div>
+              <h2 class="movecard__do">Answer Chirori's promo run.</h2>
+              <p class="movecard__why">
+                <span class="entity">Chirori</span>'s Instagram engagement is
+                <span class="num">8.7x</span> yours and they pushed
+                <span class="num">5 promos</span> this week.
+              </p>
+              <div class="movecard__meta">
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                <span class="src">Social engagement · 7 day</span>
+                <button class="deeper" type="button">See Chirori's posts</button>
+              </div>
+              <div class="movecard__how">
+                <div class="how-label">How to do it</div>
+                <ol class="how-steps">
+                  <li>Look at their three top posts.</li>
+                  <li>They're leaning on limited-time plates.</li>
+                  <li>Run one simple counter: a weeknight value or a loyalty perk.</li>
+                </ol>
+              </div>
+              <div class="movecard__actions">
+                <button class="act act--primary">Done</button>
+                <button class="act">Snooze</button>
+                <button class="act">Save</button>
+              </div>
+            </article>
+
+            <!-- SAVED / IN-PROGRESS MOVE 01 - knocked back, lighter, no How steps -->
+            <article class="movecard movecard--saved">
+              <div class="movecard__rank-row">
+                <span class="movecard__rank">MOVE 01</span>
+                <span class="movecard__status saved"><span class="m-dot m-dot--saved"></span>Saved · In progress</span>
+              </div>
+              <h2 class="movecard__do">Get on Instagram this week.</h2>
+              <p class="movecard__why">
+                You claimed the handle Tuesday. Two posts up, three to go this week.
+              </p>
+              <div class="movecard__started">
+                <span>Started Tue</span>
+                <button class="undo" type="button">Move back to active</button>
+              </div>
+            </article>
+
+            <!-- INGRESS · doorway to the full Signals feed -->
+            <div class="ingress" role="button" tabindex="0">
+              <span class="ing-label">See all 12 signals</span>
+              <span class="ing-sub">the full feed, ranked by what matters</span>
+              <span class="ing-arrow">→</span>
+            </div>
+          </div>
+
+          <!-- 8 · CLEARED THIS WEEK (momentum without clutter) -->
+          <details class="cleared">
+            <summary class="cleared__head">
+              <span><span class="cleared__chev">›</span> Cleared this week</span>
+              <b>3</b>
+            </summary>
+            <div class="cleared__list">
+              <div class="cleared__item">
+                <span class="ci-check">✓</span>
+                <span>Added a sub-$15 lunch combo (your pricing test vs <span class="entity">Bachi Box</span>)</span>
+                <span class="ci-when">Done Wed</span>
+              </div>
+              <div class="cleared__item">
+                <span class="ci-check">✓</span>
+                <span>Marked <span class="entity">O-Ku</span>'s TikTok promos as read</span>
+                <span class="ci-when">Tue</span>
+              </div>
+              <div class="cleared__item">
+                <span class="ci-check">✓</span>
+                <span>Snoozed: revisit <span class="entity">Gyu-kaku</span>'s menu changes</span>
+                <span class="ci-when">Snoozed to Mon</span>
+              </div>
+            </div>
+          </details>
+
+          <!-- THE SPLIT -->
+          <div class="zone-split">
+            <span class="tab">End of actions</span>
+            <hr class="rule-double">
+          </div>
+
+          <!-- 9 · WHAT TO KNOW -->
+          <div class="zone zone--know">
+            <div class="zone-head">
+              <span class="zh">What to know <span class="count">1</span></span>
+              <span class="zone-sub">Worth seeing. No action needed.</span>
+            </div>
+            <div class="notes">
+              <div class="note">
+                <span class="note-tag">Search</span>
+                <div>
+                  <p class="note-body">
+                    Your organic search is <span class="up">up 43%</span> over three months
+                    (67,800 to 97,100).
+                  </p>
+                  <div class="note__deeper">
+                    <button class="deeper" type="button">See your search trend</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════════ RIGHT RAIL (348px) ════════ -->
+        <aside class="rail-col">
+
+          <!-- 1 · ASK card -->
+          <div class="rail-card">
+            <div class="rail-head"><span>Ask Ticket</span></div>
+            <p class="standing-q">Who's undercutting me?</p>
+            <p class="standing-a">
+              <span class="entity">Bachi Box</span>, still. <span class="num">39% under</span>
+              your dine-in check (<span class="num">$12.11</span> to <span class="num">$19.99</span>).
+            </p>
+            <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning · updated 6:02a</p>
+
+            <div class="ask-field">
+              <input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket">
+            </div>
+            <div class="chips">
+              <button class="chip">Where am I losing ground?</button>
+              <button class="chip">What changed this week?</button>
+              <button class="chip">Before the weekend?</button>
+            </div>
+          </div>
+
+          <!-- 2 · WHY YOU SEE THIS (the inferred profile) -->
+          <div class="rail-card">
+            <div class="rail-head"><span>Why you see this</span></div>
+            <div class="profile">
+              <span class="p-label">Ticket knows</span>
+              <span class="p-chip on"><span class="dot"></span>Patio · outdoor-forward</span>
+              <span class="p-chip on"><span class="dot"></span>0.5 mi from State Farm Arena</span>
+              <span class="p-chip on"><span class="dot"></span>Steakhouse · Buckhead</span>
+            </div>
+            <p class="profile-note">
+              We surface weather and events only when they matter to a place like yours.
+            </p>
+          </div>
+
+          <!-- 3 · ON WATCH (these reach links ARE doorways) -->
+          <div class="rail-card">
+            <div class="rail-head"><span>On watch</span></div>
+            <div class="reach">
+              <a href="#">Ginya Izakaya</a>
+              <a href="#">O-Ku</a>
+              <a href="#">Bachi Box</a>
+              <a href="#">Gyu-kaku</a>
+              <a href="#">Chirori</a>
+              <span class="reach-div"></span>
+              <a href="#">Wagyu House Atlanta</a>
+            </div>
+          </div>
+
+        </aside>
+
+      </div><!-- /home-grid -->
+    </div><!-- /home -->
+  </main>
+</div>
+
+<script>
+  // Show doorways: outline every drill-down ingress (entity / deeper /
+  // ingress / reach / chip / ask) by toggling .show-doors on <body>.
+  (function () {
+    var toggle = document.querySelector('.door-toggle');
+    if (!toggle) return;
+    toggle.addEventListener('click', function () {
+      var on = toggle.getAttribute('aria-pressed') === 'true';
+      toggle.setAttribute('aria-pressed', String(!on));
+      document.body.classList.toggle('show-doors', !on);
+    });
+  })();
+</script>
+</body>
+</html>

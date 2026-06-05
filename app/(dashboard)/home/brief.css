@@ -1,0 +1,205 @@
+/* ============================================================
+   TICKET — Your Brief (editorial home, real engine output)
+   Ported from the reviewed v5 prototype (public/concepts/*) into
+   the app, SCOPED under `.ticket-brief` so the editorial Newsprint
+   surface never leaks into the rest of the (dark) dashboard shell.
+   Round-1 wire of the real Brief; tuned via Vercel preview comments.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+/* ── The scoped surface (tokens + Newsprint paint) ─────────── */
+.ticket-brief {
+  --paper:#F5F3EF; --paper-2:#EFEBE4; --bond:#F0EDE9; --thermal:#FBF0E6;
+  --ledger:#EBE8E3; --card:#FFFFFF;
+  --ink:#1C1917; --press:#24211E; --print:#4D4843; --ash:#6E6862; --ash-2:#857f78;
+  --slate:#3D4F5F; --slate-deep:#2E3D4A; --rust:#B85C38; --rust-deep:#8A3D20;
+  --signal:#D08548; --wire-gold:#C9942A; --gold-deep:#8A6B18;
+  --clear:#3A8066; --clear-wash:#E8F5EE; --alert:#C44040; --alert-wash:#F7E9E6;
+  --radius:4px; --radius-card:6px;
+  --rule:rgba(28,25,23,0.14); --rule-strong:rgba(28,25,23,0.55);
+  --shadow-chit:0 1px 0 rgba(28,25,23,0.04), 0 6px 18px -10px rgba(28,25,23,0.30);
+  --shadow-lift:0 18px 50px -22px rgba(28,25,23,0.45);
+  --font-display:'Instrument Serif',Georgia,serif;
+  --font-cond:'Barlow Condensed','Arial Narrow',sans-serif;
+  --font-sans:'Inter',system-ui,sans-serif;
+  --font-mono:'Space Mono',ui-monospace,monospace;
+
+  background-color: var(--paper);
+  background-image:
+    radial-gradient(120% 80% at 100% -10%, rgba(184,92,56,0.05), transparent 55%),
+    radial-gradient(90% 70% at -10% 110%, rgba(201,148,42,0.045), transparent 60%);
+  color: var(--ink);
+  font-family: var(--font-sans); font-size:15px; line-height:1.55; letter-spacing:0.005em;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+  border:1px solid var(--rule); border-radius:10px;
+  padding:30px 0 8px; overflow:hidden;
+}
+.ticket-brief ::selection { background: rgba(184,92,56,0.20); }
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.ticket-brief .home-grid {
+  display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:48px;
+  align-items:start; max-width:1240px; margin:0 auto; padding:0 44px 90px;
+}
+@media (max-width:1160px){ .ticket-brief .home-grid{ grid-template-columns:1fr; gap:34px; } }
+@media (max-width:720px){ .ticket-brief .home-grid{ padding:0 22px 70px; } }
+
+/* ── Brief header (kicker + dateline) ───────────────────────── */
+.ticket-brief .brief-head{ display:flex; align-items:baseline; justify-content:space-between; gap:24px; }
+.ticket-brief .kicker{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; font-size:12.5px; letter-spacing:.22em; color:var(--rust); }
+.ticket-brief .dateline-mono{ font-family:var(--font-mono); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ash); }
+.ticket-brief .rule-ink{ border:0; border-top:2px solid var(--ink); margin:12px 0 0; }
+.ticket-brief .rule-double{ border:0; border-top:3px double var(--rule-strong); margin:0; }
+
+/* ── The lead: big headline + deck + synth line ─────────────── */
+.ticket-brief .brief-lead{ margin:26px 0 0; }
+.ticket-brief .brief-hed{ font-family:var(--font-display); font-weight:400; line-height:1.02; letter-spacing:-.012em; font-size:54px; color:var(--ink); margin:0; max-width:18ch; }
+.ticket-brief .brief-hed em{ font-style:italic; color:var(--rust-deep); }
+.ticket-brief .brief-deck{ font-family:var(--font-sans); font-size:18px; line-height:1.5; color:var(--print); margin:20px 0 0; max-width:60ch; }
+.ticket-brief .brief-deck b{ color:var(--ink); font-weight:600; }
+.ticket-brief .brief-synth{ font-family:var(--font-mono); font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); margin:18px 0 0; }
+.ticket-brief .brief-synth b{ color:var(--print); font-weight:700; }
+
+/* ── Zones (What to do / What to know) ──────────────────────── */
+.ticket-brief .zone{ margin-top:34px; }
+.ticket-brief .zone-head{ display:flex; align-items:baseline; justify-content:space-between; margin:4px 0 16px; gap:16px; }
+.ticket-brief .zone-head .zh{ font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.03em; font-size:21px; color:var(--ink); }
+.ticket-brief .zone-head .zh .count{ color:var(--ash); font-weight:500; }
+.ticket-brief .zone-sub{ font-size:13px; color:var(--ash); }
+.ticket-brief .zone-split{ margin:42px 0 30px; position:relative; }
+.ticket-brief .zone-split .tab{ position:absolute; left:0; top:-9px; background:var(--paper); padding-right:14px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ash-2); }
+
+/* ── Move card (action leads, why is proof) ─────────────────── */
+.ticket-brief .movecard{ background:var(--card); border:1px solid var(--rule); border-left:3px solid var(--rust); border-radius:0 var(--radius-card) var(--radius-card) 0; padding:18px 22px; box-shadow:var(--shadow-chit); }
+.ticket-brief .movecard + .movecard{ margin-top:14px; }
+.ticket-brief .movecard--lead{ box-shadow:var(--shadow-lift); }
+.ticket-brief .movecard--prep{ border-left-color:var(--slate); }
+.ticket-brief .movecard__rank-row{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.ticket-brief .movecard__rank{ font-family:var(--font-mono); font-size:11px; color:var(--ash); text-transform:uppercase; letter-spacing:.04em; }
+.ticket-brief .kind-tag{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; padding:2px 8px; border-radius:3px; border:1px solid currentColor; }
+.ticket-brief .kind-tag--prepare{ color:var(--slate); background:var(--bond); }
+.ticket-brief .kind-tag--capitalize{ color:var(--rust); background:var(--thermal); }
+.ticket-brief .kind-tag--positioning,
+.ticket-brief .kind-tag--reputation,
+.ticket-brief .kind-tag--ops{ color:var(--gold-deep); background:rgba(201,148,42,.10); }
+.ticket-brief .movecard__do{ font-family:var(--font-display); font-size:25px; line-height:1.12; color:var(--ink); margin:6px 0 0; }
+.ticket-brief .movecard__why{ margin-top:8px; font-size:14.5px; line-height:1.5; color:var(--print); }
+.ticket-brief .movecard__why .num{ font-weight:600; color:var(--ink); }
+.ticket-brief .movecard__why .name{ color:var(--slate); font-weight:500; }
+.ticket-brief .movecard__meta{ margin-top:11px; display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.ticket-brief .src{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ash); }
+.ticket-brief .relevance{ margin-top:9px; font-size:13px; line-height:1.45; color:var(--ash); }
+.ticket-brief .relevance .pin{ color:var(--rust); font-weight:700; margin-right:5px; }
+
+/* confidence chip */
+.ticket-brief .conf{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:11px; display:inline-flex; align-items:center; gap:6px; color:var(--ash); }
+.ticket-brief .conf .pip{ display:inline-flex; gap:2px; }
+.ticket-brief .conf .pip i{ width:5px; height:11px; background:var(--ledger); display:inline-block; border-radius:1px; }
+.ticket-brief .conf--high .pip i{ background:var(--ink); }
+.ticket-brief .conf--medium .pip i:nth-child(-n+2){ background:var(--ink); }
+.ticket-brief .conf--directional .pip i:nth-child(1){ background:var(--ink); }
+
+/* impact (leverage) chip — qualitative, never a dollar promise */
+.ticket-brief .lev{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:11px; color:var(--rust); display:inline-flex; align-items:center; gap:6px; }
+.ticket-brief .lev .reach{ color:var(--ash); font-weight:500; }
+
+/* ── The drill (progressive disclosure) ─────────────────────── */
+.ticket-brief .drill{ margin-top:15px; border-top:1px dashed var(--rule); }
+.ticket-brief .drill > summary{ list-style:none; cursor:pointer; padding:12px 10px 0; margin:0 -10px; border-radius:4px; display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12.5px; color:var(--slate); transition:color .15s ease, background .15s ease; }
+.ticket-brief .drill > summary::-webkit-details-marker{ display:none; }
+.ticket-brief .drill > summary:hover{ color:var(--ink); background:var(--bond); }
+.ticket-brief .drill > summary .car{ color:var(--rust); font-weight:700; transition:transform .2s ease; display:inline-block; }
+.ticket-brief .drill[open] > summary .car{ transform:rotate(90deg); }
+.ticket-brief .drill > summary .hint{ font-family:var(--font-mono); font-weight:400; text-transform:none; letter-spacing:0; font-size:11px; color:var(--ash-2); }
+.ticket-brief .drill__body{ padding:14px 0 4px; }
+
+.ticket-brief .insight-line{ border-left:2px solid var(--rust); padding:2px 0 2px 15px; margin:0 0 16px; }
+.ticket-brief .insight-line .il-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:10.5px; color:var(--rust); display:block; margin-bottom:4px; }
+.ticket-brief .insight-line p{ margin:0; font-size:14.5px; line-height:1.5; color:var(--ink); }
+
+/* recipe steps (the play) */
+.ticket-brief .recipe-step{ padding:13px 0; border-bottom:1px solid var(--rule); }
+.ticket-brief .recipe-step:last-child{ border-bottom:0; }
+.ticket-brief .rs-basis{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 18px; }
+.ticket-brief .rs-basis dt{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--ash); padding-top:2px; }
+.ticket-brief .rs-basis dd{ margin:0; font-size:13.5px; line-height:1.45; color:var(--ink); }
+.ticket-brief .rs-deps{ margin:10px 0 0; padding:0; list-style:none; }
+.ticket-brief .rs-deps li{ display:grid; grid-template-columns:18px 1fr; gap:10px; align-items:start; padding:7px 0; font-size:13.5px; color:var(--print); }
+.ticket-brief .rs-deps li .box{ width:16px; height:16px; border:1.5px solid var(--rule-strong); border-radius:4px; border-style:dashed; margin-top:2px; }
+.ticket-brief .rs-copy{ background:var(--thermal); border:1px dashed rgba(184,92,56,.35); border-radius:var(--radius); padding:11px 13px; margin-top:10px; font-size:13.5px; line-height:1.45; color:var(--ink); }
+.ticket-brief .rs-copy .copy-label{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--rust); margin-bottom:4px; }
+.ticket-brief .rs-creative{ margin-top:10px; font-size:13px; line-height:1.45; color:var(--print); }
+.ticket-brief .rs-creative .cd-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--slate); margin-right:7px; }
+
+/* prepare / capitalize split inside a step */
+.ticket-brief .play{ padding:9px 12px; border-radius:0 var(--radius) var(--radius) 0; font-size:13.5px; line-height:1.46; color:var(--ink); margin-top:8px; }
+.ticket-brief .play .play-label{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; margin-right:8px; }
+.ticket-brief .play--prep{ background:var(--bond); border-left:2px solid var(--slate); }
+.ticket-brief .play--prep .play-label{ color:var(--slate); }
+.ticket-brief .play--promo{ background:var(--thermal); border-left:2px solid var(--rust); }
+.ticket-brief .play--promo .play-label{ color:var(--rust); }
+
+/* evidence basis chips */
+.ticket-brief .evidence{ display:flex; flex-wrap:wrap; gap:7px; }
+.ticket-brief .evidence .ev{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.04em; font-size:11px; color:var(--slate); border:1px solid var(--rule); border-radius:var(--radius); padding:5px 10px; background:var(--bond); }
+
+/* ── Card footer: actions + feedback ────────────────────────── */
+.ticket-brief .movecard__foot{ margin-top:15px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-top:13px; border-top:1px dashed var(--rule); }
+.ticket-brief .movecard__actions{ display:flex; gap:8px; }
+.ticket-brief .act{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; padding:7px 13px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--print); cursor:pointer; transition:all .15s ease; }
+.ticket-brief .act:hover{ border-color:var(--ink); color:var(--ink); }
+
+/* feedback thumbs */
+.ticket-brief .fb{ display:inline-flex; align-items:center; gap:8px; }
+.ticket-brief .fb-label{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ash-2); }
+.ticket-brief .fb-btn{ font-size:13px; padding:5px 9px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--ash); cursor:pointer; line-height:1; transition:all .15s ease; }
+.ticket-brief .fb-btn:hover{ border-color:var(--ink); color:var(--ink); }
+.ticket-brief .fb-btn[aria-pressed="true"].fb-good{ color:var(--clear); border-color:var(--clear); background:var(--clear-wash); }
+.ticket-brief .fb-btn[aria-pressed="true"].fb-bad{ color:var(--alert); border-color:var(--alert); background:var(--alert-wash); }
+.ticket-brief .fb-sent{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--clear); }
+
+/* ── Right rail ─────────────────────────────────────────────── */
+.ticket-brief .rail-col{ position:sticky; top:8px; align-self:start; display:flex; flex-direction:column; gap:18px; }
+@media (max-width:1160px){ .ticket-brief .rail-col{ position:static; } }
+.ticket-brief .rail-bearings{ background:var(--card); border:1px solid var(--rule); border-top:2px solid var(--ink); border-radius:var(--radius-card); padding:4px 18px 6px; }
+.ticket-brief .rail-bearing{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--rule); }
+.ticket-brief .rail-bearing:last-child{ border-bottom:0; }
+.ticket-brief .rail-bearing .b-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:11px; color:var(--ash); }
+.ticket-brief .rail-bearing .b-val{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.03em; font-size:14.5px; color:var(--ink); text-align:right; }
+.ticket-brief .rail-bearing .b-val.warn{ color:var(--rust); }
+.ticket-brief .rail-bearing .b-val.good{ color:var(--clear); }
+.ticket-brief .rail-card{ background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:17px 18px; }
+.ticket-brief .rail-head{ font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--ash); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+.ticket-brief .rail-tag{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em; color:var(--ash-2); border:1px solid var(--rule); border-radius:3px; padding:2px 6px; }
+
+/* tolerance slider */
+.ticket-brief .tol__row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.ticket-brief .tol__val{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12px; color:var(--rust); }
+.ticket-brief .tol input[type="range"]{ width:100%; accent-color:var(--rust); cursor:pointer; }
+.ticket-brief .tol__ends{ display:flex; justify-content:space-between; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); margin-top:5px; }
+.ticket-brief .tol__note{ font-size:12px; line-height:1.45; color:var(--ash); margin-top:10px; }
+
+/* ask preview */
+.ticket-brief .ask-field{ display:flex; align-items:center; gap:9px; border:1px solid var(--rule-strong); border-radius:var(--radius); padding:10px 13px; }
+.ticket-brief .ask-field input{ border:0; background:transparent; font-family:var(--font-display); font-size:15px; color:var(--ink); width:100%; outline:none; }
+.ticket-brief .ask-field input::placeholder{ color:var(--ash); }
+.ticket-brief .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
+.ticket-brief .chip{ font-family:var(--font-cond); font-weight:500; text-transform:uppercase; letter-spacing:.05em; font-size:11px; color:var(--slate); border:1px solid var(--rule); border-radius:100px; padding:5px 12px; background:transparent; cursor:default; }
+.ticket-brief .ask-foot{ margin-top:12px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash); line-height:1.5; }
+
+/* on-watch reach */
+.ticket-brief .reach{ display:flex; flex-wrap:wrap; gap:7px; }
+.ticket-brief .reach .r{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.04em; font-size:11.5px; color:var(--slate); border:1px solid var(--rule); border-radius:var(--radius); padding:6px 10px; }
+.ticket-brief .reach .r--own{ color:var(--ink); border-color:var(--rule-strong); }
+
+/* ── Empty / first-run state ────────────────────────────────── */
+.ticket-brief .state{ max-width:760px; margin:10px auto 40px; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:30px; }
+.ticket-brief .state .state-kicker{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:12px; color:var(--rust); }
+.ticket-brief .state .state-head{ font-family:var(--font-display); font-size:30px; line-height:1.15; color:var(--ink); margin:8px 0 6px; }
+.ticket-brief .state .state-sub{ font-size:15px; line-height:1.55; color:var(--print); max-width:52ch; }
+.ticket-brief .sweep{ height:3px; border-radius:2px; margin:20px 0 0; background:linear-gradient(90deg,transparent,var(--rust),transparent); background-size:38% 100%; }
+@media (prefers-reduced-motion: no-preference){ .ticket-brief .sweep{ animation:tb-sweep 1.8s linear infinite; } @keyframes tb-sweep{ from{ background-position:-38% 0; } to{ background-position:138% 0; } } }
+
+@media (max-width:1160px){ .ticket-brief .brief-hed{ font-size:44px; } }
+@media (max-width:720px){ .ticket-brief .brief-hed{ font-size:36px; } }

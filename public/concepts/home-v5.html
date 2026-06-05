@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket · Your Brief (v5 — the why layer)</title>
+<link rel="stylesheet" href="ticket-system.css">
+<link rel="stylesheet" href="ticket-components.css">
+<link rel="stylesheet" href="ticket-week.css">
+<link rel="stylesheet" href="ticket-momentum.css">
+<link rel="stylesheet" href="ticket-v5.css">
+<style>
+  /* ──────────────────────────────────────────────────────────
+     home-v5 — concept-specific SHELL only (sidebar + app frame).
+     The build itself lives in the five linked stylesheets; v5's
+     new pieces (big headline, the evidence drill, the data-driven
+     checklist, the sticky bearings+ask right column) are in
+     ticket-v5.css. Each scenario is its OWN two-column home-grid
+     so the bearings + ask adapt per week. Structure not locked.
+     ────────────────────────────────────────────────────────── */
+
+  .app { display: grid; grid-template-columns: 208px 1fr; min-height: 100vh; }
+
+  .sidebar {
+    position: fixed; inset: 0 auto 0 0; width: 208px;
+    background: var(--bond); border-right: 1px solid var(--rule);
+    display: flex; flex-direction: column; padding: 26px 0 20px; z-index: 5;
+  }
+  .sidebar__brand { padding: 0 22px 22px; }
+  .sidebar__brand .wordmark { gap: 11px; }
+  .nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 0; }
+  .nav a {
+    font-family: var(--font-cond); font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.14em; font-size: 13px; color: var(--ash);
+    padding: 10px 22px; display: flex; align-items: center; gap: 10px;
+    position: relative; transition: color .15s ease;
+  }
+  .nav a:hover { color: var(--ink); text-decoration: none; }
+  .nav a .tick { width: 3px; height: 14px; align-self: center; background: var(--ledger); border-radius: 2px; margin-left: -22px; margin-right: 9px; flex: 0 0 auto; }
+  .nav a.is-active { color: var(--ink); }
+  .nav a.is-active .tick { background: var(--rust); }
+  .sidebar__spacer { flex: 1 1 auto; }
+  .sidebar__foot { padding: 16px 22px 0; border-top: 1px solid var(--rule); display: flex; align-items: center; gap: 11px; }
+  .monogram { width: 34px; height: 34px; flex: 0 0 auto; border: 1.5px solid var(--ink); border-radius: 4px; display: grid; place-items: center; font-family: var(--font-cond); font-weight: 700; font-size: 13px; letter-spacing: 0.06em; color: var(--ink); background: var(--card); }
+  .sidebar__who { line-height: 1.25; }
+  .sidebar__who b { font-family: var(--font-sans); font-weight: 600; font-size: 13px; color: var(--ink); display: block; }
+  .sidebar__who span { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; color: var(--ash); }
+
+  .main { grid-column: 2; padding: 30px 0 0; }
+  .home { padding-top: 0; }
+
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .sidebar { position: static; width: auto; flex-direction: row; align-items: center; padding: 12px 18px; }
+    .sidebar .nav, .sidebar__foot, .sidebar__spacer { display: none; }
+    .main { grid-column: 1; padding: 18px 0 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ SCENARIO TOGGLE (demo scaffold, above the app) ════════ -->
+<div class="scenarios" role="tablist" aria-label="Demo scenarios">
+  <span class="demo-tag">Prototype v5 · Same home, four weeks · the why layer</span>
+  <button class="scenario-tab" role="tab" aria-selected="true"  data-target="sc-competitive">Competitive week</button>
+  <button class="scenario-tab" role="tab" aria-selected="false" data-target="sc-event">Big event</button>
+  <button class="scenario-tab" role="tab" aria-selected="false" data-target="sc-weather">Patio weather</button>
+  <button class="scenario-tab" role="tab" aria-selected="false" data-target="sc-quiet">Quiet week</button>
+  <button class="scenario-tab" role="tab" aria-selected="false" data-target="sc-combined">Everything at once</button>
+</div>
+
+<div class="app">
+
+  <!-- ── Sidebar (shared across all four weeks) ─────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="wordmark">
+        <svg width="18" height="29" viewBox="0 0 72 114" aria-hidden="true">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/>
+          <rect x="18" y="14" width="36" height="100" fill="#1C1917"/>
+          <circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/>
+          <circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.6" stroke-dasharray="2.5,2"/>
+        </svg>
+        TICKET
+      </span>
+    </div>
+    <nav class="nav">
+      <a href="#" class="is-active"><span class="tick"></span>Today</a>
+      <a href="#"><span class="tick"></span>Competitors</a>
+      <a href="#"><span class="tick"></span>Ask</a>
+      <a href="#"><span class="tick"></span>Settings</a>
+    </nav>
+    <div class="sidebar__spacer"></div>
+    <div class="sidebar__foot">
+      <span class="monogram">AI</span>
+      <span class="sidebar__who"><b>Anand</b><span>Wagyu House Atlanta</span></span>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <main class="main">
+    <div class="home">
+
+      <!-- ═══════════════════════════════════════════════════════
+           SCENARIO 1 · COMPETITIVE WEEK  (the richest instance)
+           The why/evidence layer built out in full: the lead action
+           is a THEME with a data-driven checklist, drilling down to
+           the rival's actual posts + numbers + why each shot worked.
+           ═══════════════════════════════════════════════════════ -->
+      <section class="scenario" id="sc-competitive" data-active="true">
+        <div class="home-grid">
+
+          <!-- ── LEFT: the brief ── -->
+          <div class="brief-main">
+
+            <header class="brief-head">
+              <span class="kicker">Your Brief</span>
+              <span class="dateline-mono">Tuesday, June 9 · Swept 6:02a</span>
+            </header>
+            <hr class="rule rule-ink" style="margin:12px 0 0;">
+
+            <div class="brief-lead fade-up">
+              <h1 class="brief-hed">Your rivals <em>still</em> own Instagram.</h1>
+              <p class="brief-deck">
+                You claimed your handle and posted twice this week, real progress. But
+                <span class="name">O-Ku</span>, <span class="name">Chirori</span>, and
+                <span class="name">Gyu-kaku</span> post daily, and O-Ku's entree-only run just
+                <span class="up">quadrupled</span> its engagement. Build the cadence.
+              </p>
+              <p class="brief-synth">Synthesized from <b>12 signals</b> across <b>5 competitors</b> · Confidence: High</p>
+            </div>
+
+            <!-- momentum: the week reflects history, not a daily reset -->
+            <div class="momentum brief-momentum">
+              <span class="m-item"><span class="m-dot m-dot--done"></span><b>1</b>&nbsp;cleared</span>
+              <span class="m-item"><span class="m-dot m-dot--saved"></span><b>1</b>&nbsp;in progress</span>
+              <span class="m-item"><span class="m-dot" style="background:var(--rust)"></span><b>2</b>&nbsp;new this week</span>
+              <span class="m-spacer"></span>
+              <span class="m-item">Read from your feed · 6:02a</span>
+            </div>
+
+            <!-- ── WHAT TO DO ── -->
+            <div class="zone zone--do">
+              <div class="zone-head">
+                <span class="zh">What to do <span class="count">2</span></span>
+                <span class="zone-sub">Each one carries its reason. Drill in for the proof.</span>
+              </div>
+
+              <!-- DO 01 · THE INSTAGRAM THEME (lead, drill open) -->
+              <article class="movecard movecard--lead">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 01 · This week's theme</span></div>
+                <h2 class="movecard__do">Build your Instagram cadence this week.</h2>
+                <p class="movecard__why">
+                  You are posting, but not enough and not the right things.
+                  <span class="name">O-Ku</span> posted only plated entrees last week and
+                  <span class="num">quadrupled</span> its engagement. Three rivals post daily;
+                  you have posted <span class="num">twice</span>.
+                </p>
+                <div class="movecard__meta">
+                  <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                  <span class="src">Social presence sweep · Today</span>
+                </div>
+                <p class="relevance"><span class="pin">▸</span> You see this because you are the only watched spot still under one post a day.</p>
+
+                <div class="movecard__progress">
+                  <span class="pbar"><i style="width:38%"></i></span>
+                  <span><b>1</b> done · <b>1</b> in progress · <b>2</b> to go this week</span>
+                </div>
+
+                <!-- DRILL · level 2: the insight (the why) + the checklist -->
+                <details class="drill">
+                  <summary><span class="car">▸</span> The checklist <span class="hint">4 sub-actions, read from your feed</span></summary>
+                  <div class="drill__body">
+                    <div class="insight-line">
+                      <span class="il-label">Why this, now</span>
+                      <p>What rivals are winning on right now: entrees shot tight and warm, posted mid-service, no text overlay. <span class="name">O-Ku</span> leaned into exactly that last week and saw <span class="up">+4x</span> engagement.</p>
+                    </div>
+
+                    <ul class="checklist">
+                      <li class="check-item check-item--done">
+                        <span class="check-box">✓</span>
+                        <div>
+                          <div class="check-do">Claim the handle</div>
+                          <div class="check-why">@wagyuhouseatl is live.</div>
+                          <div class="check-stat">Detected live · Tue</div>
+                        </div>
+                      </li>
+                      <li class="check-item check-item--partial">
+                        <span class="check-box">◐</span>
+                        <div>
+                          <div class="check-do">Post your entrees, 3x a week</div>
+                          <div class="check-why">This is what is working for <span class="name">O-Ku</span>. You are on the right track, just not often enough.</div>
+                          <div class="check-stat">2 of 3 posts this week · both entrees</div>
+                        </div>
+                      </li>
+                      <li class="check-item check-item--todo">
+                        <span class="check-box"></span>
+                        <div>
+                          <div class="check-do">Post the dining room</div>
+                          <div class="check-why">Diners check the room before they book. None of your posts show it yet.</div>
+                          <div class="check-stat">Not seen in your feed</div>
+                        </div>
+                      </li>
+                      <li class="check-item check-item--todo">
+                        <span class="check-box"></span>
+                        <div>
+                          <div class="check-do">Post a behind-the-pass shot</div>
+                          <div class="check-why">The dry-age room and the sear are your story. Nobody else can copy it.</div>
+                          <div class="check-stat">Not seen in your feed</div>
+                        </div>
+                      </li>
+                    </ul>
+
+                    <!-- partial completion is its OWN insight (data-driven) -->
+                    <div class="partial-insight">
+                      <div class="pi-label"><span class="dot"></span>Part of the way there</div>
+                      <p>Ticket read your feed this morning: your <b>two posts were both plated dishes</b>, which is the right instinct. The <b>room</b> and the <b>people behind the pass</b> are still missing, and that is the half that builds the trip.</p>
+                    </div>
+
+                    <!-- DRILL · level 3: the proof (rival's real posts) -->
+                    <details class="drill">
+                      <summary><span class="car">▸</span> See the proof <span class="hint">O-Ku's actual posts and why they worked</span></summary>
+                      <div class="drill__body">
+                        <p class="proof-intro">O-Ku · last 7 days · 4 posts, all entrees</p>
+                        <div class="proof-grid">
+                          <article class="post-card">
+                            <div class="post-photo post-photo--sear">
+                              <span class="ph-rival">O-Ku</span>
+                              <span class="ph-tag">Seared A5, tight crop</span>
+                            </div>
+                            <div class="post-body">
+                              <div class="post-stats">
+                                <span class="ps ps--win">2,140 <span class="ps-l">likes</span></span>
+                                <span class="ps">88 <span class="ps-l">comments</span></span>
+                              </div>
+                              <p class="post-why">
+                                <span class="pw-label">Why this shot worked</span>
+                                Tight crop on the sear, warm side light, zero text overlay.
+                                <span class="up">+312%</span> over O-Ku's own feed average.
+                              </p>
+                            </div>
+                          </article>
+                          <article class="post-card">
+                            <div class="post-photo post-photo--counter">
+                              <span class="ph-rival">O-Ku</span>
+                              <span class="ph-tag">Plating at the pass</span>
+                            </div>
+                            <div class="post-body">
+                              <div class="post-stats">
+                                <span class="ps ps--win">1,680 <span class="ps-l">likes</span></span>
+                                <span class="ps">53 <span class="ps-l">comments</span></span>
+                              </div>
+                              <p class="post-why">
+                                <span class="pw-label">Why this shot worked</span>
+                                Hands and motion in frame. Diners picture being there, not just the plate.
+                                <span class="up">+188%</span> vs average.
+                              </p>
+                            </div>
+                          </article>
+                        </div>
+                        <div class="proof-foot">
+                          <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                          <span class="src">Image analysis · Gemini Vision · 7-day window</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+
+                <div class="movecard__actions">
+                  <button class="act">Save</button>
+                  <button class="act">Snooze</button>
+                  <button class="act">Dismiss</button>
+                </div>
+              </article>
+
+              <!-- DO 02 · PRICING (collapsed drill) -->
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 02</span></div>
+                <h2 class="movecard__do">Add a lower-priced entry point before the weekend.</h2>
+                <p class="movecard__why">
+                  <span class="name">Bachi Box</span> averages a <span class="num">$12.11</span> dine-in
+                  check to your <span class="num">$19.99</span>, inside the same two miles. Diners compare
+                  the price before the plate.
+                </p>
+                <div class="movecard__meta">
+                  <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                  <span class="src">Menu pricing scan · 2 days ago</span>
+                </div>
+                <p class="relevance"><span class="pin">▸</span> You see this because Bachi Box is in your price comparison set, two miles out.</p>
+
+                <details class="drill">
+                  <summary><span class="car">▸</span> The play <span class="hint">how to answer without a price war</span></summary>
+                  <div class="drill__body">
+                    <div class="insight-line">
+                      <span class="il-label">Why this, now</span>
+                      <p><span class="name">Bachi Box</span> carries Wings and Hibachi Entrees you do not, so guests compare a <span class="num">$12</span> order to your <span class="num">$20</span> before they ever see the plate.</p>
+                    </div>
+                    <ul class="checklist">
+                      <li class="check-item check-item--todo">
+                        <span class="check-box"></span>
+                        <div>
+                          <div class="check-do">Add one sub-$15 lunch plate or value combo</div>
+                          <div class="check-why">You do not have to drop your dinner prices. Just get into the comparison.</div>
+                        </div>
+                      </li>
+                      <li class="check-item check-item--todo">
+                        <span class="check-box"></span>
+                        <div>
+                          <div class="check-do">Name it for the search</div>
+                          <div class="check-why">"Wagyu lunch bento" catches the midday searcher you are already winning on Google.</div>
+                        </div>
+                      </li>
+                    </ul>
+                    <details class="drill">
+                      <summary><span class="car">▸</span> See the proof <span class="hint">Bachi Box's pricing next to yours</span></summary>
+                      <div class="drill__body">
+                        <p class="proof-intro">Bachi Box · menu pricing scan · 2 days ago</p>
+                        <div class="note-basis">
+                          <dl>
+                            <dt>Their avg check</dt><dd>$12.11</dd>
+                            <dt>Your avg check</dt><dd>$19.99</dd>
+                            <dt>Gap</dt><dd>39% under you</dd>
+                            <dt>They carry, you don't</dt><dd>Wings · Hibachi Entrees</dd>
+                          </dl>
+                        </div>
+                        <div class="proof-foot">
+                          <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                          <span class="src">Menu pricing scan · 7-day window</span>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </details>
+
+                <div class="movecard__actions">
+                  <button class="act">Save</button>
+                  <button class="act">Snooze</button>
+                  <button class="act">Dismiss</button>
+                </div>
+              </article>
+
+              <!-- Cleared this week (momentum without clutter) -->
+              <details class="cleared" style="margin-top:16px;">
+                <summary class="cleared__head">
+                  <span>Cleared this week <b>· 1</b></span>
+                  <span class="cleared__chev">▸</span>
+                </summary>
+                <div class="cleared__list">
+                  <div class="cleared__item">
+                    <span class="ci-check">✓</span>
+                    Saved O-Ku's top posts to your inspiration board
+                    <span class="ci-when">Mon</span>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <!-- ── THE SPLIT ── -->
+            <div class="zone-split">
+              <span class="tab">End of actions</span>
+              <hr class="rule-double">
+            </div>
+
+            <!-- ── WHAT TO KNOW (each stat drills to its basis) ── -->
+            <div class="zone zone--know">
+              <div class="zone-head">
+                <span class="zh">What to know <span class="count">2</span></span>
+                <span class="zone-sub">Worth seeing. No action needed. Drill in for the basis.</span>
+              </div>
+              <div class="notes">
+                <details class="note note--drill">
+                  <summary class="note-sum">
+                    <span class="note-tag">Search</span>
+                    <span class="note-body">Your organic search is <span class="up">up 43%</span> over three months, 67,800 to 97,100.
+                      <span class="note-cue"><span class="car">▸</span> the basis</span>
+                    </span>
+                  </summary>
+                  <div class="note-basis">
+                    <dl>
+                      <dt>Window</dt><dd>Mar 1 – Jun 1, 2026 (90 days)</dd>
+                      <dt>Versus</dt><dd>Prior 90 days (Dec – Feb)</dd>
+                      <dt>Measure</dt><dd>Organic sessions · 67,800 → 97,100</dd>
+                      <dt>Source</dt><dd>Google Search Console</dd>
+                    </dl>
+                  </div>
+                </details>
+                <details class="note note--drill">
+                  <summary class="note-sum">
+                    <span class="note-tag">Watch</span>
+                    <span class="note-body"><b>O-Ku</b> started running promos on TikTok. Directional for now, worth a watch.
+                      <span class="note-cue"><span class="car">▸</span> the basis</span>
+                    </span>
+                  </summary>
+                  <div class="note-basis">
+                    <dl>
+                      <dt>Window</dt><dd>Last 9 days</dd>
+                      <dt>Seen</dt><dd>3 promo posts · 1 paid</dd>
+                      <dt>Why directional</dt><dd>Too few data points to call a pattern yet</dd>
+                      <dt>Source</dt><dd>Social presence sweep</dd>
+                    </dl>
+                  </div>
+                </details>
+              </div>
+            </div>
+
+          </div><!-- /brief-main -->
+
+          <!-- ── RIGHT: bearings on top, ask below, sticky ── -->
+          <aside class="rail-col">
+            <div class="rail-bearings">
+              <div class="rail-bearing"><span class="b-label">Standing</span><span class="b-val warn">Losing ground · 2 of 3</span></div>
+              <div class="rail-bearing"><span class="b-label">Top threat</span><span class="b-val warn">Chirori</span></div>
+              <div class="rail-bearing"><span class="b-label">To act on</span><span class="b-val">2 new</span></div>
+              <div class="rail-bearing"><span class="b-label">Last swept</span><span class="b-val">6:02a · 5 watched</span></div>
+            </div>
+
+            <div class="rail-card ask-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <div class="standing-ask">
+                <div class="standing-label">Your standing question · re-ran 6:02a</div>
+                <p class="standing-q">Who's undercutting me?</p>
+                <p class="standing-a"><b>Bachi Box</b>, still. <span class="num">39% under</span> your dine-in check ($12.11 to $19.99). No change since Friday.</p>
+                <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning before you are up</p>
+              </div>
+              <div class="ask-field">
+                <input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket">
+              </div>
+              <div class="chips">
+                <button class="chip">Where am I losing ground?</button>
+                <button class="chip">What changed this week?</button>
+                <button class="chip">Before the weekend?</button>
+              </div>
+              <p class="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.</p>
+            </div>
+
+            <div class="rail-card">
+              <div class="rail-head"><span>On watch</span></div>
+              <div class="reach">
+                <a href="#">Ginya Izakaya</a>
+                <a href="#">O-Ku</a>
+                <a href="#">Bachi Box</a>
+                <a href="#">Gyu-kaku</a>
+                <a href="#">Chirori</a>
+                <span class="reach-div"></span>
+                <a href="#">Wagyu House Atlanta</a>
+              </div>
+            </div>
+
+            <div class="tuned-to">
+              <span class="tt-label">Tuned to your place</span>
+              <span class="tt">Steakhouse</span><span class="tt">Buckhead</span><span class="tt">0.5 mi from State Farm Arena</span><span class="tt">Patio</span>
+            </div>
+          </aside>
+
+        </div><!-- /home-grid -->
+      </section><!-- /sc-competitive -->
+
+
+      <!-- ═══════════════════════════════════════════════════════
+           SCENARIO 2 · BIG EVENT WEEK
+           Headline pivots OFF competitors and onto the week. The
+           Your Week lens leads with the dated heads-up + prep; each
+           heads-up carries its own per-card relevance line.
+           ═══════════════════════════════════════════════════════ -->
+      <section class="scenario" id="sc-event">
+        <div class="home-grid">
+          <div class="brief-main">
+
+            <header class="brief-head">
+              <span class="kicker">Your Brief</span>
+              <span class="dateline-mono">Monday, June 8 · Swept 6:02a</span>
+            </header>
+            <hr class="rule rule-ink" style="margin:12px 0 0;">
+
+            <div class="brief-lead fade-up">
+              <h1 class="brief-hed">Thirty thousand people, <em>one weekend.</em></h1>
+              <p class="brief-deck">
+                A sold-out arena show Friday and a Hawks home game Saturday will pour roughly
+                <span class="num">30,000</span> people through your blocks. This is happening with or
+                without you. Prep the rush, then we get back to your rivals.
+              </p>
+              <p class="brief-synth">Synthesized from <b>9 signals</b> · <b>2 nearby events</b> · Confidence: High</p>
+            </div>
+
+            <!-- YOUR WEEK leads -->
+            <div class="yourweek yourweek--big" style="margin-top:26px;">
+              <div class="yourweek__head">
+                <span class="yourweek__title">Your week</span>
+                <span class="yourweek__verdict">Big week incoming</span>
+              </div>
+              <div class="yourweek__body">
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">Fri</span><span class="d-num">12</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-big">Big night</span></div>
+                    <p class="headsup__what">A sold-out show at State Farm Arena will pack your blocks Friday.</p>
+                    <p class="headsup__why">Roughly <span class="num">16,000 attendees</span>, doors at 7p, half a mile from your door. The pre-show dinner window is <span class="num">5 to 7p</span>.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--prep"><span class="play-label">Prepare</span>Staff up Friday 5 to 8p, hold a few tables for walk-ins, and lead with your fastest-turn dishes.</div>
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Run a 5 to 7p pre-show prix-fixe and geo-target ads to the ticketholder radius. Ping loyalty contacts within a mile.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because you are 0.5 mi from the venue.</p>
+                  </div>
+                </div>
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">Sat</span><span class="d-num">13</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-watch">Spillover</span></div>
+                    <p class="headsup__what">Hawks home game Saturday afternoon adds a second wave.</p>
+                    <p class="headsup__why">Tip-off <span class="num">3:30p</span>. Expect an early-evening surge as the arena empties.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--prep"><span class="play-label">Prepare</span>Carry Friday's staffing into Saturday evening.</div>
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Promote a post-game late happy hour to the arena-area crowd as the game lets out.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because the venue shares your dinner blocks.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- WHAT TO DO (the board is secondary this week) -->
+            <div class="zone zone--do">
+              <div class="zone-head">
+                <span class="zh">What to do <span class="count">1</span></span>
+                <span class="zone-sub">Quiet next to the weekend. One still worth doing:</span>
+              </div>
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 01</span></div>
+                <h2 class="movecard__do">Add a lower-priced entry point before the weekend.</h2>
+                <p class="movecard__why"><span class="name">Bachi Box</span> averages a <span class="num">$12.11</span> dine-in check to your <span class="num">$19.99</span>, inside the same two miles.</p>
+                <div class="movecard__meta"><span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span><span class="src">Menu pricing scan · 2 days ago</span></div>
+                <p class="relevance"><span class="pin">▸</span> You see this because Bachi Box is in your price comparison set.</p>
+                <details class="drill">
+                  <summary><span class="car">▸</span> The play <span class="hint">how to answer without a price war</span></summary>
+                  <div class="drill__body">
+                    <div class="insight-line"><span class="il-label">Why this, now</span><p>Weekend walk-ins compare a $12 order to your $20 before they see the plate. A value entry keeps you in the running.</p></div>
+                    <ul class="checklist">
+                      <li class="check-item check-item--todo"><span class="check-box"></span><div><div class="check-do">Add one sub-$15 plate or combo</div><div class="check-why">You do not have to drop dinner prices. Just enter the comparison.</div></div></li>
+                    </ul>
+                  </div>
+                </details>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+            </div>
+
+            <div class="zone-split"><span class="tab">End of actions</span><hr class="rule-double"></div>
+
+            <div class="zone zone--know">
+              <div class="zone-head"><span class="zh">What to know <span class="count">1</span></span><span class="zone-sub">Worth seeing. No action needed.</span></div>
+              <div class="notes">
+                <details class="note note--drill">
+                  <summary class="note-sum">
+                    <span class="note-tag">Search</span>
+                    <span class="note-body">Your organic search is <span class="up">up 43%</span> over three months, 67,800 to 97,100.
+                      <span class="note-cue"><span class="car">▸</span> the basis</span></span>
+                  </summary>
+                  <div class="note-basis"><dl><dt>Window</dt><dd>Mar 1 – Jun 1, 2026 (90 days)</dd><dt>Versus</dt><dd>Prior 90 days</dd><dt>Measure</dt><dd>Organic sessions · 67,800 → 97,100</dd><dt>Source</dt><dd>Google Search Console</dd></dl></div>
+                </details>
+              </div>
+            </div>
+
+          </div><!-- /brief-main -->
+
+          <aside class="rail-col">
+            <div class="rail-bearings">
+              <div class="rail-bearing"><span class="b-label">Standing</span><span class="b-val good">Demand spike · weekend</span></div>
+              <div class="rail-bearing"><span class="b-label">Top threat</span><span class="b-val">Chirori · secondary</span></div>
+              <div class="rail-bearing"><span class="b-label">To prep</span><span class="b-val">2 of 9</span></div>
+              <div class="rail-bearing"><span class="b-label">Last swept</span><span class="b-val">6:02a · 5 watched</span></div>
+            </div>
+            <div class="rail-card ask-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <div class="standing-ask">
+                <div class="standing-label">Your standing question · re-ran 6:02a</div>
+                <p class="standing-q">Who's undercutting me?</p>
+                <p class="standing-a"><b>Bachi Box</b>, still. <span class="num">39% under</span> your dine-in check ($12.11 to $19.99).</p>
+                <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning before you are up</p>
+              </div>
+              <div class="ask-field"><input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket"></div>
+              <div class="chips">
+                <button class="chip">How busy will Friday get?</button>
+                <button class="chip">Who else is near the arena?</button>
+                <button class="chip">Before the weekend?</button>
+              </div>
+              <p class="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.</p>
+            </div>
+            <div class="tuned-to">
+              <span class="tt-label">Tuned to your place</span>
+              <span class="tt">Steakhouse</span><span class="tt">Buckhead</span><span class="tt">0.5 mi from State Farm Arena</span><span class="tt">Patio</span>
+            </div>
+          </aside>
+
+        </div>
+      </section><!-- /sc-event -->
+
+
+      <!-- ═══════════════════════════════════════════════════════
+           SCENARIO 3 · PATIO WEATHER WINDFALL
+           Same lens, surfaced only because the profile is
+           outdoor-forward. The relevance line says so out loud.
+           ═══════════════════════════════════════════════════════ -->
+      <section class="scenario" id="sc-weather">
+        <div class="home-grid">
+          <div class="brief-main">
+
+            <header class="brief-head">
+              <span class="kicker">Your Brief</span>
+              <span class="dateline-mono">Tuesday, June 16 · Swept 6:02a</span>
+            </header>
+            <hr class="rule rule-ink" style="margin:12px 0 0;">
+
+            <div class="brief-lead fade-up">
+              <h1 class="brief-hed">Patio weather, <em>all weekend.</em></h1>
+              <p class="brief-deck">
+                Clear skies and <span class="up">78 degrees</span> Friday through Sunday, and your patio is
+                why people pick you. Expect your biggest outdoor turnout of the month. One catch: every
+                other patio will be packed too.
+              </p>
+              <p class="brief-synth">Synthesized from a <b>3-day forecast</b> · profile-matched · Confidence: High</p>
+            </div>
+
+            <div class="yourweek yourweek--weather" style="margin-top:26px;">
+              <div class="yourweek__head">
+                <span class="yourweek__title"><span class="sun"></span>Your week</span>
+                <span class="yourweek__verdict">Your kind of weekend</span>
+              </div>
+              <div class="yourweek__body">
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">From</span><span class="d-num">19</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-weather">Patio weather</span></div>
+                    <p class="headsup__what">Clear and 78 all weekend. Your biggest outdoor draw of the month.</p>
+                    <p class="headsup__why">Low wind, no rain Friday through Sunday. Your patio and outdoor reputation are exactly what brings the walk-up crowd in this weather.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--prep"><span class="play-label">Prepare</span>Staff the patio fully, prep for walk-ins, and consider extending outdoor hours.</div>
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Buy local weather-app and Instagram geo-ads Thursday to Saturday, extend patio happy hour, and post the full patio at golden hour.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because you are outdoor-forward. A place without a patio would not see this.</p>
+                  </div>
+                </div>
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">All</span><span class="d-num">Wknd</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-watch">Same crowd in play</span></div>
+                    <p class="headsup__what">O-Ku's terrace and the lakeside patios will be slammed too.</p>
+                    <p class="headsup__why">The same weather that fills your patio fills theirs. The walk-up you win is the walk-up they lose.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Win the walk-up: a visible patio wait-list and a faster turn beat the patio next door.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because three watched patios sit inside a mile.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="zone zone--do">
+              <div class="zone-head"><span class="zh">What to do <span class="count">1</span></span><span class="zone-sub">Still on the board:</span></div>
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 01</span></div>
+                <h2 class="movecard__do">Build your Instagram cadence this week.</h2>
+                <p class="movecard__why"><span class="name">O-Ku</span> posted only plated entrees last week and <span class="num">quadrupled</span> its engagement. You have posted <span class="num">twice</span>.</p>
+                <div class="movecard__meta"><span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span><span class="src">Social presence sweep · Today</span></div>
+                <p class="relevance"><span class="pin">▸</span> A sunny patio weekend is the easiest content you will ever shoot. Post it.</p>
+                <details class="drill">
+                  <summary><span class="car">▸</span> The checklist <span class="hint">read from your feed</span></summary>
+                  <div class="drill__body">
+                    <ul class="checklist">
+                      <li class="check-item check-item--partial"><span class="check-box">◐</span><div><div class="check-do">Post your entrees, 3x a week</div><div class="check-why">On the right track, just not often enough.</div><div class="check-stat">2 of 3 this week</div></div></li>
+                      <li class="check-item check-item--todo"><span class="check-box"></span><div><div class="check-do">Shoot the patio in the sun this weekend</div><div class="check-why">The full patio at golden hour is the shot that sells the trip.</div></div></li>
+                    </ul>
+                  </div>
+                </details>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+            </div>
+
+            <div class="zone-split"><span class="tab">End of actions</span><hr class="rule-double"></div>
+
+            <div class="zone zone--know">
+              <div class="zone-head"><span class="zh">What to know <span class="count">1</span></span><span class="zone-sub">Worth seeing. No action needed.</span></div>
+              <div class="notes">
+                <details class="note note--drill">
+                  <summary class="note-sum"><span class="note-tag">Search</span><span class="note-body">Your organic search is <span class="up">up 43%</span> over three months. <span class="note-cue"><span class="car">▸</span> the basis</span></span></summary>
+                  <div class="note-basis"><dl><dt>Window</dt><dd>Mar 1 – Jun 1, 2026</dd><dt>Measure</dt><dd>Organic sessions · 67,800 → 97,100</dd><dt>Source</dt><dd>Google Search Console</dd></dl></div>
+                </details>
+              </div>
+            </div>
+
+          </div>
+
+          <aside class="rail-col">
+            <div class="rail-bearings">
+              <div class="rail-bearing"><span class="b-label">Standing</span><span class="b-val good">Tailwind · your strength</span></div>
+              <div class="rail-bearing"><span class="b-label">Watch</span><span class="b-val">The other patios</span></div>
+              <div class="rail-bearing"><span class="b-label">New this week</span><span class="b-val">Weather-driven</span></div>
+              <div class="rail-bearing"><span class="b-label">Last swept</span><span class="b-val">6:02a</span></div>
+            </div>
+            <div class="rail-card ask-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <div class="standing-ask">
+                <div class="standing-label">Your standing question · re-ran 6:02a</div>
+                <p class="standing-q">Who's undercutting me?</p>
+                <p class="standing-a"><b>Bachi Box</b>, still. <span class="num">39% under</span> your dine-in check ($12.11 to $19.99).</p>
+                <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning before you are up</p>
+              </div>
+              <div class="ask-field"><input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket"></div>
+              <div class="chips">
+                <button class="chip">Which patios compete with me?</button>
+                <button class="chip">What changed this week?</button>
+                <button class="chip">Before the weekend?</button>
+              </div>
+              <p class="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.</p>
+            </div>
+            <div class="tuned-to">
+              <span class="tt-label">Tuned to your place</span>
+              <span class="tt">Steakhouse</span><span class="tt">Buckhead</span><span class="tt">0.5 mi from State Farm Arena</span><span class="tt">Patio</span>
+            </div>
+          </aside>
+
+        </div>
+      </section><!-- /sc-weather -->
+
+
+      <!-- ═══════════════════════════════════════════════════════
+           SCENARIO 4 · QUIET WEEK  (decision: RICHER, not onboarding)
+           The customer is mature, so quiet is reframed as the week
+           to get ahead: low-urgency moves + a forward "building"
+           watch + a value ledger of what Ticket caught while calm.
+           ═══════════════════════════════════════════════════════ -->
+      <section class="scenario" id="sc-quiet">
+        <div class="home-grid">
+          <div class="brief-main">
+
+            <header class="brief-head">
+              <span class="kicker">Your Brief</span>
+              <span class="dateline-mono">Tuesday, June 23 · Swept 6:02a</span>
+            </header>
+            <hr class="rule rule-ink" style="margin:12px 0 0;">
+
+            <div class="brief-lead fade-up">
+              <h1 class="brief-hed">A quiet week. <em>Use it.</em></h1>
+              <p class="brief-deck">
+                No urgent moves, no events or weather worth flagging, and you are holding ground. So this
+                is the week to fix the things you never get to and widen the lead while it is calm. Here is
+                where to spend it.
+              </p>
+              <p class="brief-synth">Synthesized from <b>6 signals</b> across <b>5 competitors</b> · Confidence: High</p>
+            </div>
+
+            <div class="momentum brief-momentum">
+              <span class="m-item"><span class="m-dot m-dot--done"></span><b>3</b>&nbsp;cleared this month</span>
+              <span class="m-item"><span class="m-dot" style="background:var(--rust)"></span><b>2</b>&nbsp;worth doing</span>
+              <span class="m-spacer"></span>
+              <span class="m-item">Nothing urgent · steady</span>
+            </div>
+
+            <div class="zone zone--do">
+              <div class="zone-head">
+                <span class="zh">Worth doing while it's quiet <span class="count">2</span></span>
+                <span class="zone-sub">No fires. Get-ahead work, ranked by lasting payoff.</span>
+              </div>
+
+              <article class="movecard movecard--lead">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 01</span></div>
+                <h2 class="movecard__do">Finish your Instagram cadence.</h2>
+                <p class="movecard__why">You post entrees but never the room or the people. A calm week is the time to build the back catalog so you are never scrambling for content during a busy one.</p>
+                <div class="movecard__meta"><span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span><span class="src">Social presence sweep · Today</span></div>
+                <p class="relevance"><span class="pin">▸</span> You see this because your feed is the one watched gap that compounds over time.</p>
+                <details class="drill">
+                  <summary><span class="car">▸</span> The checklist <span class="hint">read from your feed</span></summary>
+                  <div class="drill__body">
+                    <div class="insight-line"><span class="il-label">Why this, now</span><p><span class="name">O-Ku</span> built its lead one quiet week at a time. The feed is a slow compounder, and a calm week is free runway.</p></div>
+                    <ul class="checklist">
+                      <li class="check-item check-item--partial"><span class="check-box">◐</span><div><div class="check-do">Post your entrees, 3x a week</div><div class="check-why">On the right track, just not often enough.</div><div class="check-stat">2 of 3 this week</div></div></li>
+                      <li class="check-item check-item--todo"><span class="check-box"></span><div><div class="check-do">Shoot the dining room and the pass</div><div class="check-why">Banked content you can post on the busiest weeks.</div></div></li>
+                    </ul>
+                  </div>
+                </details>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 02</span></div>
+                <h2 class="movecard__do">Add a lower-priced lunch entry.</h2>
+                <p class="movecard__why"><span class="name">Bachi Box</span> still averages <span class="num">39% under</span> your check. No deadline this week, but it closes a standing gap.</p>
+                <div class="movecard__meta"><span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span><span class="src">Menu pricing scan · 2 days ago</span></div>
+                <p class="relevance"><span class="pin">▸</span> You see this because Bachi Box is in your price comparison set.</p>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+            </div>
+
+            <div class="zone-split"><span class="tab">Quiet, but watching</span><hr class="rule-double"></div>
+
+            <!-- RICHER: a forward "building" watch so quiet never reads as dead -->
+            <div class="zone zone--know">
+              <div class="zone-head">
+                <span class="zh">Building, not urgent <span class="count">3</span></span>
+                <span class="zone-sub">Patterns forming under the surface. We will flag them if they break.</span>
+              </div>
+              <div class="watch-build">
+                <div class="watch-row">
+                  <span class="wr-dot"></span>
+                  <div>
+                    <div class="wr-body"><span class="name">Chirori</span> has posted 4 days straight after a quiet stretch. Not a promo run yet, but the cadence is picking up.</div>
+                    <div class="wr-when">Social presence · building 6 days</div>
+                  </div>
+                </div>
+                <div class="watch-row">
+                  <span class="wr-dot"></span>
+                  <div>
+                    <div class="wr-body">A new izakaya signed a lease <b>0.8 mi out</b>. No open date posted. We will tell you when one appears.</div>
+                    <div class="wr-when">New openings watch · first seen Jun 19</div>
+                  </div>
+                </div>
+                <div class="watch-row">
+                  <span class="wr-dot"></span>
+                  <div>
+                    <div class="wr-body"><span class="name">Gyu-kaku</span> has tested a $2 price bump on two entrees. If it holds another week it widens your value gap, in your favor.</div>
+                    <div class="wr-when">Menu pricing · directional</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- RICHER: proof of value — what Ticket caught while it was quiet -->
+            <div class="zone zone--know" style="margin-top:28px;">
+              <div class="zone-head">
+                <span class="zh">What Ticket caught this month <span class="count">3</span></span>
+                <span class="zone-sub">A quiet week still earns its keep.</span>
+              </div>
+              <div class="rail-card" style="padding:6px 18px;">
+                <div class="ledger-row"><span>Flagged Bachi Box's undercut before the weekend rush</span><span class="lnum">Jun 6</span></div>
+                <div class="ledger-row"><span>Caught O-Ku's entree-only run that 4x'd its reach</span><span class="lnum">Jun 9</span></div>
+                <div class="ledger-row"><span>Surfaced the arena weekend 4 days out</span><span class="lnum">Jun 8</span></div>
+              </div>
+            </div>
+
+          </div>
+
+          <aside class="rail-col">
+            <div class="rail-bearings">
+              <div class="rail-bearing"><span class="b-label">Standing</span><span class="b-val good">Holding · steady</span></div>
+              <div class="rail-bearing"><span class="b-label">Top threat</span><span class="b-val">Chirori · quiet</span></div>
+              <div class="rail-bearing"><span class="b-label">To act on</span><span class="b-val">2 of 6</span></div>
+              <div class="rail-bearing"><span class="b-label">Last swept</span><span class="b-val">6:02a</span></div>
+            </div>
+            <div class="rail-card ask-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <div class="standing-ask">
+                <div class="standing-label">Your standing question · re-ran 6:02a</div>
+                <p class="standing-q">Who's undercutting me?</p>
+                <p class="standing-a"><b>Bachi Box</b>, still. <span class="num">39% under</span> your dine-in check ($12.11 to $19.99).</p>
+                <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning before you are up</p>
+              </div>
+              <div class="ask-field"><input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket"></div>
+              <div class="chips">
+                <button class="chip">Anything building I should watch?</button>
+                <button class="chip">Where am I losing ground?</button>
+                <button class="chip">What changed this month?</button>
+              </div>
+              <p class="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.</p>
+            </div>
+            <div class="tuned-to">
+              <span class="tt-label">Tuned to your place</span>
+              <span class="tt">Steakhouse</span><span class="tt">Buckhead</span><span class="tt">0.5 mi from State Farm Arena</span><span class="tt">Patio</span>
+            </div>
+          </aside>
+
+        </div>
+      </section><!-- /sc-quiet -->
+
+
+      <!-- ═══════════════════════════════════════════════════════
+           SCENARIO 5 · EVERYTHING AT ONCE  (coexistence stress test)
+           Built to answer the review's open question: when competitive
+           + event + weather all hit the same week, how do the card
+           TYPES coexist and in what order? The weighting rule is stated
+           out loud: forward demand leads, weather tailwind rides with
+           it, competitive moves sit below the fold. Card types stay
+           visually distinct (green event / gold weather / rust move).
+           ═══════════════════════════════════════════════════════ -->
+      <section class="scenario" id="sc-combined">
+        <div class="home-grid">
+          <div class="brief-main">
+
+            <header class="brief-head">
+              <span class="kicker">Your Brief</span>
+              <span class="dateline-mono">Friday, June 26 · Swept 6:02a</span>
+            </header>
+            <hr class="rule rule-ink" style="margin:12px 0 0;">
+
+            <div class="brief-lead fade-up">
+              <h1 class="brief-hed">Your busiest weekend, <em>and the weather's with you.</em></h1>
+              <p class="brief-deck">
+                An arena show Friday, a Hawks game Saturday, and a clear <span class="num">78 degree</span>
+                forecast all land together, about <span class="num">30,000</span> people through your blocks.
+                <span class="name">Chirori</span> keeps pushing on Instagram, but that can wait. Lead with the weekend.
+              </p>
+              <p class="brief-synth">Synthesized from <b>14 signals</b> · 2 events · 3-day forecast · 5 competitors · Confidence: High</p>
+            </div>
+
+            <p class="weighting">
+              <b>Why this order:</b> when signals collide, Ticket ranks by impact. The weekend demand surge
+              leads, your patio tailwind rides with it, and the competitive moves sit below the fold.
+              Forward demand outranks standing rivalry.
+            </p>
+
+            <!-- YOUR WEEK leads, holding TWO coexisting card types (event + weather) -->
+            <div class="yourweek yourweek--big" style="margin-top:24px;">
+              <div class="yourweek__head">
+                <span class="yourweek__title">Your week</span>
+                <span class="yourweek__verdict">Your biggest weekend</span>
+              </div>
+              <div class="yourweek__body">
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">Fri</span><span class="d-num">26</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-big">Big night</span></div>
+                    <p class="headsup__what">A sold-out arena show packs your blocks during dinner.</p>
+                    <p class="headsup__why">About <span class="num">16,000 attendees</span>, doors 7p, half a mile out. Pre-show window <span class="num">5 to 7p</span>.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--prep"><span class="play-label">Prepare</span>Staff up 5 to 8p and hold a few tables for walk-ins.</div>
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Run a pre-show prix-fixe and geo-target ads to the ticketholder radius.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because you are 0.5 mi from the venue.</p>
+                  </div>
+                </div>
+                <div class="headsup">
+                  <div class="headsup__when"><span class="d-dow">All</span><span class="d-num">Wknd</span></div>
+                  <div class="headsup__main">
+                    <div class="headsup__topline"><span class="headsup__tag tag-weather">Patio weather</span></div>
+                    <p class="headsup__what">Clear and 78 all weekend, on top of the crowds.</p>
+                    <p class="headsup__why">No rain Friday through Sunday. Your patio turns the event spillover into walk-up covers.</p>
+                    <div class="headsup__plays">
+                      <div class="play play--prep"><span class="play-label">Prepare</span>Staff the patio fully and consider extending outdoor hours.</div>
+                      <div class="play play--promo"><span class="play-label">Capitalize</span>Buy local weather-app geo-ads and run a patio happy hour Thursday to Saturday.</div>
+                    </div>
+                    <p class="relevance"><span class="pin">▸</span> Flagged because you are outdoor-forward and steps from the venue.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- WHAT TO DO (competitive moves, secondary this week) -->
+            <div class="zone zone--do">
+              <div class="zone-head">
+                <span class="zh">What to do <span class="count">2</span></span>
+                <span class="zone-sub">Still on the board, just not the headline this week.</span>
+              </div>
+
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 01 · This week's theme</span></div>
+                <h2 class="movecard__do">Build your Instagram cadence.</h2>
+                <p class="movecard__why">
+                  <span class="name">O-Ku</span> posted only plated entrees last week and <span class="num">quadrupled</span>
+                  its engagement. You have posted <span class="num">twice</span>. A packed weekend is the easiest content you will shoot.
+                </p>
+                <div class="movecard__meta">
+                  <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                  <span class="src">Social presence sweep · Today</span>
+                </div>
+                <p class="relevance"><span class="pin">▸</span> You see this because you are the only watched spot under one post a day.</p>
+                <div class="movecard__progress">
+                  <span class="pbar"><i style="width:38%"></i></span>
+                  <span><b>1</b> done · <b>1</b> in progress · <b>2</b> to go this week</span>
+                </div>
+                <details class="drill">
+                  <summary><span class="car">▸</span> The checklist <span class="hint">4 sub-actions, read from your feed</span></summary>
+                  <div class="drill__body">
+                    <ul class="checklist">
+                      <li class="check-item check-item--done"><span class="check-box">✓</span><div><div class="check-do">Claim the handle</div><div class="check-stat">Detected live · Tue</div></div></li>
+                      <li class="check-item check-item--partial"><span class="check-box">◐</span><div><div class="check-do">Post your entrees, 3x a week</div><div class="check-stat">2 of 3 this week · both entrees</div></div></li>
+                      <li class="check-item check-item--todo"><span class="check-box"></span><div><div class="check-do">Shoot the weekend crowd and the patio</div><div class="check-why">A full room and a sunny patio sell the trip better than any ad.</div></div></li>
+                      <li class="check-item check-item--todo"><span class="check-box"></span><div><div class="check-do">Post a behind-the-pass shot</div><div class="check-why">The dry-age room and the sear are yours alone.</div></div></li>
+                    </ul>
+                  </div>
+                </details>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+
+              <article class="movecard">
+                <div class="movecard__rank-row"><span class="movecard__rank">DO 02</span></div>
+                <h2 class="movecard__do">Add a lower-priced entry point before the weekend.</h2>
+                <p class="movecard__why"><span class="name">Bachi Box</span> averages a <span class="num">$12.11</span> dine-in check to your <span class="num">$19.99</span>, inside the same two miles.</p>
+                <div class="movecard__meta"><span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span><span class="src">Menu pricing scan · 2 days ago</span></div>
+                <p class="relevance"><span class="pin">▸</span> You see this because Bachi Box is in your price comparison set.</p>
+                <div class="movecard__actions"><button class="act">Save</button><button class="act">Snooze</button><button class="act">Dismiss</button></div>
+              </article>
+            </div>
+
+            <div class="zone-split"><span class="tab">End of actions</span><hr class="rule-double"></div>
+
+            <div class="zone zone--know">
+              <div class="zone-head"><span class="zh">What to know <span class="count">1</span></span><span class="zone-sub">Worth seeing. No action needed.</span></div>
+              <div class="notes">
+                <details class="note note--drill">
+                  <summary class="note-sum"><span class="note-tag">Search</span><span class="note-body">Your organic search is <span class="up">up 43%</span> over three months, 67,800 to 97,100. <span class="note-cue"><span class="car">▸</span> the basis</span></span></summary>
+                  <div class="note-basis"><dl><dt>Window</dt><dd>Mar 1 – Jun 1, 2026 (90 days)</dd><dt>Versus</dt><dd>Prior 90 days</dd><dt>Measure</dt><dd>Organic sessions · 67,800 → 97,100</dd><dt>Source</dt><dd>Google Search Console</dd></dl></div>
+                </details>
+              </div>
+            </div>
+
+          </div><!-- /brief-main -->
+
+          <aside class="rail-col">
+            <div class="rail-bearings">
+              <div class="rail-bearing"><span class="b-label">Standing</span><span class="b-val good">Loud weekend ahead</span></div>
+              <div class="rail-bearing"><span class="b-label">Leading</span><span class="b-val">Arena + patio</span></div>
+              <div class="rail-bearing"><span class="b-label">To act on</span><span class="b-val">2 + the weekend</span></div>
+              <div class="rail-bearing"><span class="b-label">Last swept</span><span class="b-val">6:02a · 5 watched</span></div>
+            </div>
+            <div class="rail-card ask-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <div class="standing-ask">
+                <div class="standing-label">Your standing question · re-ran 6:02a</div>
+                <p class="standing-q">Who's undercutting me?</p>
+                <p class="standing-a"><b>Bachi Box</b>, still. <span class="num">39% under</span> your dine-in check ($12.11 to $19.99).</p>
+                <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning before you are up</p>
+              </div>
+              <div class="ask-field"><input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket"></div>
+              <div class="chips">
+                <button class="chip">How big will Friday get?</button>
+                <button class="chip">Which patios compete with me?</button>
+                <button class="chip">What changed this week?</button>
+              </div>
+              <p class="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.</p>
+            </div>
+            <div class="tuned-to">
+              <span class="tt-label">Tuned to your place</span>
+              <span class="tt">Steakhouse</span><span class="tt">Buckhead</span><span class="tt">0.5 mi from State Farm Arena</span><span class="tt">Patio</span>
+            </div>
+          </aside>
+
+        </div>
+      </section><!-- /sc-combined -->
+
+    </div><!-- /home -->
+  </main>
+</div>
+
+<script>
+  // Scenario toggle: flip aria-selected on the tab, toggle data-active on the panel.
+  (function () {
+    var tabs = document.querySelectorAll('.scenario-tab');
+    var panels = document.querySelectorAll('.scenario');
+    tabs.forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        var target = tab.getAttribute('data-target');
+        tabs.forEach(function (t) { t.setAttribute('aria-selected', String(t === tab)); });
+        panels.forEach(function (p) { p.setAttribute('data-active', String(p.id === target)); });
+        window.scrollTo({ top: 0, behavior: 'auto' });
+      });
+    });
+  })();
+</script>
+</body>
+</html>

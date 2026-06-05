@@ -1,0 +1,386 @@
+/* ============================================================
+   TICKET — Home v5 layer (the WHY / evidence build)
+   Layers ON TOP of: ticket-system.css + ticket-components.css
+   + ticket-week.css + ticket-momentum.css (link all five, in
+   that order, this one last).
+
+   What v5 adds over v3-adaptive:
+   - Concept A's BIG headline (3-8 words) + a sized deck.
+   - The evidence drill: ACTION -> INSIGHT (the why) ->
+     SUB-INSIGHT / PROOF (the rival's real posts + numbers +
+     "why this shot worked"), as nested progressive disclosure.
+   - "Get on Instagram" modeled as a THEME with a data-driven
+     checklist of evidence-backed sub-actions.
+   - Done / partial read from the feed (partial = its own insight).
+   - Right column: the 4 bearings at the TOP, the ask BELOW,
+     the whole column sticky on scroll.
+   - "Why you see this" -> a per-card relevance line (no box).
+   - "What to know" -> each stat drills to its basis.
+   Throwaway prototype CSS. Structure intentionally not locked.
+   ============================================================ */
+
+/* ── Shell: a touch wider so the 2 columns breathe ─────────── */
+.home { max-width: 1240px; padding: 0 44px 110px; }
+.home-grid { grid-template-columns: minmax(0,1fr) 372px; gap: 52px; }
+@media (max-width: 1160px) { .home-grid { grid-template-columns: 1fr; gap: 34px; } }
+
+/* ── Brief header (kicker + dateline) ──────────────────────── */
+.brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+.brief-head .kicker { font-size: 12.5px; color: var(--rust); letter-spacing: .22em; }
+.brief-head .dateline-mono {
+  font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ash);
+}
+
+/* ── THE LEAD: Concept A's big headline + a 140-250ch deck ─── */
+.brief-lead { margin: 26px 0 0; }
+.brief-hed {
+  font-family: var(--font-display); font-weight: 400; line-height: 1.02;
+  letter-spacing: -.012em; font-size: 58px; color: var(--ink);
+  margin: 0; max-width: 17ch;
+}
+.brief-hed em { font-style: italic; color: var(--rust-deep); }
+.brief-hed .up { color: var(--clear); font-style: normal; }
+.brief-deck {
+  font-family: var(--font-sans); font-size: 18px; line-height: 1.5;
+  color: var(--print); margin: 20px 0 0; max-width: 60ch;
+}
+.brief-deck b { color: var(--ink); font-weight: 600; }
+.brief-deck .name { color: var(--slate); font-weight: 500; }
+.brief-deck .up { color: var(--clear); font-weight: 600; }
+.brief-deck .num { color: var(--ink); font-weight: 600; }
+.brief-synth {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--ash); margin: 18px 0 0;
+}
+.brief-synth b { color: var(--print); font-weight: 700; }
+
+/* ── Momentum strip (glance at the week's action history) ──── */
+/* uses .momentum from ticket-momentum.css; just spacing here */
+.brief-momentum { margin: 24px 0 0; }
+
+/* ── Zones (What to do / What to know) ─────────────────────── */
+.zone { margin-top: 34px; }
+.zone--know { margin-top: 0; }
+.zone-split { margin: 42px 0 30px; position: relative; }
+.zone-split hr { margin: 0; }
+.zone-split .tab {
+  position: absolute; left: 0; top: -9px; background: var(--paper);
+  padding-right: 14px; font-family: var(--font-mono); font-size: 10.5px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--ash-2);
+}
+.movecard--lead { box-shadow: var(--shadow-lift); }
+.movecard__rank-row { display: flex; align-items: baseline; gap: 12px; }
+
+/* per-card relevance line lives under the why (kills the box). */
+.movecard .relevance { margin-top: 9px; }
+
+/* ── THE DRILL: progressive disclosure, native <details> ───── */
+/* A drill is one rung down: the why, then the proof.            */
+.drill { margin-top: 15px; border-top: 1px dashed var(--rule); }
+.drill > summary {
+  list-style: none; cursor: pointer; padding: 12px 0 0;
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-cond); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; font-size: 12.5px; color: var(--slate);
+  transition: color .15s ease;
+}
+.drill > summary::-webkit-details-marker { display: none; }
+.drill > summary .car {
+  color: var(--rust); font-weight: 700; transition: transform .2s ease;
+  display: inline-block;
+}
+.drill[open] > summary .car { transform: rotate(90deg); }
+.drill > summary:hover { color: var(--ink); }
+.drill > summary .hint {
+  font-family: var(--font-mono); font-weight: 400; text-transform: none;
+  letter-spacing: 0; font-size: 11px; color: var(--ash-2);
+}
+.drill__body { padding: 14px 0 4px; }
+@media (prefers-reduced-motion: no-preference) {
+  .drill[open] > .drill__body { animation: fu .4s cubic-bezier(.16,1,.3,1) both; }
+}
+
+/* The insight rung: the reasoning that drives the action. */
+.insight-line {
+  border-left: 2px solid var(--rust); padding: 2px 0 2px 15px; margin: 0 0 16px;
+}
+.insight-line .il-label {
+  font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .12em;
+  font-size: 10.5px; color: var(--rust); display: block; margin-bottom: 4px;
+}
+.insight-line p {
+  margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--ink);
+}
+.insight-line .name { color: var(--slate); font-weight: 600; }
+.insight-line .num  { color: var(--ink); font-weight: 600; }
+.insight-line .up   { color: var(--clear); font-weight: 600; }
+
+/* ── Sub-action checklist (the THEME's contents) ───────────── */
+.checklist { margin: 0; padding: 0; list-style: none; }
+.check-item {
+  display: grid; grid-template-columns: 22px 1fr; gap: 12px;
+  align-items: start; padding: 11px 0; border-bottom: 1px solid var(--rule);
+}
+.check-item:last-child { border-bottom: 0; }
+.check-box {
+  width: 18px; height: 18px; border-radius: 4px; margin-top: 2px;
+  border: 1.5px solid var(--rule-strong); display: grid; place-items: center;
+  font-size: 11px; line-height: 1; flex: 0 0 auto;
+}
+.check-item--done .check-box { background: var(--clear); border-color: var(--clear); color: #fff; }
+.check-item--partial .check-box { border-color: var(--wire-gold); color: var(--wire-gold); background: rgba(201,148,42,.1); }
+.check-item--todo .check-box { border-style: dashed; }
+.check-do { font-size: 14.5px; line-height: 1.4; color: var(--ink); font-weight: 500; }
+.check-why { font-size: 13px; line-height: 1.45; color: var(--ash); margin-top: 3px; }
+.check-why .name { color: var(--slate); font-weight: 500; }
+.check-why .up { color: var(--clear); font-weight: 600; }
+.check-why .num { color: var(--print); font-weight: 600; }
+.check-stat {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .03em;
+  text-transform: uppercase; color: var(--ash); margin-top: 4px;
+}
+.check-item--done .check-stat { color: var(--clear); }
+.check-item--partial .check-stat { color: var(--gold-deep); }
+
+/* partial-completion = its own insight (data-driven from the feed) */
+.partial-insight {
+  margin-top: 15px; background: rgba(201,148,42,.07);
+  border: 1px solid rgba(201,148,42,.32); border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.partial-insight .pi-label {
+  font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .1em;
+  font-size: 10.5px; color: var(--gold-deep); display: flex; align-items: center;
+  gap: 7px; margin-bottom: 5px;
+}
+.partial-insight .pi-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--wire-gold); }
+.partial-insight p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--print); }
+.partial-insight p b { color: var(--ink); font-weight: 600; }
+
+/* ── THE PROOF: a rival's actual posts (image + numbers + why) ─ */
+.proof-intro {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ash); margin: 0 0 13px;
+}
+.proof-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
+@media (max-width: 640px) { .proof-grid { grid-template-columns: 1fr; } }
+.post-card {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-chit);
+}
+.post-photo {
+  position: relative; aspect-ratio: 4 / 3; display: grid; place-items: center;
+  color: rgba(255,255,255,.92); font-family: var(--font-cond);
+  text-transform: uppercase; letter-spacing: .14em; font-size: 11px;
+}
+/* placeholder food-photo washes (no real bytes on this branch) */
+.post-photo--sear { background: linear-gradient(135deg, #6b2f1c, #b85c38 70%, #d08548); }
+.post-photo--counter { background: linear-gradient(135deg, #2e3d4a, #3d4f5f 70%, #6b7c89); }
+.post-photo--plate { background: linear-gradient(135deg, #4d3318, #8a6b18 70%, #c9942a); }
+.post-photo--room { background: linear-gradient(135deg, #2b2522, #4d4843 70%, #6e6862); }
+.post-photo .ph-tag {
+  position: absolute; left: 9px; bottom: 9px; padding: 3px 8px; border-radius: 3px;
+  background: rgba(28,25,23,.42); backdrop-filter: blur(2px);
+}
+.post-photo .ph-rival {
+  position: absolute; right: 9px; top: 9px; font-size: 10px; letter-spacing: .1em;
+  padding: 2px 7px; border-radius: 3px; background: rgba(28,25,23,.5);
+}
+.post-body { padding: 12px 14px 14px; }
+.post-stats { display: flex; gap: 16px; align-items: baseline; }
+.post-stats .ps {
+  font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.post-stats .ps .ps-l {
+  font-family: var(--font-cond); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ash); margin-left: 5px;
+}
+.post-stats .ps--win { color: var(--clear); }
+.post-why { margin-top: 10px; font-size: 13px; line-height: 1.48; color: var(--print); }
+.post-why .pw-label {
+  display: block; font-family: var(--font-cond); text-transform: uppercase;
+  letter-spacing: .1em; font-size: 10px; color: var(--rust); margin-bottom: 4px;
+}
+.post-why .up { color: var(--clear); font-weight: 600; }
+.post-why .num { color: var(--ink); font-weight: 600; }
+.proof-foot {
+  display: flex; align-items: center; gap: 14px; margin-top: 14px;
+  padding-top: 12px; border-top: 1px dashed var(--rule);
+}
+.proof-foot .src { color: var(--ash); }
+
+/* ── NOTES that drill to the stat's basis ──────────────────── */
+/* <details class="note note--drill"> with the note line AS the
+   summary (so it stays visible closed), the basis revealed open. */
+.note--drill { display: block; padding: 13px 0; border-bottom: 1px solid var(--rule); }
+.note--drill .note-sum {
+  list-style: none; cursor: pointer; display: flex; gap: 12px; align-items: flex-start;
+}
+.note--drill .note-sum::-webkit-details-marker { display: none; }
+.note--drill .note-sum .note-body { font-size: 14.5px; line-height: 1.5; color: var(--print); }
+.note--drill .note-sum .note-body b { color: var(--ink); font-weight: 600; }
+.note--drill .note-sum .note-body .up { color: var(--clear); font-weight: 600; }
+.note--drill .note-sum .note-body .name { color: var(--slate); font-weight: 500; }
+.note-cue {
+  white-space: nowrap; font-family: var(--font-cond); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; font-size: 11px;
+  color: var(--slate); margin-left: 4px;
+}
+.note-cue .car { color: var(--rust); font-weight: 700; display: inline-block; transition: transform .2s ease; }
+.note--drill[open] .note-cue .car { transform: rotate(90deg); }
+.note-basis {
+  margin: 12px 0 2px 104px; padding: 12px 14px; background: var(--bond);
+  border-radius: var(--radius); font-size: 13px; line-height: 1.55; color: var(--print);
+}
+.note-basis dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 5px 18px; }
+.note-basis dt {
+  font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .08em;
+  font-size: 10.5px; color: var(--ash); padding-top: 2px;
+}
+.note-basis dd { margin: 0; font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+@media (max-width: 560px) { .note-basis { margin-left: 0; } }
+
+/* "Cleared this week" disclosure — hide the native marker */
+.cleared > summary { list-style: none; }
+.cleared > summary::-webkit-details-marker { display: none; }
+
+/* ── Done card folded into the flow (knocked back, not gone) ── */
+.movecard--done .relevance { display: none; }
+.movecard--done .movecard__why { color: var(--ash); }
+
+/* ════════════════════════════════════════════════════════════
+   RIGHT COLUMN: bearings on top, ask below, sticky on scroll.
+   ════════════════════════════════════════════════════════════ */
+.rail-col { position: sticky; top: 24px; align-self: start; max-height: calc(100vh - 40px); overflow-y: auto; padding-right: 2px; }
+.rail-col::-webkit-scrollbar { width: 7px; }
+.rail-col::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+
+/* the bearings, restacked vertically for the rail */
+.rail-bearings {
+  background: var(--card); border: 1px solid var(--rule); border-top: 2px solid var(--ink);
+  border-radius: var(--radius-card); padding: 4px 18px 6px;
+}
+.rail-bearing {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 11px 0; border-bottom: 1px solid var(--rule);
+}
+.rail-bearing:last-child { border-bottom: 0; }
+.rail-bearing .b-label {
+  font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .12em;
+  font-size: 11px; color: var(--ash);
+}
+.rail-bearing .b-val {
+  font-family: var(--font-cond); font-weight: 600; text-transform: uppercase;
+  letter-spacing: .03em; font-size: 14.5px; color: var(--ink);
+  display: flex; align-items: center; gap: 6px; text-align: right;
+}
+.rail-bearing .b-val.warn { color: var(--rust); }
+.rail-bearing .b-val.good { color: var(--clear); }
+
+/* ask card — round-1 Concept C model (last ask + chips + bg re-run) */
+.ask-card .standing-ask { border-bottom: 1px dashed var(--rule); padding-bottom: 14px; margin-bottom: 14px; }
+.standing-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--ash); margin-bottom: 6px;
+}
+.ask-card .ask-foot {
+  margin-top: 12px; font-family: var(--font-mono); font-size: 10.5px;
+  letter-spacing: .02em; text-transform: uppercase; color: var(--ash);
+  line-height: 1.5; display: flex; align-items: flex-start; gap: 7px;
+}
+.ask-card .ask-foot .lock { color: var(--slate); flex: 0 0 auto; }
+
+/* quiet "tuned to" line — the inferred profile, no longer a box */
+.tuned-to {
+  margin-top: 16px; font-family: var(--font-cond); text-transform: uppercase;
+  letter-spacing: .04em; font-size: 11px; color: var(--ash); line-height: 1.7;
+}
+.tuned-to .tt-label { color: var(--ash-2); letter-spacing: .1em; display: block; margin-bottom: 4px; }
+.tuned-to .tt { color: var(--print); }
+.tuned-to .tt + .tt::before { content: " · "; color: var(--ash-2); }
+
+/* ── Quiet-week richer pieces: a forward watch + value ledger ─ */
+.watch-build { }
+.watch-row { display: flex; gap: 12px; align-items: flex-start; padding: 11px 0; border-bottom: 1px solid var(--rule); }
+.watch-row:last-child { border-bottom: 0; }
+.watch-row .wr-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--wire-gold); margin-top: 6px; flex: 0 0 auto; }
+.watch-row .wr-body { font-size: 14px; line-height: 1.5; color: var(--print); }
+.watch-row .wr-body b { color: var(--ink); font-weight: 600; }
+.watch-row .wr-body .name { color: var(--slate); font-weight: 500; }
+.watch-row .wr-when { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--ash-2); margin-top: 3px; }
+
+/* ════════════════════════════════════════════════════════════
+   v5 review pass — design punch-list
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Heads-up: split ops "Prepare" from promotional "Capitalize" ─ */
+/* Both sides of every signal, made visible: slate = operational,
+   rust = promotional/revenue play. */
+.headsup__plays { margin-top: 11px; display: grid; gap: 8px; }
+.play { padding: 9px 12px; border-radius: 0 var(--radius) var(--radius) 0; font-size: 13.5px; line-height: 1.46; color: var(--ink); }
+.play .play-label { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; margin-right: 8px; }
+.play--prep  { background: var(--bond);    border-left: 2px solid var(--slate); }
+.play--prep  .play-label { color: var(--slate); }
+.play--promo { background: var(--thermal); border-left: 2px solid var(--rust); }
+.play--promo .play-label { color: var(--rust); }
+.play--none  { background: transparent;    border-left: 2px solid var(--rule-strong); color: var(--ash); }
+.play--none  .play-label { color: var(--ash); }
+
+/* ── Weather windfall skin (gold "tailwind", distinct from green ops) ─ */
+.yourweek--weather { border-color: rgba(201,148,42,.55); }
+.yourweek--weather .yourweek__head { background: linear-gradient(90deg, var(--thermal), rgba(201,148,42,.20)); }
+.yourweek--weather .yourweek__verdict { color: var(--gold-deep); }
+.yourweek--weather .yourweek__title .sun {
+  width: 12px; height: 12px; border-radius: 50%; background: var(--wire-gold);
+  box-shadow: 0 0 0 3px rgba(201,148,42,.28); display: inline-block; margin-right: 2px;
+}
+.tag-weather { color: var(--gold-deep); border: 1px solid var(--wire-gold); background: rgba(201,148,42,.12); }
+
+/* ── Density: compact progress line on a collapsed theme card ──── */
+.movecard { padding: 18px 20px; }
+.check-item { padding: 9px 0; }
+.movecard__progress {
+  margin-top: 12px; display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .05em;
+  font-size: 12px; color: var(--ash);
+}
+.movecard__progress .pbar { width: 88px; height: 6px; border-radius: 3px; background: var(--ledger); overflow: hidden; }
+.movecard__progress .pbar i { display: block; height: 100%; background: var(--wire-gold); }
+.movecard__progress b { color: var(--ink); font-weight: 600; }
+
+/* ── Expander affordance: hover highlight on drill summaries ───── */
+.drill > summary { padding: 12px 10px 0; margin: 0 -10px; border-radius: 4px; }
+.drill > summary:hover { background: var(--bond); }
+.drill[open] > summary { padding-bottom: 2px; }
+
+/* ── Combined-week weighting note (why this order) ─────────────── */
+.weighting {
+  margin: 14px 0 0; padding: 9px 13px; background: var(--bond); border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em; color: var(--ash); line-height: 1.5;
+}
+.weighting b { color: var(--print); font-weight: 700; }
+
+/* ── Branded keyboard focus (flagship polish) ──────────────── */
+.drill > summary:focus-visible,
+.note--drill .note-sum:focus-visible,
+.cleared > summary:focus-visible,
+.act:focus-visible,
+.chip:focus-visible,
+.reach a:focus-visible,
+.ask-field:focus-within,
+.ask-field input:focus-visible {
+  outline: 2px solid var(--rust); outline-offset: 3px; border-radius: 3px;
+}
+.ask-field:focus-within { outline-offset: 2px; }
+
+@media (max-width: 1160px) {
+  .brief-hed { font-size: 46px; }
+  .rail-col { position: static; max-height: none; overflow: visible; }
+}
+@media (max-width: 720px) {
+  .home { padding: 0 22px 80px; }
+  .brief-hed { font-size: 38px; }
+  .proof-grid { grid-template-columns: 1fr; }
+}

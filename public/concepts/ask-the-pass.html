@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket — Ask the Pass</title>
+<link rel="stylesheet" href="ticket-system.css">
+<style>
+  /* ── Concept-only layout for ASK THE PASS ───────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+
+  /* ── Slim fixed sidebar ─────────────────────────────────── */
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    width: 200px;
+    background: var(--bond);
+    border-right: 1px solid var(--rule);
+    padding: 26px 0 22px;
+    display: flex;
+    flex-direction: column;
+  }
+  .rail__mark { padding: 0 22px 26px; }
+  .rail__nav { display: flex; flex-direction: column; }
+  .rail__link {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 13px;
+    color: var(--ash);
+    padding: 9px 22px;
+    position: relative;
+    display: block;
+  }
+  .rail__link:hover { color: var(--ink); text-decoration: none; }
+  .rail__link--active { color: var(--ink); }
+  .rail__link--active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 7px; bottom: 7px;
+    width: 3px;
+    background: var(--rust);
+    border-radius: 0 2px 2px 0;
+  }
+  .rail__foot {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    margin-left: 22px;
+    margin-right: 22px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .mono-badge {
+    width: 34px; height: 34px;
+    flex: 0 0 34px;
+    border-radius: 50%;
+    border: 1.5px solid var(--ink);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  .rail__who { line-height: 1.25; }
+  .rail__who .nm {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .rail__who .org {
+    font-size: 11px;
+    color: var(--ash);
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Main editorial column ──────────────────────────────── */
+  .sheet { padding: 0 56px; }
+  .col {
+    max-width: 780px;
+    margin: 0 auto 0 0;
+    padding-left: 28px;
+  }
+
+  /* ── Masthead ───────────────────────────────────────────── */
+  .pass-head { padding: 40px 0 0; }
+  .pass-kicker {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+    font-size: 13px;
+    color: var(--rust);
+  }
+  .pass-dateline {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ash);
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .pass-dateline .sep { color: var(--ash-2); padding: 0 12px; }
+  .pass-rule-ink {
+    border: 0;
+    border-top: 2px solid var(--ink);
+    margin: 14px 0 0;
+  }
+
+  /* ── THE ANSWER (the proactive brief from the expo) ─────── */
+  .answer { padding: 38px 0 6px; }
+  .answer__tag {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .answer__stamp {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    color: var(--rust);
+    border: 1.5px solid var(--rust);
+    background: rgba(184,92,56,0.07);
+    padding: 3px 9px;
+    border-radius: 3px;
+    transform: rotate(-1.5deg);
+  }
+  .answer__from {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ash);
+  }
+  .answer__brief {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.16;
+    letter-spacing: -0.006em;
+    font-size: 38px;
+    color: var(--ink);
+    margin: 0;
+    max-width: 26ch;
+  }
+  .answer__brief .chef { font-style: italic; color: var(--rust-deep); }
+  .answer__brief b { font-weight: 600; }
+  .answer__brief .name { color: var(--slate); font-weight: 600; }
+  .answer__brief .num { color: var(--ink); font-weight: 600; font-feature-settings: "tnum"; }
+  .answer__brief .up { color: var(--clear); font-weight: 600; }
+  .answer__brief .move-line {
+    display: block;
+    margin-top: 0.42em;
+    border-left: 2px solid var(--rust);
+    padding-left: 18px;
+  }
+  .answer__synth {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ash);
+    margin: 26px 0 0;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .answer__synth .sep { color: var(--ash-2); padding: 0 11px; }
+  .answer__synth b { color: var(--print); font-weight: 700; }
+  .answer__synth .conf { font-size: 11px; }
+
+  /* ── EVIDENCE row (compact source tickets) ──────────────── */
+  .evidence { padding: 30px 0 6px; }
+  .evidence__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 0 16px;
+  }
+  .evidence__head .section-head { letter-spacing: 0.1em; }
+  .evidence__head .note {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ash);
+  }
+  .evidence__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  /* compact source chit */
+  .src {
+    display: grid;
+    grid-template-columns: 3px 1fr;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-chit);
+    overflow: hidden;
+  }
+  .src__body { padding: 13px 15px 13px; }
+  .src__label {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+    font-size: 11px;
+    color: var(--ash);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .src__label .div { color: var(--ash-2); }
+  .src__label .who { color: var(--slate); }
+  .src__claim {
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.42;
+    color: var(--ink);
+    margin: 8px 0 11px;
+  }
+  .src__claim b { font-weight: 600; }
+  .src__claim .num { font-feature-settings: "tnum"; font-weight: 600; }
+  .src__claim .up { color: var(--clear); font-weight: 600; }
+  .src__claim .down { color: var(--alert); font-weight: 600; }
+  .src__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-top: 1px dashed var(--rule);
+    padding-top: 10px;
+  }
+  .src__foot .conf { font-size: 11px; }
+  .src__ref {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ash-2);
+  }
+
+  /* ── ASK THE PASS (service bell input, not a chat box) ──── */
+  .ask { padding: 34px 0 0; }
+  .ask__bar {
+    background: var(--bond);
+    border: 1px solid var(--rule);
+    border-top: 2px solid var(--ink);
+    border-radius: var(--radius-card);
+    padding: 20px 22px 22px;
+  }
+  .ask__row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .ask__label {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 13px;
+    color: var(--ink);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  /* service bell glyph, drawn with borders */
+  .bell {
+    position: relative;
+    width: 18px;
+    height: 16px;
+    flex: 0 0 18px;
+  }
+  .bell::before {
+    content: "";
+    position: absolute;
+    left: 0; bottom: 3px;
+    width: 18px; height: 11px;
+    border: 1.5px solid var(--rust);
+    border-radius: 9px 9px 0 0;
+    border-bottom: 0;
+  }
+  .bell::after {
+    content: "";
+    position: absolute;
+    left: -2px; bottom: 1px;
+    width: 22px;
+    border-top: 1.5px solid var(--rust);
+  }
+  .bell .knob {
+    position: absolute;
+    left: 50%; top: -1px;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--rust);
+    transform: translateX(-50%);
+  }
+  .ask__field {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    border-bottom: 1.5px solid var(--rule-strong);
+    padding: 6px 2px 8px;
+  }
+  .ask__field input {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--ink);
+    letter-spacing: 0;
+    outline: none;
+  }
+  .ask__field input::placeholder { color: var(--ash-2); font-style: italic; }
+  .ask__field:focus-within { border-bottom-color: var(--rust); }
+  .ask__send {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    color: var(--paper);
+    background: var(--ink);
+    border: 0;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease;
+  }
+  .ask__send:hover { background: var(--press); }
+
+  .ask__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--rule);
+  }
+  .ask__chips .lead-in {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ash);
+    align-self: center;
+    margin-right: 2px;
+  }
+  .chip {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    color: var(--print);
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 7px 13px;
+    cursor: pointer;
+    transition: all .15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chip::before {
+    content: "";
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--rust);
+    flex: 0 0 4px;
+  }
+  .chip:hover { border-color: var(--ink); color: var(--ink); }
+
+  /* ── PRIOR EXCHANGE (asked-and-answered, editorial style) ─ */
+  .prior { padding: 38px 0 64px; }
+  .prior__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 0 0 16px;
+  }
+  .prior__head .section-head { letter-spacing: 0.1em; color: var(--ash); }
+  .prior__head .when {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ash-2);
+  }
+  .exchange {
+    border-left: 2px solid var(--rule-strong);
+    padding-left: 22px;
+  }
+  .exchange__q {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: 17px;
+    color: var(--ink);
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .exchange__q .you {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ash-2);
+    font-weight: 400;
+    flex: 0 0 auto;
+  }
+  .exchange__a {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.28;
+    font-size: 23px;
+    color: var(--ink);
+    margin: 14px 0 0;
+    max-width: 50ch;
+  }
+  .exchange__a .name { color: var(--slate); font-weight: 600; }
+  .exchange__a .num { color: var(--ink); font-weight: 600; font-feature-settings: "tnum"; }
+  .exchange__a .down { color: var(--alert); font-weight: 600; }
+  .exchange__meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0 0;
+  }
+  .exchange__meta .conf { font-size: 11px; }
+  .exchange__meta .src-line {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    color: var(--ash);
+  }
+
+  @media (max-width: 1040px) {
+    .answer__brief { font-size: 30px; }
+    .evidence__grid { grid-template-columns: 1fr; }
+    .sheet { padding: 0 32px; }
+    .col { padding-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── SIDEBAR ───────────────────────────────────────────── -->
+  <aside class="rail">
+    <div class="rail__mark">
+      <span class="wordmark"><span class="glyph"></span>Ticket</span>
+    </div>
+    <nav class="rail__nav">
+      <a class="rail__link rail__link--active" href="#">Today</a>
+      <a class="rail__link" href="#">Competitors</a>
+      <a class="rail__link" href="#">Signals</a>
+      <a class="rail__link" href="#">Ask</a>
+    </nav>
+    <div class="rail__foot">
+      <span class="mono-badge">AI</span>
+      <span class="rail__who">
+        <span class="nm">Anand</span><br>
+        <span class="org">Wagyu House Atlanta</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ──────────────────────────────────────────────── -->
+  <main class="sheet">
+    <div class="col">
+
+      <!-- MASTHEAD -->
+      <header class="pass-head">
+        <div class="pass-kicker">The Pass</div>
+        <div class="pass-dateline">
+          <span>Tue</span><span class="sep">·</span>
+          <span>Jun 2</span><span class="sep">·</span>
+          <span>Swept 6:02A</span>
+        </div>
+        <hr class="pass-rule-ink">
+      </header>
+
+      <!-- THE ANSWER — the expo already worked the line -->
+      <section class="answer fade-up">
+        <div class="answer__tag">
+          <span class="answer__stamp">Worked the Line</span>
+          <span class="answer__from">Expo brief · before your shift</span>
+        </div>
+
+        <p class="answer__brief">
+          Here's what's firing this morning, <span class="chef">chef.</span>
+          You're dark on Instagram while <span class="name">O-Ku</span>,
+          <span class="name">Chirori</span>, and <span class="name">Gyu-kaku</span>
+          all work it daily. <span class="name">Chirori</span> is pulling
+          <span class="num">8.7x</span> your engagement
+          (<span class="num">3.4%</span> to your <span class="num">0.4%</span>)
+          and ran <span class="num">5</span> promos this week.
+          <span class="name">BACHI BOX</span> sits
+          <span class="num">39%</span> under you on dine-in
+          (<span class="num">$12.11</span> to your <span class="num">$19.99</span>).
+          Bright spot: your organic search is <span class="up">up 43%</span>
+          over three months.
+          <span class="move-line">
+            One move that matters this week: get on Instagram and answer
+            <span class="name">Chirori's</span> momentum.
+          </span>
+        </p>
+
+        <div class="answer__synth">
+          <span>Synthesized from <b>12 signals</b> across <b>5 competitors</b></span>
+          <span class="sep">·</span>
+          <span class="conf conf--high">Confidence: High <span class="pip"><i></i><i></i><i></i></span></span>
+        </div>
+      </section>
+
+      <hr class="rule-double" style="margin-top: 34px;">
+
+      <!-- EVIDENCE — the tickets that back the answer -->
+      <section class="evidence">
+        <div class="evidence__head">
+          <span class="section-head">The Evidence</span>
+          <span class="note">4 tickets behind the call</span>
+        </div>
+
+        <div class="evidence__grid">
+
+          <!-- INSTAGRAM -->
+          <article class="src">
+            <span class="tick tick--crit"></span>
+            <div class="src__body">
+              <div class="src__label">Instagram</div>
+              <p class="src__claim">
+                <b>3 rivals active, you are dark.</b>
+                <span class="who" style="color:var(--slate);font-weight:600;">O-Ku</span>,
+                <span class="who" style="color:var(--slate);font-weight:600;">Chirori</span>, and
+                <span class="who" style="color:var(--slate);font-weight:600;">Gyu-kaku</span>
+                are all posting. No account of yours is firing.
+              </p>
+              <div class="src__foot">
+                <span class="conf conf--high">High <span class="pip"><i></i><i></i><i></i></span></span>
+                <span class="src__ref">Social presence sweep</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- ENGAGEMENT · CHIRORI -->
+          <article class="src">
+            <span class="tick tick--warn"></span>
+            <div class="src__body">
+              <div class="src__label">Engagement <span class="div">·</span> <span class="who">Chirori</span></div>
+              <p class="src__claim">
+                <span class="down num">8.7x</span> your Instagram engagement at
+                <span class="num">3.4%</span> to your <span class="num">0.4%</span>,
+                and <b><span class="num">5</span> promos</b> pushed this week.
+              </p>
+              <div class="src__foot">
+                <span class="conf conf--high">High <span class="pip"><i></i><i></i><i></i></span></span>
+                <span class="src__ref">Engagement · 7-day window</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- MENU · BACHI BOX -->
+          <article class="src">
+            <span class="tick tick--warn"></span>
+            <div class="src__body">
+              <div class="src__label">Menu <span class="div">·</span> <span class="who">BACHI BOX</span></div>
+              <p class="src__claim">
+                <span class="down num">39%</span> under you on dine-in.
+                Their check averages <span class="num">$12.11</span> to your
+                <span class="num">$19.99</span>.
+              </p>
+              <div class="src__foot">
+                <span class="conf conf--high">High <span class="pip"><i></i><i></i><i></i></span></span>
+                <span class="src__ref">Menu pricing scan</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- SEARCH -->
+          <article class="src">
+            <span class="tick tick--info"></span>
+            <div class="src__body">
+              <div class="src__label">Search <span class="div">·</span> <span style="color:var(--clear);">Yours</span></div>
+              <p class="src__claim">
+                Organic search <span class="up num">up 43%</span> over three months.
+                The kitchen you can't see is working.
+              </p>
+              <div class="src__foot">
+                <span class="conf conf--high">High <span class="pip"><i></i><i></i><i></i></span></span>
+                <span class="src__ref">Organic visibility · 90-day</span>
+              </div>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <hr class="rule-double" style="margin-top: 34px;">
+
+      <!-- ASK THE PASS — service bell input, not a chat bubble -->
+      <section class="ask">
+        <div class="ask__bar">
+          <div class="ask__row">
+            <span class="ask__label"><span class="bell"><span class="knob"></span></span>Ask the Pass</span>
+            <span class="ask__field">
+              <input type="text" placeholder="Ask about your market..." aria-label="Ask the pass">
+            </span>
+            <button class="ask__send" type="button">Ring it in</button>
+          </div>
+
+          <div class="ask__chips">
+            <span class="lead-in">Try:</span>
+            <button class="chip" type="button">Who undercut me this week?</button>
+            <button class="chip" type="button">Where am I losing ground?</button>
+            <button class="chip" type="button">What should I do before the weekend?</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRIOR EXCHANGE — asked & answered, same editorial voice -->
+      <section class="prior">
+        <div class="prior__head">
+          <span class="section-head">Last Asked</span>
+          <span class="when">Yesterday · 4:48P</span>
+        </div>
+
+        <div class="exchange">
+          <h3 class="exchange__q">
+            <span class="you">You asked</span>
+            Who undercut me this week?
+          </h3>
+          <p class="exchange__a">
+            <span class="name">BACHI BOX</span> did, chef. They are running
+            <span class="down">39% under</span> your dine-in check at
+            <span class="num">$12.11</span> to your <span class="num">$19.99</span>,
+            and they carry categories you don't, Wings and Hibachi Entrees, so
+            guests compare price before they ever compare the plate.
+          </p>
+          <div class="exchange__meta">
+            <span class="conf conf--high">High <span class="pip"><i></i><i></i><i></i></span></span>
+            <span class="src-line">Source: Menu pricing scan · 7-day</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

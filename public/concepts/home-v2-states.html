@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket · Today (Quiet States)</title>
+<link rel="stylesheet" href="ticket-system.css">
+<link rel="stylesheet" href="ticket-components.css">
+<style>
+  /* ── scoped layout glue only ────────────────────────────── */
+  .app {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    min-height: 100vh;
+    align-items: stretch;
+  }
+
+  /* slim left sidebar (rendered once, shell shared by both states) */
+  .side {
+    border-right: 1px solid var(--rule);
+    padding: 26px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .side__brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 19px;
+    color: var(--ink);
+  }
+  .side__brand svg { display: block; }
+  .side__nav { margin-top: 38px; display: flex; flex-direction: column; gap: 2px; }
+  .side__nav a {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 13.5px;
+    color: var(--ash);
+    padding: 8px 0 8px 14px;
+    border-left: 2px solid transparent;
+    position: relative;
+    transition: color .15s ease;
+  }
+  .side__nav a:hover { color: var(--ink); text-decoration: none; }
+  .side__nav a.is-active { color: var(--ink); border-left-color: var(--rust); }
+  .side__foot { margin-top: auto; padding-top: 22px; border-top: 1px solid var(--rule); display: flex; align-items: center; gap: 11px; }
+  .side__mono {
+    width: 34px; height: 34px; flex: 0 0 34px; border-radius: 4px;
+    background: var(--ink); color: var(--paper);
+    font-family: var(--font-cond); font-weight: 700; letter-spacing: 0.04em; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .side__who { line-height: 1.25; }
+  .side__who b { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; font-size: 13px; color: var(--ink); display: block; }
+  .side__who span { font-size: 11px; color: var(--ash); }
+
+  /* main scroll region */
+  .main { padding: 38px 0 0; overflow-x: hidden; }
+  .canvas { max-width: 1000px; margin: 0 auto; padding: 0 40px 110px; }
+
+  /* a small Barlow-caps tag above each state */
+  .state-tag {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .18em;
+    font-size: 12px;
+    color: var(--ash);
+    margin-bottom: 14px;
+  }
+  .state-tag .num {
+    font-family: var(--font-mono); font-weight: 700; letter-spacing: .02em;
+    font-size: 11px; color: var(--rust);
+  }
+  .state-tag .tline { width: 26px; height: 0; border-top: 1.5px solid var(--rule-strong); }
+
+  /* generous separation between the two states */
+  .state-sep { margin: 64px 0; border: 0; border-top: 1.5px dotted var(--rule-strong); }
+
+  /* enriching state: dim early-read rows live inside the state block */
+  .state .early {
+    margin-top: 6px;
+    border-top: 1px solid var(--rule);
+  }
+  .state .early .note { padding: 14px 0; }
+  .state .partial .note-tag { color: var(--rust); }
+  .state .watch-line {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .02em;
+    text-transform: uppercase; color: var(--ash);
+    margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--rule);
+    display: flex; align-items: center; gap: 9px;
+  }
+  .state .watch-line .pulse {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--rust);
+    box-shadow: 0 0 0 0 rgba(184,92,56,.5);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .state .watch-line .pulse { animation: pulse 2.2s ease-out infinite; }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(184,92,56,.45); }
+      70%  { box-shadow: 0 0 0 7px rgba(184,92,56,0); }
+      100% { box-shadow: 0 0 0 0 rgba(184,92,56,0); }
+    }
+  }
+
+  /* quiet state: grid so the single note + ask sit side by side, calm */
+  .quiet-grid { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 36px; align-items: start; margin-top: 22px; }
+  @media (max-width: 980px) { .quiet-grid { grid-template-columns: 1fr; gap: 26px; } }
+  .quiet-grid .note:last-child { border-bottom: 0; }
+  .quiet-note-head {
+    font-family: var(--font-cond); font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; font-size: 16px; color: var(--ink); margin-bottom: 2px;
+  }
+
+  /* the quiet bearings read steady, not alarmed */
+  .quiet .bearings { margin-top: 0; }
+
+  /* fade-up stagger inside each state */
+  @media (prefers-reduced-motion: no-preference) {
+    .stagger > * { animation: fu .55s cubic-bezier(.16,1,.3,1) both; }
+    .stagger > *:nth-child(2) { animation-delay: .05s; }
+    .stagger > *:nth-child(3) { animation-delay: .10s; }
+    .stagger > *:nth-child(4) { animation-delay: .15s; }
+    .stagger > *:nth-child(5) { animation-delay: .20s; }
+    .stagger > *:nth-child(6) { animation-delay: .25s; }
+  }
+
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 1fr; }
+    .side { position: static; height: auto; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 18px; }
+    .side__nav { flex-direction: row; margin-top: 0; }
+    .side__nav a { border-left: 0; padding: 6px 0; }
+    .side__nav a.is-active { border-left: 0; border-bottom: 2px solid var(--rust); }
+    .side__foot { margin: 0 0 0 auto; padding-top: 0; border-top: 0; }
+    .main { padding: 0; }
+    .canvas { padding: 28px 24px 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── SIDEBAR (rendered once; shell shared by both states) ─ -->
+  <aside class="side">
+    <div class="side__brand">
+      <svg width="18" height="29" viewBox="0 0 72 114" aria-hidden="true"><rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/><rect x="18" y="14" width="36" height="100" fill="#1C1917"/><circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/><circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/><line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.6" stroke-dasharray="2.5,2"/></svg>
+      TICKET
+    </div>
+
+    <nav class="side__nav">
+      <a href="#" class="is-active">Today</a>
+      <a href="#">Competitors</a>
+      <a href="#">Ask</a>
+      <a href="#">Settings</a>
+    </nav>
+
+    <div class="side__foot">
+      <div class="side__mono">AI</div>
+      <div class="side__who">
+        <b>Anand</b>
+        <span>Wagyu House Atlanta</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN: two stacked home states ───────────────────── -->
+  <main class="main">
+    <div class="canvas">
+
+      <!-- ════════ STATE 1 · ENRICHING (first run, day one) ════════ -->
+      <section>
+        <div class="state-tag">
+          <span class="num">01</span>
+          <span class="tline"></span>
+          First Run / Day One
+        </div>
+
+        <div class="state stagger">
+          <div class="state-kicker">Reading your market</div>
+          <h1 class="state-head">We're reading your competitive set.</h1>
+          <p class="state-sub">
+            Ticket is going through menus, reviews, search, and social for your 5 competitors right now. Your first full brief lands tomorrow morning. Here is what we can already see.
+          </p>
+
+          <!-- live sweep -->
+          <div class="sweep" role="img" aria-label="Reading your competitors"></div>
+
+          <!-- two dimmed early-read items as light note rows -->
+          <div class="early">
+            <div class="partial">
+              <div class="note">
+                <div class="note-tag">Confirming</div>
+                <div class="note-body">
+                  <b>Bachi Box</b> looks priced under you on dine-in. Verifying across sources.
+                </div>
+              </div>
+            </div>
+            <div class="partial">
+              <div class="note">
+                <div class="note-tag">Confirming</div>
+                <div class="note-body">
+                  Three of your competitors appear active on <b>Instagram</b> while you are not. Verifying.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- closing mono reassurance -->
+          <p class="watch-line">
+            <span class="pulse"></span>
+            Watching 5 competitors · Next sweep tonight · You do not need to do anything.
+          </p>
+        </div>
+      </section>
+
+      <!-- printed rule + generous space between states -->
+      <hr class="state-sep">
+
+      <!-- ════════ STATE 2 · QUIET (slow week, fully enriched) ════════ -->
+      <section class="quiet">
+        <div class="state-tag">
+          <span class="num">02</span>
+          <span class="tline"></span>
+          A Quiet Week
+        </div>
+
+        <div class="state stagger">
+          <div class="state-kicker">A quiet week</div>
+          <h1 class="state-head">Nothing's firing. Here's where you stand.</h1>
+          <p class="state-sub">
+            No urgent moves this week. You are holding ground. We will surface the moment something moves.
+          </p>
+
+          <!-- steady, calm bearings -->
+          <div class="bearings">
+            <div class="bearing">
+              <span class="b-label">Standing</span>
+              <span class="b-val good">Holding · steady</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Top Threat</span>
+              <span class="b-val">Chirori · quiet this week</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">New This Week</span>
+              <span class="b-val">2 of 5 · none urgent</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Last Swept</span>
+              <span class="b-val">6:02a</span>
+            </div>
+          </div>
+
+          <!-- one note worth knowing + a still-pokeable ASK -->
+          <div class="quiet-grid">
+
+            <div>
+              <div class="quiet-note-head">Worth knowing</div>
+              <div class="note">
+                <div class="note-tag">Still True</div>
+                <div class="note-body">
+                  Your search is <span class="up">up 43%</span> over three months and still climbing.
+                </div>
+              </div>
+            </div>
+
+            <div class="rail-card">
+              <div class="rail-head"><span>Ask Ticket</span></div>
+              <p class="standing-q">Who's undercutting me?</p>
+              <p class="standing-a">
+                Still <span class="name" style="color:var(--slate)">Bachi Box</span>, holding <span class="num">39%</span> under your dine-in price. No change this week.
+              </p>
+              <p class="standing-meta"><span class="refresh-dot"></span> Re-runs every morning · updated 6:02a</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /canvas -->
+  </main>
+
+</div>
+</body>
+</html>

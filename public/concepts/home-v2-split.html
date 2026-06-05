@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket · Your Brief (Split)</title>
+<link rel="stylesheet" href="ticket-system.css">
+<link rel="stylesheet" href="ticket-components.css">
+<style>
+  /* ──────────────────────────────────────────────────────────
+     home-v2-split - concept-specific shell only.
+     VARIANT = "SPLIT": the main column is two explicitly labeled
+     zones (WHAT TO DO / WHAT TO KNOW), separated by a printed rule.
+     System + components (movecard, note, conf, rail-*, zone-head)
+     come from the two linked stylesheets and are NOT redefined.
+     ────────────────────────────────────────────────────────── */
+
+  .app {
+    display: grid;
+    grid-template-columns: 208px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Slim fixed sidebar (bond / right hairline) ─────────── */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 208px;
+    background: var(--bond);
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    padding: 26px 0 20px;
+    z-index: 5;
+  }
+  .sidebar__brand { padding: 0 22px 22px; }
+  .sidebar__brand .wordmark { gap: 11px; }
+  .sidebar__brand .dateline { display: block; margin-top: 11px; font-size: 11px; letter-spacing: 0.1em; }
+
+  .nav { display: flex; flex-direction: column; gap: 1px; padding: 8px 0; }
+  .nav a {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 13px;
+    color: var(--ash);
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    transition: color .15s ease;
+  }
+  .nav a:hover { color: var(--ink); text-decoration: none; }
+  .nav a .tick {
+    width: 3px; height: 14px; align-self: center;
+    background: var(--ledger); border-radius: 2px;
+    margin-left: -22px; margin-right: 9px;
+    flex: 0 0 auto;
+  }
+  .nav a.is-active { color: var(--ink); }
+  .nav a.is-active .tick { background: var(--rust); }
+
+  .sidebar__spacer { flex: 1 1 auto; }
+
+  .sidebar__foot {
+    padding: 16px 22px 0;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .monogram {
+    width: 34px; height: 34px; flex: 0 0 auto;
+    border: 1.5px solid var(--ink); border-radius: 4px;
+    display: grid; place-items: center;
+    font-family: var(--font-cond); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.06em; color: var(--ink);
+    background: var(--card);
+  }
+  .sidebar__who { line-height: 1.25; }
+  .sidebar__who b { font-family: var(--font-sans); font-weight: 600; font-size: 13px; color: var(--ink); display: block; }
+  .sidebar__who span { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; color: var(--ash); }
+
+  /* ── Main ───────────────────────────────────────────────── */
+  .main {
+    grid-column: 2;
+    padding: 44px 0 0;
+  }
+
+  /* The brief header (kicker + dateline), shared with the other variant */
+  .brief-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+  .brief-head .kicker { font-size: 12.5px; }
+  .brief-head .dateline-mono {
+    font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ash);
+  }
+
+  /* ── The split: a printed rule + breathing space between zones ── */
+  .zone { margin-top: 30px; }
+  .zone--know { margin-top: 0; }
+
+  /* the divider that makes the Do / Know separation explicit */
+  .zone-split {
+    margin: 40px 0 30px;
+    position: relative;
+  }
+  .zone-split hr { margin: 0; }
+  .zone-split .tab {
+    position: absolute;
+    left: 0; top: -9px;
+    background: var(--paper);
+    padding-right: 14px;
+    font-family: var(--font-mono);
+    font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--ash-2);
+  }
+
+  /* a slightly heavier zone head rule so each zone reads as its own section */
+  .zone-head { border-bottom: 1.5px solid var(--ink); padding-bottom: 10px; margin-bottom: 18px; }
+  .zone--know .zone-head { border-bottom-color: var(--rule-strong); }
+
+  /* the EXPANDED top move gets a touch more presence */
+  .movecard--lead { box-shadow: var(--shadow-lift); }
+  .movecard__rank-row { display: flex; align-items: baseline; gap: 12px; }
+  .movecard__rank-row .stamp { transform: rotate(-2.5deg); }
+
+  /* a single "see how" affordance on the collapsed move */
+  .movecard__seemore { margin-top: 12px; }
+  .movecard__seemore .act { display: inline-flex; align-items: center; gap: 7px; }
+  .movecard__seemore .act .car { color: var(--rust); }
+
+  /* notes wrap so the Know zone has its own quiet container */
+  .notes { border-top: 1px solid var(--rule); }
+
+  /* ── Right rail ─────────────────────────────────────────── */
+  .rail-col { position: sticky; top: 44px; }
+  .reach a:hover { border-color: var(--slate); text-decoration: none; }
+  .reach .reach-div { flex: 0 0 100%; height: 0; border-top: 1px dotted var(--rule); margin: 4px 0; }
+
+  /* layout: reuse .home + .home-grid from components for the wide-main + 348 rail */
+  .home { padding-top: 0; }
+
+  @media (max-width: 1180px) {
+    .main { padding: 36px 0 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="wordmark">
+        <svg width="18" height="29" viewBox="0 0 72 114" aria-hidden="true">
+          <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917"/>
+          <rect x="18" y="14" width="36" height="100" fill="#1C1917"/>
+          <circle cx="18" cy="16" r="3.5" fill="#F5F3EF"/>
+          <circle cx="54" cy="16" r="3.5" fill="#F5F3EF"/>
+          <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" stroke-width="1.6" stroke-dasharray="2.5,2"/>
+        </svg>
+        TICKET
+      </span>
+      <span class="dateline">Tue · June 2</span>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="is-active"><span class="tick"></span>Today</a>
+      <a href="#"><span class="tick"></span>Competitors</a>
+      <a href="#"><span class="tick"></span>Ask</a>
+      <a href="#"><span class="tick"></span>Settings</a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <div class="sidebar__foot">
+      <span class="monogram">AI</span>
+      <span class="sidebar__who">
+        <b>Anand</b>
+        <span>Wagyu House Atlanta</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────── -->
+  <main class="main">
+    <div class="home">
+      <div class="home-grid">
+
+        <!-- ════════ WIDE MAIN COLUMN ════════ -->
+        <section>
+
+          <!-- 1 · Brief header -->
+          <header class="brief-head">
+            <span class="kicker">Your Brief</span>
+            <span class="dateline-mono">Tuesday, June 2 · Swept 6:02a</span>
+          </header>
+          <hr class="rule rule-ink" style="margin:12px 0 26px;">
+
+          <!-- 2 · The answer (summary, answer-first) -->
+          <p class="answer">
+            This week you're losing ground where your customers look first.
+            Three rivals are active on Instagram and you're dark,
+            <span class="name">Chirori</span> is pulling far more engagement and running promos,
+            and <span class="name">Bachi Box</span> is undercutting your dine-in price.
+            The bright spot: your search traffic is <span class="up">climbing</span>.
+            The one thing worth doing first is simple: get on Instagram and answer Chirori.
+          </p>
+          <p class="answer-meta">Synthesized from 12 signals across 5 competitors. Confidence: High.</p>
+
+          <!-- 3 · Bearings (glanceable status line) -->
+          <div class="bearings">
+            <div class="bearing">
+              <span class="b-label">Standing</span>
+              <span class="b-val warn">Losing ground · 2 of 3</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Top threat</span>
+              <span class="b-val warn">Chirori</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">To act on</span>
+              <span class="b-val">4 of 12</span>
+            </div>
+            <div class="bearing">
+              <span class="b-label">Last swept</span>
+              <span class="b-val">6:02a · 5 watched</span>
+            </div>
+          </div>
+
+          <!-- ════════ ZONE 1 · WHAT TO DO ════════ -->
+          <div class="zone zone--do">
+            <div class="zone-head">
+              <span class="zh">What to do <span class="count">3</span></span>
+              <span class="zone-sub">Tied to what changed, ranked by what matters.</span>
+            </div>
+
+            <!-- MOVE 01 - EXPANDED, full __how -->
+            <article class="movecard movecard--lead">
+              <div class="movecard__rank-row">
+                <span class="movecard__rank">MOVE 01</span>
+              </div>
+              <h2 class="movecard__do">Get on Instagram this week.</h2>
+              <p class="movecard__why">
+                <span class="name">O-Ku</span>, <span class="name">Chirori</span>, and
+                <span class="name">Gyu-kaku</span> all post on Instagram. You have
+                <span class="num">no account</span>, so you are invisible where new
+                customers look first.
+              </p>
+              <div class="movecard__meta">
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                <span class="src">Social presence sweep · Today</span>
+              </div>
+
+              <div class="movecard__how">
+                <div class="how-label">How to do it</div>
+                <ol class="how-steps">
+                  <li>Claim the handle, it is open.</li>
+                  <li>Post three things this week: a hero plate, the dining room, a behind-the-counter shot.</li>
+                  <li>Borrow what works: Chirori posts dishes mid-service with short captions.</li>
+                </ol>
+                <div class="copy-ex">
+                  <span class="copy-label">Copy this</span>
+                  Wagyu, the way it should be. Tonight from 5. Buckhead.
+                </div>
+              </div>
+
+              <div class="movecard__actions">
+                <button class="act act--primary">Done</button>
+                <button class="act">Snooze</button>
+                <button class="act">Save</button>
+              </div>
+            </article>
+
+            <!-- MOVE 02 - EXPANDED -->
+            <article class="movecard">
+              <div class="movecard__rank-row">
+                <span class="movecard__rank">MOVE 02</span>
+              </div>
+              <h2 class="movecard__do">Add a lower-priced entry point before the weekend.</h2>
+              <p class="movecard__why">
+                <span class="name">Bachi Box</span> averages a <span class="num">$12.11</span>
+                dine-in check to your <span class="num">$19.99</span>, inside the same two miles.
+                Guests compare the entry price before they compare the plate.
+              </p>
+              <div class="movecard__meta">
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                <span class="src">Menu pricing scan · 2 days ago</span>
+              </div>
+
+              <div class="movecard__how">
+                <div class="how-label">How to do it</div>
+                <ol class="how-steps">
+                  <li>You do not have to drop your prices.</li>
+                  <li>Add one lunch plate or value combo under $15 so you are in the comparison.</li>
+                  <li>We will watch whether Bachi Box holds that price.</li>
+                </ol>
+              </div>
+
+              <div class="movecard__actions">
+                <button class="act act--primary">Done</button>
+                <button class="act">Snooze</button>
+                <button class="act">Save</button>
+              </div>
+            </article>
+
+            <!-- MOVE 03 - collapsed: do + why + meta + single "See how" -->
+            <article class="movecard">
+              <div class="movecard__rank-row">
+                <span class="movecard__rank">MOVE 03</span>
+              </div>
+              <h2 class="movecard__do">Answer Chirori's promo run.</h2>
+              <p class="movecard__why">
+                <span class="name">Chirori</span>'s Instagram engagement is
+                <span class="num">8.7x</span> yours
+                (<span class="num">3.4%</span> to your <span class="num">0.4%</span>)
+                and they pushed <span class="num">5 promos</span> this week.
+              </p>
+              <div class="movecard__meta">
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+                <span class="src">Social engagement · 7 day</span>
+              </div>
+              <div class="movecard__seemore">
+                <button class="act"><span class="car">&rarr;</span> See how</button>
+              </div>
+            </article>
+          </div>
+
+          <!-- ════════ THE SPLIT - printed rule between zones ════════ -->
+          <div class="zone-split">
+            <span class="tab">End of actions</span>
+            <hr class="rule-double">
+          </div>
+
+          <!-- ════════ ZONE 2 · WHAT TO KNOW ════════ -->
+          <div class="zone zone--know">
+            <div class="zone-head">
+              <span class="zh">What to know <span class="count">2</span></span>
+              <span class="zone-sub">Worth seeing. No action needed.</span>
+            </div>
+
+            <div class="notes">
+              <!-- NOTE · SEARCH (positive) -->
+              <div class="note">
+                <span class="note-tag">Search</span>
+                <p class="note-body">
+                  Your organic search is <span class="up">up 43%</span> over three months
+                  (67,800 to 97,100). The work you cannot see is paying off.
+                </p>
+              </div>
+
+              <!-- NOTE · WATCH (directional) -->
+              <div class="note">
+                <span class="note-tag">Watch</span>
+                <p class="note-body">
+                  <b>O-Ku</b> started running promos on TikTok. Directional for now,
+                  worth a watch, not a scramble.
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ════════ RIGHT RAIL (348px) ════════ -->
+        <aside class="rail-col">
+
+          <!-- ASK card -->
+          <div class="rail-card">
+            <div class="rail-head"><span>Ask Ticket</span></div>
+            <p class="standing-q">Who's undercutting me?</p>
+            <p class="standing-a">
+              <b>Bachi Box</b>, still. They are <span class="num">39% under</span> your dine-in check
+              (<span class="num">$12.11</span> to <span class="num">$19.99</span>) and added value
+              combos this week.
+            </p>
+            <p class="standing-meta"><span class="refresh-dot"></span>Re-runs every morning · updated 6:02a</p>
+
+            <div class="ask-field">
+              <input type="text" placeholder="Ask about your market..." aria-label="Ask Ticket">
+            </div>
+            <div class="chips">
+              <button class="chip">Where am I losing ground?</button>
+              <button class="chip">What changed this week?</button>
+              <button class="chip">Before the weekend?</button>
+            </div>
+            <p class="ask-note">
+              Ticket answers from what it is already watching. Standing questions refresh each
+              morning, so you are not starting from scratch.
+            </p>
+          </div>
+
+          <!-- PROOF card -->
+          <div class="rail-card">
+            <div class="rail-head"><span>What Ticket caught for you</span></div>
+            <div class="ledger-row">
+              <span>Competitor moves surfaced</span>
+              <span class="lnum">12</span>
+            </div>
+            <div class="ledger-row">
+              <span>Worth acting on</span>
+              <span class="lnum">4</span>
+            </div>
+            <div class="ledger-row">
+              <span>Avg lead time<br><span style="font-size:11px;color:var(--ash);">before it shows in your numbers</span></span>
+              <span class="lnum">9 days</span>
+            </div>
+          </div>
+
+          <!-- REACH card -->
+          <div class="rail-card">
+            <div class="rail-head"><span>On watch</span></div>
+            <div class="reach">
+              <a href="#">Ginya Izakaya</a>
+              <a href="#">O-Ku</a>
+              <a href="#">Bachi Box</a>
+              <a href="#">Gyu-kaku</a>
+              <a href="#">Chirori</a>
+              <span class="reach-div"></span>
+              <a href="#">Wagyu House Atlanta</a>
+            </div>
+          </div>
+
+        </aside>
+
+      </div><!-- /home-grid -->
+    </div><!-- /home -->
+  </main>
+</div>
+</body>
+</html>

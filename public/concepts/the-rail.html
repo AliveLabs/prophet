@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ticket · On the Rail</title>
+<link rel="stylesheet" href="ticket-system.css">
+<style>
+  /* ── Concept B: "THE RAIL" — concept-specific layout only ── */
+  /* The system (chits, stamps, conf, move, tick, buttons) is NOT redefined here. */
+
+  .app {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ── Slim fixed sidebar (bond / right hairline) ─────────── */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 200px;
+    background: var(--bond);
+    border-right: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+    padding: 26px 0 20px;
+    z-index: 5;
+  }
+  .sidebar__brand { padding: 0 22px 24px; }
+  .sidebar__brand .dateline { display: block; margin-top: 10px; font-size: 11px; }
+
+  .nav { display: flex; flex-direction: column; gap: 1px; padding: 6px 0; }
+  .nav a {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 13px;
+    color: var(--ash);
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    transition: color .15s ease;
+  }
+  .nav a:hover { color: var(--ink); text-decoration: none; }
+  .nav a .tick {
+    width: 3px; height: 14px; align-self: center;
+    background: var(--ledger); border-radius: 2px;
+    margin-left: -22px; margin-right: 9px;
+    flex: 0 0 auto;
+  }
+  .nav a.is-active { color: var(--ink); }
+  .nav a.is-active .tick { background: var(--rust); }
+
+  .sidebar__spacer { flex: 1 1 auto; }
+
+  .sidebar__foot {
+    padding: 16px 22px 0;
+    border-top: 1px solid var(--rule);
+    margin: 0 0 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .monogram {
+    width: 34px; height: 34px; flex: 0 0 auto;
+    border: 1.5px solid var(--ink); border-radius: 4px;
+    display: grid; place-items: center;
+    font-family: var(--font-cond); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.06em; color: var(--ink);
+    background: var(--card);
+  }
+  .sidebar__who { line-height: 1.25; }
+  .sidebar__who b { font-family: var(--font-sans); font-weight: 600; font-size: 13px; color: var(--ink); display: block; }
+  .sidebar__who span { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: 0.08em; font-size: 10.5px; color: var(--ash); }
+
+  /* ── Main / the rail ────────────────────────────────────── */
+  .main {
+    grid-column: 2;
+    padding: 40px 48px 64px;
+  }
+  .rail {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .rail__head { padding-bottom: 14px; }
+  .rail__head .subline {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ash);
+    text-transform: uppercase;
+    margin-top: 7px;
+  }
+  .rail__head .subline .firing { color: var(--rust); }
+  .ghost-link {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 12px;
+    color: var(--ash);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    padding: 4px 0;
+    white-space: nowrap;
+    transition: color .15s ease;
+  }
+  .ghost-link:hover { color: var(--ink); }
+
+  /* the live count badge in the head */
+  .count-badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--paper);
+    background: var(--ink);
+    border-radius: 3px;
+    padding: 2px 7px;
+    letter-spacing: 0.04em;
+    vertical-align: 3px;
+    margin-left: 10px;
+  }
+
+  /* ── The stacked chits + left spine ─────────────────────── */
+  .rail__line {
+    margin-top: 22px;
+    position: relative;
+    padding-left: 30px;
+  }
+  /* the rail spine: a vertical service line the chits hang off */
+  .rail__line::before {
+    content: "";
+    position: absolute;
+    left: 9px; top: 6px; bottom: 6px;
+    width: 2px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        var(--rule-strong) 0 6px,
+        transparent 6px 12px
+      );
+  }
+
+  .slot { position: relative; }
+  .slot + .slot { margin-top: 22px; }
+  /* the slot node on the spine */
+  .slot::before {
+    content: "";
+    position: absolute;
+    left: -21px; top: 18px;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 2px solid var(--rule-strong);
+  }
+  .slot--fire::before { border-color: var(--rust); background: var(--rust); }
+  .slot--done::before { border-color: var(--clear); background: var(--clear); }
+  /* short connector from spine to chit */
+  .slot::after {
+    content: "";
+    position: absolute;
+    left: -16px; top: 22px;
+    width: 16px; height: 2px;
+    background: var(--rule);
+  }
+
+  /* the chit itself sits inside a slot; lay out head + stamp */
+  .chit { display: block; }
+  .chit__stamp {
+    position: absolute;
+    top: -7px; right: 18px;
+    z-index: 2;
+  }
+
+  /* body internals */
+  .chit__inner {
+    display: flex;
+    gap: 14px;
+  }
+  .chit__inner .tick { flex: 0 0 auto; }
+  .chit__content { flex: 1 1 auto; min-width: 0; }
+
+  .fire-call {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.08;
+    font-size: 26px;
+    letter-spacing: 0;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+  .read-line {
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--print);
+    margin: 0 0 13px;
+  }
+  .read-line b { font-weight: 600; color: var(--ink); }
+  .read-line .up { color: var(--clear); font-weight: 600; }
+  .read-line .down { color: var(--alert); font-weight: 600; }
+
+  .chit__actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-top: 14px;
+  }
+  .chit__actions .spacer { flex: 1 1 auto; }
+  .chit__actions .btn { padding: 8px 18px; }
+  .chit__actions .meta {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    color: var(--ash-2);
+    text-transform: uppercase;
+  }
+
+  /* ── The DONE / cleared chit state ──────────────────────── */
+  .chit.is-done { box-shadow: none; background: var(--paper-2); }
+  .chit.is-done .chit__inner,
+  .chit.is-done .chit__head { opacity: 0.55; }
+  .chit.is-done .chit__stamp { opacity: 1; }
+  .chit.is-done .chit__actions .btn--rust { display: none; }
+  /* a knocked-back, cleared look: slight rotate handled on the stamp by system */
+  .chit.is-done .undo {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    color: var(--ash);
+    background: none; border: 0; cursor: pointer; padding: 4px 0;
+  }
+  .chit.is-done .undo:hover { color: var(--ink); }
+
+  /* ── Footer line ────────────────────────────────────────── */
+  .rail__foot {
+    max-width: 720px;
+    margin: 36px auto 0;
+    padding-left: 30px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ash-2);
+    text-transform: uppercase;
+  }
+  .rail__foot a { color: var(--ash); border-bottom: 1px solid var(--rule); }
+  .rail__foot a:hover { color: var(--ink); text-decoration: none; border-color: var(--ink); }
+
+  @media (max-width: 1180px) {
+    .main { padding: 36px 32px 56px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Sidebar ─────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar__brand">
+      <span class="wordmark"><span class="glyph"></span>TICKET</span>
+      <span class="dateline">Tue · June 2</span>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="is-active"><span class="tick"></span>Today</a>
+      <a href="#"><span class="tick"></span>Competitors</a>
+      <a href="#"><span class="tick"></span>Signals</a>
+      <a href="#"><span class="tick"></span>Ask</a>
+    </nav>
+
+    <div class="sidebar__spacer"></div>
+
+    <div class="sidebar__foot">
+      <span class="monogram">AI</span>
+      <span class="sidebar__who">
+        <b>Anand</b>
+        <span>Wagyu House Atlanta</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- ── Main / the rail ─────────────────────────────────── -->
+  <main class="main">
+    <div class="rail">
+
+      <!-- Rail header -->
+      <header class="rail__head">
+        <div class="between">
+          <h1 class="section-head" style="margin:0;">On the Rail<span class="count-badge">5 UP</span></h1>
+          <button class="ghost-link">Clear all read</button>
+        </div>
+        <div class="subline"><span class="firing">4 FIRING</span> · 1 ON HOLD · SWEPT 6:02A</div>
+      </header>
+      <hr class="rule rule-ink" style="margin:0;">
+
+      <!-- The line of chits -->
+      <div class="rail__line">
+
+        <!-- CHIT 1 — critical / High / INSTAGRAM -->
+        <div class="slot slot--fire">
+          <article class="chit chit--perf">
+            <span class="chit__stamp stamp stamp--fire">Fire</span>
+            <div class="chit__head">
+              <span>#INST-204 · INSTAGRAM</span>
+              <span>FIRED 6:02A&nbsp;&nbsp;
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+              </span>
+            </div>
+            <div class="chit__body">
+              <div class="chit__inner">
+                <span class="tick tick--crit"></span>
+                <div class="chit__content">
+                  <h2 class="fire-call">You're dark on Instagram. Three rivals own it.</h2>
+                  <p class="read-line">
+                    <b>O-Ku</b>, <b>Chirori - Omakase &amp; Sushi</b>, and <b>Gyu-kaku Japanese BBQ</b>
+                    are all active on Instagram. You have <b>no presence</b> on the channel.
+                  </p>
+                  <div class="move">
+                    <span class="arrow">&rarr;</span>
+                    <span><b>Move.</b> Claim your Instagram this week and start posting.</span>
+                  </div>
+                  <div class="chit__actions">
+                    <button class="btn btn--rust">Fire</button>
+                    <button class="btn btn--ghost">Hold</button>
+                    <button class="btn btn--ghost">Done</button>
+                    <span class="spacer"></span>
+                    <span class="meta">Severity · Critical</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- CHIT 2 — warning / High / INSTAGRAM · CHIRORI -->
+        <div class="slot slot--fire">
+          <article class="chit chit--perf">
+            <span class="chit__stamp stamp stamp--fire">Fire</span>
+            <div class="chit__head">
+              <span>#INST-211 · INSTAGRAM · CHIRORI</span>
+              <span>FIRED 6:02A&nbsp;&nbsp;
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+              </span>
+            </div>
+            <div class="chit__body">
+              <div class="chit__inner">
+                <span class="tick tick--warn"></span>
+                <div class="chit__content">
+                  <h2 class="fire-call">Chirori is lapping you on Instagram.</h2>
+                  <p class="read-line">
+                    Their engagement runs <b>3.4%</b> to your <span class="down">0.4%</span>.
+                    That is <b>8.7&times;</b> yours, and they pushed <b>5 promotions</b> this week.
+                  </p>
+                  <div class="move">
+                    <span class="arrow">&rarr;</span>
+                    <span><b>Move.</b> Pull their top posts and plan a counter.</span>
+                  </div>
+                  <div class="chit__actions">
+                    <button class="btn btn--rust">Fire</button>
+                    <button class="btn btn--ghost">Hold</button>
+                    <button class="btn btn--ghost">Done</button>
+                    <span class="spacer"></span>
+                    <span class="meta">Severity · Warning</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- CHIT 3 — warning / High / MENU · BACHI BOX -->
+        <div class="slot slot--fire">
+          <article class="chit chit--perf">
+            <span class="chit__stamp stamp stamp--fire">Fire</span>
+            <div class="chit__head">
+              <span>#MENU-088 · MENU · BACHI BOX</span>
+              <span>FIRED 6:02A&nbsp;&nbsp;
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+              </span>
+            </div>
+            <div class="chit__body">
+              <div class="chit__inner">
+                <span class="tick tick--warn"></span>
+                <div class="chit__content">
+                  <h2 class="fire-call">BACHI BOX is 39% under you on dine-in.</h2>
+                  <p class="read-line">
+                    Their average dine-in check sits at <b>$12.11</b> against your <b>$19.99</b>.
+                    They are the value play heading into the weekend.
+                  </p>
+                  <div class="move">
+                    <span class="arrow">&rarr;</span>
+                    <span><b>Move.</b> Pressure-test your dine-in pricing before the weekend.</span>
+                  </div>
+                  <div class="chit__actions">
+                    <button class="btn btn--rust">Fire</button>
+                    <button class="btn btn--ghost">Hold</button>
+                    <button class="btn btn--ghost">Done</button>
+                    <span class="spacer"></span>
+                    <span class="meta">Severity · Warning</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- CHIT 4 — info / High / SEARCH (positive) -->
+        <div class="slot">
+          <article class="chit chit--perf">
+            <div class="chit__head">
+              <span>#SRCH-140 · SEARCH</span>
+              <span>FIRED 6:02A&nbsp;&nbsp;
+                <span class="conf conf--high"><span class="pip"><i></i><i></i><i></i></span>High</span>
+              </span>
+            </div>
+            <div class="chit__body">
+              <div class="chit__inner">
+                <span class="tick tick--info"></span>
+                <div class="chit__content">
+                  <h2 class="fire-call">Your search is climbing.</h2>
+                  <p class="read-line">
+                    Organic is <span class="up">up 43%</span> over three months,
+                    <b>67,800</b> to <b>97,100</b>. This one is in your favor.
+                  </p>
+                  <div class="move">
+                    <span class="arrow">&rarr;</span>
+                    <span><b>Move.</b> Keep doing what is working. Protect the momentum.</span>
+                  </div>
+                  <div class="chit__actions">
+                    <button class="btn btn--rust">Fire</button>
+                    <button class="btn btn--ghost">Hold</button>
+                    <button class="btn btn--ghost">Done</button>
+                    <span class="spacer"></span>
+                    <span class="meta">Severity · Info</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- CHIT 5 — DONE / cleared example / warning / Medium / PROMOS -->
+        <div class="slot slot--done">
+          <article class="chit chit--perf is-done">
+            <span class="chit__stamp stamp stamp--done">Done</span>
+            <div class="chit__head">
+              <span>#PROMO-073 · PROMOS · O-KU</span>
+              <span>CLEARED 6:14A&nbsp;&nbsp;
+                <span class="conf conf--med"><span class="pip"><i></i><i></i><i></i></span>Medium</span>
+              </span>
+            </div>
+            <div class="chit__body">
+              <div class="chit__inner">
+                <span class="tick tick--warn"></span>
+                <div class="chit__content">
+                  <h2 class="fire-call">O-Ku is running promos on TikTok.</h2>
+                  <p class="read-line">
+                    <b>5 promotional posts</b> recently across their TikTok.
+                    Worth a watch, not a scramble.
+                  </p>
+                  <div class="move">
+                    <span class="arrow">&rarr;</span>
+                    <span><b>Move.</b> Note the cadence. Revisit if it picks up.</span>
+                  </div>
+                  <div class="chit__actions">
+                    <button class="btn btn--rust">Fire</button>
+                    <button class="btn btn--ghost">Hold</button>
+                    <span class="spacer"></span>
+                    <button class="undo">Bring back</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+
+      </div><!-- /rail__line -->
+
+      <!-- Footer -->
+      <p class="rail__foot">8 more on the rail in <a href="#">Signals</a>. Nothing else is firing.</p>
+
+    </div><!-- /rail -->
+  </main>
+</div>
+</body>
+</html>

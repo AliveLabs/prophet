@@ -1,0 +1,69 @@
+/* ============================================================
+   TICKET — Acted-on momentum + drill-down ingress (round 4)
+   Layers on system + components + week CSS. Prototype.
+   Shows: what you've cleared / saved / snoozed mixed with fresh
+   moves, and the "go deeper" doorways into the rest of the app.
+   ============================================================ */
+
+/* ── Momentum strip (your week's action history) ──────────── */
+.momentum { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; padding: 11px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; color: var(--ash); }
+.momentum b { color: var(--ink); font-weight: 600; }
+.momentum .m-item { display: flex; align-items: center; gap: 7px; }
+.m-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.m-dot--done { background: var(--clear); }
+.m-dot--saved { background: var(--wire-gold); }
+.m-dot--snoozed { background: var(--ash-2); }
+.momentum .m-spacer { margin-left: auto; }
+
+/* ── Acted-on Move states (knocked back, not gone) ────────── */
+.movecard--done { border-left-color: var(--clear); opacity: .6; }
+.movecard--done .movecard__do { font-size: 19px; }
+.movecard--saved { border-left-color: var(--wire-gold); }
+.movecard--snoozed { border-left-color: var(--ash-2); opacity: .72; }
+.movecard__status { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .07em; font-size: 11px; }
+.movecard__status.done { color: var(--clear); }
+.movecard__status.saved { color: var(--gold-deep); }
+.movecard__status.snoozed { color: var(--ash); }
+.undo { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; color: var(--slate); cursor: pointer; border: 0; background: none; padding: 0; }
+.undo:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── "Cleared this week" disclosure (momentum without clutter) ─ */
+.cleared { border: 1px solid var(--rule); border-radius: var(--radius-card); overflow: hidden; }
+.cleared__head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; cursor: pointer; font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 13px; color: var(--ash); background: var(--bond); }
+.cleared__head b { color: var(--ink); }
+.cleared__chev { transition: transform .2s ease; }
+.cleared[open] .cleared__chev { transform: rotate(90deg); }
+.cleared__list { padding: 2px 16px; }
+.cleared__item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14px; color: var(--print); }
+.cleared__item:last-child { border-bottom: 0; }
+.cleared__item .ci-check { color: var(--clear); flex: 0 0 auto; }
+.cleared__item .ci-when { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--ash); text-transform: uppercase; }
+
+/* ── Drill-down ingress: "go deeper" doorways ─────────────── */
+/* inline link affordance (used on "see the data", module jumps) */
+.deeper { font-family: var(--font-sans); font-size: 13px; font-weight: 500; color: var(--slate); cursor: pointer; border: 0; background: none; padding: 0; display: inline-flex; align-items: center; gap: 5px; }
+.deeper::after { content: "\2192"; font-size: 12px; }
+.deeper:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* entity name = a doorway (competitor, location) */
+.entity { color: var(--slate); border-bottom: 1px dotted rgba(61,79,95,.45); cursor: pointer; }
+.entity:hover { border-bottom-style: solid; }
+/* full-width ingress row (end-of-zone "see all / open module") */
+.ingress { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 16px; border: 1px dashed var(--rule-strong); border-radius: var(--radius); background: transparent; cursor: pointer; margin-top: 16px; transition: background .15s ease; }
+.ingress:hover { background: var(--bond); }
+.ingress .ing-label { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 12.5px; color: var(--ink); }
+.ingress .ing-sub { font-size: 12.5px; color: var(--ash); }
+.ingress .ing-arrow { color: var(--slate); font-size: 15px; }
+
+/* ── DEMO: highlight every doorway ("where can I go deeper") ─ */
+.door-toggle { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .05em; font-size: 11.5px; color: var(--ash); cursor: pointer; border: 0; background: none; }
+.door-toggle .sw { width: 26px; height: 14px; border-radius: 100px; border: 1px solid var(--rule-strong); position: relative; }
+.door-toggle[aria-pressed="true"] .sw { background: var(--rust); border-color: var(--rust); }
+.door-toggle .sw::after { content: ""; position: absolute; top: 1px; left: 1px; width: 10px; height: 10px; border-radius: 50%; background: var(--ash); transition: all .15s ease; }
+.door-toggle[aria-pressed="true"] .sw::after { left: 13px; background: #fff; }
+.show-doors .deeper, .show-doors .entity, .show-doors .ingress,
+.show-doors .reach a, .show-doors .chip, .show-doors .ask-field {
+  outline: 2px solid rgba(184,92,56,.6); outline-offset: 2px; border-radius: 3px;
+}
+.show-doors .ingress { background: rgba(184,92,56,.06); }
+/* a tiny "door" pin that appears next to doorways in highlight mode */
+.show-doors .deeper::before, .show-doors .entity::before { content: ""; }
