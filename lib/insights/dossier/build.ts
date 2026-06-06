@@ -15,6 +15,8 @@ import type { NormalizedSnapshot } from "@/lib/providers/types"
 import type { MenuSnapshot } from "@/lib/content/types"
 import type { NormalizedEvent } from "@/lib/events/types"
 import type { DailyWeatherSummary } from "@/lib/providers/openweathermap"
+import type { SocialSnapshotData } from "@/lib/social/types"
+import type { BriefCoverage } from "@/lib/skills/types"
 import type { Transport } from "@/lib/ai/provider"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
@@ -23,24 +25,79 @@ import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/l
 
 type SB = ReturnType<typeof createAdminSupabaseClient>
 
+// Resilience knobs: a signal stays usable for RETENTION_DAYS (served last-good if its
+// provider is down on build day), and is flagged STALE once older than STALE_AFTER_DAYS.
+const RETENTION_DAYS = 30
+const STALE_AFTER_DAYS = 3
+
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
 }
 
+/** Age in whole days of a YYYY-MM-DD key relative to `today`; Infinity if absent/unparseable. */
+function ageDays(dateKey: string | null | undefined, today: string): number {
+  if (!dateKey) return Infinity
+  const a = Date.parse(`${today.slice(0, 10)}T00:00:00Z`)
+  const b = Date.parse(`${dateKey.slice(0, 10)}T00:00:00Z`)
+  if (Number.isNaN(a) || Number.isNaN(b)) return Infinity
+  return Math.round((a - b) / 86_400_000)
+}
+
+function isoDaysBefore(dateKey: string, days: number): string {
+  return new Date(Date.parse(`${dateKey}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10)
+}
+
 async function latestSnapshotRaw(sb: SB, locationId: string, provider: string): Promise<Record<string, unknown> | null> {
+  return (await latestSnapshotMeta(sb, locationId, provider)).raw
+}
+
+/** Latest snapshot for a provider WITH its date, so coverage can report freshness. */
+async function latestSnapshotMeta(sb: SB, locationId: string, provider: string): Promise<{ raw: Record<string, unknown> | null; dateKey: string | null }> {
   try {
     const { data } = await sb
       .from("location_snapshots")
-      .select("raw_data")
+      .select("raw_data, date_key")
       .eq("location_id", locationId)
       .eq("provider", provider)
       .order("date_key", { ascending: false })
       .limit(1)
       .maybeSingle()
-    return (data?.raw_data as Record<string, unknown>) ?? null
+    return { raw: (data?.raw_data as Record<string, unknown>) ?? null, dateKey: (data?.date_key as string) ?? null }
   } catch {
-    return null
+    return { raw: null, dateKey: null }
   }
+}
+
+/** Latest social snapshot per entity (prefer Instagram) + the freshest social date seen. */
+async function loadSocial(sb: SB, entityIds: string[]): Promise<{ byEntity: Map<string, SocialSnapshotData>; latestDate: string | null }> {
+  const byEntity = new Map<string, SocialSnapshotData>()
+  let latestDate: string | null = null
+  if (entityIds.length === 0) return { byEntity, latestDate }
+  try {
+    const { data: profiles } = await sb.from("social_profiles").select("id, entity_id, platform").in("entity_id", entityIds)
+    const profs = profiles ?? []
+    if (profs.length === 0) return { byEntity, latestDate }
+    const profById = new Map(profs.map((p) => [p.id as string, p as { entity_id: string; platform: string }]))
+    const { data: snaps } = await sb
+      .from("social_snapshots")
+      .select("social_profile_id, raw_data, date_key")
+      .in("social_profile_id", profs.map((p) => p.id as string))
+      .order("date_key", { ascending: false })
+    for (const s of snaps ?? []) {
+      const prof = profById.get(s.social_profile_id as string)
+      if (!prof) continue
+      const dk = s.date_key as string
+      if (!latestDate || dk > latestDate) latestDate = dk
+      const existing = byEntity.get(prof.entity_id)
+      // first row per entity = latest; prefer instagram if a later loop finds it for the same entity
+      if (!existing || prof.platform === "instagram") {
+        byEntity.set(prof.entity_id, s.raw_data as SocialSnapshotData)
+      }
+    }
+  } catch {
+    /* social is optional — absence is reported via coverage */
+  }
+  return { byEntity, latestDate }
 }
 
 async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotType?: string): Promise<Record<string, unknown> | null> {
@@ -79,29 +136,50 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     .filter((c) => (c.metadata as Record<string, unknown> | null)?.status === "approved")
     .slice(0, tier.maxCompetitors)
 
-  // ── rule outputs: the grounded evidence layer (latest date_key) ──
+  // ── rule outputs: the grounded evidence layer ──
+  // Resilience model: take the FRESHEST version of each (insight_type, competitor) within
+  // the retention window, NOT a single global latest date_key. A signal whose pipeline did
+  // not run today is served last-good (and flagged stale via coverage) instead of silently
+  // vanishing — which is exactly the provider-down failure mode we must not have.
+  const cutoff = isoDaysBefore(dateKey, RETENTION_DAYS)
   const { data: insightRows } = await sb
     .from("insights")
-    .select("insight_type,title,summary,confidence,severity,evidence,recommendations,date_key")
+    .select("insight_type,title,summary,confidence,severity,evidence,recommendations,date_key,competitor_id")
     .eq("location_id", locationId)
+    .gte("date_key", cutoff)
     .order("date_key", { ascending: false })
-    .limit(400)
+    .limit(1000)
   const rows = insightRows ?? []
-  const latestKey = rows[0]?.date_key ?? null
-  const ruleOutputs: GeneratedInsight[] = rows
-    .filter((r) => (latestKey ? r.date_key === latestKey : true))
-    .map((r) => ({
-      insight_type: r.insight_type as string,
+  const seenKey = new Set<string>()
+  const latestDateByType = new Map<string, string>()
+  const ruleOutputs: GeneratedInsight[] = []
+  for (const r of rows) {
+    const type = r.insight_type as string
+    const dk = r.date_key as string
+    if (!latestDateByType.has(type)) latestDateByType.set(type, dk) // rows sorted desc → first seen = latest
+    const dedupKey = `${type}|${(r.competitor_id as string) ?? ""}`
+    if (seenKey.has(dedupKey)) continue // keep only the freshest of each logical insight
+    seenKey.add(dedupKey)
+    ruleOutputs.push({
+      insight_type: type,
       title: r.title as string,
       summary: r.summary as string,
       confidence: r.confidence as GeneratedInsight["confidence"],
       severity: r.severity as GeneratedInsight["severity"],
       evidence: (r.evidence as Record<string, unknown>) ?? {},
       recommendations: (r.recommendations as GeneratedInsight["recommendations"]) ?? [],
-    }))
+    })
+  }
+  /** Freshest date_key across any insight type matching a predicate (for coverage). */
+  const latestDateMatching = (pred: (t: string) => boolean): string | null => {
+    let best: string | null = null
+    for (const [type, dk] of latestDateByType) if (pred(type) && (!best || dk > best)) best = dk
+    return best
+  }
 
   // ── demand calendar (events + weather) ──
-  const eventsRaw = await latestSnapshotRaw(sb, locationId, "dataforseo_google_events")
+  const eventsMeta = await latestSnapshotMeta(sb, locationId, "dataforseo_google_events")
+  const eventsRaw = eventsMeta.raw
   const allEvents = ((eventsRaw?.events as NormalizedEvent[]) ?? []) as NormalizedEvent[]
   // Guard: only UPCOMING events feed the forward-looking demand calendar. A stale
   // snapshot must never surface as "prepare for" a date that has already passed.
@@ -114,11 +192,13 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // a different table that the dossier never read, so the forecast never reached the
   // brief; this is the fix. Falls back to any stored snapshot if the forecast fails.
   let weather: DailyWeatherSummary[] = []
+  let weatherAsOf: string | null = null
   const lat = (loc as Record<string, unknown>).geo_lat as number | null
   const lng = (loc as Record<string, unknown>).geo_lng as number | null
   if (lat != null && lng != null) {
     try {
       weather = await fetchForecast(lat, lng)
+      if (weather.length > 0) weatherAsOf = dateKey // live forecast = fresh as of today
     } catch {
       /* fall back to a stored snapshot below */
     }
@@ -127,7 +207,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     try {
       const { data: w } = await sb
         .from("location_snapshots")
-        .select("raw_data")
+        .select("raw_data, date_key")
         .eq("location_id", locationId)
         .in("provider", ["openweathermap", "openweathermap_day_summary", "weather_daily"])
         .order("date_key", { ascending: false })
@@ -135,13 +215,15 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
         .maybeSingle()
       const raw = w?.raw_data as Record<string, unknown> | undefined
       weather = (raw?.days as DailyWeatherSummary[]) ?? (Array.isArray(raw) ? (raw as DailyWeatherSummary[]) : [])
+      if (weather.length > 0) weatherAsOf = (w?.date_key as string) ?? null
     } catch {
       weather = []
     }
   }
 
   // ── own location signals ──
-  const ownMenuRaw = await latestSnapshotRaw(sb, locationId, "firecrawl_menu")
+  const ownMenuMeta = await latestSnapshotMeta(sb, locationId, "firecrawl_menu")
+  const ownMenuRaw = ownMenuMeta.raw
   const location: EntitySignals = {
     entityId: loc.id as string,
     kind: "location",
@@ -202,6 +284,21 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     }),
   )
 
+  // ── social: latest snapshot per entity (previously unwired into the dossier) ──
+  // Only attach social within the retention window so 3-month-old data never drives
+  // today's plays; beyond the window it reports as "not connected" in coverage.
+  const entityIds = [loc.id as string, ...competitors.map((c) => c.entityId)]
+  const { byEntity: socialByEntity, latestDate: socialAsOf } = await loadSocial(sb, entityIds)
+  const socialFresh = !!socialAsOf && ageDays(socialAsOf, dateKey) <= RETENTION_DAYS
+  if (socialFresh) {
+    const own = socialByEntity.get(location.entityId)
+    if (own) location.social = own
+    for (const c of competitors) {
+      const s = socialByEntity.get(c.entityId)
+      if (s) c.social = s
+    }
+  }
+
   const profile: RestaurantProfile = {
     locationId: loc.id as string,
     name: (loc.name as string) ?? "Your location",
@@ -216,6 +313,27 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // for <past date>" plays. A coherent data refresh repopulates current events + insights.
   const groundedRuleOutputs = events.length > 0 ? ruleOutputs : ruleOutputs.filter((r) => !r.insight_type.includes("event"))
 
+  // ── coverage: per-signal health (present/stale/missing + as-of) for the panel + resilience ──
+  const mk = (label: string, present: boolean, detail: string, asOf: string | null): BriefCoverage => ({
+    label,
+    present,
+    detail,
+    asOf,
+    stale: present && ageDays(asOf, dateKey) > STALE_AFTER_DAYS,
+  })
+  const scraped = competitors.filter((c) => c.listing || c.menu).length
+  const reviewThemes = location.reviews?.themes?.length ?? 0
+  const seoAsOf = latestDateMatching((t) => t.startsWith("seo") || t.startsWith("visibility") || t.startsWith("traffic") || t.startsWith("baseline") || t.includes("event"))
+  const coverage: BriefCoverage[] = [
+    mk("Events", events.length > 0, events.length ? `${events.length} upcoming` : "none upcoming", events.length ? eventsMeta.dateKey : null),
+    mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "no forecast", weatherAsOf),
+    mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} themes` : "none", reviewThemes ? dateKey : null),
+    mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your patterns" : "missing", location.busyTimes ? dateKey : null),
+    mk("Your menu", !!location.menu, location.menu ? "parsed" : "missing", ownMenuMeta.dateKey),
+    mk("Competitors", competitors.length > 0, `${scraped} of ${competitors.length} scraped`, seoAsOf),
+    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} profile${socialByEntity.size === 1 ? "" : "s"}` : "not connected", socialFresh ? socialAsOf : null),
+  ]
+
   return {
     locationId: loc.id as string,
     dateKey,
@@ -226,5 +344,6 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     competitors,
     demandCalendar: { events, weather },
     ruleOutputs: groundedRuleOutputs,
+    coverage,
   }
 }

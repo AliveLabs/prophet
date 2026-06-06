@@ -50,6 +50,24 @@ function rankDeterministic(candidates: EnrichedRecommendation[], max: number): E
   return [...candidates].sort((a, b) => score(b) - score(a)).slice(0, max)
 }
 
+// Human, grounded deck themes per kind — used when the model's framing is unavailable.
+const KIND_DECK: Record<RecKind, string> = {
+  prepare: "staffing and prep",
+  capitalize: "demand to capture",
+  reputation: "reputation",
+  positioning: "positioning",
+  ops: "operations",
+}
+
+/** A SPECIFIC deterministic deck (no fabricated numbers) for when the model deck is missing. */
+function deterministicDeck(plays: EnrichedRecommendation[]): string {
+  const themes = Array.from(new Set(plays.map((p) => KIND_DECK[p.kind]).filter(Boolean)))
+  const n = plays.length
+  if (themes.length === 0) return `Your ${n} priorities this week, ranked by impact.`
+  const list = themes.length === 1 ? themes[0] : themes.slice(0, -1).join(", ") + " and " + themes[themes.length - 1]
+  return `Your ${n} ${n === 1 ? "move" : "moves"} this week, across ${list}, ranked by impact.`
+}
+
 function quietBrief(d: Dossier): Brief {
   return {
     locationId: d.locationId,
@@ -58,13 +76,15 @@ function quietBrief(d: Dossier): Brief {
     deck: "No urgent moves and nothing on the calendar or forecast worth flagging. We will surface the moment something moves.",
     plays: [],
     asOf: d.generatedAt,
-    coverage: buildCoverage(d),
+    coverage: d.coverage ?? buildCoverage(d),
   }
 }
 
 export async function synthesize(d: Dossier, results: SkillResult[], opts: SynthOptions = {}): Promise<Brief> {
   const max = opts.maxPlays ?? WEEKLY_MAX
-  const coverage = buildCoverage(d)
+  // Prefer the rich per-signal coverage the dossier builder computes (with as-of/staleness);
+  // fall back to a basic derivation for hand-built fixtures that omit it.
+  const coverage = d.coverage ?? buildCoverage(d)
   const candidates = results.flatMap((r) => r.plays)
   if (candidates.length === 0) return quietBrief(d)
 
@@ -89,17 +109,22 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     {
       transport: opts.transport,
       validate: (raw) => {
+        // Salvage the model's framing even if `order` is malformed/empty — a tiny
+        // ordering glitch must NOT throw away a good headline + deck. Deterministic
+        // ranking fills in below when the order is unusable.
         const r = raw as { headline?: unknown; deck?: unknown; order?: unknown }
-        if (typeof r?.headline !== "string" || typeof r?.deck !== "string" || !Array.isArray(r?.order)) return null
-        const order = (r.order as unknown[]).filter((n): n is number => typeof n === "number" && n >= 0 && n < candidates.length)
-        if (order.length === 0) return null
+        if (typeof r?.headline !== "string" || typeof r?.deck !== "string") return null
+        if (!r.headline.trim() || !r.deck.trim()) return null
+        const order = Array.isArray(r?.order)
+          ? (r.order as unknown[]).filter((n): n is number => typeof n === "number" && n >= 0 && n < candidates.length)
+          : []
         return { headline: r.headline, deck: r.deck, order }
       },
       fallback: () => {
         const ranked = rankDeterministic(candidates, max)
         return {
           headline: ranked[0]?.title ?? "Your brief",
-          deck: `The ${ranked.length} move${ranked.length === 1 ? "" : "s"} that matter most this week, drawn from what changed nearby.`,
+          deck: deterministicDeck(ranked),
           order: ranked.map((p) => candidates.indexOf(p)),
         }
       },

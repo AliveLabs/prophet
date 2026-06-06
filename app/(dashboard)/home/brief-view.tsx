@@ -27,6 +27,10 @@ function fmtSwept(asOf: string): string {
   const t = new Date(asOf).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
   return "Swept " + t.replace(" AM", "a").replace(" PM", "p").replace(/\s/g, "")
 }
+function fmtShortDate(dateKey: string): string {
+  const d = new Date(`${dateKey.slice(0, 10)}T12:00:00`)
+  return Number.isNaN(d.getTime()) ? dateKey : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
 function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
@@ -236,13 +240,18 @@ export default function BriefView({
             <div className="rail-card">
               <div className="rail-head"><span>What we checked</span></div>
               <ul className="coverage">
-                {brief.coverage.map((c) => (
-                  <li key={c.label} className={`cov${c.present ? " cov--on" : " cov--off"}`}>
-                    <span className="cov-mark">{c.present ? "✓" : "—"}</span>
-                    <span className="cov-label">{c.label}</span>
-                    {c.detail ? <span className="cov-detail">{c.detail}</span> : null}
-                  </li>
-                ))}
+                {brief.coverage.map((c) => {
+                  const state = !c.present ? "off" : c.stale ? "stale" : "on"
+                  const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
+                  const detail = c.present && c.stale && c.asOf ? `stale · ${fmtShortDate(c.asOf)}` : c.detail
+                  return (
+                    <li key={c.label} className={`cov cov--${state}`}>
+                      <span className="cov-mark">{mark}</span>
+                      <span className="cov-label">{c.label}</span>
+                      {detail ? <span className="cov-detail">{detail}</span> : null}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ) : null}

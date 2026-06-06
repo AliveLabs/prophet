@@ -65,6 +65,10 @@ export type BriefCoverage = {
   label: string
   present: boolean
   detail?: string
+  /** ISO date this signal was last refreshed (null if never / not present). */
+  asOf?: string | null
+  /** true when the signal is present but older than the freshness threshold (served last-good). */
+  stale?: boolean
 }
 
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */

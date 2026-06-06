@@ -91,4 +91,44 @@ describe("full engine pipeline (producers -> synthesis -> voice)", () => {
     expect(brief.plays.length).toBe(0)
     expect(brief.headline.toLowerCase()).toContain("quiet")
   })
+
+  it("salvages the model headline+deck even when the order array is unusable", async () => {
+    // Model framing is good but the order is malformed/empty — must NOT drop to the generic deck.
+    const badOrder: Transport = async (req) => {
+      if ((req.system ?? "").includes("Chief of Staff")) {
+        return { headline: "Own the weekend rush", deck: "A custom, specific deck the model wrote.", order: [] }
+      }
+      return [goodPlay]
+    }
+    const brief = await runPipeline(badOrder)
+    expect(brief.headline).toContain("Own the weekend rush")
+    expect(brief.deck).toContain("custom, specific deck")
+    expect(brief.plays.length).toBeGreaterThan(0) // deterministic ordering fills in
+  })
+
+  it("provider down: fallback deck is SPECIFIC (grounded themes), never the empty/generic string", async () => {
+    const throwing: Transport = async () => {
+      throw new Error("529 overloaded")
+    }
+    const brief = await runPipeline(throwing)
+    expect(brief.deck.length).toBeGreaterThan(0)
+    expect(brief.deck.toLowerCase()).toContain("ranked by impact") // deterministicDeck signature
+    expect(brief.plays.length).toBeGreaterThan(0)
+  })
+
+  it("carries the dossier's per-signal coverage (stale signal stays flagged, not dropped)", async () => {
+    const withCoverage = {
+      ...arenaWeekDossier,
+      coverage: [
+        { label: "Social", present: true, stale: true, asOf: "2026-03-06", detail: "3 profiles" },
+        { label: "Weather", present: false, detail: "no forecast", asOf: null },
+      ],
+    }
+    const results = await runProducerSkills(PRODUCER_SKILLS, withCoverage, { transport: smartTransport })
+    const brief = await synthesize(withCoverage, results, { transport: smartTransport })
+    const social = brief.coverage?.find((c) => c.label === "Social")
+    expect(social?.present).toBe(true)
+    expect(social?.stale).toBe(true)
+    expect(social?.asOf).toBe("2026-03-06")
+  })
 })

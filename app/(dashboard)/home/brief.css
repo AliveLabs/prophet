@@ -194,9 +194,11 @@
 .ticket-brief .cov:last-child{ border-bottom:0; }
 .ticket-brief .cov-mark{ width:14px; flex:0 0 auto; font-family:var(--font-mono); font-size:12px; text-align:center; }
 .ticket-brief .cov--on .cov-mark{ color:var(--clear); }
+.ticket-brief .cov--stale .cov-mark{ color:var(--wire-gold); }
 .ticket-brief .cov--off .cov-mark{ color:var(--ash-2); }
 .ticket-brief .cov-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ink); }
 .ticket-brief .cov--off .cov-label{ color:var(--ash); }
+.ticket-brief .cov--stale .cov-detail{ color:var(--gold-deep); }
 .ticket-brief .cov-detail{ margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
 
 /* on-watch reach */

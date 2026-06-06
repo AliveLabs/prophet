@@ -29,6 +29,7 @@ import type {
 } from "@/lib/seo/types"
 import type { RefIndex } from "@/lib/eval/checks"
 import { extractNumbers } from "@/lib/eval/checks"
+import type { BriefCoverage } from "@/lib/skills/types"
 
 // ── Tier (gates cost AND what a brief may reference) ───────────────────────
 export type Tier = 1 | 2 | 3
@@ -134,6 +135,10 @@ export type Dossier = {
   competitors: EntitySignals[]
   demandCalendar: DemandCalendar
   ruleOutputs: GeneratedInsight[] // all 76 deterministic rules = the grounded evidence layer
+  /** Per-signal health: present/stale/missing + as-of date. Drives the "what we checked"
+   *  panel and the provider-down resilience model (a stale signal is served, flagged).
+   *  Optional so hand-built test fixtures need not supply it (synthesis derives a basic one). */
+  coverage?: BriefCoverage[]
 }
 
 // ---------------------------------------------------------------------------

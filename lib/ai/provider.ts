@@ -59,31 +59,62 @@ export function extractJson(text: string): unknown {
   }
 }
 
-/** Claude raw text via the stable Messages REST API. Needs ANTHROPIC_API_KEY. */
-export async function claudeRaw(req: GenerateRequest): Promise<string> {
+// Anthropic returns these on transient load/rate issues; they are safe to retry.
+const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 529])
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/** Claude raw text via the stable Messages REST API. Needs ANTHROPIC_API_KEY.
+ *  Retries transient errors (429/5xx/529 overloaded) with backoff so a momentary
+ *  provider hiccup never silently degrades a brief to the deterministic fallback. */
+export async function claudeRaw(req: GenerateRequest, opts: { retries?: number } = {}): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured")
-  const res = await fetch(ANTHROPIC_URL, {
-    method: "POST",
-    headers: {
-      "x-api-key": key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: req.maxOutputTokens ?? 8192,
-      temperature: req.temperature ?? 0.4,
-      ...(req.system ? { system: req.system } : {}),
-      messages: [{ role: "user", content: req.prompt }],
-    }),
-  })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Anthropic error ${res.status}: ${body}`)
+  const maxAttempts = (opts.retries ?? 4) + 1 // synthesis runs right after a parallel skill burst; survive rate limits
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(ANTHROPIC_URL, {
+        method: "POST",
+        headers: {
+          "x-api-key": key,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: ANTHROPIC_MODEL,
+          max_tokens: req.maxOutputTokens ?? 8192,
+          temperature: req.temperature ?? 0.4,
+          ...(req.system ? { system: req.system } : {}),
+          messages: [{ role: "user", content: req.prompt }],
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        const err = new Error(`Anthropic error ${res.status}: ${body}`)
+        if (RETRYABLE_STATUS.has(res.status) && attempt < maxAttempts) {
+          lastErr = err
+          // Honor Retry-After (seconds) when present, else exponential backoff (1s,2s,4s,8s).
+          const retryAfter = Number(res.headers.get("retry-after"))
+          const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** (attempt - 1)
+          console.warn(`[claudeRaw] ${res.status} (attempt ${attempt}/${maxAttempts}); retrying in ${waitMs}ms`)
+          await sleep(waitMs)
+          continue
+        }
+        throw err
+      }
+      const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
+      return (data.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("")
+    } catch (err) {
+      // network/transport error — retry too
+      lastErr = err
+      if (attempt < maxAttempts) {
+        await sleep(1000 * 2 ** (attempt - 1))
+        continue
+      }
+      throw err
+    }
   }
-  const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
-  return (data.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("")
+  throw lastErr instanceof Error ? lastErr : new Error("Anthropic request failed")
 }
 
 /** Reasoning tier — Claude returning parsed JSON. */

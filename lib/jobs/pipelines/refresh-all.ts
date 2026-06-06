@@ -12,6 +12,7 @@ import { buildEventsContext, buildEventsSteps } from "./events"
 import { buildPhotosContext, buildPhotosSteps } from "./photos"
 import { buildTrafficContext, buildTrafficSteps } from "./traffic"
 import { buildWeatherContext, buildWeatherSteps } from "./weather"
+import { buildSocialContext, buildSocialSteps } from "./social"
 import { buildInsightsContext, buildInsightsSteps } from "./insights"
 
 export type RefreshAllCtx = {
@@ -71,6 +72,12 @@ const SUB_PIPELINES: SubPipeline[] = [
     label: "Weather",
     buildCtx: buildWeatherContext,
     buildSteps: () => buildWeatherSteps(),
+  },
+  {
+    name: "social",
+    label: "Social",
+    buildCtx: buildSocialContext,
+    buildSteps: () => buildSocialSteps(),
   },
   {
     name: "insights",
