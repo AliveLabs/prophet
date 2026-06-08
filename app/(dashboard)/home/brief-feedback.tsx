@@ -31,17 +31,17 @@ export default function BriefFeedback({
   }
 
   if (picked) {
-    return <span className="fb-sent">{picked === "good" ? "Noted — more like this" : "Noted — less like this"}</span>
+    return <span className="fb-sent">{picked === "good" ? "Noted, more like this" : "Noted, less like this"}</span>
   }
 
   return (
     <span className="fb">
-      <span className="fb-label">Useful?</span>
-      <button type="button" className="fb-btn fb-good" aria-pressed={false} aria-label="Useful" onClick={() => vote("good")}>
-        ↑
+      <span className="fb-label">Helpful?</span>
+      <button type="button" className="fb-btn fb-good" aria-pressed={false} aria-label="Helpful" onClick={() => vote("good")}>
+        👍
       </button>
-      <button type="button" className="fb-btn fb-bad" aria-pressed={false} aria-label="Not useful" onClick={() => vote("bad")}>
-        ↓
+      <button type="button" className="fb-btn fb-bad" aria-pressed={false} aria-label="Not helpful" onClick={() => vote("bad")}>
+        👎
       </button>
     </span>
   )

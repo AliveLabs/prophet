@@ -19,6 +19,13 @@ const GROUNDING = [
   "If you cannot ground a play, do not make it.",
 ].join(" ")
 
+const CREATIVE_AND_CHANNEL = [
+  "Creative direction must be PHONE-FIRST: describe a photo or short video the owner can capture on their own phone, in plain words (what to point the camera at, when, what to show).",
+  "Assume NO special equipment or skills. Do not use photography jargon ('golden hour', 'side light', 'tight crop', 'no text overlay', 'plating') or assume a camera, lighting, or an editor.",
+  "If a more produced shot would genuinely help, add it as an explicitly OPTIONAL extra (\"optional: if you have someone who shoots video, ...\"), never as the baseline ask.",
+  "When a play is social, give guidance for the operator's live platforms BY NAME and tailor it to each (e.g. Instagram and TikTok favor a short vertical video or Reel; the feed favors one strong photo). Never just say 'post it'.",
+].join(" ")
+
 function capabilityLine(d: Dossier): string {
   const c = d.profile.capability
   const parts = [
@@ -36,7 +43,7 @@ function capabilityLine(d: Dossier): string {
 function voiceLine(d: Dossier): string {
   return [
     "Two voices: the narrative fields (title, rationale) are Ticket's voice — direct, plain, no em dashes, no chef jargon, written for a busy owner skimming at 6am.",
-    `The recipe 'copy' field is CUSTOMER-FACING and must be written in the restaurant's own voice (tone: ${d.profile.voiceTone}${d.profile.voiceSample ? `; sample: "${d.profile.voiceSample}"` : ""}).`,
+    `The recipe 'copy' field is CUSTOMER-FACING and must be written in the restaurant's OWN voice as captured during onboarding (tone: ${d.profile.voiceTone}${d.profile.voiceSample ? `; a sample of how they speak: "${d.profile.voiceSample}"` : ""}). Match that tone exactly; do not write customer copy in Ticket's voice.`,
   ].join(" ")
 }
 
@@ -70,6 +77,7 @@ export function buildSkillPrompt(
     NO_EXEC,
     GROUNDING,
     voiceLine(d),
+    CREATIVE_AND_CHANNEL,
     "",
     SCHEMA_INSTRUCTION,
   ].join("\n")

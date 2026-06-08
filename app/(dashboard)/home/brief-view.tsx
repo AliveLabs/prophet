@@ -6,8 +6,8 @@
 
 import type { Brief, EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
 import { playKey } from "@/lib/skills/preferences"
+import { humanizeRef, humanizeLabel, distinctDomains, dedupeRefs } from "@/lib/skills/evidence-format"
 import BriefFeedback from "./brief-feedback"
-import ToleranceSlider from "./tolerance-slider"
 
 const CONF_RANK = { high: 3, medium: 2, directional: 1 } as const
 const CONF_LABEL = { high: "High", medium: "Medium", directional: "Directional" } as const
@@ -25,36 +25,11 @@ function fmtDateline(dateKey: string): string {
 }
 function fmtSwept(asOf: string): string {
   const t = new Date(asOf).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-  return "Swept " + t.replace(" AM", "a").replace(" PM", "p").replace(/\s/g, "")
+  return "Last swept " + t.replace(" AM", "a").replace(" PM", "p").replace(/\s/g, "")
 }
 function fmtShortDate(dateKey: string): string {
   const d = new Date(`${dateKey.slice(0, 10)}T12:00:00`)
   return Number.isNaN(d.getTime()) ? dateKey : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-/** "events.new_high_signal_event:event" -> "Events · new high signal event" */
-function humanizeRef(ref: string): string {
-  const base = ref.split(":")[0]
-  const [domain, ...rest] = base.split(".")
-  const detail = rest.join(" ").replace(/[_.]+/g, " ").trim()
-  return detail ? `${titleCase(domain)} · ${detail}` : titleCase(domain)
-}
-function distinctDomains(refs: string[]): string[] {
-  return Array.from(new Set(refs.map((r) => titleCase(r.split(".")[0]))))
-}
-function dedupeRefs(refs: string[]): string[] {
-  return Array.from(new Set(refs.map((r) => r.split(":")[0])))
-}
-
-function ConfChip({ confidence }: { confidence: EnrichedRecommendation["confidence"] }) {
-  return (
-    <span className={`conf conf--${confidence}`}>
-      <span className="pip"><i></i><i></i><i></i></span>
-      {CONF_LABEL[confidence]}
-    </span>
-  )
 }
 
 function RecipeStepView({ step }: { step: RecipeStep }) {
@@ -64,7 +39,7 @@ function RecipeStepView({ step }: { step: RecipeStep }) {
         {step.audience ? (<><dt>Who</dt><dd>{step.audience}</dd></>) : null}
         {step.window?.note ? (<><dt>When</dt><dd>{step.window.note}</dd></>) : null}
         {step.channel ? (
-          <><dt>Channel</dt><dd>{step.channel}{step.platforms?.length ? ` · ${step.platforms.join(", ")}` : ""}</dd></>
+          <><dt>Channel</dt><dd>{humanizeLabel(step.channel)}{step.platforms?.length ? ` · ${step.platforms.map(humanizeLabel).join(", ")}` : ""}</dd></>
         ) : null}
         {step.offer ? (<><dt>Offer</dt><dd>{step.offer}</dd></>) : null}
       </dl>
@@ -92,6 +67,7 @@ function PlayCard({
   locationId,
   dateKey,
   readOnly,
+  detailHrefBase,
 }: {
   play: EnrichedRecommendation
   rank: number
@@ -99,6 +75,7 @@ function PlayCard({
   locationId: string
   dateKey: string
   readOnly?: boolean
+  detailHrefBase?: string
 }) {
   const refs = dedupeRefs(play.evidenceRefs)
   const domains = distinctDomains(play.evidenceRefs)
@@ -106,25 +83,23 @@ function PlayCard({
   return (
     <article className={`movecard${isLead ? " movecard--lead" : ""}${play.kind === "prepare" ? " movecard--prep" : ""}`}>
       <div className="movecard__rank-row">
-        <span className="movecard__rank">DO {String(rank).padStart(2, "0")}</span>
-        <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
+        <span className="movecard__rank">{String(rank).padStart(2, "0")}</span>
       </div>
       <h2 className="movecard__do">{play.title}</h2>
       <p className="movecard__why">{play.rationale}</p>
+      {/* one consolidated label row: kind + explicit Confidence/Impact (same system) + topic */}
       <div className="movecard__meta">
-        <ConfChip confidence={play.confidence} />
+        <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
+        <span className="metric"><span className="metric-k">Confidence</span><span className="metric-v">{CONF_LABEL[play.confidence]}</span></span>
         {play.leverage ? (
-          <span className="lev">
-            Impact: {play.leverage.label}
-            {play.leverage.reach ? <span className="reach"> · {play.leverage.reach}</span> : null}
-          </span>
+          <span className="metric"><span className="metric-k">Impact</span><span className="metric-v">{play.leverage.label}{play.leverage.reach ? ` · ${play.leverage.reach}` : ""}</span></span>
         ) : null}
-        {domains.length ? <span className="src">{domains.join(" · ")}</span> : null}
+        {domains.length ? <span className="topic">{domains.join(" · ")}</span> : null}
       </div>
 
       {play.recipe?.length ? (
         <details className="drill">
-          <summary><span className="car">▸</span> The play <span className="hint">how to run it</span></summary>
+          <summary><span className="car">▸</span> The play</summary>
           <div className="drill__body">
             {play.recipe.map((step, i) => (
               <RecipeStepView key={i} step={step} />
@@ -135,7 +110,7 @@ function PlayCard({
 
       {refs.length ? (
         <details className="drill">
-          <summary><span className="car">▸</span> The evidence <span className="hint">what it&apos;s grounded in</span></summary>
+          <summary><span className="car">▸</span> The evidence</summary>
           <div className="drill__body">
             <div className="evidence">
               {refs.map((r) => (
@@ -148,6 +123,9 @@ function PlayCard({
 
       <div className="movecard__foot">
         <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} readOnly={readOnly} />
+        {detailHrefBase ? (
+          <a className="movecard__detail" href={`${detailHrefBase}/${rank}`}>Full detail &amp; evidence →</a>
+        ) : null}
       </div>
     </article>
   )
@@ -156,19 +134,19 @@ function PlayCard({
 export default function BriefView({
   brief,
   locationId,
-  locationName,
   competitors,
-  brandTolerance,
   readOnly = false,
+  detailHrefBase,
 }: {
   brief: Brief
   locationId: string
   locationName: string
   competitors: string[]
-  brandTolerance: number
   readOnly?: boolean
+  detailHrefBase?: string
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
+  const freshCount = (brief.coverage ?? []).filter((c) => c.present && !c.stale).length
   const leadConf = brief.plays.reduce<EnrichedRecommendation["confidence"]>(
     (best, p) => (CONF_RANK[p.confidence] > CONF_RANK[best] ? p.confidence : best),
     "directional",
@@ -198,8 +176,7 @@ export default function BriefView({
 
           <div className="zone zone--do">
             <div className="zone-head">
-              <span className="zh">What to do <span className="count">{brief.plays.length}</span></span>
-              <span className="zone-sub">Each carries its reason. Drill in for the play and the evidence.</span>
+              <span className="zh">Recommendations <span className="count">{brief.plays.length}</span></span>
             </div>
             {brief.plays.map((play, i) => (
               <PlayCard
@@ -210,57 +187,17 @@ export default function BriefView({
                 locationId={locationId}
                 dateKey={brief.dateKey}
                 readOnly={readOnly}
+                detailHrefBase={detailHrefBase}
               />
             ))}
           </div>
         </div>
 
-        {/* ── RIGHT: bearings, tolerance, ask preview, on-watch ── */}
+        {/* ── RIGHT: Ask (lead) → what we checked (credibility) ──
+            Tuning moved to Settings (explicit refresh, not live); competitor
+            management moved to the Competitors page. ── */}
         <aside className="rail-col">
-          <div className="rail-bearings">
-            <div className="rail-bearing">
-              <span className="b-label">To act on</span>
-              <span className="b-val">{brief.plays.length} new</span>
-            </div>
-            <div className="rail-bearing">
-              <span className="b-label">Watching</span>
-              <span className="b-val">{competitors.length} nearby</span>
-            </div>
-            <div className="rail-bearing">
-              <span className="b-label">Confidence</span>
-              <span className={`b-val${leadConf === "high" ? " good" : ""}`}>{CONF_LABEL[leadConf]}</span>
-            </div>
-            <div className="rail-bearing">
-              <span className="b-label">Last swept</span>
-              <span className="b-val">{fmtSwept(brief.asOf).replace("Swept ", "")}</span>
-            </div>
-          </div>
-
-          {brief.coverage?.length ? (
-            <div className="rail-card">
-              <div className="rail-head"><span>What we checked</span></div>
-              <ul className="coverage">
-                {brief.coverage.map((c) => {
-                  const state = !c.present ? "off" : c.stale ? "stale" : "on"
-                  const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
-                  const detail = c.present && c.stale && c.asOf ? `stale · ${fmtShortDate(c.asOf)}` : c.detail
-                  return (
-                    <li key={c.label} className={`cov cov--${state}`}>
-                      <span className="cov-mark">{mark}</span>
-                      <span className="cov-label">{c.label}</span>
-                      {detail ? <span className="cov-detail">{detail}</span> : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
-          ) : null}
-
-          <div className="rail-card">
-            <div className="rail-head"><span>Tune your briefs</span></div>
-            <ToleranceSlider locationId={locationId} initial={brandTolerance} readOnly={readOnly} />
-          </div>
-
+          {/* Ask Ticket leads the rail: the answer-first anchor (bounded NL query). Preview until wired. */}
           <div className="rail-card ask-card">
             <div className="rail-head"><span>Ask Ticket</span><span className="rail-tag">Preview</span></div>
             <div className="ask-field">
@@ -274,15 +211,40 @@ export default function BriefView({
             <p className="ask-foot">Domain-locked. Answers will come only from your market and competitor data, never the open web. Coming soon.</p>
           </div>
 
-          {competitors.length ? (
-            <div className="rail-card">
-              <div className="rail-head"><span>On watch</span></div>
-              <div className="reach">
-                {competitors.map((c, i) => (
-                  <span className="r" key={`${c}-${i}`}>{c}</span>
-                ))}
-                <span className="r r--own">{locationName}</span>
+          {/* What we checked — credibility module: which live streams fed today's brief,
+              how fresh each is, and what we couldn't reach. Source-by-source provenance is
+              prod-wired later; the honest fresh/aging/not-reached states are real now. */}
+          {brief.coverage?.length ? (
+            <div className="rail-card check-card">
+              <div className="rail-head">
+                <span>What we checked</span>
+                <span className="check-count">{freshCount} of {brief.coverage.length} fresh</span>
               </div>
+              <ul className="coverage">
+                {brief.coverage.map((c) => {
+                  const state = !c.present ? "off" : c.stale ? "stale" : "on"
+                  const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
+                  const status = !c.present
+                    ? (c.detail ?? "Not reached")
+                    : c.stale
+                      ? (c.asOf ? `As of ${fmtShortDate(c.asOf)}` : (c.detail ?? "Aging"))
+                      : (c.detail ?? "Fresh")
+                  return (
+                    <li key={c.label} className={`cov cov--${state}`}>
+                      <span className="cov-mark">{mark}</span>
+                      <span className="cov-label">{c.label}</span>
+                      <span className="cov-detail">{status}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+              <details className="check-prov">
+                <summary><span className="car">▸</span> How we read this</summary>
+                <div className="check-prov__body">
+                  <p><b>Fresh</b> means we checked it in this sweep. <b>Aging</b> means we&apos;re holding the last good read until new data lands. <b>Not reached</b> means we couldn&apos;t pull it this time — so nothing in today&apos;s brief leans on it.</p>
+                  <p className="check-prov__soon">Source-by-source provenance — what we saw and when — is coming.</p>
+                </div>
+              </details>
             </div>
           ) : null}
         </aside>

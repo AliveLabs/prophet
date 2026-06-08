@@ -2264,4 +2264,121 @@ In addition to the existing variables (Section 3), ensure these are set in Verce
 
 ---
 
-*This document was generated from a complete analysis of the Prophet codebase. Last updated May 27, 2026.*
+## 22. UX + Insight-Engine Rewrite (IN PROGRESS — branch `ux-rework`)
+
+> Everything above this section documents the **as-built (old) product**: an analyst-style
+> dashboard with ~11 data-source modules. Section 22 documents the **rework in flight** on the
+> `ux-rework` branch, which a future instance must understand before touching the brief, the
+> insight engine, the home, the nav, onboarding, or the deploy setup.
+
+### 22.1 Why the rework
+The as-built app drifted from its own PRD: it became ~11 analyst dashboards that expose the
+machinery ("Refresh Data", "Generate Insights", "Competitor 1/2/3", raw signal pills). The PRD
+vision is **answer-first** ("What changed nearby and what should I do today?"; "set and forget";
+non-goal: a full BI suite). Priced at hundreds/mo, the product must deliver thousands in value.
+The rework is a RETURN to that spec, not a new vision.
+
+### 22.2 The new insight engine (built, tested, live-verified; not yet in prod)
+Replaces the per-competitor Gemini narrative with a per-LOCATION pipeline. Entry point
+`lib/skills/pipeline.ts` `runBrief(dossier)`:
+`buildDossier → producer skills (parallel) → graduated brand-fit review → Chief-of-Staff synthesis → dual-voice → eval gate`.
+- **Dossier** `lib/insights/dossier/{types,build}.ts` — one context object: tier caps, restaurant
+  profile (incl. `voiceTone` + `brandTolerance`), per-entity signals (own + competitors:
+  listing/menu/reviews/busyTimes/**social**), demand calendar (events + a LIVE weather forecast
+  fetched here), and the 76 rule outputs (the grounded evidence layer). `buildRefIndex` is the
+  anti-fabrication backbone (skills may only cite refs/numbers in the dossier).
+- **Resilience model (important):** `buildDossier` takes the **freshest rule output per
+  (insight_type, competitor) within a 30-day retention window** (`RETENTION_DAYS`), NOT a single
+  global latest `date_key`. A signal whose pipeline didn't run today is **served last-good and
+  flagged STALE** (with as-of date) rather than silently vanishing. Per-signal health is computed
+  as `Dossier.coverage` (`BriefCoverage[]` with `present`/`stale`/`asOf`).
+- **Skills** `lib/skills/{local-demand,positioning,marketing,reputation,operations}` — each a
+  `knowledge.ts` + `skill.ts`; `run.ts` ground-filters fabrications and isolates failures.
+- **Brand-fit control** `lib/skills/safety-review.ts` + `preferences.ts` — graduated severity +
+  per-customer `brandTolerance` slider (tame/balanced/adventurous) + good/bad feedback recalibration.
+- **Synthesis** `lib/skills/synthesis.ts` — WEEKLY deep brief (cap ~7, breadth across kinds);
+  daily glance trims to 1-3. Salvages the model's headline/deck if only `order` is malformed;
+  specific deterministic fallback deck.
+- **Voice** `lib/skills/voice.ts` — deterministic scrub guarantees no em-dash / no chef jargon
+  (Ticket voice for narrative; the restaurant's voice for customer-facing `recipe.copy`).
+- **Provider** `lib/ai/provider.ts` — `generateStructured`; reasoning→Claude (`claude-sonnet-4-5`,
+  hand-rolled REST), cheap→Gemini; injectable transport. `claudeRaw` **honors `Retry-After` +
+  retries 5×** (synthesis trails a parallel skill burst and gets 429'd with multi-second windows —
+  this is why it must wait, not fall back). Gateway is the documented future prod transport.
+- **Eval gate** `lib/eval/{checks,voice-rules,judge,baseline,gate}.ts` — deterministic checks +
+  Claude-as-judge vs the legacy baseline (measured new engine 4.50 vs legacy 1.75).
+- **Persistence** migration `supabase/migrations/20260604120000_daily_briefs.sql` adds
+  `daily_briefs` (the precomputed brief the home reads), `brief_feedback`, and
+  `locations.voice_tone` / `locations.brand_tolerance`. `lib/insights/daily-brief.ts` (save/get);
+  precompute route `app/api/cron/build-brief`. **This migration is applied ONLY to the ux-rework
+  Supabase branch, NOT prod.**
+- Tests: `tests/unit/{skills,eval,insights}` (117 unit) + live `tests/integration/*` (precompute,
+  refresh-and-rebuild, run-social) gated on env.
+
+### 22.3 The brief home — `app/(dashboard)/home/`
+`page.tsx` reads `getBrief(locationId)` (LLM-free render) → `brief-view.tsx` renders the editorial
+brief: big headline + deck + synth line; "What to do" with play cards (action → why →
+confidence/impact/source → `The play` recipe drill → `The evidence` drill → feedback thumbs +
+optional `Full detail & evidence →` link via `detailHrefBase`). Right rail order: **Ask Ticket
+(top) → Tune (tolerance slider) → On watch (quieted) → What we checked (bottom)**. The old bearings
+block was removed. Coverage language is customer-plain (no parsed/scraped/themes/profiles). Client
+bits: `tolerance-slider.tsx`, `brief-feedback.tsx` (server actions in `brief-actions.ts`,
+RLS-guarded; both take a `readOnly` mode). Styling: scoped `brief.css` (`.ticket-brief`).
+
+### 22.4 Editorial design system + the PREVIEW review area
+The reworked, light "Newsprint" editorial system (Instrument Serif + Barlow Condensed + Inter +
+Space Mono; carbon/rust palette). Because the work must stay LOCAL for now (see 22.7), the reworked
+experience lives in a self-contained, **no-auth, prod-guarded** review area:
+- `app/preview/` — editorial app shell (`layout.tsx` + `preview-nav.tsx` + `account-menu.tsx` +
+  `preview.css` + `preview-data.ts`) framing: `today/` (the brief, reusing `BriefView`),
+  `today/[rank]/` (per-play **detail screen** with full recipe + evidence resolved to real
+  grounded insights), `competitors/`, `ask/`, `settings/`. All `notFound()` in production.
+- `app/preview-onboarding/` — the onboarding step-through (see 22.6).
+- `app/dev-brief/` — bare brief viewer (no shell). Local-only.
+- Caveat: editorial design tokens are currently duplicated across `brief.css` / `preview.css` /
+  `onboarding.css` — extract to a shared `:root`/wrapper when this moves into the real app.
+
+### 22.5 Nav IA decision (answer-first, value-not-noise)
+Top-level nav collapses from ~11 modules to **THREE destinations: Today / Competitors / Ask**.
+Every signal SOURCE (events, weather, social, traffic, visibility, photos, menu, SEO) becomes a
+drill-down / evidence, not a nav item. **Settings + location switching move into an account
+flyout** at the bottom of the sidebar (`account-menu.tsx`): one login → many locations (real:
+Anand spans Wagyu House Atlanta, bar Vetti, J. Alexander's, Kres Chophouse, Lockwood, Nada), a
+location switcher, Settings (apply to the CURRENT location), and Sign out. `Locations` module →
+the switcher.
+
+### 22.6 Onboarding rework direction — `app/preview-onboarding/`
+Principle: **ask the few must-haves, derive the rest.** Steps: (1) Find your restaurant (one
+search → auto-pull name/address/cuisine/hours/photos from the public listing), (2) Confirm the
+auto-derived details, (3) Confirm auto-DISCOVERED competitors (keep ≥1 — confirm, don't type),
+(4) optional one-tap goal, (5) "first brief lands tomorrow morning" (sets the next-day enrich
+expectation per the hard constraint). Voice/tolerance default + self-tune. Live integrations
+(Places search, real discovery) are scaffolded with honest "not wired" notes.
+
+### 22.7 Env / deploy topology + HARD CONSTRAINT
+- **All Vercel environments (Production, Preview, Development) share ONE Supabase value = the PROD
+  project `triodvdspdsuudooyura`.** There is NO Vercel↔Supabase branching integration and no
+  per-branch override. So `ux-rework` Vercel previews hit PROD Supabase and show the empty
+  first-run state (prod lacks the `daily_briefs` migration + precomputed briefs).
+- The **ux-rework Supabase branch `eguflqjnodumjbmdxrnj`** (migration + refreshed data + the
+  precomputed brief) is referenced ONLY by local `.env.local`.
+- ⚠️ **The PROD database captures real early-access requests from potential customers. Do NOT
+  mutate prod, and do NOT change preview/prod env wiring, without the owner's explicit sign-off.**
+- Agreed sequence (be intentional about timing): (1) keep previewing LOCALLY until more of the
+  experience is ready; (2) set up PROPER STAGING ISOLATION (Supabase branching or a dedicated
+  staging project so previews never touch the customer DB) — confirm approach first; (3) prod
+  cutover (merge `ux-rework`→main, apply the additive `daily_briefs` migration to prod, run
+  pipelines, swap `/home`, reduce nav) — check in before any change to staging/preview/prod.
+
+### 22.8 Status + canonical pointers
+- Branch `ux-rework`. Committed: `3a927af` (engine), `e51d5e0` (brief home), `bd5b07e`
+  (depth/coverage), `76220cc` (provider-down resilience). The **preview area, onboarding, brief
+  rail edits, and nav/account flyout are currently LOCAL / uncommitted** pending owner review.
+- Plan: `~/.claude/plans/we-are-going-to-jiggly-newell.md`. Engine ledger:
+  `docs/engine-rewrite/build-status.md`. Cost levers: `docs/engine-rewrite/cost-levers.md`.
+  Detailed play-by-play: vault session logs `~/vault/logs/sessions/2026-06-0{4,5,6}-ticket-*`.
+
+---
+
+*Sections 1-21 generated from a complete analysis of the Prophet codebase (last updated May 27,
+2026). Section 22 (UX + insight-engine rewrite, branch `ux-rework`) last updated June 6, 2026.*

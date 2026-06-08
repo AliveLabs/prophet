@@ -24,7 +24,8 @@ RECIPE DISCIPLINE (everything short of executing):
     as it lets out; if a loyalty/wallet channel is live, ping holders within range; post the offer that morning.
   * Clear warm weekend + the place has a patio -> PREPARE: staff the patio fully, consider extending outdoor
     hours. CAPITALIZE: promote the patio where locals look (the operator's live social + a weather-aware post),
-    shoot the full patio at golden hour, run a limited patio happy hour.
+    take a quick phone photo of the full patio in the early evening when the light is warm, run a limited
+    patio happy hour.
 - If the operator has no ad budget or no live channel for a play, downgrade it to the channel they DO have
   (their own social, in-store signage, Google Business post) rather than recommending spend they can't make.
 

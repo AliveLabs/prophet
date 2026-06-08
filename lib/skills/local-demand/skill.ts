@@ -63,7 +63,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           audience: "guests near the venue around the window",
           window: { note: "before and as the window opens" },
           copy: "Right by the action tonight. Come in before or after.",
-          creativeDirection: "a warm, inviting shot of the room or a signature plate; no text overlay",
+          creativeDirection: "a quick phone photo of the room looking full and inviting, or a signature dish; shoot it in the existing light",
         },
       ],
       confidence: "directional",

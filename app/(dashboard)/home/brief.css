@@ -87,7 +87,12 @@
 .ticket-brief .movecard__why{ margin-top:8px; font-size:14.5px; line-height:1.5; color:var(--print); }
 .ticket-brief .movecard__why .num{ font-weight:600; color:var(--ink); }
 .ticket-brief .movecard__why .name{ color:var(--slate); font-weight:500; }
-.ticket-brief .movecard__meta{ margin-top:11px; display:flex; flex-wrap:wrap; gap:16px; align-items:center; }
+.ticket-brief .movecard__meta{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
+/* Confidence + Impact share ONE explicit label:value system (per review). */
+.ticket-brief .metric{ display:inline-flex; align-items:baseline; gap:6px; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:11px; }
+.ticket-brief .metric-k{ color:var(--ash); }
+.ticket-brief .metric-v{ color:var(--ink); font-weight:600; }
+.ticket-brief .topic{ margin-left:auto; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ash-2); }
 .ticket-brief .src{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ash); }
 .ticket-brief .relevance{ margin-top:9px; font-size:13px; line-height:1.45; color:var(--ash); }
 .ticket-brief .relevance .pin{ color:var(--rust); font-weight:700; margin-right:5px; }
@@ -126,7 +131,8 @@
 .ticket-brief .rs-basis dd{ margin:0; font-size:13.5px; line-height:1.45; color:var(--ink); }
 .ticket-brief .rs-deps{ margin:10px 0 0; padding:0; list-style:none; }
 .ticket-brief .rs-deps li{ display:grid; grid-template-columns:18px 1fr; gap:10px; align-items:start; padding:7px 0; font-size:13.5px; color:var(--print); }
-.ticket-brief .rs-deps li .box{ width:16px; height:16px; border:1.5px solid var(--rule-strong); border-radius:4px; border-style:dashed; margin-top:2px; }
+/* plain step marker (not a checkbox — we can't verify completion) */
+.ticket-brief .rs-deps li .box{ width:5px; height:5px; border-radius:50%; background:var(--rust); margin-top:8px; }
 .ticket-brief .rs-copy{ background:var(--thermal); border:1px dashed rgba(184,92,56,.35); border-radius:var(--radius); padding:11px 13px; margin-top:10px; font-size:13.5px; line-height:1.45; color:var(--ink); }
 .ticket-brief .rs-copy .copy-label{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--rust); margin-bottom:4px; }
 .ticket-brief .rs-creative{ margin-top:10px; font-size:13px; line-height:1.45; color:var(--print); }
@@ -146,6 +152,8 @@
 
 /* ── Card footer: actions + feedback ────────────────────────── */
 .ticket-brief .movecard__foot{ margin-top:15px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-top:13px; border-top:1px dashed var(--rule); }
+.ticket-brief .movecard__detail{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--slate); margin-left:auto; }
+.ticket-brief .movecard__detail:hover{ color:var(--ink); }
 .ticket-brief .movecard__actions{ display:flex; gap:8px; }
 .ticket-brief .act{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; padding:7px 13px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--print); cursor:pointer; transition:all .15s ease; }
 .ticket-brief .act:hover{ border-color:var(--ink); color:var(--ink); }
@@ -199,12 +207,21 @@
 .ticket-brief .cov-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ink); }
 .ticket-brief .cov--off .cov-label{ color:var(--ash); }
 .ticket-brief .cov--stale .cov-detail{ color:var(--gold-deep); }
+.ticket-brief .cov--off .cov-detail{ color:var(--ash-2); }
 .ticket-brief .cov-detail{ margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
 
-/* on-watch reach */
-.ticket-brief .reach{ display:flex; flex-wrap:wrap; gap:7px; }
-.ticket-brief .reach .r{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.04em; font-size:11.5px; color:var(--slate); border:1px solid var(--rule); border-radius:var(--radius); padding:6px 10px; }
-.ticket-brief .reach .r--own{ color:var(--ink); border-color:var(--rule-strong); }
+/* what-we-checked credibility module: fresh count + expandable "how we read this" */
+.ticket-brief .check-count{ font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:none; color:var(--clear); font-weight:400; }
+.ticket-brief .check-prov{ margin-top:12px; border-top:1px dashed var(--rule); }
+.ticket-brief .check-prov > summary{ list-style:none; cursor:pointer; padding:11px 0 0; display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:11.5px; color:var(--slate); }
+.ticket-brief .check-prov > summary::-webkit-details-marker{ display:none; }
+.ticket-brief .check-prov > summary:hover{ color:var(--ink); }
+.ticket-brief .check-prov > summary .car{ color:var(--rust); font-weight:700; transition:transform .2s ease; display:inline-block; }
+.ticket-brief .check-prov[open] > summary .car{ transform:rotate(90deg); }
+.ticket-brief .check-prov__body{ padding:9px 0 2px; }
+.ticket-brief .check-prov__body p{ margin:0; font-size:12px; line-height:1.5; color:var(--ash); }
+.ticket-brief .check-prov__body p b{ color:var(--print); font-weight:600; }
+.ticket-brief .check-prov__soon{ margin-top:8px !important; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
 
 /* ── Empty / first-run state ────────────────────────────────── */
 .ticket-brief .state{ max-width:760px; margin:10px auto 40px; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:30px; }

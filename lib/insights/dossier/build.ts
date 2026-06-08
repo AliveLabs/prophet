@@ -324,14 +324,16 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   const scraped = competitors.filter((c) => c.listing || c.menu).length
   const reviewThemes = location.reviews?.themes?.length ?? 0
   const seoAsOf = latestDateMatching((t) => t.startsWith("seo") || t.startsWith("visibility") || t.startsWith("traffic") || t.startsWith("baseline") || t.includes("event"))
+  // Customer-plain language (no dev/designer jargon: no "parsed"/"scraped"/"themes"/"profiles").
+  // First-pass copy — flagged for a dedicated UX-writer pass before this ever faces customers.
   const coverage: BriefCoverage[] = [
-    mk("Events", events.length > 0, events.length ? `${events.length} upcoming` : "none upcoming", events.length ? eventsMeta.dateKey : null),
-    mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "no forecast", weatherAsOf),
-    mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} themes` : "none", reviewThemes ? dateKey : null),
-    mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your patterns" : "missing", location.busyTimes ? dateKey : null),
-    mk("Your menu", !!location.menu, location.menu ? "parsed" : "missing", ownMenuMeta.dateKey),
-    mk("Competitors", competitors.length > 0, `${scraped} of ${competitors.length} scraped`, seoAsOf),
-    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} profile${socialByEntity.size === 1 ? "" : "s"}` : "not connected", socialFresh ? socialAsOf : null),
+    mk("Local events", events.length > 0, events.length ? `${events.length} coming up` : "none coming up", events.length ? eventsMeta.dateKey : null),
+    mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "not available", weatherAsOf),
+    mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} topic${reviewThemes === 1 ? "" : "s"}` : "none yet", reviewThemes ? dateKey : null),
+    mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null),
+    mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey),
+    mk("Competitors", competitors.length > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
+    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} account${socialByEntity.size === 1 ? "" : "s"}` : "not connected", socialFresh ? socialAsOf : null),
   ]
 
   return {

@@ -1,8 +1,10 @@
 "use server"
 
 // Server actions for the Brief home: per-play good/bad feedback and the
-// brand-tolerance slider. Both write through the USER-scoped Supabase client so
+// brand-tolerance setting. Both write through the USER-scoped Supabase client so
 // the org-member RLS policies (added in the daily_briefs migration) enforce access.
+// `setBrandTolerance` now backs the Settings tuning control (explicit "Update my
+// recommendations"), not the brief rail — the authed Settings page calls it.
 //
 // `brand_tolerance` / `brief_feedback` aren't in the generated DB types until types
 // are regenerated, so we use the same loose-client cast the lib layer uses.
@@ -47,7 +49,7 @@ export async function submitPlayFeedback(input: {
   }
 }
 
-/** Set the per-location brand-tolerance slider (0 tame .. 100 adventurous). */
+/** Set the per-location recommendation breadth (0 focused/narrow .. 100 broad). */
 export async function setBrandTolerance(
   locationId: string,
   value: number,

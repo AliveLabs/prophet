@@ -32,7 +32,8 @@ export default async function HomePage() {
   const organizationId = profile?.current_organization_id
   if (!organizationId) return null
 
-  // The org's primary location (id + name + tolerance slider position).
+  // The org's primary location (id + name). Brand-tolerance now lives on the
+  // Settings page (explicit refresh), not the brief rail.
   const { data: locRow } = await (supabase as unknown as LocQuery)
     .from("locations")
     .select("id, name, brand_tolerance")
@@ -47,7 +48,7 @@ export default async function HomePage() {
 
   const brief = await getBrief(locRow.id)
 
-  // Watched competitors (approved + active) for the on-watch rail + synth count.
+  // Watched competitors (approved + active) for the brief's synth count line.
   const { data: comps } = await supabase
     .from("competitors")
     .select("name, metadata")
@@ -70,7 +71,6 @@ export default async function HomePage() {
       locationId={locRow.id}
       locationName={locRow.name ?? "Your location"}
       competitors={competitors}
-      brandTolerance={locRow.brand_tolerance ?? 50}
     />
   )
 }
