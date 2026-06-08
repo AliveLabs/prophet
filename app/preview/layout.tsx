@@ -38,12 +38,18 @@ export default function PreviewLayout({ children }: { children: ReactNode }) {
   )
 }
 
+// The fallback is the STATIC shell — it must not touch dynamic request data, so it
+// renders a static nav placeholder, never <PreviewNav /> (which reads usePathname).
 function PreviewSkeleton() {
   return (
     <div className="ticket-app">
       <aside className="pv-sidebar">
         <div className="pv-brand"><TicketMark /> TICKET</div>
-        <PreviewNav />
+        <nav className="pv-nav" aria-hidden>
+          {["Today", "Competitors", "Ask"].map((label) => (
+            <span key={label}><span className="tick" />{label}</span>
+          ))}
+        </nav>
       </aside>
       <main className="pv-main" />
     </div>
