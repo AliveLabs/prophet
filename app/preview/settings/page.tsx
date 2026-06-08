@@ -4,11 +4,13 @@
 // duplicate the manager.
 
 import Link from "next/link"
+import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
 import BriefTuning from "../brief-tuning"
 import { VoiceSelect, CommsPrefs } from "./settings-controls"
 
 export default async function PreviewSettings() {
+  await connection()
   const ctx = await loadPreviewContext()
   return (
     <div className="pv-page">

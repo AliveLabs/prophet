@@ -4,6 +4,7 @@
 
 import type { ReactNode } from "react"
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import PreviewNav from "./preview-nav"
 import AccountMenu from "./account-menu"
 import { loadAccountLocations, WAGYU_LOCATION_ID } from "./preview-data"
@@ -27,6 +28,7 @@ export default async function PreviewLayout({ children }: { children: ReactNode 
   // build (incl. previews), so it must NOT be the discriminator — VERCEL_ENV is
   // "production" only on prod, "preview" on preview deploys, undefined on local dev.
   if (process.env.VERCEL_ENV === "production") notFound()
+  await connection()
   const locations = await loadAccountLocations(WAGYU_LOCATION_ID)
   return (
     <div className="ticket-app">

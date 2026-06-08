@@ -3,10 +3,12 @@
 // Real names + ratings + signal counts from the branch; each links to a per-competitor
 // detail. Management interactivity lives in the CompetitorList client component.
 
+import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
 import CompetitorList from "./competitor-list"
 
 export default async function PreviewCompetitors() {
+  await connection()
   const ctx = await loadPreviewContext()
   return (
     <div className="pv-page">

@@ -5,6 +5,7 @@
 // walkthroughs) is prod-wired later; honest placeholders mark where it lands.
 
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import Link from "next/link"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { loadPreviewContext } from "../../preview-data"
@@ -22,6 +23,7 @@ const LEV_LABEL: Record<NonNullable<EnrichedRecommendation["leverage"]>["label"]
 }
 
 export default async function PlayDetail({ params }: { params: Promise<{ rank: string }> }) {
+  await connection()
   const { rank } = await params
   const ctx = await loadPreviewContext()
   const idx = Number.parseInt(rank, 10) - 1

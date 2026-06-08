@@ -4,6 +4,7 @@
 // (their posts/photos/numbers) is prod-wired later.
 
 import { notFound } from "next/navigation"
+import { connection } from "next/server"
 import Link from "next/link"
 import { loadCompetitorDetail } from "../../preview-data"
 import { humanizeRef } from "@/lib/skills/evidence-format"
@@ -17,6 +18,7 @@ function fmtShortDate(dateKey: string): string {
 }
 
 export default async function CompetitorDetail({ params }: { params: Promise<{ id: string }> }) {
+  await connection()
   const { id } = await params
   const c = await loadCompetitorDetail(id)
   if (!c) notFound()

@@ -1,7 +1,9 @@
+import { connection } from "next/server"
 import { loadPreviewContext } from "../preview-data"
 import BriefView from "../../(dashboard)/home/brief-view"
 
 export default async function PreviewToday() {
+  await connection()
   const ctx = await loadPreviewContext()
   if (!ctx.brief) {
     return (

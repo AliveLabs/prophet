@@ -4,6 +4,7 @@
 // an active config). The live answer engine isn't wired yet, so the input, answer, and
 // history are shown as honest previews.
 
+import { connection } from "next/server"
 import { loadPreviewContext } from "../preview-data"
 
 const SUGGESTED = [
@@ -15,6 +16,7 @@ const SUGGESTED = [
 ]
 
 export default async function PreviewAsk() {
+  await connection()
   const ctx = await loadPreviewContext()
   return (
     <div className="pv-page">
