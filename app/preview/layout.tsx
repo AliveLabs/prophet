@@ -2,7 +2,7 @@
 // Frames the brief + first-pass pages in the new 4-item nav so the whole thing can be
 // reviewed locally before any of it moves into the real authed (dashboard) routes.
 
-import type { ReactNode } from "react"
+import { Suspense, type ReactNode } from "react"
 import { notFound } from "next/navigation"
 import { connection } from "next/server"
 import PreviewNav from "./preview-nav"
@@ -38,7 +38,9 @@ export default async function PreviewLayout({ children }: { children: ReactNode 
         <div className="pv-spacer" />
         <AccountMenu userName="Anand" locations={locations} />
       </aside>
-      <main className="pv-main">{children}</main>
+      <main className="pv-main">
+        <Suspense fallback={<div className="pv-page" />}>{children}</Suspense>
+      </main>
     </div>
   )
 }
