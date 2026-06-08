@@ -23,7 +23,10 @@ function TicketMark() {
 }
 
 export default async function PreviewLayout({ children }: { children: ReactNode }) {
-  if (process.env.NODE_ENV === "production") notFound()
+  // Hide on the PRODUCTION deployment only. NODE_ENV is "production" on every Vercel
+  // build (incl. previews), so it must NOT be the discriminator — VERCEL_ENV is
+  // "production" only on prod, "preview" on preview deploys, undefined on local dev.
+  if (process.env.VERCEL_ENV === "production") notFound()
   const locations = await loadAccountLocations(WAGYU_LOCATION_ID)
   return (
     <div className="ticket-app">
