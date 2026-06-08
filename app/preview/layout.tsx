@@ -1,6 +1,12 @@
-// DEV/REVIEW-ONLY editorial shell for the reworked experience (no auth, prod-guarded).
-// Frames the brief + first-pass pages in the new 4-item nav so the whole thing can be
-// reviewed locally before any of it moves into the real authed (dashboard) routes.
+// DEV/REVIEW-ONLY editorial shell for the reworked experience (no auth, prod-guarded
+// via VERCEL_ENV). Frames the brief + first-pass pages in the new 4-item nav so the
+// whole thing can be reviewed on a Vercel preview (or locally) before any of it moves
+// into the real authed (dashboard) routes.
+//
+// cacheComponents pattern (matches app/(dashboard)/layout.tsx): the exported layout is
+// sync — guard + a single <Suspense> — and a separate async Shell does ALL data access
+// (loadAccountLocations) + chrome + children, so no uncached data renders outside the
+// boundary during the production prerender.
 
 import { Suspense, type ReactNode } from "react"
 import { notFound } from "next/navigation"
@@ -23,11 +29,28 @@ function TicketMark() {
   )
 }
 
-export default async function PreviewLayout({ children }: { children: ReactNode }) {
-  // Hide on the PRODUCTION deployment only. NODE_ENV is "production" on every Vercel
-  // build (incl. previews), so it must NOT be the discriminator — VERCEL_ENV is
-  // "production" only on prod, "preview" on preview deploys, undefined on local dev.
+export default function PreviewLayout({ children }: { children: ReactNode }) {
   if (process.env.VERCEL_ENV === "production") notFound()
+  return (
+    <Suspense fallback={<PreviewSkeleton />}>
+      <PreviewShell>{children}</PreviewShell>
+    </Suspense>
+  )
+}
+
+function PreviewSkeleton() {
+  return (
+    <div className="ticket-app">
+      <aside className="pv-sidebar">
+        <div className="pv-brand"><TicketMark /> TICKET</div>
+        <PreviewNav />
+      </aside>
+      <main className="pv-main" />
+    </div>
+  )
+}
+
+async function PreviewShell({ children }: { children: ReactNode }) {
   await connection()
   const locations = await loadAccountLocations(WAGYU_LOCATION_ID)
   return (
@@ -38,9 +61,7 @@ export default async function PreviewLayout({ children }: { children: ReactNode 
         <div className="pv-spacer" />
         <AccountMenu userName="Anand" locations={locations} />
       </aside>
-      <main className="pv-main">
-        <Suspense fallback={<div className="pv-page" />}>{children}</Suspense>
-      </main>
+      <main className="pv-main">{children}</main>
     </div>
   )
 }
