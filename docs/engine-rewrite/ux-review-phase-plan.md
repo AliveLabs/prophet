@@ -210,9 +210,55 @@ Each sub-item is its own reviewable change:
 - Re-judge recommendation **content variety** on production data (esp. marketing-focused outputs).
 Done when: the new experience runs end-to-end on real data, reviewed piece by piece.
 
-## Phase 10 — Cutover  ☐  **Gated**
-- Merge `ux-rework` → main; new `/home` replaces the analyst home; nav reduced to the 3 + account flyout;
-  retire/relocate the `app/preview/*` + `app/preview-onboarding/*` scaffolding. Final review.
+## Phase 10 — Cutover (reworked experience becomes the live app)  ☐  **Gated**
+Plan as of 2026-06-08. Legend: **[AGENT]** = I do it on the branch, no prod touch, verified on the preview.
+**[BRYAN]** = needs your hands (Vercel/Supabase dashboard, prod, or the go/no-go) — risk flagged. The goal is
+to make each [BRYAN] step a tiny, well-scripted action so there's no room for a critical mistake.
+
+### Going in
+- The reworked **brief** is already in the authed home (`app/(dashboard)/home`, wired to the logged-in user's
+  real location). The REST of the rework (4-item shell/nav + account flyout, Competitors, Ask, Settings,
+  onboarding) lives in the no-auth, prod-guarded `app/preview/*` + `app/preview-onboarding/*`, pointed at the
+  Wagyu STAGING location via the admin client. Cutover = make that the real authed app.
+- `main` is untouched; prod Supabase lacks the `daily_briefs` migration; prod holds real early-access leads.
+
+### Stage A — Code prep on `ux-rework` (no prod touch; verified on the preview)  [AGENT]
+A1. Swap the authed `(dashboard)` shell to the reworked 4-item nav + account flyout (old 11-item shell out).
+A2. Move Competitors / Ask / Settings into authed routes, rewired from Wagyu-hardcoded + admin client to the
+    LOGGED-IN user's real org/location via the user-scoped client + `requireUser` (RLS-safe).
+A3. Replace old onboarding with the reworked flow; wire real account/location creation + un-guard the Places
+    & Ask routes for authed use (or authed equivalents); kick off the first-brief precompute on finish.
+A4. Reduce nav 11 → ~4; old modules become drill-downs/retired.
+A5. Retire/relocate the `app/preview/*` + `app/preview-onboarding/*` scaffolding (keep guarded until B+C pass).
+A6. Verify the whole AUTHED experience on the preview (staging DB, real login); tsc + tests green.
+A7. Open a PR `ux-rework → main` (the full diff, for final review).
+   → This is the bulk of the work; I can do ALL of A1–A7 autonomously once you greenlight the approach.
+
+### Stage B — Prod data prep (gated)  [BRYAN] — I prep, you execute
+B1. **Apply the additive `daily_briefs` migration to PROD Supabase.** RISK: prod DDL — but additive (old site
+    ignores it) so low-risk + reversible. I give you the exact file + click-by-click (Supabase → SQL editor →
+    paste `supabase/migrations/20260604120000_daily_briefs.sql` → run). I can't do this headless (no prod creds).
+B2. **Precompute first briefs for real prod locations.** I can script/run it if you give me temporary prod
+    access (PAT/service-role); otherwise you trigger the cron route. Without it, real users see the honest
+    enriching/first-run state until the scheduled run.
+
+### Stage C — The switch (gated, your go/no-go)  [BRYAN]
+C1. Final review of the PR + the authed experience on the last preview.
+C2. **Merge `ux-rework` → main → triggers the PRODUCTION deploy.** RISK: the live flip. Mitigation: Vercel keeps
+    the prior prod deploy = one-click instant rollback.
+C3. Verify production `/home`, onboarding, 4-item nav, Ask, Competitors on `app.getticket.ai`.
+C4. Remove the branch-scoped `ux-rework` Preview env vars (cleanup; harmless if left). [AGENT or BRYAN]
+
+### Rollback
+Vercel → previous production deployment = instant code revert. The migration is additive (safe to leave even
+on a rollback — nothing on the old code reads `daily_briefs`).
+
+### One-line split
+- **I do (no prod):** all of Stage A — port the reworked experience into the authed app, verified on the
+  preview — + open the PR; + can script B2/C4 if given access.
+- **You do (prod, careful):** B1 (apply migration, exact steps provided), C2 (merge = go-live), C1/C3 (review +
+  verify on the live domain).
+Done when: production runs the reworked experience end-to-end, reviewed + verified live.
 
 ---
 Pointers: BLUEPRINT.md §22 (rework architecture + env constraint) · docs/engine-rewrite/build-status.md
