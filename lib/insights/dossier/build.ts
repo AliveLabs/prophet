@@ -22,6 +22,8 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
+import { classifyNow, isUsable } from "@/lib/freshness/contract"
+import { socialContentAsOf } from "@/lib/freshness/extract"
 
 type SB = ReturnType<typeof createAdminSupabaseClient>
 
@@ -68,36 +70,70 @@ async function latestSnapshotMeta(sb: SB, locationId: string, provider: string):
   }
 }
 
-/** Latest social snapshot per entity (prefer Instagram) + the freshest social date seen. */
-async function loadSocial(sb: SB, entityIds: string[]): Promise<{ byEntity: Map<string, SocialSnapshotData>; latestDate: string | null }> {
+/**
+ * Latest USABLE social snapshot per entity. Enforces the data-integrity contract at
+ * READ time: a snapshot is attached only if its CONTENT (newest post) is current per
+ * classifyNow — a dormant account (e.g. last post 2022) is excluded, never shown as
+ * activity. `content_as_of` is read from the column when present and recomputed from
+ * raw_data otherwise, so the fix holds even before the backfill runs.
+ */
+async function loadSocial(
+  sb: SB,
+  entityIds: string[],
+  nowKey: string
+): Promise<{ byEntity: Map<string, SocialSnapshotData>; asOf: string | null; excludedDormant: number }> {
   const byEntity = new Map<string, SocialSnapshotData>()
-  let latestDate: string | null = null
-  if (entityIds.length === 0) return { byEntity, latestDate }
+  let asOf: string | null = null
+  let excludedDormant = 0
+  if (entityIds.length === 0) return { byEntity, asOf, excludedDormant }
   try {
     const { data: profiles } = await sb.from("social_profiles").select("id, entity_id, platform").in("entity_id", entityIds)
     const profs = profiles ?? []
-    if (profs.length === 0) return { byEntity, latestDate }
+    if (profs.length === 0) return { byEntity, asOf, excludedDormant }
     const profById = new Map(profs.map((p) => [p.id as string, p as { entity_id: string; platform: string }]))
+    // Note: content_as_of/freshness columns exist in the DB (Phase 1 migration) but are
+    // intentionally NOT selected here — the generated types don't include them yet, and
+    // raw_data already carries the posts, so we self-compute content recency below. This
+    // keeps the read fix correct and regen-independent (works on un-backfilled rows too).
     const { data: snaps } = await sb
       .from("social_snapshots")
-      .select("social_profile_id, raw_data, date_key")
+      .select("social_profile_id, raw_data, date_key, captured_at")
       .in("social_profile_id", profs.map((p) => p.id as string))
       .order("date_key", { ascending: false })
+
+    // Pick the latest snapshot per entity (rows are date desc → first seen = latest);
+    // prefer Instagram if present for that entity.
+    type Latest = { raw: SocialSnapshotData; capturedAt: string; isInstagram: boolean }
+    const latestByEntity = new Map<string, Latest>()
     for (const s of snaps ?? []) {
       const prof = profById.get(s.social_profile_id as string)
       if (!prof) continue
-      const dk = s.date_key as string
-      if (!latestDate || dk > latestDate) latestDate = dk
-      const existing = byEntity.get(prof.entity_id)
-      // first row per entity = latest; prefer instagram if a later loop finds it for the same entity
-      if (!existing || prof.platform === "instagram") {
-        byEntity.set(prof.entity_id, s.raw_data as SocialSnapshotData)
+      const isInstagram = prof.platform === "instagram"
+      const cur = latestByEntity.get(prof.entity_id)
+      if (cur && !(isInstagram && !cur.isInstagram)) continue
+      latestByEntity.set(prof.entity_id, {
+        raw: s.raw_data as SocialSnapshotData,
+        capturedAt: (s.captured_at as string) ?? (s.date_key as string),
+        isInstagram,
+      })
+    }
+
+    for (const [entityId, v] of latestByEntity) {
+      const rawRec = v.raw as unknown as Record<string, unknown>
+      const probe = socialContentAsOf(rawRec)
+      const contentAsOf = probe.contentAsOf // self-computed from raw_data (newest post date)
+      const status = classifyNow({ contentAsOf, capturedAt: v.capturedAt, isEmpty: probe.isEmpty, kind: "social", now: `${nowKey}T00:00:00Z` })
+      if (isUsable(status)) {
+        byEntity.set(entityId, v.raw)
+        if (contentAsOf && (!asOf || contentAsOf > asOf)) asOf = contentAsOf
+      } else {
+        excludedDormant++ // dormant / empty / undated — not current, kept out of the brief
       }
     }
   } catch {
     /* social is optional — absence is reported via coverage */
   }
-  return { byEntity, latestDate }
+  return { byEntity, asOf, excludedDormant }
 }
 
 async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotType?: string): Promise<Record<string, unknown> | null> {
@@ -284,12 +320,12 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     }),
   )
 
-  // ── social: latest snapshot per entity (previously unwired into the dossier) ──
-  // Only attach social within the retention window so 3-month-old data never drives
-  // today's plays; beyond the window it reports as "not connected" in coverage.
+  // ── social: latest USABLE snapshot per entity (data-integrity contract, read side) ──
+  // loadSocial classifies by real CONTENT recency, so dormant accounts (e.g. last post
+  // 2022) are excluded here — never attached, never presented as current activity.
   const entityIds = [loc.id as string, ...competitors.map((c) => c.entityId)]
-  const { byEntity: socialByEntity, latestDate: socialAsOf } = await loadSocial(sb, entityIds)
-  const socialFresh = !!socialAsOf && ageDays(socialAsOf, dateKey) <= RETENTION_DAYS
+  const { byEntity: socialByEntity, asOf: socialAsOf, excludedDormant: socialDormant } = await loadSocial(sb, entityIds, dateKey)
+  const socialFresh = socialByEntity.size > 0
   if (socialFresh) {
     const own = socialByEntity.get(location.entityId)
     if (own) location.social = own
@@ -333,7 +369,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null),
     mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey),
     mk("Competitors", competitors.length > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
-    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} account${socialByEntity.size === 1 ? "" : "s"}` : "not connected", socialFresh ? socialAsOf : null),
+    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null),
   ]
 
   return {
