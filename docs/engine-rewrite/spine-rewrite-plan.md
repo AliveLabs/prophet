@@ -187,3 +187,50 @@ run a command):
 All work is on a branch off `main`; `main`/prod code is untouched until a deliberate merge. The prod
 migrations are additive (old code ignores the new columns/table), so they're safe to leave even on a
 code rollback. Vercel keeps the prior deploy for one-click revert.
+
+---
+
+## ════ CUTOVER & EVALUATION PLAN (updated 2026-06-09 — post spine-rewrite + Phase 7) ════
+Supersedes the scattered Phase 6 / Stage-A notes above. Goal: get Bryan back to EVALUATING the
+reworked experience on real branch data, then a safe, gated prod cutover.
+
+### A. Branch state
+All spine-rewrite + Phase 7 work is on **`spine-rewrite`** (branched off `ux-rework`; ~24 commits;
+163 unit tests green; tsc clean; live-verified). `ux-rework` and `main` are untouched. The reworked
+UI + new engine run against the branch Supabase DB (`eguflqjnodumjbmdxrnj`, migrations applied).
+
+### B. To EVALUATE again — pick one (Bryan's call)
+- **Option 1 (recommended): merge `spine-rewrite` → `ux-rework`.** ux-rework already carries the
+  branch-scoped Preview env (Phase 8) + the stable alias `prophet-git-ux-rework-alive-labs.vercel.app`,
+  so the existing hosted review surface (behind Vercel SSO) picks up all the new work immediately, and
+  cutover stays `ux-rework → main`. One integration branch again.
+- **Option 2:** scope the branch-Supabase Preview env to `spine-rewrite` (mirror Phase 8) for its own
+  preview — more moving parts.
+- **Local now:** `localhost:3000/dev-brief` renders the persisted branch brief (no login).
+
+### C. PROD cutover — apply/set (GATED; Bryan go/no-go; NEVER leads tables)
+1. **Two additive migrations** (already on the branch): `20260609160000_signal_freshness_contract.sql`
+   + `20260609180000_signal_jobs_queue.sql`. Apply via `CONFIRM_PROD=yes node scripts/audit/db-exec.mjs
+   --ref triodvdspdsuudooyura --file <each>` (or dashboard SQL editor). Additive → old code ignores them.
+2. **`CRON_SECRET` set in prod env** — both the daily cron and the new `/api/cron/worker` (every 5m) auth on it.
+3. **Worker cron** is already in `vercel.json` — ships with the merge.
+4. (Optional) backfill `content_as_of`/`freshness` on existing prod rows (`scripts/audit/backfill-social-freshness.mjs`
+   + the SQL for as-of-capture signals). Not required — the dossier self-computes social recency.
+
+### D. Stage A — authed port (the remaining BUILD before go-live)  [AGENT, branch-only, gated to start]
+The reworked experience lives in no-auth `app/preview/*`; port into the authed `(dashboard)`:
+- 4-item nav + account flyout; Competitors / Ask / Settings authed (user-scoped client + `requireUser`).
+- **Wire the reworked refresh controls → `refreshLocationAction` / `refreshSocialNetworkAction`** (queue-based; by business + by network).
+- **Replace the old optimistic SSE progress with real `pipeline_runs` / `signal_jobs` status** in the
+  "what we checked / data-health" module — this is the fix for "the UI told you something different than reality".
+- Onboarding finish already calls `enqueueFirstRun` (done).
+
+### E. Cutover sequence (gated)
+Apply 2 migrations to prod → set `CRON_SECRET` → merge `ux-rework → main` (= prod deploy; 1-click
+rollback) → verify `/home` brief + onboarding + worker draining + refresh buttons → optional backfill.
+
+### F. Verified before cutover
+Spine rewrite (Phases 1–5) + Phase 7 (pull modes, Data365 billing cadence, rebuilt cost model,
+persona/insight freshness gating) — all live-verified on the branch: dossier excludes dormant social;
+**social "activity" insights gated so dormant competitors no longer read as recently active**; queue
+drains with honest `pipeline_runs` outcomes; full Wagyu brief builds grounded + freshness-honest.
