@@ -16,10 +16,11 @@ Terminology decided in the review (use everywhere): page = **Brief**; cards = **
 > **RESUME (as of 2026-06-08):** Phases 1–8 ✓ DONE, committed + pushed on `ux-rework` (latest build `265c194` green).
 > Decisions taken: slider = Settings+refresh; detail = expanded page; staging = reuse branch; tokens = unify to 6px.
 > Hosted review surface (behind Vercel SSO): **`https://prophet-git-ux-rework-alive-labs.vercel.app`** (stable alias).
-> **Phase 9 (production wiring — GATED) IN PROGRESS:** ✓ onboarding real data (Places autocomplete + competitor
-> discovery, `d4f95c1`). Remaining Phase 9 pieces: prod migration, processing/notifications, Ask engine,
-> evidence/provenance, content-variety re-judge — **each needs Bryan's per-piece sign-off; prod still untouched.**
-> Full handoff: vault `2026-06-08-ticket-phases-3-4`.
+> **Phase 9 (production wiring — GATED) IN PROGRESS:** ✓ onboarding real data (`d4f95c1`) · ✓ Ask Ticket live
+> engine (`54985f7`). Remaining: prod `daily_briefs` migration (the one true prod-touching step, fully gated);
+> processing/notifications (really cutover/authed territory); evidence/provenance (largely already done in
+> Phases 3–4); content-variety re-judge (needs prod data). **Prod still untouched.** Full handoff: vault
+> `2026-06-08-ticket-phases-3-4`.
 
 ---
 
@@ -194,7 +195,16 @@ Each sub-item is its own reviewable change:
   un-guarded equivalents (or relocate these). Known minor edge: a generically-typed "restaurant" (e.g. a vending
   machine) can slip the type filter.
 - ☐ Real **processing/status** + notifications (email/browser) replacing the placeholder onboarding end-state.
-- **Ask** / standing-question live answer engine.
+  (Note: needs a persisted authed account, so it's really cutover/authed territory — not a clean fit for the
+  no-auth preview.)
+- ☑ **Ask Ticket — live answer engine (2026-06-08).** Bounded NL question answered using ONLY the location's
+  own data (domain-locked, grounded). `lib/ask/answer.ts` (prompt + validate + answerQuestion, injectable
+  transport, cost-bounded) + `lib/ask/gather.ts` (context from persisted insights/competitors/brief) +
+  `app/api/preview/ask` (POST, prod-guarded) + `app/preview/ask` AskBox client UI (input + chips + answer with
+  confidence + humanized sources). Verified live on staging: "who's undercutting me" → real grounded answer
+  ("Gyu-kaku, $11.08 vs your $21.18, 48% lower, promos on FB/IG") with sources; "capital of France" → declined
+  (grounded=false). Sources de-jargoned via the Phase-4 formatter. 5 unit tests. Commit `54985f7`, build green.
+  The *pinned standing question* (re-runs each morning) is still a coming capability — only the one-off ask is live.
 - Real **evidence + provenance** ("how we know") and **What We Checked** counts/failures from social/
   photos/SEO data; richer detail-view evidence on real data.
 - Re-judge recommendation **content variety** on production data (esp. marketing-focused outputs).
