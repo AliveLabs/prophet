@@ -1,146 +1,173 @@
 // ---------------------------------------------------------------------------
 // Data-acquisition cost model + per-client estimator (Spine rewrite · Phase 7)
 //
-// SINGLE source of truth for our COST to serve a client across ALL data sources.
-// Purpose: once the spine is fully wired, estimate a client's monthly cost so we can
-// re-verify the $149 / $299 / $499 pricing tiers against real usage.
+// REBUILT BOTTOM-UP (2026-06-09): cost = VOLUME (the calls the REWORKED pipelines
+// actually make per run) × verified provider UNIT PRICES × the NEW cadence (weekly +
+// dormant-skip). This deliberately does NOT use Anand's old bundled per-competitor
+// dollar figures — those were modeled on the pre-rework daily-everything behavior.
 //
 //   ┌─ THE OBVIOUS ADJUSTMENT ──────────────────────────────────────────────┐
-//   │ COST_KNOBS below are the reversible cost levers. Change them here, in   │
-//   │ ONE place; the social pipeline reads DATA365_POSTS_PER_PULL from here.  │
+//   │ COST_KNOBS = reversible cost levers (tune here, one place).            │
+//   │ UNIT_PRICES = provider truth.   VOLUMES = what the code does per run.  │
 //   └────────────────────────────────────────────────────────────────────────┘
 //
-// Sources: Anand's Vatic_Pricing_Model_v3 ("Unit Cost Reference" + Model B) via
-// docs/engine-rewrite/cost-levers.md; Data365 pricing (data365.co/pricing, verified 2026-06).
-// Figures tagged VERIFY are approximate and should be confirmed against real billing.
+// Verified unit prices (2026-06): Google Places (developers.google.com/maps pricing),
+// Gemini 2.5 Flash (ai.google.dev/pricing), DataForSEO SERP (dataforseo.com), Data365
+// (data365.co/pricing), Claude Sonnet (Anthropic). Items tagged ~VERIFY are best-effort.
+// VOLUMES are read from lib/jobs/pipelines/* and must be re-calibrated against REAL
+// measured usage once the spine is wired (that is the true verification — see notes).
 // ---------------------------------------------------------------------------
 
 // ── THE OBVIOUS ADJUSTMENT: reversible cost levers ───────────────────────────
 export const COST_KNOBS = {
-  /** Social posts pulled per profile per refresh. Each post = 1 Data365 credit, so
-   *  this is a direct credit lever (vs the fixed 9 credits for profile-with-info).
-   *  Lower = cheaper but less social signal — a product/quality tradeoff. */
+  /** Social posts pulled per profile per refresh (each post = 1 Data365 credit). */
   data365PostsPerPull: 20,
-  /** Photo FETCH cadence (NOT analysis, NOT reviews). Weekly is the big saver. */
   photoFetchCadence: "weekly" as "daily" | "weekly",
-  /** DataForSEO cadence. */
   seoCadence: "weekly" as "daily" | "weekly",
 } as const
 
-/** Re-exported for the social pipeline so posts-per-pull is tuned in exactly one place. */
+/** Re-exported so the social pipeline tunes posts-per-pull in exactly one place. */
 export const DATA365_POSTS_PER_PULL = COST_KNOBS.data365PostsPerPull
 
-// ── VERIFIED UNIT COSTS (USD) ────────────────────────────────────────────────
-// Per-competitor monthly costs from Anand's model (optimized, weekly cadence, 10+ ws).
-export const UNIT_COSTS = {
-  placesDetailsReviewsPerCompMo: 0.75, // Google Places details + reviews (keep — never cut)
-  placesPhotosPerCompMoWeekly: 1.96, // Places photo FETCH, hash-deduped (was ~6.5)
-  geminiVisionPerCompMo: 0.3, // Gemini Vision photo analysis (cheap + essential)
-  dataForSeoPerCompMoWeekly: 3.3, // DataForSEO labs/SERP/events
-  firecrawlPerCompMo: 0.1,
-  outscraperPerCompMo: 0.01,
-  weatherPerLocationMo: 0.0,
-  claudePerBriefUsd: 0.15, // VERIFY against real token usage (insights+skills+synthesis+voice)
+// ── VERIFIED PROVIDER UNIT PRICES (USD per call/credit, low-volume tier) ─────
+export const UNIT_PRICES = {
+  placesDetailsCall: 0.017, // Places Details (Pro) ≤100k/mo (verified)
+  placesPhotoCall: 0.007, // Places Photo ≤100k/mo (verified)
+  dataForSeoSerpCall: 0.002, // SERP live ($0.60/1k, verified)
+  dataForSeoLabsCall: 0.02, // Labs live ~VERIFY (pricier than SERP)
+  dataForSeoEventsCall: 0.04, // Events live advanced ~VERIFY
+  firecrawlScrape: 0.002, // ~VERIFY (map/scrape)
+  outscraperRecord: 0.005, // ~VERIFY
+  geminiFlashPerImage: 0.0015, // ~image tokens + prompt/out @ $0.30/$2.50 per M (verified rates)
+  geminiFlashPerMenu: 0.002, // menu parse ~VERIFY
+  claudeSonnetPerBriefCall: 0.024, // ~3k in@$3/M + 1k out@$15/M per skill/synthesis call (verified rates)
+  openWeatherCall: 0.0, // free tier
 } as const
 
-// Data365 — subscription + shared credit POOL (verified from data365.co/pricing 2026-06).
+// Data365 — verified plans + credit costs (data365.co/pricing). USD via ~1.08 fx (VERIFY).
 export const DATA365 = {
   creditsPerProfileInfo: 9,
   creditsPerPost: 1,
-  creditsPerPostWithComments: 5, // we do NOT pull comments
-  creditsPerSearch: 7,
   plans: {
-    basic: { usdPerMonth: 324, credits: 500_000, networks: 1 }, // €300 @ ~1.08 VERIFY fx
-    standard: { usdPerMonth: 918, credits: 1_000_000, networks: 3 }, // €850
+    basic: { usdPerMonth: 324, credits: 500_000, networks: 1 },
+    standard: { usdPerMonth: 918, credits: 1_000_000, networks: 3 },
   },
+  usdPerCredit: { basic: 324 / 500_000, standard: 918 / 1_000_000 },
+} as const
+
+// ── VOLUMES: calls per RUN, read from the reworked lib/jobs/pipelines/* ───────
+// (loc = per location/run; comp = per approved competitor/run). Calibrate vs real usage.
+const VOLUMES = {
+  content: { firecrawlLoc: 6, geminiMenuLoc: 1, firecrawlPerComp: 3, geminiMenuPerComp: 1 },
+  visibility: { labsLoc: 9, serpLoc: 5, placesLoc: 1, labsPerComp: 4 },
+  events: { eventsLoc: 2, placesLoc: 2 },
+  photos: { placesRefsPerComp: 1, photosPerComp: 12, visionPerComp: 12 }, // weekly, hash-deduped avg
+  traffic: { outscraperPerEntity: 1 }, // location + each competitor
+  weather: { openWeatherLoc: 2 },
+  brief: { claudeCallsPerBrief: 10 }, // skills + synthesis + voice + review per brief
 } as const
 
 const RUNS_PER_MONTH = { daily: 30, weekly: 4.3 } as const
-const DORMANT_PULLS_PER_MONTH = 30 / 14 // dormant accounts re-checked ~every 14 days
+const DORMANT_PULLS_PER_MONTH = 30 / 14 // dormant social re-checked ~every 14 days
 
 export type ClientCostParams = {
   competitors: number
-  /** Social networks tracked (1 = IG only / Tier 1; 3 = IG+FB+TikTok / Tier 2-3). */
-  platforms: number
-  /** Fraction of social profiles that are dormant (skip to long cadence). Default 0.5
-   *  — the audit measured ~20/33 dormant. */
-  dormantFraction?: number
+  platforms: number // social networks (1 = IG/Tier1; 3 = all/Tier2-3)
+  dormantFraction?: number // share of social profiles dormant (default 0.5 — audit measured ~20/33)
   cadence: "daily" | "weekly"
   postsPerPull?: number
   data365Plan?: "basic" | "standard"
-  /** Market price of the tier, to compute COGS% / headroom. */
   monthlyPriceUsd?: number
 }
 
 export type ClientCostEstimate = {
   bySourceUsd: Record<string, number>
   data365CreditsPerMonth: number
-  totalUsd: number
+  variableTotalUsd: number
   perCompetitorUsd: number
-  cogsPct: number | null
-  marginPct: number | null
+  cogsPctVariable: number | null
   notes: string[]
 }
 
-/** Estimate one client's monthly data-acquisition cost across every source. */
+/** Estimate one client's monthly VARIABLE data-acquisition cost, bottom-up from code volumes. */
 export function estimateClientCost(p: ClientCostParams): ClientCostEstimate {
   const comps = Math.max(p.competitors, 0)
+  const entities = comps + 1
   const runs = RUNS_PER_MONTH[p.cadence]
+  const photoRuns = RUNS_PER_MONTH[COST_KNOBS.photoFetchCadence === "daily" ? p.cadence : "weekly"]
+  const seoRuns = RUNS_PER_MONTH[COST_KNOBS.seoCadence === "daily" ? p.cadence : "weekly"]
   const postsPerPull = p.postsPerPull ?? COST_KNOBS.data365PostsPerPull
   const dormantFraction = p.dormantFraction ?? 0.5
   const notes: string[] = []
 
-  // Non-Data365 per-competitor costs. Anand's figures are monthly @ weekly cadence;
-  // photos + SEO are the daily-sensitive ones — scale them up if cadence is daily.
-  const dailyMult = p.cadence === "daily" ? RUNS_PER_MONTH.daily / RUNS_PER_MONTH.weekly : 1
-  const places = UNIT_COSTS.placesDetailsReviewsPerCompMo * comps
-  const photos = UNIT_COSTS.placesPhotosPerCompMoWeekly * comps * (COST_KNOBS.photoFetchCadence === "daily" ? dailyMult : 1)
-  const gemini = UNIT_COSTS.geminiVisionPerCompMo * comps
-  const seo = UNIT_COSTS.dataForSeoPerCompMoWeekly * comps * (COST_KNOBS.seoCadence === "daily" ? dailyMult : 1)
-  const firecrawl = UNIT_COSTS.firecrawlPerCompMo * comps
-  const outscraper = UNIT_COSTS.outscraperPerCompMo * comps
-  const weather = UNIT_COSTS.weatherPerLocationMo
-  const claude = UNIT_COSTS.claudePerBriefUsd * runs
+  // Content (Firecrawl + Gemini menu)
+  const firecrawlCalls = (VOLUMES.content.firecrawlLoc + VOLUMES.content.firecrawlPerComp * comps) * runs
+  const geminiMenuCalls = (VOLUMES.content.geminiMenuLoc + VOLUMES.content.geminiMenuPerComp * comps) * runs
+  const content = firecrawlCalls * UNIT_PRICES.firecrawlScrape + geminiMenuCalls * UNIT_PRICES.geminiFlashPerMenu
 
-  // Data365 credits: (location + competitors) × networks profiles. Active profiles pull
-  // every run; dormant ones only ~every 14 days (the cadence gate). Amortize this client's
-  // share of the monthly subscription pool.
-  const profiles = (comps + 1) * Math.max(p.platforms, 1)
+  // Visibility (DataForSEO Labs + SERP) — weekly cadence by default
+  const labsCalls = (VOLUMES.visibility.labsLoc + VOLUMES.visibility.labsPerComp * comps) * seoRuns
+  const serpCalls = VOLUMES.visibility.serpLoc * seoRuns
+  const dataForSeoVis = labsCalls * UNIT_PRICES.dataForSeoLabsCall + serpCalls * UNIT_PRICES.dataForSeoSerpCall
+
+  // Events (DataForSEO events) + a little Places for venue matching
+  const events = VOLUMES.events.eventsLoc * seoRuns * UNIT_PRICES.dataForSeoEventsCall
+  const dataForSeo = dataForSeoVis + events
+
+  // Places (details for location + events matching + photo refs per comp)
+  const placesDetailCalls = (VOLUMES.visibility.placesLoc + VOLUMES.events.placesLoc) * seoRuns + VOLUMES.photos.placesRefsPerComp * comps * photoRuns
+  const places = placesDetailCalls * UNIT_PRICES.placesDetailsCall
+
+  // Photos (Places Photo SKU + Gemini Vision) — weekly, deduped
+  const photoDownloads = VOLUMES.photos.photosPerComp * comps * photoRuns
+  const visionCalls = VOLUMES.photos.visionPerComp * comps * photoRuns
+  const photos = photoDownloads * UNIT_PRICES.placesPhotoCall
+  const geminiVision = visionCalls * UNIT_PRICES.geminiFlashPerImage
+
+  // Traffic (Outscraper) + Weather (free)
+  const outscraper = VOLUMES.traffic.outscraperPerEntity * entities * runs * UNIT_PRICES.outscraperRecord
+  const weather = VOLUMES.weather.openWeatherLoc * runs * UNIT_PRICES.openWeatherCall
+
+  // Brief engine (Claude reasoning) — per brief, on the run cadence
+  const claude = VOLUMES.brief.claudeCallsPerBrief * runs * UNIT_PRICES.claudeSonnetPerBriefCall
+
+  // Data365 social — cadence-gated; dormant accounts on the long cadence (the credit saver)
+  const profiles = entities * Math.max(p.platforms, 1)
   const creditsPerPull = DATA365.creditsPerProfileInfo + postsPerPull * DATA365.creditsPerPost
   const activeProfiles = profiles * (1 - dormantFraction)
   const dormantProfiles = profiles - activeProfiles
   const data365CreditsPerMonth = creditsPerPull * (activeProfiles * runs + dormantProfiles * DORMANT_PULLS_PER_MONTH)
-  const plan = DATA365.plans[p.data365Plan ?? (p.platforms <= 1 ? "basic" : "standard")]
-  const data365Usd = plan.usdPerMonth * (data365CreditsPerMonth / plan.credits) // share of the pool
-  notes.push(`Data365 ${Math.round(data365CreditsPerMonth).toLocaleString()} credits/mo = ${((data365CreditsPerMonth / plan.credits) * 100).toFixed(1)}% of the ${plan.credits.toLocaleString()}-credit pool`)
-  notes.push(
-    "VARIABLE data-acquisition cost only — excludes fixed infra (Supabase/Vercel/Anthropic/Resend) and the " +
-      "Data365 subscription floor (only the marginal credit share is amortized here). Reconcile against Anand's " +
-      "full COGS model + REAL wired usage; feed per-tier competitor caps + cadence from the live tier config."
-  )
+  const planKey = p.data365Plan ?? (p.platforms <= 1 ? "basic" : "standard")
+  const data365 = data365CreditsPerMonth * DATA365.usdPerCredit[planKey]
+  notes.push(`Data365 ${Math.round(data365CreditsPerMonth).toLocaleString()} credits/mo (dormant ${Math.round(dormantFraction * 100)}% skipped to ~14-day cadence)`)
 
   const bySourceUsd = {
-    placesDetailsReviews: round(places),
-    placesPhotos: round(photos),
-    geminiVision: round(gemini),
-    dataForSeo: round(seo),
-    firecrawl: round(firecrawl),
+    places: round(places),
+    photos: round(photos),
+    gemini: round(geminiMenuCalls * UNIT_PRICES.geminiFlashPerMenu + geminiVision),
+    dataForSeo: round(dataForSeo),
+    firecrawl: round(firecrawlCalls * UNIT_PRICES.firecrawlScrape),
     outscraper: round(outscraper),
     weather: round(weather),
     claude: round(claude),
-    data365: round(data365Usd),
+    data365: round(data365),
   }
-  const totalUsd = round(Object.values(bySourceUsd).reduce((s, v) => s + v, 0))
-  const cogsPct = p.monthlyPriceUsd ? round((totalUsd / p.monthlyPriceUsd) * 100) : null
-  const marginPct = cogsPct == null ? null : round(100 - cogsPct)
+  void content // content is split into firecrawl + gemini lines above
+  const variableTotalUsd = round(Object.values(bySourceUsd).reduce((s, v) => s + v, 0))
+  const cogsPctVariable = p.monthlyPriceUsd ? round((variableTotalUsd / p.monthlyPriceUsd) * 100) : null
+
+  notes.push(
+    "VARIABLE data cost from actual reworked-code volumes — calibrate against REAL measured usage once " +
+      "wired. EXCLUDES fixed floors (Data365 subscription €300-850/mo, Supabase/Vercel/Anthropic/Resend) " +
+      "which dominate COGS at low subscriber counts — add (fixed floors ÷ subscriber count) for true COGS."
+  )
 
   return {
     bySourceUsd,
     data365CreditsPerMonth: Math.round(data365CreditsPerMonth),
-    totalUsd,
-    perCompetitorUsd: comps > 0 ? round(totalUsd / comps) : totalUsd,
-    cogsPct,
-    marginPct,
+    variableTotalUsd,
+    perCompetitorUsd: comps > 0 ? round(variableTotalUsd / comps) : variableTotalUsd,
+    cogsPctVariable,
     notes,
   }
 }

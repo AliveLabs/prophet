@@ -14,12 +14,12 @@ describe("estimateClientCost — all-sources cost vs pricing tiers", () => {
     for (const t of tiers) {
       const e = estimateClientCost(t)
       console.log(`\n=== ${t.name} (${t.competitors} comps, ${t.platforms} networks, ${t.cadence}) ===`)
-      console.log(`  total $${e.totalUsd}/mo · per-competitor $${e.perCompetitorUsd} · COGS ${e.cogsPct}% · margin ${e.marginPct}%`)
+      console.log(`  variable $${e.variableTotalUsd}/mo · per-competitor $${e.perCompetitorUsd} · variable-COGS ${e.cogsPctVariable}%`)
       console.log(`  by source:`, JSON.stringify(e.bySourceUsd))
-      console.log(`  ${e.notes.join("; ")}`)
-      expect(e.totalUsd).toBeGreaterThan(0)
+      console.log(`  ${e.notes.join(" | ")}`)
+      expect(e.variableTotalUsd).toBeGreaterThan(0)
       expect(Object.keys(e.bySourceUsd)).toContain("data365")
-      expect(e.cogsPct).not.toBeNull()
+      expect(e.cogsPctVariable).not.toBeNull()
     }
   })
 
