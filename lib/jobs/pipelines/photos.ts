@@ -70,7 +70,14 @@ export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
       run: async (ctx) => {
         let downloaded = 0
         let skipped = 0
+        // Per-run cap so a single (weekly) photos job can't exceed the 300s function
+        // limit on a first run with many photos. Gemini-Vision per photo is slow +
+        // rate-limited. Hash dedup means the NEXT run skips what's done and continues,
+        // so this chunks naturally across runs with no rework. Logged when it bites.
+        const MAX_DOWNLOADS_PER_RUN = 24
+        let capped = false
         for (const comp of ctx.competitors) {
+          if (downloaded >= MAX_DOWNLOADS_PER_RUN) { capped = true; break }
           const refs = ctx.state.photoRefs.get(comp.id)
           if (!refs?.length) continue
 
@@ -82,6 +89,7 @@ export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
 
           const compDownloads: Array<FetchedPhoto & { competitorId: string }> = []
           for (const ref of refs.slice(0, 30)) {
+            if (downloaded >= MAX_DOWNLOADS_PER_RUN) { capped = true; break }
             try {
               await sleep(250)
               const photo = await downloadPhoto(ref.name)
@@ -104,7 +112,12 @@ export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
           }
           ctx.state.downloads.set(comp.id, compDownloads)
         }
-        return { downloaded, skipped }
+        if (capped) {
+          const msg = `Photo download capped at ${MAX_DOWNLOADS_PER_RUN}/run — remaining photos resume next run (dedup skips completed)`
+          ctx.state.warnings.push(msg)
+          console.log(`[Photos] ${msg}`)
+        }
+        return { downloaded, skipped, capped }
       },
     },
     {
