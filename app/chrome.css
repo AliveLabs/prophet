@@ -35,3 +35,24 @@
 .chrome-btn--ghost:hover { background: var(--bond); opacity: 1; }
 .chrome-foot { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ash-2); margin: 56px 0 0; }
 @media (max-width: 560px) { .chrome-h { font-size: 40px; } }
+
+/* ── Auth (login / signup) — focused editorial card ──────────────── */
+.auth-card { max-width: 420px; align-items: stretch; text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius-card); box-shadow: var(--shadow-chit); padding: 30px 30px 28px; }
+.auth-brand { font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 20px; color: var(--ink); margin-bottom: 18px; }
+.auth-card .chrome-kicker { text-align: left; }
+.auth-card .chrome-h { font-size: 33px; margin-top: 8px; text-align: left; }
+.auth-card .chrome-sub { text-align: left; margin-top: 12px; font-size: 14.5px; max-width: none; }
+.auth-form { display: grid; gap: 8px; margin-top: 22px; }
+.chrome-label { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .08em; font-size: 11.5px; color: var(--ash); }
+.chrome-input { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 12px 14px; font-family: var(--font-sans); font-size: 15px; color: var(--ink); background: var(--paper); }
+.chrome-input:focus { outline: 2px solid var(--rust); outline-offset: 1px; }
+.auth-submit { width: 100%; margin-top: 6px; }
+.auth-google { width: 100%; }
+.chrome-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ash-2); }
+.chrome-or::before, .chrome-or::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.auth-alt { font-size: 13.5px; color: var(--ash); margin-top: 22px; text-align: left; }
+.chrome-link { color: var(--rust-deep); font-weight: 600; }
+.chrome-link:hover { text-decoration: underline; }
+.chrome-msg { border-radius: var(--radius); padding: 10px 13px; font-size: 13.5px; margin-top: 16px; text-align: left; }
+.chrome-msg--error { border: 1px solid var(--alert); background: var(--alert-wash); color: var(--alert); }
+.chrome-msg--ok { border: 1px solid var(--clear); background: var(--clear-wash); color: var(--clear); }
