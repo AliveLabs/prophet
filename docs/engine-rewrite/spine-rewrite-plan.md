@@ -209,9 +209,12 @@ UI + new engine run against the branch Supabase DB (`eguflqjnodumjbmdxrnj`, migr
 - **Local now:** `localhost:3000/dev-brief` renders the persisted branch brief (no login).
 
 ### C. PROD cutover — apply/set (GATED; Bryan go/no-go; NEVER leads tables)
-1. **Two additive migrations** (already on the branch): `20260609160000_signal_freshness_contract.sql`
-   + `20260609180000_signal_jobs_queue.sql`. Apply via `CONFIRM_PROD=yes node scripts/audit/db-exec.mjs
-   --ref triodvdspdsuudooyura --file <each>` (or dashboard SQL editor). Additive → old code ignores them.
+1. **THREE additive migrations** (already on the branch; corrected — daily_briefs was missing from the
+   earlier runbook): `20260604120000_daily_briefs.sql` (daily_briefs + brief_feedback tables +
+   locations.voice_tone/brand_tolerance — the brief UI + Settings REQUIRE these, so it must land before
+   the code deploy) + `20260609160000_signal_freshness_contract.sql` + `20260609180000_signal_jobs_queue.sql`.
+   Apply via `CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --file <each>`
+   (or dashboard SQL editor). Additive → old code ignores them. ORDER: migrations BEFORE merge-to-main.
 2. **`CRON_SECRET` set in prod env** — both the daily cron and the new `/api/cron/worker` (every 5m) auth on it.
 3. **Worker cron** is already in `vercel.json` — ships with the merge.
 4. (Optional) backfill `content_as_of`/`freshness` on existing prod rows (`scripts/audit/backfill-social-freshness.mjs`
