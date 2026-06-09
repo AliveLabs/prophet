@@ -77,6 +77,17 @@ approval gates are the two prod-DB migration steps (additive, leads-safe).
   enable re-discovery; tighten/remove fuzzy name-search; re-verify the existing bad handles.
 
 ### Phase 3 — Reliable orchestration + observability
+**Status: 3a DONE (`cc3c16c`, live-verified). 3b (chunking) + edge-fn retirement remain.**
+- ☑ **3a — durable queue + worker.** `signal_jobs` queue + `claim_signal_jobs` (FOR UPDATE SKIP
+  LOCKED); daily cron ENQUEUES per-(location,pipeline) jobs (social explicit; insights delayed 15m);
+  `/api/cron/worker` (every 5m) drains one pipeline/job with backoff retries + honest `pipeline_runs`
+  outcomes (freshness-aware for social). Applied to branch + live-verified (weather→fresh→done).
+- ☐ **3b — per-entity chunking** via the `signal_jobs.cursor` for the still-heavy pipelines (content
+  scrape ~9min, social collect, photos vision) so no single JOB can exceed 300s either. (3a fixed the
+  aggregate timeout; these per-pipeline ones remain.) The visual-analysis step is currently skipped in
+  the scheduled path (`SKIP_STEPS`) as an interim guard.
+- ☐ **Confirm + retire** the orphaned Supabase edge functions (verify deploy/schedule first).
+
 Corrected scope after reading the execution path (social already runs in `refresh_all`; the real
 defect is timeout + fire-and-forget, not a missing pipeline):
 - **Fix the 300s timeout:** `refresh_all` runs all 8 sub-pipelines sequentially in one 300s function
