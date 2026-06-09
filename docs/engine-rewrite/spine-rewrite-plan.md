@@ -129,6 +129,43 @@ Rollback: revert the Vercel deploy; the additive migrations are safe to leave.
 
 ---
 
+## Phase 7 — Unified pull orchestration + billing + UX-merge consistency  ☑ (core; UI button-wiring at cutover)
+Goal (Bryan, 2026-06-09): one coherent data-pull layer that supports first-run + daily + ad-hoc
+(by business, by network) sequencing, optimizes Data365 billing, stays modular (no timeouts/huge
+payloads), and is consistent with how the UX merge + cutover will drive everything.
+
+**Four sequencing modes — all on the SAME durable queue (`lib/jobs/queue.ts`):**
+- **first-run** — `enqueueFirstRun`: every pipeline once, `force` (ignore cadence), insights delayed.
+  Used by onboarding finish (`completeOnboardingAction`) + `triggerInitialLocationData` (new/added
+  location). Replaced the old per-competitor + content/weather fire-and-forget paths.
+- **daily** — `/api/cron/daily` enqueues per-(location,pipeline); worker drains (Phase 3a).
+- **ad-hoc by business** — `refreshLocationAction(locationId)` → `enqueueAdhocLocation`.
+- **ad-hoc by network** — `refreshSocialNetworkAction(locationId, platforms)` → `enqueueAdhocPlatform`
+  (social, platform-filtered).
+
+**Data365 billing optimization** (`lib/jobs/cadence.ts`): Data365 has no batch endpoint, so the lever
+is not pulling needlessly. `shouldPull` skips a profile still within its mode's cadence window and
+re-checks dormant/empty accounts only on a long (14-day) cadence; first-run/forced pull everything.
+Social collect loads each profile's last `captured_at`/`content_as_of` and gates per profile, and
+supports a platform filter. (Follow-up: extend cadence-gating to content/SEO to dedup the first-run +
+warm-up overlap — currently only social is gated; content may pull twice for a brand-new location.)
+
+**Modularity**: every mode produces bounded per-pipeline jobs (Phase 3a/3b) → no timeouts/huge payloads.
+
+**Consistency for the UX merge / cutover** (what's done vs what wires at Stage A of cutover):
+- ✅ All server-side entry points now use the queue (onboarding, add-location, cron, ad-hoc actions).
+- ✅ Engine/evals/skills/insights unchanged in contract — they consume the dossier, which now enforces
+  read-time freshness; the eval gate still applies. The brief coverage panel surfaces per-signal
+  fresh/stale honesty.
+- ☐ **At cutover (Stage A authed port):** wire the reworked UI's refresh controls to
+  `refreshLocationAction` / `refreshSocialNetworkAction`; surface `pipeline_runs` / `signal_jobs`
+  status in the "what we checked / data health" module (replaces the old optimistic SSE progress that
+  lied); onboarding's honest "processing" state already matches the queue's first-run timing.
+- ☐ The legacy SSE `/api/jobs/[type]` manual-refresh path still runs pipelines inline (bounded per
+  pipeline). Keep for now or route through the queue during the UX merge; not a correctness risk.
+
+---
+
 ## Permissions / autonomy model
 **I proceed without asking** on: all code edits, commits, pushes; type-checks/tests/builds; running
 the app; provider data pulls; snapshot/insight DB writes on the branch; writing + applying additive
