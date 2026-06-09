@@ -36,6 +36,7 @@ import { persistPostImages } from "@/lib/social/storage"
 import { fetchInstagramProfile, fetchInstagramPosts } from "@/lib/providers/data365/instagram"
 import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data365/facebook"
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
+import { freshnessFields } from "@/lib/freshness/stamp"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -645,6 +646,14 @@ async function collectSingleProfile(
     }
 
     const diffHash = computeSnapshotHash(snapshot)
+    const capturedAt = new Date().toISOString()
+    // Data-integrity contract: stamp the REAL content recency + freshness so a
+    // dormant account (newest post years old) is never treated as current activity.
+    const { content_as_of, freshness } = freshnessFields(
+      "social",
+      snapshot as unknown as Record<string, unknown>,
+      capturedAt
+    )
 
     await supabase.from("social_snapshots").upsert(
       {
@@ -652,7 +661,9 @@ async function collectSingleProfile(
         date_key: dateKey,
         raw_data: snapshot as unknown as Record<string, unknown>,
         diff_hash: diffHash,
-        captured_at: new Date().toISOString(),
+        captured_at: capturedAt,
+        content_as_of,
+        freshness,
       },
       { onConflict: "social_profile_id,date_key" }
     )
