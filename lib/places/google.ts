@@ -153,6 +153,87 @@ function getComponent(
   return match?.longText ?? null
 }
 
+type GoogleNearbyResponse = {
+  places?: Array<{
+    id?: string
+    displayName?: { text?: string }
+    primaryType?: string
+    types?: string[]
+    rating?: number
+    userRatingCount?: number
+    priceLevel?: string
+    location?: { latitude?: number; longitude?: number }
+  }>
+  error?: { message?: string; status?: string }
+}
+
+export type DiscoveredCompetitor = {
+  placeId: string
+  name: string
+  primaryType: string | null
+  types: string[]
+  rating: number | null
+  reviewCount: number | null
+  priceLevel: string | null
+  distanceMeters: number | null
+}
+
+function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+/** Nearby restaurants for competitor discovery (Places searchNearby, ranked by distance). */
+export async function fetchNearbyCompetitors(
+  lat: number,
+  lng: number,
+  opts: { radius?: number; excludePlaceId?: string; limit?: number } = {},
+): Promise<DiscoveredCompetitor[]> {
+  const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": getGoogleKey(),
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.location",
+    },
+    body: JSON.stringify({
+      includedTypes: ["restaurant"],
+      maxResultCount: 20,
+      rankPreference: "DISTANCE",
+      locationRestriction: {
+        circle: { center: { latitude: lat, longitude: lng }, radius: opts.radius ?? 3000 },
+      },
+    }),
+  })
+
+  const data = (await response.json()) as GoogleNearbyResponse
+  if (!response.ok) {
+    throw new Error(`Google Places error: ${data.error?.status ?? response.status} - ${data.error?.message ?? "Unknown error"}`)
+  }
+
+  return (data.places ?? [])
+    .filter((p) => p.id && p.id !== opts.excludePlaceId && p.displayName?.text)
+    .map((p) => ({
+      placeId: p.id as string,
+      name: p.displayName?.text as string,
+      primaryType: p.primaryType ?? null,
+      types: p.types ?? [],
+      rating: p.rating ?? null,
+      reviewCount: p.userRatingCount ?? null,
+      priceLevel: p.priceLevel ?? null,
+      distanceMeters:
+        typeof p.location?.latitude === "number" && typeof p.location?.longitude === "number"
+          ? Math.round(haversineMeters(lat, lng, p.location.latitude, p.location.longitude))
+          : null,
+    }))
+    .slice(0, opts.limit ?? 8)
+}
+
 export function mapPlaceToLocation(result: GooglePlaceDetailsResponse) {
   return {
     primary_place_id: result.id ?? "",

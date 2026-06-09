@@ -1,26 +1,28 @@
 "use client"
 
-// Step-through onboarding (Phase 5 polish). Design intent: ask the FEW must-haves,
-// derive the rest. One real input (find your restaurant via your public listing)
-// auto-pulls name/address/cuisine/hours; competitors are auto-discovered and you
-// add/remove them (with WHY each was picked); priorities are an optional multi-select
-// you can revisit in Settings; the end sets an HONEST processing state (partial
-// results now, full brief within the hour) with notify options — no "tomorrow morning".
-// Live integrations (Places search, real discovery, real processing/alerts) are noted
-// as not-wired; this is the scaffold + the question set.
+// Step-through onboarding (Phase 5 polish + Phase 9 real data). The "find your
+// restaurant" step is REAL Google Places autocomplete; picking a place prefills the
+// confirm step from the live listing and discovers real nearby competitors (each with
+// why it was picked). Calls server routes (/api/preview/places/*) so the key stays
+// private. Manual entry still works if you don't pick a suggestion. Processing/status +
+// notifications at the end are still scaffolded (Phase 9 next).
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 
+type Place = {
+  placeId: string
+  name: string
+  address: string
+  cuisine: string
+  price: string
+  website: string
+  lat: number | null
+  lng: number | null
+}
 type Competitor = { name: string; meta: string; why: string }
+type Suggestion = { place_id: string; description: string }
 
-const DISCOVERED: Competitor[] = [
-  { name: "Ginya Izakaya", meta: "Japanese · 0.4 mi · ★ 4.5", why: "Same cuisine, closest to you" },
-  { name: "O-Ku", meta: "Sushi · 0.8 mi · ★ 4.6", why: "Overlapping menu and price tier" },
-  { name: "Bachi Box", meta: "Japanese · 1.2 mi · ★ 4.3", why: "Competes for your search terms" },
-  { name: "Gyu-kaku Japanese BBQ", meta: "BBQ · 1.5 mi · ★ 4.4", why: "Same grill-at-table occasion" },
-  { name: "Chirori - Omakase & Sushi", meta: "Omakase · 1.1 mi · ★ 4.7", why: "Premium positioning, shared audience" },
-]
 const GOALS = [
   { id: "covers", title: "Fill slow nights", sub: "More covers when you're quiet." },
   { id: "compete", title: "Stay ahead of competitors", sub: "Know their moves before they cost you." },
@@ -73,11 +75,71 @@ function HoursEditor() {
 
 export default function PreviewOnboarding() {
   const [step, setStep] = useState(0)
-  const [name, setName] = useState("Wagyu House Atlanta")
-  const [comps, setComps] = useState<Competitor[]>(DISCOVERED)
+
+  // step 0 — find restaurant (real Places autocomplete)
+  const [query, setQuery] = useState("")
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState<Place | null>(null)
+  const [loadingPlace, setLoadingPlace] = useState(false)
+  const [placeError, setPlaceError] = useState<string | null>(null)
+
+  // step 2 — competitors (seeded from real discovery)
+  const [comps, setComps] = useState<Competitor[]>([])
   const [adding, setAdding] = useState(false)
   const [newComp, setNewComp] = useState("")
+
+  // step 3 — goals (multi-select)
   const [goals, setGoals] = useState<Record<string, boolean>>({})
+
+  // debounced autocomplete; pauses once a place is chosen
+  useEffect(() => {
+    const q = query.trim()
+    if (place || q.length < 2) {
+      setSuggestions([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/preview/places/search?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        setSuggestions(data.suggestions ?? [])
+        setOpen(true)
+      } catch {
+        setSuggestions([])
+      }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, place])
+
+  async function pick(s: Suggestion) {
+    setQuery(s.description)
+    setOpen(false)
+    setSuggestions([])
+    setLoadingPlace(true)
+    setPlaceError(null)
+    try {
+      const res = await fetch(`/api/preview/places/select?placeId=${encodeURIComponent(s.place_id)}`)
+      const data = await res.json()
+      if (data.error || !data.place) {
+        setPlaceError("Couldn't pull that listing. You can still enter details by hand.")
+      } else {
+        setPlace(data.place as Place)
+        setComps((data.competitors ?? []) as Competitor[])
+      }
+    } catch {
+      setPlaceError("Lookup failed. You can continue and enter details by hand.")
+    } finally {
+      setLoadingPlace(false)
+    }
+  }
+
+  function clearPlace() {
+    setPlace(null)
+    setComps([])
+    setQuery("")
+    setPlaceError(null)
+  }
 
   const next = () => setStep((s) => Math.min(TOTAL - 1, s + 1))
   const back = () => setStep((s) => Math.max(0, s - 1))
@@ -90,6 +152,8 @@ export default function PreviewOnboarding() {
     setAdding(false)
   }
   const toggleGoal = (id: string) => setGoals((g) => ({ ...g, [id]: !g[id] }))
+
+  const restaurantName = place?.name || query.trim()
 
   return (
     <div className="ob">
@@ -111,11 +175,41 @@ export default function PreviewOnboarding() {
             <p className="ob-sub">Search for your place and we&apos;ll pull everything we can from your public listing, so you barely have to type.</p>
             <div className="ob-field">
               <label className="ob-label" htmlFor="ob-rest">Your restaurant</label>
-              <input id="ob-rest" className="ob-input ob-input--lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Start typing your restaurant name…" />
-              <p className="ob-hint">We use your Google listing to get your address, cuisine, hours, and photos automatically.</p>
+              {place ? (
+                <div className="ob-selected">
+                  <div>
+                    <div className="ob-selected__name">{place.name}</div>
+                    {place.address ? <div className="ob-selected__addr">{place.address}</div> : null}
+                  </div>
+                  <button type="button" className="ob-selected__change" onClick={clearPlace}>Change</button>
+                </div>
+              ) : (
+                <div className="ob-ac">
+                  <input
+                    id="ob-rest"
+                    className="ob-input ob-input--lg"
+                    value={query}
+                    autoComplete="off"
+                    onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+                    onFocus={() => suggestions.length && setOpen(true)}
+                    placeholder="Start typing your restaurant name…"
+                  />
+                  {open && suggestions.length ? (
+                    <ul className="ob-ac__list">
+                      {suggestions.map((s) => (
+                        <li key={s.place_id}>
+                          <button type="button" className="ob-ac__item" onClick={() => pick(s)}>{s.description}</button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              )}
+              <p className="ob-hint">We use your Google listing to get your address, cuisine, price, and the competitors near you, automatically.</p>
+              {loadingPlace ? <p className="ob-hint">Pulling your listing…</p> : null}
+              {placeError ? <div className="ob-soon">{placeError}</div> : null}
             </div>
-            <div className="ob-soon">Live place search isn&apos;t wired in this preview — type a name and continue.</div>
-            <div className="ob-nav"><button className="ob-btn" onClick={next} disabled={!name.trim()}>Continue</button></div>
+            <div className="ob-nav"><button className="ob-btn" onClick={next} disabled={!restaurantName || loadingPlace}>Continue</button></div>
           </>
         ) : null}
 
@@ -123,27 +217,26 @@ export default function PreviewOnboarding() {
           <>
             <span className="ob-kicker">Step 2 · mostly done for you</span>
             <h1 className="ob-h">Does this look right?</h1>
-            <p className="ob-sub">We pulled this from your listing<span className="ob-derived">✓ auto-filled</span>. Fix anything that&apos;s off.</p>
+            <p className="ob-sub">{place ? <>We pulled this from your listing<span className="ob-derived">✓ auto-filled</span>. Fix anything that&apos;s off.</> : "Enter your details below."}</p>
             <div className="ob-grid">
-              <div className="full"><label className="ob-label">Restaurant</label><input className="ob-input" defaultValue={name} /></div>
-              <div className="full"><label className="ob-label">Address</label><input className="ob-input" defaultValue="1100 Howell Mill Rd NW, Atlanta, GA 30318" /></div>
-              <div><label className="ob-label">Cuisine</label><input className="ob-input" defaultValue="Steakhouse · Japanese" /></div>
+              <div className="full"><label className="ob-label">Restaurant</label><input className="ob-input" defaultValue={restaurantName} /></div>
+              <div className="full"><label className="ob-label">Address</label><input className="ob-input" defaultValue={place?.address ?? ""} placeholder="Street, city, state" /></div>
+              <div><label className="ob-label">Cuisine</label><input className="ob-input" defaultValue={place?.cuisine ?? ""} placeholder="e.g. Steakhouse" /></div>
               <div>
                 <label className="ob-label" htmlFor="ob-price">Price</label>
-                <select id="ob-price" className="ob-input ob-select" defaultValue="$$$">
+                <select id="ob-price" className="ob-input ob-select" defaultValue={place?.price || "$$$"}>
                   <option value="$">$ · Budget</option>
                   <option value="$$">$$ · Moderate</option>
                   <option value="$$$">$$$ · Upscale</option>
                   <option value="$$$$">$$$$ · Fine dining</option>
                 </select>
               </div>
-              <div className="full"><label className="ob-label">Website</label><input className="ob-input" defaultValue="wagyuhouseatl.com" /></div>
+              <div className="full"><label className="ob-label">Website</label><input className="ob-input" defaultValue={place?.website ?? ""} placeholder="yourrestaurant.com" /></div>
               <div className="full">
                 <label className="ob-label">Hours</label>
                 <HoursEditor />
               </div>
             </div>
-            <div className="ob-soon">Auto-fill from the live listing isn&apos;t wired — values shown as an example of what we derive.</div>
             <div className="ob-nav"><button className="ob-btn--ghost ob-btn" onClick={back}>Back</button><button className="ob-btn" onClick={next}>Looks good</button></div>
           </>
         ) : null}
@@ -152,13 +245,13 @@ export default function PreviewOnboarding() {
           <>
             <span className="ob-kicker">Step 3 · found for you</span>
             <h1 className="ob-h">Here&apos;s who we&apos;d watch.</h1>
-            <p className="ob-sub">We found these nearby, similar spots automatically — each with why we picked it. Remove any that aren&apos;t real competitors, or add your own. Keep at least one and we&apos;ll start tracking them.</p>
+            <p className="ob-sub">{comps.length ? <>We found these nearby, similar spots automatically — each with why we picked it. Remove any that aren&apos;t real competitors, or add your own. Keep at least one and we&apos;ll start tracking them.</> : "Add the competitors you want us to watch. Keep at least one."}</p>
             <div className="ob-comps">
               {comps.map((c) => (
                 <div className="ob-comp" key={c.name}>
                   <div className="ob-comp__body">
                     <div className="ob-comp__name">{c.name}</div>
-                    <div className="ob-comp__meta">{c.meta}</div>
+                    {c.meta ? <div className="ob-comp__meta">{c.meta}</div> : null}
                     <div className="ob-comp__why"><span className="ob-comp__why-label">Why</span>{c.why}</div>
                   </div>
                   <button className="ob-comp__remove" onClick={() => removeComp(c.name)} aria-label={`Remove ${c.name}`}>Remove</button>
@@ -174,7 +267,6 @@ export default function PreviewOnboarding() {
                 <button className="ob-add" onClick={() => setAdding(true)}>+ Add a competitor</button>
               )}
             </div>
-            <div className="ob-soon">Live competitor discovery isn&apos;t wired — these are real nearby spots shown as the confirm step.</div>
             <div className="ob-nav"><button className="ob-btn--ghost ob-btn" onClick={back}>Back</button><button className="ob-btn" onClick={next} disabled={comps.length < 1}>Track these {comps.length}</button></div>
           </>
         ) : null}
@@ -207,7 +299,7 @@ export default function PreviewOnboarding() {
           <>
             <span className="ob-kicker">You&apos;re set</span>
             <h1 className="ob-h">We&apos;re building your first brief.</h1>
-            <p className="ob-sub">We&apos;re gathering your competitor, demand, and review signals now. Head in and watch it come together — the essentials are ready in a few minutes, and your full first brief is ready within the hour.</p>
+            <p className="ob-sub">We&apos;re gathering {restaurantName ? <b>{restaurantName}</b> : "your"} competitor, demand, and review signals now. Head in and watch it come together — the essentials are ready in a few minutes, and your full first brief is ready within the hour.</p>
             <ul className="ob-status">
               <li className="ob-status__row is-ready"><span className="ob-status__mark" /><span className="ob-status__label">Competitors found and confirmed</span><span className="ob-status__when">Ready now</span></li>
               <li className="ob-status__row is-doing"><span className="ob-status__mark" /><span className="ob-status__label">Reading local demand — events, weather, foot traffic</span><span className="ob-status__when">A few minutes</span></li>
@@ -215,7 +307,7 @@ export default function PreviewOnboarding() {
             </ul>
             <div className="ob-notify">
               <div className="ob-label">Tell me when it&apos;s ready</div>
-              <label className="ob-notify__opt"><input type="checkbox" defaultChecked /> <span>Email me at anand@alivemethod.com</span></label>
+              <label className="ob-notify__opt"><input type="checkbox" defaultChecked /> <span>Email me when my first brief is ready</span></label>
               <label className="ob-notify__opt"><input type="checkbox" /> <span>Browser notification</span></label>
             </div>
             <div className="ob-soon">Processing timing + notifications are scaffolded here — they wire up with the production pipeline.</div>
