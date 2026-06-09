@@ -116,6 +116,11 @@ type SearchResponse = {
 
 const SEARCH_PER_PLATFORM_TIMEOUT_MS = 20_000
 
+// Fuzzy name-search is the low-quality discovery source — it produced junk handles
+// (e.g. "naadaaaaaaaaaa") at the old 0.3 floor. Require a strong name match; the
+// canonical handle should come from scraping the official website anyway.
+const SEARCH_MIN_SIMILARITY = 0.6
+
 export async function discoverFromSearch(
   businessName: string,
   platforms: SocialPlatform[] = ["instagram", "facebook", "tiktok"]
@@ -153,7 +158,7 @@ async function searchSinglePlatform(
       const target = businessName.toLowerCase()
       const similarity = computeSimilarity(name, target)
 
-      if (similarity < 0.3) continue
+      if (similarity < SEARCH_MIN_SIMILARITY) continue
 
       const profileUrl = buildProfileUrl(platform, handle)
       discovered.push({
@@ -231,6 +236,25 @@ export async function discoverSocialHandles(
   }
 
   return Array.from(bestPerPlatform.values())
+}
+
+// ---------------------------------------------------------------------------
+// Re-discovery targeting
+// ---------------------------------------------------------------------------
+
+export type DiscoveryEntity = { id: string; website: string | null }
+
+/**
+ * Which entities should (re)run discovery. An entity qualifies when it has a website
+ * but NO *verified* handle yet — so a junk/unverified row (or a handle later proven
+ * dormant and un-verified) no longer permanently blocks re-scraping the official site
+ * for the canonical handle. (Old behavior skipped any entity with a row at all.)
+ */
+export function selectDiscoveryTargets<T extends DiscoveryEntity>(
+  entities: T[],
+  verifiedEntityIds: ReadonlySet<string>
+): T[] {
+  return entities.filter((e) => !!e.website && !verifiedEntityIds.has(e.id))
 }
 
 // ---------------------------------------------------------------------------

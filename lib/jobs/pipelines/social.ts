@@ -19,7 +19,7 @@ import type {
   EntityVisualProfile,
   NormalizedSocialPost,
 } from "@/lib/social/types"
-import { discoverFromWebsite } from "@/lib/social/enrich"
+import { discoverFromWebsite, selectDiscoveryTargets } from "@/lib/social/enrich"
 import {
   normalizeInstagramProfile,
   normalizeInstagramPost,
@@ -98,26 +98,28 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         const allEntityIds = entities.map((e) => e.id)
         const { data: existingProfiles } = await c.supabase
           .from("social_profiles")
-          .select("entity_id")
+          .select("entity_id, is_verified")
           .in("entity_id", allEntityIds.length > 0 ? allEntityIds : ["__none__"])
 
-        const hasProfiles = new Set(
-          (existingProfiles ?? []).map((p) => p.entity_id as string)
+        // Re-discover any entity lacking a VERIFIED handle (not merely "has a row"),
+        // so junk/dormant unverified handles stop blocking re-discovery of the real one.
+        const verifiedEntityIds = new Set(
+          (existingProfiles ?? [])
+            .filter((p) => p.is_verified === true)
+            .map((p) => p.entity_id as string)
         )
 
-        const needsDiscovery = entities.filter(
-          (e) => !hasProfiles.has(e.id) && e.website
-        )
+        const needsDiscovery = selectDiscoveryTargets(entities, verifiedEntityIds)
 
         console.log(
-          `[Social Discovery] ${entities.length} entities total, ${hasProfiles.size} already have profiles, ${needsDiscovery.length} need discovery`
+          `[Social Discovery] ${entities.length} entities total, ${verifiedEntityIds.size} already verified, ${needsDiscovery.length} need (re)discovery`
         )
 
         if (needsDiscovery.length === 0) {
           return {
             discoveredHandles: 0,
             skipped: entities.length,
-            message: "All entities already have profiles or no websites to scrape",
+            message: "All entities already have a verified handle or no website to scrape",
           }
         }
 
@@ -167,7 +169,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         return {
           discoveredHandles: total,
           scraped: needsDiscovery.length,
-          skipped: hasProfiles.size,
+          skipped: entities.length - needsDiscovery.length,
         }
       },
     },
