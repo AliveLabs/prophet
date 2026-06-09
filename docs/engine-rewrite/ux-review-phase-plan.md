@@ -16,9 +16,10 @@ Terminology decided in the review (use everywhere): page = **Brief**; cards = **
 > **RESUME (as of 2026-06-08):** Phases 1–8 ✓ DONE, committed + pushed on `ux-rework` (latest build `265c194` green).
 > Decisions taken: slider = Settings+refresh; detail = expanded page; staging = reuse branch; tokens = unify to 6px.
 > Hosted review surface (behind Vercel SSO): **`https://prophet-git-ux-rework-alive-labs.vercel.app`** (stable alias).
-> Token extraction is DONE (Phase 4). No carried local items.
-> **NEXT = Phase 9 (production wiring — GATED, reviewed piece by piece). Do NOT cross without Bryan's per-piece sign-off**
-> (prod holds real early-access leads). Full handoff: vault `2026-06-08-ticket-phases-3-4`.
+> **Phase 9 (production wiring — GATED) IN PROGRESS:** ✓ onboarding real data (Places autocomplete + competitor
+> discovery, `d4f95c1`). Remaining Phase 9 pieces: prod migration, processing/notifications, Ask engine,
+> evidence/provenance, content-variety re-judge — **each needs Bryan's per-piece sign-off; prod still untouched.**
+> Full handoff: vault `2026-06-08-ticket-phases-3-4`.
 
 ---
 
@@ -180,11 +181,19 @@ Closed. Bryan will revisit casually while onboarding new accounts; any further f
 - This is now the REVIEW surface — reviews no longer depend on Bryan's local DNS (Vercel resolves Supabase fine).
 Done when: hosted preview hits the non-prod branch DB ☑ (wired) + builds ☑; Bryan confirms it renders real branch data.
 
-## Phase 9 — Production wiring + live integrations (prod; reviewed in pieces)  ☐  **Gated**
+## Phase 9 — Production wiring + live integrations (prod; reviewed in pieces)  ◐ in progress  **Gated**
 Each sub-item is its own reviewable change:
-- Apply the additive `daily_briefs` migration to prod (or staging) + precompute on real data.
-- Real competitor **discovery** + Places **autocomplete** in onboarding.
-- Real **processing/status** + notifications (email/browser) replacing the placeholder onboarding end-state.
+- ☐ Apply the additive `daily_briefs` migration to prod (or staging) + precompute on real data.
+- ☑ **Real competitor discovery + Places autocomplete in onboarding (2026-06-08).** Onboarding "find your
+  restaurant" = real Places autocomplete; picking a place prefills the confirm step from the live listing
+  (name/address/cuisine/price/website) + discovers real nearby competitors (filtered to drop fast-food/juice/
+  delivery; same-cuisine ranked first; honest "why"). Server routes `app/api/preview/places/{search,select}`
+  (key stays private, prod-guarded via VERCEL_ENV). New `lib/places/fetchNearbyCompetitors` + `lib/places/format`
+  (+ 3 tests). Built/verified against staging; prod untouched. Commit `d4f95c1`, build green, live on the preview.
+  NOTE at cutover: the `/api/preview/places/*` routes are prod-guarded — the real authed onboarding will need
+  un-guarded equivalents (or relocate these). Known minor edge: a generically-typed "restaurant" (e.g. a vending
+  machine) can slip the type filter.
+- ☐ Real **processing/status** + notifications (email/browser) replacing the placeholder onboarding end-state.
 - **Ask** / standing-question live answer engine.
 - Real **evidence + provenance** ("how we know") and **What We Checked** counts/failures from social/
   photos/SEO data; richer detail-view evidence on real data.
