@@ -13,13 +13,12 @@ Conventions:
 Terminology decided in the review (use everywhere): page = **Brief**; cards = **Recommendations**
 (not "What to do" / "DO NN"); **Insights** = the supporting intelligence that drive recommendations.
 
-> **RESUME (as of 2026-06-08):** Phases 1–7 ✓ (core) — **the entire local-first rework is done** (uncommitted on `ux-rework`).
-> Decisions taken: slider = **Settings + explicit refresh**; detail view = **expanded page**.
-> Pending a stable-DNS window (the WAP gremlin): (a) eyeball the Phase 6 competitor list/detail happy-path;
-> (b) run the Phase 7 live precompute to confirm the model follows the new phone-first/multi-channel prompt.
-> Carried review item: **token extraction** parked with feedback + side-by-side TODO (Phase 4 notes).
-> **NEXT = the PRODUCTION/STAGING BOUNDARY (Phase 8, gated — needs Bryan's decision + action).** Do NOT cross
-> without explicit sign-off (prod holds real early-access leads). Full handoff: vault `2026-06-08-ticket-phases-3-4`.
+> **RESUME (as of 2026-06-08):** Phases 1–8 ✓ DONE, committed + pushed on `ux-rework` (latest build `265c194` green).
+> Decisions taken: slider = Settings+refresh; detail = expanded page; staging = reuse branch; tokens = unify to 6px.
+> Hosted review surface (behind Vercel SSO): **`https://prophet-git-ux-rework-alive-labs.vercel.app`** (stable alias).
+> Token extraction is DONE (Phase 4). No carried local items.
+> **NEXT = Phase 9 (production wiring — GATED, reviewed piece by piece). Do NOT cross without Bryan's per-piece sign-off**
+> (prod holds real early-access leads). Full handoff: vault `2026-06-08-ticket-phases-3-4`.
 
 ---
 
@@ -64,7 +63,7 @@ Done when: consistent naming everywhere ☑; single token source (deferred); rou
   present) and the Settings tuning interaction (drag → dirty/enable; show-everything → disable slider + swap copy).
 Done when: rail reflects the cuts ☑; slider reframed + relocated per Bryan's call ☑.
 
-## Phase 4 — Evidence + Detail view (local)  ☑ (core)  ·  token extraction deferred
+## Phase 4 — Evidence + Detail view (local)  ☑ DONE
 - ☑ **Evidence de-jargon.** Root cause: evidence refs come in TWO formats — dotted
   (`events.new_high_signal_event:event`) and screaming-snake-with-field (`SEO_COMPETITOR_GROWTH_TREND:PCT_CHANGE`)
   — and the old per-file `humanizeRef`/`distinctDomains` only handled the dotted form, so raw keys leaked onto
@@ -78,19 +77,14 @@ Done when: rail reflects the cuts ☑; slider reframed + relocated per Bryan's c
   preview.css — fixes the font-inconsistency + Play-list formatting complaints), full-width lede, proper
   Confidence/Impact casing, **what / how / why-we-know scaffold** (recommendation → step-by-step → grounded
   signals), and honest placeholders for the tutorials + platform-specific how-to that prod-wire later.
-- ◐ **Token extraction — PARKED as a review item (Bryan, 2026-06-08; not now).** Finding: the 3 editorial
-  surfaces are NOT one token system. Onboarding's scope is `.ob` (not `.ticket-onboarding`) and diverges:
-  `--radius-card:8px` (vs `6px` on brief/app) and a different `--font-cond` fallback; brief also has a unique
-  `--shadow-lift`. A naive "one shared source" would regress onboarding's card radius.
-  - **My read (feedback for Bryan):** (1) `--shadow-lift` brief-only = correct, it's a real semantic token only
-    the lead card uses — keep. (2) The `--font-cond` fallback drift (onboarding drops the `'Arial Narrow'`
-    fallback) is almost certainly *accidental*, not a design choice — safe to unify. (3) The `8px` vs `6px`
-    radius is the only judgment call: plausibly intentional (softer/friendlier cards on the first-touch
-    onboarding) — but if so it should be an *explicit* per-surface override token (e.g. keep one shared scale
-    + `.ob{ --radius-card:8px }`), not silent divergence. Recommendation: extract ONE shared token source with
-    onboarding's two intentional overrides declared locally; net effect is DRY with zero visual change.
-  - **TODO when we pick this up:** build a **side-by-side** (onboarding card at 6px vs 8px, same content) so
-    Bryan can eyeball the radius difference and decide before we unify. Not blocking; do it with Bryan present.
+- ☑ **Token extraction DONE (Bryan reviewed a rendered side-by-side, chose unify-to-6px; 2026-06-08).**
+  Extracted the duplicated Newsprint palette + fonts into **`app/editorial-tokens.css`**, scoped to
+  `.ticket-brief, .ticket-app, .ob` (NOT `:root` — avoids colliding with the dashboard shell's own
+  `--card`/`--radius`). Each surface CSS now `@import`s it and dropped its own token block. Resolutions:
+  onboarding `--radius-card` 8px → **6px** (unified); `--font-cond` fallback unified to the `'Arial Narrow'`
+  chain (onboarding's bare-`sans-serif` was accidental drift); `--shadow-lift` kept brief-only (intentional).
+  No visual change to brief/app; onboarding now matches the 6px system. Verified: `.ob` + `.ticket-app` resolve
+  the shared tokens locally; Vercel build green (`265c194`) — all three `@import` paths compile.
 Done when: evidence reads plain ☑; expanded detail page built + richer ☑; (token extraction: Bryan's call).
 
 ## Phase 5 — Onboarding polish (local)  ☑
@@ -163,11 +157,28 @@ variety re-judged in the prod phase.
 The review's recurring theme: get onto production data; many "wire-up" items depend on it, and Bryan/Chris
 need to review each. Do NOT cross this line without explicit go-ahead.
 
-## Phase 8 — Staging isolation (env)  ☐  **Decision + Bryan action**
-- Stand up a proper non-prod environment so reviews don't depend on local DNS and never touch the customer
-  DB: Supabase branching integration wired to Vercel previews, OR a dedicated staging Supabase project.
-- **Confirm the approach with Bryan first.**
-Done when: a hosted preview hits a non-prod DB; the local-DNS dependency is gone.
+## Phase 8 — Staging isolation (env)  ☑ DONE (Bryan, 2026-06-08)
+Closed. Bryan will revisit casually while onboarding new accounts; any further feedback is net-new (not tracked here).
+- **Approach (Bryan, 2026-06-08): reuse the existing `--with-data` Supabase branch as the Preview DB.**
+- ☑ Set Vercel env vars `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY`
+  scoped to **Preview + git-branch `ux-rework`** → the branch DB (`eguflqjnodumjbmdxrnj`). The original
+  `Development/Preview/Production` vars (→ prod) are UNTOUCHED, so Production deploys still hit prod. Reversible:
+  `vercel env rm <NAME> preview` removes the branch override.
+- ☑ Committed Phases 1–7 (`8a193c4`) + pushed `ux-rework` → Vercel built a preview (`prophet-gro20cdg7`) using
+  the branch-scoped env. Build succeeded.
+- Preview is behind **Vercel Deployment Protection** (SSO/401) — good (no public data leak); means the agent
+  can't verify headless. **Bryan eyeballs it** (logged into Vercel) at the STABLE branch alias
+  **`https://prophet-git-ux-rework-alive-labs.vercel.app`** (auto-points at the latest ux-rework deploy)
+  → `/preview/today`, `/preview/competitors` (+ `/{id}`), `/preview-onboarding`, `/preview/settings`.
+  (For headless agent verification later: enable a Vercel "Protection Bypass for Automation" token.)
+- **First preview attempt 404'd to marketing — FIXED.** Two-part cause: (1) routes were guarded on `NODE_ENV`
+  (="production" on every Vercel build incl. previews) → switched to `VERCEL_ENV`. (2) Once they built, Next 16
+  **cacheComponents** failed the prerender on uncached data outside `<Suspense>`. Fix chain (6 builds): `await
+  connection()` on each data page; layout restructured to sync-layout + `<Suspense fallback>` + async
+  `PreviewShell` (mirrors `(dashboard)/layout.tsx`); skeleton fallback made fully static (was rendering the real
+  `PreviewNav`, which calls `usePathname()` — illegal in the static shell). Build green @ `4b2a056`.
+- This is now the REVIEW surface — reviews no longer depend on Bryan's local DNS (Vercel resolves Supabase fine).
+Done when: hosted preview hits the non-prod branch DB ☑ (wired) + builds ☑; Bryan confirms it renders real branch data.
 
 ## Phase 9 — Production wiring + live integrations (prod; reviewed in pieces)  ☐  **Gated**
 Each sub-item is its own reviewable change:
