@@ -4,20 +4,13 @@
    rest. One real input (find your restaurant) → auto-pull details
    → confirm auto-discovered competitors → set expectation. Minimum
    questions, maximum derived richness. First-pass scaffold.
-   Tokens duplicated from the editorial system (rough-stage; extract
-   to a shared :root later — noted in BLUEPRINT).
+   Tokens + fonts come from the shared editorial source: app/editorial-tokens.css
+   (radius-card now 6px everywhere; condensed-font fallback unified there too).
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+@import "../editorial-tokens.css";
 
 .ob{
-  --paper:#F5F3EF; --bond:#F0EDE9; --thermal:#FBF0E6; --ledger:#EBE8E3; --card:#FFFFFF;
-  --ink:#1C1917; --print:#4D4843; --ash:#6E6862; --ash-2:#857f78;
-  --slate:#3D4F5F; --rust:#B85C38; --rust-deep:#8A3D20; --wire-gold:#C9942A; --gold-deep:#8A6B18;
-  --clear:#3A8066; --clear-wash:#E8F5EE; --radius:4px; --radius-card:8px;
-  --rule:rgba(28,25,23,0.14); --rule-strong:rgba(28,25,23,0.55);
-  --font-display:'Instrument Serif',Georgia,serif; --font-cond:'Barlow Condensed',sans-serif;
-  --font-sans:'Inter',system-ui,sans-serif; --font-mono:'Space Mono',ui-monospace,monospace;
   min-height:100vh; background-color:var(--paper);
   background-image:radial-gradient(120% 80% at 100% -10%, rgba(184,92,56,0.05), transparent 55%), radial-gradient(90% 70% at -10% 110%, rgba(201,148,42,0.045), transparent 60%);
   color:var(--ink); font-family:var(--font-sans); font-size:15px; line-height:1.55;

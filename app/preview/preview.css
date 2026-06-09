@@ -8,23 +8,9 @@
    First-pass rough — language + polish pending review.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+@import "../editorial-tokens.css";
 
 .ticket-app {
-  --paper:#F5F3EF; --paper-2:#EFEBE4; --bond:#F0EDE9; --thermal:#FBF0E6;
-  --ledger:#EBE8E3; --card:#FFFFFF;
-  --ink:#1C1917; --press:#24211E; --print:#4D4843; --ash:#6E6862; --ash-2:#857f78;
-  --slate:#3D4F5F; --slate-deep:#2E3D4A; --rust:#B85C38; --rust-deep:#8A3D20;
-  --signal:#D08548; --wire-gold:#C9942A; --gold-deep:#8A6B18;
-  --clear:#3A8066; --clear-wash:#E8F5EE; --alert:#C44040; --alert-wash:#F7E9E6;
-  --radius:4px; --radius-card:6px;
-  --rule:rgba(28,25,23,0.14); --rule-strong:rgba(28,25,23,0.55);
-  --shadow-chit:0 1px 0 rgba(28,25,23,0.04), 0 6px 18px -10px rgba(28,25,23,0.30);
-  --font-display:'Instrument Serif',Georgia,serif;
-  --font-cond:'Barlow Condensed','Arial Narrow',sans-serif;
-  --font-sans:'Inter',system-ui,sans-serif;
-  --font-mono:'Space Mono',ui-monospace,monospace;
-
   min-height:100vh; display:grid; grid-template-columns:228px 1fr;
   background-color:var(--paper);
   background-image:
