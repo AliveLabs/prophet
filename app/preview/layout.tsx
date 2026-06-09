@@ -15,7 +15,7 @@ import PreviewNav from "./preview-nav"
 import AccountMenu from "./account-menu"
 import { loadAccountLocations, WAGYU_LOCATION_ID } from "./preview-data"
 import "../(dashboard)/home/brief.css"
-import "./preview.css"
+import "../(dashboard)/operator.css"
 
 function TicketMark() {
   return (

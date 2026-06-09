@@ -15,7 +15,7 @@ const SUGGESTED = [
   "Which competitor is gaining on social?",
 ]
 
-export default function AskBox() {
+export default function AskBox({ endpoint = "/api/ask" }: { endpoint?: string }) {
   const [q, setQ] = useState("")
   const [asked, setAsked] = useState("")
   const [loading, setLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function AskBox() {
     setLoading(true)
     setAnswer(null)
     try {
-      const res = await fetch("/api/preview/ask", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: qq }),

@@ -1,72 +1,67 @@
-import Link from "next/link"
+// Authed shell — the reworked EDITORIAL experience (Stage A cutover port).
+// 4-item nav (Today / Competitors / Ask + Settings in the account flyout) replaces the
+// legacy 11-module sidebar/topbar/tabbar. Billing logic is preserved untouched:
+// trial-expired gate, trial + dunning banners, brand provider.
+//
+// cacheComponents pattern (canonical for this repo): the exported layout is sync —
+// a single <Suspense> whose fallback is 100% static — and the async Shell does ALL
+// data access + chrome + children, so no uncached data renders outside the boundary.
+
 import { redirect } from "next/navigation"
 import { Suspense, type ReactNode } from "react"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { isTrialActive, getTrialDaysRemaining } from "@/lib/billing/trial"
-import { signOutAction } from "./actions"
-import { Button } from "@/components/ui/button"
-import ActiveJobBar from "@/components/ui/active-job-bar"
-import SidebarNav from "@/components/ui/sidebar-nav"
-import Topbar from "@/components/ui/topbar"
-import TabBar from "@/components/ui/tab-bar"
-import BottomNav from "@/components/ui/bottom-nav"
 import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
 import { TrialBanner } from "@/components/billing/trial-banner"
+import { DunningBanner } from "@/components/billing/dunning-banner"
 import { BrandProvider } from "@/components/brand-provider"
 import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
-import { DunningBanner } from "@/components/billing/dunning-banner"
 import { Toaster } from "sonner"
-import { TicketLogo } from "@/components/brand/ticket-logo"
+import ShellNav from "./shell-nav"
+import AccountMenu from "./account-menu"
+import { loadOperatorAccount } from "./operator-data"
+import "./home/brief.css"
+import "./operator.css"
 
-function BrandLogo() {
-  return <TicketLogo size={24} className="shrink-0 text-foreground" />
-}
-
-function DashboardSkeleton() {
+function TicketMark() {
   return (
-    <div className="app-shell flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="sidebar flex w-[236px] min-w-[236px] flex-col border-r border-border bg-card max-md:hidden max-lg:w-[60px] max-lg:min-w-[60px]">
-        <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
-          <BrandLogo />
-          <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground text-wordmark">
-            ticket
-          </span>
-        </div>
-        <div className="flex-1 px-3 py-4">
-          <div className="space-y-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-8 animate-pulse rounded-lg bg-muted/50" />
-            ))}
-          </div>
-        </div>
-      </aside>
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="h-[60px] shrink-0 border-b border-border bg-card" />
-        <main className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="mx-auto max-w-[1400px] space-y-4">
-            <div className="h-10 w-48 animate-pulse rounded-lg bg-muted/50" />
-            <div className="h-64 animate-pulse rounded-2xl bg-muted/30" />
-          </div>
-        </main>
-      </div>
-    </div>
+    <svg width="17" height="27" viewBox="0 0 72 114" aria-hidden="true">
+      <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917" />
+      <rect x="18" y="14" width="36" height="100" fill="#1C1917" />
+      <circle cx="18" cy="16" r="3.5" fill="#F5F3EF" />
+      <circle cx="54" cy="16" r="3.5" fill="#F5F3EF" />
+      <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" strokeWidth="1.6" strokeDasharray="2.5,2" />
+    </svg>
   )
 }
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: ReactNode
-}) {
+export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <DashboardShell>{children}</DashboardShell>
+    <Suspense fallback={<ShellSkeleton />}>
+      <OperatorShell>{children}</OperatorShell>
     </Suspense>
   )
 }
 
-async function DashboardShell({ children }: { children: ReactNode }) {
+// Static fallback — must not touch request data (no usePathname / cookies).
+function ShellSkeleton() {
+  return (
+    <div className="ticket-app">
+      <aside className="pv-sidebar">
+        <div className="pv-brand"><TicketMark /> TICKET</div>
+        <nav className="pv-nav" aria-hidden>
+          {["Today", "Competitors", "Ask"].map((label) => (
+            <span key={label}><span className="tick" />{label}</span>
+          ))}
+        </nav>
+      </aside>
+      <main className="pv-main" />
+    </div>
+  )
+}
+
+async function OperatorShell({ children }: { children: ReactNode }) {
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()
   const { data: profile } = await supabase
@@ -81,46 +76,18 @@ async function DashboardShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select(
-      "name, subscription_tier, trial_ends_at, industry_type, payment_state"
-    )
+    .select("name, subscription_tier, trial_ends_at, industry_type, payment_state")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
-  const { data: memberRows } = await supabase
-    .from("organization_members")
-    .select("organization_id, role, organizations(id, name, subscription_tier)")
-    .eq("user_id", user.id)
-
-  const allOrgs = (memberRows ?? [])
-    .filter((m) => m.organizations)
-    .map((m) => {
-      const org = m.organizations as unknown as { id: string; name: string; subscription_tier: string }
-      return {
-        id: org.id,
-        name: org.name,
-        tier: org.subscription_tier ?? "free",
-        role: m.role,
-      }
-    })
-
   const verticalConfig = getVerticalConfig(orgRow?.industry_type)
-  const dataBrand =
-    process.env.VERTICALIZATION_ENABLED === "true"
-      ? verticalConfig.brand.dataBrand
-      : "ticket"
-
-  const userName = user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User"
   const isVerticalActive = process.env.VERTICALIZATION_ENABLED === "true"
-  const brandFallback = isVerticalActive ? verticalConfig.brand.displayName : "Ticket"
-  const userOrg = orgRow?.name ?? brandFallback
-  const brandWordmark = isVerticalActive ? verticalConfig.brand.wordmark : "ticket"
+  const dataBrand = isVerticalActive ? verticalConfig.brand.dataBrand : "ticket"
+  const industryForGate = isValidIndustryType(orgRow?.industry_type) ? orgRow.industry_type : "restaurant"
+  const brandNameForGate = industryForGate === "liquor_store" ? "Neat" : "Ticket"
+  const orgName = orgRow?.name ?? (isVerticalActive ? verticalConfig.brand.displayName : "Ticket")
 
-  const industryForGate =
-    isValidIndustryType(orgRow?.industry_type) ? orgRow.industry_type : "restaurant"
-  const brandNameForGate =
-    industryForGate === "liquor_store" ? "Neat" : "Ticket"
-
+  // ── Billing gate (unchanged from the legacy shell) ──
   if (
     orgRow &&
     !isTrialActive({
@@ -129,36 +96,28 @@ async function DashboardShell({ children }: { children: ReactNode }) {
       payment_state: orgRow.payment_state,
     })
   ) {
+    const locIds =
+      (
+        await supabase
+          .from("locations")
+          .select("id")
+          .eq("organization_id", profile.current_organization_id)
+      ).data?.map((l) => l.id) ?? []
+
     const { count: insightCount } = await supabase
       .from("insights")
       .select("id", { count: "exact", head: true })
-      .in(
-        "location_id",
-        (
-          await supabase
-            .from("locations")
-            .select("id")
-            .eq("organization_id", profile.current_organization_id)
-        ).data?.map((l) => l.id) ?? []
-      )
+      .in("location_id", locIds)
 
     const { count: competitorCount } = await supabase
       .from("competitors")
       .select("id", { count: "exact", head: true })
       .eq("is_active", true)
-      .in(
-        "location_id",
-        (
-          await supabase
-            .from("locations")
-            .select("id")
-            .eq("organization_id", profile.current_organization_id)
-        ).data?.map((l) => l.id) ?? []
-      )
+      .in("location_id", locIds)
 
     return (
       <TrialExpiredGate
-        orgName={userOrg}
+        orgName={orgName}
         insightCount={insightCount ?? 0}
         competitorCount={competitorCount ?? 0}
         brandName={brandNameForGate}
@@ -167,91 +126,37 @@ async function DashboardShell({ children }: { children: ReactNode }) {
     )
   }
 
-  const daysRemaining = orgRow
-    ? getTrialDaysRemaining({ trial_ends_at: orgRow.trial_ends_at })
-    : 0
-  // Trial banner: shown for Stripe-native mid-tier trials (payment_state =
-  // 'trialing') and for pre-rollout free-tier internal trials that still have
-  // trial_ends_at set.
+  const daysRemaining = orgRow ? getTrialDaysRemaining({ trial_ends_at: orgRow.trial_ends_at }) : 0
   const showTrialBanner =
     daysRemaining > 0 &&
     daysRemaining <= 7 &&
-    (orgRow?.payment_state === "trialing" ||
-      orgRow?.subscription_tier === "free")
+    (orgRow?.payment_state === "trialing" || orgRow?.subscription_tier === "free")
   const showDunningBanner = orgRow?.payment_state === "past_due"
+
+  const account = await loadOperatorAccount()
 
   return (
     <BrandProvider brand={dataBrand}>
-    <div className="app-shell flex h-dvh overflow-hidden bg-background text-foreground">
-      <Toaster
-        position="top-right"
-        richColors
-        closeButton
-        toastOptions={{
-          classNames: {
-            success: "!border-l-4 !border-l-precision-teal",
-            error: "!border-l-4 !border-l-destructive",
-            info: "!border-l-4 !border-l-primary",
-          },
-        }}
-      />
-      <ActiveJobBar />
-
-      {/* ── Sidebar ──────────────────────────────────────────────── */}
-      <aside className="sidebar flex w-[236px] min-w-[236px] flex-col border-r border-border bg-card max-md:hidden max-lg:w-[60px] max-lg:min-w-[60px]">
-        {/* Logo */}
-        <div className="flex h-[60px] shrink-0 items-center gap-3 border-b border-border px-5 max-lg:justify-center max-lg:px-0">
-          <Link href="/home" className="flex items-center gap-3">
-            <BrandLogo />
-            <span className="sidebar-label text-[17px] font-semibold tracking-tight text-foreground text-wordmark">
-              {brandWordmark}
-            </span>
-          </Link>
-        </div>
-
-        <SidebarNav userName={userName} userOrg={userOrg} orgs={allOrgs} currentOrgId={profile.current_organization_id} />
-
-        {/* Sign out (collapsed into sidebar footer area) */}
-        <div className="shrink-0 border-t border-border px-3 py-2 max-lg:px-1">
-          <form action={signOutAction}>
-            <Button variant="ghost" size="sm" className="sidebar-label w-full justify-start text-xs text-muted-foreground">
-              Sign out
-            </Button>
-            <Button variant="ghost" size="sm" className="sidebar-icon-only hidden w-full max-lg:flex" aria-label="Sign out">
-              <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
-                <path d="M5.5 1.5 L1.5 1.5 L1.5 13.5 L5.5 13.5M10.5 4 L13.5 7.5 L10.5 11M5 7.5 L13 7.5" />
-              </svg>
-            </Button>
-          </form>
-        </div>
-      </aside>
-
-      {/* ── Main area ────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Topbar userName={userName} />
-        <TabBar />
-
-        {showDunningBanner && (
-          <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />
-        )}
-        {showTrialBanner && (
-          <TrialBanner
-            daysRemaining={daysRemaining}
-            brandName={brandNameForGate}
-            isPaidTrial={orgRow?.payment_state === "trialing"}
-          />
-        )}
-
-        <main className="flex-1 overflow-y-auto px-6 py-5 max-md:px-4 max-md:pb-[74px]">
-          <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
-            {children}
-          </div>
+      <div className="ticket-app">
+        <Toaster position="top-right" richColors closeButton />
+        <aside className="pv-sidebar">
+          <div className="pv-brand"><TicketMark /> TICKET</div>
+          <ShellNav />
+          <div className="pv-spacer" />
+          <AccountMenu userName={account.userName} locations={account.locations} />
+        </aside>
+        <main className="pv-main">
+          {showDunningBanner && <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />}
+          {showTrialBanner && (
+            <TrialBanner
+              daysRemaining={daysRemaining}
+              brandName={brandNameForGate}
+              isPaidTrial={orgRow?.payment_state === "trialing"}
+            />
+          )}
+          {children}
         </main>
       </div>
-
-      {/* ── Mobile bottom nav ────────────────────────────────────── */}
-      <BottomNav />
-    </div>
     </BrandProvider>
   )
 }

@@ -71,6 +71,7 @@ export default async function HomePage() {
       locationId={locRow.id}
       locationName={locRow.name ?? "Your location"}
       competitors={competitors}
+      detailHrefBase="/home"
     />
   )
 }

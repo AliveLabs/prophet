@@ -6,8 +6,8 @@
 import Link from "next/link"
 import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
-import BriefTuning from "../brief-tuning"
-import { VoiceSelect, CommsPrefs } from "./settings-controls"
+import BriefTuning from "../../(dashboard)/settings/brief-tuning"
+import { VoiceSelect, CommsPrefs } from "../../(dashboard)/settings/settings-controls"
 
 export default async function PreviewSettings() {
   await connection()

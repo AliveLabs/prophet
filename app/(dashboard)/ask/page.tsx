@@ -1,16 +1,12 @@
-// Ask page — the answer-first anchor as its own destination. The one-off question is
-// LIVE now (Phase 9): bounded, domain-locked NL query over the location's own market +
-// competitor data via /api/preview/ask (AskBox). A *pinned* standing question that
-// re-runs each morning is still a coming capability (shown as an example). Saved
-// history isn't wired yet.
+// Ask — the answer-first anchor as an authed nav destination (Stage A port). The
+// one-off question is LIVE (domain-locked, grounded in the operator's own data via
+// /api/ask). The pinned standing question remains a coming capability.
 
-import { connection } from "next/server"
-import { loadPreviewContext } from "../preview-data"
-import AskBox from "../../(dashboard)/ask/ask-box"
+import { resolveOperator } from "../operator-data"
+import AskBox from "./ask-box"
 
-export default async function PreviewAsk() {
-  await connection()
-  const ctx = await loadPreviewContext()
+export default async function AskPage() {
+  const op = await resolveOperator()
   return (
     <div className="pv-page">
       <div className="pv-page-head">
@@ -22,8 +18,8 @@ export default async function PreviewAsk() {
 
       <div className="pv-section">
         <div className="pv-ask-hero">
-          <AskBox endpoint="/api/preview/ask" />
-          <p className="pv-ask-foot">Domain-locked · answers come only from {ctx.locationName}&apos;s market and competitor data · cost-controlled</p>
+          <AskBox />
+          <p className="pv-ask-foot">Domain-locked · answers come only from {op.locationName}&apos;s market and competitor data · cost-controlled</p>
         </div>
 
         <div className="pv-standing">

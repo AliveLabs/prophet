@@ -5,9 +5,11 @@
 // an explicit "Update my recommendations" action, which applies to the next brief.
 // The slider sets how BROAD vs NARROW the recommendation thresholds are (not "more/
 // fewer cards"); "Show everything" is a separate escape hatch that ignores thresholds.
-// This is the working shell — persistence + recompute are wired with the authed page.
+// Persistence: when a locationId is provided (authed Settings), "Update my
+// recommendations" saves via setBrandTolerance and applies to the NEXT brief.
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
+import { setBrandTolerance } from "../home/brief-actions"
 
 const BANDS = [
   { max: 33, label: "Focused", desc: "Only the highest-conviction moves — the ones that clearly fit your brand." },
@@ -19,20 +21,33 @@ function bandFor(v: number) {
   return BANDS.find((b) => v <= b.max) ?? BANDS[BANDS.length - 1]
 }
 
-export default function BriefTuning({ initial }: { initial: number }) {
+export default function BriefTuning({ initial, locationId }: { initial: number; locationId?: string }) {
   const [value, setValue] = useState(initial)
   const [showAll, setShowAll] = useState(false)
   // last "applied" snapshot — what the next brief would use
   const [appliedValue, setAppliedValue] = useState(initial)
   const [appliedAll, setAppliedAll] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saving, startSaving] = useTransition()
 
   const dirty = value !== appliedValue || showAll !== appliedAll
   const band = bandFor(value)
 
   function apply() {
-    setAppliedValue(value)
-    setAppliedAll(showAll)
-    // Real persistence (setBrandTolerance) + recompute are wired on the authed page.
+    setSaveError(null)
+    // "Show everything" maps to maximum breadth for the next brief's thresholds.
+    const toSave = showAll ? 100 : value
+    if (locationId) {
+      startSaving(async () => {
+        const res = await setBrandTolerance(locationId, toSave)
+        if (!res.ok) { setSaveError(res.error ?? "Could not save — try again.") ; return }
+        setAppliedValue(value)
+        setAppliedAll(showAll)
+      })
+    } else {
+      setAppliedValue(value)
+      setAppliedAll(showAll)
+    }
   }
 
   return (
@@ -63,11 +78,11 @@ export default function BriefTuning({ initial }: { initial: number }) {
         <span>Show everything — surface every recommendation, no threshold</span>
       </label>
       <div className="bt__foot">
-        <button type="button" className="bt__apply" disabled={!dirty} onClick={apply}>
-          Update my recommendations
+        <button type="button" className="bt__apply" disabled={!dirty || saving} onClick={apply}>
+          {saving ? "Saving…" : "Update my recommendations"}
         </button>
         <span className="bt__hint">
-          {dirty ? "Applies to your next brief — today's stays as it is." : "Up to date."}
+          {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
         </span>
       </div>
     </div>

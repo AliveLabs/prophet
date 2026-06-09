@@ -1,12 +1,13 @@
 "use client"
 
-// Competitor management — this page is now the HOME for add/remove (the brief's old
-// "On watch" rail moved here). Real loaded competitors link to their detail; rows are
-// removable; you can add your own. Persistence wires up with the authed page — this is
-// the working shell on top of the real watched set.
+// Competitor management — this page is the HOME for the watched set (the brief's old
+// "On watch" rail moved here). Rows link to a per-competitor detail; REMOVE is wired
+// for real (ignoreCompetitorAction, admin-gated, persists); ADD is honest about not
+// saving yet (full add/discovery lands with the reworked onboarding flow).
 
 import { useState } from "react"
 import Link from "next/link"
+import { ignoreCompetitorAction } from "./actions"
 
 export type CompetitorRow = {
   id: string
@@ -23,12 +24,24 @@ function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
 }
 
-export default function CompetitorList({ initial, tierLabel }: { initial: CompetitorRow[]; tierLabel: string }) {
+export default function CompetitorList({
+  initial,
+  tierLabel,
+  hrefBase = "/competitors",
+  persist = true,
+}: {
+  initial: CompetitorRow[]
+  tierLabel: string
+  /** Detail-link base — "/competitors" authed, "/preview/competitors" on the preview. */
+  hrefBase?: string
+  /** When false (preview), remove stays local-state only. */
+  persist?: boolean
+}) {
   const [rows, setRows] = useState<CompetitorRow[]>(initial)
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState("")
 
-  const remove = (id: string) => setRows((rs) => rs.filter((r) => r.id !== id))
+  const removeLocal = (id: string) => setRows((rs) => rs.filter((r) => r.id !== id))
   const add = () => {
     const n = name.trim()
     if (!n) return
@@ -55,8 +68,15 @@ export default function CompetitorList({ initial, tierLabel }: { initial: Compet
             </div>
           </div>
           <div className="pv-comp-row__actions">
-            {c.added ? null : <Link className="pv-link" href={`/preview/competitors/${c.id}`}>View</Link>}
-            <button className="pv-comp__remove" onClick={() => remove(c.id)} aria-label={`Remove ${c.name}`}>Remove</button>
+            {c.added ? null : <Link className="pv-link" href={`${hrefBase}/${c.id}`}>View</Link>}
+            {persist && !c.added ? (
+              <form action={ignoreCompetitorAction}>
+                <input type="hidden" name="competitor_id" value={c.id} />
+                <button type="submit" className="pv-comp__remove" aria-label={`Remove ${c.name}`}>Remove</button>
+              </form>
+            ) : (
+              <button className="pv-comp__remove" onClick={() => removeLocal(c.id)} aria-label={`Remove ${c.name}`}>Remove</button>
+            )}
           </div>
         </div>
       ))}
@@ -72,7 +92,7 @@ export default function CompetitorList({ initial, tierLabel }: { initial: Compet
       ) : (
         <button className="pv-add" onClick={() => setAdding(true)}>+ Add a competitor</button>
       )}
-      <span className="pv-soon">Add / remove is a working preview — saving wires up with the authed page.</span>
+      <span className="pv-soon">Removing saves immediately. Adding here doesn&apos;t save yet — full add-with-discovery lands with the reworked onboarding.</span>
     </div>
   )
 }

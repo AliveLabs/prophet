@@ -5,7 +5,7 @@
 
 import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
-import CompetitorList from "./competitor-list"
+import CompetitorList from "../../(dashboard)/competitors/competitor-list"
 
 export default async function PreviewCompetitors() {
   await connection()
@@ -29,6 +29,8 @@ export default async function PreviewCompetitors() {
           topSignals: c.topSignals,
         }))}
         tierLabel={tierLabel(ctx.tier)}
+        hrefBase="/preview/competitors"
+        persist={false}
       />
     </div>
   )
