@@ -347,7 +347,16 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // Guard: with no UPCOMING events, every event-dependent rule-output (new-event
   // signals AND cross-event SEO opportunities) is stale and must not seed "prepare
   // for <past date>" plays. A coherent data refresh repopulates current events + insights.
-  const groundedRuleOutputs = events.length > 0 ? ruleOutputs : ruleOutputs.filter((r) => !r.insight_type.includes("event"))
+  let groundedRuleOutputs = events.length > 0 ? ruleOutputs : ruleOutputs.filter((r) => !r.insight_type.includes("event"))
+  // Consistency with the social read-fix: if NO social account is currently active, drop
+  // social "activity" rule-outputs — a dormant account did not "recently post". Keep the
+  // honest social.inactive_account signal. (Source-side, generation is already gated; this
+  // also protects against historical stale social-insight rows lingering in the window.)
+  if (!socialFresh) {
+    groundedRuleOutputs = groundedRuleOutputs.filter(
+      (r) => !r.insight_type.startsWith("social.") || r.insight_type === "social.inactive_account"
+    )
+  }
 
   // ── coverage: per-signal health (present/stale/missing + as-of) for the panel + resilience ──
   const mk = (label: string, present: boolean, detail: string, asOf: string | null): BriefCoverage => ({

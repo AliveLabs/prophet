@@ -39,6 +39,8 @@ import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/ti
 import { freshnessFields } from "@/lib/freshness/stamp"
 import { shouldPull, type PullMode } from "@/lib/jobs/cadence"
 import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
+import { classifyNow, isUsable } from "@/lib/freshness/contract"
+import { socialContentAsOf } from "@/lib/freshness/extract"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -509,9 +511,29 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           }
         }
 
+        // Data-integrity: do NOT generate "recent activity" insights for DORMANT
+        // competitors (newest post months/years old). Anand's generateSocialInsights
+        // doesn't gate competitor recency, so we gate its INPUT here — mirroring the
+        // dossier read-fix. Location snapshots are kept as-is so the honest own-account
+        // inactivity insight still fires.
+        const freshCompetitorSnapshots = competitorSnapshots.filter((s) => {
+          const probe = socialContentAsOf(s.current as unknown as Record<string, unknown>)
+          const status = classifyNow({
+            contentAsOf: probe.contentAsOf,
+            capturedAt: (s.current as { timestamp?: string })?.timestamp ?? c.dateKey,
+            isEmpty: probe.isEmpty,
+            kind: "social",
+          })
+          return isUsable(status)
+        })
+        const droppedDormant = competitorSnapshots.length - freshCompetitorSnapshots.length
+        if (droppedDormant > 0) {
+          console.log(`[Social Insights] skipped activity insights for ${droppedDormant} dormant competitor account(s)`)
+        }
+
         const metricInsights = generateSocialInsights(
           locationSnapshots,
-          competitorSnapshots
+          freshCompetitorSnapshots
         )
 
         // Generate visual intelligence insights from aggregated visual profiles
