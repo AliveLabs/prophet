@@ -223,6 +223,11 @@ to make each [BRYAN] step a tiny, well-scripted action so there's no room for a 
 - `main` is untouched; prod Supabase lacks the `daily_briefs` migration; prod holds real early-access leads.
 
 ### Stage A — Code prep on `ux-rework` (no prod touch; verified on the preview)  [AGENT]
+A0. ☑ **Chrome pass DONE (2026-06-08).** Editorial 404 (`not-found.tsx`) + error boundaries (`error.tsx`,
+    `global-error.tsx`) + re-skinned login/signup, all on a shared `.ticket-chrome` scope (added to
+    editorial-tokens.css) + `app/chrome.css`. Auth logic untouched (same magic-link/Google forms, redirect_to,
+    HashTokenHandler, logged-in→/home redirect). Verified locally (404 + login render editorial); Vercel build
+    green (`4455d0b`, `e88df98`). (Editorial loading states: rely on the existing Suspense fallbacks for now.)
 A1. Swap the authed `(dashboard)` shell to the reworked 4-item nav + account flyout (old 11-item shell out).
 A2. Move Competitors / Ask / Settings into authed routes, rewired from Wagyu-hardcoded + admin client to the
     LOGGED-IN user's real org/location via the user-scoped client + `requireUser` (RLS-safe).
@@ -252,6 +257,19 @@ C4. Remove the branch-scoped `ux-rework` Preview env vars (cleanup; harmless if 
 ### Rollback
 Vercel → previous production deployment = instant code revert. The migration is additive (safe to leave even
 on a rollback — nothing on the old code reads `daily_briefs`).
+
+---
+## Phase 11 — Post-cutover backlog (built against production data)  ☐
+Behavioral features deferred from the rework because they need a new store/infra AND real-usage signal to design
+well — building them blind now would likely be rebuilt once real operators tell us the shape. Do these AFTER
+cutover, informed by real usage. (Decision with Bryan, 2026-06-08.)
+- **Save / Snooze / Dismiss + acted-on momentum** — needs an action store; "done" is data-driven off the real feed.
+- **Pinned standing question** in Ask — needs the scheduled morning re-run infra (the one-off ask is already live).
+- **Real processing status + notifications** (email via RESEND / browser) on onboarding finish — needs real
+  accounts + the live pipeline (authed/prod territory).
+- **Vision proof-grid + feed-completion detection** — needs photo/feed data joined into the brief.
+- **Per-play severity → auto-recalibrating the boldness slider** — needs real 👍/👎 volume.
+Note: the data-independent CHROME (sign-in/404/error/loading) is NOT here — it's in Stage A (A0), done before cutover.
 
 ### One-line split
 - **I do (no prod):** all of Stage A — port the reworked experience into the authed app, verified on the
