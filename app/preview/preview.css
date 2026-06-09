@@ -124,6 +124,15 @@
 .pv-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
 .pv-chip{ font-family:var(--font-cond); font-weight:500; text-transform:uppercase; letter-spacing:.05em; font-size:12px; color:var(--slate); border:1px solid var(--rule); border-radius:100px; padding:6px 13px; background:transparent; }
 .pv-ask-foot{ margin-top:14px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash); line-height:1.5; }
+.pv-chip{ cursor:pointer; }
+.pv-chip:hover:not(:disabled){ border-color:var(--rust); color:var(--rust-deep); }
+.pv-chip:disabled{ opacity:.5; cursor:default; }
+.pv-ask-loading{ margin-top:16px; font-family:var(--font-mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase; color:var(--ash); }
+.pv-ask-answer{ margin-top:18px; background:var(--card); border:1px solid var(--rule); border-left:3px solid var(--rust); border-radius:0 var(--radius-card) var(--radius-card) 0; padding:18px 20px; box-shadow:var(--shadow-chit); }
+.pv-ask-answer__q{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ash); }
+.pv-ask-answer__a{ font-family:var(--font-display); font-size:21px; line-height:1.35; color:var(--ink); margin:8px 0 0; }
+.pv-ask-answer__meta{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:14px; }
+.pv-ask-answer__src{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
 .pv-standing{ border-left:2px solid var(--clear); background:var(--bond); border-radius:0 var(--radius) var(--radius) 0; padding:13px 16px; margin-top:14px; }
 .pv-standing .sl{ font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ash); }
 .pv-standing .sq{ font-family:var(--font-display); font-size:19px; color:var(--ink); margin-top:4px; }
