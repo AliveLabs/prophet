@@ -37,6 +37,7 @@ import { fetchInstagramProfile, fetchInstagramPosts } from "@/lib/providers/data
 import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data365/facebook"
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
 import { freshnessFields } from "@/lib/freshness/stamp"
+import { shouldPull, type PullMode } from "@/lib/jobs/cadence"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -57,9 +58,15 @@ export type SocialPipelineCtx = {
     website: string | null
   }>
   dateKey: string
+  // Pull scope (set by the worker from the job): cadence mode, forced refresh, and an
+  // optional platform filter (ad-hoc "refresh just Instagram"). Default = daily, no filter.
+  mode?: PullMode
+  force?: boolean
+  platforms?: SocialPlatform[]
   state: {
     discoveredCount: number
     snapshotsCollected: number
+    skippedByCadence: number
     postsAnalyzed: number
     insightsGenerated: number
     visualProfiles: EntityVisualProfile[]
@@ -184,7 +191,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         const compIds = c.approvedCompetitors.map((comp) => comp.id)
         const entityIds = [c.locationId, ...compIds]
 
-        const { data: profiles } = await c.supabase
+        let { data: profiles } = await c.supabase
           .from("social_profiles")
           .select("*")
           .in("entity_id", entityIds.length > 0 ? entityIds : ["__none__"])
@@ -197,8 +204,46 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           return { snapshots: 0, message: "No verified profiles" }
         }
 
-        let collected = 0
+        // Ad-hoc "refresh just <network>" — restrict to the requested platforms.
+        if (c.platforms && c.platforms.length > 0) {
+          profiles = profiles.filter((p) => c.platforms!.includes(p.platform as SocialPlatform))
+        }
 
+        // BILLING: Data365 charges per profile pull. Load each profile's last pull
+        // (captured_at + content_as_of) and skip those still within the cadence window;
+        // dormant accounts re-check on a long cadence. Forced/first-run pull everything.
+        const profileIds = profiles.map((p) => p.id)
+        const { data: lastSnaps } = await c.supabase
+          .from("social_snapshots")
+          .select("social_profile_id, captured_at, content_as_of, date_key")
+          .in("social_profile_id", profileIds.length > 0 ? profileIds : ["__none__"])
+          .order("date_key", { ascending: false })
+        const lastByProfile = new Map<string, { capturedAt: string | null; contentAsOf: string | null }>()
+        for (const s of lastSnaps ?? []) {
+          const pid = s.social_profile_id as string
+          if (!lastByProfile.has(pid)) {
+            lastByProfile.set(pid, {
+              capturedAt: (s.captured_at as string) ?? (s.date_key as string) ?? null,
+              contentAsOf: (s.content_as_of as string) ?? null,
+            })
+          }
+        }
+
+        const mode: PullMode = c.mode ?? "daily"
+        const toPull = profiles.filter((p) => {
+          const last = lastByProfile.get(p.id)
+          const d = shouldPull({
+            lastCapturedAt: last?.capturedAt ?? null,
+            lastContentAsOf: last?.contentAsOf ?? null,
+            mode,
+            force: c.force,
+          })
+          if (!d.pull) console.log(`[Social] skip ${p.platform}/${p.handle}: ${d.reason}`)
+          return d.pull
+        })
+        c.state.skippedByCadence = profiles.length - toPull.length
+
+        let collected = 0
         const TIMEOUT_BY_PLATFORM: Record<string, number> = {
           instagram: 90_000,
           facebook: 90_000,
@@ -206,7 +251,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         }
 
         const results = await Promise.allSettled(
-          profiles.map((profile) =>
+          toPull.map((profile) =>
             withTimeout(
               collectSingleProfile(
                 profile.platform as SocialPlatform,
@@ -231,7 +276,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         }
 
         c.state.snapshotsCollected = collected
-        return { snapshots: collected, total: profiles.length }
+        return { snapshots: collected, pulled: toPull.length, skippedByCadence: c.state.skippedByCadence, total: profiles.length }
       },
     },
 
@@ -583,6 +628,7 @@ export async function buildSocialContext(
     state: {
       discoveredCount: 0,
       snapshotsCollected: 0,
+      skippedByCadence: 0,
       postsAnalyzed: 0,
       insightsGenerated: 0,
       visualProfiles: [],

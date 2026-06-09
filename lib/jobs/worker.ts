@@ -37,6 +37,17 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
 
   try {
     const ctx = await sub.buildCtx(sb, job.location_id, job.organization_id)
+
+    // Apply the job's pull scope (cadence mode / forced refresh / platform filter) so the
+    // social pipeline can skip in-cadence pulls (Data365 billing) and honor "refresh just X".
+    const scope = (job.cursor ?? {}) as { mode?: string; force?: boolean; platforms?: string[] }
+    if (job.pipeline === "social") {
+      const sctx = ctx as { mode?: string; force?: boolean; platforms?: string[] }
+      sctx.mode = scope.mode ?? "daily"
+      sctx.force = scope.force ?? false
+      if (Array.isArray(scope.platforms) && scope.platforms.length > 0) sctx.platforms = scope.platforms
+    }
+
     const steps = (sub.ctxArg ? sub.buildSteps(ctx) : sub.buildSteps()).filter((s) => !SKIP_STEPS.has(s.name))
 
     let completed = 0
