@@ -179,14 +179,20 @@ customer, dated today.
    produces junk handles; even `auto_scrape`/`manual` handles can point at abandoned accounts
    (gyukakuatlanta last posted 2023). Discovery self-skips any entity that already has a profile
    row, so a wrong handle is never re-checked.
-4. **Two pipeline systems, unclear which is authoritative.** Live path = Vercel cron
-   `/api/cron/daily` → `lib/jobs/pipeline.ts` (its list is content/visibility/events/weather/
-   insights — **social is not in it**). Legacy path = Supabase edge functions
-   `orchestrator_daily` + `job_worker`, where the orchestrator **only returns a jobs array and
-   never enqueues**, and the worker's social fetch even sorts oldest-first (`order_by=date`).
-   `refresh_jobs` history shows **bursty, manual-looking runs** clustered on test locations
-   (only 2 `refresh_all` ever), not a steady daily cadence — i.e. the automatic schedule is not
-   reliably driving fresh data across orgs. Social (40 jobs) runs ad hoc via manual triggers.
+4. **Orchestration is fragile + likely times out (CORRECTED — see note).** Live path = Vercel cron
+   `/api/cron/daily`, which fires `/api/jobs/refresh_all` **fire-and-forget** (no await, the SSE
+   stream is never consumed → no delivery guarantee). `refresh_all` runs **all 8 sub-pipelines
+   sequentially inside one 300s function**; social alone polls Data365 up to ~5 min *per profile*,
+   so for any real location the run almost certainly **exceeds `maxDuration = 300` and is killed
+   mid-run** — early pipelines complete, the rest silently drop. A legacy/orphaned Supabase
+   edge-function path (`orchestrator_daily` returns a jobs array but **never enqueues**) adds
+   confusion. `refresh_jobs` history shows bursty, manual-looking runs, not a steady cadence.
+
+   > **CORRECTION (2026-06-09, later):** an earlier draft said "social is not in the daily
+   > pipeline." That was wrong — the daily cron's `pipelines` array is only a cosmetic log;
+   > `/api/jobs/refresh_all` → `buildRefreshAllSteps()` runs ALL sub-pipelines *including social*.
+   > The real defect is the timeout/fire-and-forget above, not a missing pipeline. The cosmetic
+   > log also misrepresents which pipelines ran (its own observability bug).
 5. **Gating silently turns collection off.** Trial-expiry + tier cadence (free = Mondays only) +
    competitor `metadata.status === "approved"` together mean a real signup easily ends up with no
    running pipelines and no fresh data, with no surfaced reason.

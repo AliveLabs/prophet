@@ -76,10 +76,18 @@ approval gates are the two prod-DB migration steps (additive, leads-safe).
 - Verify handle liveness during discovery; require recency before `verified=true`; flag dormant;
   enable re-discovery; tighten/remove fuzzy name-search; re-verify the existing bad handles.
 
-### Phase 3 — Single orchestrator + observability
-- Retire the orphaned edge functions (`orchestrator_daily`/`job_worker`/`digest_weekly`); unify on
-  the Next path. Add **social** to the daily pipeline. Persist `pipeline_runs` outcomes+reasons.
-  Fix the schedule so it actually fires for eligible orgs. Surface per-signal freshness + reasons.
+### Phase 3 — Reliable orchestration + observability
+Corrected scope after reading the execution path (social already runs in `refresh_all`; the real
+defect is timeout + fire-and-forget, not a missing pipeline):
+- **Fix the 300s timeout:** `refresh_all` runs all 8 sub-pipelines sequentially in one 300s function
+  and is killed mid-run for real locations. Decompose into per-pipeline async jobs (a durable queue
+  / Vercel Workflow, or per-pipeline fan-out invocations) so no single invocation must finish all of
+  it; social's long Data365 polls stop starving the rest.
+- **Reliable invocation:** the cron's fire-and-forget `fetch` (SSE never consumed) has no delivery
+  guarantee — replace with a tracked enqueue.
+- **Honest `pipeline_runs`:** record real per-pipeline outcomes + reasons (incl. freshness summary);
+  fix the cosmetic `pipelines` log that misrepresents what ran.
+- **Confirm + retire** the orphaned edge functions (verify deploy/schedule first — Supabase dashboard).
 
 ### Phase 4 — Engine read-time fix + re-validation
 - Fix `buildDossier` freshness gate to use `content_as_of`, not `date_key`. Render dormant/stale
