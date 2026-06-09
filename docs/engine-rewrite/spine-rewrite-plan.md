@@ -77,16 +77,19 @@ approval gates are the two prod-DB migration steps (additive, leads-safe).
   enable re-discovery; tighten/remove fuzzy name-search; re-verify the existing bad handles.
 
 ### Phase 3 — Reliable orchestration + observability
-**Status: 3a DONE (`cc3c16c`, live-verified). 3b (chunking) + edge-fn retirement remain.**
+**Status: 3a + 3b DONE. Edge-fn retirement still open.**
 - ☑ **3a — durable queue + worker.** `signal_jobs` queue + `claim_signal_jobs` (FOR UPDATE SKIP
   LOCKED); daily cron ENQUEUES per-(location,pipeline) jobs (social explicit; insights delayed 15m);
   `/api/cron/worker` (every 5m) drains one pipeline/job with backoff retries + honest `pipeline_runs`
   outcomes (freshness-aware for social). Applied to branch + live-verified (weather→fresh→done).
-- ☐ **3b — per-entity chunking** via the `signal_jobs.cursor` for the still-heavy pipelines (content
-  scrape ~9min, social collect, photos vision) so no single JOB can exceed 300s either. (3a fixed the
-  aggregate timeout; these per-pipeline ones remain.) The visual-analysis step is currently skipped in
-  the scheduled path (`SKIP_STEPS`) as an interim guard.
-- ☐ **Confirm + retire** the orphaned Supabase edge functions (verify deploy/schedule first).
+- ☑ **3b — heavy pipelines bounded under 300s.** content: competitor menus now scraped CONCURRENTLY
+  in bounded batches (was sequential per-competitor — the ~9min driver). photos: per-run download/
+  analyze cap (24) that chunks across weekly runs via hash-dedup (logged). social-collect already
+  concurrent; its slow Gemini-Vision step stays out of the scheduled path (`SKIP_STEPS`). Full
+  per-(entity) cursor chunking via `signal_jobs.cursor` remains available if a single entity ever
+  exceeds budget, but is not needed at current scale.
+- ☐ **Confirm + retire** the orphaned Supabase edge functions (verify deploy/schedule first — Supabase
+  dashboard). Low-risk cleanup; the live path is the Next cron + queue.
 
 Corrected scope after reading the execution path (social already runs in `refresh_all`; the real
 defect is timeout + fire-and-forget, not a missing pipeline):
@@ -109,9 +112,20 @@ defect is timeout + fire-and-forget, not a missing pipeline):
   only fresh signals + honest "no recent X" states. Trace one org (Wagyu House) browser-to-data.
 
 ### Phase 6 — Prod alignment  *(GATED: the only true approval step)*
-- Apply the same additive migrations to **prod** Supabase (leads tables untouched). Optionally
-  backfill `content_as_of` on existing prod rows. Your explicit per-migration sign-off; I provide
-  exact SQL and can apply it if granted access, else hand you click-by-click.
+Runbook (do NOT run without Bryan's explicit go; never touch leads tables):
+1. **Apply two additive migrations to prod** (`triodvdspdsuudooyura`):
+   `20260609160000_signal_freshness_contract.sql` + `20260609180000_signal_jobs_queue.sql`. Both are
+   additive (new columns/tables/fn) — old code ignores them. Agent CAN apply via
+   `CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --file <sql>` (the PAT
+   reaches prod; the guard requires the explicit `CONFIRM_PROD=yes`) — or Bryan via dashboard SQL editor.
+2. **Confirm `CRON_SECRET` is set in prod env** (the daily + new worker crons auth on it). It was
+   Production-only in the audit; verify it still exists.
+3. **Merge `spine-rewrite` → main** = the prod deploy (Vercel keeps prior deploy for 1-click rollback).
+   This ships the read-fix, discovery fix, and the queue/worker. The `*/5` worker cron starts draining.
+4. **Verify**: `/api/cron/daily` enqueues; `pipeline_runs` shows honest outcomes; `/home` brief excludes
+   dormant social. Backfill `content_as_of`/`freshness` on existing prod rows is OPTIONAL (the dossier
+   self-computes social recency from raw_data, so the read-fix already holds un-backfilled).
+Rollback: revert the Vercel deploy; the additive migrations are safe to leave.
 
 ---
 
