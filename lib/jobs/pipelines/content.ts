@@ -90,6 +90,109 @@ function extractDomain(url: string | null | undefined): string | null {
   }
 }
 
+type CompetitorInput = { id: string; name: string | null; website: string | null; metadata: Record<string, unknown> | null }
+
+/** Run an async fn over items with bounded concurrency (batches of `limit`). */
+async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  for (let i = 0; i < items.length; i += limit) {
+    await Promise.allSettled(items.slice(i, i + limit).map(fn))
+  }
+}
+
+/**
+ * Scrape one competitor's menu (Firecrawl + Gemini) and persist it. Extracted from the
+ * old per-competitor step so competitors can be processed CONCURRENTLY in one step —
+ * the sequential per-competitor loop was the content pipeline's main 300s-timeout driver.
+ */
+async function processCompetitorMenu(c: ContentPipelineCtx, comp: CompetitorInput): Promise<void> {
+  const compWebsite =
+    comp.website ??
+    extractDomain((comp.metadata?.placeDetails as Record<string, unknown>)?.websiteUri as string)
+  if (!compWebsite) return
+
+  const compUrl = ensureUrl(compWebsite)
+  const compSources: MenuSource[] = []
+
+  let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
+  if (compMenuUrls.length === 0) compMenuUrls = [compUrl]
+
+  const compParsedResults: NormalizedMenuResult[] = []
+  let compScreenshotPath: string | null = null
+  let compScreenshotSourceUrl: string | null = null
+
+  for (const compTargetUrl of compMenuUrls) {
+    try {
+      const compMenuResult = await scrapeMenuPage(compTargetUrl)
+      if (compMenuResult) {
+        if (!compScreenshotPath && compMenuResult.screenshot) {
+          const path = buildScreenshotPath(c.organizationId, "competitors", comp.id, "menu.png")
+          compScreenshotPath = await uploadScreenshot(compMenuResult.screenshot, path)
+          compScreenshotSourceUrl = compTargetUrl
+        }
+        const parsed = normalizeExtractedMenu(compMenuResult.menu)
+        if (parsed.categories.length > 0) compParsedResults.push(parsed)
+      }
+    } catch {
+      /* continue */
+    }
+  }
+
+  if (compParsedResults.length > 0) compSources.push("firecrawl")
+
+  try {
+    const compAddress =
+      ((comp.metadata?.placeDetails as Record<string, unknown>)?.formattedAddress as string) ?? null
+    const compFallback =
+      process.env.VERTICALIZATION_ENABLED === "true"
+        ? getVerticalConfig().labels.businessLabelCapitalized
+        : "Restaurant"
+    const googleCompMenu = await fetchGoogleMenuData(comp.name ?? compFallback, compAddress)
+    if (googleCompMenu && googleCompMenu.categories.length > 0) {
+      compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
+      compSources.push("gemini_google_search")
+    }
+  } catch {
+    /* non-fatal */
+  }
+
+  if (compParsedResults.length === 0) return
+
+  const merged = mergeExtractedMenus(compParsedResults)
+  const compMenu = buildMenuSnapshot(
+    compMenuUrls[0],
+    merged.categories,
+    merged.confidence,
+    merged.notes,
+    compScreenshotPath
+      ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
+      : null,
+    merged.currency
+  )
+  compMenu.parseMeta.sources = compSources
+
+  const compSiteContent = normalizeSiteContentFromExtraction(compUrl, null, null)
+  const menuHash = computeMenuDiffHash(compMenu)
+  await c.supabase.from("snapshots").upsert(
+    {
+      competitor_id: comp.id,
+      date_key: c.dateKey,
+      snapshot_type: "web_menu_weekly",
+      captured_at: new Date().toISOString(),
+      provider: "firecrawl_menu",
+      raw_data: compMenu as unknown as Record<string, unknown>,
+      diff_hash: menuHash,
+    },
+    { onConflict: "competitor_id,date_key,snapshot_type" }
+  )
+
+  c.state.competitorMenus.push({
+    competitorId: comp.id,
+    competitorName: comp.name ?? "Competitor",
+    menu: compMenu,
+    siteContent: compSiteContent,
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Step builders
 // ---------------------------------------------------------------------------
@@ -353,130 +456,23 @@ export function buildContentSteps(
     },
   ]
 
-  // Per-competitor steps
-  for (const comp of ctx.competitors) {
-    const compWebsite =
-      comp.website ??
-      extractDomain(
-        (comp.metadata?.placeDetails as Record<string, unknown>)
-          ?.websiteUri as string
-      )
-    if (!compWebsite) continue
-
-    steps.push({
-      name: `comp_${comp.id}`,
-      label: `Fetching ${comp.name ?? "competitor"} menu`,
-      run: async (c) => {
-        const compUrl = ensureUrl(compWebsite)
-        const compSources: MenuSource[] = []
-
-        let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
-        if (compMenuUrls.length === 0) compMenuUrls = [compUrl]
-
-        const compParsedResults: NormalizedMenuResult[] = []
-        let compScreenshotPath: string | null = null
-        let compScreenshotSourceUrl: string | null = null
-
-        for (const compTargetUrl of compMenuUrls) {
-          try {
-            const compMenuResult = await scrapeMenuPage(compTargetUrl)
-            if (compMenuResult) {
-              if (!compScreenshotPath && compMenuResult.screenshot) {
-                const path = buildScreenshotPath(
-                  c.organizationId,
-                  "competitors",
-                  comp.id,
-                  "menu.png"
-                )
-                compScreenshotPath = await uploadScreenshot(
-                  compMenuResult.screenshot,
-                  path
-                )
-                compScreenshotSourceUrl = compTargetUrl
-              }
-              const parsed = normalizeExtractedMenu(compMenuResult.menu)
-              if (parsed.categories.length > 0) compParsedResults.push(parsed)
-            }
-          } catch {
-            /* continue */
-          }
-        }
-
-        if (compParsedResults.length > 0) compSources.push("firecrawl")
-
+  // Competitor menus — processed CONCURRENTLY (bounded) in one step. The previous
+  // one-step-per-competitor sequential design was the content pipeline's main 300s
+  // timeout driver; batching keeps the whole job comfortably under budget.
+  steps.push({
+    name: "scrape_competitor_menus",
+    label: "Fetching competitor menus",
+    run: async (c) => {
+      await mapWithConcurrency(c.competitors, 3, async (comp) => {
         try {
-          const compAddress =
-            (comp.metadata?.placeDetails as Record<string, unknown>)
-              ?.formattedAddress as string ?? null
-          const compFallback = process.env.VERTICALIZATION_ENABLED === "true"
-            ? getVerticalConfig().labels.businessLabelCapitalized
-            : "Restaurant"
-          const googleCompMenu = await fetchGoogleMenuData(
-            comp.name ?? compFallback,
-            compAddress
-          )
-          if (googleCompMenu && googleCompMenu.categories.length > 0) {
-            compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
-            compSources.push("gemini_google_search")
-          }
-        } catch {
-          /* non-fatal */
+          await processCompetitorMenu(c, comp)
+        } catch (err) {
+          c.state.warnings.push(`${comp.name ?? "competitor"} menu: ${err instanceof Error ? err.message : "failed"}`)
         }
-
-        if (compParsedResults.length === 0) {
-          return { items: 0, status: "no menu found" }
-        }
-
-        const merged = mergeExtractedMenus(compParsedResults)
-        const compMenu = buildMenuSnapshot(
-          compMenuUrls[0],
-          merged.categories,
-          merged.confidence,
-          merged.notes,
-          compScreenshotPath
-            ? {
-                storagePath: compScreenshotPath,
-                sourceUrl: compScreenshotSourceUrl ?? compUrl,
-              }
-            : null,
-          merged.currency
-        )
-        compMenu.parseMeta.sources = compSources
-
-        const compSiteContent = normalizeSiteContentFromExtraction(
-          compUrl,
-          null,
-          null
-        )
-
-        const menuHash = computeMenuDiffHash(compMenu)
-        await c.supabase.from("snapshots").upsert(
-          {
-            competitor_id: comp.id,
-            date_key: c.dateKey,
-            snapshot_type: "web_menu_weekly",
-            captured_at: new Date().toISOString(),
-            provider: "firecrawl_menu",
-            raw_data: compMenu as unknown as Record<string, unknown>,
-            diff_hash: menuHash,
-          },
-          { onConflict: "competitor_id,date_key,snapshot_type" }
-        )
-
-        c.state.competitorMenus.push({
-          competitorId: comp.id,
-          competitorName: comp.name ?? "Competitor",
-          menu: compMenu,
-          siteContent: compSiteContent,
-        })
-
-        return {
-          items: compMenu.parseMeta.itemsTotal,
-          sources: compSources.join(", "),
-        }
-      },
-    })
-  }
+      })
+      return { competitorMenus: c.state.competitorMenus.length, of: c.competitors.length }
+    },
+  })
 
   // Final step: generate insights
   steps.push({
