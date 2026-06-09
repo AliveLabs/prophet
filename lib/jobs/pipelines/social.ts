@@ -38,6 +38,7 @@ import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data36
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
 import { freshnessFields } from "@/lib/freshness/stamp"
 import { shouldPull, type PullMode } from "@/lib/jobs/cadence"
+import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -655,7 +656,7 @@ async function collectSingleProfile(
       case "instagram": {
         const rawProfile = await fetchInstagramProfile(handle)
         if (!rawProfile) return false
-        const rawPosts = await fetchInstagramPosts(handle, 20)
+        const rawPosts = await fetchInstagramPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeInstagramProfile(rawProfile, handle)
         const posts = rawPosts.map(normalizeInstagramPost)
@@ -665,7 +666,7 @@ async function collectSingleProfile(
       case "facebook": {
         const rawProfile = await fetchFacebookProfile(handle)
         if (!rawProfile) return false
-        const rawPosts = await fetchFacebookPosts(handle, 20)
+        const rawPosts = await fetchFacebookPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeFacebookProfile(rawProfile, handle)
         const posts = rawPosts.map(normalizeFacebookPost)
@@ -675,7 +676,7 @@ async function collectSingleProfile(
       case "tiktok": {
         const rawProfile = await fetchTikTokProfile(handle)
         if (!rawProfile) return false
-        const rawPosts = await fetchTikTokPosts(handle, 20)
+        const rawPosts = await fetchTikTokPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeTikTokProfile(rawProfile, handle)
         const posts = rawPosts.map(normalizeTikTokPost)

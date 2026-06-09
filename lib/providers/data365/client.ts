@@ -16,6 +16,8 @@
 //   Instagram search: /instagram/search/profiles/update (keywords param)
 // ---------------------------------------------------------------------------
 
+import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
+
 export type Data365Platform = "instagram" | "facebook" | "tiktok"
 
 export type Data365UpdateStatus =
@@ -126,7 +128,8 @@ export async function fetchProfile<T>(
   extraParams?: Record<string, string>
 ): Promise<T> {
   const basePath = `/${platform}/profile/${encodeURIComponent(profileId)}`
-  const postParams = { load_feed_posts: "true", max_posts: "20", ...extraParams }
+  // max_posts drives how many posts the crawl loads = Data365 credits (1/post). One knob in cost-model.
+  const postParams = { load_feed_posts: "true", max_posts: String(DATA365_POSTS_PER_PULL), ...extraParams }
 
   await apiRequest<unknown>("POST", `${basePath}/update`, postParams)
   await pollUntilDone(`${basePath}/update`, undefined, `${platform}/${profileId}`)
