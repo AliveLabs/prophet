@@ -13,7 +13,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
 
-.ticket-brief, .ticket-app, .ob {
+.ticket-brief, .ticket-app, .ob, .ticket-chrome {
   --paper:#F5F3EF; --paper-2:#EFEBE4; --bond:#F0EDE9; --thermal:#FBF0E6;
   --ledger:#EBE8E3; --card:#FFFFFF;
   --ink:#1C1917; --press:#24211E; --print:#4D4843; --ash:#6E6862; --ash-2:#857f78;
