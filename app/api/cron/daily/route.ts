@@ -6,15 +6,17 @@
 // ---------------------------------------------------------------------------
 
 import { createClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isTrialActive } from "@/lib/billing/trial"
+import { enqueueRun } from "@/lib/jobs/queue"
 
 export const maxDuration = 300
 
 function admin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ""
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
-  return createClient(url, serviceKey, { auth: { persistSession: false } })
+  return createClient<Database>(url, serviceKey, { auth: { persistSession: false } })
 }
 
 export async function GET(req: Request) {
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
   const dayOfWeek = new Date().getUTCDay()
   const isMonday = dayOfWeek === 1
   const dateKey = new Date().toISOString().slice(0, 10)
+  const runId = crypto.randomUUID() // groups this pass across signal_jobs + pipeline_runs
 
   const { data: locations, error: locErr } = await supabase
     .from("locations")
@@ -102,62 +105,37 @@ export async function GET(req: Request) {
       pipelines.push("photos", "busy_times")
     }
 
-    pipelines.push("insights")
+    // Social runs daily too. The legacy inline refresh_all ran ALL sub-pipelines
+    // implicitly; the durable queue only runs what is enqueued, so list social here.
+    pipelines.push("social")
 
-    // Queue the refresh_all job via internal API.
-    // Operator-precedence note: the previous form
-    //   NEXT_PUBLIC_APP_URL ?? VERCEL_URL ? `https://${VERCEL_URL}` : localhost
-    // parsed as `(A ?? B) ? https://${VERCEL_URL} : localhost`, so when
-    // NEXT_PUBLIC_APP_URL was set in production we silently routed the
-    // internal refresh job at `https://${VERCEL_URL}` (the auto-generated
-    // deployment hostname) instead of the canonical app URL. Fixed here:
-    // prefer the explicit prod URL, fall back to the Vercel-assigned URL,
-    // fall back to localhost only in dev.
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ??
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000")
-
+    // Durable enqueue — replaces the fire-and-forget refresh_all that ran all 8
+    // pipelines sequentially in one 300s function and was killed mid-run. The worker
+    // (/api/cron/worker) drains the queue one pipeline at a time and records honest
+    // pipeline_runs outcomes. `insights` is delayed so its data inputs land first.
     try {
-      const jobUrl = new URL(`/api/jobs/refresh_all`, baseUrl)
-      jobUrl.searchParams.set("location_id", location.id)
-
-      // Fire-and-forget – don't await the full pipeline
-      fetch(jobUrl.toString(), {
-        headers: {
-          cookie: req.headers.get("cookie") ?? "",
-          authorization: authHeader ?? "",
-        },
-      }).catch((err) => {
-        console.warn(`[Cron] Failed to trigger refresh for ${location.name}:`, err)
+      await enqueueRun(supabase, {
+        runId,
+        organizationId: location.organization_id,
+        locationId: location.id,
+        pipelines,
+      })
+      await enqueueRun(supabase, {
+        runId,
+        organizationId: location.organization_id,
+        locationId: location.id,
+        pipelines: ["insights"],
+        delaySeconds: 15 * 60,
       })
     } catch (err) {
-      console.warn(`[Cron] Error building job URL for ${location.name}:`, err)
+      console.warn(`[Cron] Enqueue failed for ${location.name}:`, err)
     }
 
     jobs.push({
       location_id: location.id,
       location_name: location.name,
-      pipelines,
+      pipelines: [...pipelines, "insights"],
     })
-
-    // Log the orchestration (best-effort)
-    try {
-      await supabase.from("refresh_jobs").insert({
-        organization_id: location.organization_id,
-        location_id: location.id,
-        job_type: "refresh_all",
-        status: "running",
-        total_steps: pipelines.length,
-        current_step: 0,
-        steps: pipelines.map((p) => ({
-          name: p,
-          label: p,
-          status: "queued",
-        })),
-      })
-    } catch { /* non-fatal */ }
   }
 
   return Response.json({

@@ -21,7 +21,7 @@ export type RefreshAllCtx = {
   organizationId: string
 }
 
-type SubPipeline = {
+export type SubPipeline = {
   name: string
   label: string
   buildCtx: (
@@ -35,7 +35,9 @@ type SubPipeline = {
   ctxArg?: boolean
 }
 
-const SUB_PIPELINES: SubPipeline[] = [
+// Exported so the durable worker (lib/jobs/worker.ts) dispatches one pipeline per job
+// by name — same definitions the legacy inline refresh_all uses.
+export const SUB_PIPELINES: SubPipeline[] = [
   {
     name: "content",
     label: "Content & Menus",

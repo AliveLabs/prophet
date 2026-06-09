@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -46,6 +46,44 @@ export type Database = {
           target_type?: string
         }
         Relationships: []
+      }
+      brief_feedback: {
+        Row: {
+          created_at: string
+          date_key: string
+          id: string
+          location_id: string
+          play_key: string
+          severity: number
+          verdict: string
+        }
+        Insert: {
+          created_at?: string
+          date_key: string
+          id?: string
+          location_id: string
+          play_key: string
+          severity?: number
+          verdict: string
+        }
+        Update: {
+          created_at?: string
+          date_key?: string
+          id?: string
+          location_id?: string
+          play_key?: string
+          severity?: number
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brief_feedback_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       busy_times: {
         Row: {
@@ -208,6 +246,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "competitors_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_briefs: {
+        Row: {
+          brief: Json
+          date_key: string
+          fallback: boolean
+          generated_at: string
+          id: string
+          location_id: string
+        }
+        Insert: {
+          brief: Json
+          date_key: string
+          fallback?: boolean
+          generated_at?: string
+          id?: string
+          location_id: string
+        }
+        Update: {
+          brief?: Json
+          date_key?: string
+          fallback?: boolean
+          generated_at?: string
+          id?: string
+          location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_briefs_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
@@ -426,9 +499,11 @@ export type Database = {
       location_snapshots: {
         Row: {
           captured_at: string
+          content_as_of: string | null
           created_at: string
           date_key: string
           diff_hash: string
+          freshness: string
           id: string
           location_id: string
           provider: string
@@ -436,9 +511,11 @@ export type Database = {
         }
         Insert: {
           captured_at: string
+          content_as_of?: string | null
           created_at?: string
           date_key: string
           diff_hash: string
+          freshness?: string
           id?: string
           location_id: string
           provider: string
@@ -446,9 +523,11 @@ export type Database = {
         }
         Update: {
           captured_at?: string
+          content_as_of?: string | null
           created_at?: string
           date_key?: string
           diff_hash?: string
+          freshness?: string
           id?: string
           location_id?: string
           provider?: string
@@ -527,6 +606,7 @@ export type Database = {
         Row: {
           address_line1: string | null
           address_line2: string | null
+          brand_tolerance: number
           city: string | null
           country: string | null
           created_at: string
@@ -541,11 +621,13 @@ export type Database = {
           settings: Json
           timezone: string
           updated_at: string
+          voice_tone: string | null
           website: string | null
         }
         Insert: {
           address_line1?: string | null
           address_line2?: string | null
+          brand_tolerance?: number
           city?: string | null
           country?: string | null
           created_at?: string
@@ -560,11 +642,13 @@ export type Database = {
           settings?: Json
           timezone?: string
           updated_at?: string
+          voice_tone?: string | null
           website?: string | null
         }
         Update: {
           address_line1?: string | null
           address_line2?: string | null
+          brand_tolerance?: number
           city?: string | null
           country?: string | null
           created_at?: string
@@ -579,6 +663,7 @@ export type Database = {
           settings?: Json
           timezone?: string
           updated_at?: string
+          voice_tone?: string | null
           website?: string | null
         }
         Relationships: [
@@ -690,6 +775,63 @@ export type Database = {
             columns: ["waitlist_signup_id"]
             isOneToOne: false
             referencedRelation: "waitlist_signups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_runs: {
+        Row: {
+          competitor_id: string | null
+          created_at: string
+          finished_at: string | null
+          id: string
+          location_id: string
+          outcome: string
+          pipeline: string
+          reason: string | null
+          run_id: string
+          signals: Json
+          started_at: string
+        }
+        Insert: {
+          competitor_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          location_id: string
+          outcome: string
+          pipeline: string
+          reason?: string | null
+          run_id: string
+          signals?: Json
+          started_at?: string
+        }
+        Update: {
+          competitor_id?: string | null
+          created_at?: string
+          finished_at?: string | null
+          id?: string
+          location_id?: string
+          outcome?: string
+          pipeline?: string
+          reason?: string | null
+          run_id?: string
+          signals?: Json
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_runs_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_runs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -810,13 +952,81 @@ export type Database = {
           },
         ]
       }
+      signal_jobs: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          cursor: Json | null
+          id: string
+          last_error: string | null
+          location_id: string
+          max_attempts: number
+          organization_id: string
+          pipeline: string
+          run_id: string
+          scheduled_for: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          cursor?: Json | null
+          id?: string
+          last_error?: string | null
+          location_id: string
+          max_attempts?: number
+          organization_id: string
+          pipeline: string
+          run_id: string
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          cursor?: Json | null
+          id?: string
+          last_error?: string | null
+          location_id?: string
+          max_attempts?: number
+          organization_id?: string
+          pipeline?: string
+          run_id?: string
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_jobs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_jobs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       snapshots: {
         Row: {
           captured_at: string
           competitor_id: string
+          content_as_of: string | null
           created_at: string
           date_key: string
           diff_hash: string
+          freshness: string
           id: string
           provider: string
           raw_data: Json
@@ -825,9 +1035,11 @@ export type Database = {
         Insert: {
           captured_at: string
           competitor_id: string
+          content_as_of?: string | null
           created_at?: string
           date_key: string
           diff_hash: string
+          freshness?: string
           id?: string
           provider: string
           raw_data: Json
@@ -836,9 +1048,11 @@ export type Database = {
         Update: {
           captured_at?: string
           competitor_id?: string
+          content_as_of?: string | null
           created_at?: string
           date_key?: string
           diff_hash?: string
+          freshness?: string
           id?: string
           provider?: string
           raw_data?: Json
@@ -850,56 +1064,6 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "competitors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      stripe_webhook_events: {
-        Row: {
-          error: string | null
-          event_id: string
-          event_type: string
-          processed_at: string | null
-          received_at: string
-        }
-        Insert: {
-          error?: string | null
-          event_id: string
-          event_type: string
-          processed_at?: string | null
-          received_at?: string
-        }
-        Update: {
-          error?: string | null
-          event_id?: string
-          event_type?: string
-          processed_at?: string | null
-          received_at?: string
-        }
-        Relationships: []
-      }
-      trial_reminder_sends: {
-        Row: {
-          organization_id: string
-          reminder_day: number
-          sent_at: string
-        }
-        Insert: {
-          organization_id: string
-          reminder_day: number
-          sent_at?: string
-        }
-        Update: {
-          organization_id?: string
-          reminder_day?: number
-          sent_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "trial_reminder_sends_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -949,27 +1113,33 @@ export type Database = {
       social_snapshots: {
         Row: {
           captured_at: string
+          content_as_of: string | null
           created_at: string
           date_key: string
           diff_hash: string
+          freshness: string
           id: string
           raw_data: Json
           social_profile_id: string
         }
         Insert: {
           captured_at: string
+          content_as_of?: string | null
           created_at?: string
           date_key: string
           diff_hash: string
+          freshness?: string
           id?: string
           raw_data: Json
           social_profile_id: string
         }
         Update: {
           captured_at?: string
+          content_as_of?: string | null
           created_at?: string
           date_key?: string
           diff_hash?: string
+          freshness?: string
           id?: string
           raw_data?: Json
           social_profile_id?: string
@@ -983,6 +1153,89 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stripe_events: {
+        Row: {
+          brand: string | null
+          cadence: string | null
+          error_message: string | null
+          event_id: string
+          event_type: string
+          organization_id: string | null
+          payload: Json
+          price_id: string | null
+          received_at: string
+          skipped_reason: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: string | null
+          warning: string | null
+        }
+        Insert: {
+          brand?: string | null
+          cadence?: string | null
+          error_message?: string | null
+          event_id: string
+          event_type: string
+          organization_id?: string | null
+          payload: Json
+          price_id?: string | null
+          received_at?: string
+          skipped_reason?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string | null
+          warning?: string | null
+        }
+        Update: {
+          brand?: string | null
+          cadence?: string | null
+          error_message?: string | null
+          event_id?: string
+          event_type?: string
+          organization_id?: string | null
+          payload?: Json
+          price_id?: string | null
+          received_at?: string
+          skipped_reason?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string | null
+          warning?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_webhook_events: {
+        Row: {
+          error: string | null
+          event_id: string
+          event_type: string
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          error?: string | null
+          event_id: string
+          event_type: string
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          error?: string | null
+          event_id?: string
+          event_type?: string
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
       }
       tracked_keywords: {
         Row: {
@@ -1021,6 +1274,32 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trial_reminder_sends: {
+        Row: {
+          organization_id: string
+          reminder_day: number
+          sent_at: string
+        }
+        Insert: {
+          organization_id: string
+          reminder_day: number
+          sent_at?: string
+        }
+        Update: {
+          organization_id?: string
+          reminder_day?: number
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_reminder_sends_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1084,6 +1363,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_signal_jobs: {
+        Args: { batch: number }
+        Returns: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          cursor: Json | null
+          id: string
+          last_error: string | null
+          location_id: string
+          max_attempts: number
+          organization_id: string
+          pipeline: string
+          run_id: string
+          scheduled_for: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "signal_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       is_org_admin: { Args: { org_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
     }
