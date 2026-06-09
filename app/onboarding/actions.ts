@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 import { getProvider } from "@/lib/providers"
 import {
@@ -12,8 +11,7 @@ import {
   mapPlaceToLocation,
 } from "@/lib/places/google"
 import { scoreCompetitor } from "@/lib/providers/scoring"
-import { enrichCompetitorSeo } from "@/lib/seo/enrich"
-import { enrichCompetitorContent } from "@/lib/content/enrich"
+import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureLocationLimit } from "@/lib/billing/limits"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
@@ -754,69 +752,18 @@ export async function completeOnboardingAction(input: {
         .from("competitors")
         .update({ is_active: true, metadata })
         .eq("id", compId)
-
-      // Fire-and-forget enrichment for each approved competitor
-      const compMeta = comp.metadata as Record<string, unknown> | null
-      const placeDetails = compMeta?.placeDetails as Record<string, unknown> | null
-      const compWebsite =
-        comp.website ??
-        (placeDetails?.websiteUri as string | undefined) ??
-        (compMeta?.website as string | undefined) ??
-        null
-      const compDomain = extractDomainFromUrl(compWebsite)
-      const dateKey = new Date().toISOString().slice(0, 10)
-
-      const { data: locData } = await admin
-        .from("locations")
-        .select("website")
-        .eq("id", comp.location_id)
-        .single()
-      const locationDomain = extractDomainFromUrl(locData?.website)
-
-      const { data: orgData } = await admin
-        .from("organizations")
-        .select("subscription_tier")
-        .eq("id", input.orgId)
-        .single()
-      const tier = (orgData?.subscription_tier ?? "free") as SubscriptionTier
-
-      const supabase = await createServerSupabaseClient()
-
-      void (async () => {
-        if (compDomain) {
-          try {
-            await enrichCompetitorSeo(
-              compId,
-              compDomain,
-              locationDomain,
-              dateKey,
-              tier,
-              supabase
-            )
-          } catch (err) {
-            console.warn(`[Onboarding] SEO enrichment failed for ${comp.name}:`, err)
-          }
-        }
-        if (compWebsite) {
-          try {
-            await enrichCompetitorContent(
-              compId,
-              comp.name ?? "Competitor",
-              compWebsite,
-              input.orgId,
-              dateKey,
-              supabase,
-              null
-            )
-          } catch (err) {
-            console.warn(
-              `[Onboarding] Content enrichment failed for ${comp.name}:`,
-              err
-            )
-          }
-        }
-      })()
     }
+  }
+
+  // Kick the FIRST-RUN pull sequence through the durable queue (replaces the old
+  // per-competitor fire-and-forget SEO/content enrichment — which was unbounded, ran
+  // only 2 of the signals, and died when the action returned). enqueueFirstRun queues
+  // every pipeline once (forced, cadence-ignored); the worker drains them and the first
+  // brief lands within the honest "processing" window the onboarding UI already shows.
+  try {
+    await enqueueFirstRun(admin, { organizationId: input.orgId, locationId: input.locationId })
+  } catch (err) {
+    console.warn("[Onboarding] enqueueFirstRun failed:", err)
   }
 
   // Fire-and-forget welcome email

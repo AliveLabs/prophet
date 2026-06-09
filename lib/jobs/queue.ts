@@ -28,6 +28,9 @@ export type PipelineOutcome =
 export const DAILY_PIPELINES = ["content", "visibility", "events", "weather", "busy_times", "social", "insights"] as const
 export const WEEKLY_PIPELINES = ["photos"] as const
 
+/** Pull scope stored on each job's `cursor` and applied by the worker. */
+export type PullScope = { mode?: "first_run" | "daily" | "weekly" | "adhoc"; force?: boolean; platforms?: string[] }
+
 export async function enqueueRun(
   sb: SB,
   args: {
@@ -37,6 +40,8 @@ export async function enqueueRun(
     pipelines: readonly string[]
     /** Optional delay (e.g. enqueue `insights` after the data pipelines have a head start). */
     delaySeconds?: number
+    /** Cadence mode / forced refresh / platform filter — carried per job for the worker. */
+    scope?: PullScope
   }
 ): Promise<number> {
   if (args.pipelines.length === 0) return 0
@@ -49,10 +54,41 @@ export async function enqueueRun(
     location_id: args.locationId,
     pipeline,
     ...(scheduledFor ? { scheduled_for: scheduledFor } : {}),
+    ...(args.scope ? { cursor: args.scope as Database["public"]["Tables"]["signal_jobs"]["Insert"]["cursor"] } : {}),
   }))
   const { error } = await sb.from("signal_jobs").insert(rows)
   if (error) throw error
   return rows.length
+}
+
+// ── Pull sequencing modes ───────────────────────────────────────────────────
+// All four modes flow through the SAME queue + worker (bounded, observable):
+
+const FIRST_RUN_DATA = ["content", "visibility", "events", "weather", "busy_times", "social", "photos"] as const
+const ADHOC_LOCATION_DATA = ["content", "visibility", "events", "weather", "busy_times", "social"] as const
+
+/** First-time onboarding pull: everything once (force = ignore cadence), insights after a head start. */
+export async function enqueueFirstRun(sb: SB, args: { organizationId: string; locationId: string; runId?: string }): Promise<number> {
+  const runId = args.runId ?? crypto.randomUUID()
+  let n = await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: FIRST_RUN_DATA, scope: { mode: "first_run", force: true } })
+  n += await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: ["insights"], delaySeconds: 15 * 60, scope: { mode: "first_run" } })
+  return n
+}
+
+/** Ad-hoc "refresh this business" — all data signals for one location (forced by default). */
+export async function enqueueAdhocLocation(sb: SB, args: { organizationId: string; locationId: string; pipelines?: readonly string[]; force?: boolean }): Promise<number> {
+  const runId = crypto.randomUUID()
+  let n = await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: args.pipelines ?? ADHOC_LOCATION_DATA, scope: { mode: "adhoc", force: args.force ?? true } })
+  n += await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: ["insights"], delaySeconds: 5 * 60, scope: { mode: "adhoc" } })
+  return n
+}
+
+/** Ad-hoc "refresh just <network(s)>" — social for the given platforms only (forced by default). */
+export async function enqueueAdhocPlatform(sb: SB, args: { organizationId: string; locationId: string; platforms: string[]; force?: boolean }): Promise<number> {
+  const runId = crypto.randomUUID()
+  let n = await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: ["social"], scope: { mode: "adhoc", force: args.force ?? true, platforms: args.platforms } })
+  n += await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: ["insights"], delaySeconds: 5 * 60, scope: { mode: "adhoc" } })
+  return n
 }
 
 /** Concurrency-safe claim of up to `batch` due jobs (atomic flip to running). */
