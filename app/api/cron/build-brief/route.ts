@@ -10,6 +10,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief } from "@/lib/insights/daily-brief"
+import { runStandingQuestion } from "@/lib/ask/history"
 
 export const maxDuration = 800 // Fluid Compute; the multi-skill + synthesis work exceeds 300s at scale
 
@@ -38,7 +39,9 @@ export async function GET(req: Request) {
       const dossier = await buildDossier(locationId)
       const { brief, dropped } = await runBrief(dossier)
       await saveBrief(brief)
-      results.push({ locationId, ok: true, headline: brief.headline, plays: brief.plays.length, dropped: dropped.length })
+      // Pinned standing question re-runs on the fresh signals, right after the brief.
+      const standing = await runStandingQuestion(locationId)
+      results.push({ locationId, ok: true, headline: brief.headline, plays: brief.plays.length, dropped: dropped.length, standing })
     } catch (err) {
       results.push({ locationId, ok: false, error: err instanceof Error ? err.message : "failed" })
     }

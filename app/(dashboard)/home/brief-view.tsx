@@ -163,6 +163,7 @@ export default function BriefView({
   readOnly = false,
   detailHrefBase,
   checks,
+  standingAsk,
 }: {
   brief: Brief
   locationId: string
@@ -171,6 +172,7 @@ export default function BriefView({
   readOnly?: boolean
   detailHrefBase?: string
   checks?: PipelineCheck[]
+  standingAsk?: { question: string; answer: string } | null
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
   const freshCount = (brief.coverage ?? []).filter((c) => c.present && !c.stale).length
@@ -224,18 +226,45 @@ export default function BriefView({
             Tuning moved to Settings (explicit refresh, not live); competitor
             management moved to the Competitors page. ── */}
         <aside className="rail-col">
-          {/* Ask Ticket leads the rail: the answer-first anchor (bounded NL query). Preview until wired. */}
+          {/* Ask Ticket leads the rail: the answer-first anchor. Live — links to /ask;
+              shows the morning standing answer when one is pinned. */}
           <div className="rail-card ask-card">
-            <div className="rail-head"><span>Ask Ticket</span><span className="rail-tag">Preview</span></div>
-            <div className="ask-field">
-              <input type="text" placeholder="Ask about your market…" aria-label="Ask Ticket (coming soon)" disabled />
-            </div>
-            <div className="chips">
-              <span className="chip">Who&apos;s undercutting me?</span>
-              <span className="chip">What changed this week?</span>
-              <span className="chip">Before the weekend?</span>
-            </div>
-            <p className="ask-foot">Domain-locked. Answers will come only from your market and competitor data, never the open web. Coming soon.</p>
+            <div className="rail-head"><span>Ask Ticket</span>{readOnly ? <span className="rail-tag">Preview</span> : <a className="rail-tag rail-tag--link" href="/ask">Open →</a>}</div>
+            {standingAsk ? (
+              <div className="ask-standing">
+                <div className="ask-standing__q">{standingAsk.question}</div>
+                <p className="ask-standing__a">{standingAsk.answer}</p>
+                <span className="ask-standing__meta">Your standing question · re-ran with this morning&apos;s brief</span>
+              </div>
+            ) : (
+              <>
+                {readOnly ? (
+                  <div className="ask-field">
+                    <input type="text" placeholder="Ask about your market…" aria-label="Ask Ticket (preview)" disabled />
+                  </div>
+                ) : (
+                  <a className="ask-field ask-field--link" href="/ask" aria-label="Ask Ticket">
+                    <span>Ask about your market…</span>
+                  </a>
+                )}
+                <div className="chips">
+                  {readOnly ? (
+                    <>
+                      <span className="chip">Who&apos;s undercutting me?</span>
+                      <span className="chip">What changed this week?</span>
+                      <span className="chip">Before the weekend?</span>
+                    </>
+                  ) : (
+                    <>
+                      <a className="chip chip--link" href="/ask">Who&apos;s undercutting me?</a>
+                      <a className="chip chip--link" href="/ask">What changed this week?</a>
+                      <a className="chip chip--link" href="/ask">Before the weekend?</a>
+                    </>
+                  )}
+                </div>
+                <p className="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.{readOnly ? " Coming soon." : ""}</p>
+              </>
+            )}
           </div>
 
           {/* What we checked — credibility module: which live streams fed today's brief,

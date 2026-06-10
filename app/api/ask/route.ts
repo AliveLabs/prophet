@@ -5,6 +5,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { gatherAskContext } from "@/lib/ask/gather"
 import { answerQuestion, MAX_QUESTION_LEN } from "@/lib/ask/answer"
+import { saveAsk } from "@/lib/ask/history"
 
 export const maxDuration = 60
 
@@ -45,6 +46,7 @@ export async function POST(req: Request) {
   try {
     const ctx = await gatherAskContext(loc.id)
     const answer = await answerQuestion(ctx, question)
+    await saveAsk(loc.id, question, answer, "user", user.id) // non-fatal on failure
     return Response.json(answer)
   } catch (err) {
     console.error("[ask] failed:", err)

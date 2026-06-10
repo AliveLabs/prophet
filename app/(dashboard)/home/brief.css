@@ -232,3 +232,15 @@
 .ticket-brief .check-run--stale .check-run__mark{ color:var(--wire-gold); }
 .ticket-brief .check-run--bad .check-run__mark{ color:var(--alert, #b3261e); }
 .ticket-brief .check-run--off .check-run__mark{ color:var(--ash-2); }
+
+/* Ask rail (Batch 2): live link states + the morning standing answer */
+.ticket-brief .rail-tag--link{ text-decoration:none; color:var(--rust); cursor:pointer; }
+.ticket-brief .rail-tag--link:hover{ color:var(--ink); }
+.ticket-brief .ask-field--link{ display:block; text-decoration:none; cursor:text; }
+.ticket-brief .ask-field--link span{ color:var(--ash-2); font-size:13px; }
+.ticket-brief .chip--link{ text-decoration:none; cursor:pointer; }
+.ticket-brief .chip--link:hover{ border-color:var(--rust); color:var(--ink); }
+.ticket-brief .ask-standing{ padding:2px 0 0; }
+.ticket-brief .ask-standing__q{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12px; color:var(--rust); }
+.ticket-brief .ask-standing__a{ margin:6px 0 0; font-size:13px; line-height:1.55; color:var(--print); }
+.ticket-brief .ask-standing__meta{ display:block; margin-top:8px; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
