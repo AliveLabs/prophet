@@ -258,3 +258,48 @@ model does NOT self-gate on a distance field → gates are STRUCTURAL, not advis
 - **HELD (Layer 4, discuss with Bryan):** busy-times backtest → per-restaurant event ELASTICITY
   (which event classes measurably move THIS restaurant's traffic; negative results are product too).
 - Also: worker zombie-reclaim (16 stuck 'running' jobs found in prod; >20m running → requeued).
+
+---
+
+## ════ COMPLETE-PICTURE BUILD PLAN (2026-06-10 — Bryan: "build every open item, now") ════
+Goal: nothing on any page says "coming soon" — Bryan evaluates the WHOLE experience on prod.
+Order = data-visibility first (what insights are made of), then interaction, then comms.
+
+### Batch 1 — Evidence & proof (the "why" layer; makes evaluation possible)
+- ☐ **Vision proof-grid on detail pages**: the rival's actual posts/photos + engagement numbers +
+  Gemini "why this worked" — joined from social_snapshots (post images persisted to Storage) +
+  competitor_photos into /home/[rank] + /competitors/[id]. (The data exists; it's a read+render.)
+- ☐ **Re-enable social visual analysis in the scheduled path** (currently SKIP_STEPS): make it a
+  per-run capped step (like photos, 24/run) so it stays under 300s instead of being skipped.
+- ☐ **"What we checked" reads pipeline_runs** (true run outcomes + reasons + timestamps) instead of
+  dossier-derived guesses; per-source "last tried / what happened" drill.
+
+### Batch 2 — Ask Ticket completion
+- ☐ **Saved history**: `ask_history` table (additive migration) — every Q/A persisted per location,
+  rendered on /ask ("Recent asks" is currently an empty shell).
+- ☐ **Pinned standing question**: pick a question → morning cron re-runs it after the brief
+  precompute → answer lands on /ask (+ on the brief rail). Infra: column on locations + a step in
+  the 08:00 build-brief cron.
+
+### Batch 3 — Management actions that save
+- ☐ **Add-a-competitor with real discovery** (Competitors page): Places autocomplete (reuse the
+  Phase-9 preview routes, authed) → insert + approve + enqueue first-pull for that competitor.
+- ☐ **Add-a-location** (account flyout): reuse existing locations/new action, editorial chrome.
+- ☐ **Port the reworked onboarding UI** (preview-onboarding → authed /onboarding): structured
+  inputs, add/remove competitors with "why", honest staged processing — wired to the real actions
+  (account/location creation already queue-wired).
+
+### Batch 4 — Communications
+- ☐ **Communications prefs persist** (locations.settings or a prefs table).
+- ☐ **Weekly digest email** (Resend; highlights → drives to the brief; respects the pref).
+- ☐ **Browser notification on new brief** (web push or in-app toast on first visit; start in-app).
+
+### Batch 5 — Momentum (the acted-on loop)
+- ☐ **Save / Snooze / Dismiss on recommendations** (action store table) + "cleared this week"
+  momentum strip; per-play feedback already persists (brief_feedback).
+- ☐ **Severity → slider auto-recalibration** (recordPlayFeedback already wired; carry reviewer
+  severity onto plays).
+
+### Held / discuss
+- **Layer 4 event elasticity** (busy-times backtest) — design discussion with Bryan.
+- Old 11 module pages: retire vs drill-down conversion — decide after evaluation.
