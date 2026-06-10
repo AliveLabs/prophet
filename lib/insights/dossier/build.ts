@@ -396,7 +396,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} topic${reviewThemes === 1 ? "" : "s"}` : "none yet", reviewThemes ? dateKey : null),
     mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null),
     mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey),
-    mk("Competitors", competitors.length > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
+    mk("Competitors", scraped > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
     mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null),
   ]
 

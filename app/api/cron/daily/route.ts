@@ -82,7 +82,10 @@ export async function GET(req: Request) {
     const tier = orgTierMap.get(location.organization_id) ?? "free"
     const limits = TIER_LIMITS[tier]
 
-    const isWeeklyOnly = limits.eventsCadence === "weekly"
+    // Active TRIALS run daily regardless of tier — a trial is an evaluation, and an
+    // evaluator who sees data move only on Mondays churns. Post-trial free stays weekly.
+    const inActiveTrial = orgTrial ? isTrialActive(orgTrial) && !!orgTrial.trial_ends_at : false
+    const isWeeklyOnly = limits.eventsCadence === "weekly" && !inActiveTrial
     if (isWeeklyOnly && !isMonday) {
       jobs.push({
         location_id: location.id,

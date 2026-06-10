@@ -32,6 +32,7 @@ import type {
   MenuSource,
 } from "@/lib/content/types"
 import { getVerticalConfig } from "@/lib/verticals"
+import { ensureCompetitorWebsites } from "@/lib/places/ensure-website"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -570,9 +571,12 @@ export async function buildContentContext(
 
   const { data: comps } = await supabase
     .from("competitors")
-    .select("id, name, website, metadata, is_active")
+    .select("id, name, website, metadata, is_active, provider_entity_id")
     .eq("location_id", locationId)
     .eq("is_active", true)
+
+  // Self-heal missing websites from Places (they starve menus/discovery/SEO silently).
+  await ensureCompetitorWebsites(supabase, (comps ?? []) as Array<{ id: string; website: string | null; provider_entity_id?: string | null }>)
 
   const competitors = (comps ?? [])
     .filter(

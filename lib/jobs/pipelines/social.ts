@@ -37,6 +37,7 @@ import { fetchInstagramProfile, fetchInstagramPosts } from "@/lib/providers/data
 import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data365/facebook"
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
 import { freshnessFields } from "@/lib/freshness/stamp"
+import { ensureCompetitorWebsites } from "@/lib/places/ensure-website"
 import { shouldPull, type PullMode } from "@/lib/jobs/cadence"
 import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
@@ -617,9 +618,12 @@ export async function buildSocialContext(
 
   const { data: competitors } = await supabase
     .from("competitors")
-    .select("id, name, website, metadata, is_active")
+    .select("id, name, website, metadata, is_active, provider_entity_id")
     .eq("location_id", locationId)
     .eq("is_active", true)
+
+  // Self-heal missing websites from Places (they starve discovery/menus/SEO silently).
+  await ensureCompetitorWebsites(supabase, (competitors ?? []) as Array<{ id: string; website: string | null; provider_entity_id?: string | null }>)
 
   const approved = (competitors ?? [])
     .filter((c) => {
