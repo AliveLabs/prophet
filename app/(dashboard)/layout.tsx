@@ -20,6 +20,7 @@ import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
 import { Toaster } from "sonner"
 import ShellNav from "./shell-nav"
 import AccountMenu from "./account-menu"
+import NewBriefNotice from "./new-brief-notice"
 import { loadOperatorAccount } from "./operator-data"
 import "./home/brief.css"
 import "./operator.css"
@@ -135,12 +136,35 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const account = await loadOperatorAccount()
 
+  // New-brief notice inputs: the primary location's latest brief stamp + comms pref.
+  const currentLoc = account.locations.find((l) => l.current) ?? account.locations[0]
+  let briefGeneratedAt: string | null = null
+  let noticeEnabled = true
+  if (currentLoc) {
+    const [{ data: latestBrief }, { data: locSettings }] = await Promise.all([
+      supabase
+        .from("daily_briefs")
+        .select("generated_at")
+        .eq("location_id", currentLoc.id)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase.from("locations").select("settings").eq("id", currentLoc.id).maybeSingle(),
+    ])
+    briefGeneratedAt = latestBrief?.generated_at ?? null
+    const comms = ((locSettings?.settings as Record<string, unknown> | null)?.communications ?? {}) as Record<string, boolean>
+    noticeEnabled = comms.browser_notifications !== false
+  }
+
   return (
     <BrandProvider brand={dataBrand}>
       {/* Toaster must stay OUTSIDE .ticket-app: its static wrapper would otherwise
           become a grid item and steal the 228px sidebar column (displacing the whole
           shell — sidebar to 1fr, main below the fold). */}
       <Toaster position="top-right" richColors closeButton />
+      {currentLoc ? (
+        <NewBriefNotice locationId={currentLoc.id} generatedAt={briefGeneratedAt} enabled={noticeEnabled} />
+      ) : null}
       <div className="ticket-app">
         <aside className="pv-sidebar">
           <div className="pv-brand"><TicketMark /> TICKET</div>

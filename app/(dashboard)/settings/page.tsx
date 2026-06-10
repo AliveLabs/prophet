@@ -9,10 +9,19 @@ import BriefTuning from "./brief-tuning"
 import { VoiceSelect, CommsPrefs } from "./settings-controls"
 import RefreshControls from "./refresh-controls"
 
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+
 export default async function SettingsPage() {
   const user = await requireUser()
   const ctx = await loadOperatorContext()
   const email = user.email ?? "you"
+  const sb = await createServerSupabaseClient()
+  const { data: locRow } = await sb
+    .from("locations")
+    .select("settings")
+    .eq("id", ctx.locationId)
+    .maybeSingle()
+  const comms = ((locRow?.settings as Record<string, unknown> | null)?.communications ?? null) as Record<string, boolean> | null
   return (
     <div className="pv-page">
       <div className="pv-page-head">
@@ -71,7 +80,7 @@ export default async function SettingsPage() {
 
       <div className="pv-section">
         <div className="pv-section-head">Communications</div>
-        <CommsPrefs email={email} />
+        <CommsPrefs email={email} locationId={ctx.locationId} initial={comms} />
       </div>
     </div>
   )
