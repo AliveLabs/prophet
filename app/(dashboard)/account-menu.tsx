@@ -58,6 +58,7 @@ export default function AccountMenu({ userName, locations }: { userName: string;
             </button>
           ))}
           <div className="pv-acct__divider" />
+          <Link href="/locations/new" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Add a location</Link>
           <Link href="/settings" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Settings</Link>
           <form action={signOutAction}>
             <button type="submit" className="pv-acct__item" role="menuitem">Sign out</button>

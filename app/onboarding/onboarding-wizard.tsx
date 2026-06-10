@@ -1,33 +1,43 @@
 "use client"
 
-import { useState, useCallback, useRef, useTransition } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+// Authed onboarding — the editorial step-through from app/preview-onboarding,
+// wired to the REAL server actions. Five steps: find restaurant (Places
+// autocomplete) → confirm details (creates org + location, kicks competitor
+// discovery) → confirm competitors (≥1 required) → optional monitoring prefs →
+// processing (completeOnboardingAction + honest per-pipeline job status polled
+// from /api/onboarding/progress — no fake progress bars).
+
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import "./onboarding.css"
-import SplashStep from "./steps/splash"
-import BusinessInfoStep from "./steps/business-info"
-import CompetitorSelectionStep from "./steps/competitor-selection"
-import IntelligenceSettingsStep from "./steps/intelligence-settings"
-import LoadingBriefStep from "./steps/loading-brief"
-import type { PlaceDetails } from "@/components/places/location-search"
-import ThemeToggle from "@/components/ui/theme-toggle"
 import {
   createOrgAndLocationAction,
   discoverCompetitorsForLocation,
+  completeOnboardingAction,
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
-import { TicketLogo } from "@/components/brand/ticket-logo"
 
-const TOTAL_STEPS = 4
+const TOTAL = 5
+const MAX_TRACKED = 5
 
-function getStepLabels(config: VerticalConfig): string[] {
-  return [
-    "",
-    config.onboarding.businessInfo.title,
-    "Your Competitors",
-    "What to Watch",
-    "Your First Brief",
-  ]
+type Prediction = { place_id: string; description: string }
+
+// Shape of /api/places/details → place (mapPlaceToLocation output).
+type Place = {
+  primary_place_id: string
+  name: string
+  category: string | null
+  types: string[]
+  address_line1: string | null
+  city: string | null
+  region: string | null
+  postal_code: string | null
+  country: string | null
+  geo_lat: number | null
+  geo_lng: number | null
+  phone: string | null
+  website: string | null
 }
 
 export type OnboardingCandidate = {
@@ -46,6 +56,231 @@ type WizardProps = {
   verticalConfig?: VerticalConfig
 }
 
+const PREFS: Array<{ key: string; title: string; sub: string }> = [
+  { key: "pricing_changes", title: "Pricing changes", sub: "When competitors move their prices." },
+  { key: "menu_updates", title: "Menu updates", sub: "New dishes and menu changes nearby." },
+  { key: "promotions", title: "Promotions", sub: "Deals and specials competitors run." },
+  { key: "review_activity", title: "Review activity", sub: "Review spikes and sentiment shifts." },
+  { key: "new_openings", title: "New openings", sub: "New spots opening in your area." },
+]
+
+function prettyCategory(category: string | null | undefined): string {
+  if (!category) return ""
+  const s = category.replace(/_/g, " ")
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function num(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function formatMiles(meters: number): string {
+  return Math.max(0.1, meters * 0.000621371).toFixed(1)
+}
+
+function metaLine(c: OnboardingCandidate): string {
+  const parts: string[] = []
+  if (c.category) parts.push(prettyCategory(c.category))
+  const dist = num(c.metadata.distanceMeters)
+  if (dist !== null) parts.push(`${formatMiles(dist)} mi`)
+  const rating = num(c.metadata.rating)
+  if (rating !== null) parts.push(`${rating.toFixed(1)}★`)
+  return parts.join(" · ")
+}
+
+// Human "why we picked it" from the scoring metadata.
+function whyLine(c: OnboardingCandidate): string {
+  const factors = Array.isArray(c.metadata.factors)
+    ? (c.metadata.factors as Array<{ label?: string; value?: number }>)
+    : []
+  const sameCuisine = factors.some(
+    (f) => f.label === "category_match" && (f.value ?? 0) >= 1
+  )
+  const dist = num(c.metadata.distanceMeters)
+  const rating = num(c.metadata.rating)
+  const parts: string[] = [
+    sameCuisine ? "Same cuisine" : c.category ? prettyCategory(c.category) : "Nearby spot",
+  ]
+  if (dist !== null) parts.push(`${formatMiles(dist)} mi away`)
+  if (rating !== null && rating >= 4.3) parts.push(`strong ${rating.toFixed(1)}★ reputation`)
+  return parts.join(", ")
+}
+
+const PIPELINE_ORDER = [
+  "content",
+  "visibility",
+  "events",
+  "weather",
+  "busy_times",
+  "social",
+  "photos",
+  "insights",
+] as const
+
+const PIPELINE_LABELS: Record<string, string> = {
+  content: "Menus & websites",
+  visibility: "Search visibility",
+  events: "Local events",
+  weather: "Weather",
+  busy_times: "Foot traffic",
+  social: "Social media",
+  photos: "Photos",
+  insights: "First signals",
+}
+
+// Step 4 — runs completion once, then shows real signal_jobs statuses.
+function ProcessingStep({
+  orgId,
+  locationId,
+  competitorIds,
+  monitoringPrefs,
+}: {
+  orgId: string
+  locationId: string
+  competitorIds: string[]
+  monitoringPrefs: Record<string, boolean>
+}) {
+  const router = useRouter()
+  const [jobs, setJobs] = useState<Array<{ pipeline: string; status: string }> | null>(null)
+  const [completionDone, setCompletionDone] = useState(false)
+  const [completionError, setCompletionError] = useState<string | null>(null)
+  const [timedOut, setTimedOut] = useState(false)
+  const startedRef = useRef(false)
+
+  const runCompletion = useCallback(async () => {
+    setCompletionError(null)
+    try {
+      const result = await completeOnboardingAction({
+        orgId,
+        locationId,
+        competitorIds,
+        monitoringPrefs,
+      })
+      if (!result.ok) setCompletionError(result.error)
+    } catch {
+      setCompletionError("Something went wrong finishing setup. Try again.")
+    } finally {
+      setCompletionDone(true)
+    }
+  }, [orgId, locationId, competitorIds, monitoringPrefs])
+
+  useEffect(() => {
+    if (startedRef.current) return
+    startedRef.current = true
+    void runCompletion()
+  }, [runCompletion])
+
+  // Poll the authed progress route every ~4s for real job statuses.
+  useEffect(() => {
+    let cancelled = false
+    async function poll() {
+      try {
+        const res = await fetch(
+          `/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`
+        )
+        const data = await res.json()
+        if (!cancelled && data.ok && Array.isArray(data.jobs)) setJobs(data.jobs)
+      } catch {
+        // transient — next tick retries
+      }
+    }
+    void poll()
+    const timer = setInterval(poll, 4000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [locationId])
+
+  // Don't hold people hostage: after ~90s they can enter even if jobs run on.
+  useEffect(() => {
+    const timer = setTimeout(() => setTimedOut(true), 90_000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
+  const insightsDone = statusByPipeline.get("insights") === "done"
+  const allDone =
+    jobs !== null && jobs.length > 0 && jobs.every((j) => j.status === "done")
+  const canEnter = completionDone && !completionError && (insightsDone || timedOut)
+
+  return (
+    <>
+      <span className="ob-kicker">You&apos;re set</span>
+      <h1 className="ob-h">We&apos;re building your first brief.</h1>
+      <p className="ob-sub">
+        We&apos;re pulling competitor, demand, and review signals now. Each row below is
+        live status from the pipeline — the essentials land in a few minutes, insights
+        come last.
+      </p>
+
+      {completionError ? (
+        <>
+          <div className="ob-alert">{completionError}</div>
+          <div className="ob-nav">
+            <button className="ob-btn" onClick={() => { setCompletionDone(false); void runCompletion() }}>
+              Try again
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <ul className="ob-status">
+            {PIPELINE_ORDER.map((pipeline) => {
+              const status = statusByPipeline.get(pipeline) ?? "queued"
+              const cls =
+                status === "done"
+                  ? "is-ready"
+                  : status === "running"
+                    ? "is-doing"
+                    : status === "failed"
+                      ? "is-failed"
+                      : "is-queued"
+              const when =
+                status === "done"
+                  ? "Ready"
+                  : status === "running"
+                    ? "In progress"
+                    : status === "failed"
+                      ? "Hit a snag"
+                      : jobs === null || jobs.length === 0
+                        ? "Starting"
+                        : "Queued"
+              return (
+                <li className={`ob-status__row ${cls}`} key={pipeline}>
+                  <span className="ob-status__mark" />
+                  <span className="ob-status__label">{PIPELINE_LABELS[pipeline]}</span>
+                  <span className="ob-status__when">{when}</span>
+                </li>
+              )
+            })}
+          </ul>
+
+          {!allDone ? <div className="ob-sweep" /> : null}
+
+          {canEnter ? (
+            <>
+              {!allDone ? (
+                <p className="ob-hint">
+                  Still working — data keeps landing after you enter. Your brief fills
+                  in as each signal finishes.
+                </p>
+              ) : null}
+              <div className="ob-nav">
+                <button className="ob-btn" onClick={() => router.push("/home")}>
+                  Open your brief →
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="ob-hint">This usually takes a minute or two. Hang tight.</p>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
 export default function OnboardingWizard({
   existingOrgId,
   existingLocationId,
@@ -53,38 +288,45 @@ export default function OnboardingWizard({
   verticalConfig: externalConfig,
 }: WizardProps) {
   const verticalConfig = externalConfig ?? getVerticalConfig()
-  const stepLabels = getStepLabels(verticalConfig)
   const initialStep = existingOrgId && existingLocationId ? 2 : 0
-
   const [step, setStep] = useState(initialStep)
-  const [direction, setDirection] = useState<"fwd" | "back">("fwd")
 
-  // Step 1 state
-  const [businessName, setBusinessName] = useState("")
-  const [selectedPlace, setSelectedPlace] = useState<PlaceDetails | null>(null)
-  const [cuisine, setCuisine] = useState<string | null>(null)
+  // step 0 — find restaurant (authed Places autocomplete)
+  const [query, setQuery] = useState("")
+  const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [listOpen, setListOpen] = useState(false)
+  const [place, setPlace] = useState<Place | null>(null)
+  const [loadingPlace, setLoadingPlace] = useState(false)
+  const [placeError, setPlaceError] = useState<string | null>(null)
 
-  // Org/location IDs (from Step 1 creation or resume)
+  // step 1 — confirm details (only fields createOrgAndLocationAction accepts)
+  const [bizName, setBizName] = useState("")
+  const [address, setAddress] = useState("")
+  const [cuisine, setCuisine] = useState("")
+  const [website, setWebsite] = useState("")
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+
   const [orgId, setOrgId] = useState<string | null>(existingOrgId ?? null)
-  const [locationId, setLocationId] = useState<string | null>(
-    existingLocationId ?? null
-  )
+  const [locationId, setLocationId] = useState<string | null>(existingLocationId ?? null)
 
-  // Step 2 state
+  // step 2 — competitors (top picks auto-selected; selection = ids sent to completion)
   const [competitors, setCompetitors] = useState<OnboardingCandidate[]>(
     existingCompetitors ?? []
   )
-  const [selectedCompetitorIds, setSelectedCompetitorIds] = useState<Set<string>>(
-    new Set()
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set((existingCompetitors ?? []).slice(0, MAX_TRACKED).map((c) => c.id))
   )
-  const [discoveringCompetitors, setDiscoveringCompetitors] = useState(false)
+  const [discovering, setDiscovering] = useState(false)
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
-  const [searchingCompetitors, setSearchingCompetitors] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searching, setSearching] = useState(false)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchRequestIdRef = useRef(0)
 
-  // Step 3 state
-  const [monitoringPrefs, setMonitoringPrefs] = useState({
+  // step 3 — monitoring prefs (same booleans the actions persist)
+  const [monitoringPrefs, setMonitoringPrefs] = useState<Record<string, boolean>>({
     pricing_changes: true,
     menu_updates: true,
     promotions: true,
@@ -92,345 +334,502 @@ export default function OnboardingWizard({
     new_openings: true,
   })
 
-  const [isPending, startTransition] = useTransition()
-
-  const goTo = useCallback(
-    (target: number, dir: "fwd" | "back" = "fwd") => {
-      setDirection(dir)
-      setStep(target)
-    },
-    []
-  )
-
-  const nextStep = useCallback(() => {
-    if (step < TOTAL_STEPS) goTo(step + 1, "fwd")
-  }, [step, goTo])
-
-  const prevStep = useCallback(() => {
-    if (step > 1) goTo(step - 1, "back")
-  }, [step, goTo])
-
-  const handleStep1Continue = useCallback(async () => {
-    if (!businessName.trim() || !selectedPlace) return
-
-    startTransition(async () => {
-      const result = await createOrgAndLocationAction({
-        businessName: businessName.trim(),
-        cuisine,
-        place: selectedPlace,
-        industryType: verticalConfig.industryType,
-      })
-
-      if (!result.ok) {
-        return
+  // debounced autocomplete; pauses once a place is chosen
+  useEffect(() => {
+    const q = query.trim()
+    if (place || q.length < 2) {
+      setPredictions([])
+      return
+    }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        setPredictions(data.ok ? (data.predictions ?? []) : [])
+        setListOpen(true)
+      } catch {
+        setPredictions([])
       }
+    }, 300)
+    return () => clearTimeout(t)
+  }, [query, place])
 
-      setOrgId(result.orgId)
-      setLocationId(result.locationId)
-      goTo(2, "fwd")
+  async function pick(p: Prediction) {
+    setQuery(p.description)
+    setListOpen(false)
+    setPredictions([])
+    setLoadingPlace(true)
+    setPlaceError(null)
+    try {
+      const res = await fetch(
+        `/api/places/details?place_id=${encodeURIComponent(p.place_id)}`
+      )
+      const data = await res.json()
+      if (!data.ok || !data.place) {
+        setPlaceError("Couldn't pull that listing. Try another result.")
+      } else {
+        const selected = data.place as Place
+        setPlace(selected)
+        setBizName(selected.name ?? "")
+        setAddress(selected.address_line1 ?? "")
+        setCuisine(prettyCategory(selected.category))
+        setWebsite(selected.website ?? "")
+      }
+    } catch {
+      setPlaceError("Lookup failed. Try another result.")
+    } finally {
+      setLoadingPlace(false)
+    }
+  }
 
-      // Fire-and-forget competitor discovery
-      setDiscoveringCompetitors(true)
+  function clearPlace() {
+    setPlace(null)
+    setQuery("")
+    setPlaceError(null)
+  }
+
+  const discover = useCallback(
+    async (locId: string) => {
+      setDiscovering(true)
       setDiscoveryError(null)
       try {
-        const discovered = await discoverCompetitorsForLocation(
-          result.locationId,
+        const result = await discoverCompetitorsForLocation(
+          locId,
           undefined,
           verticalConfig.placesApiType
         )
-        if (discovered.ok) {
-          setCompetitors(discovered.competitors)
+        if (result.ok) {
+          setCompetitors(result.competitors)
+          setSelectedIds((prev) =>
+            prev.size > 0
+              ? prev
+              : new Set(result.competitors.slice(0, MAX_TRACKED).map((c) => c.id))
+          )
         } else {
-          setDiscoveryError(discovered.error)
+          setDiscoveryError(result.error)
         }
       } catch {
-        setDiscoveryError("An unexpected error occurred during competitor discovery")
+        setDiscoveryError("Competitor discovery failed. Try again.")
       } finally {
-        setDiscoveringCompetitors(false)
+        setDiscovering(false)
       }
-    })
-  }, [businessName, selectedPlace, cuisine, goTo, verticalConfig])
-
-  const handleRetryDiscovery = useCallback(async () => {
-    if (!locationId) return
-    setDiscoveringCompetitors(true)
-    setDiscoveryError(null)
-    try {
-      const discovered = await discoverCompetitorsForLocation(
-        locationId,
-        undefined,
-        verticalConfig.placesApiType
-      )
-      if (discovered.ok) {
-        setCompetitors(discovered.competitors)
-      } else {
-        setDiscoveryError(discovered.error)
-      }
-    } catch {
-      setDiscoveryError("An unexpected error occurred during competitor discovery")
-    } finally {
-      setDiscoveringCompetitors(false)
-    }
-  }, [locationId, verticalConfig])
-
-  // Debounced server-side competitor search. Typing into the step 2 search
-  // box triggers a call to discoverCompetitorsForLocation with the query, and
-  // newly discovered candidates are merged into the existing list (dedup by
-  // id) so users can find competitors outside the initial default sweep.
-  const handleCompetitorSearch = useCallback(
-    (rawQuery: string) => {
-      if (!locationId) return
-      const query = rawQuery.trim()
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current)
-      }
-      if (query.length < 3) {
-        setSearchingCompetitors(false)
-        return
-      }
-      searchDebounceRef.current = setTimeout(async () => {
-        const requestId = ++searchRequestIdRef.current
-        setSearchingCompetitors(true)
-        try {
-          const discovered = await discoverCompetitorsForLocation(
-            locationId,
-            query,
-            verticalConfig.placesApiType
-          )
-          if (requestId !== searchRequestIdRef.current) return
-          if (discovered.ok) {
-            setCompetitors((existing) => {
-              const byId = new Map(existing.map((c) => [c.id, c]))
-              for (const c of discovered.competitors) {
-                byId.set(c.id, c)
-              }
-              return Array.from(byId.values())
-            })
-          }
-        } catch {
-          // Keep existing results; avoid surfacing a hard error for search typos.
-        } finally {
-          if (requestId === searchRequestIdRef.current) {
-            setSearchingCompetitors(false)
-          }
-        }
-      }, 500)
     },
-    [locationId, verticalConfig]
+    [verticalConfig.placesApiType]
   )
 
-  const toggleCompetitor = useCallback((id: string) => {
-    setSelectedCompetitorIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else if (next.size < 5) {
-        next.add(id)
-      }
-      return next
-    })
-  }, [])
+  // Resume at step 2 with no candidates yet → re-run discovery once.
+  const resumeDiscoveryRef = useRef(false)
+  useEffect(() => {
+    if (resumeDiscoveryRef.current) return
+    resumeDiscoveryRef.current = true
+    if (initialStep === 2 && existingLocationId && (existingCompetitors ?? []).length === 0) {
+      void discover(existingLocationId)
+    }
+  }, [initialStep, existingLocationId, existingCompetitors, discover])
 
-  const slideVariants = {
-    enter: (dir: "fwd" | "back") => ({
-      x: dir === "fwd" ? 22 : -22,
-      opacity: 0,
-    }),
-    center: { x: 0, opacity: 1 },
-    exit: (dir: "fwd" | "back") => ({
-      x: dir === "fwd" ? -22 : 22,
-      opacity: 0,
-    }),
+  // Creates the org + location, then kicks discovery while step 2 shows progress.
+  async function handleConfirmDetails() {
+    if (!place || !bizName.trim() || creating) return
+    setCreating(true)
+    setCreateError(null)
+    const result = await createOrgAndLocationAction({
+      businessName: bizName.trim(),
+      cuisine: cuisine.trim() || null,
+      industryType: verticalConfig.industryType,
+      place: {
+        primary_place_id: place.primary_place_id,
+        name: bizName.trim(),
+        category: place.category,
+        types: place.types,
+        address_line1: address.trim() || null,
+        city: place.city,
+        region: place.region,
+        postal_code: place.postal_code,
+        country: place.country,
+        geo_lat: place.geo_lat,
+        geo_lng: place.geo_lng,
+        website: website.trim() || null,
+      },
+    })
+    setCreating(false)
+    if (!result.ok) {
+      setCreateError(result.error)
+      return
+    }
+    setOrgId(result.orgId)
+    setLocationId(result.locationId)
+    setStep(2)
+    void discover(result.locationId)
   }
 
-  const showChrome = step > 0
+  // Step 2 search — debounced server-side discovery with the typed query;
+  // results merge into the candidate pool (dedup by id).
+  function handleSearchChange(value: string) {
+    setSearchQuery(value)
+    if (!locationId) return
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    const q = value.trim()
+    if (q.length < 3) {
+      setSearching(false)
+      return
+    }
+    searchDebounceRef.current = setTimeout(async () => {
+      const requestId = ++searchRequestIdRef.current
+      setSearching(true)
+      try {
+        const result = await discoverCompetitorsForLocation(
+          locationId,
+          q,
+          verticalConfig.placesApiType
+        )
+        if (requestId !== searchRequestIdRef.current) return
+        if (result.ok) {
+          setCompetitors((existing) => {
+            const byId = new Map(existing.map((c) => [c.id, c]))
+            for (const c of result.competitors) byId.set(c.id, c)
+            return Array.from(byId.values())
+          })
+        }
+      } catch {
+        // keep current candidates on search failure
+      } finally {
+        if (requestId === searchRequestIdRef.current) setSearching(false)
+      }
+    }, 400)
+  }
+
+  const removeCompetitor = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
+
+  const addCompetitor = (id: string) =>
+    setSelectedIds((prev) => {
+      if (prev.size >= MAX_TRACKED) return prev
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+
+  const togglePref = (key: string) =>
+    setMonitoringPrefs((prev) => ({ ...prev, [key]: !prev[key] }))
+
+  const selected = competitors.filter((c) => selectedIds.has(c.id))
+  const filterQ = searchQuery.trim().toLowerCase()
+  const suggestions = competitors
+    .filter((c) => !selectedIds.has(c.id))
+    .filter((c) => !filterQ || (c.name ?? "").toLowerCase().includes(filterQ))
+    .slice(0, 6)
 
   return (
-    <div className="relative z-[1] flex min-h-dvh flex-col items-center">
-      <div className="ob-ambient" />
-
-      {/* Header */}
-      <header
-        className={`flex w-full max-w-[520px] items-center justify-between px-6 pt-6 transition-all duration-300 ${
-          showChrome
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none -translate-y-1.5 opacity-0"
-        }`}
-      >
-        <div className="flex items-center gap-2 text-wordmark text-[21px] font-semibold tracking-tight text-foreground">
-          <TicketLogo size={22} className="text-foreground" />
-          Ticket
-        </div>
-        <ThemeToggle />
-      </header>
-
-      {/* Progress bar */}
-      <div
-        className={`w-full max-w-[520px] px-6 pt-5 transition-all duration-300 ${
-          showChrome
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none -translate-y-1 opacity-0"
-        }`}
-      >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-vatic-indigo">
-            {stepLabels[step] ?? ""}
-          </span>
-          <span className="text-[11px] text-muted-foreground">
-            Step {step} of {TOTAL_STEPS}
-          </span>
-        </div>
-        <div className="h-0.5 w-full overflow-hidden rounded-full bg-border/40">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-vatic-indigo to-vatic-indigo-soft transition-[width] duration-500 ease-[cubic-bezier(0.4,0,0.2,1)]"
-            style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
-          />
-        </div>
+    <div className="ob">
+      <div className="ob-top">
+        <span className="ob-brand">TICKET</span>
+        <span className="ob-steplabel">
+          {step < TOTAL - 1 ? `Step ${step + 1} of ${TOTAL - 1}` : "All set"}
+        </span>
+      </div>
+      <div className="ob-progress">
+        {Array.from({ length: TOTAL }).map((_, i) => (
+          <i key={i} className={i < step ? "done" : i === step ? "current" : ""} />
+        ))}
       </div>
 
-      {/* Step content */}
-      <main className="relative flex-1 w-full max-w-[520px] px-6">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={step}
-            custom={direction}
-            variants={slideVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{
-              duration: 0.38,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-          >
-            {step === 0 && (
-              <SplashStep
-                onContinue={nextStep}
-                verticalConfig={verticalConfig}
-              />
-            )}
-            {step === 1 && (
-              <BusinessInfoStep
-                businessName={businessName}
-                onNameChange={setBusinessName}
-                selectedPlace={selectedPlace}
-                onPlaceSelect={setSelectedPlace}
-                cuisine={cuisine}
-                onCuisineChange={setCuisine}
-                verticalConfig={verticalConfig}
-              />
-            )}
-            {step === 2 && (
-              <CompetitorSelectionStep
-                competitors={competitors}
-                selectedIds={selectedCompetitorIds}
-                onToggle={toggleCompetitor}
-                isLoading={discoveringCompetitors}
-                error={discoveryError}
-                onRetry={handleRetryDiscovery}
-                locationCity={selectedPlace?.city ?? null}
-                brandName={verticalConfig.brand.displayName}
-                onSearch={handleCompetitorSearch}
-                isSearching={searchingCompetitors}
-              />
-            )}
-            {step === 3 && (
-              <IntelligenceSettingsStep
-                preferences={monitoringPrefs}
-                onChange={setMonitoringPrefs}
-                brandName={verticalConfig.brand.displayName}
-              />
-            )}
-            {step === 4 && (
-              <LoadingBriefStep
-                orgId={orgId!}
-                locationId={locationId!}
-                selectedCompetitorIds={Array.from(selectedCompetitorIds)}
-                competitors={competitors}
-                monitoringPrefs={monitoringPrefs}
-                businessName={businessName}
-                brandName={verticalConfig.brand.displayName}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
-      </main>
-
-      {/* Footer navigation */}
-      {step > 0 && step < 4 && (
-        <footer
-          className={`flex w-full max-w-[520px] items-center gap-3 px-6 pb-10 pt-4 transition-all duration-300 ${
-            showChrome
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-1.5 opacity-0"
-          }`}
-        >
-          {step > 1 && (
-            <button
-              type="button"
-              onClick={prevStep}
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-transparent px-5 py-3.5 text-sm font-semibold text-muted-foreground transition-all hover:border-foreground/20 hover:text-foreground"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                aria-hidden="true"
+      <div className="ob-card" key={step}>
+        {step === 0 ? (
+          <>
+            <span className="ob-kicker">Welcome to Ticket</span>
+            <h1 className="ob-h">Let&apos;s find your restaurant.</h1>
+            <p className="ob-sub">
+              Search for your place and we&apos;ll pull everything we can from your
+              public listing, so you barely have to type.
+            </p>
+            <div className="ob-field">
+              <label className="ob-label" htmlFor="ob-rest">Your restaurant</label>
+              {place ? (
+                <div className="ob-selected">
+                  <div>
+                    <div className="ob-selected__name">{place.name}</div>
+                    {place.address_line1 ? (
+                      <div className="ob-selected__addr">{place.address_line1}</div>
+                    ) : null}
+                  </div>
+                  <button type="button" className="ob-selected__change" onClick={clearPlace}>
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div className="ob-ac">
+                  <input
+                    id="ob-rest"
+                    className="ob-input ob-input--lg"
+                    value={query}
+                    autoComplete="off"
+                    onChange={(e) => {
+                      setQuery(e.target.value)
+                      setListOpen(true)
+                    }}
+                    onFocus={() => predictions.length && setListOpen(true)}
+                    placeholder="Start typing your restaurant name…"
+                  />
+                  {listOpen && predictions.length ? (
+                    <ul className="ob-ac__list">
+                      {predictions.map((p) => (
+                        <li key={p.place_id}>
+                          <button type="button" className="ob-ac__item" onClick={() => pick(p)}>
+                            {p.description}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              )}
+              <p className="ob-hint">
+                We use your Google listing to get your address, cuisine, and the
+                competitors near you, automatically.
+              </p>
+              {loadingPlace ? <p className="ob-hint">Pulling your listing…</p> : null}
+              {placeError ? <div className="ob-alert">{placeError}</div> : null}
+            </div>
+            <div className="ob-nav">
+              <button
+                className="ob-btn"
+                onClick={() => setStep(1)}
+                disabled={!place || loadingPlace}
               >
-                <path
-                  d="M9 2.5L4 7l5 4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                Continue
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {step === 1 ? (
+          <>
+            <span className="ob-kicker">Step 2 · mostly done for you</span>
+            <h1 className="ob-h">Does this look right?</h1>
+            <p className="ob-sub">
+              We pulled this from your listing
+              <span className="ob-derived">✓ auto-filled</span>. Fix anything
+              that&apos;s off.
+            </p>
+            <div className="ob-grid">
+              <div className="full">
+                <label className="ob-label" htmlFor="ob-name">Restaurant</label>
+                <input
+                  id="ob-name"
+                  className="ob-input"
+                  value={bizName}
+                  onChange={(e) => setBizName(e.target.value)}
                 />
-              </svg>
-              Back
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={
-              step === 1
-                ? handleStep1Continue
-                : step === 3
-                  ? () => goTo(4, "fwd")
-                  : nextStep
-            }
-            disabled={
-              isPending ||
-              (step === 1 &&
-                (!businessName.trim() ||
-                  !selectedPlace?.geo_lat ||
-                  !selectedPlace?.geo_lng)) ||
-              (step === 2 && selectedCompetitorIds.size === 0)
-            }
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:bg-deep-indigo hover:shadow-glow-indigo-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isPending
-              ? "Setting up..."
-              : step === 3
-                ? "Generate My Brief"
-                : "Continue"}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              aria-hidden="true"
-            >
-              <path
-                d="M5 2.5l5 4.5-5 4.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </footer>
-      )}
+              </div>
+              <div className="full">
+                <label className="ob-label" htmlFor="ob-addr">Address</label>
+                <input
+                  id="ob-addr"
+                  className="ob-input"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder="Street, city, state"
+                />
+              </div>
+              <div>
+                <label className="ob-label" htmlFor="ob-cuisine">Cuisine</label>
+                <input
+                  id="ob-cuisine"
+                  className="ob-input"
+                  value={cuisine}
+                  onChange={(e) => setCuisine(e.target.value)}
+                  placeholder="e.g. Steakhouse"
+                />
+              </div>
+              <div>
+                <label className="ob-label" htmlFor="ob-site">Website</label>
+                <input
+                  id="ob-site"
+                  className="ob-input"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="yourrestaurant.com"
+                />
+              </div>
+            </div>
+            {createError ? <div className="ob-alert">{createError}</div> : null}
+            <div className="ob-nav">
+              <button className="ob-btn--ghost ob-btn" onClick={() => setStep(0)} disabled={creating}>
+                Back
+              </button>
+              <button
+                className="ob-btn"
+                onClick={handleConfirmDetails}
+                disabled={creating || !bizName.trim() || !place}
+              >
+                {creating ? "Setting up…" : "Looks good"}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {step === 2 ? (
+          <>
+            <span className="ob-kicker">Step 3 · found for you</span>
+            <h1 className="ob-h">Here&apos;s who we&apos;d watch.</h1>
+            <p className="ob-sub">
+              {discovering
+                ? "Scanning your neighborhood for similar spots…"
+                : selected.length
+                  ? "We found these nearby, similar spots automatically — each with why we picked it. Remove any that aren't real competitors, or add your own. Keep at least one and we'll start tracking them."
+                  : "Add the competitors you want us to watch. Keep at least one."}
+            </p>
+            {discovering ? <div className="ob-sweep" /> : null}
+            {discoveryError ? (
+              <>
+                <div className="ob-alert">{discoveryError}</div>
+                <div className="ob-nav">
+                  <button
+                    className="ob-btn--ghost ob-btn ob-btn--sm"
+                    onClick={() => locationId && discover(locationId)}
+                  >
+                    Try again
+                  </button>
+                </div>
+              </>
+            ) : null}
+            <div className="ob-comps">
+              {selected.map((c) => (
+                <div className="ob-comp" key={c.id}>
+                  <div className="ob-comp__body">
+                    <div className="ob-comp__name">{c.name ?? "Unnamed"}</div>
+                    {metaLine(c) ? <div className="ob-comp__meta">{metaLine(c)}</div> : null}
+                    <div className="ob-comp__why">
+                      <span className="ob-comp__why-label">Why</span>
+                      {whyLine(c)}
+                    </div>
+                  </div>
+                  <button
+                    className="ob-comp__remove"
+                    onClick={() => removeCompetitor(c.id)}
+                    aria-label={`Remove ${c.name ?? "competitor"}`}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              {adding ? (
+                <>
+                  <div className="ob-comp ob-comp--add">
+                    <input
+                      className="ob-input"
+                      value={searchQuery}
+                      autoFocus
+                      placeholder="Search restaurants near you…"
+                      aria-label="Search for a competitor"
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                    />
+                    <button
+                      className="ob-btn--ghost ob-btn ob-btn--sm"
+                      onClick={() => {
+                        setAdding(false)
+                        setSearchQuery("")
+                      }}
+                    >
+                      Done
+                    </button>
+                  </div>
+                  {searching ? <p className="ob-hint">Searching…</p> : null}
+                  {suggestions.map((c) => (
+                    <div className="ob-comp" key={c.id}>
+                      <div className="ob-comp__body">
+                        <div className="ob-comp__name">{c.name ?? "Unnamed"}</div>
+                        {metaLine(c) ? <div className="ob-comp__meta">{metaLine(c)}</div> : null}
+                      </div>
+                      <button
+                        className="ob-btn ob-btn--sm"
+                        onClick={() => addCompetitor(c.id)}
+                        disabled={selectedIds.size >= MAX_TRACKED}
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                  {selectedIds.size >= MAX_TRACKED ? (
+                    <p className="ob-hint">
+                      You&apos;re tracking the max of {MAX_TRACKED} — remove one to add another.
+                    </p>
+                  ) : null}
+                </>
+              ) : (
+                <button className="ob-add" onClick={() => setAdding(true)}>
+                  + Add a competitor
+                </button>
+              )}
+            </div>
+            <div className="ob-nav">
+              <button
+                className="ob-btn"
+                onClick={() => setStep(3)}
+                disabled={selected.length < 1 || discovering}
+              >
+                Track these {selected.length}
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {step === 3 ? (
+          <>
+            <span className="ob-kicker">Optional · pick any that apply</span>
+            <h1 className="ob-h">Anything you&apos;re focused on?</h1>
+            <p className="ob-sub">
+              We watch all of this by default — switch off anything you don&apos;t
+              care about. You can change these anytime in Settings, or skip for now.
+            </p>
+            <div className="ob-goals">
+              {PREFS.map((p) => {
+                const on = !!monitoringPrefs[p.key]
+                return (
+                  <button
+                    key={p.key}
+                    className={`ob-goal${on ? " is-on" : ""}`}
+                    onClick={() => togglePref(p.key)}
+                    aria-pressed={on}
+                  >
+                    <span className="ob-goal__check" aria-hidden>
+                      {on ? "✓" : ""}
+                    </span>
+                    <span className="ob-goal__text">
+                      <b>{p.title}</b>
+                      <span>{p.sub}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className="ob-nav">
+              <button className="ob-btn--ghost ob-btn" onClick={() => setStep(2)}>
+                Back
+              </button>
+              <button className="ob-btn" onClick={() => setStep(4)}>
+                Continue
+              </button>
+              <button className="ob-skip" onClick={() => setStep(4)}>
+                Skip
+              </button>
+            </div>
+          </>
+        ) : null}
+
+        {step === 4 && orgId && locationId ? (
+          <ProcessingStep
+            orgId={orgId}
+            locationId={locationId}
+            competitorIds={Array.from(selectedIds)}
+            monitoringPrefs={monitoringPrefs}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }

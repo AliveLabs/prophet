@@ -26,6 +26,7 @@ export default async function CompetitorsPage() {
           topSignals: c.topSignals,
         }))}
         tierLabel={tierLabel(ctx.tier)}
+        locationId={ctx.locationId}
       />
     </div>
   )

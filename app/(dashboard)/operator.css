@@ -249,3 +249,9 @@
 .pv-btn--ghost:hover{ color:var(--ink); border-color:var(--ink); }
 .pv-form-error{ margin:7px 0 0; font-size:12px; color:var(--alert, #b3261e); }
 .pv-ask-sources{ margin:7px 0 0; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
+
+/* Add-a-competitor autocomplete (Batch 3) */
+.pv-comp-row--add{ flex-wrap:wrap; }
+.pv-ac__list{ position:absolute; top:100%; left:0; right:0; z-index:30; margin:4px 0 0; padding:4px; list-style:none; background:var(--card, #fff); border:1px solid var(--rule-strong); border-radius:var(--radius-card); box-shadow:var(--shadow-chit); }
+.pv-ac__item{ display:block; width:100%; text-align:left; padding:9px 11px; font-size:14px; color:var(--print); background:transparent; border:0; border-radius:var(--radius); cursor:pointer; }
+.pv-ac__item:hover{ background:var(--bond, #f3efe8); color:var(--ink); }

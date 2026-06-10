@@ -623,3 +623,164 @@ export async function ignoreCompetitorAction(formData: FormData) {
 
   redirect("/competitors")
 }
+
+// ---------------------------------------------------------------------------
+// Add-a-competitor with real discovery (complete-picture · Batch 3). The operator
+// picks a place via authed autocomplete; we persist it APPROVED (their explicit
+// choice) and force a first-pull through the durable queue — no fire-and-forget.
+// ---------------------------------------------------------------------------
+
+import { revalidatePath } from "next/cache"
+import { enqueueAdhocLocation } from "@/lib/jobs/queue"
+
+export async function addCompetitorAction(input: {
+  locationId: string
+  placeId: string
+}): Promise<{ ok: true; id: string; name: string } | { ok: false; error: string }> {
+  const user = await requireUser()
+  const supabase = await createServerSupabaseClient()
+
+  const { data: location } = await supabase
+    .from("locations")
+    .select("id, organization_id, name, primary_place_id, geo_lat, geo_lng, settings")
+    .eq("id", input.locationId)
+    .maybeSingle()
+  if (!location) return { ok: false, error: "Location not found" }
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", location.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    return { ok: false, error: "Only admins can add competitors" }
+  }
+
+  if (input.placeId === location.primary_place_id) {
+    return { ok: false, error: "That's your own restaurant" }
+  }
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", location.organization_id)
+    .maybeSingle()
+  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
+  const { count: activeCount } = await supabase
+    .from("competitors")
+    .select("id", { count: "exact", head: true })
+    .eq("location_id", location.id)
+    .eq("is_active", true)
+  try {
+    ensureCompetitorLimit(tier, activeCount ?? 0)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+
+  const admin = createAdminSupabaseClient()
+
+  // Already on file (e.g. surfaced by discovery, never approved)? Approve that row.
+  const { data: existing } = await admin
+    .from("competitors")
+    .select("id, name, metadata")
+    .eq("location_id", location.id)
+    .eq("provider_entity_id", input.placeId)
+    .maybeSingle()
+
+  let competitorId: string
+  let competitorName: string
+  if (existing) {
+    const metadata = { ...(existing.metadata as Record<string, unknown> | null), status: "approved" }
+    const { error } = await admin
+      .from("competitors")
+      .update({ is_active: true, metadata })
+      .eq("id", existing.id)
+    if (error) return { ok: false, error: error.message }
+    competitorId = existing.id
+    competitorName = existing.name ?? "Competitor"
+  } else {
+    let details: Awaited<ReturnType<typeof fetchPlaceDetails>>
+    try {
+      details = await fetchPlaceDetails(input.placeId)
+    } catch (err) {
+      return { ok: false, error: `Couldn't load that place: ${err instanceof Error ? err.message : err}` }
+    }
+    const mapped = mapPlaceToLocation(details)
+    if (mapped.name && location.name && mapped.name.trim().toLowerCase() === location.name.trim().toLowerCase()) {
+      return { ok: false, error: "That's your own restaurant" }
+    }
+
+    const targetCategory = (location.settings as { category?: string } | null)?.category ?? null
+    const distanceMeters =
+      typeof mapped.geo_lat === "number" && typeof mapped.geo_lng === "number" &&
+      typeof location.geo_lat === "number" && typeof location.geo_lng === "number"
+        ? haversineMeters({ lat1: location.geo_lat, lng1: location.geo_lng, lat2: mapped.geo_lat, lng2: mapped.geo_lng })
+        : null
+    const { score, factors } = scoreCompetitor({
+      distanceMeters: distanceMeters ?? undefined,
+      category: mapped.category ?? undefined,
+      targetCategory,
+      rating: details.rating ?? undefined,
+      reviewCount: details.userRatingCount ?? undefined,
+      types: mapped.types ?? null,
+    })
+
+    const { data: inserted, error } = await admin
+      .from("competitors")
+      .insert({
+        location_id: location.id,
+        provider: "google_places",
+        provider_entity_id: input.placeId,
+        name: mapped.name || "Competitor",
+        category: mapped.category ?? targetCategory ?? null,
+        address: mapped.address_line1,
+        phone: mapped.phone,
+        website: mapped.website,
+        relevance_score: score,
+        is_active: true,
+        metadata: {
+          status: "approved",
+          addedBy: "operator",
+          distanceMeters,
+          rating: details.rating ?? null,
+          reviewCount: details.userRatingCount ?? null,
+          address: mapped.address_line1,
+          city: mapped.city,
+          region: mapped.region,
+          latitude: mapped.geo_lat,
+          longitude: mapped.geo_lng,
+          placeDetails: {
+            placeId: details.id ?? null,
+            businessStatus: details.businessStatus ?? null,
+            priceLevel: details.priceLevel ?? null,
+            mapsUri: details.googleMapsUri ?? null,
+            shortFormattedAddress: details.shortFormattedAddress ?? null,
+            regularOpeningHours: details.regularOpeningHours ?? null,
+            reviews: details.reviews ?? null,
+            types: details.types ?? null,
+            primaryType: details.primaryType ?? null,
+            rating: details.rating ?? null,
+            reviewCount: details.userRatingCount ?? null,
+          },
+          factors,
+        },
+      })
+      .select("id, name")
+      .single()
+    if (error || !inserted) return { ok: false, error: error?.message ?? "Couldn't save competitor" }
+    competitorId = inserted.id
+    competitorName = inserted.name ?? "Competitor"
+  }
+
+  // First-pull for the new rival through the durable queue (content/visibility/social/
+  // photos now; insights follows on the run's delay) — same path the refresh buttons use.
+  await enqueueAdhocLocation(admin, {
+    organizationId: location.organization_id,
+    locationId: location.id,
+    pipelines: ["content", "visibility", "social", "photos"],
+  })
+
+  revalidatePath("/competitors")
+  return { ok: true, id: competitorId, name: competitorName }
+}
