@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { redirect } from "next/navigation"
 import { sendMagicLinkAction, signInWithGoogleAction } from "./actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
@@ -45,7 +44,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <button type="submit" className="chrome-btn chrome-btn--ghost auth-google">Continue with Google</button>
         </form>
 
-        <p className="auth-alt">New to Ticket? <Link className="chrome-link" href="/signup">Create an account</Link>.</p>
+        {/* Signup lives on the marketing site (the real front door); the app subdomain
+            only signs people in. The /signup route stays functional for invite links. */}
+        <p className="auth-alt">New to Ticket? <a className="chrome-link" href="https://www.getticket.ai">Get started at getticket.ai</a>.</p>
       </div>
     </main>
   )
