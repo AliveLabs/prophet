@@ -102,6 +102,32 @@ function summarize(label: string, brief: { headline: string; plays: Array<{ titl
   }
 }
 
+function buildDossierVariantC(): Dossier {
+  // The POST-BUILD shape: role-split channels exactly as buildDossier now produces them.
+  const base = buildDossierVariant(true)
+  const all = base.demandCalendar.events as LooseEvent[]
+  const local = all.filter((e) => (e.distanceMiles as number) <= 3)
+  const hooks = all.filter((e) => (e.distanceMiles as number) > 3 && e.uid === "evt-mavs")
+  for (const e of local) e.role = (e.distanceMiles as number) <= 0.5 ? "local_foot" : "local_traffic"
+  for (const e of hooks) e.role = "metro_hook"
+  return {
+    ...base,
+    demandCalendar: { events: local as NormalizedEvent[], metroHooks: hooks as NormalizedEvent[], weather: [] },
+    // rule outputs re-gated: only local events ground "nearby" insights now
+    ruleOutputs: [
+      {
+        insight_type: "events.new_high_signal_event",
+        title: "Forney Farmers Market Saturday, blocks away",
+        summary: "A small local market runs Saturday morning within a mile of the restaurant.",
+        confidence: "high",
+        severity: "info",
+        evidence: { totalEvents: 1, top: "Forney Farmers Market", distance_mi: 0.9 },
+        recommendations: [],
+      },
+    ],
+  }
+}
+
 describe("PRETEST: existing skills vs far-event scenario", () => {
   it("variant A — today's reality (no distance data)", async () => {
     const { brief, dropped } = await runBrief(buildDossierVariant(false))
@@ -114,6 +140,24 @@ describe("PRETEST: existing skills vs far-event scenario", () => {
     const { brief, dropped } = await runBrief(buildDossierVariant(true))
     summarize("VARIANT B (geo data present, prompts unchanged)", brief)
     console.log(`dropped by review: ${dropped.length}`)
+    expect(brief).toBeTruthy()
+  }, 600_000)
+
+  it("variant C — THE BUILT GATES: role-split channels + new prompts", async () => {
+    const { brief, dropped } = await runBrief(buildDossierVariantC())
+    summarize("VARIANT C (structural gates + EVENT_GEOGRAPHY prompts)", brief)
+    console.log(`dropped by review: ${dropped.length}`)
+    // hard assertions: no staffing/prep play may reference the far-away Mavs game
+    const mavsDemand = brief.plays.filter(
+      (p) => /mav|playoff|pre-game|post-game/i.test(`${p.title} ${p.rationale}`) && (p.kind === "prepare" || p.kind === "ops")
+    )
+    expect(mavsDemand, `Mavs demand plays should be ZERO, got: ${mavsDemand.map((p) => p.title).join("; ")}`).toEqual([])
+    // any Mavs tie-in must be low/medium leverage
+    for (const p of brief.plays) {
+      if (/mav|playoff/i.test(`${p.title} ${p.rationale}`)) {
+        expect(p.leverage?.label, `Mavs tie-in must not be high leverage: ${p.title}`).not.toBe("high")
+      }
+    }
     expect(brief).toBeTruthy()
   }, 600_000)
 })
