@@ -58,6 +58,9 @@ export type EnrichedRecommendation = {
   /** insight_type / evidence keys this play is grounded in. MUST resolve to real dossier rule outputs. */
   evidenceRefs: string[]
   knowledgeVersion: string
+  /** Reviewer's boldness score (0 on-brand .. 3 wild), stamped by applyHarmReview —
+   *  carried onto feedback so tolerance recalibration actually moves. */
+  severity?: number
 }
 
 /** One signal source the engine checked when building the brief (the "what we checked" view). */

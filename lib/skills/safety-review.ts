@@ -98,10 +98,11 @@ export function applyHarmReview(
       dropped.push({ play: p, reason: v?.reason ?? "off-brand for this tolerance" })
       return
     }
-    // kept: a risky-but-kept play (e.g. severe kept under high tolerance) shows at low confidence
-    if (sev >= 2) kept.push({ ...p, confidence: "directional" })
-    else if (sev === 1) kept.push({ ...p, confidence: DOWN_ONE[p.confidence] })
-    else kept.push(p)
+    // kept: a risky-but-kept play (e.g. severe kept under high tolerance) shows at low
+    // confidence. Severity rides along so feedback carries it into recalibration.
+    if (sev >= 2) kept.push({ ...p, severity: sev, confidence: "directional" })
+    else if (sev === 1) kept.push({ ...p, severity: sev, confidence: DOWN_ONE[p.confidence] })
+    else kept.push({ ...p, severity: sev })
   })
   return { kept, dropped }
 }

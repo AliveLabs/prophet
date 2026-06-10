@@ -49,6 +49,62 @@ export async function submitPlayFeedback(input: {
   }
 }
 
+// Save / Snooze / Dismiss (Batch 5) — latest action wins per (location, date, play);
+// null clears (undo). User-scoped client: the play_actions RLS policies enforce
+// membership. Fail-soft pre-migration.
+type ActionStore = {
+  from: (t: string) => {
+    upsert: (
+      row: Record<string, unknown>,
+      opts: { onConflict: string }
+    ) => Promise<{ error: { message: string } | null }>
+    delete: () => {
+      eq: (c: string, v: string) => {
+        eq: (c2: string, v2: string) => {
+          eq: (c3: string, v3: string) => Promise<{ error: { message: string } | null }>
+        }
+      }
+    }
+  }
+}
+
+export async function setPlayAction(input: {
+  locationId: string
+  dateKey: string
+  playKey: string
+  action: "saved" | "snoozed" | "dismissed" | null
+}): Promise<{ ok: boolean; error?: string }> {
+  await requireUser()
+  const supabase = (await createServerSupabaseClient()) as unknown as ActionStore
+  try {
+    if (input.action === null) {
+      const { error } = await supabase
+        .from("play_actions")
+        .delete()
+        .eq("location_id", input.locationId)
+        .eq("date_key", input.dateKey)
+        .eq("play_key", input.playKey)
+      if (error) return { ok: false, error: error.message }
+    } else {
+      const { error } = await supabase.from("play_actions").upsert(
+        {
+          location_id: input.locationId,
+          date_key: input.dateKey,
+          play_key: input.playKey,
+          action: input.action,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "location_id,date_key,play_key" }
+      )
+      if (error) return { ok: false, error: error.message }
+    }
+    revalidatePath("/home")
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "action failed" }
+  }
+}
+
 /** Set the per-location recommendation breadth (0 focused/narrow .. 100 broad). */
 export async function setBrandTolerance(
   locationId: string,

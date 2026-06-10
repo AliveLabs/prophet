@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
 import { loadPipelineChecks } from "../proof-data"
 import { loadStandingAnswer } from "@/lib/ask/history"
+import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
 import BriefView from "./brief-view"
 import "./brief.css"
 
@@ -67,9 +68,11 @@ export default async function HomePage() {
     )
   }
 
-  const [checks, standingAsk] = await Promise.all([
+  const [checks, standingAsk, playActions, weeklyMomentum] = await Promise.all([
     loadPipelineChecks(),
     loadStandingAnswer(locRow.id),
+    loadPlayActions(locRow.id, brief.dateKey),
+    loadWeeklyMomentum(locRow.id),
   ])
 
   return (
@@ -81,6 +84,8 @@ export default async function HomePage() {
       detailHrefBase="/home"
       checks={checks}
       standingAsk={standingAsk ? { question: standingAsk.question, answer: standingAsk.answer } : null}
+      playActions={playActions}
+      weeklyMomentum={weeklyMomentum}
     />
   )
 }

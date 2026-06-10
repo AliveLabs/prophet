@@ -6,9 +6,11 @@
 
 import type { Brief, EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
 import type { PipelineCheck } from "../proof-data"
+import type { PlayAction } from "@/lib/insights/momentum"
 import { playKey } from "@/lib/skills/preferences"
 import { humanizeRef, humanizeLabel, distinctDomains, dedupeRefs } from "@/lib/skills/evidence-format"
 import BriefFeedback from "./brief-feedback"
+import PlayActionButtons from "./play-action-buttons"
 
 const CONF_RANK = { high: 3, medium: 2, directional: 1 } as const
 const CONF_LABEL = { high: "High", medium: "Medium", directional: "Directional" } as const
@@ -93,6 +95,7 @@ function PlayCard({
   dateKey,
   readOnly,
   detailHrefBase,
+  action,
 }: {
   play: EnrichedRecommendation
   rank: number
@@ -101,6 +104,7 @@ function PlayCard({
   dateKey: string
   readOnly?: boolean
   detailHrefBase?: string
+  action?: PlayAction | null
 }) {
   const refs = dedupeRefs(play.evidenceRefs)
   const domains = distinctDomains(play.evidenceRefs)
@@ -147,7 +151,10 @@ function PlayCard({
       ) : null}
 
       <div className="movecard__foot">
-        <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} readOnly={readOnly} />
+        <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} severity={play.severity ?? 0} readOnly={readOnly} />
+        {!readOnly ? (
+          <PlayActionButtons locationId={locationId} dateKey={dateKey} playKey={key} current={action ?? null} />
+        ) : null}
         {detailHrefBase ? (
           <a className="movecard__detail" href={`${detailHrefBase}/${rank}`}>Full detail &amp; evidence →</a>
         ) : null}
@@ -164,6 +171,8 @@ export default function BriefView({
   detailHrefBase,
   checks,
   standingAsk,
+  playActions,
+  weeklyMomentum = 0,
 }: {
   brief: Brief
   locationId: string
@@ -173,6 +182,8 @@ export default function BriefView({
   detailHrefBase?: string
   checks?: PipelineCheck[]
   standingAsk?: { question: string; answer: string } | null
+  playActions?: Record<string, PlayAction>
+  weeklyMomentum?: number
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
   const freshCount = (brief.coverage ?? []).filter((c) => c.present && !c.stale).length
@@ -180,6 +191,12 @@ export default function BriefView({
     (best, p) => (CONF_RANK[p.confidence] > CONF_RANK[best] ? p.confidence : best),
     "directional",
   )
+  // The acted-on loop: snoozed/dismissed plays collapse into a compact "cleared"
+  // strip; saved + untouched plays stay in the active stack (saved keeps its badge).
+  const actions = playActions ?? {}
+  const ranked = brief.plays.map((play, i) => ({ play, rank: i + 1, action: actions[playKey(play)] ?? null }))
+  const active = ranked.filter((r) => r.action !== "snoozed" && r.action !== "dismissed")
+  const cleared = ranked.filter((r) => r.action === "snoozed" || r.action === "dismissed")
 
   return (
     <div className="ticket-brief">
@@ -205,20 +222,39 @@ export default function BriefView({
 
           <div className="zone zone--do">
             <div className="zone-head">
-              <span className="zh">Recommendations <span className="count">{brief.plays.length}</span></span>
+              <span className="zh">Recommendations <span className="count">{active.length}</span></span>
+              {weeklyMomentum > 0 ? (
+                <span className="momentum">You&apos;ve acted on <b>{weeklyMomentum}</b> play{weeklyMomentum === 1 ? "" : "s"} this week</span>
+              ) : null}
             </div>
-            {brief.plays.map((play, i) => (
+            {active.map(({ play, rank, action }, i) => (
               <PlayCard
                 key={playKey(play)}
                 play={play}
-                rank={i + 1}
+                rank={rank}
                 isLead={i === 0}
                 locationId={locationId}
                 dateKey={brief.dateKey}
                 readOnly={readOnly}
                 detailHrefBase={detailHrefBase}
+                action={action}
               />
             ))}
+            {cleared.length ? (
+              <div className="cleared-strip">
+                <span className="cleared-strip__label">Cleared today</span>
+                {cleared.map(({ play, action }) => (
+                  <span className="cleared-item" key={playKey(play)}>
+                    <span className="cleared-item__title">{play.title}</span>
+                    {!readOnly ? (
+                      <PlayActionButtons locationId={locationId} dateKey={brief.dateKey} playKey={playKey(play)} current={action} />
+                    ) : (
+                      <span className="cleared-item__state">{action === "snoozed" ? "Snoozed" : "Dismissed"}</span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 
