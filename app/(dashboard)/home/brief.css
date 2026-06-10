@@ -221,3 +221,14 @@
 
 @media (max-width:1160px){ .ticket-brief .brief-hed{ font-size:44px; } }
 @media (max-width:720px){ .ticket-brief .brief-hed{ font-size:36px; } }
+
+/* what-we-checked: true per-source run outcomes (pipeline_runs drill) */
+.ticket-brief .check-runs{ list-style:none; margin:10px 0 0; padding:8px 0 0; border-top:1px dashed var(--rule); display:flex; flex-direction:column; gap:5px; }
+.ticket-brief .check-run{ display:flex; align-items:baseline; gap:7px; font-size:11.5px; line-height:1.4; }
+.ticket-brief .check-run__mark{ flex:0 0 12px; font-family:var(--font-mono); font-size:10px; }
+.ticket-brief .check-run__label{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; color:var(--print); flex:0 0 auto; }
+.ticket-brief .check-run__what{ font-family:var(--font-mono); font-size:10px; letter-spacing:.01em; color:var(--ash-2); }
+.ticket-brief .check-run--on .check-run__mark{ color:var(--clear); }
+.ticket-brief .check-run--stale .check-run__mark{ color:var(--wire-gold); }
+.ticket-brief .check-run--bad .check-run__mark{ color:var(--alert, #b3261e); }
+.ticket-brief .check-run--off .check-run__mark{ color:var(--ash-2); }

@@ -5,6 +5,8 @@ import { notFound } from "next/navigation"
 import Link from "next/link"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { loadOperatorContext } from "../../operator-data"
+import { loadMarketProof } from "../../proof-data"
+import { ProofGrid } from "../../proof-grid"
 import { humanizeRef, humanizeLabel } from "@/lib/skills/evidence-format"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
@@ -24,6 +26,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
   const idx = Number.parseInt(rank, 10) - 1
   const play = ctx.brief?.plays[idx]
   if (!play) notFound()
+  const proof = await loadMarketProof(6)
 
   // resolve evidenceRefs -> the real grounded insights behind this play (user-scoped, RLS)
   const types = Array.from(new Set(play.evidenceRefs.map((r) => r.split(":")[0])))
@@ -103,8 +106,14 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             {play.evidenceRefs.map((r) => (<span className="pv-sig" key={r}>{humanizeRef(r)}</span>))}
           </div>
         )}
-        <p className="pv-soon">This view will go further: the rival&apos;s actual posts, the engagement numbers, and why each one worked.</p>
       </div>
+
+      {proof.length ? (
+        <div className="pv-section">
+          <div className="pv-section-head">What the rivals are running <span className="pv-section-sub">their actual posts, and why they worked</span></div>
+          <ProofGrid posts={proof} />
+        </div>
+      ) : null}
     </div>
   )
 }

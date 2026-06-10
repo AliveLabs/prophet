@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
+import { loadPipelineChecks } from "../proof-data"
 import BriefView from "./brief-view"
 import "./brief.css"
 
@@ -65,6 +66,8 @@ export default async function HomePage() {
     )
   }
 
+  const checks = await loadPipelineChecks()
+
   return (
     <BriefView
       brief={brief}
@@ -72,6 +75,7 @@ export default async function HomePage() {
       locationName={locRow.name ?? "Your location"}
       competitors={competitors}
       detailHrefBase="/home"
+      checks={checks}
     />
   )
 }

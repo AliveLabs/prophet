@@ -12,9 +12,10 @@ import { finishJob, recordRun, type SB, type SignalJob, type PipelineOutcome } f
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { classifyNow, type FreshnessStatus } from "@/lib/freshness/contract"
 
-// Gemini-Vision step is too slow for the scheduled path (sequential, ~60s/profile →
-// the original 300s timeout). Run it out-of-band; the metric + insight steps still run.
-const SKIP_STEPS = new Set(["analyze_social_visuals"])
+// Steps excluded from the scheduled path. analyze_social_visuals used to live here
+// (it was unbounded); it now self-caps at MAX_VISION_POSTS_PER_RUN per run (photos
+// pattern), so it runs scheduled again. Kept as a mechanism for future escapes.
+const SKIP_STEPS = new Set<string>([])
 
 const PIPELINE_BY_NAME = new Map<string, SubPipeline>(SUB_PIPELINES.map((s) => [s.name, s]))
 

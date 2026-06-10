@@ -5,6 +5,7 @@
 // previews rather than fake affordances.
 
 import type { Brief, EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
+import type { PipelineCheck } from "../proof-data"
 import { playKey } from "@/lib/skills/preferences"
 import { humanizeRef, humanizeLabel, distinctDomains, dedupeRefs } from "@/lib/skills/evidence-format"
 import BriefFeedback from "./brief-feedback"
@@ -17,6 +18,30 @@ const KIND_LABEL: Record<EnrichedRecommendation["kind"], string> = {
   positioning: "Positioning",
   reputation: "Reputation",
   ops: "Operations",
+}
+
+// True per-source run outcomes (pipeline_runs) for the provenance drill.
+const OUTCOME_LABEL: Record<string, string> = {
+  fresh: "Fresh pull",
+  served_stale: "Holding last good read",
+  dormant: "Source gone quiet",
+  no_data: "Nothing returned",
+  partial: "Partial pull",
+  failed: "Couldn't reach",
+  skipped: "Skipped",
+}
+const OUTCOME_MARK: Record<string, string> = {
+  fresh: "✓", served_stale: "◐", dormant: "◐", no_data: "—", partial: "◐", failed: "✕", skipped: "—",
+}
+const OUTCOME_STATE: Record<string, string> = {
+  fresh: "on", served_stale: "stale", dormant: "stale", no_data: "off", partial: "stale", failed: "bad", skipped: "off",
+}
+function fmtCheckedAt(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const day = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).replace(" AM", "a").replace(" PM", "p")
+  return `${day}, ${t}`
 }
 
 function fmtDateline(dateKey: string): string {
@@ -137,6 +162,7 @@ export default function BriefView({
   competitors,
   readOnly = false,
   detailHrefBase,
+  checks,
 }: {
   brief: Brief
   locationId: string
@@ -144,6 +170,7 @@ export default function BriefView({
   competitors: string[]
   readOnly?: boolean
   detailHrefBase?: string
+  checks?: PipelineCheck[]
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
   const freshCount = (brief.coverage ?? []).filter((c) => c.present && !c.stale).length
@@ -242,7 +269,19 @@ export default function BriefView({
                 <summary><span className="car">▸</span> How we read this</summary>
                 <div className="check-prov__body">
                   <p><b>Fresh</b> means we checked it in this sweep. <b>Aging</b> means we&apos;re holding the last good read until new data lands. <b>Not reached</b> means we couldn&apos;t pull it this time — so nothing in today&apos;s brief leans on it.</p>
-                  <p className="check-prov__soon">Source-by-source provenance — what we saw and when — is coming.</p>
+                  {checks?.length ? (
+                    <ul className="check-runs">
+                      {checks.map((c) => (
+                        <li key={c.pipeline} className={`check-run check-run--${OUTCOME_STATE[c.outcome] ?? "off"}`}>
+                          <span className="check-run__mark">{OUTCOME_MARK[c.outcome] ?? "—"}</span>
+                          <span className="check-run__label">{c.label}</span>
+                          <span className="check-run__what">
+                            {OUTCOME_LABEL[c.outcome] ?? c.outcome}{c.reason ? ` — ${c.reason}` : ""} · {fmtCheckedAt(c.at)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
               </details>
             </div>

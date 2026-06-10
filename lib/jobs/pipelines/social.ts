@@ -43,6 +43,11 @@ import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 
+// Per-run Gemini Vision budget for the scheduled path (mirrors photos'
+// MAX_DOWNLOADS_PER_RUN): ~2-4s per image keeps the job well inside the 300s
+// function budget; the backlog resumes next run since analyzed posts are skipped.
+const MAX_VISION_POSTS_PER_RUN = 24
+
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
@@ -326,6 +331,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         for (const comp of c.approvedCompetitors) nameMap.set(comp.id, comp.name)
 
         let totalAnalyzed = 0
+        let capped = false
         const visualProfiles: EntityVisualProfile[] = []
 
         const VISION_TIMEOUT_PER_PROFILE = 60_000
@@ -336,12 +342,18 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           if (!snapEntry?.raw_data?.recentPosts?.length) continue
 
           const posts = snapEntry.raw_data.recentPosts
-          const postsNeedingAnalysis = posts.filter(
+          // Per-run cap (photos pattern): bounds the scheduled job well under the 300s
+          // function budget. Already-analyzed posts are filtered out, so a backlog
+          // chunks naturally across runs with no cursor or rework.
+          const needingAnalysis = posts.filter(
             (p) => !p.visualAnalysis && p.mediaUrl?.includes("supabase")
           )
+          const budgetLeft = Math.max(0, MAX_VISION_POSTS_PER_RUN - totalAnalyzed)
+          const postsNeedingAnalysis = needingAnalysis.slice(0, budgetLeft)
+          if (needingAnalysis.length > postsNeedingAnalysis.length) capped = true
 
           console.log(
-            `[SocialVision] Profile ${pi + 1}/${allProfiles.length}: ${profile.platform}/${profile.handle} — ${postsNeedingAnalysis.length} posts to analyze`
+            `[SocialVision] Profile ${pi + 1}/${allProfiles.length}: ${profile.platform}/${profile.handle} — ${postsNeedingAnalysis.length}/${needingAnalysis.length} posts to analyze${capped ? " (run cap)" : ""}`
           )
 
           if (postsNeedingAnalysis.length === 0 && posts.some((p) => p.visualAnalysis)) {
@@ -417,6 +429,11 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         c.state.postsAnalyzed = totalAnalyzed
         c.state.visualProfiles = visualProfiles
 
+        if (capped) {
+          console.log(
+            `[SocialVision] Analysis capped at ${MAX_VISION_POSTS_PER_RUN}/run — remaining posts resume next run (already-analyzed posts are skipped)`
+          )
+        }
         console.log(
           `[SocialVision] Analyzed ${totalAnalyzed} post images, built ${visualProfiles.length} visual profiles`
         )
@@ -424,6 +441,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         return {
           analyzed: totalAnalyzed,
           visualProfiles: visualProfiles.length,
+          capped,
         }
       },
     },
