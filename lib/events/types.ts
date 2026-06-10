@@ -9,6 +9,9 @@ export type EventVenue = {
   mapsUrl?: string
   cid?: string
   featureId?: string
+  /** Geocoded venue position (Places searchText), set by the events pipeline. */
+  lat?: number
+  lng?: number
 }
 
 /** Ticket / info link extracted from information_and_tickets */
@@ -34,6 +37,14 @@ export type NormalizedEvent = {
   venue?: EventVenue
 
   ticketsAndInfo?: EventTicketInfo[]
+
+  // ── Geo-relevance (Layer 1/2: set by the events pipeline post-normalization) ──
+  /** Straight-line miles from the restaurant to the geocoded venue. */
+  distanceMiles?: number | null
+  /** Heuristic draw class (stadium/league keywords, ticketing). */
+  magnitude?: "major" | "moderate" | "minor"
+  /** Distance × magnitude → role. local_* may drive demand; metro_hook = marketing tie-in only. */
+  role?: "local_foot" | "local_traffic" | "metro_hook" | "out_of_area" | "ungeocoded"
 
   source: "dataforseo_google_events"
   keyword: string

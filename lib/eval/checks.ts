@@ -126,10 +126,42 @@ export function checkVoice(rec: EnrichedRecommendation, i: number): Violation[] 
   return v
 }
 
+/**
+ * Geo-sanity (event geo-relevance · Layer 5): a play citing event evidence may only
+ * make DEMAND claims (prepare/ops/staffing) when the dossier actually has LOCAL events.
+ * With only metro hooks (far major events), event-citing plays must be marketing tie-ins
+ * (capitalize/positioning) and never high leverage. Pretest 2026-06-09: the model
+ * staffed a "pre-game rush" for a game 22 miles away — this check makes that a FAILURE.
+ */
+export function checkEventGeoSanity(
+  rec: EnrichedRecommendation,
+  i: number,
+  geo: { localEventCount: number; metroHookCount: number }
+): Violation[] {
+  const citesEvents = rec.evidenceRefs.some((r) => r.startsWith("events.") || r.startsWith("cross_event"))
+  if (!citesEvents || geo.localEventCount > 0) return []
+  const v: Violation[] = []
+  if (geo.metroHookCount === 0) {
+    v.push({ code: "event_geo_ungrounded", recIndex: i, detail: `cites event evidence but the dossier has no local events or metro hooks: "${rec.title}"` })
+    return v
+  }
+  if (rec.kind === "prepare" || rec.kind === "ops") {
+    v.push({ code: "event_geo_demand_claim", recIndex: i, detail: `demand/prep play from far-away events only (metro hooks are tie-in material): "${rec.title}"` })
+  }
+  if (rec.leverage?.label === "high") {
+    v.push({ code: "event_geo_overweighted", recIndex: i, detail: `high leverage from far-away events only: "${rec.title}"` })
+  }
+  return v
+}
+
 // ── aggregate ────────────────────────────────────────────────────────────────
 
 /** Run all deterministic checks over a brief's plays. */
-export function evaluateBrief(brief: Pick<Brief, "plays">, index: RefIndex): CheckResult {
+export function evaluateBrief(
+  brief: Pick<Brief, "plays">,
+  index: RefIndex,
+  geo?: { localEventCount: number; metroHookCount: number }
+): CheckResult {
   const violations: Violation[] = []
   brief.plays.forEach((rec, i) => {
     violations.push(
@@ -139,6 +171,7 @@ export function evaluateBrief(brief: Pick<Brief, "plays">, index: RefIndex): Che
       ...checkEvidenceRefsResolve(rec, i, index),
       ...checkNumbersTraceToEvidence(rec, i, index),
       ...checkVoice(rec, i),
+      ...(geo ? checkEventGeoSanity(rec, i, geo) : []),
     )
   })
   // brief-level voice (headline/deck) too

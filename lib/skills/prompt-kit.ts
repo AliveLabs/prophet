@@ -19,6 +19,18 @@ const GROUNDING = [
   "If you cannot ground a play, do not make it.",
 ].join(" ")
 
+// Event geography (pretest 2026-06-09: the model does NOT self-gate on a distance
+// field — it staffed a "pre-game rush" for a game 22 miles away; these rules are the
+// prompt-side backstop, and the structural gate is that far events never reach the
+// demand calendar at all).
+const EVENT_GEOGRAPHY = [
+  "EVENT GEOGRAPHY: events carry distanceMiles (straight-line to this restaurant), magnitude, and role.",
+  "Walk-in / foot-traffic claims require distanceMiles <= 0.5 (blocks away). Local traffic, prep, or staffing claims require distanceMiles <= 3.",
+  "An event beyond ~3 miles NEVER creates local walk-in, drive-thru, or staffing demand for this restaurant. Do not 'prepare' or 'staff up' for it.",
+  "Far-away MAJOR events (role metro_hook, e.g. a pro playoff game across the metro) are MARKETING TIE-IN material only: a themed or conditional promo ('home team wins = free appetizer'), or a watch-party angle if the concept fits. Propose one ONLY with a concrete action; score its impact low; never frame it as nearby or as expected traffic.",
+  "Respect the service model in profile.attributes.serviceModel: for a drive-thru / quick-service restaurant, never frame demand as walk-ins; think drive-by, carry-out, and order-ahead angles.",
+].join(" ")
+
 const CREATIVE_AND_CHANNEL = [
   "Creative direction must be PHONE-FIRST: describe a photo or short video the owner can capture on their own phone, in plain words (what to point the camera at, when, what to show).",
   "Assume NO special equipment or skills. Do not use photography jargon ('golden hour', 'side light', 'tight crop', 'no text overlay', 'plating') or assume a camera, lighting, or an editor.",
@@ -76,6 +88,7 @@ export function buildSkillPrompt(
     "RULES:",
     NO_EXEC,
     GROUNDING,
+    EVENT_GEOGRAPHY,
     voiceLine(d),
     CREATIVE_AND_CHANNEL,
     "",

@@ -19,6 +19,16 @@ function selectInput(d: Dossier) {
     ownSocial: d.location.social ?? null,
     ownVisual: d.location.visual ?? null,
     competitorSocial: d.competitors.map((c) => ({ name: c.name, social: c.social ?? null, visual: c.visual ?? null })),
+    // Far-away MAJOR events (metro attention moments, e.g. a playoff game across town).
+    // TIE-IN material only — see the metro-hook rules in the playbook + EVENT_GEOGRAPHY.
+    metroAttentionHooks: (d.demandCalendar.metroHooks ?? []).slice(0, 3).map((e) => ({
+      title: e.title,
+      when: e.startDatetime,
+      venue: e.venue?.name,
+      distanceMiles: e.distanceMiles,
+      magnitude: e.magnitude,
+      role: e.role,
+    })),
   }
 }
 

@@ -24,6 +24,17 @@ CORE MOVES (always recipe-level, never vague "post more"):
   video or Reel; the Instagram feed rewards one strong photo; Google Business rewards a current photo + a
   short update. One capture can feed several, so say how to use it on each, not just "post it".
 
+METRO ATTENTION HOOKS (input field metroAttentionHooks): far-away MAJOR events — a pro playoff game, a
+huge concert across the metro. These are NOT local demand (too far to move this restaurant's traffic) but
+they own the metro's attention, and attention can be borrowed:
+- The play is a TIE-IN, never preparation: a conditional promo ("if the Mavs win tonight, show the score
+  for a free appetizer tomorrow"), a game-day themed combo to order ahead for watching at home, or a
+  watch-party angle ONLY if the concept genuinely fits (sports bar, wings, pizza, big screens).
+- Fit check first: a quiet fine-dining room has no Mavs play — produce NOTHING rather than force it.
+- Score impact LOW (medium at most for a strong concept fit). Never claim the event brings traffic;
+  the promo creates the visit, the event only supplies the moment.
+- One hook play maximum; skip entirely when no concrete, executable action exists.
+
 GROUNDING: cite the social signal each play rests on. Never invent an engagement number; only state figures
 present in the evidence. Respect the operator's live channels and budget (a low-budget solo owner gets an
 organic content plan, not a paid-ads plan they cannot run).

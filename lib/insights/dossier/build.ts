@@ -217,12 +217,17 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   const eventsMeta = await latestSnapshotMeta(sb, locationId, "dataforseo_google_events")
   const eventsRaw = eventsMeta.raw
   const allEvents = ((eventsRaw?.events as NormalizedEvent[]) ?? []) as NormalizedEvent[]
-  // Guard: only UPCOMING events feed the forward-looking demand calendar. A stale
-  // snapshot must never surface as "prepare for" a date that has already passed.
-  const events = allEvents.filter((e) => {
+  // Guard 1 (time): only UPCOMING events feed the forward-looking demand calendar.
+  const upcoming = allEvents.filter((e) => {
     const when = (e.endDatetime ?? e.startDatetime ?? "") as string
     return !when || when.slice(0, 10) >= dateKey
   })
+  // Guard 2 (geography): the events search is metro-wide; "returned" ≠ "nearby".
+  // Only LOCAL roles (≤~3mi tiers) may drive demand; far MAJOR events become
+  // marketing-hook material; everything else (incl. ungeocoded/legacy un-annotated
+  // snapshots, until their next refresh) is excluded — anti-fabrication.
+  const events = upcoming.filter((e) => e.role === "local_foot" || e.role === "local_traffic")
+  const metroHooks = upcoming.filter((e) => e.role === "metro_hook")
   // Weather = a LIVE forward forecast (fetched here like own reviews/traffic), so the
   // demand calendar always looks AHEAD. The weather pipeline writes historical rows to
   // a different table that the dossier never read, so the forecast never reached the
@@ -268,6 +273,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   }
 
   // ── FUNDED DATA: own Places details (rating + reviews), own foot traffic, review sentiment ──
+  let serviceModel: string | undefined
   const placeId = (loc as Record<string, unknown>).primary_place_id as string | null
   if (placeId) {
     // own foot traffic (Outscraper on our OWN place) — cheap, unlocks own-vs-rival traffic reasoning
@@ -280,6 +286,19 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     try {
       const details = await fetchPlaceDetails(placeId)
       if (details) {
+        // Service model gates event framing (drive-thru QSR never gets walk-in plays).
+        const types: string[] = Array.isArray((details as Record<string, unknown>).types)
+          ? ((details as Record<string, unknown>).types as string[])
+          : []
+        const primary = ((details as Record<string, unknown>).primaryType as string) ?? ""
+        const all = [primary, ...types].join(" ")
+        serviceModel = /fast_food|meal_takeaway|meal_delivery/.test(all)
+          ? "quick service / drive-thru or takeout"
+          : /\bbar\b|pub/.test(all)
+            ? "bar + dine-in"
+            : /restaurant|food/.test(all)
+              ? "dine-in"
+              : undefined
         const recentReviews = (details.reviews ?? []).map((r, i) => ({
           id: `${details.id ?? "own"}-${i}`,
           rating: r.rating ?? 0,
@@ -340,7 +359,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     name: (loc.name as string) ?? "Your location",
     timezone: ((loc as Record<string, unknown>).timezone as string) ?? "America/New_York",
     voiceTone: "warm_personal", // column lands with the skill-layer migration; default until then
-    attributes: {},
+    attributes: { ...(serviceModel ? { serviceModel } : {}) },
     capability: {}, // operator-capability profile lands with onboarding; empty until then
   }
 
@@ -389,7 +408,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     profile,
     location,
     competitors,
-    demandCalendar: { events, weather },
+    demandCalendar: { events, metroHooks, weather },
     ruleOutputs: groundedRuleOutputs,
     coverage,
   }

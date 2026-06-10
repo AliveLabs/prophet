@@ -80,6 +80,9 @@ export type RestaurantProfile = {
     hasPatio?: boolean
     nearVenues?: string[] // venue names within demand radius
     dayparts?: string[]
+    /** e.g. "quick service / drive-thru or takeout", "bar + dine-in", "dine-in".
+     *  Gates event framing: a drive-thru QSR never gets "walk-in surge" plays. */
+    serviceModel?: string
   }
   capability: OperatorCapability
 }
@@ -119,7 +122,14 @@ export type EntitySignals = {
 
 // ── The shared demand read (events + weather + busy times) ─────────────────
 export type DemandCalendar = {
+  /** LOCAL demand drivers only (role local_foot/local_traffic, ≤~3mi). These may
+   *  ground prepare/staffing/traffic plays. The pretest (2026-06-09) proved the model
+   *  won't self-gate on a distance field — exclusion is structural. */
   events: NormalizedEvent[]
+  /** Far-away MAJOR events (role metro_hook, e.g. an NBA playoff game across the metro).
+   *  Marketing tie-in material ONLY (score promos, watch-party angles) — never local
+   *  demand, surfaced only when a concrete play exists, impact scored low. */
+  metroHooks?: NormalizedEvent[]
   weather: DailyWeatherSummary[]
   // sizing stays ORDINAL unless grounded in real data — no fabricated headcounts
 }

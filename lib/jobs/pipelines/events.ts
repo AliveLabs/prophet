@@ -19,6 +19,29 @@ import type {
   NormalizedEventsSnapshotV1,
 } from "@/lib/events/types"
 import { fetchPlaceDetails } from "@/lib/places/google"
+import { geocodeVenue, haversineMiles } from "@/lib/events/geo"
+import { classifyEventMagnitude, classifyEventRole } from "@/lib/events/relevance"
+import type { NormalizedEvent } from "@/lib/events/types"
+
+/** Geocode venues (bounded concurrency) + stamp distance/magnitude/role on each event. */
+async function annotateEventGeo(events: NormalizedEvent[], lat: number, lng: number): Promise<void> {
+  const BATCH = 5
+  for (let i = 0; i < events.length; i += BATCH) {
+    await Promise.all(
+      events.slice(i, i + BATCH).map(async (e) => {
+        const pos = await geocodeVenue(e.venue?.name, e.venue?.address)
+        if (pos) {
+          e.venue = { ...(e.venue ?? {}), lat: pos.lat, lng: pos.lng }
+          e.distanceMiles = haversineMiles(lat, lng, pos.lat, pos.lng)
+        } else {
+          e.distanceMiles = null
+        }
+        e.magnitude = classifyEventMagnitude(e)
+        e.role = classifyEventRole(e.distanceMiles, e.magnitude)
+      })
+    )
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Context
@@ -36,6 +59,8 @@ export type EventsPipelineCtx = {
     region: string | null
     country: string | null
     primary_place_id: string | null
+    geo_lat: number | null
+    geo_lng: number | null
   }
   dateKey: string
   state: {
@@ -109,6 +134,23 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
         }))
 
         c.state.snapshot = normalizeEventsSnapshot(rawResults, queries)
+
+        // ── Geo-relevance (Layer 1/2): geography is the event's content_as_of. ──
+        // Geocode each venue, measure distance to the restaurant, classify role.
+        // "Returned by the search" is NOT "nearby" — the search is metro-wide.
+        if (c.location.geo_lat != null && c.location.geo_lng != null) {
+          await annotateEventGeo(c.state.snapshot.events, c.location.geo_lat, c.location.geo_lng)
+          const roles = c.state.snapshot.events.reduce<Record<string, number>>((acc, e) => {
+            const r = e.role ?? "ungeocoded"
+            acc[r] = (acc[r] ?? 0) + 1
+            return acc
+          }, {})
+          console.log(`[Events] geo roles for ${c.location.name}:`, JSON.stringify(roles))
+        } else {
+          c.state.warnings.push("Location has no geo coordinates — events left ungeocoded (no local-demand claims)")
+          for (const e of c.state.snapshot.events) e.role = "ungeocoded"
+        }
+
         const diffHash = computeEventsSnapshotDiffHash(c.state.snapshot)
 
         await c.supabase.from("location_snapshots").upsert(
@@ -240,9 +282,30 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
           /* non-critical */
         }
 
+        // Geo gate: only LOCAL events (≤3mi tiers) may generate "nearby event"
+        // insights — a metro-wide search result is not local demand. metro_hook
+        // events stay in the stored snapshot (the brief's marketing-hook channel)
+        // but never produce density/high-signal "nearby" claims.
+        const localEvents = c.state.snapshot.events.filter(
+          (e) => e.role === "local_foot" || e.role === "local_traffic"
+        )
+        const localSnapshot = {
+          ...c.state.snapshot,
+          events: localEvents,
+          summary: { ...c.state.snapshot.summary, totalEvents: localEvents.length },
+        }
+        const localPrevious = previousSnapshot
+          ? {
+              ...previousSnapshot,
+              events: (previousSnapshot.events ?? []).filter(
+                (e) => e.role === "local_foot" || e.role === "local_traffic"
+              ),
+            }
+          : previousSnapshot
+
         const insights = generateEventInsights({
-          current: c.state.snapshot,
-          previous: previousSnapshot,
+          current: localSnapshot,
+          previous: localPrevious,
           matches:
             c.state.matchRecords as unknown as Parameters<
               typeof generateEventInsights
@@ -319,6 +382,8 @@ export async function buildEventsContext(
       region: location.region,
       country: location.country,
       primary_place_id: location.primary_place_id,
+      geo_lat: location.geo_lat,
+      geo_lng: location.geo_lng,
     },
     dateKey: new Date().toISOString().slice(0, 10),
     state: {
