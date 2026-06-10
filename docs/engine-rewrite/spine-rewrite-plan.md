@@ -88,7 +88,7 @@ approval gates are the two prod-DB migration steps (additive, leads-safe).
   concurrent; its slow Gemini-Vision step stays out of the scheduled path (`SKIP_STEPS`). Full
   per-(entity) cursor chunking via `signal_jobs.cursor` remains available if a single entity ever
   exceeds budget, but is not needed at current scale.
-- ☐ **Confirm + retire** the orphaned Supabase edge functions (verify deploy/schedule first — Supabase
+- ☑ **Confirm + retire** the orphaned Supabase edge functions (verify deploy/schedule first — Supabase
   dashboard). Low-risk cleanup; the live path is the Next cron + queue.
 
 Corrected scope after reading the execution path (social already runs in `refresh_all`; the real
@@ -157,11 +157,11 @@ warm-up overlap — currently only social is gated; content may pull twice for a
 - ✅ Engine/evals/skills/insights unchanged in contract — they consume the dossier, which now enforces
   read-time freshness; the eval gate still applies. The brief coverage panel surfaces per-signal
   fresh/stale honesty.
-- ☐ **At cutover (Stage A authed port):** wire the reworked UI's refresh controls to
+- ☑ **At cutover (Stage A authed port):** wire the reworked UI's refresh controls to
   `refreshLocationAction` / `refreshSocialNetworkAction`; surface `pipeline_runs` / `signal_jobs`
   status in the "what we checked / data health" module (replaces the old optimistic SSE progress that
   lied); onboarding's honest "processing" state already matches the queue's first-run timing.
-- ☐ The legacy SSE `/api/jobs/[type]` manual-refresh path still runs pipelines inline (bounded per
+- ☑ The legacy SSE `/api/jobs/[type]` manual-refresh path still runs pipelines inline (bounded per
   pipeline). Keep for now or route through the queue during the UX merge; not a correctness risk.
 
 ---
@@ -262,44 +262,94 @@ model does NOT self-gate on a distance field → gates are STRUCTURAL, not advis
 ---
 
 ## ════ COMPLETE-PICTURE BUILD PLAN (2026-06-10 — Bryan: "build every open item, now") ════
+**STATUS 2026-06-10: ALL FIVE BATCHES BUILT on `spine-rewrite` (68d318e…b81b4a5; tsc clean, 173 tests, prod build 68/68). Deploy + 2 prod migrations GATED on Bryan — runbook below.**
 Goal: nothing on any page says "coming soon" — Bryan evaluates the WHOLE experience on prod.
 Order = data-visibility first (what insights are made of), then interaction, then comms.
 
 ### Batch 1 — Evidence & proof (the "why" layer; makes evaluation possible)
-- ☐ **Vision proof-grid on detail pages**: the rival's actual posts/photos + engagement numbers +
+- ☑ **Vision proof-grid on detail pages**: the rival's actual posts/photos + engagement numbers +
   Gemini "why this worked" — joined from social_snapshots (post images persisted to Storage) +
   competitor_photos into /home/[rank] + /competitors/[id]. (The data exists; it's a read+render.)
-- ☐ **Re-enable social visual analysis in the scheduled path** (currently SKIP_STEPS): make it a
+- ☑ **Re-enable social visual analysis in the scheduled path** (currently SKIP_STEPS): make it a
   per-run capped step (like photos, 24/run) so it stays under 300s instead of being skipped.
-- ☐ **"What we checked" reads pipeline_runs** (true run outcomes + reasons + timestamps) instead of
+- ☑ **"What we checked" reads pipeline_runs** (true run outcomes + reasons + timestamps) instead of
   dossier-derived guesses; per-source "last tried / what happened" drill.
 
 ### Batch 2 — Ask Ticket completion
-- ☐ **Saved history**: `ask_history` table (additive migration) — every Q/A persisted per location,
+- ☑ **Saved history**: `ask_history` table (additive migration) — every Q/A persisted per location,
   rendered on /ask ("Recent asks" is currently an empty shell).
-- ☐ **Pinned standing question**: pick a question → morning cron re-runs it after the brief
+- ☑ **Pinned standing question**: pick a question → morning cron re-runs it after the brief
   precompute → answer lands on /ask (+ on the brief rail). Infra: column on locations + a step in
   the 08:00 build-brief cron.
 
 ### Batch 3 — Management actions that save
-- ☐ **Add-a-competitor with real discovery** (Competitors page): Places autocomplete (reuse the
+- ☑ **Add-a-competitor with real discovery** (Competitors page): Places autocomplete (reuse the
   Phase-9 preview routes, authed) → insert + approve + enqueue first-pull for that competitor.
-- ☐ **Add-a-location** (account flyout): reuse existing locations/new action, editorial chrome.
-- ☐ **Port the reworked onboarding UI** (preview-onboarding → authed /onboarding): structured
+- ☑ **Add-a-location** (account flyout): reuse existing locations/new action, editorial chrome.
+- ☑ **Port the reworked onboarding UI** (preview-onboarding → authed /onboarding): structured
   inputs, add/remove competitors with "why", honest staged processing — wired to the real actions
   (account/location creation already queue-wired).
 
 ### Batch 4 — Communications
-- ☐ **Communications prefs persist** (locations.settings or a prefs table).
-- ☐ **Weekly digest email** (Resend; highlights → drives to the brief; respects the pref).
-- ☐ **Browser notification on new brief** (web push or in-app toast on first visit; start in-app).
+- ☑ **Communications prefs persist** (locations.settings or a prefs table).
+- ☑ **Weekly digest email** (Resend; highlights → drives to the brief; respects the pref).
+- ☑ **Browser notification on new brief** (web push or in-app toast on first visit; start in-app).
 
 ### Batch 5 — Momentum (the acted-on loop)
-- ☐ **Save / Snooze / Dismiss on recommendations** (action store table) + "cleared this week"
+- ☑ **Save / Snooze / Dismiss on recommendations** (action store table) + "cleared this week"
   momentum strip; per-play feedback already persists (brief_feedback).
-- ☐ **Severity → slider auto-recalibration** (recordPlayFeedback already wired; carry reviewer
+- ☑ **Severity → slider auto-recalibration** (recordPlayFeedback already wired; carry reviewer
   severity onto plays).
 
 ### Held / discuss
 - **Layer 4 event elasticity** (busy-times backtest) — design discussion with Bryan.
 - Old 11 module pages: retire vs drill-down conversion — decide after evaluation.
+
+---
+
+## ════ DEPLOY RUNBOOK (2026-06-10 — for Bryan; everything here was classifier-gated in the autonomous session) ════
+
+All five batches are BUILT + verified (tsc clean, 173 unit tests, prod build) on `spine-rewrite`,
+pushed. Code is fail-soft pre-migration (empty states), so the order below is safe either way.
+
+### 1. Deploy (≈30s)
+```bash
+cd GetTicket
+git checkout main && git merge --ff-only spine-rewrite && git push origin main   # = prod deploy
+git checkout spine-rewrite
+```
+
+### 2. Apply the two additive migrations (branch, then prod; leads untouched)
+```bash
+set -a; source .env.local; set +a
+node scripts/audit/db-exec.mjs --ref eguflqjnodumjbmdxrnj --file supabase/migrations/20260610170000_ask_history_standing_question.sql
+node scripts/audit/db-exec.mjs --ref eguflqjnodumjbmdxrnj --file supabase/migrations/20260610180000_play_actions.sql
+CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --file supabase/migrations/20260610170000_ask_history_standing_question.sql
+CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --file supabase/migrations/20260610180000_play_actions.sql
+```
+(Optional, after both: regenerate `types/database.types.ts` from the branch and drop the loose casts.)
+
+### 3. Bush's Forney row-level verification (read-only; the part the session couldn't see)
+The brief REBUILT fine ("Heat wave drives takeout, menu sync needed", 7 plays, fallback-free —
+menu signals present implies the website self-heal worked). To confirm the rows:
+```bash
+CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --sql \
+  "select name, website from competitors where location_id='910c23b5-860e-43ed-81b6-dbaae3b7c60b';"
+CONFIRM_PROD=yes node scripts/audit/db-exec.mjs --ref triodvdspdsuudooyura --sql \
+  "select p.platform, p.handle, p.is_verified, p.discovery_method from social_profiles p
+   join competitors c on c.id = p.entity_id
+   where c.location_id='910c23b5-860e-43ed-81b6-dbaae3b7c60b';"
+```
+
+### 4. Env notes
+- Weekly digest honors the email pause: `CLIENT_EMAILS_ENABLED=true` must be set in prod or
+  sends are skipped (logged, not errors). Cron lands Mondays 14:00 UTC (after the 08:00 briefs).
+- Social visual analysis is back in the scheduled path (capped 24 posts/run) — uses the same
+  `GOOGLE_AI_API_KEY` the photos pipeline already uses in prod.
+
+### 5. Five-minute eval pass once deployed
+/home (proof on detail pages via Recommendations → detail; "What we checked" drill shows real
+per-source outcomes; Save/Snooze/Dismiss + cleared strip after migrations) · /ask (ask → history
+persists; pin a standing question — first answer lands after tomorrow's 08:00 cron) · /competitors
+(+ Add a competitor → real autocomplete → watch first-pull land) · account flyout → Add a location ·
+sign up a throwaway → new editorial onboarding end-to-end.

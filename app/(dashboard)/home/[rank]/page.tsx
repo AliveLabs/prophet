@@ -90,7 +90,6 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             ) : null}
           </div>
         ))}
-        <p className="pv-soon">Step-by-step walkthroughs and platform-specific guides (Instagram, TikTok, Google Business) are coming to each recommendation.</p>
       </div>
 
       <div className="pv-section">
