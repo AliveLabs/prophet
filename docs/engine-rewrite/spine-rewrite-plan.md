@@ -237,3 +237,24 @@ Spine rewrite (Phases 1–5) + Phase 7 (pull modes, Data365 billing cadence, reb
 persona/insight freshness gating) — all live-verified on the branch: dossier excludes dormant social;
 **social "activity" insights gated so dormant competitors no longer read as recently active**; queue
 drains with honest `pipeline_runs` outcomes; full Wagyu brief builds grounded + freshness-honest.
+
+---
+
+## Event geo-relevance (2026-06-09 overnight — SHIPPED through main)
+Bryan's directive: "local" was metro-wide (Bush's Forney brief: all 10 events 10–40mi away).
+PRETEST first (Bryan's method — run the scenario against existing skills before building): proved the
+model does NOT self-gate on a distance field → gates are STRUCTURAL, not advisory.
+- **L1** `lib/events/geo.ts`: geocode every venue (Places searchText; classic Geocoding API DENIED on
+  our key) + haversine `distanceMiles` on every NormalizedEvent.
+- **L2** `lib/events/relevance.ts`: role = distance × magnitude — `local_foot` ≤0.5mi (walk-in claims
+  allowed) / `local_traffic` ≤3mi (traffic/prep) / `metro_hook` far+MAJOR (marketing TIE-IN only, low
+  impact: "Mavs win = free side") / `out_of_area` + `ungeocoded` invisible (anti-fabrication).
+- **L3** pipeline annotates at fetch + generates insights from LOCAL events only; dossier splits
+  `demandCalendar.events` (local) vs `metroHooks` (marketing skill only); `attributes.serviceModel`
+  from Places types (drive-thru QSR never gets walk-in framing); shared `EVENT_GEOGRAPHY` prompt rule.
+- **L5** eval `checkEventGeoSanity`: far-event demand claims / high-leverage hooks = deterministic FAIL.
+- **Proof:** Variant C live — "Run a Mavs Win = Free Side promo" [capitalize/LOW] + zero false demand
+  (vs pre-build "Staff up for playoff traffic" [prepare/high/high]).
+- **HELD (Layer 4, discuss with Bryan):** busy-times backtest → per-restaurant event ELASTICITY
+  (which event classes measurably move THIS restaurant's traffic; negative results are product too).
+- Also: worker zombie-reclaim (16 stuck 'running' jobs found in prod; >20m running → requeued).
