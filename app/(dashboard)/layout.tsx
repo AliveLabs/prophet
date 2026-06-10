@@ -137,8 +137,11 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   return (
     <BrandProvider brand={dataBrand}>
+      {/* Toaster must stay OUTSIDE .ticket-app: its static wrapper would otherwise
+          become a grid item and steal the 228px sidebar column (displacing the whole
+          shell — sidebar to 1fr, main below the fold). */}
+      <Toaster position="top-right" richColors closeButton />
       <div className="ticket-app">
-        <Toaster position="top-right" richColors closeButton />
         <aside className="pv-sidebar">
           <div className="pv-brand"><TicketMark /> TICKET</div>
           <ShellNav />
