@@ -21,8 +21,10 @@ export type ProducerSkill = {
   knowledgeVersion: string
   /** The domain playbook (expert priors), authored as prose. */
   knowledge: string
-  /** Build the system + user prompt for this skill from the dossier (input selection lives here). */
-  buildPrompt: (d: Dossier) => { system: string; prompt: string }
+  /** Build the prompts for this skill from the dossier (input selection lives here).
+   *  systemCached = the stable, byte-identical-across-locations prefix (cached);
+   *  system = the volatile per-location context, after the cache breakpoint. */
+  buildPrompt: (d: Dossier) => { systemCached?: string; system: string; prompt: string }
   /** Coerce model JSON into plays; return null to trigger the deterministic fallback. */
   parse: (raw: unknown, d: Dossier) => EnrichedRecommendation[] | null
   /** Deterministic, grounded fallback when the model fails/returns junk. Never fabricates. */

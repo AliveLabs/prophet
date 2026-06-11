@@ -71,16 +71,20 @@ const SCHEMA_INSTRUCTION = [
   "No prose outside the JSON array.",
 ].join("\n")
 
-/** Compose the full system + user prompt for a skill, given the dossier slice it selected. */
+/** Compose the system + user prompt for a skill, given the dossier slice it selected.
+ *
+ *  CACHE-AWARE SPLIT (prompt caching is a prefix match): `systemCached` holds
+ *  everything byte-identical across locations and days — persona, domain playbook,
+ *  rules, schema — so sequential brief builds (13 locations each morning) reuse it
+ *  at ~0.1x input price. The per-location context (name, capability, voice) comes
+ *  AFTER the cache breakpoint in `system`; the dossier stays in the user prompt. */
 export function buildSkillPrompt(
   skill: ProducerSkill,
   d: Dossier,
   selectedInput: unknown,
-): { system: string; prompt: string } {
-  const locale = [d.profile.attributes.cuisine, d.profile.attributes.priceTier].filter(Boolean).join(" ")
-  const system = [
-    `You are the ${skill.displayName} for Ticket, advising ${d.profile.name}${locale ? `, a ${locale} restaurant` : ""}.`,
-    capabilityLine(d),
+): { systemCached: string; system: string; prompt: string } {
+  const systemCached = [
+    `You are the ${skill.displayName} for Ticket, the expert advisor to a single restaurant. The specific restaurant you are advising is described after these standing instructions.`,
     "",
     "DOMAIN PLAYBOOK:",
     skill.knowledge,
@@ -89,10 +93,16 @@ export function buildSkillPrompt(
     NO_EXEC,
     GROUNDING,
     EVENT_GEOGRAPHY,
-    voiceLine(d),
     CREATIVE_AND_CHANNEL,
     "",
     SCHEMA_INSTRUCTION,
+  ].join("\n")
+
+  const locale = [d.profile.attributes.cuisine, d.profile.attributes.priceTier].filter(Boolean).join(" ")
+  const system = [
+    `THE RESTAURANT: you are advising ${d.profile.name}${locale ? `, a ${locale} restaurant` : ""}.`,
+    capabilityLine(d),
+    voiceLine(d),
   ].join("\n")
 
   const allowedEvidenceRefs = [...buildRefIndex(d).allowedRefs].sort()
@@ -106,7 +116,7 @@ export function buildSkillPrompt(
     null,
     2,
   )
-  return { system, prompt }
+  return { systemCached, system, prompt }
 }
 
 /** Defensive coercion of model JSON into a plays array (skills call this in parse). */

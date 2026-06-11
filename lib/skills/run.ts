@@ -24,9 +24,9 @@ export async function runProducerSkill(
   opts: RunOptions = {},
 ): Promise<SkillResult> {
   try {
-    const { system, prompt } = skill.buildPrompt(dossier)
+    const { systemCached, system, prompt } = skill.buildPrompt(dossier)
     const plays = await generateStructured<EnrichedRecommendation[]>(
-      { tier: skill.tier, system, prompt, temperature: skill.temperature },
+      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature },
       {
         transport: opts.transport,
         validate: (raw) => skill.parse(raw, dossier),

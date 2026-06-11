@@ -34,7 +34,10 @@ describe("phase 7 — phone-first creative direction", () => {
 })
 
 describe("phase 7 — shared skill prompt rules", () => {
-  const { system } = buildSkillPrompt(marketingSkill, competitiveWeekDossier, {})
+  // The rules live across the cached (stable) and volatile system blocks — assert on
+  // the combined text the model actually receives.
+  const built = buildSkillPrompt(marketingSkill, competitiveWeekDossier, {})
+  const system = [built.systemCached, built.system].filter(Boolean).join("\n")
 
   it("instructs phone-first creative with no assumed equipment", () => {
     expect(system).toMatch(/PHONE-FIRST/)

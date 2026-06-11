@@ -18,6 +18,12 @@ export type ModelTier = "reasoning" | "cheap"
 export type GenerateRequest = {
   tier: ModelTier
   system?: string
+  /** STABLE system prefix, byte-identical across calls (skill playbook + rules +
+   *  schema). Sent as the first system block with cache_control so sequential brief
+   *  builds reuse it (~0.1x input price on hits). Volatile per-location context goes
+   *  in `system`, AFTER the cache breakpoint. Below ~1024 tokens it silently won't
+   *  cache (harmless). Kill-switch: ANTHROPIC_PROMPT_CACHE=0. */
+  systemCached?: string
   prompt: string
   maxOutputTokens?: number
   temperature?: number
@@ -63,6 +69,23 @@ export function extractJson(text: string): unknown {
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 529])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+/** Build the `system` payload. With a systemCached prefix (and caching enabled) it
+ *  becomes a block array: [stable block + cache_control(1h), volatile block]. The 1h
+ *  TTL matters: sequential brief builds put 1-6 min between same-skill calls, which
+ *  straddles the default 5-minute cache window. */
+function buildSystemPayload(req: GenerateRequest): string | Array<Record<string, unknown>> | undefined {
+  const cachingEnabled = process.env.ANTHROPIC_PROMPT_CACHE !== "0"
+  if (req.systemCached && cachingEnabled) {
+    return [
+      { type: "text", text: req.systemCached, cache_control: { type: "ephemeral", ttl: "1h" } },
+      ...(req.system ? [{ type: "text", text: req.system }] : []),
+    ]
+  }
+  // Disabled or no cached prefix: same content as a plain string.
+  const joined = [req.systemCached, req.system].filter(Boolean).join("\n")
+  return joined || undefined
+}
+
 /** Claude raw text via the stable Messages REST API. Needs ANTHROPIC_API_KEY.
  *  Retries transient errors (429/5xx/529 overloaded) with backoff so a momentary
  *  provider hiccup never silently degrades a brief to the deterministic fallback. */
@@ -71,6 +94,7 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured")
   const maxAttempts = (opts.retries ?? 4) + 1 // synthesis runs right after a parallel skill burst; survive rate limits
   let lastErr: unknown
+  const system = buildSystemPayload(req)
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const res = await fetch(ANTHROPIC_URL, {
@@ -84,7 +108,7 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
           model: ANTHROPIC_MODEL,
           max_tokens: req.maxOutputTokens ?? 8192,
           temperature: req.temperature ?? 0.4,
-          ...(req.system ? { system: req.system } : {}),
+          ...(system ? { system } : {}),
           messages: [{ role: "user", content: req.prompt }],
         }),
       })
@@ -102,7 +126,18 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
         }
         throw err
       }
-      const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> }
+      const data = (await res.json()) as {
+        content?: Array<{ type?: string; text?: string }>
+        usage?: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
+      }
+      // Cache observability: read>0 means the stable prefix hit; creation>0 means it
+      // was (re)written this call. Zero on both across repeats = silent invalidator.
+      const u = data.usage
+      if (u) {
+        console.log(
+          `[claudeRaw] usage in=${u.input_tokens ?? 0} out=${u.output_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0}`
+        )
+      }
       return (data.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("")
     } catch (err) {
       // network/transport error — retry too
@@ -124,7 +159,8 @@ export async function claudeTransport(req: GenerateRequest): Promise<unknown> {
 
 /** Cheap tier — Gemini via the existing wrapper (folds system into the prompt). */
 export async function geminiTransport(req: GenerateRequest): Promise<unknown> {
-  const prompt = req.system ? `${req.system}\n\n${req.prompt}` : req.prompt
+  const system = [req.systemCached, req.system].filter(Boolean).join("\n")
+  const prompt = system ? `${system}\n\n${req.prompt}` : req.prompt
   return generateGeminiJson(prompt, { maxOutputTokens: req.maxOutputTokens, temperature: req.temperature })
 }
 
