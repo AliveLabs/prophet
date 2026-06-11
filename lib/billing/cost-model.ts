@@ -16,6 +16,13 @@
 // (data365.co/pricing), Claude Sonnet (Anthropic). Items tagged ~VERIFY are best-effort.
 // VOLUMES are read from lib/jobs/pipelines/* and must be re-calibrated against REAL
 // measured usage once the spine is wired (that is the true verification — see notes).
+//
+// TRIAL & TIER MODEL v2 (2026-06-11): trials run at the MID tier (daily, all
+// networks, 5 competitors) — trial COGS ≈ half a month of mid ≈ $50, treated as
+// CAC per the Apr 2026 brief § Trial Strategy. Paid Tier 1 own-social is ONE
+// network of the customer's choice; competitor pulls (all networks, every tier)
+// dominate the social line, so entry recurring cost barely moves vs the old
+// instagram-only model.
 // ---------------------------------------------------------------------------
 
 // ── THE OBVIOUS ADJUSTMENT: reversible cost levers ───────────────────────────

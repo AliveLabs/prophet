@@ -62,7 +62,7 @@ rule, admin filters, add-location gate.
 ### Batch 0 — loadSocial masking bug ✅ DONE (35c73f7, live-verified)
 pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak.
 
-### Batch 1 — kill the free tier + new trial semantics
+### Batch 1 — kill the free tier + new trial semantics ✅ DONE (bd82e63)
 - ☐ `SubscriptionTier` = `entry | mid | top | suspended`. Delete `free` from
   TIER_LIMITS / DISPLAY_NAMES; TIER_PRICING excludes only `suspended`.
   `asSubscriptionTier` fallback → `entry` (pre-migration 'free' rows degrade safely:
@@ -77,7 +77,7 @@ pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak
 - ☐ 17 `?? "free"` → `?? "entry"` (the 13 safe ones verbatim; risky 4 via rework above).
 - ☐ UI copy: "Free" label gone; trialing orgs show their tier + "(trial)".
 
-### Batch 2 — CC collection at onboarding (the trial starts at checkout)
+### Batch 2 — CC collection at onboarding ✅ DONE (e331081)
 - ☐ Org creation (`createOrgAndLocationAction`): STOP setting trial_started_at /
   trial_ends_at; insert `subscription_tier: 'mid'` explicitly (trial-pending). First
   data pull stays at location creation (one first_run = acquisition cost; recurring
@@ -94,13 +94,13 @@ pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak
 - ☐ TrialExpiredGate copy branches: never-started (trial_started_at null → "Start
   your free trial") vs expired ("Your trial ended").
 
-### Batch 3 — in-app trial notification cadence
+### Batch 3 — in-app trial notification cadence ✅ DONE (be45295; reminder emails now bypass CLIENT_EMAILS_ENABLED — billing-critical)
 - ☐ TrialBanner: show for the WHOLE trial (info tone), escalate at ≤4 days and
   ≤1 day; trialing-with-card copy shows charge date + amount + manage/cancel link;
   clock-only trials (no card) show "X days left — add a card to keep going".
 - ☐ Verify trial-reminders cron end-to-end + CLIENT_EMAILS_ENABLED gate behavior.
 
-### Batch 4 — Tier-1 own-network-of-choice (unchanged from v1)
+### Batch 4 — Tier-1 own-network-of-choice ✅ DONE (71cbf00; onboarding-time choice still dovetails the future Day-1 wizard — default instagram + settings selector for now)
 - ☐ `locations.settings.ownSocialNetwork` (jsonb, default instagram, set at
   onboarding handle-confirm; dovetails social-handle-completion-plan Batch 3).
 - ☐ Tier config SPLIT: `ownSocialNetworks` (entry: chosen-one; mid/top: all 3) vs
@@ -112,13 +112,13 @@ pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak
   (adhoc re-pull, honest history-starts-fresh copy); upsell seam: detected non-chosen
   own network shows "found — tracked on Tier 2+".
 
-### Batch 5 — trial = one location, explicitly (unchanged from v1)
+### Batch 5 — trial = one location, explicitly ✅ DONE (d284e16)
 - ☐ Explicit isTrialing gate on add-location paths + account flyout upsell copy;
   paid limits 1/1/3 reconciled across both tier tables.
 
 ### Batch 6 — sweep, verify, deploy, migrate
-- ☐ Repo-wide grep gate (no live `free` tier values outside historical docs).
-- ☐ Cost model note: trial COGS ≈ half a month of mid ≈ $50 = CAC (brief § Trial
+- ☑ Repo-wide grep gate (clean; sidebar legacy-label + an OpenWeather pricing comment remain on purpose) (no live `free` tier values outside historical docs).
+- ☑ Cost model note: trial COGS ≈ half a month of mid ≈ $50 = CAC (brief § Trial
   Strategy); paid entry economics unchanged by network-of-choice (competitor pulls
   dominate).
 - ☐ tsc + unit tests (184+) + prod build green → commit spine-rewrite → FF main +
@@ -144,3 +144,8 @@ pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak
   (branch autonomous, prod per the standing authorization above). Stripe env price
   IDs must exist for mid monthly in prod (STRIPE_PRICE_ID_{TICKET,NEAT}_MID_MONTHLY) —
   verify before deploy; onboarding checkout depends on them.
+
+### Pre-deploy env check (2026-06-11)
+- STRIPE_PRICE_ID_TICKET_* all present in prod (incl. MID monthly/annual).
+- **STRIPE_PRICE_ID_NEAT_MID_\* MISSING in prod** — Neat-brand onboarding checkout would 500 until added (Ticket unaffected). Bryan: run scripts/stripe/setup or add the env vars before any Neat signup.
+- CLIENT_EMAILS_ENABLED exists in prod (value unverified); trial reminders bypass it now, weekly digest still respects it.
