@@ -116,7 +116,13 @@ pickSocialSnapshot: usable beats unusable, newest content wins, IG only tiebreak
 - ☐ Explicit isTrialing gate on add-location paths + account flyout upsell copy;
   paid limits 1/1/3 reconciled across both tier tables.
 
-### Batch 6 — sweep, verify, deploy, migrate
+### Batch 6 — sweep, verify, deploy, migrate ✅ DONE (2026-06-11)
+Gates: tsc clean · 207/207 unit tests · prod build 70/70. Deployed: main FF
+35c73f7→a7199fc, Production row **Ready** (48s), getticket.ai 200. Migration
+20260611190000_kill_free_tier.sql applied to BRANCH and PROD (Bryan's explicit
+go): 9 free→mid (prod; 8 on branch), column default 'mid', schema-verified both;
+Bush's Chicken = mid / clock-trial live. Post-deploy eval pass = Bryan's
+walkthrough (new-signup checkout needs a real card in Stripe test/live).
 - ☑ Repo-wide grep gate (clean; sidebar legacy-label + an OpenWeather pricing comment remain on purpose) (no live `free` tier values outside historical docs).
 - ☑ Cost model note: trial COGS ≈ half a month of mid ≈ $50 = CAC (brief § Trial
   Strategy); paid entry economics unchanged by network-of-choice (competitor pulls
