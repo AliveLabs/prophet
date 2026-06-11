@@ -70,6 +70,31 @@ async function latestSnapshotMeta(sb: SB, locationId: string, provider: string):
   }
 }
 
+/** One platform's latest snapshot for an entity, classified — input to pickSocialSnapshot. */
+export type SocialCandidate = {
+  raw: SocialSnapshotData
+  platform: string
+  status: ReturnType<typeof classifyNow>
+  contentAsOf: string | null
+}
+
+/**
+ * Pick the entity's representative social snapshot from its per-platform candidates:
+ * a USABLE platform always beats an unusable one (a dead Instagram must never mask a
+ * live TikTok — the Bush's Forney masking bug), newest content wins among usable, and
+ * Instagram is only the tiebreak between equals. Null when nothing is usable.
+ */
+export function pickSocialSnapshot(candidates: SocialCandidate[]): SocialCandidate | null {
+  const usable = candidates.filter((c) => isUsable(c.status))
+  if (usable.length === 0) return null
+  usable.sort(
+    (a, b) =>
+      (b.contentAsOf ?? "").localeCompare(a.contentAsOf ?? "") ||
+      Number(b.platform === "instagram") - Number(a.platform === "instagram")
+  )
+  return usable[0]
+}
+
 /**
  * Latest USABLE social snapshot per entity. Enforces the data-integrity contract at
  * READ time: a snapshot is attached only if its CONTENT (newest post) is current per
@@ -101,33 +126,42 @@ async function loadSocial(
       .in("social_profile_id", profs.map((p) => p.id as string))
       .order("date_key", { ascending: false })
 
-    // Pick the latest snapshot per entity (rows are date desc → first seen = latest);
-    // prefer Instagram if present for that entity.
-    type Latest = { raw: SocialSnapshotData; capturedAt: string; isInstagram: boolean }
-    const latestByEntity = new Map<string, Latest>()
+    // Latest snapshot per (entity, PLATFORM) — rows are date desc → first seen = latest.
+    // Classifying per platform BEFORE reducing per entity is the masking-bug fix: the old
+    // "prefer Instagram" reduction let a dead Instagram replace a live TikTok before
+    // freshness was ever checked (Bush's Forney, found in review).
+    type PlatformLatest = { raw: SocialSnapshotData; capturedAt: string; platform: string; entityId: string }
+    const latestByEntityPlatform = new Map<string, PlatformLatest>()
     for (const s of snaps ?? []) {
       const prof = profById.get(s.social_profile_id as string)
       if (!prof) continue
-      const isInstagram = prof.platform === "instagram"
-      const cur = latestByEntity.get(prof.entity_id)
-      if (cur && !(isInstagram && !cur.isInstagram)) continue
-      latestByEntity.set(prof.entity_id, {
+      const key = `${prof.entity_id}:${prof.platform}`
+      if (latestByEntityPlatform.has(key)) continue
+      latestByEntityPlatform.set(key, {
         raw: s.raw_data as SocialSnapshotData,
         capturedAt: (s.captured_at as string) ?? (s.date_key as string),
-        isInstagram,
+        platform: prof.platform,
+        entityId: prof.entity_id,
       })
     }
 
-    for (const [entityId, v] of latestByEntity) {
+    const candidatesByEntity = new Map<string, SocialCandidate[]>()
+    for (const v of latestByEntityPlatform.values()) {
       const rawRec = v.raw as unknown as Record<string, unknown>
-      const probe = socialContentAsOf(rawRec)
-      const contentAsOf = probe.contentAsOf // self-computed from raw_data (newest post date)
-      const status = classifyNow({ contentAsOf, capturedAt: v.capturedAt, isEmpty: probe.isEmpty, kind: "social", now: `${nowKey}T00:00:00Z` })
-      if (isUsable(status)) {
-        byEntity.set(entityId, v.raw)
-        if (contentAsOf && (!asOf || contentAsOf > asOf)) asOf = contentAsOf
+      const probe = socialContentAsOf(rawRec) // content recency self-computed from raw_data
+      const status = classifyNow({ contentAsOf: probe.contentAsOf, capturedAt: v.capturedAt, isEmpty: probe.isEmpty, kind: "social", now: `${nowKey}T00:00:00Z` })
+      const list = candidatesByEntity.get(v.entityId) ?? []
+      list.push({ raw: v.raw, platform: v.platform, status, contentAsOf: probe.contentAsOf })
+      candidatesByEntity.set(v.entityId, list)
+    }
+
+    for (const [entityId, cands] of candidatesByEntity) {
+      const best = pickSocialSnapshot(cands)
+      if (best) {
+        byEntity.set(entityId, best.raw)
+        if (best.contentAsOf && (!asOf || best.contentAsOf > asOf)) asOf = best.contentAsOf
       } else {
-        excludedDormant++ // dormant / empty / undated — not current, kept out of the brief
+        excludedDormant++ // every platform dormant / empty / undated — kept out of the brief
       }
     }
   } catch {
