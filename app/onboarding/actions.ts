@@ -12,7 +12,7 @@ import {
 } from "@/lib/places/google"
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
-import { type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
+import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureLocationLimit } from "@/lib/billing/limits"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import type { Json } from "@/types/database.types"
@@ -164,7 +164,7 @@ export async function createLocationAction(formData: FormData) {
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = (orgRow?.subscription_tier ?? "free") as SubscriptionTier
+  const tier = asSubscriptionTier(orgRow?.subscription_tier)
 
   const { count: locationCount } = await supabaseAdmin
     .from("locations")
@@ -728,7 +728,7 @@ export async function completeOnboardingAction(input: {
     .select("subscription_tier")
     .eq("id", input.orgId)
     .maybeSingle()
-  const onboardTier = (onboardOrgData?.subscription_tier ?? "free") as SubscriptionTier
+  const onboardTier = asSubscriptionTier(onboardOrgData?.subscription_tier)
   const maxCompetitors = TIER_LIMITS[onboardTier].maxCompetitorsPerLocation
   const cappedCompetitorIds = input.competitorIds.slice(0, maxCompetitors)
 

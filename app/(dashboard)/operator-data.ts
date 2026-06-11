@@ -8,11 +8,12 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
 
-/** Map DB subscription_tier values (entry/mid/top + legacy) to display labels. */
+/** Map DB subscription_tier values (entry/mid/top + legacy) to display labels.
+ *  'free' is a legacy pre-migration value — those orgs are trials (of Tier 2). */
 export function tierLabel(t: string): string {
   const m: Record<string, string> = {
     entry: "Tier 1", mid: "Tier 2", top: "Tier 3",
-    tier_1: "Tier 1", tier_2: "Tier 2", tier_3: "Tier 3", free: "Free",
+    tier_1: "Tier 1", tier_2: "Tier 2", tier_3: "Tier 3", free: "Trial",
   }
   return m[t] ?? t
 }
@@ -141,7 +142,7 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     locationId: op.locationId,
     locationName: op.locationName,
     city: op.city,
-    tier: org?.subscription_tier ?? "free",
+    tier: org?.subscription_tier ?? "entry",
     brandTolerance: loc?.brand_tolerance ?? 50,
     voiceTone: loc?.voice_tone ?? null,
     userName: op.userName,

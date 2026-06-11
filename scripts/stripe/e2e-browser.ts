@@ -137,11 +137,13 @@ async function fillStripeCheckoutCard(
   }
 }
 
-async function ensureFreeOrgState() {
+// Pre-checkout state under the no-free-tier model: a clock-only trial of the
+// mid tier (null payment_state + live trial clock).
+async function ensureClockTrialOrgState() {
   await admin
     .from("organizations")
     .update({
-      subscription_tier: "free",
+      subscription_tier: "mid",
       payment_state: null,
       stripe_subscription_id: null,
       stripe_price_id: null,
@@ -175,7 +177,7 @@ async function runT15(page: Page): Promise<StepResult> {
   const details: string[] = []
   log(`▶ ${test}`)
   try {
-    await ensureFreeOrgState()
+    await ensureClockTrialOrgState()
     await gotoBilling(page)
     screenshots.push(await shot(page, "t15-01-billing-page"))
 
@@ -362,7 +364,7 @@ async function runT17(page: Page): Promise<StepResult> {
   try {
     log("Cancelling any current sub + resetting org…")
     await cancelExistingSub()
-    await ensureFreeOrgState()
+    await ensureClockTrialOrgState()
 
     await gotoBilling(page)
     screenshots.push(await shot(page, "t17-01-billing-reset"))
@@ -386,12 +388,12 @@ async function runT17(page: Page): Promise<StepResult> {
     details.push(`Stripe error message: ${errorText.trim()}`)
     screenshots.push(await shot(page, "t17-03-declined"))
 
-    // Verify org row didn't change (still free).
+    // Verify org row didn't change (still a card-less clock trial).
     const org = await readOrg()
     details.push(`org.subscription_tier=${org.subscription_tier}`)
     details.push(`org.payment_state=${org.payment_state}`)
-    if (org.subscription_tier !== "free") {
-      throw new Error(`Expected free tier after decline, got ${org.subscription_tier}`)
+    if (org.payment_state != null) {
+      throw new Error(`Expected null payment_state after decline, got ${org.payment_state}`)
     }
 
     return { test, status: "PASS", details, screenshots }
@@ -413,11 +415,11 @@ async function runT18(page: Page): Promise<StepResult> {
   const details: string[] = []
   log(`▶ ${test}`)
   try {
-    log("Setting org to free + trial_ends_at in the past…")
+    log("Setting org to a card-less trial with trial_ends_at in the past…")
     await admin
       .from("organizations")
       .update({
-        subscription_tier: "free",
+        subscription_tier: "mid",
         payment_state: null,
         stripe_subscription_id: null,
         stripe_price_id: null,

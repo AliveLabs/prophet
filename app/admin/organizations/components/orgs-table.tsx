@@ -9,10 +9,20 @@ interface OrgRow {
   slug: string
   tier: string
   trialEndsAt: string | null
+  paymentState: string | null
   memberCount: number
   locationCount: number
   createdAt: string
   industryType: string
+}
+
+// Mirrors lib/billing/trial.ts isTrialing: card-backed Stripe trials report
+// payment_state 'trialing'; legacy clock-only trials have null payment_state
+// plus a live trial clock.
+function isTrialingRow(o: { paymentState: string | null; trialEndsAt: string | null }): boolean {
+  if (o.paymentState === "trialing") return true
+  if (o.paymentState != null) return false
+  return !!o.trialEndsAt && new Date(o.trialEndsAt) > new Date()
 }
 
 export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
@@ -32,18 +42,14 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
 
     if (tierFilter === "all") return matchesSearch
     if (tierFilter === "trial_active") {
-      return (
-        matchesSearch &&
-        o.tier === "free" &&
-        o.trialEndsAt &&
-        new Date(o.trialEndsAt) > new Date()
-      )
+      return matchesSearch && isTrialingRow(o)
     }
     if (tierFilter === "trial_expired") {
       return (
         matchesSearch &&
-        o.tier === "free" &&
-        o.trialEndsAt &&
+        o.paymentState == null &&
+        o.tier !== "suspended" &&
+        !!o.trialEndsAt &&
         new Date(o.trialEndsAt) <= new Date()
       )
     }
@@ -67,7 +73,6 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
           className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
         >
           <option value="all">All</option>
-          <option value="free">Free</option>
           <option value="trial_active">Active Trials</option>
           <option value="trial_expired">Expired Trials</option>
           <option value="entry">Entry</option>
@@ -142,7 +147,11 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
                   <TierBadge tier={org.tier} />
                 </td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">
-                  <TrialStatus tier={org.tier} trialEndsAt={org.trialEndsAt} />
+                  <TrialStatus
+                    tier={org.tier}
+                    trialEndsAt={org.trialEndsAt}
+                    paymentState={org.paymentState}
+                  />
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {org.memberCount}
@@ -195,7 +204,6 @@ function IndustryBadge({ industryType }: { industryType: string }) {
 
 function TierBadge({ tier }: { tier: string }) {
   const colors: Record<string, string> = {
-    free: "bg-secondary text-foreground",
     entry: "bg-vatic-indigo/10 text-vatic-indigo",
     mid: "bg-precision-teal/10 text-precision-teal",
     top: "bg-signal-gold/10 text-signal-gold",
@@ -214,14 +222,20 @@ function TierBadge({ tier }: { tier: string }) {
 function TrialStatus({
   tier,
   trialEndsAt,
+  paymentState,
 }: {
   tier: string
   trialEndsAt: string | null
+  paymentState: string | null
 }) {
   const now = useMemo(() => new Date(), [])
 
   if (tier === "suspended") return <span className="text-destructive">Suspended</span>
-  if (tier !== "free") return <span className="text-precision-teal">Paid</span>
+  if (paymentState === "active") return <span className="text-precision-teal">Paid</span>
+  if (paymentState === "past_due") return <span className="text-destructive">Past due</span>
+  if (paymentState === "canceled" || paymentState === "incomplete_expired" || paymentState === "unpaid") {
+    return <span className="text-muted-foreground">Canceled</span>
+  }
   if (!trialEndsAt) return <span>No trial</span>
 
   const endsAt = new Date(trialEndsAt)
@@ -234,7 +248,7 @@ function TrialStatus({
   )
   return (
     <span className="text-precision-teal">
-      {daysLeft}d remaining
+      {daysLeft}d remaining{paymentState === "trialing" ? "" : " · no card"}
     </span>
   )
 }

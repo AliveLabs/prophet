@@ -29,7 +29,7 @@ function haversineMeters(input: {
 }
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import { ensureCompetitorLimit } from "@/lib/billing/limits"
-import type { SubscriptionTier } from "@/lib/billing/tiers"
+import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
 import { enrichCompetitorContent } from "@/lib/content/enrich"
@@ -430,7 +430,7 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("id", organizationId)
     .single()
 
-  const tier = (organization?.subscription_tier ?? "free") as SubscriptionTier
+  const tier = asSubscriptionTier(organization?.subscription_tier)
 
   const { count } = await supabase
     .from("competitors")
@@ -666,7 +666,7 @@ export async function addCompetitorAction(input: {
     .select("subscription_tier")
     .eq("id", location.organization_id)
     .maybeSingle()
-  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
+  const tier = asSubscriptionTier(org?.subscription_tier)
   const { count: activeCount } = await supabase
     .from("competitors")
     .select("id", { count: "exact", head: true })

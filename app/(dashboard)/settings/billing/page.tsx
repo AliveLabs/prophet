@@ -13,16 +13,16 @@ import { UpgradeSuccessToast } from "./upgrade-success"
 import { DunningBanner } from "@/components/billing/dunning-banner"
 import { ManageBillingButton } from "./manage-billing-button"
 
-// Four render states based on (subscription_tier, payment_state):
+// Render states based on (payment_state, trial clock) — there is no free tier:
 //
-//   free / null           -> "No subscription" + upgrade tiles
-//   entry|mid|top /
-//     trialing             -> "Trialing" card + countdown + Manage billing
-//     active               -> "Active" card + renewal date + Manage billing
-//     past_due             -> "Past due" card with DunningBanner call-out
-//     canceled |
-//     incomplete_expired  -> "Canceled" card + Resubscribe tiles
-//   suspended              -> Admin-suspended message
+//   null payment_state + live trial clock  -> legacy card-less trial: countdown
+//                                             + "no card on file" + plan tiles
+//   null payment_state, no/expired clock   -> "No subscription" + plan tiles
+//   trialing                               -> "Trial" card + countdown + Manage billing
+//   active                                 -> "Active" card + renewal date + Manage billing
+//   past_due                               -> "Past due" card with DunningBanner call-out
+//   canceled | incomplete_expired          -> "Canceled" card + Resubscribe tiles
+//   suspended                              -> Admin-suspended message
 
 export default async function BillingPage({
   searchParams,
@@ -51,7 +51,7 @@ export default async function BillingPage({
         .single()
     : { data: null }
 
-  const tier = asSubscriptionTier(organization?.subscription_tier ?? "free")
+  const tier = asSubscriptionTier(organization?.subscription_tier)
   const industry: IndustryType = isValidIndustryType(organization?.industry_type)
     ? organization.industry_type
     : "restaurant"
@@ -66,8 +66,11 @@ export default async function BillingPage({
   const isPastDue = paymentState === "past_due"
   const isCanceled =
     paymentState === "canceled" || paymentState === "incomplete_expired"
-  const isFree = tier === "free" && !paymentState
   const isSuspended = tier === "suspended"
+  // Never been through Stripe checkout: either a legacy card-less trial
+  // (internal clock still running) or no subscription at all.
+  const noStripe = !paymentState && !isSuspended
+  const isLegacyTrial = noStripe && daysRemaining > 0
   const hasCustomer = Boolean(organization?.stripe_customer_id)
 
   return (
@@ -89,16 +92,19 @@ export default async function BillingPage({
               </p>
               <p className="mt-2 font-display text-[28px] font-semibold leading-none tracking-tight text-foreground">
                 {getTierDisplayName(tier, industry)}
+                {(isTrialing || isLegacyTrial) && (
+                  <span className="ml-2 align-middle text-[13px] font-medium text-muted-foreground">
+                    (trial)
+                  </span>
+                )}
               </p>
-              {tier !== "free" && tier !== "suspended" && (
-                <PriceLabel tier={tier} />
-              )}
+              {tier !== "suspended" && <PriceLabel tier={tier} />}
             </div>
             <div className="rounded-lg border border-border bg-secondary px-4 py-4">
               <p className="text-[11.5px] font-medium text-muted-foreground">
                 Status
               </p>
-              {isTrialing ? (
+              {isTrialing || isLegacyTrial ? (
                 <p className="mt-2 text-[15px] font-semibold text-foreground">
                   Trial · {daysRemaining}{" "}
                   {daysRemaining === 1 ? "day" : "days"} remaining
@@ -129,7 +135,7 @@ export default async function BillingPage({
             </div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            {!isFree && !isSuspended && (
+            {!noStripe && !isSuspended && (
               <Badge
                 variant="default"
                 className="border-border text-muted-foreground"
@@ -137,12 +143,12 @@ export default async function BillingPage({
                 Stripe connected
               </Badge>
             )}
-            {isFree && (
+            {isLegacyTrial && (
               <Badge
                 variant="default"
                 className="border-border text-muted-foreground"
               >
-                Free tier
+                No card on file
               </Badge>
             )}
             {organization?.billing_email && (
@@ -155,7 +161,7 @@ export default async function BillingPage({
         </div>
       </div>
 
-      {(isFree || isCanceled) && (
+      {(noStripe || isCanceled) && (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="border-b border-border px-5 py-3">
             <span className="text-[12.5px] font-semibold text-foreground">
@@ -178,7 +184,7 @@ export default async function BillingPage({
 function PriceLabel({
   tier,
 }: {
-  tier: Exclude<ReturnType<typeof asSubscriptionTier>, "free" | "suspended">
+  tier: Exclude<ReturnType<typeof asSubscriptionTier>, "suspended">
 }) {
   const pricing = TIER_PRICING[tier]
   return (

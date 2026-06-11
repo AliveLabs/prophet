@@ -7,8 +7,8 @@
 
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-import { TIER_LIMITS, type SubscriptionTier } from "@/lib/billing/tiers"
-import { isTrialActive } from "@/lib/billing/trial"
+import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
+import { isTrialActive, isTrialing } from "@/lib/billing/trial"
 import { enqueueRun } from "@/lib/jobs/queue"
 
 export const maxDuration = 300
@@ -47,16 +47,20 @@ export async function GET(req: Request) {
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
   const { data: orgs } = await supabase
     .from("organizations")
-    .select("id, subscription_tier, trial_ends_at")
+    .select("id, subscription_tier, trial_ends_at, payment_state")
     .in("id", orgIds)
 
   const orgTierMap = new Map<string, SubscriptionTier>()
-  const orgTrialMap = new Map<string, { trial_ends_at: string | null; subscription_tier: string }>()
+  const orgTrialMap = new Map<
+    string,
+    { trial_ends_at: string | null; subscription_tier: string; payment_state: string | null }
+  >()
   for (const org of orgs ?? []) {
-    orgTierMap.set(org.id, (org.subscription_tier ?? "free") as SubscriptionTier)
+    orgTierMap.set(org.id, asSubscriptionTier(org.subscription_tier))
     orgTrialMap.set(org.id, {
       trial_ends_at: org.trial_ends_at,
-      subscription_tier: org.subscription_tier ?? "free",
+      subscription_tier: org.subscription_tier ?? "entry",
+      payment_state: org.payment_state ?? null,
     })
   }
 
@@ -79,12 +83,13 @@ export async function GET(req: Request) {
       continue
     }
 
-    const tier = orgTierMap.get(location.organization_id) ?? "free"
+    const tier = orgTierMap.get(location.organization_id) ?? "entry"
     const limits = TIER_LIMITS[tier]
 
     // Active TRIALS run daily regardless of tier — a trial is an evaluation, and an
-    // evaluator who sees data move only on Mondays churns. Post-trial free stays weekly.
-    const inActiveTrial = orgTrial ? isTrialActive(orgTrial) && !!orgTrial.trial_ends_at : false
+    // evaluator who sees data move only on Mondays churns. (Trials are of the mid
+    // tier, which is daily anyway; this keeps legacy clock-trials on lower tiers daily.)
+    const inActiveTrial = orgTrial ? isTrialing(orgTrial) : false
     const isWeeklyOnly = limits.eventsCadence === "weekly" && !inActiveTrial
     if (isWeeklyOnly && !isMonday) {
       jobs.push({

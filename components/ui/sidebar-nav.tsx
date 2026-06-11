@@ -222,7 +222,8 @@ export default function SidebarNav({ userName, userOrg, orgs = [], currentOrgId 
   }
 
   const tierLabel = (tier: string) => {
-    if (tier === "free") return null
+    // Legacy pre-migration value — those orgs are trials, not a "Free" plan.
+    if (tier === "free") return "Trial"
     return tier.charAt(0).toUpperCase() + tier.slice(1)
   }
 

@@ -161,14 +161,15 @@ async function handleCustomerDeleted(
 ): Promise<void> {
   // Hard delete of Stripe customer: clear our FK so future checkouts mint a
   // fresh one. Subscription fields get cleared by subscription.deleted, which
-  // always precedes this.
+  // always precedes this. Tier parks on 'entry'; payment_state 'canceled' is
+  // what blocks access (there is no free tier).
   await admin
     .from("organizations")
     .update({
       stripe_customer_id: null,
       stripe_subscription_id: null,
       stripe_price_id: null,
-      subscription_tier: "free",
+      subscription_tier: "entry",
       payment_state: "canceled",
       cancel_at_period_end: false,
     })
@@ -203,17 +204,17 @@ async function handleSubscriptionEvent(
   const priceInfo = resolvePriceInfo(priceId)
 
   // Tier: derived from the subscription's current price. If the event is
-  // 'deleted' we hard-downgrade to 'free' regardless of what Stripe reports.
+  // 'deleted' the tier parks on 'entry' — payment_state 'canceled' is what
+  // blocks access (there is no free tier to downgrade to).
   let tier: SubscriptionTier
   if (eventType === "customer.subscription.deleted") {
-    tier = "free"
+    tier = "entry"
   } else if (priceInfo) {
     tier = priceInfo.tier
   } else {
     // Price ID unknown to us (env vars out of sync? deleted price?). Leave
-    // the tier field alone rather than stomping to 'free' and accidentally
-    // locking out a paying customer.
-    tier = (await readOrgTier(admin, orgId)) ?? "free"
+    // the tier field alone rather than stomping a paying customer's tier.
+    tier = (await readOrgTier(admin, orgId)) ?? "entry"
   }
 
   const paymentState =
@@ -382,7 +383,7 @@ async function mirrorSubscriptionToMarketing(args: {
       status = "churned"
     } else if (args.subscription.status === "trialing") {
       status = "trial"
-    } else if (args.tier !== "free" && args.subscription.status === "active") {
+    } else if (args.tier !== "suspended" && args.subscription.status === "active") {
       status = "paid"
     }
 

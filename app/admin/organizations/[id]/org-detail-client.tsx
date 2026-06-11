@@ -19,6 +19,7 @@ interface OrgDetail {
   tier: string
   trialStartedAt: string | null
   trialEndsAt: string | null
+  paymentState: string | null
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   createdAt: string
@@ -52,8 +53,11 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
   const [showTierChange, setShowTierChange] = useState(false)
 
   const isSuspended = org.tier === "suspended"
+  // Trial = card-backed Stripe trial OR legacy clock-only org (null payment_state).
   const isTrial =
-    org.tier === "free" && org.trialEndsAt
+    !isSuspended &&
+    (org.paymentState === "trialing" || org.paymentState == null) &&
+    Boolean(org.trialEndsAt)
   const now = useMemo(() => new Date(), [])
   const trialActive = isTrial && new Date(org.trialEndsAt!) > now
   const trialDaysLeft = org.trialEndsAt
@@ -133,12 +137,12 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                 label="Trial"
                 value={
                   trialActive
-                    ? `${trialDaysLeft}d left`
+                    ? `${trialDaysLeft}d left${org.paymentState === "trialing" ? "" : " · no card"}`
                     : isTrial
                       ? "Expired"
-                      : org.tier === "free"
-                        ? "No trial"
-                        : "Paid"
+                      : org.paymentState === "active"
+                        ? "Paid"
+                        : org.paymentState ?? "No trial"
                 }
               />
               <InfoItem label="Created" value={new Date(org.createdAt).toLocaleDateString()} />
@@ -403,7 +407,6 @@ function TierChangePanel({
             onChange={(e) => setSelectedTier(e.target.value)}
             className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
           >
-            <option value="free">Free</option>
             <option value="entry">Entry</option>
             <option value="mid">Mid</option>
             <option value="top">Top</option>

@@ -5,6 +5,7 @@ import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { AdminCustomEmail } from "@/lib/email/templates/admin-custom"
+import { isTrialing } from "@/lib/billing/trial"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -73,7 +74,7 @@ export async function broadcastEmail(
 
     const { data: orgs } = await supabase
       .from("organizations")
-      .select("id, subscription_tier, trial_ends_at")
+      .select("id, subscription_tier, trial_ends_at, payment_state")
 
     if (members && orgs) {
       const orgMap = new Map(orgs.map((o) => [o.id, o]))
@@ -86,17 +87,15 @@ export async function broadcastEmail(
 
         let matches = true
         if (filter.tier && org.subscription_tier !== filter.tier) matches = false
+        // Trials = Stripe card-backed (payment_state 'trialing') or legacy
+        // clock-only (null payment_state + trial_ends_at). Expired = a clock
+        // that ran out without ever converting.
         if (filter.trialStatus === "active") {
-          if (
-            org.subscription_tier !== "free" ||
-            !org.trial_ends_at ||
-            new Date(org.trial_ends_at) <= now
-          )
-            matches = false
+          if (!isTrialing(org)) matches = false
         }
         if (filter.trialStatus === "expired") {
           if (
-            org.subscription_tier !== "free" ||
+            org.payment_state != null ||
             !org.trial_ends_at ||
             new Date(org.trial_ends_at) > now
           )

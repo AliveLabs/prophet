@@ -11,8 +11,12 @@
 
 import type { IndustryType } from "@/lib/verticals"
 
+// There is no free tier — there is a free TRIAL, and the trial is OF the mid
+// tier (brief § Trial Strategy). Orgs that never completed checkout are gated
+// by lib/billing/trial.ts (null payment_state + internal trial clock), not by
+// a tier value. Legacy 'free' DB rows read as 'entry' via asSubscriptionTier
+// until the prod migration lands.
 export type SubscriptionTier =
-  | "free"
   | "entry"
   | "mid"
   | "top"
@@ -56,31 +60,6 @@ export type TierLimits = {
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
-  free: {
-    maxLocations: 1,
-    maxCompetitorsPerLocation: 3,
-    socialPlatforms: ["instagram"] as const,
-    seoCadence: "weekly",
-    briefingCadence: "weekly_digest",
-    photoAnalysisDepth: 10,
-    retentionDays: 30,
-    whiteLabelReports: false,
-    apiAccess: false,
-    support: "email",
-    eventsCadence: "weekly",
-    eventsQueriesPerRun: 1,
-    eventsMaxDepth: 10,
-    eventsKeywordSets: 0,
-    seoTrackedKeywords: 10,
-    seoLabsCadence: "weekly",
-    seoSerpCadence: "weekly",
-    seoRankedKeywordsLimit: 50,
-    seoIntersectionEnabled: false,
-    seoIntersectionLimit: 0,
-    seoAdsEnabled: false,
-    contentPagesPerRun: 2,
-    contentRefreshCadence: "weekly",
-  },
   entry: {
     maxLocations: 1,
     maxCompetitorsPerLocation: 3,
@@ -187,14 +166,12 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
 // trial gate, emails, and any admin copy that shows a customer what they bought.
 const DISPLAY_NAMES: Record<IndustryType, Record<SubscriptionTier, string>> = {
   restaurant: {
-    free: "Free",
     entry: "Table",
     mid: "Shift",
     top: "House",
     suspended: "Suspended",
   },
   liquor_store: {
-    free: "Free",
     entry: "Well",
     mid: "Call",
     top: "Top Shelf",
@@ -231,7 +208,7 @@ export const PAID_TIERS: readonly SubscriptionTier[] = [
 // annually at 20% off (brief section 3/4). `annualEffectiveMonthly` =
 // annual / 12, used beside the annual price.
 export const TIER_PRICING: Record<
-  Exclude<SubscriptionTier, "free" | "suspended">,
+  Exclude<SubscriptionTier, "suspended">,
   { monthly: number; annual: number; annualEffectiveMonthly: number }
 > = {
   entry: { monthly: 149, annual: 1428, annualEffectiveMonthly: 119 },
@@ -239,10 +216,11 @@ export const TIER_PRICING: Record<
   top: { monthly: 499, annual: 4788, annualEffectiveMonthly: 399 },
 }
 
-// Narrow guard for values read out of the DB.
+// Narrow guard for values read out of the DB. Legacy 'free' rows (pre-migration)
+// and unknown values degrade to 'entry' — access is still gated by trial.ts
+// (payment_state / trial clock), so this never grants product access by itself.
 export function asSubscriptionTier(value: unknown): SubscriptionTier {
   if (
-    value === "free" ||
     value === "entry" ||
     value === "mid" ||
     value === "top" ||
@@ -250,5 +228,5 @@ export function asSubscriptionTier(value: unknown): SubscriptionTier {
   ) {
     return value
   }
-  return "free"
+  return "entry"
 }

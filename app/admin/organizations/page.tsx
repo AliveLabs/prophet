@@ -1,5 +1,6 @@
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { isTrialing, isPaidActive } from "@/lib/billing/trial"
 import { OrgsTable } from "./components/orgs-table"
 
 interface OrgRow {
@@ -8,6 +9,7 @@ interface OrgRow {
   slug: string
   tier: string
   trialEndsAt: string | null
+  paymentState: string | null
   memberCount: number
   locationCount: number
   createdAt: string
@@ -24,7 +26,7 @@ async function fetchOrgs(): Promise<{
   const { data: orgsData } = await supabase
     .from("organizations")
     .select(
-      "id, name, slug, subscription_tier, trial_ends_at, created_at, industry_type"
+      "id, name, slug, subscription_tier, trial_ends_at, payment_state, created_at, industry_type"
     )
     .order("created_at", { ascending: false })
 
@@ -61,29 +63,26 @@ async function fetchOrgs(): Promise<{
     slug: o.slug,
     tier: o.subscription_tier,
     trialEndsAt: o.trial_ends_at,
+    paymentState: o.payment_state ?? null,
     memberCount: memberCounts.get(o.id) ?? 0,
     locationCount: locationCounts.get(o.id) ?? 0,
     createdAt: o.created_at,
     industryType: o.industry_type,
   }))
 
+  // Trials = card-backed (payment_state 'trialing') or legacy clock-only
+  // (null payment_state + clock). Paid = converted (Stripe active/dunning).
   const stats = {
     total: orgs.length,
-    activeTrials: allOrgs.filter(
-      (o) =>
-        o.subscription_tier === "free" &&
-        o.trial_ends_at &&
-        new Date(o.trial_ends_at) > now
-    ).length,
+    activeTrials: allOrgs.filter((o) => isTrialing(o)).length,
     expiredTrials: allOrgs.filter(
       (o) =>
-        o.subscription_tier === "free" &&
+        o.payment_state == null &&
+        o.subscription_tier !== "suspended" &&
         o.trial_ends_at &&
         new Date(o.trial_ends_at) <= now
     ).length,
-    paid: allOrgs.filter(
-      (o) => o.subscription_tier !== "free" && o.subscription_tier !== "suspended"
-    ).length,
+    paid: allOrgs.filter((o) => isPaidActive(o)).length,
   }
 
   return { orgs, stats }

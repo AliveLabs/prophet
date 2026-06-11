@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 import { ensureLocationLimit } from "@/lib/billing/limits"
-import { type SubscriptionTier } from "@/lib/billing/tiers"
+import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -43,7 +43,7 @@ export async function createLocationFromPlaceAction(formData: FormData) {
     .select("subscription_tier")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = (orgRow?.subscription_tier ?? "free") as SubscriptionTier
+  const tier = asSubscriptionTier(orgRow?.subscription_tier)
 
   const { count: locationCount } = await supabase
     .from("locations")

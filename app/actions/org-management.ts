@@ -10,7 +10,7 @@ type ActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string }
 
-const VALID_TIERS = ["free", "entry", "mid", "top", "suspended"] as const
+const VALID_TIERS = ["entry", "mid", "top", "suspended"] as const
 
 export async function updateOrgTier(
   orgId: string,
@@ -129,12 +129,15 @@ export async function resetOrgTrial(orgId: string): Promise<ActionResult> {
     now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
   )
 
+  // A reset trial is a fresh clock-only trial of the mid tier (trials are OF
+  // Tier 2); clearing payment_state lets the clock gate access again.
   const { error } = await supabase
     .from("organizations")
     .update({
       trial_started_at: now.toISOString(),
       trial_ends_at: trialEnd.toISOString(),
-      subscription_tier: "free",
+      subscription_tier: "mid",
+      payment_state: null,
       updated_at: now.toISOString(),
     })
     .eq("id", orgId)
@@ -208,10 +211,13 @@ export async function activateOrg(orgId: string): Promise<ActionResult> {
     now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
   )
 
+  // Re-activation = a fresh clock-only trial of the mid tier (trials are OF
+  // Tier 2); clearing payment_state lets the clock gate access again.
   const { error } = await supabase
     .from("organizations")
     .update({
-      subscription_tier: "free",
+      subscription_tier: "mid",
+      payment_state: null,
       trial_started_at: now.toISOString(),
       trial_ends_at: trialEnd.toISOString(),
       updated_at: now.toISOString(),

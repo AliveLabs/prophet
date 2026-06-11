@@ -11,7 +11,7 @@ import { redirect } from "next/navigation"
 import { Suspense, type ReactNode } from "react"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import { isTrialActive, getTrialDaysRemaining } from "@/lib/billing/trial"
+import { isTrialActive, isTrialing, getTrialDaysRemaining } from "@/lib/billing/trial"
 import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
 import { TrialBanner } from "@/components/billing/trial-banner"
 import { DunningBanner } from "@/components/billing/dunning-banner"
@@ -77,7 +77,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_ends_at, industry_type, payment_state")
+    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -128,10 +128,16 @@ async function OperatorShell({ children }: { children: ReactNode }) {
   }
 
   const daysRemaining = orgRow ? getTrialDaysRemaining({ trial_ends_at: orgRow.trial_ends_at }) : 0
+  // Show for the WHOLE trial (the in-app side of the notification cadence);
+  // the banner itself escalates tone at T-4 / T-1 to mirror the reminder emails.
   const showTrialBanner =
     daysRemaining > 0 &&
-    daysRemaining <= 7 &&
-    (orgRow?.payment_state === "trialing" || orgRow?.subscription_tier === "free")
+    !!orgRow &&
+    isTrialing({
+      trial_ends_at: orgRow.trial_ends_at,
+      subscription_tier: orgRow.subscription_tier,
+      payment_state: orgRow.payment_state,
+    })
   const showDunningBanner = orgRow?.payment_state === "past_due"
 
   const account = await loadOperatorAccount()

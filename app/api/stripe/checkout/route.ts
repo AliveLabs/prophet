@@ -34,7 +34,7 @@ function isCadence(v: unknown): v is Cadence {
   return v === "monthly" || v === "annual"
 }
 
-function isPaidTier(v: unknown): v is Exclude<SubscriptionTier, "free" | "suspended"> {
+function isPaidTier(v: unknown): v is Exclude<SubscriptionTier, "suspended"> {
   return typeof v === "string" && (PAID_TIERS as readonly string[]).includes(v)
 }
 

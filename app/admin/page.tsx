@@ -1,5 +1,6 @@
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { isTrialing, isPaidActive } from "@/lib/billing/trial"
 
 interface MetricCard {
   label: string
@@ -37,7 +38,7 @@ async function fetchPlatformMetrics() {
     supabase
       .from("organizations")
       .select(
-        "id, name, slug, subscription_tier, trial_started_at, trial_ends_at, stripe_customer_id, created_at"
+        "id, name, slug, subscription_tier, trial_started_at, trial_ends_at, payment_state, stripe_customer_id, created_at"
       ),
     supabase
       .from("waitlist_signups")
@@ -89,19 +90,17 @@ async function fetchPlatformMetrics() {
 
   const allOrgs = orgs ?? []
   const now = new Date()
-  const activeTrials = allOrgs.filter(
-    (o) =>
-      o.subscription_tier === "free" &&
-      o.trial_ends_at &&
-      new Date(o.trial_ends_at) > now
-  )
+  // Trials = card-backed (payment_state 'trialing') or legacy clock-only
+  // (null payment_state + clock). Paid = converted (Stripe active/dunning).
+  const activeTrials = allOrgs.filter((o) => isTrialing(o))
   const expiredTrials = allOrgs.filter(
     (o) =>
-      o.subscription_tier === "free" &&
+      o.payment_state == null &&
+      o.subscription_tier !== "suspended" &&
       o.trial_ends_at &&
       new Date(o.trial_ends_at) <= now
   )
-  const paidOrgs = allOrgs.filter((o) => o.subscription_tier !== "free")
+  const paidOrgs = allOrgs.filter((o) => isPaidActive(o))
   const tierCounts: Record<string, number> = {}
   for (const o of paidOrgs) {
     tierCounts[o.subscription_tier] =

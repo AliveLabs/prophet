@@ -10,7 +10,7 @@ import {
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
 
-type PaidTier = Exclude<SubscriptionTier, "free" | "suspended">
+type PaidTier = Exclude<SubscriptionTier, "suspended">
 
 interface UpgradeButtonsProps {
   industry: IndustryType

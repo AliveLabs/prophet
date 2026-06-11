@@ -70,7 +70,7 @@ async function fetchUserDetail(userId: string) {
         id: m.organization_id,
         name: org?.name ?? "Unknown",
         role: m.role,
-        tier: org?.subscription_tier ?? "free",
+        tier: org?.subscription_tier ?? "entry",
         trialEndsAt: org?.trial_ends_at ?? null,
         joinedAt: m.created_at,
       }

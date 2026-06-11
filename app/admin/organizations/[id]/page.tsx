@@ -73,6 +73,7 @@ async function fetchOrgDetail(orgId: string) {
     tier: org.subscription_tier,
     trialStartedAt: org.trial_started_at,
     trialEndsAt: org.trial_ends_at,
+    paymentState: org.payment_state ?? null,
     stripeCustomerId: org.stripe_customer_id,
     stripeSubscriptionId: org.stripe_subscription_id,
     createdAt: org.created_at,

@@ -13,7 +13,7 @@ import {
 import type { IndustryType } from "@/lib/verticals"
 import { TicketLogo } from "@/components/brand/ticket-logo"
 
-type PaidTier = Exclude<SubscriptionTier, "free" | "suspended">
+type PaidTier = Exclude<SubscriptionTier, "suspended">
 
 interface TrialExpiredGateProps {
   orgName: string

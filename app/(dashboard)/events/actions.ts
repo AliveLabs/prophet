@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { type SubscriptionTier } from "@/lib/billing/tiers"
+import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import {
   getEventsQueriesPerRun,
   getEventsMaxDepth,
@@ -82,7 +82,7 @@ export async function fetchEventsAction(formData: FormData) {
     .eq("id", organizationId)
     .maybeSingle()
 
-  const tier = (org?.subscription_tier ?? "free") as SubscriptionTier
+  const tier = asSubscriptionTier(org?.subscription_tier)
 
   // Fetch location
   const { data: location } = await supabase
