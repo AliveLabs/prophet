@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest"
+import { ensureCanAddLocation } from "@/lib/billing/limits"
 import {
   isTrialActive,
   isTrialing,
@@ -92,5 +93,28 @@ describe("getTrialDaysRemaining", () => {
     expect(getTrialDaysRemaining({ trial_ends_at: future })).toBe(7)
     expect(getTrialDaysRemaining({ trial_ends_at: past })).toBe(0)
     expect(getTrialDaysRemaining({ trial_ends_at: null })).toBe(0)
+  })
+})
+
+describe("ensureCanAddLocation — trials cover one location", () => {
+  it("blocks a second location for any trialing org, with honest copy", () => {
+    const trialingCarded = { subscription_tier: "mid", trial_ends_at: future, payment_state: "trialing" }
+    const trialingClock = { subscription_tier: "mid", trial_ends_at: future, payment_state: null }
+    expect(() => ensureCanAddLocation(trialingCarded, 1)).toThrow(/Trials cover one location/)
+    expect(() => ensureCanAddLocation(trialingClock, 1)).toThrow(/Trials cover one location/)
+  })
+
+  it("allows the FIRST location during a trial", () => {
+    expect(() =>
+      ensureCanAddLocation({ subscription_tier: "mid", trial_ends_at: future, payment_state: "trialing" }, 0)
+    ).not.toThrow()
+  })
+
+  it("paid orgs fall through to the per-tier limit (1 / 1 / 3)", () => {
+    const paid = (tier: string) => ({ subscription_tier: tier, trial_ends_at: null, payment_state: "active" })
+    expect(() => ensureCanAddLocation(paid("entry"), 1)).toThrow(/Location limit/)
+    expect(() => ensureCanAddLocation(paid("mid"), 1)).toThrow(/Location limit/)
+    expect(() => ensureCanAddLocation(paid("top"), 2)).not.toThrow()
+    expect(() => ensureCanAddLocation(paid("top"), 3)).toThrow(/Location limit/)
   })
 })

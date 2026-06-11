@@ -1,6 +1,7 @@
 // Tier guardrails for pipeline + UI. Backed by TIER_LIMITS from tiers.ts.
 
-import { TIER_LIMITS, type SubscriptionTier } from "./tiers"
+import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "./tiers"
+import { isTrialing } from "./trial"
 
 export function ensureLocationLimit(
   tier: SubscriptionTier,
@@ -10,6 +11,26 @@ export function ensureLocationLimit(
   if (currentCount >= limit) {
     throw new Error(`Location limit reached for ${tier} tier.`)
   }
+}
+
+// Explicit rule (trial-tier v2 · Batch 5): a trial covers ONE location, no
+// matter what the tier limits say — stated here so a future change to
+// maxLocations can't silently open multi-location trials. Paid orgs fall
+// through to the per-tier limit.
+export function ensureCanAddLocation(
+  org: {
+    subscription_tier: string
+    trial_ends_at: string | null
+    payment_state?: string | null
+  },
+  currentCount: number
+): void {
+  if (currentCount >= 1 && isTrialing(org)) {
+    throw new Error(
+      "Trials cover one location. Convert to a paid plan to add more."
+    )
+  }
+  ensureLocationLimit(asSubscriptionTier(org.subscription_tier), currentCount)
 }
 
 export function ensureCompetitorLimit(

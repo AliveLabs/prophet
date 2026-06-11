@@ -4,8 +4,7 @@ import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
-import { ensureLocationLimit } from "@/lib/billing/limits"
-import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
+import { ensureCanAddLocation } from "@/lib/billing/limits"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -40,10 +39,9 @@ export async function createLocationFromPlaceAction(formData: FormData) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, trial_ends_at, payment_state")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = asSubscriptionTier(orgRow?.subscription_tier)
 
   const { count: locationCount } = await supabase
     .from("locations")
@@ -51,7 +49,8 @@ export async function createLocationFromPlaceAction(formData: FormData) {
     .eq("organization_id", organizationId)
 
   try {
-    ensureLocationLimit(tier, locationCount ?? 0)
+    if (!orgRow) throw new Error("Organization not found")
+    ensureCanAddLocation(orgRow, locationCount ?? 0)
   } catch (err) {
     redirect(`/locations?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
   }

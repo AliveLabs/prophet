@@ -13,7 +13,7 @@ import {
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
-import { ensureLocationLimit } from "@/lib/billing/limits"
+import { ensureCanAddLocation } from "@/lib/billing/limits"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
@@ -160,10 +160,9 @@ export async function createLocationAction(formData: FormData) {
 
   const { data: orgRow } = await supabaseAdmin
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, trial_ends_at, payment_state")
     .eq("id", organizationId)
     .maybeSingle()
-  const tier = asSubscriptionTier(orgRow?.subscription_tier)
 
   const { count: locationCount } = await supabaseAdmin
     .from("locations")
@@ -171,7 +170,8 @@ export async function createLocationAction(formData: FormData) {
     .eq("organization_id", organizationId)
 
   try {
-    ensureLocationLimit(tier, locationCount ?? 0)
+    if (!orgRow) throw new Error("Organization not found")
+    ensureCanAddLocation(orgRow, locationCount ?? 0)
   } catch (err) {
     redirect(`/onboarding?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
   }
