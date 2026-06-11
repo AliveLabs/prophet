@@ -131,13 +131,17 @@ export async function GET(request: Request) {
             ? `${userName}, 4 days left in your ${brand} trial`
             : `${userName}, tomorrow your ${brand} trial ends`
 
+        // Billing-critical, not marketing: these orgs have a card on file that
+        // WILL be charged at trial end, and the checkout copy promises day 10
+        // + day 13 reminders. Like the payment-failed email, this must bypass
+        // the CLIENT_EMAILS_ENABLED pause.
         await sendEmail({
           from: fromAddress,
           to: profile.email,
           subject,
           react,
           clientFacing: true,
-          overrideClientEmailPause: false,
+          overrideClientEmailPause: true,
         })
 
         sent.push(`day${reminderDay}:${profile.email}`)

@@ -12,6 +12,7 @@ import { Suspense, type ReactNode } from "react"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { isTrialActive, isTrialing, getTrialDaysRemaining } from "@/lib/billing/trial"
+import { asSubscriptionTier, TIER_PRICING } from "@/lib/billing/tiers"
 import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
 import { TrialBanner } from "@/components/billing/trial-banner"
 import { DunningBanner } from "@/components/billing/dunning-banner"
@@ -140,6 +141,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
       payment_state: orgRow.payment_state,
     })
   const showDunningBanner = orgRow?.payment_state === "past_due"
+  const bannerTier = asSubscriptionTier(orgRow?.subscription_tier)
 
   const account = await loadOperatorAccount()
 
@@ -186,6 +188,17 @@ async function OperatorShell({ children }: { children: ReactNode }) {
               daysRemaining={daysRemaining}
               brandName={brandNameForGate}
               isPaidTrial={orgRow?.payment_state === "trialing"}
+              monthlyPrice={
+                bannerTier !== "suspended" ? TIER_PRICING[bannerTier].monthly : undefined
+              }
+              endsOnLabel={
+                orgRow?.trial_ends_at
+                  ? new Date(orgRow.trial_ends_at).toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                    })
+                  : undefined
+              }
             />
           )}
           {children}
