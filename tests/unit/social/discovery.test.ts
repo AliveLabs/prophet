@@ -1,29 +1,84 @@
 import { describe, it, expect } from "vitest"
-import { selectDiscoveryTargets } from "@/lib/social/enrich"
+import {
+  selectDiscoveryTargets,
+  handleNameSimilarity,
+  extractHandlesFromText,
+  extractAggregatorUrls,
+} from "@/lib/social/enrich"
 
 describe("selectDiscoveryTargets", () => {
   const entities = [
-    { id: "loc", website: "https://wagyu.com" },
-    { id: "comp-verified", website: "https://gyukaku.com" },
-    { id: "comp-unverified", website: "https://terilli.com" },
-    { id: "comp-no-site", website: null },
+    { id: "loc", website: "https://wagyu.com", name: "Wagyu House" },
+    { id: "comp-verified", website: "https://gyukaku.com", name: "Gyu-Kaku" },
+    { id: "comp-unverified", website: "https://terilli.com", name: "Terilli's" },
+    { id: "comp-no-site", website: null, name: "Raising Cane's" },
+    { id: "comp-nothing", website: null, name: null },
   ]
 
-  it("re-discovers entities that have a website but no verified handle", () => {
+  it("re-discovers entities lacking a verified handle when there is anything to search with", () => {
     const verified = new Set(["comp-verified"])
     const targets = selectDiscoveryTargets(entities, verified).map((e) => e.id)
-    expect(targets).toEqual(["loc", "comp-unverified"])
+    expect(targets).toEqual(["loc", "comp-unverified", "comp-no-site"])
   })
 
-  it("excludes entities with a verified handle and entities with no website", () => {
+  it("name-only entities are now targeted (SERP needs no website — the Bush's Forney gap)", () => {
+    const targets = selectDiscoveryTargets(entities, new Set())
+    expect(targets.find((e) => e.id === "comp-no-site")).toBeDefined()
+  })
+
+  it("excludes verified entities and entities with neither website nor name", () => {
     const verified = new Set(["comp-verified"])
     const targets = selectDiscoveryTargets(entities, verified)
     expect(targets.find((e) => e.id === "comp-verified")).toBeUndefined()
-    expect(targets.find((e) => e.id === "comp-no-site")).toBeUndefined()
+    expect(targets.find((e) => e.id === "comp-nothing")).toBeUndefined()
+  })
+})
+
+describe("handleNameSimilarity", () => {
+  it("scores concatenated-name handles high", () => {
+    expect(handleNameSimilarity("bushschickenforney", "Bush's Chicken")).toBeGreaterThanOrEqual(0.9)
+    expect(handleNameSimilarity("raisingcanes", "Raising Cane's Chicken Fingers")).toBeGreaterThanOrEqual(0.5)
   })
 
-  it("targets everything with a website when nothing is verified yet (fresh onboarding)", () => {
-    const targets = selectDiscoveryTargets(entities, new Set())
-    expect(targets.map((e) => e.id)).toEqual(["loc", "comp-verified", "comp-unverified"])
+  it("scores junk handles low (the naadaaaaaaaaaa case)", () => {
+    expect(handleNameSimilarity("naadaaaaaaaaaa", "Nada")).toBeLessThan(0.5)
+    expect(handleNameSimilarity("foodlover99", "Bush's Chicken")).toBeLessThan(0.5)
+  })
+
+  it("handles separators in handles", () => {
+    expect(handleNameSimilarity("golden.chick_forney", "Golden Chick")).toBeGreaterThanOrEqual(0.9)
+  })
+})
+
+describe("extractHandlesFromText", () => {
+  it("extracts platform handles from mixed text and dedupes", () => {
+    const text = [
+      "Follow us https://instagram.com/bushschicken and https://www.instagram.com/bushschicken/",
+      "https://facebook.com/bushschickenforney",
+      "https://www.tiktok.com/@bushs.chicken",
+      "not a profile: https://instagram.com/p/Cxyz123",
+    ].join("\n")
+    const found = extractHandlesFromText(text, "serp", 0.7)
+    expect(found).toHaveLength(3)
+    expect(found.map((h) => `${h.platform}:${h.handle}`)).toEqual([
+      "instagram:bushschicken",
+      "facebook:bushschickenforney",
+      "tiktok:bushs.chicken",
+    ])
+    expect(found.every((h) => h.method === "serp" && h.confidence === 0.7)).toBe(true)
+  })
+})
+
+describe("extractAggregatorUrls", () => {
+  it("finds link-in-bio aggregators, capped at two", () => {
+    const bio = "Best chicken in town 🍗 linktr.ee nope https://linktr.ee/bushs https://beacons.ai/bushs https://bio.link/bushs"
+    const urls = extractAggregatorUrls(bio)
+    expect(urls).toHaveLength(2)
+    expect(urls[0]).toContain("linktr.ee/bushs")
+  })
+
+  it("returns empty for null/plain bios", () => {
+    expect(extractAggregatorUrls(null)).toEqual([])
+    expect(extractAggregatorUrls("just chicken")).toEqual([])
   })
 })

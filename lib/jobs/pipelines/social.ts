@@ -19,7 +19,15 @@ import type {
   EntityVisualProfile,
   NormalizedSocialPost,
 } from "@/lib/social/types"
-import { discoverFromWebsite, selectDiscoveryTargets } from "@/lib/social/enrich"
+import {
+  discoverFromWebsite,
+  discoverFromSearch,
+  selectDiscoveryTargets,
+  extractHandlesFromText,
+  extractAggregatorUrls,
+  type DiscoveredHandle,
+} from "@/lib/social/enrich"
+import { discoverFromSerp } from "@/lib/social/discover-serp"
 import {
   normalizeInstagramProfile,
   normalizeInstagramPost,
@@ -60,11 +68,13 @@ export type SocialPipelineCtx = {
     id: string
     name: string | null
     website: string | null
+    city: string | null
   }
   approvedCompetitors: Array<{
     id: string
     name: string
     website: string | null
+    city: string | null
   }>
   dateKey: string
   // Pull scope (set by the worker from the job): cadence mode, forced refresh, and an
@@ -90,8 +100,11 @@ export type SocialPipelineCtx = {
 export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
   return [
     // ------------------------------------------------------------------
-    // Step 1: Discover handles via Firecrawl website scraping
-    // Skips entities that already have social profiles in the DB.
+    // Step 1: Discover handles — website scrape + SERP, Data365 search as a
+    // first_run/adhoc-only fallback (handle-completion · Batch 1).
+    // Trust gate: own-site ≥0.8 and SERP ≥0.75 auto-verify; search finds NEVER
+    // auto-verify (the gyukaku rule); the rest persist as candidates. A verified
+    // row is never clobbered by a candidate.
     // ------------------------------------------------------------------
     {
       name: "discover_handles",
@@ -101,20 +114,24 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           type: "location" | "competitor"
           id: string
           website: string | null
+          name: string | null
+          city: string | null
         }
         const entities: Entity[] = [
-          { type: "location", id: c.location.id, website: c.location.website },
+          { type: "location", id: c.location.id, website: c.location.website, name: c.location.name, city: c.location.city },
           ...c.approvedCompetitors.map((comp) => ({
             type: "competitor" as const,
             id: comp.id,
             website: comp.website,
+            name: comp.name,
+            city: comp.city,
           })),
         ]
 
         const allEntityIds = entities.map((e) => e.id)
         const { data: existingProfiles } = await c.supabase
           .from("social_profiles")
-          .select("entity_id, is_verified")
+          .select("entity_id, platform, is_verified")
           .in("entity_id", allEntityIds.length > 0 ? allEntityIds : ["__none__"])
 
         // Re-discover any entity lacking a VERIFIED handle (not merely "has a row"),
@@ -124,38 +141,64 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
             .filter((p) => p.is_verified === true)
             .map((p) => p.entity_id as string)
         )
+        // Per-(entity, platform) verified rows — never overwritten by new candidates.
+        const verifiedPlatformKeys = new Set(
+          (existingProfiles ?? [])
+            .filter((p) => p.is_verified === true)
+            .map((p) => `${p.entity_id}:${p.platform}`)
+        )
 
         const needsDiscovery = selectDiscoveryTargets(entities, verifiedEntityIds)
+        // Data365 search is slow + historically junk-prone: fallback only, only when a
+        // human is waiting on a first pull / explicit refresh, and candidates-only.
+        const searchFallbackAllowed = c.mode === "first_run" || c.mode === "adhoc"
 
         console.log(
-          `[Social Discovery] ${entities.length} entities total, ${verifiedEntityIds.size} already verified, ${needsDiscovery.length} need (re)discovery`
+          `[Social Discovery] ${entities.length} entities total, ${verifiedEntityIds.size} already verified, ${needsDiscovery.length} need (re)discovery (search fallback: ${searchFallbackAllowed})`
         )
 
         if (needsDiscovery.length === 0) {
           return {
             discoveredHandles: 0,
             skipped: entities.length,
-            message: "All entities already have a verified handle or no website to scrape",
+            message: "All entities already have a verified handle",
           }
         }
 
-        let total = 0
+        let verifiedCount = 0
+        let candidateCount = 0
 
         const results = await Promise.allSettled(
           needsDiscovery.map(async (entity) => {
+            const [site, serp] = await Promise.allSettled([
+              entity.website ? withTimeout(discoverFromWebsite(entity.website), 30_000) : Promise.resolve([] as DiscoveredHandle[]),
+              entity.name ? discoverFromSerp(entity.name, entity.city) : Promise.resolve([] as DiscoveredHandle[]),
+            ])
+            let found: DiscoveredHandle[] = [
+              ...(site.status === "fulfilled" ? site.value : []),
+              ...(serp.status === "fulfilled" ? serp.value : []),
+            ]
+            if (found.length === 0 && searchFallbackAllowed && entity.name) {
+              found = await discoverFromSearch(entity.name)
+            }
             console.log(
-              `[Social Discovery] Discovering handles for ${entity.type}: ${entity.id} (${entity.website})`
+              `[Social Discovery] ${entity.type} ${entity.name ?? entity.id}: site=${site.status === "fulfilled" ? site.value.length : "err"} serp=${serp.status === "fulfilled" ? serp.value.length : "err"} total=${found.length}`
             )
-            const handles = await withTimeout(
-              discoverFromWebsite(entity.website!),
-              30_000
-            )
-            console.log(
-              `[Social Discovery] Found ${handles.length} handles for ${entity.type}: ${entity.id}`
-            )
-            let count = 0
-            for (const h of handles) {
-              const autoVerify = h.method === "auto_scrape" && h.confidence >= 0.8
+
+            // Best per platform — own-site confidence (0.9) outranks SERP (≤0.85).
+            const best = new Map<string, DiscoveredHandle>()
+            for (const h of found) {
+              const cur = best.get(h.platform)
+              if (!cur || h.confidence > cur.confidence) best.set(h.platform, h)
+            }
+
+            let v = 0
+            let cand = 0
+            for (const h of best.values()) {
+              if (verifiedPlatformKeys.has(`${entity.id}:${h.platform}`)) continue
+              const autoVerify =
+                (h.method === "auto_scrape" && h.confidence >= 0.8) ||
+                (h.method === "serp" && h.confidence >= 0.75)
               const { error } = await c.supabase
                 .from("social_profiles")
                 .upsert(
@@ -165,25 +208,36 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
                     platform: h.platform,
                     handle: h.handle,
                     profile_url: h.profileUrl,
-                    discovery_method: h.method,
+                    // CHECK constraint allows auto_scrape|data365_search|manual; the
+                    // true source rides in metadata until the Batch-2 migration.
+                    discovery_method: h.method === "data365_search" ? "data365_search" : "auto_scrape",
                     is_verified: autoVerify,
+                    metadata: { source: h.method, confidence: h.confidence, discovered_at: new Date().toISOString() },
                     updated_at: new Date().toISOString(),
                   },
                   { onConflict: "entity_type,entity_id,platform" }
                 )
-              if (!error) count++
+              if (!error) {
+                if (autoVerify) v++
+                else cand++
+              }
             }
-            return count
+            return { v, cand }
           })
         )
 
         for (const r of results) {
-          if (r.status === "fulfilled") total += r.value
+          if (r.status === "fulfilled") {
+            verifiedCount += r.value.v
+            candidateCount += r.value.cand
+          }
         }
 
-        c.state.discoveredCount = total
+        c.state.discoveredCount = verifiedCount + candidateCount
         return {
-          discoveredHandles: total,
+          discoveredHandles: verifiedCount + candidateCount,
+          verified: verifiedCount,
+          candidates: candidateCount,
           scraped: needsDiscovery.length,
           skipped: entities.length - needsDiscovery.length,
         }
@@ -286,6 +340,100 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
 
         c.state.snapshotsCollected = collected
         return { snapshots: collected, pulled: toPull.length, skippedByCadence: c.state.skippedByCadence, total: profiles.length }
+      },
+    },
+
+    // ------------------------------------------------------------------
+    // Step 2b: Expand handles from verified bios (handle-completion · Batch 1).
+    // One verified account usually links its siblings: platform links straight
+    // from the bio text auto-verify at 0.85; link-in-bio aggregators (linktree
+    // etc.) get ONE Firecrawl scrape — first_run/adhoc only, to bound cost.
+    // ------------------------------------------------------------------
+    {
+      name: "expand_handles",
+      label: "Expanding handles from verified bios",
+      run: async (c) => {
+        const entityIds = [c.locationId, ...c.approvedCompetitors.map((x) => x.id)]
+        const { data: profiles } = await c.supabase
+          .from("social_profiles")
+          .select("id, entity_id, entity_type, platform, is_verified")
+          .in("entity_id", entityIds.length > 0 ? entityIds : ["__none__"])
+        const rows = profiles ?? []
+
+        const ALL_PLATFORMS: SocialPlatform[] = ["instagram", "facebook", "tiktok"]
+        const byEntity = new Map<string, typeof rows>()
+        for (const r of rows) {
+          const list = byEntity.get(r.entity_id) ?? []
+          list.push(r)
+          byEntity.set(r.entity_id, list)
+        }
+
+        const aggregatorScrapesAllowed = c.mode === "first_run" || c.mode === "adhoc"
+        let expanded = 0
+
+        for (const [entityId, entityRows] of byEntity) {
+          const verified = entityRows.filter((r) => r.is_verified)
+          if (verified.length === 0) continue
+          const missing = ALL_PLATFORMS.filter(
+            (p) => !entityRows.some((r) => r.platform === p && r.is_verified)
+          )
+          if (missing.length === 0) continue
+
+          // Latest snapshot bio per verified profile (just collected in step 2).
+          const { data: snaps } = await c.supabase
+            .from("social_snapshots")
+            .select("social_profile_id, raw_data, date_key")
+            .in("social_profile_id", verified.map((v) => v.id))
+            .order("date_key", { ascending: false })
+          const seenProfile = new Set<string>()
+          const bios: string[] = []
+          for (const s of snaps ?? []) {
+            if (seenProfile.has(s.social_profile_id)) continue
+            seenProfile.add(s.social_profile_id)
+            const bio = (s.raw_data as unknown as SocialSnapshotData | null)?.profile?.bio
+            if (bio) bios.push(bio)
+          }
+          if (bios.length === 0) continue
+
+          const found: DiscoveredHandle[] = []
+          for (const bio of bios) {
+            found.push(...extractHandlesFromText(bio, "bio_expansion", 0.85))
+            if (aggregatorScrapesAllowed) {
+              for (const url of extractAggregatorUrls(bio)) {
+                const viaAggregator = await withTimeout(discoverFromWebsite(url), 25_000).catch(() => [] as DiscoveredHandle[])
+                found.push(...viaAggregator.map((h) => ({ ...h, method: "bio_expansion" as const, confidence: 0.85 })))
+              }
+            }
+          }
+
+          const entityType = entityRows[0].entity_type as "location" | "competitor"
+          for (const platform of missing) {
+            const h = found.find((f) => f.platform === platform)
+            if (!h) continue
+            const { error } = await c.supabase
+              .from("social_profiles")
+              .upsert(
+                {
+                  entity_type: entityType,
+                  entity_id: entityId,
+                  platform: h.platform,
+                  handle: h.handle,
+                  profile_url: h.profileUrl,
+                  discovery_method: "auto_scrape",
+                  is_verified: true, // a verified account's own bio is strong evidence
+                  metadata: { source: "bio_expansion", confidence: h.confidence, discovered_at: new Date().toISOString() },
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "entity_type,entity_id,platform" }
+              )
+            if (!error) {
+              expanded++
+              console.log(`[Social Discovery] bio expansion: ${entityType} ${entityId} +${platform}/@${h.handle}`)
+            }
+          }
+        }
+
+        return { expanded }
       },
     },
 
@@ -627,7 +775,7 @@ export async function buildSocialContext(
 ): Promise<SocialPipelineCtx> {
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, website")
+    .select("id, name, website, city")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
@@ -656,6 +804,7 @@ export async function buildSocialContext(
         website: (c.website ?? (meta?.website as string) ?? null) as
           | string
           | null,
+        city: (typeof meta?.city === "string" ? meta.city : null) as string | null,
       }
     })
 
@@ -667,6 +816,7 @@ export async function buildSocialContext(
       id: location.id,
       name: location.name,
       website: location.website,
+      city: location.city ?? null,
     },
     approvedCompetitors: approved,
     dateKey: new Date().toISOString().slice(0, 10),

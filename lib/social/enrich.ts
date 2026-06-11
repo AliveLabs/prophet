@@ -1,12 +1,14 @@
 // ---------------------------------------------------------------------------
-// Social Handle Discovery Pipeline
+// Social Handle Discovery Pipeline (handle-completion · Batch 1)
 //
-// Three-layer approach:
+// Candidate sources, cheapest/most-trusted first:
 //   1. Auto-scrape websites via Firecrawl for social media links
-//   2. Data365 profile search by business name
-//   3. Manual input (handled in UI, not here)
+//   2. Google SERP via DataForSEO (site:instagram.com "<name>" <city>) — discover-serp.ts
+//   3. Bio expansion from an already-verified handle (bio links + linktree)
+//   4. Data365 profile search by business name (fallback; candidates only, never auto-verified)
+//   5. Manual input (handled in UI, not here)
 //
-// Discovery runs automatically when competitors are approved and
+// Discovery runs automatically for entities lacking a VERIFIED handle and
 // can be re-triggered manually.
 // ---------------------------------------------------------------------------
 
@@ -18,7 +20,9 @@ export type DiscoveredHandle = {
   platform: SocialPlatform
   handle: string
   profileUrl: string
-  method: "auto_scrape" | "data365_search"
+  /** TS-level source; "serp" and "bio_expansion" persist as discovery_method
+   *  'auto_scrape' + metadata.source until the Batch-2 migration widens the CHECK. */
+  method: "auto_scrape" | "data365_search" | "serp" | "bio_expansion"
   confidence: number
 }
 
@@ -26,7 +30,7 @@ export type DiscoveredHandle = {
 // 1. Website scraping – extract social links from homepage/about page
 // ---------------------------------------------------------------------------
 
-const SOCIAL_URL_PATTERNS: Array<{
+export const SOCIAL_URL_PATTERNS: Array<{
   platform: SocialPlatform
   regex: RegExp
   extractHandle: (match: RegExpMatchArray) => string | null
@@ -242,19 +246,19 @@ export async function discoverSocialHandles(
 // Re-discovery targeting
 // ---------------------------------------------------------------------------
 
-export type DiscoveryEntity = { id: string; website: string | null }
+export type DiscoveryEntity = { id: string; website: string | null; name?: string | null }
 
 /**
- * Which entities should (re)run discovery. An entity qualifies when it has a website
- * but NO *verified* handle yet — so a junk/unverified row (or a handle later proven
- * dormant and un-verified) no longer permanently blocks re-scraping the official site
- * for the canonical handle. (Old behavior skipped any entity with a row at all.)
+ * Which entities should (re)run discovery. An entity qualifies when it has NO
+ * *verified* handle yet and we have SOMETHING to search with — a website to scrape
+ * OR a name for SERP discovery. (Old behavior required a website, which silently
+ * excluded every competitor whose website was missing — the Bush's Forney gap.)
  */
 export function selectDiscoveryTargets<T extends DiscoveryEntity>(
   entities: T[],
   verifiedEntityIds: ReadonlySet<string>
 ): T[] {
-  return entities.filter((e) => !!e.website && !verifiedEntityIds.has(e.id))
+  return entities.filter((e) => (!!e.website || !!e.name?.trim()) && !verifiedEntityIds.has(e.id))
 }
 
 // ---------------------------------------------------------------------------
@@ -272,10 +276,60 @@ function buildProfileUrl(platform: SocialPlatform, handle: string): string {
   }
 }
 
+/** Extract platform handles from any text blob (scraped page, SERP urls, a bio). */
+export function extractHandlesFromText(
+  text: string,
+  method: DiscoveredHandle["method"],
+  confidence: number
+): DiscoveredHandle[] {
+  const discovered: DiscoveredHandle[] = []
+  const seen = new Set<string>()
+  for (const pattern of SOCIAL_URL_PATTERNS) {
+    for (const match of text.matchAll(pattern.regex)) {
+      const handle = pattern.extractHandle(match)
+      if (!handle) continue
+      const key = `${pattern.platform}:${handle.toLowerCase()}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      discovered.push({
+        platform: pattern.platform,
+        handle,
+        profileUrl: match[0].replace(/\/$/, ""),
+        method,
+        confidence,
+      })
+    }
+  }
+  return discovered
+}
+
+/**
+ * Handle-vs-business-name similarity. Handles concatenate words ("bushschicken"),
+ * so token containment beats word-set comparison here: "Bush's Chicken" vs
+ * "bushschickenforney" → strong; "naadaaaaaaaaaa" vs "Nada" → weak.
+ */
+export function handleNameSimilarity(handle: string, businessName: string): number {
+  const h = handle.toLowerCase().replace(/[._-]/g, "")
+  const tokens = businessName.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter((t) => t.length > 1)
+  if (!h || tokens.length === 0) return 0
+  const joined = tokens.join("")
+  if (joined.length >= 5 && (h.includes(joined) || joined.includes(h))) return 0.9
+  const present = tokens.filter((t) => h.includes(t)).length
+  return present / tokens.length
+}
+
+/** Link-in-bio aggregator URLs found in a profile bio (worth one expansion scrape). */
+const BIO_LINK_AGGREGATORS = /https?:\/\/(?:www\.)?(?:linktr\.ee|beacons\.ai|bio\.link|linkin\.bio|taplink\.cc)\/[^\s)"']+/gi
+
+export function extractAggregatorUrls(bio: string | null | undefined): string[] {
+  if (!bio) return []
+  return [...new Set(bio.match(BIO_LINK_AGGREGATORS) ?? [])].slice(0, 2)
+}
+
 /**
  * Simple Jaccard-like similarity for business name matching.
  */
-function computeSimilarity(a: string, b: string): number {
+export function computeSimilarity(a: string, b: string): number {
   const wordsA = new Set(a.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean))
   const wordsB = new Set(b.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean))
   if (wordsA.size === 0 || wordsB.size === 0) return 0
