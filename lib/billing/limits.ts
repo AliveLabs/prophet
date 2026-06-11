@@ -134,8 +134,8 @@ export function getRetentionDays(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].retentionDays
 }
 
-export function getAllowedSocialPlatforms(
+export function getCompetitorSocialPlatforms(
   tier: SubscriptionTier
 ): readonly ("instagram" | "facebook" | "tiktok")[] {
-  return TIER_LIMITS[tier].socialPlatforms
+  return TIER_LIMITS[tier].competitorSocialNetworks
 }

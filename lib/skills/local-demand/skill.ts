@@ -59,7 +59,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
       recipe: [
         {
           channel: "the operator's live social channels",
-          platforms: d.tier.socialPlatforms,
+          platforms: d.tier.ownSocialPlatforms,
           audience: "guests near the venue around the window",
           window: { note: "before and as the window opens" },
           copy: "Right by the action tonight. Come in before or after.",

@@ -30,11 +30,23 @@ export type SeoCadence = "weekly" | "biweekly" // biweekly = 2x / week
 export type BriefingCadence = "weekly_digest" | "daily" | "daily_priority"
 export type SupportTier = "email" | "email_chat" | "dedicated"
 
+export const ALL_SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
+  "instagram",
+  "facebook",
+  "tiktok",
+] as const
+
 export type TierLimits = {
   // --- Brief-visible fields (pricing page) -------------------------------
   maxLocations: number
   maxCompetitorsPerLocation: number
-  socialPlatforms: readonly SocialPlatform[]
+  /** How many OWN-account networks this tier collects. Entry = ONE network of
+   *  the customer's choice (locations.settings.ownSocialNetwork, default
+   *  instagram); mid/top = all three. Resolve via resolveOwnSocialNetworks. */
+  ownSocialNetworkLimit: number
+  /** Competitor monitoring covers every network we find on EVERY tier — the
+   *  customer's own-network choice never limits competitor coverage. */
+  competitorSocialNetworks: readonly SocialPlatform[]
   seoCadence: SeoCadence
   briefingCadence: BriefingCadence
   photoAnalysisDepth: number
@@ -63,7 +75,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   entry: {
     maxLocations: 1,
     maxCompetitorsPerLocation: 3,
-    socialPlatforms: ["instagram"] as const,
+    ownSocialNetworkLimit: 1,
+    competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
     briefingCadence: "weekly_digest",
     photoAnalysisDepth: 10,
@@ -88,7 +101,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   mid: {
     maxLocations: 1,
     maxCompetitorsPerLocation: 5,
-    socialPlatforms: ["instagram", "facebook", "tiktok"] as const,
+    ownSocialNetworkLimit: 3,
+    competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
     briefingCadence: "daily",
     photoAnalysisDepth: 30,
@@ -113,7 +127,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   top: {
     maxLocations: 3,
     maxCompetitorsPerLocation: 10,
-    socialPlatforms: ["instagram", "facebook", "tiktok"] as const,
+    ownSocialNetworkLimit: 3,
+    competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "biweekly",
     briefingCadence: "daily_priority",
     photoAnalysisDepth: 30,
@@ -138,7 +153,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   suspended: {
     maxLocations: 0,
     maxCompetitorsPerLocation: 0,
-    socialPlatforms: [] as const,
+    ownSocialNetworkLimit: 0,
+    competitorSocialNetworks: [] as const,
     seoCadence: "weekly",
     briefingCadence: "weekly_digest",
     photoAnalysisDepth: 0,
@@ -214,6 +230,23 @@ export const TIER_PRICING: Record<
   entry: { monthly: 149, annual: 1428, annualEffectiveMonthly: 119 },
   mid: { monthly: 299, annual: 2868, annualEffectiveMonthly: 239 },
   top: { monthly: 499, annual: 4788, annualEffectiveMonthly: 399 },
+}
+
+// Resolve which OWN-account networks a tier actually collects for a location.
+// Entry tiers carry the customer's chosen network (default instagram);
+// mid/top get all three; suspended none.
+export function resolveOwnSocialNetworks(
+  tier: SubscriptionTier,
+  chosen?: SocialPlatform | null
+): readonly SocialPlatform[] {
+  const limit = TIER_LIMITS[tier].ownSocialNetworkLimit
+  if (limit <= 0) return []
+  if (limit >= ALL_SOCIAL_PLATFORMS.length) return ALL_SOCIAL_PLATFORMS
+  return [chosen ?? "instagram"]
+}
+
+export function isSocialPlatform(value: unknown): value is SocialPlatform {
+  return value === "instagram" || value === "facebook" || value === "tiktok"
 }
 
 // Narrow guard for values read out of the DB. Legacy 'free' rows (pre-migration)

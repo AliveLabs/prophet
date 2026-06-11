@@ -29,6 +29,11 @@ import {
 } from "@/lib/social/enrich"
 import { discoverFromSerp } from "@/lib/social/discover-serp"
 import {
+  asSubscriptionTier,
+  isSocialPlatform,
+  resolveOwnSocialNetworks,
+} from "@/lib/billing/tiers"
+import {
   normalizeInstagramProfile,
   normalizeInstagramPost,
   normalizeFacebookProfile,
@@ -82,6 +87,11 @@ export type SocialPipelineCtx = {
   mode?: PullMode
   force?: boolean
   platforms?: SocialPlatform[]
+  // OWN-account networks this org's tier collects (Tier 1 = the customer's one
+  // chosen network; mid/top = all three). Competitor profiles always pull every
+  // network. Discovery still runs everywhere so non-collected own handles exist
+  // as rows — that's the "found — tracked on Tier 2+" upsell seam.
+  ownAllowedPlatforms: SocialPlatform[]
   state: {
     discoveredCount: number
     snapshotsCollected: number
@@ -270,6 +280,22 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
         // Ad-hoc "refresh just <network>" — restrict to the requested platforms.
         if (c.platforms && c.platforms.length > 0) {
           profiles = profiles.filter((p) => c.platforms!.includes(p.platform as SocialPlatform))
+        }
+
+        // TIER GATE (own account only): on Tier 1, collect just the customer's
+        // chosen network — other own handles stay stored but un-pulled (no
+        // Data365 spend). Competitor profiles are never gated.
+        const beforeOwnGate = profiles.length
+        profiles = profiles.filter(
+          (p) =>
+            p.entity_id !== c.locationId ||
+            c.ownAllowedPlatforms.includes(p.platform as SocialPlatform)
+        )
+        const ownGateSkipped = beforeOwnGate - profiles.length
+        if (ownGateSkipped > 0) {
+          console.log(
+            `[Social] tier gate: skipped ${ownGateSkipped} own profile(s) outside [${c.ownAllowedPlatforms.join(", ")}]`
+          )
         }
 
         // BILLING: Data365 charges per profile pull. Load each profile's last pull
@@ -775,12 +801,26 @@ export async function buildSocialContext(
 ): Promise<SocialPipelineCtx> {
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, website, city")
+    .select("id, name, website, city, settings")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
 
   if (!location) throw new Error("Location not found")
+
+  // Own-account network allowance: Tier 1 collects only the customer's chosen
+  // network (locations.settings.ownSocialNetwork, default instagram).
+  const { data: orgRow } = await supabase
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", organizationId)
+    .maybeSingle()
+  const orgTier = asSubscriptionTier(orgRow?.subscription_tier)
+  const locSettings = (location.settings as Record<string, unknown> | null) ?? {}
+  const chosenNetwork = isSocialPlatform(locSettings.ownSocialNetwork)
+    ? locSettings.ownSocialNetwork
+    : null
+  const ownAllowedPlatforms = [...resolveOwnSocialNetworks(orgTier, chosenNetwork)]
 
   const { data: competitors } = await supabase
     .from("competitors")
@@ -820,6 +860,7 @@ export async function buildSocialContext(
     },
     approvedCompetitors: approved,
     dateKey: new Date().toISOString().slice(0, 10),
+    ownAllowedPlatforms,
     state: {
       discoveredCount: 0,
       snapshotsCollected: 0,

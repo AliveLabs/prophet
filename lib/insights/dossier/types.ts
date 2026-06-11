@@ -37,17 +37,24 @@ export type TierCaps = {
   tier: Tier
   maxCompetitors: number // 3 / 5 / 10
   maxLocations: number // 1 / 1 / 3
-  socialPlatforms: SocialPlatform[] // [ig] / [ig,fb,tt] / [ig,fb,tt]
+  /** OWN-account networks collected for this location. Tier 1 = the customer's
+   *  ONE chosen network (default instagram — buildDossier resolves the choice
+   *  from locations.settings.ownSocialNetwork); tier 2/3 = all three. */
+  ownSocialPlatforms: SocialPlatform[]
+  /** Competitor coverage is all networks on every tier. */
+  competitorSocialPlatforms: SocialPlatform[]
   seoCadence: "weekly" | "2x_weekly"
   briefCadence: "weekly" | "daily"
   photosPerEntity: number // 10 / 30 / 30
   retentionDays: number // 30 / 90 / 365
 }
 
+const ALL_PLATFORMS: SocialPlatform[] = ["instagram", "facebook", "tiktok"]
+
 export const TIER_CAPS: Record<Tier, TierCaps> = {
-  1: { tier: 1, maxCompetitors: 3, maxLocations: 1, socialPlatforms: ["instagram"], seoCadence: "weekly", briefCadence: "weekly", photosPerEntity: 10, retentionDays: 30 },
-  2: { tier: 2, maxCompetitors: 5, maxLocations: 1, socialPlatforms: ["instagram", "facebook", "tiktok"], seoCadence: "weekly", briefCadence: "daily", photosPerEntity: 30, retentionDays: 90 },
-  3: { tier: 3, maxCompetitors: 10, maxLocations: 3, socialPlatforms: ["instagram", "facebook", "tiktok"], seoCadence: "2x_weekly", briefCadence: "daily", photosPerEntity: 30, retentionDays: 365 },
+  1: { tier: 1, maxCompetitors: 3, maxLocations: 1, ownSocialPlatforms: ["instagram"], competitorSocialPlatforms: ALL_PLATFORMS, seoCadence: "weekly", briefCadence: "weekly", photosPerEntity: 10, retentionDays: 30 },
+  2: { tier: 2, maxCompetitors: 5, maxLocations: 1, ownSocialPlatforms: ALL_PLATFORMS, competitorSocialPlatforms: ALL_PLATFORMS, seoCadence: "weekly", briefCadence: "daily", photosPerEntity: 30, retentionDays: 90 },
+  3: { tier: 3, maxCompetitors: 10, maxLocations: 3, ownSocialPlatforms: ALL_PLATFORMS, competitorSocialPlatforms: ALL_PLATFORMS, seoCadence: "2x_weekly", briefCadence: "daily", photosPerEntity: 30, retentionDays: 365 },
 }
 
 // ── Restaurant profile (drives relevance + voice + executable constraints) ──

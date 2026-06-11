@@ -6,8 +6,9 @@ import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
 import { requireUser } from "@/lib/auth/server"
 import BriefTuning from "./brief-tuning"
-import { VoiceSelect, CommsPrefs } from "./settings-controls"
+import { VoiceSelect, CommsPrefs, OwnNetworkSelect } from "./settings-controls"
 import RefreshControls from "./refresh-controls"
+import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 
@@ -21,7 +22,29 @@ export default async function SettingsPage() {
     .select("settings")
     .eq("id", ctx.locationId)
     .maybeSingle()
-  const comms = ((locRow?.settings as Record<string, unknown> | null)?.communications ?? null) as Record<string, boolean> | null
+  const locSettings = (locRow?.settings as Record<string, unknown> | null) ?? {}
+  const comms = (locSettings.communications ?? null) as Record<string, boolean> | null
+
+  // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other
+  // verified own handles render as the honest "tracked on Tier 2+" seam.
+  const orgTier = asSubscriptionTier(ctx.tier)
+  const singleOwnNetwork = TIER_LIMITS[orgTier].ownSocialNetworkLimit === 1
+  const chosenNetwork =
+    typeof locSettings.ownSocialNetwork === "string" ? locSettings.ownSocialNetwork : "instagram"
+  let otherOwnNetworks: string[] = []
+  if (singleOwnNetwork) {
+    const { data: ownProfiles } = await sb
+      .from("social_profiles")
+      .select("platform, is_verified")
+      .eq("entity_id", ctx.locationId)
+    otherOwnNetworks = [
+      ...new Set(
+        (ownProfiles ?? [])
+          .filter((p) => p.platform !== chosenNetwork)
+          .map((p) => p.platform as string)
+      ),
+    ]
+  }
   return (
     <div className="pv-page">
       <div className="pv-page-head">
@@ -64,6 +87,41 @@ export default async function SettingsPage() {
       <div className="pv-section">
         <div className="pv-section-head">Your data <span className="pv-section-sub">refresh on demand</span></div>
         <RefreshControls locationId={ctx.locationId} />
+      </div>
+
+      <div className="pv-section">
+        <div className="pv-section-head">Social coverage</div>
+        <div className="pv-card">
+          <div className="pv-field">
+            <div className="pv-field__label">Your account</div>
+            <div className="pv-field__val">
+              {singleOwnNetwork ? (
+                <>
+                  <OwnNetworkSelect initial={chosenNetwork} locationId={ctx.locationId} />
+                  <div className="pv-field__hint">
+                    Your plan tracks one of your own networks — your choice. Competitor
+                    accounts are covered on all three networks regardless.
+                  </div>
+                  {otherOwnNetworks.length > 0 ? (
+                    <div className="pv-field__hint">
+                      We also found you on{" "}
+                      {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
+                      {" — tracked on Tier 2 and up. "}
+                      <Link className="pv-link" href="/settings/billing">Upgrade →</Link>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  Instagram, Facebook, and TikTok
+                  <div className="pv-field__hint">
+                    Your plan covers all three networks for your account and your competitors.
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="pv-section">

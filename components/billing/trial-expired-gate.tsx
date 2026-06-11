@@ -175,7 +175,13 @@ export function TrialExpiredGate({
                   <Feature text={`${limits.maxLocations} ${limits.maxLocations === 1 ? "location" : "locations"}`} />
                   <Feature text={`${limits.maxCompetitorsPerLocation} competitors per location`} />
                   <Feature text={limits.briefingCadence === "weekly_digest" ? "Weekly briefings" : "Daily briefings"} />
-                  <Feature text={`${limits.socialPlatforms.length} social platform${limits.socialPlatforms.length === 1 ? "" : "s"}`} />
+                  <Feature
+                    text={
+                      limits.ownSocialNetworkLimit === 1
+                        ? "1 social network of your choice + competitors on all 3"
+                        : `All ${limits.ownSocialNetworkLimit} social networks`
+                    }
+                  />
                   {limits.whiteLabelReports && <Feature text="White-label reports" />}
                   {limits.apiAccess && <Feature text="API access" />}
                 </ul>

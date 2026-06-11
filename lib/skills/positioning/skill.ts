@@ -39,7 +39,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           recipe: [
             {
               channel: "menu wording + Google Business + your social",
-              platforms: d.tier.socialPlatforms,
+              platforms: d.tier.ownSocialPlatforms,
               audience: "diners choosing where the occasion is worth it",
               window: { note: "ongoing" },
               creativeDirection: "on your phone, take a few photos that show why the price is worth it: a signature dish leaving the kitchen and the room when it's full; pick the best one",
@@ -60,7 +60,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           recipe: [
             {
               channel: "menu + Google Business + your social",
-              platforms: d.tier.socialPlatforms,
+              platforms: d.tier.ownSocialPlatforms,
               audience: "midday searchers and value-comparing diners",
               window: { note: "before the weekend" },
               creativeDirection: "a clear phone photo of the new value dish in daylight; give it a name people would search for",

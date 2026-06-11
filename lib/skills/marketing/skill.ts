@@ -44,7 +44,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
     recipe: [
       {
         channel: "your live social channels",
-        platforms: d.tier.socialPlatforms,
+        platforms: d.tier.ownSocialPlatforms,
         audience: "locals who follow you and look-alikes nearby",
         window: { note: "this week, on a repeatable cadence" },
         creativeDirection: "on your phone, capture the format the signal says is winning (a short vertical video for Instagram/TikTok, or one clear photo for the feed); shoot in daylight, no fancy setup",

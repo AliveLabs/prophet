@@ -8,8 +8,9 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import type { Dossier, EntitySignals, RestaurantProfile, Tier } from "@/lib/insights/dossier/types"
+import type { Dossier, EntitySignals, RestaurantProfile, Tier, TierCaps } from "@/lib/insights/dossier/types"
 import { TIER_CAPS } from "@/lib/insights/dossier/types"
+import { asSubscriptionTier, isSocialPlatform, resolveOwnSocialNetworks, type SubscriptionTier } from "@/lib/billing/tiers"
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import type { MenuSnapshot } from "@/lib/content/types"
@@ -183,18 +184,42 @@ async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotTy
 
 export type BuildDossierOptions = { tier?: Tier; dateKey?: string; transport?: Transport }
 
+const TIER_NUMBER: Record<SubscriptionTier, Tier> = {
+  entry: 1,
+  mid: 2,
+  top: 3,
+  suspended: 1, // suspended orgs never reach a brief build; value is moot
+}
+
 export async function buildDossier(locationId: string, opts: BuildDossierOptions = {}): Promise<Dossier> {
   const sb = createAdminSupabaseClient()
   const dateKey = opts.dateKey ?? todayKey()
-  const tier = TIER_CAPS[opts.tier ?? 2]
 
   // ── location ──
   const { data: loc } = await sb
     .from("locations")
-    .select("id, name, primary_place_id, organization_id, website, timezone, geo_lat, geo_lng")
+    .select("id, name, primary_place_id, organization_id, website, timezone, geo_lat, geo_lng, settings")
     .eq("id", locationId)
     .maybeSingle()
   if (!loc) throw new Error(`Location not found: ${locationId}`)
+
+  // ── tier caps: real org tier (opts.tier overrides for tests), with the
+  //    Tier-1 own-network choice resolved from location settings ──
+  let tier: TierCaps
+  if (opts.tier) {
+    tier = TIER_CAPS[opts.tier]
+  } else {
+    const { data: orgRow } = await sb
+      .from("organizations")
+      .select("subscription_tier")
+      .eq("id", loc.organization_id)
+      .maybeSingle()
+    const subTier = asSubscriptionTier(orgRow?.subscription_tier)
+    const caps = TIER_CAPS[TIER_NUMBER[subTier]]
+    const settings = (loc.settings as Record<string, unknown> | null) ?? {}
+    const chosen = isSocialPlatform(settings.ownSocialNetwork) ? settings.ownSocialNetwork : null
+    tier = { ...caps, ownSocialPlatforms: [...resolveOwnSocialNetworks(subTier, chosen)] }
+  }
 
   // ── competitors (approved + active), capped to tier ──
   const { data: comps } = await sb

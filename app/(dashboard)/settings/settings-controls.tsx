@@ -6,7 +6,7 @@
 // read by the weekly-digest cron and the new-brief notice.
 
 import { useState, useTransition } from "react"
-import { setVoiceTone, setCommsPref } from "./actions"
+import { setVoiceTone, setCommsPref, setOwnSocialNetwork } from "./actions"
 
 const VOICES = [
   { v: "warm_personal", label: "Warm, personal" },
@@ -35,6 +35,52 @@ export function VoiceSelect({ initial, locationId }: { initial: string | null; l
     <span>
       <select className="pv-input pv-select" value={v} aria-label="Your voice" disabled={saving} onChange={(e) => onChange(e.target.value)}>
         {VOICES.map((o) => (<option key={o.v} value={o.v}>{o.label}</option>))}
+      </select>
+      {status ? <span className="pv-soon" style={{ marginLeft: 8 }}>{status}</span> : null}
+    </span>
+  )
+}
+
+const NETWORKS = [
+  { v: "instagram", label: "Instagram" },
+  { v: "facebook", label: "Facebook" },
+  { v: "tiktok", label: "TikTok" },
+]
+
+// Tier-1 own-network-of-choice: which ONE network we collect for the
+// customer's own account. Other detected handles stay listed as the
+// "tracked on Tier 2+" upsell seam (rendered server-side on the page).
+export function OwnNetworkSelect({
+  initial,
+  locationId,
+}: {
+  initial: string | null
+  locationId?: string
+}) {
+  const [v, setV] = useState(initial ?? "instagram")
+  const [status, setStatus] = useState<string | null>(null)
+  const [saving, startSaving] = useTransition()
+
+  function onChange(next: string) {
+    const prev = v
+    setV(next)
+    setStatus(null)
+    if (!locationId) return
+    startSaving(async () => {
+      const res = await setOwnSocialNetwork(locationId, next)
+      if (res.ok) {
+        setStatus("Saved — we're pulling it now. History on the new network starts fresh.")
+      } else {
+        setV(prev)
+        setStatus(res.error ?? "Could not save.")
+      }
+    })
+  }
+
+  return (
+    <span>
+      <select className="pv-input pv-select" value={v} aria-label="Your social network" disabled={saving} onChange={(e) => onChange(e.target.value)}>
+        {NETWORKS.map((o) => (<option key={o.v} value={o.v}>{o.label}</option>))}
       </select>
       {status ? <span className="pv-soon" style={{ marginLeft: 8 }}>{status}</span> : null}
     </span>
