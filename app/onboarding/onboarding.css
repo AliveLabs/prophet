@@ -114,3 +114,9 @@
 .ob-skip:hover{ color:var(--ink); }
 .ob-soon{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ash-2); border:1px dashed var(--rule-strong); border-radius:var(--radius); padding:8px 11px; display:inline-block; margin-top:18px; }
 .ob-alert{ font-size:13.5px; color:var(--alert); background:var(--alert-wash); border:1px solid rgba(196,64,64,0.35); border-radius:var(--radius); padding:10px 13px; margin-top:16px; }
+
+/* Trial start step (/onboarding/trial) */
+.ob-trialfacts{ list-style:none; margin:24px 0 0; padding:0; border:1px solid var(--rule-strong); border-radius:var(--radius); background:var(--card); }
+.ob-trialfacts li{ font-size:14.5px; line-height:1.45; color:var(--print); padding:13px 16px; }
+.ob-trialfacts li + li{ border-top:1px solid var(--rule); }
+.ob-trialfacts strong{ color:var(--ink); font-weight:600; }

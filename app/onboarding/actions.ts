@@ -14,7 +14,6 @@ import { scoreCompetitor } from "@/lib/providers/scoring"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureLocationLimit } from "@/lib/billing/limits"
-import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
@@ -262,16 +261,17 @@ export async function createOrgAndLocationAction(
     const shouldSetIndustry =
       process.env.VERTICALIZATION_ENABLED === "true" && input.industryType
 
+    // No trial clock at creation: the trial starts at Stripe checkout
+    // (/onboarding/trial — mid tier, 14 days, card required). Until then the
+    // org is blocked from recurring pulls/dashboard by the null clock; the
+    // first_run pull during onboarding is deliberate acquisition cost.
     const { data, error } = await admin
       .from("organizations")
       .insert({
         name: input.businessName,
         slug: slugAttempt,
         billing_email: user.email ?? null,
-        trial_started_at: new Date().toISOString(),
-        trial_ends_at: new Date(
-          Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
-        ).toISOString(),
+        subscription_tier: "mid",
         ...(shouldSetIndustry ? { industry_type: input.industryType } : {}),
       })
       .select("id")

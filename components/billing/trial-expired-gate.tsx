@@ -21,19 +21,23 @@ interface TrialExpiredGateProps {
   competitorCount: number
   brandName: "Ticket" | "Neat"
   industry: IndustryType
+  /** Org never started a trial (no clock, never through checkout) — show
+   *  "start your trial" copy instead of "access on hold". */
+  neverStarted?: boolean
 }
 
 // Full-page gate rendered by the dashboard layout when an org has no active
-// product access (trial expired on free tier, or Stripe subscription landed
-// in canceled / incomplete_expired / unpaid). Lists the three paid tiers
-// with per-brand names and a monthly/annual toggle. The mid tier shows a
-// 14-day trial chip; the other two don't.
+// product access (trial expired / never started, or Stripe subscription
+// landed in canceled / incomplete_expired / unpaid). Lists the three paid
+// tiers with per-brand names and a monthly/annual toggle. The mid tier shows
+// a 14-day trial chip; the other two don't.
 export function TrialExpiredGate({
   orgName,
   insightCount,
   competitorCount,
   brandName,
   industry,
+  neverStarted = false,
 }: TrialExpiredGateProps) {
   const [cadence, setCadence] = useState<Cadence>("monthly")
   const [loading, setLoading] = useState<string | null>(null)
@@ -65,11 +69,14 @@ export function TrialExpiredGate({
             <TicketLogo size={48} className="mx-auto mb-4 text-foreground" />
           )}
           <h1 className="font-display text-3xl font-semibold text-foreground md:text-4xl">
-            Your {brandName} access is on hold
+            {neverStarted
+              ? `Pick a plan to start using ${brandName}`
+              : `Your ${brandName} access is on hold`}
           </h1>
           <p className="mt-3 text-muted-foreground">
-            {orgName}&rsquo;s subscription isn&rsquo;t currently active. Your
-            data and insights are safely stored.
+            {neverStarted
+              ? `${orgName}'s setup is saved and your first data pull is in. Start with 14 days free on the ${getTierDisplayName("mid", industry)} tier — card required, $0 today, cancel anytime.`
+              : `${orgName}'s subscription isn't currently active. Your data and insights are safely stored.`}
           </p>
         </div>
 

@@ -267,8 +267,10 @@ function ProcessingStep({
                 </p>
               ) : null}
               <div className="ob-nav">
-                <button className="ob-btn" onClick={() => router.push("/home")}>
-                  Open your brief →
+                {/* The trial (and recurring data pulls) start at checkout —
+                    /onboarding/trial collects the card before the dashboard. */}
+                <button className="ob-btn" onClick={() => router.push("/onboarding/trial")}>
+                  Continue →
                 </button>
               </div>
             </>

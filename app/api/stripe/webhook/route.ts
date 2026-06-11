@@ -3,12 +3,11 @@ import { headers } from "next/headers"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
 import {
+  applySubscriptionToOrg,
   isWebhookEventNew,
   markWebhookEventProcessed,
-  normalizePaymentState,
   resolveOrganizationId,
 } from "@/lib/stripe/helpers"
-import { resolvePriceInfo } from "@/lib/stripe/pricing"
 import { type SubscriptionTier } from "@/lib/billing/tiers"
 import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
 import { PaymentFailed } from "@/lib/email/templates/payment-failed"
@@ -200,49 +199,9 @@ async function handleSubscriptionEvent(
     return
   }
 
-  const priceId = subscription.items.data[0]?.price?.id ?? null
-  const priceInfo = resolvePriceInfo(priceId)
-
-  // Tier: derived from the subscription's current price. If the event is
-  // 'deleted' the tier parks on 'entry' — payment_state 'canceled' is what
-  // blocks access (there is no free tier to downgrade to).
-  let tier: SubscriptionTier
-  if (eventType === "customer.subscription.deleted") {
-    tier = "entry"
-  } else if (priceInfo) {
-    tier = priceInfo.tier
-  } else {
-    // Price ID unknown to us (env vars out of sync? deleted price?). Leave
-    // the tier field alone rather than stomping a paying customer's tier.
-    tier = (await readOrgTier(admin, orgId)) ?? "entry"
-  }
-
-  const paymentState =
-    eventType === "customer.subscription.deleted"
-      ? "canceled"
-      : normalizePaymentState(subscription.status)
-
-  const trialEndIso =
-    typeof subscription.trial_end === "number"
-      ? new Date(subscription.trial_end * 1000).toISOString()
-      : null
-
-  // Subscription shape returns current_period_end at the root on REST; the
-  // generated types sometimes expose it on items. Try root first.
-  const periodEnd = readPeriodEnd(subscription)
-
-  const updates: Record<string, unknown> = {
-    stripe_customer_id: customerId,
-    stripe_subscription_id: subscription.id,
-    stripe_price_id: priceId,
-    subscription_tier: tier,
-    cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-    trial_ends_at: trialEndIso,
-    current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-  }
-  if (paymentState !== null) updates.payment_state = paymentState
-
-  await admin.from("organizations").update(updates).eq("id", orgId)
+  const { tier } = await applySubscriptionToOrg(admin, orgId, subscription, {
+    deleted: eventType === "customer.subscription.deleted",
+  })
 
   // trial_will_end fires 3 days before trial_end. Our Day 10 / Day 13
   // reminders are driven by the cron instead (so we control the send window
@@ -313,30 +272,6 @@ async function handleInvoicePaymentFailed(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function readOrgTier(
-  admin: ReturnType<typeof createAdminSupabaseClient>,
-  orgId: string
-): Promise<SubscriptionTier | null> {
-  const { data } = await admin
-    .from("organizations")
-    .select("subscription_tier")
-    .eq("id", orgId)
-    .maybeSingle()
-  return (data?.subscription_tier as SubscriptionTier | undefined) ?? null
-}
-
-// The Stripe types library has drifted on where current_period_end lives:
-// top-level on old API versions, item-level on newer ones. Read both.
-function readPeriodEnd(subscription: Stripe.Subscription): number | null {
-  const topLevel = (subscription as unknown as { current_period_end?: number })
-    .current_period_end
-  if (typeof topLevel === "number") return topLevel
-  const item = subscription.items.data[0] as unknown as {
-    current_period_end?: number
-  }
-  return typeof item?.current_period_end === "number" ? item.current_period_end : null
-}
 
 // Stripe is the source of truth for lifecycle transitions (paid -> churned /
 // trial). This mirror writes the same state into marketing.contacts so

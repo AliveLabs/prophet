@@ -123,6 +123,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
         competitorCount={competitorCount ?? 0}
         brandName={brandNameForGate}
         industry={industryForGate}
+        neverStarted={!orgRow.trial_started_at && orgRow.payment_state == null}
       />
     )
   }

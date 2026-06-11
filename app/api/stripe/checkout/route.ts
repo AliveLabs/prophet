@@ -15,7 +15,8 @@ import {
 } from "@/lib/billing/tiers"
 
 // POST /api/stripe/checkout
-// Body: { tier: 'entry' | 'mid' | 'top', cadence: 'monthly' | 'annual' }
+// Body: { tier: 'entry' | 'mid' | 'top', cadence: 'monthly' | 'annual',
+//         context?: 'onboarding' }
 //
 // Creates (or reuses) a Stripe Customer for the user's current organization,
 // then opens a Checkout Session. The price is resolved server-side from
@@ -27,6 +28,10 @@ import {
 //   - Card is required up front (payment_method_collection: 'always').
 //   - On trial end with no payment method, Stripe cancels the subscription
 //     (trial_settings.end_behavior.missing_payment_method = 'cancel').
+//
+// context 'onboarding' returns the customer to /onboarding/checkout-complete
+// (which verifies the session server-side and syncs the org before /home);
+// the default returns to the billing page as before.
 //
 // RBAC: only org owners or admins can start a checkout.
 
@@ -113,6 +118,13 @@ export async function POST(request: Request) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
     const withTrial = isTrialEligibleTier(tier)
+    const fromOnboarding = body.context === "onboarding"
+    const successUrl = fromOnboarding
+      ? `${appUrl}/onboarding/checkout-complete?session_id={CHECKOUT_SESSION_ID}`
+      : `${appUrl}/settings/billing?upgraded=true`
+    const cancelUrl = fromOnboarding
+      ? `${appUrl}/onboarding/trial?canceled=1`
+      : `${appUrl}/settings/billing`
 
     // Idempotency key: same org + same price within a short window collapses
     // to one session. Nonce breaks collisions across distinct user attempts.
@@ -124,8 +136,8 @@ export async function POST(request: Request) {
         client_reference_id: org.id,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
-        success_url: `${appUrl}/settings/billing?upgraded=true`,
-        cancel_url: `${appUrl}/settings/billing`,
+        success_url: successUrl,
+        cancel_url: cancelUrl,
         allow_promotion_codes: true,
         payment_method_collection: "always",
         subscription_data: {
