@@ -35,12 +35,12 @@ very early in GTM and it keeps causing problems. Correct the model everywhere:
 
 ---
 
-### Batch 0 — loadSocial masking bug (tier-independent; ship first, no decisions needed)
-- ☐ `lib/insights/dossier/build.ts` loadSocial: latest snapshot per (entity, platform),
+### Batch 0 — loadSocial masking bug ✅ DONE (2026-06-11, 35c73f7 deployed + live-verified)
+- ☑ `lib/insights/dossier/build.ts` loadSocial: latest snapshot per (entity, platform),
   classify each, THEN pick per entity — **usable beats unusable** (a dead Instagram must
   never mask a live TikTok — the Bush's Forney case found in Bryan's review), newest
   content_as_of wins among usable, Instagram only as the tiebreak between equals.
-- ☐ Extract the selection into a pure exported helper; unit-test the dead-IG+live-TikTok
+- ☑ Extract the selection into a pure exported helper (pickSocialSnapshot, 5 unit tests; Bush brief rebuilt → Social "3 active accounts", was "no recent activity"); unit-test the dead-IG+live-TikTok
   case explicitly. Rebuild Bush's brief after deploy to confirm "Social: 1 active account"+
   TikTok-aware synthesis.
 
