@@ -41,6 +41,18 @@ export async function saveBrief(brief: Brief, opts: { fallback?: boolean; client
   if (error) throw new Error(`saveBrief failed: ${error.message}`)
 }
 
+/** Does the location have ANY brief yet? Drives the one-time first-brief email. */
+export async function hasAnyBrief(locationId: string, opts: { client?: BriefStore } = {}): Promise<boolean> {
+  const { data } = await store(opts.client)
+    .from("daily_briefs")
+    .select("date_key")
+    .eq("location_id", locationId)
+    .order("date_key", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data != null
+}
+
 /** Read the precomputed brief for a location (a specific date, else the latest). */
 export async function getBrief(locationId: string, opts: { dateKey?: string; client?: BriefStore } = {}): Promise<Brief | null> {
   let q = store(opts.client).from("daily_briefs").select("brief, date_key").eq("location_id", locationId)

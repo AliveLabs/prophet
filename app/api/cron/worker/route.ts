@@ -12,7 +12,10 @@ import type { Database } from "@/types/database.types"
 import { claimJobs } from "@/lib/jobs/queue"
 import { runJob } from "@/lib/jobs/worker"
 
-export const maxDuration = 300
+// 800 (Fluid Compute): the `brief` job runs the multi-skill LLM synthesis,
+// which can exceed 300s for a signal-rich location — same budget as the
+// build-brief cron. Zombie reclaim below stays at 20 min (> 800s), consistent.
+export const maxDuration = 800
 
 function admin() {
   return createClient<Database>(

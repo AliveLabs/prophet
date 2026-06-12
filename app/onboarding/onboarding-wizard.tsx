@@ -115,6 +115,7 @@ const PIPELINE_ORDER = [
   "social",
   "photos",
   "insights",
+  "brief",
 ] as const
 
 const PIPELINE_LABELS: Record<string, string> = {
@@ -126,6 +127,14 @@ const PIPELINE_LABELS: Record<string, string> = {
   social: "Social media",
   photos: "Photos",
   insights: "First signals",
+  brief: "Your first brief",
+}
+
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000)
+  const m = Math.floor(totalSec / 60)
+  const s = totalSec % 60
+  return `${m}:${String(s).padStart(2, "0")}`
 }
 
 // Step 4 — runs completion once, then shows real signal_jobs statuses.
@@ -145,7 +154,9 @@ function ProcessingStep({
   const [completionDone, setCompletionDone] = useState(false)
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [timedOut, setTimedOut] = useState(false)
+  const [elapsedMs, setElapsedMs] = useState(0)
   const startedRef = useRef(false)
+  const mountedAtRef = useRef(Date.now())
 
   const runCompletion = useCallback(async () => {
     setCompletionError(null)
@@ -198,6 +209,12 @@ function ProcessingStep({
     return () => clearTimeout(timer)
   }, [])
 
+  // Elapsed clock — honest expectations beat a spinner on a loop.
+  useEffect(() => {
+    const timer = setInterval(() => setElapsedMs(Date.now() - mountedAtRef.current), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
   const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
   const insightsDone = statusByPipeline.get("insights") === "done"
   const allDone =
@@ -210,8 +227,12 @@ function ProcessingStep({
       <h1 className="ob-h">We&apos;re building your first brief.</h1>
       <p className="ob-sub">
         We&apos;re pulling competitor, demand, and review signals now. Each row below is
-        live status from the pipeline — the essentials land in a few minutes, insights
-        come last.
+        live status from the pipeline. Most signals land in 5–15 minutes; the full
+        first brief can take 30–60 minutes for a busy market.
+      </p>
+      <p className="ob-hint">
+        Elapsed: {formatElapsed(elapsedMs)} · You can close this tab — we&apos;ll email
+        you the moment your first brief is ready.
       </p>
 
       {completionError ? (
@@ -262,8 +283,9 @@ function ProcessingStep({
             <>
               {!allDone ? (
                 <p className="ob-hint">
-                  Still working — data keeps landing after you enter. Your brief fills
-                  in as each signal finishes.
+                  Still working — data keeps landing after you continue. Your brief
+                  fills in as each signal finishes, and we&apos;ll email you when
+                  it&apos;s ready.
                 </p>
               ) : null}
               <div className="ob-nav">
@@ -275,7 +297,10 @@ function ProcessingStep({
               </div>
             </>
           ) : (
-            <p className="ob-hint">This usually takes a minute or two. Hang tight.</p>
+            <p className="ob-hint">
+              The essentials usually land in a few minutes. Hang tight — or close this
+              tab and watch for our email.
+            </p>
           )}
         </>
       )}

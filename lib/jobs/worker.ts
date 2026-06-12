@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { SUB_PIPELINES, type SubPipeline } from "@/lib/jobs/pipelines/refresh-all"
-import { finishJob, recordRun, type SB, type SignalJob, type PipelineOutcome } from "./queue"
+import { enqueueRun, finishJob, recordRun, type SB, type SignalJob, type PipelineOutcome } from "./queue"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { classifyNow, type FreshnessStatus } from "@/lib/freshness/contract"
 
@@ -70,12 +70,45 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
     // Fully-failed → retry; any progress → done (partial is recorded honestly, not retried forever).
     const ok = completed > 0 || failed === 0
     const disposition = await finishJob(sb, job, ok, warnings.join(" | ") || undefined)
+
+    // A finished first_run insights job chains the brief build (same run_id, so
+    // the onboarding tracker shows it) — a new signup's first brief must not
+    // wait for the next 8:00 UTC build-brief cron.
+    if (job.pipeline === "insights" && scope.mode === "first_run" && disposition === "done") {
+      await enqueueFirstBrief(sb, job)
+    }
+
     return { jobId: job.id, pipeline: job.pipeline, outcome, disposition }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "context build failed"
     await recordRun(sb, { runId: job.run_id, locationId: job.location_id, pipeline: job.pipeline, outcome: "failed", reason: msg, startedAt })
     const disposition = await finishJob(sb, job, false, msg)
     return { jobId: job.id, pipeline: job.pipeline, outcome: "failed", disposition }
+  }
+}
+
+/** Chain the brief build after a first_run insights job (idempotent per run). */
+async function enqueueFirstBrief(sb: SB, job: SignalJob): Promise<void> {
+  try {
+    const { data: existing } = await sb
+      .from("signal_jobs")
+      .select("id")
+      .eq("run_id", job.run_id)
+      .eq("pipeline", "brief")
+      .limit(1)
+      .maybeSingle()
+    if (existing) return
+
+    await enqueueRun(sb, {
+      runId: job.run_id,
+      organizationId: job.organization_id,
+      locationId: job.location_id,
+      pipelines: ["brief"],
+      scope: { mode: "first_run" },
+    })
+  } catch (e) {
+    // Non-fatal: the 8:00 UTC build-brief cron still covers the location.
+    console.warn(`[worker] enqueueFirstBrief failed for ${job.location_id}:`, e)
   }
 }
 

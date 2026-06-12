@@ -14,6 +14,7 @@ import { buildTrafficContext, buildTrafficSteps } from "./traffic"
 import { buildWeatherContext, buildWeatherSteps } from "./weather"
 import { buildSocialContext, buildSocialSteps } from "./social"
 import { buildInsightsContext, buildInsightsSteps } from "./insights"
+import { buildBriefContext, buildBriefSteps } from "./brief"
 
 export type RefreshAllCtx = {
   supabase: SupabaseClient
@@ -86,6 +87,15 @@ export const SUB_PIPELINES: SubPipeline[] = [
     label: "Insight Generation",
     buildCtx: buildInsightsContext,
     buildSteps: () => buildInsightsSteps(),
+  },
+  {
+    // Not part of the scheduled daily set (the 8:00 UTC build-brief cron owns
+    // that); enqueued by the worker after a first_run insights job completes
+    // so onboarding's first brief doesn't wait for the next morning.
+    name: "brief",
+    label: "Daily Brief",
+    buildCtx: buildBriefContext,
+    buildSteps: () => buildBriefSteps(),
   },
 ]
 
