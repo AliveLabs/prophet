@@ -61,7 +61,9 @@ domain = app.getticket.ai, www/apex = marketing.)
   ready — new first-brief-ready trigger on the existing Resend infra + new-brief
   toast plumbing.
 
-## Batch D — Feedback + billing UX + email restyle ✅ BUILT (2026-06-12 session)
+## Batch D — Feedback + billing UX + email restyle ✅ DONE + DEPLOYED
+(073ff66, prod Ready 2026-06-11 ~21:11 CDT; `inaccurate` CHECK migration applied
+to PROD + schema-verified on Bryan's go)
 - ☑ "Report as inaccurate": new `inaccurate` insights status (CHECK migration
   20260612010000 — applied to BRANCH; **prod needs Bryan's go**), wired through the
   unified status action (counts as not_useful → down-weights the insight type),
