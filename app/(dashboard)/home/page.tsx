@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
+import { ensureBriefQueued } from "@/lib/jobs/triggers"
 import { loadPipelineChecks } from "../proof-data"
 import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
@@ -63,8 +64,23 @@ export default async function HomePage() {
     .slice(0, 6)
 
   if (!brief) {
+    // FAILSAFE (2026-06-12 Raising Cane's hang): a location with data but no
+    // brief means the build never ran or died — heal it on sight instead of
+    // stranding the user on an infinite loading state. Idempotent: skips when
+    // a brief job is already queued/running or was created in the last 2h.
+    const repair = await ensureBriefQueued(locRow.id, organizationId)
+    const watching =
+      competitors.length > 0
+        ? ` ${competitors.length} competitor${competitors.length === 1 ? " is" : "s are"} already being watched — browse Competitors while you wait.`
+        : ""
     return (
-      <FirstRunState message="Ticket builds your brief each morning from your market. Your first one is on its way — check back shortly." />
+      <FirstRunState
+        message={
+          repair === "error"
+            ? "Your brief hit a snag on our side. We're on it — check back soon, and your data keeps collecting in the meantime."
+            : `Your brief is being built right now — it usually lands within ten minutes of this page telling you so.${watching}`
+        }
+      />
     )
   }
 

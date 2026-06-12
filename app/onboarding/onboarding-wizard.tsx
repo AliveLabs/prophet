@@ -181,10 +181,18 @@ function ProcessingStep({
     void runCompletion()
   }, [runCompletion])
 
-  // Poll the authed progress route every ~4s for real job statuses.
+  // Poll the authed progress route every ~4s for real job statuses. Stops
+  // after 2h: an abandoned tab must not poll forever (a 16h zombie tab was
+  // observed in the wild, 2026-06-12) — the email path covers them by then.
   useEffect(() => {
     let cancelled = false
+    const pollUntil = Date.now() + 2 * 60 * 60 * 1000
+    let timer: ReturnType<typeof setInterval> | undefined
     async function poll() {
+      if (Date.now() > pollUntil) {
+        if (timer) clearInterval(timer)
+        return
+      }
       try {
         const res = await fetch(
           `/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`
@@ -196,10 +204,10 @@ function ProcessingStep({
       }
     }
     void poll()
-    const timer = setInterval(poll, 4000)
+    timer = setInterval(poll, 4000)
     return () => {
       cancelled = true
-      clearInterval(timer)
+      if (timer) clearInterval(timer)
     }
   }, [locationId])
 

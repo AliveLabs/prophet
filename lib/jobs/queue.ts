@@ -91,6 +91,43 @@ export async function enqueueAdhocPlatform(sb: SB, args: { organizationId: strin
   return n
 }
 
+/**
+ * Enqueue a `brief` build unless one is already queued/running or was created
+ * recently (default 2h window — covers a failed-and-retrying job without
+ * letting observers re-enqueue in a loop). The failsafe primitive behind the
+ * self-healing /home empty state and the build-brief cron enqueuer
+ * (2026-06-12 Raising Cane's incident: the inline build-all cron hit its 800s
+ * ceiling at ~8 locations and silently skipped the rest).
+ */
+export async function enqueueBriefIfMissing(
+  sb: SB,
+  args: { organizationId: string; locationId: string; recentWindowMinutes?: number }
+): Promise<"enqueued" | "skipped"> {
+  const windowMs = (args.recentWindowMinutes ?? 120) * 60 * 1000
+  const { data: latest } = await sb
+    .from("signal_jobs")
+    .select("status, created_at")
+    .eq("location_id", args.locationId)
+    .eq("pipeline", "brief")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (latest) {
+    const active = latest.status === "queued" || latest.status === "running"
+    const recent = new Date(latest.created_at).getTime() > Date.now() - windowMs
+    if (active || recent) return "skipped"
+  }
+
+  await enqueueRun(sb, {
+    runId: crypto.randomUUID(),
+    organizationId: args.organizationId,
+    locationId: args.locationId,
+    pipelines: ["brief"],
+  })
+  return "enqueued"
+}
+
 /** Concurrency-safe claim of up to `batch` due jobs (atomic flip to running). */
 export async function claimJobs(sb: SB, batch: number): Promise<SignalJob[]> {
   const { data, error } = await sb.rpc("claim_signal_jobs", { batch })

@@ -10,7 +10,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-import { enqueueFirstRun } from "./queue"
+import { enqueueBriefIfMissing, enqueueFirstRun } from "./queue"
 
 function admin() {
   return createClient<Database>(
@@ -35,5 +35,23 @@ export async function triggerInitialLocationData(
     await enqueueFirstRun(admin(), { organizationId, locationId })
   } catch (err) {
     console.warn("[Trigger] enqueueFirstRun failed:", err)
+  }
+}
+
+/**
+ * Self-heal a missing brief: called by /home when a location has NO brief at
+ * all, so the page never strands a user on an infinite "getting your market
+ * read" (the 2026-06-12 Raising Cane's hang). Idempotent via
+ * enqueueBriefIfMissing's queued/recent guard; never throws.
+ */
+export async function ensureBriefQueued(
+  locationId: string,
+  organizationId: string
+): Promise<"enqueued" | "skipped" | "error"> {
+  try {
+    return await enqueueBriefIfMissing(admin(), { organizationId, locationId })
+  } catch (err) {
+    console.warn("[Trigger] ensureBriefQueued failed:", err)
+    return "error"
   }
 }
