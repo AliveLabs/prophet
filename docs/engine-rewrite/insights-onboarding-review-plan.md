@@ -81,9 +81,33 @@ to PROD + schema-verified on Bryan's go)
 
 ## Batch E — Test accounts & evaluation
 - ☐ Set up **Airways (Arlington, near AT&T Stadium)** to evaluate event-proximity /
-  venue-driven insights (use an internal org so no trial friction).
+  venue-driven insights. **Timing (2026-06-12): daytime Friday, NOT overnight** —
+  post-Batch-C a new location's first pull + chained brief land within ~the hour,
+  so there is no overnight dependency; a daytime run also validates the new
+  pizza tracker + first-brief email live, and a Friday pull catches the weekend
+  AT&T Stadium event slate for the first brief.
+  **Setup path: a FRESH org** through normal onboarding; stop at the card step
+  (first pull + brief chain run regardless), then admin "Reset trial" on
+  /admin/organizations/[id] to unlock the dashboard. ⚠️ Do NOT add Airways as a
+  second location on an internal org — the 2099-clock internal orgs count as
+  trialing under the Batch-5 gate and are blocked at one location.
 - ☐ Review Raising Cane's data + brief the morning after its first overnight
   refresh; specifically check the social windowing output once Batch B is live.
+
+## Batch F — image bake-off harness spec (run in a fresh session)
+Goal: Gemini 2.5 Flash (current, lib/providers/gemini.ts) vs Claude vision on the
+SAME photos with the SAME instruction — kill the "vibrant color / good natural
+light" genericness or switch models.
+- Sample: ~20 real Google Places photos already stored for Bush + Raising Cane's
+  (reuse stored photo URLs/refs; no new Places spend).
+- Run the CURRENT visual-profile prompt through both models (Claude via claudeRaw,
+  model per ANTHROPIC_MODEL; respect prompt-caching floor).
+- Score per output: (1) generic-phrase rate (count from a fixed blocklist:
+  "vibrant", "natural light", "on-brand", "inviting atmosphere"…), (2) specificity
+  (names actual dishes/objects/signage?), (3) actionability (could an operator DO
+  something with it?), (4) $/photo at current pricing.
+- Deliverable: side-by-side table + recommendation (keep Gemini w/ prompt rework
+  vs switch to Claude vs hybrid cheap-screen + deep-pass). Decision: Bryan.
 
 ## Batch F — Research (no build yet)
 - ☐ **Image model bake-off**: Gemini 2.5 Flash vs Claude (Sonnet) vision on the
