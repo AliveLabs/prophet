@@ -20,6 +20,7 @@ type SocialProfileData = {
   followerCount: number
   engagementRate: number
   postingFrequency: number
+  postingWindowDays: number | null
   avgLikesPerPost: number
   avgCommentsPerPost: number
   topHashtags: string[]
@@ -201,12 +202,16 @@ export default function SocialDashboard({ profiles }: Props) {
             platform={locationProfile.platform}
           />
           <StatCard
-            label="Engagement Rate"
+            label="Engagement / Post"
             value={`${locationProfile.engagementRate.toFixed(1)}%`}
             platform={locationProfile.platform}
           />
           <StatCard
-            label="Posts/Week"
+            label={
+              locationProfile.postingWindowDays
+                ? `Posts/Week (last ${locationProfile.postingWindowDays}d)`
+                : "Posts/Week"
+            }
             value={String(locationProfile.postingFrequency)}
             platform={locationProfile.platform}
           />

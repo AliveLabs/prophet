@@ -109,8 +109,18 @@ export type SocialAggregateMetrics = {
   avgCommentsPerPost: number
   avgSharesPerPost: number
   avgViewsPerPost: number | null
+  /** Per-post engagement when posts happen — NOT a measure of recent activity.
+   *  Copy must phrase it conditionally ("when you post, engagement averages X%"). */
   engagementRate: number
+  /** Posts/week over the last `postingWindowDays` days (legacy snapshots:
+   *  account-lifetime average — the 2026-06-11 review's false-positive bug). */
   postingFrequencyPerWeek: number
+  /** Window the frequency was computed over. Absent on legacy stored snapshots,
+   *  which self-correct on the next daily pull. */
+  postingWindowDays?: number
+  postsInWindow?: number
+  postsLast30Days?: number
+  lastPostAt?: string | null
   topHashtags: string[]
 }
 

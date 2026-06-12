@@ -186,6 +186,11 @@ export function normalizeTikTokPost(raw: TikTokRawPost): NormalizedSocialPost {
 // Aggregate metrics computation
 // ---------------------------------------------------------------------------
 
+// Posting frequency is computed over this window, not the account lifetime.
+// Lifetime averaging produced false positives (review 2026-06-11: an account
+// dark for 1,615 days read as "posting 2x/week").
+export const POSTING_FREQUENCY_WINDOW_DAYS = 90
+
 export function computeAggregateMetrics(
   profile: NormalizedSocialProfile,
   posts: NormalizedSocialPost[]
@@ -198,6 +203,10 @@ export function computeAggregateMetrics(
       avgViewsPerPost: null,
       engagementRate: 0,
       postingFrequencyPerWeek: 0,
+      postingWindowDays: POSTING_FREQUENCY_WINDOW_DAYS,
+      postsInWindow: 0,
+      postsLast30Days: 0,
+      lastPostAt: null,
       topHashtags: [],
     }
   }
@@ -219,17 +228,29 @@ export function computeAggregateMetrics(
       ? ((avgLikes + avgComments) / profile.followerCount) * 100
       : 0
 
-  // Posting frequency: estimate from post timestamps
+  // Posting frequency over the recency window — a dark account must read 0,
+  // not its historical average.
   const timestamps = posts
     .map((p) => new Date(p.createdTime).getTime())
     .filter((t) => !isNaN(t))
     .sort((a, b) => a - b)
 
+  const nowMs = Date.now()
+  const weekMs = 7 * 24 * 60 * 60 * 1000
+  const windowStart = nowMs - POSTING_FREQUENCY_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  const inWindow = timestamps.filter((t) => t >= windowStart)
+  const last30 = timestamps.filter((t) => t >= nowMs - 30 * 24 * 60 * 60 * 1000)
+  const lastPostAt =
+    timestamps.length > 0 ? new Date(timestamps[timestamps.length - 1]).toISOString() : null
+
   let freqPerWeek = 0
-  if (timestamps.length >= 2) {
-    const spanMs = timestamps[timestamps.length - 1] - timestamps[0]
-    const spanWeeks = spanMs / (7 * 24 * 60 * 60 * 1000)
-    freqPerWeek = spanWeeks > 0 ? Math.round((timestamps.length / spanWeeks) * 10) / 10 : 0
+  if (inWindow.length > 0) {
+    // Cadence = in-window posts over the span since the oldest IN-WINDOW post
+    // (min 1 week). This reads a corrected account honestly — dark 6 months
+    // then 3x/week for 8 weeks computes 3.0, not a flattened window average —
+    // and young or API-truncated histories aren't understated.
+    const effectiveMs = Math.max(nowMs - inWindow[0], weekMs)
+    freqPerWeek = Math.round((inWindow.length / (effectiveMs / weekMs)) * 10) / 10
   }
 
   // Top hashtags
@@ -252,6 +273,10 @@ export function computeAggregateMetrics(
     avgViewsPerPost: viewPosts.length > 0 ? Math.round(totalViews / viewPosts.length) : null,
     engagementRate: Math.round(engagement * 100) / 100,
     postingFrequencyPerWeek: freqPerWeek,
+    postingWindowDays: POSTING_FREQUENCY_WINDOW_DAYS,
+    postsInWindow: inWindow.length,
+    postsLast30Days: last30.length,
+    lastPostAt,
     topHashtags,
   }
 }

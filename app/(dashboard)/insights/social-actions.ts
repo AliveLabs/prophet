@@ -242,6 +242,7 @@ export async function fetchSocialDashboardData(locationId: string) {
     followerCount: number
     engagementRate: number
     postingFrequency: number
+    postingWindowDays: number | null
     avgLikesPerPost: number
     avgCommentsPerPost: number
     topHashtags: string[]
@@ -261,6 +262,7 @@ export async function fetchSocialDashboardData(locationId: string) {
       followerCount: snap?.profile?.followerCount ?? snap?.aggregateMetrics?.avgLikesPerPost ?? 0,
       engagementRate: snap?.aggregateMetrics?.engagementRate ?? 0,
       postingFrequency: snap?.aggregateMetrics?.postingFrequencyPerWeek ?? 0,
+      postingWindowDays: snap?.aggregateMetrics?.postingWindowDays ?? null,
       avgLikesPerPost: snap?.aggregateMetrics?.avgLikesPerPost ?? 0,
       avgCommentsPerPost: snap?.aggregateMetrics?.avgCommentsPerPost ?? 0,
       topHashtags: snap?.aggregateMetrics?.topHashtags ?? [],

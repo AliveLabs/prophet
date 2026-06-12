@@ -5,7 +5,7 @@
 // Each rule follows the existing GeneratedInsight pattern.
 // ---------------------------------------------------------------------------
 
-import type { SocialSnapshotData, SocialPlatform } from "./types"
+import type { SocialSnapshotData, SocialPlatform, SocialAggregateMetrics } from "./types"
 import type { GeneratedInsight } from "@/lib/insights/types"
 
 type EntitySnapshot = {
@@ -15,6 +15,26 @@ type EntitySnapshot = {
   platform: SocialPlatform
   current: SocialSnapshotData
   previous: SocialSnapshotData | null
+}
+
+// Honest-language helpers (review 2026-06-11): every frequency number carries
+// its measurement window, and engagement is phrased as a per-post rate ("when
+// you post"), never as evidence of recent activity — a dark account must never
+// read as healthy.
+
+function windowPhrase(m: SocialAggregateMetrics): string {
+  return m.postingWindowDays
+    ? `over the last ${m.postingWindowDays} days`
+    : "over the account's visible history"
+}
+
+function daysSinceLastPost(snap: SocialSnapshotData): number | null {
+  const iso =
+    snap.aggregateMetrics.lastPostAt ?? snap.recentPosts[0]?.createdTime ?? null
+  if (!iso) return null
+  const t = new Date(iso).getTime()
+  if (isNaN(t)) return null
+  return (Date.now() - t) / (1000 * 60 * 60 * 24)
 }
 
 /**
@@ -84,16 +104,18 @@ function checkPostingFrequencyGap(
   for (const comp of competitors) {
     const compFreq = comp.current.aggregateMetrics.postingFrequencyPerWeek
     if (compFreq > 0 && compFreq >= locFreq * 2 && compFreq - locFreq >= 2) {
+      const window = windowPhrase(comp.current.aggregateMetrics)
       insights.push({
         insight_type: "social.posting_frequency_gap",
         title: `${comp.entityName} posts ${Math.round(compFreq)}x/week on ${platformLabel(comp.platform)}`,
-        summary: `${comp.entityName} posts about ${Math.round(compFreq)} times per week on ${platformLabel(comp.platform)}, while you post ${Math.round(locFreq)} times per week. Consistent posting drives visibility and engagement.`,
+        summary: `${comp.entityName} has posted about ${Math.round(compFreq)} times per week on ${platformLabel(comp.platform)} ${window}, while you posted ${Math.round(locFreq)} times per week. Consistent posting drives visibility and engagement.`,
         confidence: "high",
         severity: locFreq === 0 ? "critical" : "warning",
         evidence: {
           competitor: comp.entityName,
           competitorFrequency: compFreq,
           yourFrequency: locFreq,
+          windowDays: comp.current.aggregateMetrics.postingWindowDays ?? null,
           platform: comp.platform,
         },
         recommendations: [
@@ -129,7 +151,7 @@ function checkEngagementComparison(
       insights.push({
         insight_type: "social.engagement_outperform",
         title: `Your ${platformLabel(location.platform)} engagement is ${ratio.toFixed(1)}x higher`,
-        summary: `Your engagement rate (${locRate.toFixed(1)}%) on ${platformLabel(location.platform)} is ${ratio.toFixed(1)}x higher than ${comp.entityName}'s (${compRate.toFixed(1)}%). Your content strategy is resonating well with your audience.`,
+        summary: `Your per-post engagement rate (${locRate.toFixed(1)}%) on ${platformLabel(location.platform)} is ${ratio.toFixed(1)}x higher than ${comp.entityName}'s (${compRate.toFixed(1)}%). When you post, your content resonates better with your audience than theirs does.`,
         confidence: "high",
         severity: "info",
         evidence: {
@@ -144,7 +166,7 @@ function checkEngagementComparison(
       insights.push({
         insight_type: "social.engagement_gap",
         title: `${comp.entityName} has ${(1 / ratio).toFixed(1)}x your engagement on ${platformLabel(location.platform)}`,
-        summary: `${comp.entityName}'s engagement rate (${compRate.toFixed(1)}%) on ${platformLabel(location.platform)} is ${(1 / ratio).toFixed(1)}x higher than yours (${locRate.toFixed(1)}%). Study their content to identify what resonates.`,
+        summary: `${comp.entityName}'s per-post engagement rate (${compRate.toFixed(1)}%) on ${platformLabel(location.platform)} is ${(1 / ratio).toFixed(1)}x higher than yours (${locRate.toFixed(1)}%). Study their content to identify what resonates.`,
         confidence: "high",
         severity: "warning",
         evidence: {
@@ -511,17 +533,19 @@ function checkPostingFrequencyBenchmark(location: EntitySnapshot): GeneratedInsi
   const freq = location.current.aggregateMetrics.postingFrequencyPerWeek
   const benchmark = INDUSTRY_POSTING_BENCHMARKS[location.platform] ?? { min: 3, ideal: 5 }
 
+  const window = windowPhrase(location.current.aggregateMetrics)
   if (freq < benchmark.min && freq > 0) {
     insights.push({
       insight_type: "social.posting_frequency_low",
       title: `You're posting ${Math.round(freq)}x/week on ${platformLabel(location.platform)} — below the recommended ${benchmark.min}x`,
-      summary: `Your ${platformLabel(location.platform)} posting frequency is ${freq.toFixed(1)} posts/week. Industry benchmarks for restaurants suggest at least ${benchmark.min}x/week, with ${benchmark.ideal}x/week being ideal for consistent growth.`,
+      summary: `Your ${platformLabel(location.platform)} posting frequency is ${freq.toFixed(1)} posts/week ${window}. Industry benchmarks for restaurants suggest at least ${benchmark.min}x/week, with ${benchmark.ideal}x/week being ideal for consistent growth.`,
       confidence: "high",
       severity: "warning",
       evidence: {
         yourFrequency: freq,
         recommendedMin: benchmark.min,
         idealFrequency: benchmark.ideal,
+        windowDays: location.current.aggregateMetrics.postingWindowDays ?? null,
         platform: location.platform,
       },
       recommendations: [
@@ -535,12 +559,13 @@ function checkPostingFrequencyBenchmark(location: EntitySnapshot): GeneratedInsi
     insights.push({
       insight_type: "social.posting_frequency_strong",
       title: `Great posting cadence: ${Math.round(freq)}x/week on ${platformLabel(location.platform)}`,
-      summary: `You're posting ${freq.toFixed(1)} times per week on ${platformLabel(location.platform)}, meeting or exceeding the recommended ${benchmark.ideal}x/week. Keep this up!`,
+      summary: `You've posted ${freq.toFixed(1)} times per week on ${platformLabel(location.platform)} ${window}, meeting or exceeding the recommended ${benchmark.ideal}x/week. Keep this up!`,
       confidence: "high",
       severity: "info",
       evidence: {
         yourFrequency: freq,
         idealFrequency: benchmark.ideal,
+        windowDays: location.current.aggregateMetrics.postingWindowDays ?? null,
         platform: location.platform,
       },
       recommendations: [],
@@ -566,32 +591,49 @@ function checkEngagementBenchmark(location: EntitySnapshot): GeneratedInsight[] 
   if (rate <= 0) return insights
 
   const bench = ENGAGEMENT_BENCHMARKS[location.platform] ?? { low: 1.0, good: 3.0, great: 6.0 }
+  // Engagement is a per-post rate — on a quiet account it must read as latent
+  // strength ("when you post"), never as a current-health signal sitting next
+  // to "hasn't posted in N days" (the TikTok contradiction, review 2026-06-11).
+  const sincePost = daysSinceLastPost(location.current)
+  const accountQuiet = sincePost !== null && sincePost >= 30
 
   if (rate >= bench.great) {
     insights.push({
       insight_type: "social.engagement_excellent",
-      title: `Excellent ${platformLabel(location.platform)} engagement: ${rate.toFixed(1)}%`,
-      summary: `Your engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is well above the industry average of ${bench.good}%. Your content is resonating strongly with your audience.`,
+      title: accountQuiet
+        ? `When you post on ${platformLabel(location.platform)}, engagement averages ${rate.toFixed(1)}%`
+        : `Excellent ${platformLabel(location.platform)} engagement: ${rate.toFixed(1)}%`,
+      summary: accountQuiet
+        ? `When you do post, your per-post engagement on ${platformLabel(location.platform)} averages ${rate.toFixed(1)}% — well above the ${bench.good}% industry average. But your last post was ${Math.round(sincePost)} days ago; that audience is waiting for you to resume.`
+        : `Your per-post engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is well above the industry average of ${bench.good}%. Your content is resonating strongly with your audience.`,
       confidence: "high",
       severity: "info",
       evidence: {
         yourRate: rate,
         industryGood: bench.good,
         industryGreat: bench.great,
+        ...(sincePost !== null ? { daysSincePost: Math.round(sincePost) } : {}),
         platform: location.platform,
       },
-      recommendations: [
-        {
-          title: "Double down on your top-performing content types",
-          rationale: "Your audience is highly engaged. Analyze which posts drive the most interaction and create more similar content.",
-        },
-      ],
+      recommendations: accountQuiet
+        ? [
+            {
+              title: "Resume posting — your engagement rate shows the audience responds",
+              rationale: "High per-post engagement on a quiet account is latent demand. Even one post a week converts it back into reach.",
+            },
+          ]
+        : [
+            {
+              title: "Double down on your top-performing content types",
+              rationale: "Your audience is highly engaged. Analyze which posts drive the most interaction and create more similar content.",
+            },
+          ],
     })
   } else if (rate < bench.low) {
     insights.push({
       insight_type: "social.engagement_below_average",
       title: `${platformLabel(location.platform)} engagement (${rate.toFixed(1)}%) is below average`,
-      summary: `Your engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is below the industry benchmark of ${bench.low}%. This means your content isn't resonating — try different formats, posting times, or ask questions in captions.`,
+      summary: `Your per-post engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} (measured across your recent posts) is below the industry benchmark of ${bench.low}%. This means your content isn't resonating — try different formats, posting times, or ask questions in captions.`,
       confidence: "high",
       severity: "warning",
       evidence: {

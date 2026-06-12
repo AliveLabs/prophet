@@ -355,3 +355,61 @@ describe("buildSocialSnapshot", () => {
     expect(snapshot.recentPosts).toHaveLength(1)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Windowed posting frequency (review 2026-06-11: no more lifetime averages)
+// ---------------------------------------------------------------------------
+
+describe("computeAggregateMetrics — windowed posting frequency", () => {
+  const daySec = 86_400
+  const nowSec = Math.floor(Date.now() / 1000)
+  const profile = normalizeInstagramProfile({ followers_count: 1000 }, "test")
+  const postAt = (daysAgo: number) =>
+    normalizeInstagramPost({ likes_count: 1, comments_count: 0, timestamp: nowSec - Math.round(daysAgo * daySec) })
+
+  it("a dark account reads 0x/week, not its lifetime average (the 1,615-day case)", () => {
+    // 40 posts at a 2x/week clip — but the newest is 1,615 days old.
+    const posts = Array.from({ length: 40 }, (_, i) => postAt(1615 + i * 3.5))
+    const r = computeAggregateMetrics(profile, posts)
+
+    expect(r.postingFrequencyPerWeek).toBe(0)
+    expect(r.postsInWindow).toBe(0)
+    expect(r.postsLast30Days).toBe(0)
+    expect(r.postingWindowDays).toBe(90)
+    expect(r.lastPostAt).toBeTruthy()
+    expect(new Date(r.lastPostAt!).getTime()).toBeLessThan(Date.now() - 1600 * daySec * 1000)
+  })
+
+  it("corrected behavior reads its true recent cadence (dark 6 months, then 3x/week for 8 weeks)", () => {
+    const oldPosts = Array.from({ length: 20 }, (_, i) => postAt(200 + i * 7))
+    const recentPosts = Array.from({ length: 24 }, (_, i) => postAt(i * (56 / 24)))
+    const r = computeAggregateMetrics(profile, [...oldPosts, ...recentPosts])
+
+    expect(r.postingFrequencyPerWeek).toBeGreaterThanOrEqual(2.7)
+    expect(r.postingFrequencyPerWeek).toBeLessThanOrEqual(3.3)
+    expect(r.postsInWindow).toBe(24)
+    expect(r.postsLast30Days).toBeGreaterThanOrEqual(12)
+  })
+
+  it("a steady poster reads its actual cadence", () => {
+    // 2x/week across the whole 90-day window
+    const posts = Array.from({ length: 26 }, (_, i) => postAt(i * 3.5))
+    const r = computeAggregateMetrics(profile, posts)
+    expect(r.postingFrequencyPerWeek).toBeGreaterThanOrEqual(1.8)
+    expect(r.postingFrequencyPerWeek).toBeLessThanOrEqual(2.2)
+  })
+
+  it("a brand-new account is not understated (min 1-week span)", () => {
+    const posts = [postAt(0.5), postAt(1), postAt(2)]
+    const r = computeAggregateMetrics(profile, posts)
+    expect(r.postingFrequencyPerWeek).toBe(3)
+  })
+
+  it("empty posts zero out the window fields too", () => {
+    const r = computeAggregateMetrics(profile, [])
+    expect(r.postsInWindow).toBe(0)
+    expect(r.postsLast30Days).toBe(0)
+    expect(r.lastPostAt).toBeNull()
+    expect(r.postingWindowDays).toBe(90)
+  })
+})

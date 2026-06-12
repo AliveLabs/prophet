@@ -627,3 +627,107 @@ describe("Integration: multiple rules", () => {
     expect(types.has("social.inactive_account")).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Honest language (review 2026-06-11): windows cited, engagement conditional
+// ---------------------------------------------------------------------------
+
+describe("honest engagement language on quiet accounts", () => {
+  const daysAgoIso = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
+
+  it("a quiet account's high engagement reads 'when you post', never as current health", () => {
+    const loc = makeEntity("location", "Me", "tiktok", {
+      recentPosts: [],
+      aggregateMetrics: {
+        engagementRate: 63.3,
+        postingFrequencyPerWeek: 0,
+        postingWindowDays: 90,
+        postsInWindow: 0,
+        postsLast30Days: 0,
+        lastPostAt: daysAgoIso(35),
+        topHashtags: [],
+        avgLikesPerPost: 50,
+        avgCommentsPerPost: 5,
+        avgSharesPerPost: 2,
+        avgViewsPerPost: null,
+      },
+    })
+    const insights = generateSocialInsights([loc], [])
+    const excellent = insights.find((i) => i.insight_type === "social.engagement_excellent")
+
+    expect(excellent).toBeDefined()
+    expect(excellent!.title).toMatch(/^When you post/)
+    expect(excellent!.summary).toContain("last post was 35 days ago")
+    expect(excellent!.evidence.daysSincePost).toBe(35)
+    expect(excellent!.recommendations[0].title).toMatch(/Resume posting/)
+  })
+
+  it("an active account keeps the straightforward 'excellent engagement' framing", () => {
+    const loc = makeEntity("location", "Me", "tiktok", {
+      aggregateMetrics: {
+        engagementRate: 12,
+        postingFrequencyPerWeek: 4,
+        postingWindowDays: 90,
+        postsInWindow: 50,
+        postsLast30Days: 16,
+        lastPostAt: daysAgoIso(2),
+        topHashtags: [],
+        avgLikesPerPost: 50,
+        avgCommentsPerPost: 5,
+        avgSharesPerPost: 2,
+        avgViewsPerPost: null,
+      },
+    })
+    const insights = generateSocialInsights([loc], [])
+    const excellent = insights.find((i) => i.insight_type === "social.engagement_excellent")
+
+    expect(excellent).toBeDefined()
+    expect(excellent!.title).toMatch(/^Excellent TikTok engagement/)
+  })
+})
+
+describe("frequency insights cite their window", () => {
+  it("benchmark summary names the 90-day window and carries it in evidence", () => {
+    const loc = makeEntity("location", "Me", "instagram", {
+      aggregateMetrics: {
+        engagementRate: 2,
+        postingFrequencyPerWeek: 1,
+        postingWindowDays: 90,
+        postsInWindow: 13,
+        postsLast30Days: 4,
+        lastPostAt: new Date().toISOString(),
+        topHashtags: [],
+        avgLikesPerPost: 50,
+        avgCommentsPerPost: 5,
+        avgSharesPerPost: 2,
+        avgViewsPerPost: null,
+      },
+    })
+    const insights = generateSocialInsights([loc], [])
+    const low = insights.find((i) => i.insight_type === "social.posting_frequency_low")
+
+    expect(low).toBeDefined()
+    expect(low!.summary).toContain("over the last 90 days")
+    expect(low!.evidence.windowDays).toBe(90)
+  })
+
+  it("legacy snapshots without window metadata fall back to honest 'visible history' phrasing", () => {
+    const loc = makeEntity("location", "Me", "instagram", {
+      aggregateMetrics: {
+        engagementRate: 2,
+        postingFrequencyPerWeek: 1,
+        topHashtags: [],
+        avgLikesPerPost: 50,
+        avgCommentsPerPost: 5,
+        avgSharesPerPost: 2,
+        avgViewsPerPost: null,
+      },
+    })
+    const insights = generateSocialInsights([loc], [])
+    const low = insights.find((i) => i.insight_type === "social.posting_frequency_low")
+
+    expect(low).toBeDefined()
+    expect(low!.summary).toContain("over the account's visible history")
+    expect(low!.evidence.windowDays).toBeNull()
+  })
+})
