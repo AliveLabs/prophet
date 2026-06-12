@@ -38,8 +38,12 @@ import { getCachedBriefing, setCachedBriefing } from "@/lib/insights/briefing-ca
 // Updates status, optionally adjusts org preference, revalidates current page
 // ---------------------------------------------------------------------------
 
-const VALID_STATUSES = new Set(["new", "read", "todo", "actioned", "snoozed", "dismissed"])
+const VALID_STATUSES = new Set(["new", "read", "todo", "actioned", "snoozed", "dismissed", "inaccurate"])
 const POSITIVE_STATUSES = new Set(["read", "todo", "actioned"])
+// Statuses that mean "stop showing me this": dismissed = accurate but not
+// useful; inaccurate = the DATA is wrong (review 2026-06-11). Both down-weight
+// the insight type; inaccurate additionally flags the source for ops.
+const NEGATIVE_STATUSES = new Set(["dismissed", "inaccurate"])
 
 export async function updateInsightStatusAction(formData: FormData) {
   const user = await requireUser()
@@ -77,7 +81,7 @@ export async function updateInsightStatusAction(formData: FormData) {
     }
   }
 
-  const userFeedback = newStatus === "dismissed"
+  const userFeedback = NEGATIVE_STATUSES.has(newStatus)
     ? "not_useful"
     : POSITIVE_STATUSES.has(newStatus)
       ? "useful"

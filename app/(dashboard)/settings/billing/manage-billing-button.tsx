@@ -24,7 +24,7 @@ export function ManageBillingButton() {
     <button
       onClick={open}
       disabled={loading}
-      className="rounded-md border border-border bg-secondary px-3 py-1 text-xs font-semibold text-foreground hover:opacity-90 disabled:opacity-60"
+      className="pv-btn pv-btn--sm"
     >
       {loading ? "Opening…" : "Manage billing"}
     </button>

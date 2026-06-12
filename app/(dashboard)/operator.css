@@ -59,6 +59,24 @@
 .pv-acct__item:hover{ background:var(--bond); }
 .pv-acct__soon{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash-2); padding:8px; line-height:1.4; }
 
+/* ── Billing: pricing tiles + cadence toggle (settings/billing) ── */
+.pv-tiers{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+@media (max-width:900px){ .pv-tiers{ grid-template-columns:1fr; } }
+.pv-tier{ text-align:left; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:18px 20px; box-shadow:var(--shadow-chit); cursor:pointer; transition:border-color .15s ease; }
+.pv-tier:hover:not(:disabled){ border-color:var(--rule-strong); }
+.pv-tier:disabled{ opacity:.55; cursor:default; }
+.pv-tier--reco{ border-color:var(--rust); background:var(--thermal); }
+.pv-tier--reco:hover:not(:disabled){ border-color:var(--rust-deep); }
+.pv-tier__head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.pv-tier__name{ font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.05em; font-size:15px; color:var(--ink); }
+.pv-tier__price{ font-family:var(--font-display); font-size:30px; line-height:1.05; color:var(--ink); margin-top:10px; }
+.pv-tier__sub{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); margin-top:6px; }
+.pv-tier__cta{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--rust); margin-top:12px; }
+.pv-cadence{ display:inline-flex; align-items:center; border:1px solid var(--rule); border-radius:100px; padding:3px; gap:2px; background:var(--card); }
+.pv-cadence button{ border:0; background:transparent; cursor:pointer; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ash); padding:6px 14px; border-radius:100px; }
+.pv-cadence button.is-on{ background:var(--ink); color:var(--paper); }
+.pv-save-note{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--clear); background:var(--clear-wash); border-radius:3px; padding:2px 8px; margin-left:10px; }
+
 /* ── Main + topbar ───────────────────────────────────────── */
 .pv-main{ min-width:0; display:flex; flex-direction:column; }
 .pv-topbar{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:18px 44px 0; }

@@ -17,7 +17,10 @@ const ACTIONS = [
   { status: "actioned", label: "Mark as Done", icon: CheckCircleIcon },
   { status: "snoozed", label: "Do Later", icon: ClockIcon },
   { status: "dismissed", label: "Dismiss", icon: XCircleIcon },
+  { status: "inaccurate", label: "Report as inaccurate", icon: FlagIcon },
 ] as const
+
+const DESTRUCTIVE_STATUSES = new Set(["dismissed", "inaccurate"])
 
 export default function KebabMenu({ insightId, currentStatus, onStatusChange }: Props) {
   const [open, setOpen] = useState(false)
@@ -84,7 +87,7 @@ export default function KebabMenu({ insightId, currentStatus, onStatusChange }: 
               type="button"
               onClick={() => handleAction(action.status)}
               className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-xs font-medium transition hover:bg-secondary ${
-                action.status === "dismissed"
+                DESTRUCTIVE_STATUSES.has(action.status)
                   ? "text-destructive hover:bg-destructive/10"
                   : "text-foreground"
               }`}
@@ -136,6 +139,14 @@ function XCircleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function FlagIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18m0-13.5c2.62-1.8 5.234-1.8 7.846 0 2.62 1.8 5.234 1.8 7.854 0V3.75c-2.62 1.8-5.234 1.8-7.854 0-2.612-1.8-5.226-1.8-7.846 0" />
     </svg>
   )
 }

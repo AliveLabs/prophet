@@ -7,7 +7,6 @@ import {
   TIER_PRICING,
 } from "@/lib/billing/tiers"
 import { getVerticalConfig, isValidIndustryType, type IndustryType } from "@/lib/verticals"
-import { Badge } from "@/components/ui/badge"
 import { UpgradeButtons } from "./upgrade-buttons"
 import { UpgradeSuccessToast } from "./upgrade-success"
 import { DunningBanner } from "@/components/billing/dunning-banner"
@@ -73,111 +72,108 @@ export default async function BillingPage({
   const isLegacyTrial = noStripe && daysRemaining > 0
   const hasCustomer = Boolean(organization?.stripe_customer_id)
 
-  return (
-    <section className="space-y-5">
-      {upgraded && <UpgradeSuccessToast />}
-      {isPastDue && <DunningBanner brand={brand as "Ticket" | "Neat"} />}
+  const statusLine =
+    isTrialing || isLegacyTrial
+      ? `Trial · ${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} remaining`
+      : isActive
+        ? organization?.cancel_at_period_end
+          ? `Cancels on ${formatDate(organization.current_period_end)}`
+          : `Renews ${formatDate(organization?.current_period_end)}`
+        : isPastDue
+          ? "Past due — update payment"
+          : isCanceled
+            ? "Canceled"
+            : isSuspended
+              ? "Suspended"
+              : "No active subscription"
+  const statusTone = isPastDue || isSuspended ? "var(--alert)" : "var(--ink)"
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-5 py-3">
-          <span className="text-[12.5px] font-semibold text-foreground">
-            Billing
-          </span>
+  return (
+    <div className="pv-page">
+      {upgraded && <UpgradeSuccessToast />}
+      <div className="pv-page-head">
+        <span className="pv-kicker">Account</span>
+        <h1 className="pv-h1">Billing</h1>
+        <p className="pv-sub">
+          Your plan, what it costs, and where it stands. Cancel or change it
+          anytime — no phone calls, no hoops.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      {isPastDue && (
+        <div className="pv-section">
+          <DunningBanner brand={brand as "Ticket" | "Neat"} />
         </div>
-        <div className="p-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-lg border border-border bg-secondary px-4 py-4">
-              <p className="text-[11.5px] font-medium text-muted-foreground">
-                Current plan
-              </p>
-              <p className="mt-2 font-display text-[28px] font-semibold leading-none tracking-tight text-foreground">
-                {getTierDisplayName(tier, industry)}
-                {(isTrialing || isLegacyTrial) && (
-                  <span className="ml-2 align-middle text-[13px] font-medium text-muted-foreground">
-                    (trial)
-                  </span>
-                )}
-              </p>
-              {tier !== "suspended" && <PriceLabel tier={tier} />}
-            </div>
-            <div className="rounded-lg border border-border bg-secondary px-4 py-4">
-              <p className="text-[11.5px] font-medium text-muted-foreground">
-                Status
-              </p>
-              {isTrialing || isLegacyTrial ? (
-                <p className="mt-2 text-[15px] font-semibold text-foreground">
-                  Trial · {daysRemaining}{" "}
-                  {daysRemaining === 1 ? "day" : "days"} remaining
-                </p>
-              ) : isActive ? (
-                <p className="mt-2 text-[15px] font-semibold text-foreground">
-                  {organization?.cancel_at_period_end
-                    ? `Cancels on ${formatDate(organization.current_period_end)}`
-                    : `Renews ${formatDate(organization?.current_period_end)}`}
-                </p>
-              ) : isPastDue ? (
-                <p className="mt-2 text-[15px] font-semibold text-destructive">
-                  Past due — update payment
-                </p>
-              ) : isCanceled ? (
-                <p className="mt-2 text-[15px] font-semibold text-muted-foreground">
-                  Canceled
-                </p>
-              ) : isSuspended ? (
-                <p className="mt-2 text-[15px] font-semibold text-destructive">
-                  Suspended
-                </p>
-              ) : (
-                <p className="mt-2 text-[15px] font-semibold text-foreground">
-                  No active subscription
-                </p>
+      )}
+
+      <div className="pv-section">
+        <div className="pv-section-head">Current plan</div>
+        <div className="pv-card">
+          <div className="pv-field">
+            <div className="pv-field__label">Plan</div>
+            <div className="pv-field__val">
+              {getTierDisplayName(tier, industry)}
+              {(isTrialing || isLegacyTrial) && (
+                <span className="pv-pill pv-pill--watch" style={{ marginLeft: 10 }}>
+                  Trial
+                </span>
+              )}
+              {isLegacyTrial && (
+                <span className="pv-pill pv-pill--threat" style={{ marginLeft: 6 }}>
+                  No card on file
+                </span>
+              )}
+              {tier !== "suspended" && (
+                <div className="pv-field__hint">
+                  <PriceLabel tier={tier} />
+                </div>
               )}
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            {!noStripe && !isSuspended && (
-              <Badge
-                variant="default"
-                className="border-border text-muted-foreground"
-              >
-                Stripe connected
-              </Badge>
-            )}
-            {isLegacyTrial && (
-              <Badge
-                variant="default"
-                className="border-border text-muted-foreground"
-              >
-                No card on file
-              </Badge>
-            )}
-            {organization?.billing_email && (
-              <span className="text-[11.5px] text-muted-foreground">
-                Billed to {organization.billing_email}
-              </span>
-            )}
-            {hasCustomer && !isSuspended && <ManageBillingButton />}
+          <div className="pv-field">
+            <div className="pv-field__label">Status</div>
+            <div className="pv-field__val" style={{ color: statusTone }}>
+              {statusLine}
+            </div>
           </div>
+          {organization?.billing_email && (
+            <div className="pv-field">
+              <div className="pv-field__label">Billed to</div>
+              <div className="pv-field__val">
+                {organization.billing_email}
+                {!noStripe && !isSuspended && (
+                  <div className="pv-field__hint">via Stripe</div>
+                )}
+              </div>
+            </div>
+          )}
+          {hasCustomer && !isSuspended && (
+            <div className="pv-field">
+              <div className="pv-field__label">Payment</div>
+              <div className="pv-field__val">
+                <ManageBillingButton />
+                <div className="pv-field__hint">
+                  Update your card, switch plans, or cancel in the Stripe portal.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       {(noStripe || isCanceled) && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <div className="border-b border-border px-5 py-3">
-            <span className="text-[12.5px] font-semibold text-foreground">
-              {isCanceled ? "Resubscribe" : "Upgrade your plan"}
+        <div className="pv-section">
+          <div className="pv-section-head">
+            {isCanceled ? "Resubscribe" : "Choose your plan"}
+            <span className="pv-section-sub">
+              More competitors, daily intelligence, more locations as you grow.
             </span>
           </div>
-          <div className="p-5">
-            <p className="mb-5 text-sm text-muted-foreground">
-              Unlock more locations, competitors, and daily intelligence
-              refreshes.
-            </p>
-            <UpgradeButtons industry={industry} />
-          </div>
+          <UpgradeButtons industry={industry} />
         </div>
       )}
-    </section>
+    </div>
   )
 }
 
@@ -188,10 +184,9 @@ function PriceLabel({
 }) {
   const pricing = TIER_PRICING[tier]
   return (
-    <p className="mt-1 text-[11.5px] text-muted-foreground">
-      From ${pricing.annualEffectiveMonthly}/mo annual · ${pricing.monthly}/mo
-      monthly
-    </p>
+    <span>
+      From ${pricing.annualEffectiveMonthly}/mo annual · ${pricing.monthly}/mo monthly
+    </span>
   )
 }
 

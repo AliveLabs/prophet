@@ -51,7 +51,7 @@ const CATEGORY_ORDER: SourceCategory[] = [
   "competitors", "events", "seo", "social", "content", "photos", "traffic",
 ]
 
-const HIDDEN_STATUSES = new Set(["dismissed", "snoozed"])
+const HIDDEN_STATUSES = new Set(["dismissed", "snoozed", "inaccurate"])
 const CARDS_PER_CATEGORY = 6
 const CARDS_PER_COLUMN = 8
 

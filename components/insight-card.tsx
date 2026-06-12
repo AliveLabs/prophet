@@ -121,6 +121,7 @@ const STATUS_BADGES: Record<string, { bg: string; text: string; label: string }>
   actioned: { bg: "bg-precision-teal/15", text: "text-precision-teal", label: "Done" },
   snoozed: { bg: "bg-muted", text: "text-muted-foreground", label: "Snoozed" },
   dismissed: { bg: "bg-destructive/15", text: "text-destructive", label: "Dismissed" },
+  inaccurate: { bg: "bg-destructive/15", text: "text-destructive", label: "Reported" },
 }
 
 // ---------------------------------------------------------------------------
@@ -173,7 +174,7 @@ export default function InsightCard({
   const SourceIcon = SOURCE_ICONS[source]
   const urgencyStyle = URGENCY_STYLES[urgencyLevel]
   const metrics = extractMetrics(evidence, insightType)
-  const isDismissed = status === "dismissed"
+  const isDismissed = status === "dismissed" || status === "inaccurate"
   const statusBadge = STATUS_BADGES[status]
 
   return (

@@ -45,10 +45,10 @@ export function UpgradeButtons({ industry }: UpgradeButtonsProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div>
       <CadenceToggle cadence={cadence} onChange={setCadence} />
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="pv-tiers" style={{ marginTop: 14 }}>
         {PAID_TIERS.map((tier) => {
           const t = tier as PaidTier
           const pricing = TIER_PRICING[t]
@@ -61,7 +61,7 @@ export function UpgradeButtons({ industry }: UpgradeButtonsProps) {
               : `$${pricing.annualEffectiveMonthly}/mo`
           const priceSub =
             cadence === "annual"
-              ? `$${pricing.annual.toLocaleString()} billed annually (save 20%)`
+              ? `$${pricing.annual.toLocaleString()} billed annually · save 20%`
               : "Billed monthly"
 
           return (
@@ -69,31 +69,23 @@ export function UpgradeButtons({ industry }: UpgradeButtonsProps) {
               key={t}
               onClick={() => handleUpgrade(t)}
               disabled={loading !== null}
-              className={`rounded-lg border px-4 py-4 text-left transition-opacity hover:opacity-90 disabled:opacity-60 ${
-                isRecommended
-                  ? "border-vatic-indigo bg-vatic-indigo/5"
-                  : "border-border bg-secondary"
-              }`}
+              className={`pv-tier${isRecommended ? " pv-tier--reco" : ""}`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">{displayName}</p>
+              <div className="pv-tier__head">
+                <span className="pv-tier__name">{displayName}</span>
                 {offersTrial && (
-                  <span className="rounded-md bg-precision-teal/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-precision-teal">
-                    14-day trial
-                  </span>
+                  <span className="pv-pill pv-pill--threat">14-day trial</span>
                 )}
               </div>
-              <p className="mt-2 font-display text-[22px] font-semibold text-foreground">
-                {priceMain}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">{priceSub}</p>
-              <p className="mt-2 text-xs font-medium text-precision-teal">
+              <div className="pv-tier__price">{priceMain}</div>
+              <div className="pv-tier__sub">{priceSub}</div>
+              <div className="pv-tier__cta">
                 {loading === t
                   ? "Redirecting…"
                   : offersTrial
-                    ? "Start free trial"
-                    : "Upgrade"}
-              </p>
+                    ? "Start free trial →"
+                    : "Upgrade →"}
+              </div>
             </button>
           )
         })}
@@ -110,34 +102,24 @@ function CadenceToggle({
   onChange: (c: Cadence) => void
 }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <div className="inline-flex rounded-lg border border-border bg-card p-0.5">
+    <div style={{ display: "flex", alignItems: "center" }}>
+      <div className="pv-cadence">
         <button
+          type="button"
           onClick={() => onChange("monthly")}
-          className={`rounded-md px-3 py-1 font-medium ${
-            cadence === "monthly"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground"
-          }`}
+          className={cadence === "monthly" ? "is-on" : ""}
         >
           Monthly
         </button>
         <button
+          type="button"
           onClick={() => onChange("annual")}
-          className={`rounded-md px-3 py-1 font-medium ${
-            cadence === "annual"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground"
-          }`}
+          className={cadence === "annual" ? "is-on" : ""}
         >
           Annual
         </button>
       </div>
-      {cadence === "annual" && (
-        <span className="rounded-md bg-precision-teal/10 px-2 py-0.5 font-semibold uppercase tracking-wide text-precision-teal">
-          Save 20%
-        </span>
-      )}
+      {cadence === "annual" && <span className="pv-save-note">Save 20%</span>}
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { Section, Text } from "@react-email/components"
-import { EmailLayout } from "./layout"
+import { EmailLayout, emailStyles } from "./layout"
 
 type Brand = "ticket" | "neat"
 
@@ -37,46 +37,24 @@ export function WaitlistConfirmation({
   return (
     <EmailLayout preview={`You're on the ${copy.productName} waitlist`}>
       <Section>
-        <Text style={heading}>
+        <Text style={emailStyles.heading}>
           {name ? `Thanks, ${name}!` : "Thanks for signing up!"}
         </Text>
-        <Text style={paragraph}>
+        <Text style={emailStyles.paragraph}>
           You&rsquo;re now on the {copy.productName} waitlist. We&rsquo;re
           rolling out access in limited batches to ensure every customer gets
           the best possible experience.
         </Text>
-        <Text style={paragraph}>
+        <Text style={emailStyles.paragraph}>
           When your spot is ready, we&rsquo;ll send you an email with everything
           you need to get started &mdash; including a link to set up your
           dashboard and begin monitoring {copy.monitoringSubject}.
         </Text>
-        <Text style={paragraph}>
+        <Text style={emailStyles.paragraph}>
           In the meantime, sit tight. We&rsquo;ll be in touch soon.
         </Text>
-        <Text style={signoff}>{copy.signoff}</Text>
+        <Text style={emailStyles.signoff}>{copy.signoff}</Text>
       </Section>
     </EmailLayout>
   )
-}
-
-const heading = {
-  fontSize: "28px",
-  fontWeight: "700" as const,
-  color: "#E4E4E7",
-  lineHeight: "1.3",
-  margin: "0 0 16px",
-}
-
-const paragraph = {
-  fontSize: "15px",
-  lineHeight: "1.6",
-  color: "#A1A1AA",
-  margin: "0 0 12px",
-}
-
-const signoff = {
-  fontSize: "15px",
-  color: "#A1A1AA",
-  margin: "24px 0 0",
-  fontStyle: "italic" as const,
 }

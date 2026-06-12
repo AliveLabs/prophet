@@ -61,13 +61,21 @@ domain = app.getticket.ai, www/apex = marketing.)
   ready — new first-brief-ready trigger on the existing Resend infra + new-brief
   toast plumbing.
 
-## Batch D — Feedback + billing UX
-- ☐ "Report as inaccurate" on insights — extend the play_actions feedback rails
-  (save/snooze/dismiss) with an insight-level inaccuracy report; feeds the
-  recalibration loop.
-- ☐ settings/billing page redesign — visual pass on the ux-rework branch + Vercel
-  preview comment loop (functional states were rebuilt 2026-06-11; this is the
-  "ugly" part).
+## Batch D — Feedback + billing UX + email restyle ✅ BUILT (2026-06-12 session)
+- ☑ "Report as inaccurate": new `inaccurate` insights status (CHECK migration
+  20260612010000 — applied to BRANCH; **prod needs Bryan's go**), wired through the
+  unified status action (counts as not_useful → down-weights the insight type),
+  kebab-menu action, "Reported" badge, hidden from the feed, filterable
+  ("Reported inaccurate"). Reported rows stay queryable for ops follow-up.
+  Follow-ups parked: optional reason text; suppression window so the same
+  insight_type doesn't re-fire next day; admin reports view.
+- ☑ settings/billing redesigned on the editorial pv-* system (Newsprint): page
+  head + plan/status/billed-to/payment fields in a pv-card, trial + no-card
+  pills, pricing tiles (.pv-tier, mid = rust-recommended w/ 14-day-trial pill),
+  cadence pill toggle. Logic untouched from the trial-tier rework.
+- ☑ Bryan directive (2026-06-12): ALL emails restyled to the Newsprint editorial
+  system (paper/ink/rust, Instrument Serif headings w/ Georgia fallback, shared
+  emailStyles exported from templates/layout.tsx).
 
 ## Batch E — Test accounts & evaluation
 - ☐ Set up **Airways (Arlington, near AT&T Stadium)** to evaluate event-proximity /

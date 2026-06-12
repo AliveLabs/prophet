@@ -454,6 +454,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 { value: "actioned", label: "Done" },
                 { value: "snoozed", label: "Snoozed" },
                 { value: "dismissed", label: "Dismissed" },
+                { value: "inaccurate", label: "Reported inaccurate" },
               ],
             },
           ]}
