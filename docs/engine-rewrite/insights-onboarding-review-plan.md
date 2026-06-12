@@ -25,7 +25,9 @@ questions, and the execution order. Status boxes update as batches land.
   → Subscriptions → cancel, or authorize Claude + live key access.
 - ☐ Resolve open question Q1 (live vs test mode) — see below.
 
-## Batch B — Signal correctness: social windowing + honest language
+## Batch B — Signal correctness: social windowing + honest language ✅ DONE
+(00175a3, deployed 2026-06-11 ~20:00 CDT — live BEFORE the next 6:00 UTC pull,
+so Cane's first full social numbers use the windowed math)
 - ☐ `normalize.ts`: windowed posting frequency — compute over the last
   **90 days** (recommendation; parameterized) instead of account lifetime; expose
   `postingWindowDays` + `postsInWindow` + `lastPostAt` in aggregates so copy can
@@ -43,7 +45,14 @@ questions, and the execution order. Status boxes update as batches land.
   the corrected-behavior case (dark 6 months, 3x/week last 8 weeks → positive
   signal), engagement-language phrasing, window metadata present.
 
-## Batch C — Onboarding loading UX ("pizza tracker")
+## Batch C — Onboarding loading UX ("pizza tracker") ✅ DONE
+(2d225f0, deployed with B. KEY FIX: nothing built the first brief after the
+first_run pull — it waited for the next 8:00 UTC cron. The worker now chains a
+durable `brief` job (same run_id → shows in the tracker) after first_run
+insights; it builds+saves the brief and sends the one-time FirstBriefReady
+email, which BYPASSES CLIENT_EMAILS_ENABLED because the UI promises it.
+Worker maxDuration 300→800. NOTE: prod Stripe = LIVE mode confirmed; app
+domain = app.getticket.ai, www/apex = marketing.)
 - ☐ Extend the existing per-pipeline checklist (ProcessingStep already shows live
   step rows — the pattern the meeting liked): add elapsed time + honest expected
   time per step; replace the "usually takes a minute or two" copy (insights can
