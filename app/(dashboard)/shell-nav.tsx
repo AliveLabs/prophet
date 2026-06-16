@@ -12,11 +12,22 @@ const ITEMS = [
   { href: "/ask", label: "Ask" },
 ]
 
-export default function ShellNav() {
+// `locked` (account on hold): render the items as inert, muted labels — the
+// nav stays visible so the shell reads as "my account," but every route is
+// gated to the held-state panel, so live links would just bounce in place.
+export default function ShellNav({ locked = false }: { locked?: boolean }) {
   const pathname = usePathname()
   return (
     <nav className="pv-nav">
       {ITEMS.map((it) => {
+        if (locked) {
+          return (
+            <span key={it.href} className="is-locked" aria-disabled="true">
+              <span className="tick" />
+              {it.label}
+            </span>
+          )
+        }
         const active = pathname === it.href || pathname.startsWith(it.href + "/")
         return (
           <Link key={it.href} href={it.href} className={active ? "is-active" : undefined}>

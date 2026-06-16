@@ -13,7 +13,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { isTrialActive, isTrialing, getTrialDaysRemaining } from "@/lib/billing/trial"
 import { asSubscriptionTier, TIER_PRICING } from "@/lib/billing/tiers"
-import { TrialExpiredGate } from "@/components/billing/trial-expired-gate"
+import { AccountHeldPanel } from "@/components/billing/account-held-panel"
 import { TrialBanner } from "@/components/billing/trial-banner"
 import { DunningBanner } from "@/components/billing/dunning-banner"
 import { BrandProvider } from "@/components/brand-provider"
@@ -78,7 +78,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state")
+    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -89,15 +89,23 @@ async function OperatorShell({ children }: { children: ReactNode }) {
   const brandNameForGate = industryForGate === "liquor_store" ? "Neat" : "Ticket"
   const orgName = orgRow?.name ?? (isVerticalActive ? verticalConfig.brand.displayName : "Ticket")
 
-  // ── Billing gate (unchanged from the legacy shell) ──
-  if (
-    orgRow &&
+  // ── Billing gate ──
+  // Held accounts now render the SAME shell (sidebar + AccountMenu intact, so
+  // sign-out and org-switching are always reachable) with the reactivation
+  // panel in the content area — not the old chromeless full-page takeover that
+  // trapped expired users (2026-06-16 Chris incident). The account flyout needs
+  // `account`, so load it before branching.
+  const gated =
+    !!orgRow &&
     !isTrialActive({
       trial_ends_at: orgRow.trial_ends_at,
       subscription_tier: orgRow.subscription_tier,
       payment_state: orgRow.payment_state,
     })
-  ) {
+
+  const account = await loadOperatorAccount()
+
+  if (gated && orgRow) {
     const locIds =
       (
         await supabase
@@ -106,26 +114,44 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           .eq("organization_id", profile.current_organization_id)
       ).data?.map((l) => l.id) ?? []
 
-    const { count: insightCount } = await supabase
-      .from("insights")
-      .select("id", { count: "exact", head: true })
-      .in("location_id", locIds)
-
-    const { count: competitorCount } = await supabase
-      .from("competitors")
-      .select("id", { count: "exact", head: true })
-      .eq("is_active", true)
-      .in("location_id", locIds)
+    const [{ count: insightCount }, { count: competitorCount }] = await Promise.all([
+      supabase.from("insights").select("id", { count: "exact", head: true }).in("location_id", locIds),
+      supabase
+        .from("competitors")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true)
+        .in("location_id", locIds),
+    ])
 
     return (
-      <TrialExpiredGate
-        orgName={orgName}
-        insightCount={insightCount ?? 0}
-        competitorCount={competitorCount ?? 0}
-        brandName={brandNameForGate}
-        industry={industryForGate}
-        neverStarted={!orgRow.trial_started_at && orgRow.payment_state == null}
-      />
+      <BrandProvider brand={dataBrand}>
+        <Toaster position="top-right" richColors closeButton />
+        <div className="ticket-app">
+          <aside className="pv-sidebar">
+            <div className="pv-brand"><TicketMark /> TICKET</div>
+            <ShellNav locked />
+            <div className="pv-spacer" />
+            <AccountMenu userName={account.userName} locations={account.locations} />
+          </aside>
+          <main className="pv-main">
+            <AccountHeldPanel
+              orgName={orgName}
+              userEmail={user.email ?? null}
+              brandName={brandNameForGate as "Ticket" | "Neat"}
+              industry={industryForGate}
+              insightCount={insightCount ?? 0}
+              competitorCount={competitorCount ?? 0}
+              trialEndedLabel={
+                orgRow.trial_ends_at
+                  ? new Date(orgRow.trial_ends_at).toLocaleDateString("en-US", { month: "long", day: "numeric" })
+                  : null
+              }
+              neverStarted={!orgRow.trial_started_at && orgRow.payment_state == null}
+              hasStripeCustomer={!!orgRow.stripe_customer_id}
+            />
+          </main>
+        </div>
+      </BrandProvider>
     )
   }
 
@@ -142,8 +168,6 @@ async function OperatorShell({ children }: { children: ReactNode }) {
     })
   const showDunningBanner = orgRow?.payment_state === "past_due"
   const bannerTier = asSubscriptionTier(orgRow?.subscription_tier)
-
-  const account = await loadOperatorAccount()
 
   // New-brief notice inputs: the primary location's latest brief stamp + comms pref.
   const currentLoc = account.locations.find((l) => l.current) ?? account.locations[0]

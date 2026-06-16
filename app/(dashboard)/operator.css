@@ -32,6 +32,9 @@
 .pv-nav a:hover{ color:var(--ink); }
 .pv-nav a.is-active{ color:var(--ink); }
 .pv-nav a.is-active .tick{ background:var(--rust); }
+/* Held-account state: nav present but inert (see ShellNav `locked`). */
+.pv-nav .is-locked{ display:flex; align-items:center; gap:11px; padding:11px 22px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.12em; font-size:13px; color:var(--ash-2); opacity:.55; cursor:default; }
+.pv-nav .is-locked .tick{ width:3px; height:15px; border-radius:2px; background:var(--ledger); margin-left:-22px; margin-right:8px; }
 .pv-spacer{ flex:1 1 auto; }
 .pv-foot{ display:flex; align-items:center; gap:11px; padding:16px 22px 0; border-top:1px solid var(--rule); }
 .pv-mono{ width:34px; height:34px; flex:0 0 auto; border:1.5px solid var(--ink); border-radius:4px; display:grid; place-items:center; font-family:var(--font-cond); font-weight:700; font-size:13px; color:var(--ink); background:var(--card); }
