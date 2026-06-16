@@ -89,7 +89,7 @@ export function AccountHeldPanel({
             Daily intelligence, competitor tracking, and more locations as you grow.
           </span>
         </div>
-        <UpgradeButtons industry={industry} />
+        <UpgradeButtons industry={industry} showFeatures />
       </div>
 
       {hasStripeCustomer && (

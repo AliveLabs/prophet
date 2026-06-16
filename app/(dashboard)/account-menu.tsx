@@ -11,8 +11,20 @@ function initials(s: string): string {
 }
 
 /** Authed account flyout (Stage A port): REAL location switching (each entry = an org's
- *  primary location; switching calls switchOrganizationAction), Settings, sign out. */
-export default function AccountMenu({ userName, locations }: { userName: string; locations: AccountLocation[] }) {
+ *  primary location; switching calls switchOrganizationAction), Settings, sign out.
+ *  `locked` (account on hold): keep org-switching + sign out (so the user can jump to
+ *  an active org or leave), but hide "Add a location" and "Settings" — both route into
+ *  gated pages that just bounce back to the held panel, and neither is appropriate for
+ *  a lapsed account. Billing lives on the held panel itself. */
+export default function AccountMenu({
+  userName,
+  locations,
+  locked = false,
+}: {
+  userName: string
+  locations: AccountLocation[]
+  locked?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const [pending, startTransition] = useTransition()
   const router = useRouter()
@@ -58,8 +70,12 @@ export default function AccountMenu({ userName, locations }: { userName: string;
             </button>
           ))}
           <div className="pv-acct__divider" />
-          <Link href="/locations/new" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Add a location</Link>
-          <Link href="/settings" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Settings</Link>
+          {!locked && (
+            <>
+              <Link href="/locations/new" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Add a location</Link>
+              <Link href="/settings" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Settings</Link>
+            </>
+          )}
           <form action={signOutAction}>
             <button type="submit" className="pv-acct__item" role="menuitem">Sign out</button>
           </form>

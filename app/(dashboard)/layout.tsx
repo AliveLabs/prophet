@@ -131,7 +131,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <div className="pv-brand"><TicketMark /> TICKET</div>
             <ShellNav locked />
             <div className="pv-spacer" />
-            <AccountMenu userName={account.userName} locations={account.locations} />
+            <AccountMenu userName={account.userName} locations={account.locations} locked />
           </aside>
           <main className="pv-main">
             <AccountHeldPanel

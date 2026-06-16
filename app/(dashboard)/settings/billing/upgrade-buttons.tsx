@@ -3,6 +3,7 @@
 import { useState } from "react"
 import {
   PAID_TIERS,
+  TIER_LIMITS,
   TIER_PRICING,
   getTierDisplayName,
   type Cadence,
@@ -14,6 +15,26 @@ type PaidTier = Exclude<SubscriptionTier, "suspended">
 
 interface UpgradeButtonsProps {
   industry: IndustryType
+  /** Show the per-tier feature bullets (held/reactivation surface). The compact
+   *  settings/billing grid leaves this off. */
+  showFeatures?: boolean
+}
+
+// What each tier includes, derived from TIER_LIMITS so the list never drifts
+// from the gates that actually enforce it.
+function tierFeatures(tier: PaidTier): string[] {
+  const l = TIER_LIMITS[tier]
+  const feats = [
+    `${l.maxLocations} ${l.maxLocations === 1 ? "location" : "locations"}`,
+    `${l.maxCompetitorsPerLocation} competitors per location`,
+    l.briefingCadence === "weekly_digest" ? "Weekly briefings" : "Daily briefings",
+    l.ownSocialNetworkLimit === 1
+      ? "1 social network of your choice + competitors on all 3"
+      : `All ${l.ownSocialNetworkLimit} social networks`,
+  ]
+  if (l.whiteLabelReports) feats.push("White-label reports")
+  if (l.apiAccess) feats.push("API access")
+  return feats
 }
 
 // Pricing card grid + monthly/annual toggle. Tier names come from
@@ -21,7 +42,7 @@ interface UpgradeButtonsProps {
 // Neat); prices from TIER_PRICING. Checkout posts {tier, cadence} to
 // /api/stripe/checkout which resolves the Stripe price ID server-side using
 // org.industry_type.
-export function UpgradeButtons({ industry }: UpgradeButtonsProps) {
+export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButtonsProps) {
   const [cadence, setCadence] = useState<Cadence>("monthly")
   const [loading, setLoading] = useState<string | null>(null)
 
@@ -79,6 +100,18 @@ export function UpgradeButtons({ industry }: UpgradeButtonsProps) {
               </div>
               <div className="pv-tier__price">{priceMain}</div>
               <div className="pv-tier__sub">{priceSub}</div>
+              {showFeatures && (
+                <div className="pv-tier__features">
+                  {tierFeatures(t).map((f) => (
+                    <span className="pv-tier__feat" key={f}>
+                      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+                        <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="pv-tier__cta">
                 {loading === t
                   ? "Redirecting…"
