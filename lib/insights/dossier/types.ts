@@ -87,8 +87,10 @@ export type RestaurantProfile = {
     hasPatio?: boolean
     nearVenues?: string[] // venue names within demand radius
     dayparts?: string[]
-    /** e.g. "quick service / drive-thru or takeout", "bar + dine-in", "dine-in".
-     *  Gates event framing: a drive-thru QSR never gets "walk-in surge" plays. */
+    /** e.g. "quick service / drive-thru + dine-in", "quick service / drive-thru or takeout",
+     *  "bar + dine-in", "dine-in". Shapes event framing: drive-thru/takeout-ONLY skips
+     *  walk-in plays; a drive-thru WITH a lobby gets its own lobby-surge + drive-thru shape
+     *  (not "no foot traffic"). See lib/skills/prompt-kit.ts EVENT_GEOGRAPHY. */
     serviceModel?: string
   }
   capability: OperatorCapability

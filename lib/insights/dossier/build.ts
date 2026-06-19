@@ -345,14 +345,25 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     try {
       const details = await fetchPlaceDetails(placeId)
       if (details) {
-        // Service model gates event framing (drive-thru QSR never gets walk-in plays).
+        // Service model gates event framing. A QSR is SUBDIVIDED by whether it has a
+        // lobby: a drive-thru-with-dine-in (e.g. Raising Cane's) gets BOTH walk-in/lobby
+        // surge AND drive-thru dynamics; a drive-thru/takeout-ONLY spot skips walk-in
+        // framing. `dineIn` (Google Places) is the seating signal; fall back to a seating
+        // type hint, else conservatively assume drive-thru-only. (2026-06-19: replaces the
+        // old absolute that gave every QSR "drive-thru only" framing and suppressed all of
+        // Cane's foot-traffic insights.)
         const types: string[] = Array.isArray((details as Record<string, unknown>).types)
           ? ((details as Record<string, unknown>).types as string[])
           : []
         const primary = ((details as Record<string, unknown>).primaryType as string) ?? ""
         const all = [primary, ...types].join(" ")
-        serviceModel = /fast_food|meal_takeaway|meal_delivery/.test(all)
-          ? "quick service / drive-thru or takeout"
+        const isQuickService = /fast_food|meal_takeaway|meal_delivery/.test(all)
+        const hasSeating =
+          details.dineIn === true || /dine_in|cafe|coffee_shop/.test(all)
+        serviceModel = isQuickService
+          ? hasSeating
+            ? "quick service / drive-thru + dine-in"
+            : "quick service / drive-thru or takeout"
           : /\bbar\b|pub/.test(all)
             ? "bar + dine-in"
             : /restaurant|food/.test(all)

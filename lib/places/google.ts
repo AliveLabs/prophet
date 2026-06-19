@@ -35,6 +35,15 @@ type GooglePlaceDetailsResponse = {
   editorialSummary?: {
     text?: string
   }
+  // Service + daypart signals (field-masked below). dineIn distinguishes a QSR
+  // with a lobby (Cane's) from drive-thru/takeout-only; servesLunch/Dinner are
+  // the reliable daypart gate (P1) — no text parsing of weekdayDescriptions.
+  dineIn?: boolean
+  takeout?: boolean
+  servesBreakfast?: boolean
+  servesLunch?: boolean
+  servesDinner?: boolean
+  servesBrunch?: boolean
   currentOpeningHours?: {
     weekdayDescriptions?: string[]
     openNow?: boolean
@@ -128,7 +137,7 @@ export async function fetchPlaceDetails(placeId: string) {
     headers: {
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask":
-        "id,displayName,primaryType,types,formattedAddress,shortFormattedAddress,adrFormatAddress,addressComponents,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,businessStatus,priceLevel,googleMapsUri,utcOffsetMinutes,editorialSummary,currentOpeningHours,regularOpeningHours,reviews",
+        "id,displayName,primaryType,types,formattedAddress,shortFormattedAddress,adrFormatAddress,addressComponents,location,websiteUri,nationalPhoneNumber,internationalPhoneNumber,rating,userRatingCount,businessStatus,priceLevel,googleMapsUri,utcOffsetMinutes,editorialSummary,dineIn,takeout,servesBreakfast,servesLunch,servesDinner,servesBrunch,currentOpeningHours,regularOpeningHours,reviews",
     },
     next: { revalidate: 604800, tags: ["place-details"] },
   })

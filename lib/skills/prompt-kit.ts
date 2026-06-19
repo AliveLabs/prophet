@@ -28,7 +28,7 @@ const EVENT_GEOGRAPHY = [
   "Walk-in / foot-traffic claims require distanceMiles <= 0.5 (blocks away). Local traffic, prep, or staffing claims require distanceMiles <= 3.",
   "An event beyond ~3 miles NEVER creates local walk-in, drive-thru, or staffing demand for this restaurant. Do not 'prepare' or 'staff up' for it.",
   "Far-away MAJOR events (role metro_hook, e.g. a pro playoff game across the metro) are MARKETING TIE-IN material only: a themed or conditional promo ('home team wins = free appetizer'), or a watch-party angle if the concept fits. Propose one ONLY with a concrete action; score its impact low; never frame it as nearby or as expected traffic.",
-  "Respect the service model in profile.attributes.serviceModel: for a drive-thru / quick-service restaurant, never frame demand as walk-ins; think drive-by, carry-out, and order-ahead angles.",
+  "Respect the service model in profile.attributes.serviceModel. A 'drive-thru or takeout' quick-service spot has no dining room — don't frame demand as walk-ins; think drive-by, carry-out, and order-ahead. But a 'drive-thru + dine-in' quick-service spot (a QSR WITH a lobby) DOES get foot traffic: model its own surge shape — a post-event lobby can flood (standing room, expo from the window) WHILE the drive-thru wraps then stalls as the lot grids up — so both lobby/walk-in AND drive-thru/order-ahead plays are valid; lean on whichever the evidence points to. A bar or dine-in restaurant uses normal walk-in/seating framing.",
 ].join(" ")
 
 const CREATIVE_AND_CHANNEL = [
