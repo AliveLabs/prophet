@@ -31,6 +31,12 @@ const EVENT_GEOGRAPHY = [
   "Respect the service model in profile.attributes.serviceModel. A 'drive-thru or takeout' quick-service spot has no dining room — don't frame demand as walk-ins; think drive-by, carry-out, and order-ahead. But a 'drive-thru + dine-in' quick-service spot (a QSR WITH a lobby) DOES get foot traffic: model its own surge shape — a post-event lobby can flood (standing room, expo from the window) WHILE the drive-thru wraps then stalls as the lot grids up — so both lobby/walk-in AND drive-thru/order-ahead plays are valid; lean on whichever the evidence points to. A bar or dine-in restaurant uses normal walk-in/seating framing.",
 ].join(" ")
 
+// Daypart gate (P1): a play must not target a daypart the restaurant doesn't serve.
+const HOURS_GATE = [
+  "DAYPARTS: respect profile.hours (Google 'serves' flags). If servesLunch is false, do NOT propose a lunch play, lunch special, or midday daypart move; same for breakfast/dinner/brunch.",
+  "A flag that is absent/unknown means we don't know — do not assert the daypart is closed, but don't build the play's whole premise on an unconfirmed daypart either. When hours are known, anchor windows to dayparts the restaurant actually serves.",
+].join(" ")
+
 const CREATIVE_AND_CHANNEL = [
   "Creative direction must be PHONE-FIRST: describe a photo or short video the owner can capture on their own phone, in plain words (what to point the camera at, when, what to show).",
   "Assume NO special equipment or skills. Do not use photography jargon ('golden hour', 'side light', 'tight crop', 'no text overlay', 'plating') or assume a camera, lighting, or an editor.",
@@ -93,6 +99,7 @@ export function buildSkillPrompt(
     NO_EXEC,
     GROUNDING,
     EVENT_GEOGRAPHY,
+    HOURS_GATE,
     CREATIVE_AND_CHANNEL,
     "",
     SCHEMA_INSTRUCTION,

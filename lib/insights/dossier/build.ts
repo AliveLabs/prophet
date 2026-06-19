@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import type { Dossier, EntitySignals, RestaurantProfile, Tier, TierCaps } from "@/lib/insights/dossier/types"
+import type { Dossier, EntitySignals, HoursGate, RestaurantProfile, Tier, TierCaps } from "@/lib/insights/dossier/types"
 import { TIER_CAPS } from "@/lib/insights/dossier/types"
 import { asSubscriptionTier, isSocialPlatform, resolveOwnSocialNetworks, type SubscriptionTier } from "@/lib/billing/tiers"
 import type { GeneratedInsight } from "@/lib/insights/types"
@@ -333,6 +333,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
 
   // ── FUNDED DATA: own Places details (rating + reviews), own foot traffic, review sentiment ──
   let serviceModel: string | undefined
+  let operatingHours: HoursGate | undefined
   const placeId = (loc as Record<string, unknown>).primary_place_id as string | null
   if (placeId) {
     // own foot traffic (Outscraper on our OWN place) — cheap, unlocks own-vs-rival traffic reasoning
@@ -369,6 +370,23 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
             : /restaurant|food/.test(all)
               ? "dine-in"
               : undefined
+        // Dayparts served — the reliable gate (P1). serves* may be absent → leave
+        // the field undefined (unknown) so no daypart restriction is applied.
+        if (
+          details.servesBreakfast != null || details.servesLunch != null ||
+          details.servesDinner != null || details.servesBrunch != null ||
+          details.regularOpeningHours?.weekdayDescriptions?.length
+        ) {
+          operatingHours = {
+            servesBreakfast: details.servesBreakfast,
+            servesLunch: details.servesLunch,
+            servesDinner: details.servesDinner,
+            servesBrunch: details.servesBrunch,
+            weekdayDescriptions:
+              details.regularOpeningHours?.weekdayDescriptions ??
+              details.currentOpeningHours?.weekdayDescriptions,
+          }
+        }
         const recentReviews = (details.reviews ?? []).map((r, i) => ({
           id: `${details.id ?? "own"}-${i}`,
           rating: r.rating ?? 0,
@@ -429,6 +447,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     name: (loc.name as string) ?? "Your location",
     timezone: ((loc as Record<string, unknown>).timezone as string) ?? "America/New_York",
     voiceTone: "warm_personal", // column lands with the skill-layer migration; default until then
+    ...(operatingHours ? { hours: operatingHours } : {}),
     attributes: { ...(serviceModel ? { serviceModel } : {}) },
     capability: {}, // operator-capability profile lands with onboarding; empty until then
   }

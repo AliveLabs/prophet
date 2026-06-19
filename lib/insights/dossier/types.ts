@@ -60,6 +60,19 @@ export const TIER_CAPS: Record<Tier, TierCaps> = {
 // ── Restaurant profile (drives relevance + voice + executable constraints) ──
 export type VoiceTone = "professional" | "casual" | "warm_personal" | "playful" | "upscale"
 
+/** Which dayparts the restaurant actually serves (Google Places serves* flags — the
+ *  reliable signal, no opening-hours text parsing). A play must NOT target a daypart the
+ *  restaurant doesn't serve (e.g. no lunch play for a dinner-only spot). undefined = unknown
+ *  → no restriction (conservative). */
+export type HoursGate = {
+  servesBreakfast?: boolean
+  servesLunch?: boolean
+  servesDinner?: boolean
+  servesBrunch?: boolean
+  /** Human-readable hours, for display + as a soft fallback when serves* are absent. */
+  weekdayDescriptions?: string[]
+}
+
 /** What this operator can actually execute — recipes must respect these (no ad team assumed). */
 export type OperatorCapability = {
   marketingBudgetBand?: "none" | "low" | "medium" | "high"
@@ -81,6 +94,8 @@ export type RestaurantProfile = {
    * (drop threshold + downgrade). Recalibrated over time from good/bad feedback. Default 50.
    */
   brandTolerance?: number
+  /** Dayparts served — gates daypart-targeted plays (P1). */
+  hours?: HoursGate
   attributes: {
     cuisine?: string
     priceTier?: string
