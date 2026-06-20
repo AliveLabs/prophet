@@ -126,10 +126,17 @@ function PlayCard({
       <p className="movecard__why">{play.rationale}</p>
       {/* one consolidated label row: kind + explicit Confidence/Impact (same system) + topic */}
       <div className="movecard__meta">
-        <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
-        {play.category && CATEGORY_LABEL[play.category] !== KIND_LABEL[play.kind] ? (
-          <span className="category-tag">{CATEGORY_LABEL[play.category]}</span>
-        ) : null}
+        {/* Category is the operator-facing label; "Prep" badge flags the one kind worth
+            surfacing (get-ready work). Old briefs without a stamped category fall back to the
+            kind tag so they still read cleanly until they regenerate. */}
+        {play.category ? (
+          <>
+            <span className="category-tag">{CATEGORY_LABEL[play.category]}</span>
+            {play.kind === "prepare" ? <span className="kind-tag kind-tag--prepare">Prep</span> : null}
+          </>
+        ) : (
+          <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
+        )}
         <span className="metric"><span className="metric-k">Confidence</span><span className="metric-v">{CONF_LABEL[play.confidence]}</span></span>
         {play.leverage ? (
           <span className="metric"><span className="metric-k">Impact</span><span className="metric-v">{play.leverage.label}{play.leverage.reach ? ` · ${play.leverage.reach}` : ""}</span></span>
