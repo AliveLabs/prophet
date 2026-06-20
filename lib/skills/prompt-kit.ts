@@ -72,8 +72,9 @@ const SCHEMA_INSTRUCTION = [
   '"ownerRole": one of owner|gm|marketing|kitchen|foh,',
   '"confidence": one of high|medium|directional,',
   '"recipe": [ { "channel": string, "platforms": string[], "audience": string, "window": {"note": string, "start"?: string, "end"?: string}, "offer"?: string, "copy"?: string, "creativeDirection"?: string, "dependencies"?: string[] } ],',
-  '"leverage"?: { "label": high|medium|low, "reach"?: string (ONLY if grounded in real data), "basisInternal": string },',
+  '"leverage": { "label": high|medium|low, "reach"?: string (ONLY if grounded in real data), "basisInternal": string },',
   '"evidenceRefs": string[] (chosen ONLY from allowedEvidenceRefs) }',
+  "ALWAYS include leverage and size its label (high|medium|low) — it drives ranking; never omit it.",
   "No prose outside the JSON array.",
 ].join("\n")
 
@@ -167,6 +168,13 @@ export type CoerceOpts = {
   defaultOwner: import("@/lib/skills/types").OwnerRole
 }
 
+/** Leverage every model play should provide. On the rare omission, default to medium so the
+ *  play isn't buried, and log it so the omission stays rare (Bryan, 2026-06-19). */
+function defaultLeverage(skillId: string): import("@/lib/skills/types").Leverage {
+  console.warn(`[skill:${skillId}] play omitted leverage; defaulting to medium`)
+  return { label: "medium", basisInternal: "model did not size leverage; defaulted to medium" }
+}
+
 /** Coerce model JSON into validated plays. Returns null if not an array (-> caller falls back). */
 export function coerceEnrichedPlays(
   raw: unknown,
@@ -188,6 +196,8 @@ export function coerceEnrichedPlays(
       kind: (KINDS.has(str(p.kind)) ? p.kind : opts.defaultKind) as import("@/lib/skills/types").RecKind,
       recipe,
       confidence: (CONF.has(str(p.confidence)) ? p.confidence : "directional") as import("@/lib/skills/types").Confidence,
+      // Leverage is REQUIRED in the schema and drives ranking. On the rare omission, default
+      // to medium so the play isn't buried, and log it so we can keep that omission rare.
       leverage:
         lev && typeof lev === "object"
           ? {
@@ -195,7 +205,7 @@ export function coerceEnrichedPlays(
               reach: str(lev.reach) || undefined,
               basisInternal: str(lev.basisInternal),
             }
-          : undefined,
+          : defaultLeverage(opts.skillId),
       evidenceRefs: Array.isArray(p.evidenceRefs) ? (p.evidenceRefs as unknown[]).map(str).filter(Boolean) : [],
       knowledgeVersion: opts.knowledgeVersion,
     })
