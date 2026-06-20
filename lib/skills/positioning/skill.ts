@@ -20,6 +20,9 @@ function selectInput(d: Dossier) {
     ownMenu: d.location.menu ?? null,
     ownFeatures: d.location.features ?? null,
     competitorMenus: d.competitors.map((c) => ({ name: c.name, menu: c.menu ?? null, features: c.features ?? null })),
+    // Review themes ground price-mismatch reasoning: only act on price when guests actually
+    // flag it (see HANDLING PRICE MISMATCHES in the playbook); otherwise position on value.
+    reviewThemes: d.location.reviews?.themes ?? null,
   }
 }
 
@@ -49,7 +52,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           confidence: "medium" as const,
           leverage: { label: "medium" as const, basisInternal: "defends premium position; sized ordinally from the pricing gap" },
           evidenceRefs: [ins.insight_type],
-          knowledgeVersion: "positioning@v1",
+          knowledgeVersion: "positioning@v2",
         }
       : {
           title: "Add a value entry point, do not start a price war",
@@ -70,7 +73,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           confidence: "medium" as const,
           leverage: { label: "medium" as const, basisInternal: "comparison-set entry; sized ordinally from the pricing gap" },
           evidenceRefs: [ins.insight_type],
-          knowledgeVersion: "positioning@v1",
+          knowledgeVersion: "positioning@v2",
         },
   )
 }
@@ -83,10 +86,10 @@ export const positioningSkill: ProducerSkill = {
   category: "positioning",
   tier: "reasoning",
   temperature: 0.4,
-  knowledgeVersion: "positioning@v1",
+  knowledgeVersion: "positioning@v2",
   knowledge: POSITIONING_KNOWLEDGE,
   buildPrompt: (d) => buildSkillPrompt(positioningSkill, d, selectInput(d)),
   parse: (raw) =>
-    coerceEnrichedPlays(raw, { skillId: "positioning", knowledgeVersion: "positioning@v1", defaultKind: "positioning", defaultOwner: "owner" }),
+    coerceEnrichedPlays(raw, { skillId: "positioning", knowledgeVersion: "positioning@v2", defaultKind: "positioning", defaultOwner: "owner" }),
   fallback,
 }

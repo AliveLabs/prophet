@@ -23,6 +23,7 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
+import { corroboratePriceInsights } from "@/lib/content/insights"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 
@@ -455,7 +456,13 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // Guard: with no UPCOMING events, every event-dependent rule-output (new-event
   // signals AND cross-event SEO opportunities) is stale and must not seed "prepare
   // for <past date>" plays. A coherent data refresh repopulates current events + insights.
-  let groundedRuleOutputs = events.length > 0 ? ruleOutputs : ruleOutputs.filter((r) => !r.insight_type.includes("event"))
+  // P4: corroborate "you look expensive" price plays against our own reviews — reframe the
+  // uncorroborated ones to positioning instead of advising a reflexive price cut. Reviews are
+  // available here in the dossier (location.reviews), unlike at rule-generation time.
+  // READ-ONLY projection: this is recomputed every build from the persisted shift rows; the
+  // reframed type must NEVER be written back to the insights table (it would stick permanently).
+  const corroboratedOutputs = corroboratePriceInsights(ruleOutputs, location.reviews ?? null)
+  let groundedRuleOutputs = events.length > 0 ? corroboratedOutputs : corroboratedOutputs.filter((r) => !r.insight_type.includes("event"))
   // Consistency with the social read-fix: if NO social account is currently active, drop
   // social "activity" rule-outputs — a dormant account did not "recently post". Keep the
   // honest social.inactive_account signal. (Source-side, generation is already gated; this

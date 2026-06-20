@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GeneratedInsight } from "@/lib/insights/types"
+import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot, MenuCategory, MenuType } from "./types"
 
 type CompetitorMenu = {
@@ -36,6 +37,90 @@ function avgPrice(categories: MenuCategory[]): number | null {
 
 function categoryNames(categories: MenuCategory[]): Set<string> {
   return new Set(categories.map((c) => c.name.toLowerCase().trim()))
+}
+
+// A price/value TOPIC in a theme LABEL (gated by negative sentiment below) — so we never tell
+// a premium spot to chase a cheaper rival on a lone competitor-is-cheaper signal (the Wagyu miss).
+const PRICE_THEME = /\b(price|prices|pricing|pricey|pricy|expensive|overpriced|costly|costs?|value|worth)\b/i
+// Inherently NEGATIVE price language — used to read example QUOTES, whose tone we cannot infer
+// from the parent theme's sentiment. "great value" / "worth every penny" deliberately do NOT match.
+const PRICE_COMPLAINT = /\b(overpriced|expensive|pricey|pricy|too\s+(?:much|expensive|pricey|steep)|not\s+worth|overcharged|rip[\s-]?off|ripoff|gouging|spendy)\b/i
+
+/**
+ * True when the location's OWN reviews corroborate a price complaint. Two ways to count:
+ *  - a price/value THEME tagged negative (a clear "guests dislike our pricing" signal), or
+ *  - an inherently-negative price phrase in an example QUOTE (overpriced/too much/not worth…).
+ * Positive praise ("great value", "worth every penny") never counts; a merely "mixed" theme
+ * needs a real negative quote, not just a price-word label. No reviews = no corroboration.
+ */
+export function canCorroboratePrice(reviews: ReviewSentiment | null | undefined): boolean {
+  if (!reviews?.themes?.length) return false
+  return reviews.themes.some((t) => {
+    if (t.sentiment === "positive") return false // praise is the opposite of a price complaint
+    const negativePriceTheme = t.sentiment === "negative" && PRICE_THEME.test(t.theme)
+    const exampleComplains = t.examples.some((e) => PRICE_COMPLAINT.test(e))
+    return negativePriceTheme || exampleComplains
+  })
+}
+
+/**
+ * P4 — corroborate "you look expensive" price plays against the location's OWN reviews.
+ * Applied at dossier-build time (where reviews live), NOT at rule time. For each
+ * menu.price_positioning_shift where WE are the more expensive one (competitor avg < ours):
+ *  - reviews corroborate a price complaint → keep the shift, stamp evidence.corroboration "strong"
+ *  - reviews do NOT corroborate → reframe to menu.price_positioning_mismatch (positioning, not a
+ *    price cut — the Wagyu-$12.99 fix), stamp evidence.corroboration "weak".
+ * The "we're cheaper, room to raise" direction is left untouched. Pure — safe to unit-test.
+ * evidence.corroboration is carried so the scoring layer (P2/P10) can weight it later.
+ */
+export function corroboratePriceInsights(
+  insights: GeneratedInsight[],
+  locationReviews: ReviewSentiment | null,
+): GeneratedInsight[] {
+  const hasReviews = (locationReviews?.themes?.length ?? 0) > 0
+  const corroborated = canCorroboratePrice(locationReviews)
+  return insights.map((ins) => {
+    if (ins.insight_type !== "menu.price_positioning_shift") return ins
+    const ev = ins.evidence as Record<string, unknown>
+    const locAvg = typeof ev.locationAvgPrice === "number" ? ev.locationAvgPrice : null
+    const compAvg = typeof ev.competitorAvgPrice === "number" ? ev.competitorAvgPrice : null
+    const weAreMoreExpensive = locAvg != null && compAvg != null && compAvg < locAvg
+    if (!weAreMoreExpensive) return ins // "room to raise" — corroboration doesn't apply
+
+    // Corroborated: keep the price play AND its original confidence/severity; just stamp it.
+    if (corroborated) return { ...ins, evidence: { ...ev, corroboration: "strong" } }
+
+    // Uncorroborated → reframe to positioning (never a reflexive cut). But keep two worlds
+    // distinct: reviews PRESENT but quiet on price (a real "guests aren't price-sensitive"
+    // signal) vs reviews ABSENT (we simply don't know — absence of evidence is not evidence
+    // of absence, so we don't claim guests are happy). Both lead with value; the stamp differs.
+    const pct = typeof ev.priceDiffPct === "number" ? ev.priceDiffPct : null
+    const comp = typeof ev.competitor === "string" ? ev.competitor : "a nearby competitor"
+    const above = `Your average dine-in price${locAvg != null ? ` ($${locAvg.toFixed(2)})` : ""} sits above ${comp}'s${compAvg != null ? ` ($${compAvg.toFixed(2)})` : ""}${pct != null ? ` by ${pct}%` : ""}`
+    const title = hasReviews
+      ? `You price above ${comp}, and guests aren't complaining`
+      : `You price above ${comp} — position on value`
+    const summary = hasReviews
+      ? `${above}, but your reviews do not flag price as a problem. Compete on what makes you worth it (quality, sourcing, the room, service) instead of chasing their number. To pull price-shoppers, test one loss-leader, not an across-the-board cut.`
+      : `${above}. You do not have enough reviews yet to know whether guests find that a problem, so do not cut prices on the gap alone — make the premium legible (quality, sourcing, the room, service). Revisit if price complaints start to appear.`
+    return {
+      ...ins,
+      insight_type: "menu.price_positioning_mismatch",
+      title,
+      summary,
+      confidence: "medium",
+      severity: "info",
+      evidence: { ...ev, corroboration: hasReviews ? "weak" : "unknown" },
+      recommendations: [
+        {
+          title: "Lead with your value, not a lower price",
+          rationale: hasReviews
+            ? `${comp} is cheaper, but nothing in your reviews says guests find you overpriced. Make the premium obvious before touching price.`
+            : `${comp} is cheaper, but you have no review signal that guests find you overpriced. Make the premium obvious; revisit price only if complaints appear.`,
+        },
+      ],
+    }
+  })
 }
 
 function allItemNames(categories: MenuCategory[]): Set<string> {
