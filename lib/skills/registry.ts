@@ -7,6 +7,7 @@ import { positioningSkill } from "@/lib/skills/positioning/skill"
 import { marketingSkill } from "@/lib/skills/marketing/skill"
 import { reputationSkill } from "@/lib/skills/reputation/skill"
 import { operationsSkill } from "@/lib/skills/operations/skill"
+import { convergenceSkill } from "@/lib/skills/convergence/skill"
 
 export const PRODUCER_SKILLS: ProducerSkill[] = [
   localDemandSkill,
@@ -14,6 +15,9 @@ export const PRODUCER_SKILLS: ProducerSkill[] = [
   marketingSkill,
   reputationSkill,
   operationsSkill,
+  // P5: cross-domain convergence — sees the WHOLE dossier, runs on the deep (Opus + thinking)
+  // pass, feeds the same global pool. Last so the domain experts' plays are produced alongside it.
+  convergenceSkill,
 ]
 
 export function getProducerSkill(id: string): ProducerSkill | undefined {

@@ -20,6 +20,9 @@ export type ProducerSkill = {
    *  priors, drill-down, and per-operator rerank). Intrinsic — not derived from kind. */
   category: Category
   tier: ModelTier
+  /** P5: run this skill on the DEEP pass (Opus + adaptive thinking) instead of the default
+   *  Sonnet reasoning tier. Used by the cross-domain convergence skill. Producers leave it unset. */
+  deep?: boolean
   temperature: number
   knowledgeVersion: string
   /** The domain playbook (expert priors), authored as prose. */

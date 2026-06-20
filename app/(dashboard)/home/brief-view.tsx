@@ -28,6 +28,7 @@ const CATEGORY_LABEL: Record<NonNullable<EnrichedRecommendation["category"]>, st
   positioning: "Positioning",
   reputation: "Reputation",
   operations: "Operations",
+  convergence: "Cross-domain",
 }
 
 // True per-source run outcomes (pipeline_runs) for the provenance drill.

@@ -11,7 +11,7 @@
 //   skill never aborts the brief (the fan-out uses Promise.all of these).
 // ---------------------------------------------------------------------------
 
-import { generateStructured, type Transport } from "@/lib/ai/provider"
+import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
@@ -25,8 +25,11 @@ export async function runProducerSkill(
 ): Promise<SkillResult> {
   try {
     const { systemCached, system, prompt } = skill.buildPrompt(dossier)
+    // Deep skills (convergence) run on Opus + adaptive thinking; the provider drops temperature
+    // on that path (Opus 4.8 rejects it). Producers stay on the Sonnet reasoning tier + temperature.
+    const deepReq = skill.deep ? { model: DEEP_MODEL, thinking: true, effort: "high" as const } : {}
     const plays = await generateStructured<EnrichedRecommendation[]>(
-      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature },
+      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature, ...deepReq },
       {
         transport: opts.transport,
         validate: (raw) => skill.parse(raw, dossier),

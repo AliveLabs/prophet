@@ -27,13 +27,28 @@ export type GenerateRequest = {
   prompt: string
   maxOutputTokens?: number
   temperature?: number
+  /** Deep pass (P5): override the model + enable adaptive thinking for the convergence +
+   *  synthesis passes. On Opus 4.8 thinking is ADAPTIVE (no budget_tokens) and temperature
+   *  MUST be omitted, so when `thinking` is set we drop temperature and add output_config.effort.
+   *  Producers leave these unset (Sonnet + temperature, as before). */
+  model?: string
+  thinking?: boolean
+  effort?: "low" | "medium" | "high" | "xhigh" | "max"
 }
 
 /** A transport returns already-parsed JSON (or null on parse failure). Injectable for tests. */
 export type Transport = (req: GenerateRequest) => Promise<unknown>
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5"
+/** Deep reasoning model for the convergence + synthesis pass (P5): Opus + adaptive thinking. */
+export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-4-8"
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
+
+// The deep pass is NON-streaming with a 32k max_tokens; a hung Opus call must abort and
+// degrade to the deterministic fallback rather than stall the whole brief. Generous because
+// adaptive thinking is genuinely slow. Normal (Sonnet) calls get a tighter ceiling.
+const DEEP_TIMEOUT_MS = Number(process.env.ANTHROPIC_DEEP_TIMEOUT_MS) || 120_000
+const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 60_000
 
 export function extractJson(text: string): unknown {
   // strip markdown code fences, then try whole-string parse
@@ -92,10 +107,16 @@ function buildSystemPayload(req: GenerateRequest): string | Array<Record<string,
 export async function claudeRaw(req: GenerateRequest, opts: { retries?: number } = {}): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured")
-  const maxAttempts = (opts.retries ?? 4) + 1 // synthesis runs right after a parallel skill burst; survive rate limits
+  // synthesis runs right after a parallel skill burst; retry to survive rate limits. But on
+  // the deep path each retry is an EXPENSIVE Opus+thinking call, so retry fewer times there.
+  const maxAttempts = (opts.retries ?? (req.thinking ? 1 : 4)) + 1
+  const timeoutMs = req.thinking ? DEEP_TIMEOUT_MS : REQUEST_TIMEOUT_MS
   let lastErr: unknown
   const system = buildSystemPayload(req)
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    // Fresh controller per attempt: abort a HUNG request so it can't stall the whole brief.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       const res = await fetch(ANTHROPIC_URL, {
         method: "POST",
@@ -105,12 +126,17 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
-          max_tokens: req.maxOutputTokens ?? 8192,
-          temperature: req.temperature ?? 0.4,
+          model: req.model ?? ANTHROPIC_MODEL,
+          // Thinking tokens count toward output, so the deep pass needs much more headroom.
+          max_tokens: req.maxOutputTokens ?? (req.thinking ? 32000 : 8192),
+          // Opus 4.8 + adaptive thinking REJECTS temperature (400); producers (Sonnet) keep it.
+          ...(req.thinking
+            ? { thinking: { type: "adaptive" }, output_config: { effort: req.effort ?? "high" } }
+            : { temperature: req.temperature ?? 0.4 }),
           ...(system ? { system } : {}),
           messages: [{ role: "user", content: req.prompt }],
         }),
+        signal: controller.signal,
       })
       if (!res.ok) {
         const body = await res.text()
@@ -140,6 +166,12 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
       }
       return (data.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("")
     } catch (err) {
+      // A timeout abort means the call HUNG — retrying just hangs again (and on the deep path
+      // burns another expensive Opus call). Bail straight to the fallback instead of retrying.
+      if ((err as { name?: string })?.name === "AbortError") {
+        console.warn(`[claudeRaw] aborted after ${timeoutMs}ms (no response); degrading to fallback`)
+        throw new Error(`Anthropic request timed out after ${timeoutMs}ms`)
+      }
       // network/transport error — retry too
       lastErr = err
       if (attempt < maxAttempts) {
@@ -147,6 +179,8 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
         continue
       }
       throw err
+    } finally {
+      clearTimeout(timer)
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error("Anthropic request failed")

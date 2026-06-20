@@ -80,6 +80,10 @@ export const CATEGORY_PRIORS: Record<Category, number> = {
   positioning: 0.95,
   reputation: 0.92,
   operations: 0.85,
+  // Cross-domain convergence plays (P5) compete on merit — neutral prior, earn the bias from
+  // evidence rather than asserting it (the plan's "small boost? default no"). Their multi-source
+  // grounding + Opus depth should let them score on impact/confidence without a thumb on the scale.
+  convergence: 1.0,
 }
 
 /** Prior used defensively if a play's category can't be resolved (neutral, no bias). */

@@ -24,7 +24,7 @@ export type Confidence = "high" | "medium" | "directional"
  * different categories). Social folds into marketing for now (no skill owns it yet). RecKind
  * stays the play SHAPE (prepare/capitalize/…); Category is the domain a play belongs to.
  */
-export type Category = "demand" | "marketing" | "positioning" | "reputation" | "operations"
+export type Category = "demand" | "marketing" | "positioning" | "reputation" | "operations" | "convergence"
 
 /** One concrete step of the plan — everything short of executing it. */
 export type RecipeStep = {
