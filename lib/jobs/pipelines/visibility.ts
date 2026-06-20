@@ -23,6 +23,7 @@ import { fetchAdsSearch } from "@/lib/providers/dataforseo/ads-search"
 import { fetchRelevantPages } from "@/lib/providers/dataforseo/relevant-pages"
 import { fetchSubdomains } from "@/lib/providers/dataforseo/subdomains"
 import { fetchHistoricalRankOverview } from "@/lib/providers/dataforseo/historical-rank-overview"
+import { DataForSEOError } from "@/lib/providers/dataforseo/client"
 import {
   normalizeDomainRankOverview,
   normalizeRankedKeywords,
@@ -278,7 +279,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 normalizeSerpOrganic(serpResult, kw.keyword, c.allDomains)
               )
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
         }
@@ -338,7 +341,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "competitor_id,date_key,snapshot_type" }
               )
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
         }
@@ -357,7 +362,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
             if (adsResult) {
               c.state.adCreatives.push(...normalizeAdsSearch(adsResult, domain))
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
         }
@@ -412,7 +419,8 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "location_id,provider,date_key" }
               )
             }
-          } catch {
+          } catch (e) {
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             c.state.warnings.push("Relevant pages failed")
           }
         }
@@ -442,7 +450,8 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "location_id,provider,date_key" }
               )
             }
-          } catch {
+          } catch (e) {
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             c.state.warnings.push("Subdomains failed")
           }
         }
@@ -471,7 +480,8 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "location_id,provider,date_key" }
               )
             }
-          } catch {
+          } catch (e) {
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             c.state.warnings.push("Historical rank failed")
           }
         }
@@ -511,7 +521,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "competitor_id,date_key,snapshot_type" }
               )
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
 
@@ -539,7 +551,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "competitor_id,date_key,snapshot_type" }
               )
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
 
@@ -566,7 +580,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
                 { onConflict: "competitor_id,date_key,snapshot_type" }
               )
             }
-          } catch {
+          } catch (e) {
+            // A payment/credit outage is account-level → propagate so the worker stamps vendor health.
+            if (e instanceof DataForSEOError && e.isPaymentRequired) throw e
             /* continue */
           }
         }
