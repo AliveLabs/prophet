@@ -3,6 +3,7 @@
 // Wraps the large generateInsightsAction logic into discrete steps
 // ---------------------------------------------------------------------------
 
+import { createHash } from "crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
 import { fetchPlaceDetails } from "@/lib/places/google"
@@ -145,7 +146,27 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
           // Review sentiment for write-time price corroboration (P4.1) — reuses the reviews we
           // just fetched (no extra Places call). analyzeReviews has a graceful empty fallback.
           const raw = (c.state.locationSnapshot?.recentReviews ?? []).map((r) => ({ text: r.text, rating: r.rating, date: r.date }))
-          if (raw.length > 0) c.state.locationReviews = await analyzeReviews(raw, { source: "google_places" })
+          if (raw.length > 0) {
+            const sentiment = await analyzeReviews(raw, { source: "google_places" })
+            c.state.locationReviews = sentiment
+            // Persist so the brief builder reuses it instead of a second LLM pass (and the brief
+            // stays consistent with the Feed). provider is a free text key — no migration. Best-effort.
+            try {
+              await c.supabase.from("location_snapshots").upsert(
+                {
+                  location_id: c.locationId,
+                  provider: "review_sentiment",
+                  date_key: c.dateKey,
+                  captured_at: new Date().toISOString(),
+                  raw_data: sentiment as unknown as Record<string, unknown>,
+                  diff_hash: createHash("sha256").update(JSON.stringify(sentiment.themes)).digest("hex"),
+                },
+                { onConflict: "location_id,provider,date_key" },
+              )
+            } catch {
+              /* sentiment persistence is best-effort; the brief recomputes if it's absent */
+            }
+          }
         }
         return { hasPlacesData: !!c.state.locationSnapshot }
       },

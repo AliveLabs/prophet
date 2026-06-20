@@ -8,7 +8,7 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import type { Dossier, EntitySignals, HoursGate, RestaurantProfile, Tier, TierCaps } from "@/lib/insights/dossier/types"
+import type { Dossier, EntitySignals, HoursGate, RestaurantProfile, ReviewSentiment, Tier, TierCaps } from "@/lib/insights/dossier/types"
 import { TIER_CAPS } from "@/lib/insights/dossier/types"
 import { asSubscriptionTier, isSocialPlatform, resolveOwnSocialNetworks, type SubscriptionTier } from "@/lib/billing/tiers"
 import type { GeneratedInsight } from "@/lib/insights/types"
@@ -408,9 +408,24 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
           profile: { title: details.displayName?.text, rating: details.rating, reviewCount: details.userRatingCount, priceLevel: details.priceLevel ?? undefined },
           recentReviews,
         } as NormalizedSnapshot
-        // review sentiment -> location.reviews + citable review insights (activates Reputation)
+        // review sentiment -> location.reviews + citable review insights (activates Reputation).
+        // Reuse the sentiment the insights pipeline already computed + persisted (skip a second
+        // LLM pass; keep the brief consistent with the Feed); fall back to computing it here.
         const raw: RawReview[] = recentReviews.map((r) => ({ text: r.text, rating: r.rating, date: r.date }))
-        const sentiment = await analyzeReviews(raw, { transport: opts.transport, source: "google_places" })
+        const { data: sentSnap } = await sb
+          .from("location_snapshots")
+          .select("raw_data")
+          .eq("location_id", locationId)
+          .eq("provider", "review_sentiment")
+          .gte("date_key", cutoff)
+          .order("date_key", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        const persisted = sentSnap?.raw_data as ReviewSentiment | undefined
+        const sentiment =
+          persisted && Array.isArray(persisted.themes)
+            ? persisted
+            : await analyzeReviews(raw, { transport: opts.transport, source: "google_places" })
         location.reviews = sentiment
         ruleOutputs.push(...reviewInsightsFromSentiment(sentiment))
       }
