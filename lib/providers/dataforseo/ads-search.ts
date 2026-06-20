@@ -4,7 +4,7 @@
 // NOTE: This endpoint uses `target` (domain), NOT `keyword`.
 // ---------------------------------------------------------------------------
 
-import { postDataForSEO, type DataForSEOTaskResponse } from "./client"
+import { postDataForSEO, DataForSEOError, type DataForSEOTaskResponse } from "./client"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -67,8 +67,11 @@ export async function fetchAdsSearch(
   if (taskResult?.status_code && taskResult.status_code !== 20000) {
     // 40102 = "No Search Results" — not an error, just no ads for this domain
     if (taskResult.status_code === 40102) return null
-    throw new Error(
-      `DataForSEO Ads Search error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`
+    // Typed so a task-level credit/cost-limit code is detectable as a vendor outage (not just HTTP 402).
+    throw new DataForSEOError(
+      `DataForSEO Ads Search error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`,
+      undefined,
+      taskResult.status_code,
     )
   }
 

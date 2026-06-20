@@ -4,6 +4,34 @@
 
 export const DATAFORSEO_BASE_URL = "https://api.dataforseo.com"
 
+/**
+ * Typed DataForSEO failure so callers can tell a vendor outage (esp. a 402 "out of credits")
+ * apart from a code bug or a timeout — mirrors lib/providers/data365/client.ts:Data365Error.
+ * Before this, a 402 was a plain Error with the status only inside the message string, so the
+ * job pipeline laundered a fleet-wide credit outage into a generic "partial"/"failed" run.
+ */
+export class DataForSEOError extends Error {
+  readonly provider = "dataforseo" as const
+  constructor(
+    message: string,
+    /** HTTP status (402 = account out of credits). */
+    public readonly httpStatus?: number,
+    /** DataForSEO task-level status_code (20000 = ok; 402xx = payment family). */
+    public readonly taskStatusCode?: number,
+    public readonly body?: string,
+  ) {
+    super(message)
+    this.name = "DataForSEOError"
+  }
+
+  /** True when the failure is "account out of credits" — HTTP 402 or a 402xx task code.
+   *  This is the actionable signal (refill needed), used to drive the ops alert. */
+  get isPaymentRequired(): boolean {
+    if (this.httpStatus === 402) return true
+    return this.taskStatusCode != null && Math.floor(this.taskStatusCode / 100) === 402
+  }
+}
+
 export function getAuthHeader(): string {
   const login = process.env.DATAFORSEO_LOGIN
   const password = process.env.DATAFORSEO_PASSWORD
@@ -25,7 +53,7 @@ export async function postDataForSEO<T>(path: string, body: unknown): Promise<T>
 
   if (!response.ok) {
     const text = await response.text()
-    throw new Error(`DataForSEO error: ${response.status} ${text}`)
+    throw new DataForSEOError(`DataForSEO error: ${response.status} ${text}`, response.status, undefined, text)
   }
 
   return (await response.json()) as T
@@ -54,8 +82,10 @@ export function extractFirstResult<T>(
 ): T | null {
   const task = data.tasks?.[0]
   if (task?.status_code && task.status_code !== 20000) {
-    throw new Error(
-      `DataForSEO ${label} error: ${task.status_code} ${task.status_message ?? ""}`
+    throw new DataForSEOError(
+      `DataForSEO ${label} error: ${task.status_code} ${task.status_message ?? ""}`,
+      undefined,
+      task.status_code,
     )
   }
   return task?.result?.[0] ?? null

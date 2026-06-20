@@ -4,6 +4,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
 import { fetchEventsPageData } from "@/lib/cache/events"
+import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
+import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
 
 type EventsPageProps = {
@@ -129,6 +131,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     ? await fetchEventsPageData(selectedLocationId)
     : { snapshot: null, matchRows: [] }
 
+  // Read live (uncached) so a vendor outage surfaces honestly — the page data above is served
+  // from a 7-day cache that an outage never busts (no successful refresh during a 402).
+  const coverageHealth = selectedLocationId
+    ? await loadCoverageHealth(supabase, selectedLocationId)
+    : EMPTY_COVERAGE
+
   let snapshot: NormalizedEventsSnapshotV1 | null = null
   let snapshotDate: string | null = null
 
@@ -208,6 +216,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       </div>
 
       {/* Banners */}
+      {coverageHealth.events.unavailable && (
+        <VendorUnavailableBanner source="Local event data" asOf={snapshotDate} />
+      )}
       {params.error && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(params.error)}

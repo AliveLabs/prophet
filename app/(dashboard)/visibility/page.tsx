@@ -9,6 +9,8 @@ import RankingDistribution from "@/components/visibility/ranking-distribution"
 import KeywordTabs from "@/components/visibility/keyword-tabs"
 import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
 import { fetchVisibilityPageData } from "@/lib/cache/visibility"
+import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
+import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
@@ -79,6 +81,12 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   const cached = selectedLocationId
     ? await fetchVisibilityPageData(selectedLocationId)
     : { snapshots: {}, trackedKwCount: 0, competitors: [], intersectionSnaps: [] }
+
+  // Live (uncached) vendor health — an outage must surface even though the page data above is
+  // served from a 7-day cache that a failed refresh never busts.
+  const coverageHealth = selectedLocationId
+    ? await loadCoverageHealth(supabase, selectedLocationId)
+    : EMPTY_COVERAGE
 
   const rankSnap = cached.snapshots["seo_domain_rank_overview"]
   const rankData = rankSnap?.raw_data as DomainRankSnapshot | null
@@ -261,6 +269,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
           {decodeURIComponent(success)}
         </div>
+      )}
+      {coverageHealth.visibility.unavailable && (
+        <VendorUnavailableBanner source="Search visibility data" asOf={lastRefreshed} />
       )}
 
       {locationDomain && (

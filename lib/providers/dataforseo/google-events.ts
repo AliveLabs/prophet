@@ -6,7 +6,7 @@ import type {
   DataForSEOEventItem,
   DataForSEOEventsResponse,
 } from "@/lib/events/types"
-import { postDataForSEO } from "./client"
+import { postDataForSEO, DataForSEOError } from "./client"
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -53,8 +53,12 @@ export async function fetchGoogleEvents(
 
   const taskResult = data.tasks?.[0]
   if (taskResult?.status_code && taskResult.status_code !== 20000) {
-    throw new Error(
-      `DataForSEO events error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`
+    // Typed so a task-level credit/cost-limit code (40200/40201/40203/40210) is detectable as a
+    // vendor outage by the worker (instanceof), not just an HTTP 402. Mirrors extractFirstResult.
+    throw new DataForSEOError(
+      `DataForSEO events error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`,
+      undefined,
+      taskResult.status_code,
     )
   }
 

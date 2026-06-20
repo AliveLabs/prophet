@@ -12,7 +12,7 @@
 // Verification thresholds live in the pipeline, not here.
 // ---------------------------------------------------------------------------
 
-import { postDataForSEO } from "@/lib/providers/dataforseo/client"
+import { postDataForSEO, DataForSEOError } from "@/lib/providers/dataforseo/client"
 import type { SocialPlatform } from "./types"
 import {
   type DiscoveredHandle,
@@ -70,7 +70,13 @@ export async function discoverFromSerp(
       ),
     ])
   } catch (err) {
-    console.warn(`[Social Discovery] SERP discovery failed for "${businessName}":`, err instanceof Error ? err.message : err)
+    // Keep returning [] so discovery degrades softly, but make a credit outage loud in logs
+    // rather than indistinguishable from a normal no-results miss (it was fully invisible before).
+    if (err instanceof DataForSEOError && err.isPaymentRequired) {
+      console.warn(`[Social Discovery] SERP discovery SKIPPED for "${businessName}" — DataForSEO payment required (out of credits)`)
+    } else {
+      console.warn(`[Social Discovery] SERP discovery failed for "${businessName}":`, err instanceof Error ? err.message : err)
+    }
     return []
   }
 

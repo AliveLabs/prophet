@@ -11,6 +11,7 @@ import { SUB_PIPELINES, type SubPipeline } from "@/lib/jobs/pipelines/refresh-al
 import { enqueueRun, finishJob, recordRun, type SB, type SignalJob, type PipelineOutcome } from "./queue"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { classifyNow, type FreshnessStatus } from "@/lib/freshness/contract"
+import { vendorSignalFromError, moreSevereVendorSignal, type VendorSignal } from "@/lib/jobs/vendor-health"
 
 // Steps excluded from the scheduled path. analyze_social_visuals used to live here
 // (it was unbounded); it now self-caps at MAX_VISION_POSTS_PER_RUN per run (photos
@@ -54,6 +55,9 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
     let completed = 0
     let failed = 0
     const warnings: string[] = []
+    // Capture a vendor outage (e.g. DataForSEO 402) so it's recorded as a structured signal,
+    // not just laundered into a generic "partial"/"failed" reason string. Keep the worst one.
+    let vendorError: VendorSignal | undefined
     for (const step of steps) {
       try {
         await step.run(ctx)
@@ -61,10 +65,11 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
       } catch (e) {
         failed++
         warnings.push(`${step.label}: ${e instanceof Error ? e.message : "failed"}`)
+        vendorError = moreSevereVendorSignal(vendorError, vendorSignalFromError(e))
       }
     }
 
-    const { outcome, reason, signals } = await summarize(sb, job, { completed, failed, warnings })
+    const { outcome, reason, signals } = await summarize(sb, job, { completed, failed, warnings, vendorError })
     await recordRun(sb, { runId: job.run_id, locationId: job.location_id, pipeline: job.pipeline, outcome, reason, signals, startedAt })
 
     // Fully-failed → retry; any progress → done (partial is recorded honestly, not retried forever).
@@ -81,7 +86,16 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
     return { jobId: job.id, pipeline: job.pipeline, outcome, disposition }
   } catch (e) {
     const msg = e instanceof Error ? e.message : "context build failed"
-    await recordRun(sb, { runId: job.run_id, locationId: job.location_id, pipeline: job.pipeline, outcome: "failed", reason: msg, startedAt })
+    const vendorError = vendorSignalFromError(e)
+    await recordRun(sb, {
+      runId: job.run_id,
+      locationId: job.location_id,
+      pipeline: job.pipeline,
+      outcome: "failed",
+      reason: msg,
+      signals: vendorError ? { vendor: vendorError } : undefined,
+      startedAt,
+    })
     const disposition = await finishJob(sb, job, false, msg)
     return { jobId: job.id, pipeline: job.pipeline, outcome: "failed", disposition }
   }
@@ -115,10 +129,14 @@ async function enqueueFirstBrief(sb: SB, job: SignalJob): Promise<void> {
 async function summarize(
   sb: SB,
   job: SignalJob,
-  r: { completed: number; failed: number; warnings: string[] }
+  r: { completed: number; failed: number; warnings: string[]; vendorError?: VendorSignal }
 ): Promise<{ outcome: PipelineOutcome; reason?: string; signals: Record<string, unknown> }> {
+  // A vendor outage rides along on every outcome so the UI/detector can read the CAUSE,
+  // not just infer it from a failed count. (Stamped on signals.vendor; no schema change.)
+  const vendor = r.vendorError ? { vendor: r.vendorError } : {}
+
   if (r.completed === 0 && r.failed > 0) {
-    return { outcome: "failed", reason: r.warnings[0], signals: { completed: r.completed, failed: r.failed } }
+    return { outcome: "failed", reason: r.warnings[0], signals: { completed: r.completed, failed: r.failed, ...vendor } }
   }
 
   // Social: outcome reflects real content freshness, not just "the call returned".
@@ -134,14 +152,14 @@ async function summarize(
         : stale > 0
           ? `${counts.dormant} dormant / ${counts.empty} empty — no recent activity`
           : "no social profiles"
-    return { outcome, reason, signals: { ...counts, completed: r.completed, failed: r.failed } }
+    return { outcome, reason, signals: { ...counts, completed: r.completed, failed: r.failed, ...vendor } }
   }
 
   const outcome: PipelineOutcome = r.failed > 0 ? "partial" : "fresh"
   return {
     outcome,
     reason: r.failed > 0 ? r.warnings.slice(0, 2).join(" | ") : undefined,
-    signals: { completed: r.completed, failed: r.failed },
+    signals: { completed: r.completed, failed: r.failed, ...vendor },
   }
 }
 

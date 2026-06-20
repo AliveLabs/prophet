@@ -3,7 +3,7 @@
 // Docs: https://docs.dataforseo.com/v3/serp-se-type-live-advanced/
 // ---------------------------------------------------------------------------
 
-import { postDataForSEO, type DataForSEOTaskResponse } from "./client"
+import { postDataForSEO, DataForSEOError, type DataForSEOTaskResponse } from "./client"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,8 +66,11 @@ export async function fetchSerpOrganic(
 
   const taskResult = data.tasks?.[0]
   if (taskResult?.status_code && taskResult.status_code !== 20000) {
-    throw new Error(
-      `DataForSEO SERP organic error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`
+    // Typed so a task-level credit/cost-limit code is detectable as a vendor outage (not just HTTP 402).
+    throw new DataForSEOError(
+      `DataForSEO SERP organic error: ${taskResult.status_code} ${taskResult.status_message ?? ""}`,
+      undefined,
+      taskResult.status_code,
     )
   }
 
