@@ -456,11 +456,11 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // Guard: with no UPCOMING events, every event-dependent rule-output (new-event
   // signals AND cross-event SEO opportunities) is stale and must not seed "prepare
   // for <past date>" plays. A coherent data refresh repopulates current events + insights.
-  // P4: corroborate "you look expensive" price plays against our own reviews — reframe the
-  // uncorroborated ones to positioning instead of advising a reflexive price cut. Reviews are
-  // available here in the dossier (location.reviews), unlike at rule-generation time.
-  // READ-ONLY projection: this is recomputed every build from the persisted shift rows; the
-  // reframed type must NEVER be written back to the insights table (it would stick permanently).
+  // P4/P4.1: corroborate "you look expensive" price plays against our own reviews — reframe the
+  // uncorroborated ones to positioning instead of a reflexive price cut. The insights pipeline
+  // already applies this at WRITE time (so every surface reads corrected rows); this read-time
+  // pass is an idempotent safety net that also uses the fresher review sentiment computed for
+  // this brief. The insight_type never changes — the verdict rides on evidence.corroboration.
   const corroboratedOutputs = corroboratePriceInsights(ruleOutputs, location.reviews ?? null)
   let groundedRuleOutputs = events.length > 0 ? corroboratedOutputs : corroboratedOutputs.filter((r) => !r.insight_type.includes("event"))
   // Consistency with the social read-fix: if NO social account is currently active, drop

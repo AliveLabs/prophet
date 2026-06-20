@@ -71,55 +71,70 @@ describe("canCorroboratePrice", () => {
 
 describe("corroboratePriceInsights", () => {
   const pricedOut = reviews([{ theme: "value", sentiment: "negative", mentions: 4, examples: ["way too expensive"] }])
+  // The insight_type NEVER changes (one price type, avoids retention-window duplicates); the
+  // verdict rides on evidence.corroboration. Framing is derived from the verdict + evidence.
 
-  it("reviews ABSENT → reframe to positioning, stamped 'unknown' (no over-claim that guests are happy)", () => {
+  it("reviews ABSENT → positioning framing stamped 'unknown' (no over-claim that guests are happy)", () => {
     const out = corroboratePriceInsights([priceShift(25, 18)], null)
-    expect(out[0].insight_type).toBe("menu.price_positioning_mismatch")
+    expect(out[0].insight_type).toBe("menu.price_positioning_shift")
     expect(out[0].evidence.corroboration).toBe("unknown")
     expect(out[0].confidence).toBe("medium")
     expect(out[0].title.toLowerCase()).toContain("position on value")
     expect(out[0].summary.toLowerCase()).toContain("not have enough reviews")
   })
-  it("reviews PRESENT but quiet on price → reframe to positioning, stamped 'weak'", () => {
+  it("reviews PRESENT but quiet on price → positioning framing stamped 'weak'", () => {
     const quiet = reviews([{ theme: "service", sentiment: "negative", mentions: 3, examples: ["slow at the door"] }])
     const out = corroboratePriceInsights([priceShift(25, 18)], quiet)
-    expect(out[0].insight_type).toBe("menu.price_positioning_mismatch")
+    expect(out[0].insight_type).toBe("menu.price_positioning_shift")
     expect(out[0].evidence.corroboration).toBe("weak")
     expect(out[0].title.toLowerCase()).toContain("aren't complaining")
   })
-  it("keeps the shift and marks strong corroboration when reviews flag price", () => {
+  it("reviews flag price → price-action framing stamped 'strong', confidence high", () => {
     const out = corroboratePriceInsights([priceShift(25, 18)], pricedOut)
     expect(out[0].insight_type).toBe("menu.price_positioning_shift")
     expect(out[0].evidence.corroboration).toBe("strong")
+    expect(out[0].confidence).toBe("high")
+    expect(out[0].title.toLowerCase()).toContain("flagging")
   })
   it("leaves the 'we're cheaper, room to raise' direction untouched", () => {
     const out = corroboratePriceInsights([priceShift(18, 25)], null) // our avg below competitor's
-    expect(out[0].insight_type).toBe("menu.price_positioning_shift")
     expect(out[0].evidence.corroboration).toBeUndefined()
   })
   it("ignores non-price insights (same reference back)", () => {
     const other: GeneratedInsight = { insight_type: "menu.category_gap", title: "t", summary: "s", confidence: "medium", severity: "info", evidence: {}, recommendations: [] }
     expect(corroboratePriceInsights([other], null)[0]).toBe(other)
   })
+  it("is IDEMPOTENT: re-running on an already-corroborated row is stable", () => {
+    const once = corroboratePriceInsights([priceShift(25, 18)], null)
+    const twice = corroboratePriceInsights(once, null)
+    expect(twice[0].title).toBe(once[0].title)
+    expect(twice[0].evidence.corroboration).toBe("unknown")
+  })
+  it("re-running a previously-weak row with NEW corroborating reviews flips it to strong framing", () => {
+    const weak = corroboratePriceInsights([priceShift(25, 18)], null) // unknown/positioning content
+    const reflowed = corroboratePriceInsights(weak, pricedOut) // reviews now flag price
+    expect(reflowed[0].evidence.corroboration).toBe("strong")
+    expect(reflowed[0].title.toLowerCase()).toContain("flagging") // content regenerated, not stale
+  })
 })
 
 describe("generateContentInsights price rule → corroboration (end to end)", () => {
   const locMenu = menu(25) // we are the premium one
   const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: menu(18), siteContent: null }]
+  const priceFor = (out: GeneratedInsight[]) => out.find((i) => i.insight_type === "menu.price_positioning_shift")
 
   it("emits menu.price_positioning_shift on a >=15% gap", () => {
-    const out = generateContentInsights(locMenu, compMenus, null, null)
-    expect(out.some((i) => i.insight_type === "menu.price_positioning_shift")).toBe(true)
+    expect(priceFor(generateContentInsights(locMenu, compMenus, null, null))).toBeDefined()
   })
-  it("without review corroboration, the gap reframes to positioning (kills the Wagyu-$12.99 miss)", () => {
+  it("without review corroboration, the play is positioning-framed (kills the Wagyu-$12.99 miss)", () => {
     const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, null), null)
-    expect(out.some((i) => i.insight_type === "menu.price_positioning_mismatch")).toBe(true)
-    expect(out.some((i) => i.insight_type === "menu.price_positioning_shift")).toBe(false)
+    const price = priceFor(out)
+    expect(price?.evidence.corroboration).toBe("unknown")
+    expect(price?.title.toLowerCase()).toContain("position on value")
   })
-  it("with corroboration, the price play stands", () => {
+  it("with corroboration, the price play stands (strong)", () => {
     const pricedOut = reviews([{ theme: "price", sentiment: "negative", mentions: 6, examples: ["overpriced for what it is"] }])
     const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, null), pricedOut)
-    const shift = out.find((i) => i.insight_type === "menu.price_positioning_shift")
-    expect(shift?.evidence.corroboration).toBe("strong")
+    expect(priceFor(out)?.evidence.corroboration).toBe("strong")
   })
 })

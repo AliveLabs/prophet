@@ -64,14 +64,21 @@ export function canCorroboratePrice(reviews: ReviewSentiment | null | undefined)
 }
 
 /**
- * P4 — corroborate "you look expensive" price plays against the location's OWN reviews.
- * Applied at dossier-build time (where reviews live), NOT at rule time. For each
- * menu.price_positioning_shift where WE are the more expensive one (competitor avg < ours):
- *  - reviews corroborate a price complaint → keep the shift, stamp evidence.corroboration "strong"
- *  - reviews do NOT corroborate → reframe to menu.price_positioning_mismatch (positioning, not a
- *    price cut — the Wagyu-$12.99 fix), stamp evidence.corroboration "weak".
- * The "we're cheaper, room to raise" direction is left untouched. Pure — safe to unit-test.
- * evidence.corroboration is carried so the scoring layer (P2/P10) can weight it later.
+ * P4 / P4.1 — corroborate "you look expensive" price plays against the location's OWN reviews.
+ * Runs at WRITE time in the insights pipeline (so the persisted rows every surface reads — the
+ * brief, the /insights Feed, /social — are already corrected) AND at READ time in build.ts (a
+ * brief-time safety net for before the pipeline has re-run).
+ *
+ * For each menu.price_positioning_shift where WE are the more expensive one (competitor avg <
+ * ours) the final framing is derived from the corroboration verdict + the evidence ALONE — never
+ * the row's current text — so it is IDEMPOTENT: safe to re-run on a row a previous pass already
+ * reframed. The insight_type NEVER changes (one price type avoids two coexisting in the 30-day
+ * retention window); the verdict rides on evidence.corroboration for the positioning skill +
+ * future scoring (P2/P10):
+ *  - reviews corroborate a price complaint   → price-action framing, "strong"
+ *  - reviews present but quiet on price       → positioning framing,  "weak"
+ *  - no reviews yet (absence ≠ evidence)      → positioning framing,  "unknown" (don't claim happy)
+ * The "we're cheaper, room to raise" direction is left exactly as the rule emitted it.
  */
 export function corroboratePriceInsights(
   insights: GeneratedInsight[],
@@ -82,21 +89,38 @@ export function corroboratePriceInsights(
   return insights.map((ins) => {
     if (ins.insight_type !== "menu.price_positioning_shift") return ins
     const ev = ins.evidence as Record<string, unknown>
-    const locAvg = typeof ev.locationAvgPrice === "number" ? ev.locationAvgPrice : null
-    const compAvg = typeof ev.competitorAvgPrice === "number" ? ev.competitorAvgPrice : null
-    const weAreMoreExpensive = locAvg != null && compAvg != null && compAvg < locAvg
-    if (!weAreMoreExpensive) return ins // "room to raise" — corroboration doesn't apply
+    // isFinite rejects null/undefined AND NaN, so a garbage avg can't slip through and render
+    // "$NaN" in customer copy. Past the guard both avgs are real finite numbers.
+    const locAvg = Number.isFinite(ev.locationAvgPrice) ? (ev.locationAvgPrice as number) : null
+    const compAvg = Number.isFinite(ev.competitorAvgPrice) ? (ev.competitorAvgPrice as number) : null
+    // Only the "we're the more expensive one" direction needs corroboration; "room to raise"
+    // (we're cheaper, or missing data) is left untouched.
+    if (locAvg == null || compAvg == null || compAvg >= locAvg) return ins
 
-    // Corroborated: keep the price play AND its original confidence/severity; just stamp it.
-    if (corroborated) return { ...ins, evidence: { ...ev, corroboration: "strong" } }
-
-    // Uncorroborated → reframe to positioning (never a reflexive cut). But keep two worlds
-    // distinct: reviews PRESENT but quiet on price (a real "guests aren't price-sensitive"
-    // signal) vs reviews ABSENT (we simply don't know — absence of evidence is not evidence
-    // of absence, so we don't claim guests are happy). Both lead with value; the stamp differs.
-    const pct = typeof ev.priceDiffPct === "number" ? ev.priceDiffPct : null
+    const pct = Number.isFinite(ev.priceDiffPct) ? (ev.priceDiffPct as number) : null
     const comp = typeof ev.competitor === "string" ? ev.competitor : "a nearby competitor"
-    const above = `Your average dine-in price${locAvg != null ? ` ($${locAvg.toFixed(2)})` : ""} sits above ${comp}'s${compAvg != null ? ` ($${compAvg.toFixed(2)})` : ""}${pct != null ? ` by ${pct}%` : ""}`
+    const by = pct != null ? ` by ${pct}%` : ""
+    const above = `Your average dine-in price ($${locAvg.toFixed(2)}) sits above ${comp}'s ($${compAvg.toFixed(2)})${by}`
+
+    if (corroborated) {
+      return {
+        ...ins,
+        title: `You price above ${comp}, and guests are flagging it`,
+        summary: `${above}, and your reviews mention price. Worth a deliberate look — check whether specific items are out of line, not the whole menu.`,
+        confidence: "high",
+        severity: pct != null && pct >= 30 ? "warning" : "info",
+        evidence: { ...ev, corroboration: "strong" },
+        recommendations: [
+          {
+            title: "Check pricing against real feedback",
+            rationale: `${comp} is${pct != null ? ` ${pct}%` : ""} cheaper and your guests mention price. Review specific high-visibility items, not the whole menu.`,
+          },
+        ],
+      }
+    }
+
+    // Uncorroborated → positioning, never a reflexive cut. reviews PRESENT but quiet = a real
+    // "guests aren't price-sensitive" signal; reviews ABSENT = we don't know yet (don't over-claim).
     const title = hasReviews
       ? `You price above ${comp}, and guests aren't complaining`
       : `You price above ${comp} — position on value`
@@ -105,7 +129,6 @@ export function corroboratePriceInsights(
       : `${above}. You do not have enough reviews yet to know whether guests find that a problem, so do not cut prices on the gap alone — make the premium legible (quality, sourcing, the room, service). Revisit if price complaints start to appear.`
     return {
       ...ins,
-      insight_type: "menu.price_positioning_mismatch",
       title,
       summary,
       confidence: "medium",

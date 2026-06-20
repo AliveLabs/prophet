@@ -104,13 +104,17 @@ continuous combined score above; one global pool. *The heart of the redesign.*
 **Goal:** a price play must be corroborated (competitor cheaper AND reviews mention
 price/expensive) or it reframes to positioning / a ranked-lower loss-leader. Kills the
 Wagyu-$12.99 miss; guards mom-and-pop vs chain.
-- `lib/content/insights.ts` (~85-122): `canCorroboratePrice()` pure helper; emit corroborated
-  `menu.price_positioning_shift` vs weak `menu.price_positioning_mismatch`; stamp
-  `evidence.corroboration` (for P2/P10 to weight).
-- `build.ts`: pass `d.location.reviews` + competitor review sentiment into
-  `generateContentInsights()` (ReviewSentiment already exists).
-- positioning `knowledge.ts`: "HANDLING PRICE MISMATCHES" — recommend positioning when
-  corroboration is weak.
+- `lib/content/insights.ts`: `canCorroboratePrice()` + `corroboratePriceInsights()` pure helpers.
+  AS BUILT (single type, not the originally-planned dual type): the row stays
+  `menu.price_positioning_shift`; the verdict rides on `evidence.corroboration`
+  (`strong`|`weak`|`unknown`) — one type avoids two coexisting in the retention window. Framing
+  is derived from the verdict + evidence so it is idempotent. (for P2/P10 to weight).
+- Corroboration runs at WRITE time in `lib/jobs/pipelines/insights.ts` (content_insights step,
+  sentiment computed in load_location_data) so every surface (brief, /insights Feed, /social)
+  reads corrected rows; `build.ts` also runs it at READ time as an idempotent safety net. (Reviews
+  live in the dossier/pipeline, NOT in `generateContentInsights`, which the jobs pipeline calls.)
+- positioning `knowledge.ts` v2: "HANDLING PRICE MISMATCHES" — recommend positioning when
+  corroboration is weak/unknown; `reviewThemes` added to the skill's selectInput.
 
 ## P5 — Cross-domain convergence pass + model depth  ·  size: MEDIUM  ·  deps: P2 (for ranking the new plays)
 **Goal:** the marquee "smarter than the owner" fix — find multi-source patterns no single

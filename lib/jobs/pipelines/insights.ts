@@ -10,7 +10,9 @@ import { diffSnapshots, buildInsights, buildWeeklyInsights } from "@/lib/insight
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
-import { generateContentInsights } from "@/lib/content/insights"
+import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
+import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
+import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
 import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
@@ -45,6 +47,8 @@ export type InsightsPipelineCtx = {
   }>
   state: {
     locationSnapshot: NormalizedSnapshot | null
+    /** Own-location review sentiment, computed once for write-time price corroboration (P4.1). */
+    locationReviews: ReviewSentiment | null
     insightsPayload: Array<Record<string, unknown>>
     warnings: string[]
   }
@@ -138,6 +142,10 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         if (c.location.primary_place_id) {
           const details = await fetchPlaceDetails(c.location.primary_place_id)
           c.state.locationSnapshot = buildSnapshotFromPlaceDetails(details)
+          // Review sentiment for write-time price corroboration (P4.1) — reuses the reviews we
+          // just fetched (no extra Places call). analyzeReviews has a graceful empty fallback.
+          const raw = (c.state.locationSnapshot?.recentReviews ?? []).map((r) => ({ text: r.text, rating: r.rating, date: r.date }))
+          if (raw.length > 0) c.state.locationReviews = await analyzeReviews(raw, { source: "google_places" })
         }
         return { hasPlacesData: !!c.state.locationSnapshot }
       },
@@ -314,7 +322,10 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
           if (s) compMenus.push({ competitorId: comp.id, competitorName: comp.name ?? "Competitor", menu: s.raw_data as MenuSnapshot, siteContent: null })
         }
 
-        const insights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenu)
+        const rawInsights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenu)
+        // P4.1: corroborate price plays against our own reviews at WRITE time, so the persisted
+        // rows every surface reads (brief, /insights Feed, /social) are already corrected.
+        const insights = corroboratePriceInsights(rawInsights, c.state.locationReviews)
         for (const ins of insights) {
           const compName = (ins.evidence as Record<string, unknown>)?.competitor as string | undefined
           let compId: string | null = null
@@ -373,6 +384,6 @@ export async function buildInsightsContext(
     location: { id: location.id, name: location.name, primary_place_id: location.primary_place_id },
     dateKey: new Date().toISOString().slice(0, 10),
     competitors,
-    state: { locationSnapshot: null, insightsPayload: [], warnings: [] },
+    state: { locationSnapshot: null, locationReviews: null, insightsPayload: [], warnings: [] },
   }
 }
