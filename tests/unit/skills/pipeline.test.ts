@@ -106,6 +106,19 @@ describe("full engine pipeline (producers -> synthesis -> voice)", () => {
     expect(brief.plays.length).toBeGreaterThan(0) // deterministic ordering fills in
   })
 
+  it("dedupes a repeated model order index so the same play never appears twice", async () => {
+    // A model at temperature can name the same index twice; the brief must list it once.
+    const dupOrder: Transport = async (req) => {
+      if ((req.system ?? "").includes("Chief of Staff")) {
+        return { headline: "Repeated picks collapse to one", deck: "The model named a play twice; the brief lists it once.", order: [0, 0, 1] }
+      }
+      return [goodPlay]
+    }
+    const brief = await runPipeline(dupOrder)
+    expect(brief.plays.length).toBeGreaterThanOrEqual(1)
+    expect(new Set(brief.plays).size).toBe(brief.plays.length) // no duplicate play references
+  })
+
   it("provider down: fallback deck is SPECIFIC (grounded themes), never the empty/generic string", async () => {
     const throwing: Transport = async () => {
       throw new Error("529 overloaded")

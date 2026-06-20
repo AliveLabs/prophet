@@ -63,6 +63,7 @@ export const marketingSkill: ProducerSkill = {
   displayName: "Marketing & Campaign expert",
   ownerRole: "marketing",
   kind: "capitalize",
+  category: "marketing",
   tier: "reasoning",
   temperature: 0.6,
   knowledgeVersion: "marketing@v1",

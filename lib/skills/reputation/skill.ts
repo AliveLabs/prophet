@@ -53,6 +53,7 @@ export const reputationSkill: ProducerSkill = {
   displayName: "Reputation & Reviews expert",
   ownerRole: "owner",
   kind: "reputation",
+  category: "reputation",
   tier: "reasoning",
   temperature: 0.4,
   knowledgeVersion: "reputation@v1",

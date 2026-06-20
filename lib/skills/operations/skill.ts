@@ -53,6 +53,7 @@ export const operationsSkill: ProducerSkill = {
   displayName: "Operations expert (staffing, hours, throughput)",
   ownerRole: "gm",
   kind: "ops",
+  category: "operations",
   tier: "reasoning",
   temperature: 0.4,
   knowledgeVersion: "operations@v1",

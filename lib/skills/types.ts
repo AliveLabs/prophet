@@ -17,6 +17,15 @@ export type RecKind = "prepare" | "capitalize" | "positioning" | "reputation" | 
 
 export type Confidence = "high" | "medium" | "directional"
 
+/**
+ * Operator-facing DOMAIN of a play — used by the scoring priors, drill-down, and the
+ * per-operator rerank controls (P2/P3/P8). Declared INTRINSICALLY on each ProducerSkill;
+ * NOT derived from RecKind (local-demand and marketing both carry kind "capitalize" yet are
+ * different categories). Social folds into marketing for now (no skill owns it yet). RecKind
+ * stays the play SHAPE (prepare/capitalize/…); Category is the domain a play belongs to.
+ */
+export type Category = "demand" | "marketing" | "positioning" | "reputation" | "operations"
+
 /** One concrete step of the plan — everything short of executing it. */
 export type RecipeStep = {
   channel: string // "Meta geo-ads" | "loyalty/digital wallet" | "in-store" | "Google Business" | ...

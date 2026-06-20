@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Dossier } from "@/lib/insights/dossier/types"
-import type { EnrichedRecommendation, OwnerRole, RecKind } from "@/lib/skills/types"
+import type { Category, EnrichedRecommendation, OwnerRole, RecKind } from "@/lib/skills/types"
 import type { ModelTier } from "@/lib/ai/provider"
 
 export type ProducerSkill = {
@@ -16,6 +16,9 @@ export type ProducerSkill = {
   ownerRole: OwnerRole
   /** The kind every play from this skill carries. */
   kind: RecKind
+  /** The operator-facing DOMAIN every play from this skill belongs to (drives scoring
+   *  priors, drill-down, and per-operator rerank). Intrinsic — not derived from kind. */
+  category: Category
   tier: ModelTier
   temperature: number
   knowledgeVersion: string

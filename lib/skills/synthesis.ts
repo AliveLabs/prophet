@@ -11,7 +11,9 @@
 import { generateStructured, type Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
-import type { Brief, BriefCoverage, EnrichedRecommendation, Confidence, RecKind } from "@/lib/skills/types"
+import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
+import { rankPlays, type ScoreInput } from "@/lib/skills/scoring-config"
+import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 
 export type SynthOptions = { transport?: Transport; maxPlays?: number }
 
@@ -38,16 +40,26 @@ function buildCoverage(d: Dossier): BriefCoverage[] {
   ]
 }
 
-const CONF_RANK: Record<Confidence, number> = { high: 3, medium: 2, directional: 1 }
-// forward-demand kinds lead; standing competitive moves sit below.
-const KIND_RANK: Record<RecKind, number> = { prepare: 5, capitalize: 5, reputation: 3, positioning: 2, ops: 4 }
+// Each play's operator-facing domain is its producing skill's intrinsic category
+// (no RecKind→Category translation layer — see types.ts Category). Built once from
+// the registry; a play whose skill can't be resolved falls back to a neutral prior.
+const CATEGORY_BY_SKILL: Record<string, Category> = Object.fromEntries(
+  PRODUCER_SKILLS.map((s) => [s.id, s.category]),
+)
 
-function score(p: EnrichedRecommendation): number {
-  return (KIND_RANK[p.kind] ?? 1) * 10 + (CONF_RANK[p.confidence] ?? 1)
-}
-
-function rankDeterministic(candidates: EnrichedRecommendation[], max: number): EnrichedRecommendation[] {
-  return [...candidates].sort((a, b) => score(b) - score(a)).slice(0, max)
+/** Map a play to its scoring factors: confidence, impact (leverage.label), and category. */
+function toScoreInput(p: EnrichedRecommendation): ScoreInput {
+  const category = CATEGORY_BY_SKILL[p.skillId]
+  if (!category) {
+    // Defensive: a play from a skill not in the registry shouldn't happen — surface the
+    // misconfig rather than silently scoring it at the neutral 1.0 prior.
+    console.warn(`[synthesis] no category for skillId "${p.skillId}"; scoring at neutral prior`)
+  }
+  return {
+    confidence: p.confidence,
+    impact: p.leverage?.label,
+    category: category ?? "marketing", // marketing == the neutral 1.0 prior
+  }
 }
 
 // Human, grounded deck themes per kind — used when the model's framing is unavailable.
@@ -88,6 +100,20 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   const candidates = results.flatMap((r) => r.plays)
   if (candidates.length === 0) return quietBrief(d)
 
+  // Score and rank the whole pool ONCE on the continuous combined score (impact +
+  // confidence + importance, × a modest category prior). This is the deterministic
+  // spine the model may reorder on success, and the grounded fallback otherwise.
+  // leverage (impact) now actually drives rank — the old KIND ladder ignored it.
+  const { ranked, priorFlipped } = rankPlays(candidates, toScoreInput)
+  const rankedPlays = ranked.map((r) => r.item)
+  if (priorFlipped) {
+    // Instrument when the category priors changed the order vs the base alone, so the
+    // SEED priors can be calibrated from evidence rather than asserted.
+    console.log(
+      `[synthesis] prior-flip: category priors reordered ${candidates.length} plays (${d.locationId} ${d.dateKey})`,
+    )
+  }
+
   const system = [
     "You are the Chief of Staff assembling a restaurant's WEEKLY brief from candidate plays produced by expert skills.",
     `Select the strongest plays that genuinely matter this week, up to ${max}. This is the weekly deep brief, so cover the DISTINCT kinds of opportunity that are real for this place: forward demand (events/weather), reputation, positioning, marketing, and operations.`,
@@ -121,18 +147,19 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
         return { headline: r.headline, deck: r.deck, order }
       },
       fallback: () => {
-        const ranked = rankDeterministic(candidates, max)
+        const top = rankedPlays.slice(0, max)
         return {
-          headline: ranked[0]?.title ?? "Your brief",
-          deck: deterministicDeck(ranked),
-          order: ranked.map((p) => candidates.indexOf(p)),
+          headline: top[0]?.title ?? "Your brief",
+          deck: deterministicDeck(top),
+          order: top.map((p) => candidates.indexOf(p)),
         }
       },
     },
   )
 
-  const ordered = selection.order.map((i) => candidates[i]).filter(Boolean).slice(0, max)
-  const plays = ordered.length ? ordered : rankDeterministic(candidates, max)
+  // Dedupe the model's order so a repeated index can't ship the same play twice.
+  const ordered = [...new Set(selection.order)].map((i) => candidates[i]).filter(Boolean).slice(0, max)
+  const plays = ordered.length ? ordered : rankedPlays.slice(0, max)
 
   return {
     locationId: d.locationId,

@@ -80,6 +80,7 @@ export const localDemandSkill: ProducerSkill = {
   displayName: "Local-Demand interpreter (events + weather)",
   ownerRole: "marketing",
   kind: "capitalize",
+  category: "demand",
   tier: "reasoning",
   temperature: 0.5,
   knowledgeVersion: "local-demand@v1",

@@ -80,6 +80,7 @@ export const positioningSkill: ProducerSkill = {
   displayName: "Positioning & Pricing expert",
   ownerRole: "owner",
   kind: "positioning",
+  category: "positioning",
   tier: "reasoning",
   temperature: 0.4,
   knowledgeVersion: "positioning@v1",
