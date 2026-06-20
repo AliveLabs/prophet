@@ -1,5 +1,15 @@
 # Prophet -- Codebase Blueprint
 
+> ⚠️ **PARTIALLY STALE as of 2026-06-20 — not maintained through the June engine rebuild.**
+> This blueprint (Anand, last updated **May 27, 2026**) predates the June "spine rewrite" and the
+> insight-engine rebuild. The sections on the **Insight Engine**, **Background Job System**, and
+> **Provider Architecture / Data Pipeline** no longer match production. The current engine —
+> producers → brand-fit review → synthesis → voice, cross-domain **convergence**, an **Opus 4.8
+> deep pass**, the durable `signal_jobs` / `pipeline_runs` queue, and the **DataForSEO
+> vendor-health failback** — is documented in `docs/engine-rewrite/insight-engine-phased-plan.md`
+> (P0–P10 with a status banner) and the session memory. Everything else here (auth, billing,
+> marketing, admin, DB schema, deployment) remains broadly accurate. Full rewrite is pending.
+
 > **Author:** Anand, GitHub Username: anandiyerdigital
 > **Last updated:** May 27, 2026 (Marketing RLS hardening: `supabase/migrations/20260527220354_enable_rls_marketing_stream2.sql` enables Row-Level Security on the six `marketing` schema tables that the Supabase advisor flagged with `rls_disabled_in_public` on 2026-05-25 (`mentions`, `outbound_queue`, `prospects`, `replies_processed`, `studio_outbound_pending_approval`, `shared_domain_daily_counter`) and adds matching `<table>_anon_deny` policies to mirror the existing pattern on `marketing.contacts/email_log/events/failed_events`. Also revokes the loose anon/authenticated INSERT/UPDATE grants from `marketing.mentions` for defense-in-depth (anon SELECT remains, but RLS now denies it). Service-role traffic (Next.js admin client + n8n Stream 2 webhooks) is unaffected because `service_role` has `BYPASSRLS=true`; the audit before applying showed all REST traffic on these tables originates from service-role JWTs (DELETE/INSERT calls would fail under anon/authenticated grants). Same commit restores 8 previously-untracked migrations into `supabase/migrations/` (`20260306142531_social_media_bucket_policies`, `20260331171149_waitlist_admin_setup`, `20260331173237_admin_activity_log`, `20260506220255_fix_marketing_contacts_service_role_grants`, `20260520221713_19_mentions_table`, `20260525180019_align_billing_schema`, `20260525180031_stripe_events_table`, `20260525192924_stream2_outbound_schema`) using the exact SQL recorded in `supabase_migrations.schema_migrations` so local git history matches what's already applied on the remote project.)
 >

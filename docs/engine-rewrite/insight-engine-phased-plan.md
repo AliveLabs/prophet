@@ -9,6 +9,30 @@ Each phase ends with: `tsc` clean · unit tests · prod build · commit on spine
 
 File:line and sketches grounded by an 11-agent parallel investigation (2026-06-19).
 
+---
+
+## STATUS — updated 2026-06-20 (← resume here)
+
+**P0–P5 are SHIPPED to prod** (spine-rewrite → FF'd to origin/main; app.getticket.ai 200):
+P0 QSR de-absolutize (b2794f3) · P1 hours gate (0d6bc01) · P2 scoring core · P4/P4.1 price
+corroboration · P3 ranked-spine + operator-facing category (→ 76c8621) · **P5 cross-domain
+convergence + Opus 4.8 deep pass (8da2473)**.
+
+Shipped ALONGSIDE the plan (ops/quality, not numbered phases):
+- **Vendor-health failback** for silent DataForSEO outages (20928a4 + cc76f52): typed
+  `DataForSEOError`, `signals.vendor` on pipeline_runs, "temporarily unavailable" coverage UI,
+  daily ops-alert cron (email + Slack-when-configured). All review findings closed.
+- **Model bump** (dfae52b): producers → Sonnet 4.6 + adaptive thinking (medium effort, 16k);
+  convergence + synthesis → Opus 4.8 (adaptive thinking, high effort). Graceful fallback throughout.
+  Cost dial-down levers + Ask-Ticket latency: see memory `ticket-model-cost-levers`.
+
+⏳ Deferred from P5: domain-map `ADJACENT_DOMAINS` adjacency (cheap overlap; touches every producer).
+
+**➡️ NEXT: P6 — expert roster (food-pairing + guerrilla/grassroots).** See the P6 section below;
+confirm scope/roster with Bryan before building. Then P7–P10.
+
+---
+
 ## Scoring model (underpins P2/P3/P8/P10) — DECIDED 2026-06-19
 ```
 base = w_impact·impact + w_confidence·confidence + w_importance·importance   (each factor a WHOLE 0–100)
