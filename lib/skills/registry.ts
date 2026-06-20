@@ -7,6 +7,8 @@ import { positioningSkill } from "@/lib/skills/positioning/skill"
 import { marketingSkill } from "@/lib/skills/marketing/skill"
 import { reputationSkill } from "@/lib/skills/reputation/skill"
 import { operationsSkill } from "@/lib/skills/operations/skill"
+import { foodPairingSkill } from "@/lib/skills/food-pairing/skill"
+import { guerrillaMarketingSkill } from "@/lib/skills/guerrilla-marketing/skill"
 import { convergenceSkill } from "@/lib/skills/convergence/skill"
 
 export const PRODUCER_SKILLS: ProducerSkill[] = [
@@ -15,6 +17,11 @@ export const PRODUCER_SKILLS: ProducerSkill[] = [
   marketingSkill,
   reputationSkill,
   operationsSkill,
+  // P6 expert roster — two specialist producers feeding the SAME global pool (no per-expert cap).
+  // food-pairing = the kitchen (what to feature, when); guerrilla = zero-budget hyper-local growth.
+  // Both run on the standard reasoning tier (not the deep pass).
+  foodPairingSkill,
+  guerrillaMarketingSkill,
   // P5: cross-domain convergence — sees the WHOLE dossier, runs on the deep (Opus + thinking)
   // pass, feeds the same global pool. Last so the domain experts' plays are produced alongside it.
   convergenceSkill,

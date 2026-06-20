@@ -77,6 +77,15 @@ export const FACTOR_WEIGHTS = {
 export const CATEGORY_PRIORS: Record<Category, number> = {
   demand: 1.0,
   marketing: 1.0,
+  // P6: menu / food-pairing plays (the kitchen expert) compete on merit — NEUTRAL prior, like
+  // demand/marketing. We start narrow and earn any bias from instrumented evidence rather than
+  // asserting it (the calibration principle). A "feature the short rib this cold snap" play is a
+  // revenue-capture move; no reason to thumb the scale up or down before we have data.
+  menu: 1.0,
+  // P6: grassroots / guerrilla marketing (zero-budget hyper-local hustle) is its OWN domain, split
+  // from marketing (digital/social) so the operator sees two distinct lenses and synthesis can tell
+  // the plays apart. Neutral prior — same calibrate-from-evidence stance as menu.
+  grassroots: 1.0,
   positioning: 0.95,
   reputation: 0.92,
   operations: 0.85,
