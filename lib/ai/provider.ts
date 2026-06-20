@@ -39,7 +39,7 @@ export type GenerateRequest = {
 /** A transport returns already-parsed JSON (or null on parse failure). Injectable for tests. */
 export type Transport = (req: GenerateRequest) => Promise<unknown>
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5"
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6"
 /** Deep reasoning model for the convergence + synthesis pass (P5): Opus + adaptive thinking. */
 export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-4-8"
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
@@ -107,9 +107,13 @@ function buildSystemPayload(req: GenerateRequest): string | Array<Record<string,
 export async function claudeRaw(req: GenerateRequest, opts: { retries?: number } = {}): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured")
-  // synthesis runs right after a parallel skill burst; retry to survive rate limits. But on
-  // the deep path each retry is an EXPENSIVE Opus+thinking call, so retry fewer times there.
-  const maxAttempts = (opts.retries ?? (req.thinking ? 1 : 4)) + 1
+  // synthesis runs right after a parallel skill burst; retry to survive rate limits. Only the
+  // EXPENSIVE Opus deep call retries fewer times (each retry is a costly Opus+thinking call) —
+  // Sonnet producers now also think but stay cheap, so keep their full retry budget.
+  const isDeepOpus = req.thinking === true && (req.model ?? "").includes("opus")
+  const maxAttempts = (opts.retries ?? (isDeepOpus ? 1 : 4)) + 1
+  // Thinking calls are non-streaming with big headroom; give them a generous abort ceiling so a
+  // hang degrades to the fallback instead of stalling the brief. Non-thinking calls get a tighter one.
   const timeoutMs = req.thinking ? DEEP_TIMEOUT_MS : REQUEST_TIMEOUT_MS
   let lastErr: unknown
   const system = buildSystemPayload(req)

@@ -25,11 +25,16 @@ export async function runProducerSkill(
 ): Promise<SkillResult> {
   try {
     const { systemCached, system, prompt } = skill.buildPrompt(dossier)
-    // Deep skills (convergence) run on Opus + adaptive thinking; the provider drops temperature
-    // on that path (Opus 4.8 rejects it). Producers stay on the Sonnet reasoning tier + temperature.
-    const deepReq = skill.deep ? { model: DEEP_MODEL, thinking: true, effort: "high" as const } : {}
+    // Deep skills (convergence) → Opus + adaptive thinking, high effort. Producers → the base
+    // reasoning model (Sonnet 4.6) + adaptive thinking, MEDIUM effort (quality uplift, Bryan
+    // 2026-06-20) bounded to 16k output. The provider omits temperature on any thinking path.
+    // COST DIAL-DOWN: if spend threatens the model, drop producers back to no-thinking +
+    // temperature (remove thinking/effort here) — that's the "like-for-like" 4.6 baseline.
+    const reqTuning = skill.deep
+      ? { model: DEEP_MODEL, thinking: true as const, effort: "high" as const }
+      : { thinking: true as const, effort: "medium" as const, maxOutputTokens: 16000 }
     const plays = await generateStructured<EnrichedRecommendation[]>(
-      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature, ...deepReq },
+      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
       {
         transport: opts.transport,
         validate: (raw) => skill.parse(raw, dossier),
