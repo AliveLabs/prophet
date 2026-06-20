@@ -21,6 +21,14 @@ const KIND_LABEL: Record<EnrichedRecommendation["kind"], string> = {
   reputation: "Reputation",
   ops: "Operations",
 }
+// Operator-facing DOMAIN (the play's category), distinct from kind (the play shape). (P3)
+const CATEGORY_LABEL: Record<NonNullable<EnrichedRecommendation["category"]>, string> = {
+  demand: "Demand",
+  marketing: "Marketing",
+  positioning: "Positioning",
+  reputation: "Reputation",
+  operations: "Operations",
+}
 
 // True per-source run outcomes (pipeline_runs) for the provenance drill.
 const OUTCOME_LABEL: Record<string, string> = {
@@ -119,6 +127,9 @@ function PlayCard({
       {/* one consolidated label row: kind + explicit Confidence/Impact (same system) + topic */}
       <div className="movecard__meta">
         <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
+        {play.category && CATEGORY_LABEL[play.category] !== KIND_LABEL[play.kind] ? (
+          <span className="category-tag">{CATEGORY_LABEL[play.category]}</span>
+        ) : null}
         <span className="metric"><span className="metric-k">Confidence</span><span className="metric-v">{CONF_LABEL[play.confidence]}</span></span>
         {play.leverage ? (
           <span className="metric"><span className="metric-k">Impact</span><span className="metric-v">{play.leverage.label}{play.leverage.reach ? ` · ${play.leverage.reach}` : ""}</span></span>
@@ -197,6 +208,12 @@ export default function BriefView({
   const ranked = brief.plays.map((play, i) => ({ play, rank: i + 1, action: actions[playKey(play)] ?? null }))
   const active = ranked.filter((r) => r.action !== "snoozed" && r.action !== "dismissed")
   const cleared = ranked.filter((r) => r.action === "snoozed" || r.action === "dismissed")
+  // Ranked spine on top (plays arrive best-first by combined score); the rest sit behind a
+  // collapsible drill so a long brief doesn't overwhelm. Category rides on each card (the
+  // operator-facing domain) — ONE ranked list stays the spine, not parallel category columns. (P3)
+  const SPINE_MAX = 5
+  const spine = active.slice(0, SPINE_MAX)
+  const rest = active.slice(SPINE_MAX)
 
   return (
     <div className="ticket-brief">
@@ -227,7 +244,7 @@ export default function BriefView({
                 <span className="momentum">You&apos;ve acted on <b>{weeklyMomentum}</b> play{weeklyMomentum === 1 ? "" : "s"} this week</span>
               ) : null}
             </div>
-            {active.map(({ play, rank, action }, i) => (
+            {spine.map(({ play, rank, action }, i) => (
               <PlayCard
                 key={playKey(play)}
                 play={play}
@@ -240,6 +257,26 @@ export default function BriefView({
                 action={action}
               />
             ))}
+            {rest.length ? (
+              <details className="zone-more drill">
+                <summary><span className="car">▸</span> {rest.length} more move{rest.length === 1 ? "" : "s"} this week</summary>
+                <div className="drill__body">
+                  {rest.map(({ play, rank, action }) => (
+                    <PlayCard
+                      key={playKey(play)}
+                      play={play}
+                      rank={rank}
+                      isLead={false}
+                      locationId={locationId}
+                      dateKey={brief.dateKey}
+                      readOnly={readOnly}
+                      detailHrefBase={detailHrefBase}
+                      action={action}
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
             {cleared.length ? (
               <div className="cleared-strip">
                 <span className="cleared-strip__label">Cleared today</span>

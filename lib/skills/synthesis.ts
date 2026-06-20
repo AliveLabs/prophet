@@ -106,6 +106,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // leverage (impact) now actually drives rank — the old KIND ladder ignored it.
   const { ranked, priorFlipped } = rankPlays(candidates, toScoreInput)
   const rankedPlays = ranked.map((r) => r.item)
+  const scoreByPlay = new Map(ranked.map((r) => [r.item, r.score]))
   if (priorFlipped) {
     // Instrument when the category priors changed the order vs the base alone, so the
     // SEED priors can be calibrated from evidence rather than asserted.
@@ -159,7 +160,10 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
 
   // Dedupe the model's order so a repeated index can't ship the same play twice.
   const ordered = [...new Set(selection.order)].map((i) => candidates[i]).filter(Boolean).slice(0, max)
-  const plays = ordered.length ? ordered : rankedPlays.slice(0, max)
+  const chosen = ordered.length ? ordered : rankedPlays.slice(0, max)
+  // P3: stamp each chosen play with its combined score + operator-facing category, for the
+  // ranked display + category drill-down. Optional fields — old persisted briefs simply lack them.
+  const plays = chosen.map((p) => ({ ...p, combinedScore: scoreByPlay.get(p), category: CATEGORY_BY_SKILL[p.skillId] }))
 
   return {
     locationId: d.locationId,

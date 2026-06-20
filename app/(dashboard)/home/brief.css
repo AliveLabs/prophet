@@ -71,6 +71,8 @@
 .ticket-brief .kind-tag--positioning,
 .ticket-brief .kind-tag--reputation,
 .ticket-brief .kind-tag--ops{ color:var(--gold-deep); background:rgba(201,148,42,.10); }
+/* Operator-facing DOMAIN (category) — muted/outlined so it reads as secondary to the kind tag. (P3) */
+.ticket-brief .category-tag{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; padding:2px 8px; border-radius:3px; border:1px solid var(--rule); color:var(--ash); background:transparent; }
 .ticket-brief .movecard__do{ font-family:var(--font-display); font-size:25px; line-height:1.12; color:var(--ink); margin:6px 0 0; }
 .ticket-brief .movecard__why{ margin-top:8px; font-size:14.5px; line-height:1.5; color:var(--print); }
 .ticket-brief .movecard__why .num{ font-weight:600; color:var(--ink); }
@@ -106,6 +108,10 @@
 .ticket-brief .drill[open] > summary .car{ transform:rotate(90deg); }
 .ticket-brief .drill > summary .hint{ font-family:var(--font-mono); font-weight:400; text-transform:none; letter-spacing:0; font-size:11px; color:var(--ash-2); }
 .ticket-brief .drill__body{ padding:14px 0 4px; }
+/* Zone-level "N more moves" collapse — a solid rule + more breathing room than in-card drills. (P3) */
+.ticket-brief .zone-more{ margin-top:26px; border-top:1px solid var(--rule); }
+.ticket-brief .zone-more > summary{ padding-top:16px; font-size:13px; color:var(--ink); }
+.ticket-brief .zone-more .drill__body{ padding-top:8px; }
 
 .ticket-brief .insight-line{ border-left:2px solid var(--rust); padding:2px 0 2px 15px; margin:0 0 16px; }
 .ticket-brief .insight-line .il-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:10.5px; color:var(--rust); display:block; margin-bottom:4px; }

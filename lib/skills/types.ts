@@ -70,6 +70,11 @@ export type EnrichedRecommendation = {
   /** Reviewer's boldness score (0 on-brand .. 3 wild), stamped by applyHarmReview —
    *  carried onto feedback so tolerance recalibration actually moves. */
   severity?: number
+  /** P3 display: the 0-100 combined score this play ranked on, and its operator-facing
+   *  domain. Stamped by synthesis; optional so older persisted briefs deserialize cleanly
+   *  and the deterministic eval fixtures (which omit them) still type-check. */
+  combinedScore?: number
+  category?: Category
 }
 
 /** One signal source the engine checked when building the brief (the "what we checked" view). */
