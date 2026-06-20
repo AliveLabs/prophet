@@ -12,6 +12,20 @@ export function priceLevelToSymbols(level: string | null | undefined): string {
   return level ? (PRICE_SYMBOLS[level] ?? "") : ""
 }
 
+const PRICE_TIERS: Record<string, string> = {
+  PRICE_LEVEL_INEXPENSIVE: "value",
+  PRICE_LEVEL_MODERATE: "mid-market",
+  PRICE_LEVEL_EXPENSIVE: "upscale",
+  PRICE_LEVEL_VERY_EXPENSIVE: "premium",
+}
+
+/** "PRICE_LEVEL_VERY_EXPENSIVE" -> "premium" (undefined when unknown/free). Feeds the positioning
+ *  skill's premium-vs-value branch, the brand-fit review, and the prompt locale. The words here
+ *  are what positioning/skill.ts matches ("premium"/"upscale" => position on quality, not a cut). */
+export function priceLevelToTier(level: string | null | undefined): string | undefined {
+  return level ? PRICE_TIERS[level] : undefined
+}
+
 /** A readable cuisine from a Places type: "japanese_restaurant" -> "Japanese", "steak_house" -> "Steak house". */
 export function typeToCuisine(primaryType: string | null | undefined, types: string[] = []): string {
   const raw =

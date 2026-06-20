@@ -20,6 +20,7 @@ import type { SocialSnapshotData } from "@/lib/social/types"
 import type { BriefCoverage } from "@/lib/skills/types"
 import type { Transport } from "@/lib/ai/provider"
 import { fetchPlaceDetails } from "@/lib/places/google"
+import { priceLevelToTier, typeToCuisine } from "@/lib/places/format"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
@@ -335,6 +336,8 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // ── FUNDED DATA: own Places details (rating + reviews), own foot traffic, review sentiment ──
   let serviceModel: string | undefined
   let operatingHours: HoursGate | undefined
+  let priceTier: string | undefined
+  let cuisine: string | undefined
   const placeId = (loc as Record<string, unknown>).primary_place_id as string | null
   if (placeId) {
     // own foot traffic (Outscraper on our OWN place) — cheap, unlocks own-vs-rival traffic reasoning
@@ -371,6 +374,11 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
             : /restaurant|food/.test(all)
               ? "dine-in"
               : undefined
+        // Price tier + cuisine from Google Places — attributes were previously empty, so the
+        // positioning skill's premium-vs-value branch, the brand-fit review, and the prompt
+        // locale all read undefined (a premium steakhouse looked like a value spot). Populate them.
+        priceTier = priceLevelToTier(details.priceLevel)
+        cuisine = typeToCuisine(primary, types)
         // Dayparts served — the reliable gate (P1). serves* may be absent → leave
         // the field undefined (unknown) so no daypart restriction is applied.
         if (
@@ -449,7 +457,11 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     timezone: ((loc as Record<string, unknown>).timezone as string) ?? "America/New_York",
     voiceTone: "warm_personal", // column lands with the skill-layer migration; default until then
     ...(operatingHours ? { hours: operatingHours } : {}),
-    attributes: { ...(serviceModel ? { serviceModel } : {}) },
+    attributes: {
+      ...(serviceModel ? { serviceModel } : {}),
+      ...(priceTier ? { priceTier } : {}),
+      ...(cuisine ? { cuisine } : {}),
+    },
     capability: {}, // operator-capability profile lands with onboarding; empty until then
   }
 
