@@ -26,10 +26,31 @@ Shipped ALONGSIDE the plan (ops/quality, not numbered phases):
   convergence + synthesis → Opus 4.8 (adaptive thinking, high effort). Graceful fallback throughout.
   Cost dial-down levers + Ask-Ticket latency: see memory `ticket-model-cost-levers`.
 
-⏳ Deferred from P5: domain-map `ADJACENT_DOMAINS` adjacency (cheap overlap; touches every producer).
+**P6 SHIPPED TO PROD (edca32c; origin/main FF'd, app.getticket.ai 200, 2026-06-20):**
+expert roster = two producers feeding the same global pool on the standard reasoning tier (not the
+deep pass, so cost is flat). food-pairing (category **Menu**, ownerRole kitchen) + guerrilla-
+marketing (its own category **Grassroots**, split from marketing, ownerRole marketing). Both NEUTRAL
+1.0 prior; knowledge authored v1 (food-pairing@v1 / guerrilla@v1), CURATED, flagged for Bryan/Chris
+domain review. Two new operator-facing categories wired in the 3 tsc-enforced touchpoints; synthesis
+auto-derives category from the registry. A 5-lens adversarial review was folded (dropped 3 dead-on-
+arrival cross-signal types; aligned both skills' signal sets to their prose boundary; +honesty/zero-
+play/boundary tests). tsc · 304 unit tests · next build green. **DEPLOYED 2026-06-20
+(prophet-5h4eguaso ● Ready). NOTE: P6 only affects NEW dossiers/briefs — takes effect on each
+location's next pull/brief build.**
 
-**➡️ NEXT: P6 — expert roster (food-pairing + guerrilla/grassroots).** See the P6 section below;
-confirm scope/roster with Bryan before building. Then P7–P10.
+⏳ Deferred / follow-ons:
+- From P5: domain-map `ADJACENT_DOMAINS` adjacency (cheap overlap; touches every producer).
+- **NEW (P6.5 — play fusion):** synthesis has NO deterministic semantic dedup (only same-index Set +
+  an LLM prompt line). Two skills can ground a play on the SAME signal from different lenses (e.g.
+  marketing + grassroots on `behind_scenes_opportunity`). Bryan's call (2026-06-20): do NOT just drop
+  the lower-scored one — DETECT the near-dup cluster (shared lead evidenceRef + kind) and FUSE the 2+
+  plays into one richer play (union of evidenceRefs, merged recipe, best leverage/confidence), with a
+  deterministic fallback to keep-best and a prompt escape ("actually distinct → keep both") to guard
+  false-merges. A mini cross-skill synthesis pass before ranking; +1 LLM call per cluster. Its own
+  phase (touches shared synthesis for ALL skills; cost + false-merge risk → wants its own review/save
+  point). The Grassroots split + signal alignment make P6 skills distinguishable in the meantime.
+
+**➡️ NEXT: P6.5 play fusion (above) and/or P7 evergreen bucket.** P8–P10 after.
 
 ---
 
@@ -153,7 +174,15 @@ domain skill can (heat wave + heavy menu + "slow when busy" reviews → push fas
   narrow to avoid low-signal "patterns." Open Q: small scoring boost for convergence plays?
   (decide in P2 tuning, default no.)
 
-## P6 — Expert roster: food-pairing + guerrilla/grassroots  ·  size: MEDIUM  ·  deps: P2 (pool), P5 (convergence pattern, optional)
+## P6 — Expert roster: food-pairing + guerrilla/grassroots  ·  🚀 SHIPPED TO PROD (edca32c, 2026-06-20)  ·  size: MEDIUM  ·  deps: P2 (pool), P5 (convergence pattern, optional)
+**Shipped reality (2026-06-20):** food-pairing → category **Menu**; guerrilla → its OWN category
+**Grassroots** (not "marketing" — Bryan's call, so the operator sees two lenses + synthesis can tell
+them apart). food-pairing grounds on the menu FEATURE signals + 2 live weather cues (price signals
+left to positioning; the 3 social.cross_* "seasonal" types were dropped as dead-on-arrival). guerrilla
+grounds on events/traffic + community/advocacy social (content-performance signals left to marketing).
+Margin/prep-speed are QUALITATIVE in food-pairing's knowledge (not in the dossier — never fabricated).
+Original goal/spec below.
+
 **Goal:** add two producer skills feeding the SAME global pool (no per-expert display cap).
 - NEW `lib/skills/food-pairing/{skill,knowledge}.ts`: kitchen expert (daypart × weather ×
   seasonality × prep-speed × margin). Region/season-agnostic prose; the dossier grounds it.
@@ -162,6 +191,18 @@ domain skill can (heat wave + heavy menu + "slow when busy" reviews → push fas
 - `registry.ts`: add both. **Knowledge is CURATED, not invented** — sourced from vetted material
   (Bryan/Chris), repo principles, and real operator knowledge; never from a single forum.
 - Can split into P6a (food-pairing) / P6b (guerrilla) if a window is tight.
+
+## P6.5 — Play fusion (near-dup coalescing)  ·  size: MEDIUM  ·  deps: P2 (pool), P3 (synthesis)
+**Goal (Bryan, 2026-06-20):** when two skills produce plays on the SAME signal from different lenses,
+do NOT drop one — FUSE them into one richer play. Today synthesis has no semantic dedup (only same-
+index `new Set` + an LLM prompt line), so near-dups can both ship.
+- DETECT: cluster candidate plays by shared lead `evidenceRef` + `kind` (deterministic, pure, cheap).
+- FUSE: one LLM call per cluster → a single `EnrichedRecommendation` combining the lenses (union of
+  evidenceRefs, merged recipe, best leverage/confidence). Deterministic fallback = keep the higher-
+  scored play (today's behavior). Prompt may answer "actually distinct → keep both" to guard false-merge.
+- PLACEMENT: a pre-ranking step in `synthesize()` (lib/skills/synthesis.ts), before `rankPlays`.
+- Conceptually the convergence skill, but operating on detected post-production clusters. +1 LLM call
+  per cluster; touches shared synthesis for ALL skills → its own review + save point.
 
 ## P7 — Evergreen insight bucket  ·  size: SMALL–MED  ·  deps: none (better after P3)
 **Goal:** persist good advice; stop regenerating daily; don't re-show right after dismissal;
