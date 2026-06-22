@@ -9,7 +9,7 @@
 // ---------------------------------------------------------------------------
 
 import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
-import type { Dossier } from "@/lib/insights/dossier/types"
+import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
 import { rankPlays, computeCombinedScore, type ScoreInput } from "@/lib/skills/scoring-config"
@@ -23,7 +23,19 @@ export type SynthOptions = {
   /** P7a: playKeys in cross-day dismissal cooldown — filtered out of the pool before ranking so a
    *  dismissed play doesn't regenerate into the next brief until its cooldown expires. */
   suppressedKeys?: Set<string>
+  /** P7b: persisted "saved" plays — resurfaced into the pool when their grounding signals re-fire
+   *  today (and they're not already produced or in cooldown). Loaded by the build caller. */
+  evergreen?: EnrichedRecommendation[]
 }
+
+/** P7b: cap on how many persisted plays may resurface into one brief (avoid flooding). */
+const MAX_RESURFACED = 3
+
+/** P7b: only STANDING-advice kinds may resurface. demand/marketing/menu/grassroots plays are
+ *  prepare/capitalize — TIME-BOUND, with their dated specifics in the body (not the cited ref), so
+ *  re-resolving the bare ref would resurface a stale date/number verbatim. positioning/reputation/ops
+ *  are durable standing advice that's safe to bring back. (P7b review finding #1.) */
+const RESURFACE_KINDS = new Set<RecKind>(["reputation", "positioning", "ops"])
 
 // The weekly brief is the spine (deep), so it carries the strongest plays across the
 // distinct kinds of opportunity. A daily glance can pass a smaller maxPlays.
@@ -112,7 +124,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     opts.suppressedKeys && opts.suppressedKeys.size
       ? produced.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
       : produced
-  if (candidates.length === 0) return quietBrief(d)
+  // No early return on empty candidates — a quiet day can still resurface a relevant saved play (P7b).
 
   // P6.5: fuse near-duplicate plays (two lenses on ONE signal) into a single richer play BEFORE
   // ranking, so the pool the model selects from has no split near-dups. One cheap reasoning call per
@@ -124,10 +136,29 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // P7a: suppress again AFTER fusion. The pre-fusion filter above catches dismissed PRODUCER plays
   // (and keeps them out of fusion); this catches a dismissed FUSED play, whose stableKey is stable
   // across re-fusion even though its model-written title is not. (playKey prefers stableKey.)
-  const pool =
+  let pool =
     opts.suppressedKeys && opts.suppressedKeys.size
       ? fusedPool.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
       : fusedPool
+
+  // P7b: resurface persisted "saved" plays whose grounding signals re-fire today (relevance match),
+  // that aren't already produced or in cooldown. They then compete in ranking like any grounded play.
+  if (opts.evergreen?.length) {
+    const present = new Set(pool.map(playKey))
+    const allowedRefs = buildRefIndex(d).allowedRefs
+    const resurfaced = opts.evergreen
+      .filter((p) => RESURFACE_KINDS.has(p.kind)) // standing advice only — never resurface dated plays verbatim (#1)
+      .filter((p) => !present.has(playKey(p)))
+      .filter((p) => !opts.suppressedKeys?.has(playKey(p)))
+      .filter((p) => (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((r) => allowedRefs.has(r)))
+      // Strongest first so the cap keeps the best — don't rely on the DB load order (#3).
+      .sort((a, b) => computeCombinedScore(toScoreInput(b)) - computeCombinedScore(toScoreInput(a)))
+      .slice(0, MAX_RESURFACED)
+      // Drop any persisted reach figure — it may no longer trace to a live signal (#4).
+      .map((p) => (p.leverage?.reach ? { ...p, leverage: { ...p.leverage, reach: undefined } } : p))
+    if (resurfaced.length) pool = [...pool, ...resurfaced]
+  }
+
   if (pool.length === 0) return quietBrief(d)
 
   // Score and rank the whole pool ONCE on the continuous combined score (impact +

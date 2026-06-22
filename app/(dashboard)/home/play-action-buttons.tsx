@@ -8,6 +8,7 @@ import { useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { setPlayAction } from "./brief-actions"
 import type { PlayAction } from "@/lib/insights/momentum"
+import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 const LABEL: Record<PlayAction, string> = {
   saved: "Saved",
@@ -20,12 +21,16 @@ export default function PlayActionButtons({
   dateKey,
   playKey,
   current,
+  play,
   readOnly = false,
 }: {
   locationId: string
   dateKey: string
   playKey: string
   current: PlayAction | null
+  /** The full play — passed so a "save" persists reliably even if the live brief was rebuilt
+   *  between render and click (P7b: the server otherwise can't find it to persist). */
+  play?: EnrichedRecommendation
   readOnly?: boolean
 }) {
   const [pending, startTransition] = useTransition()
@@ -34,7 +39,8 @@ export default function PlayActionButtons({
   function act(action: PlayAction | null) {
     if (readOnly) return
     startTransition(async () => {
-      const res = await setPlayAction({ locationId, dateKey, playKey, action })
+      // Only send the (larger) play object on save, where the server needs it to persist.
+      const res = await setPlayAction({ locationId, dateKey, playKey, action, play: action === "saved" ? play : undefined })
       if (res.ok) router.refresh()
     })
   }

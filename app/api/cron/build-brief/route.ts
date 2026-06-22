@@ -16,7 +16,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief } from "@/lib/insights/daily-brief"
-import { loadActiveCooldowns } from "@/lib/insights/evergreen"
+import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
@@ -38,8 +38,9 @@ export async function GET(req: Request) {
   if (single) {
     try {
       const dossier = await buildDossier(single)
-      const suppressedKeys = await loadActiveCooldowns(single) // P7a: cross-day dismissal cooldown (fail-soft)
-      const { brief, dropped } = await runBrief(dossier, { suppressedKeys })
+      // P7a/P7b: dismissal cooldown + evergreen resurfacing (both fail-soft).
+      const [suppressedKeys, evergreen] = await Promise.all([loadActiveCooldowns(single), loadEvergreenPlays(single)])
+      const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen })
       await saveBrief(brief)
       // Pinned standing question re-runs on the fresh signals, right after the brief.
       const standing = await runStandingQuestion(single)

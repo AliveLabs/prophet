@@ -11,6 +11,8 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { playKey } from "@/lib/skills/preferences"
+import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 export const DEFAULT_COOLDOWN_DAYS = 14
 
@@ -92,5 +94,86 @@ export async function loadActiveCooldowns(
     return new Set((data ?? []).map((r) => r.play_key))
   } catch {
     return new Set()
+  }
+}
+
+// ── P7b: evergreen_plays — persisted "keep this" plays for relevance-based resurfacing ──────────
+
+// Loose client surface for the evergreen_plays table (not in generated types yet).
+export type EvergreenPlaysStore = {
+  from: (t: string) => {
+    upsert: (row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
+    delete: () => {
+      eq: (c: string, v: string) => { eq: (c2: string, v2: string) => Promise<{ error: { message: string } | null }> }
+    }
+    select: (cols: string) => {
+      eq: (c: string, v: string) => {
+        order: (col: string, opts: { ascending: boolean }) => {
+          limit: (n: number) => Promise<{ data: { play: unknown }[] | null; error: { message: string } | null }>
+        }
+      }
+    }
+  }
+}
+
+/** Bound on how many persisted plays a single build loads as resurface candidates. */
+const MAX_EVERGREEN_LOAD = 50
+
+function playsStore(client?: EvergreenPlaysStore): EvergreenPlaysStore {
+  return client ?? (createAdminSupabaseClient() as unknown as EvergreenPlaysStore)
+}
+
+/** Persist a SAVED play for later resurfacing. Throws on DB error (caller best-effort). */
+export async function saveEvergreenPlay(
+  locationId: string,
+  play: EnrichedRecommendation,
+  opts: { client?: EvergreenPlaysStore; nowMs?: number } = {},
+): Promise<void> {
+  const now = opts.nowMs ?? Date.now()
+  const { error } = await playsStore(opts.client)
+    .from("evergreen_plays")
+    .upsert(
+      {
+        location_id: locationId,
+        play_key: playKey(play),
+        play: play as unknown as Record<string, unknown>,
+        updated_at: iso(now),
+      },
+      { onConflict: "location_id,play_key" },
+    )
+  if (error) throw new Error(`saveEvergreenPlay failed: ${error.message}`)
+}
+
+/** Drop a persisted play (e.g. the user un-saves it). Throws on DB error (caller best-effort). */
+export async function removeEvergreenPlay(
+  locationId: string,
+  playKeyStr: string,
+  opts: { client?: EvergreenPlaysStore } = {},
+): Promise<void> {
+  const { error } = await playsStore(opts.client)
+    .from("evergreen_plays")
+    .delete()
+    .eq("location_id", locationId)
+    .eq("play_key", playKeyStr)
+  if (error) throw new Error(`removeEvergreenPlay failed: ${error.message}`)
+}
+
+/** The persisted plays for a location (resurfacing candidates). FAIL-SOFT: returns [] on any error
+ *  (incl. table-missing pre-migration) so a brief build never breaks. */
+export async function loadEvergreenPlays(
+  locationId: string,
+  opts: { client?: EvergreenPlaysStore } = {},
+): Promise<EnrichedRecommendation[]> {
+  try {
+    const { data, error } = await playsStore(opts.client)
+      .from("evergreen_plays")
+      .select("play")
+      .eq("location_id", locationId)
+      .order("saved_at", { ascending: false })
+      .limit(MAX_EVERGREEN_LOAD)
+    if (error) return []
+    return (data ?? []).map((r) => r.play as EnrichedRecommendation).filter(Boolean)
+  } catch {
+    return []
   }
 }

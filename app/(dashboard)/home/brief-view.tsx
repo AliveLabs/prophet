@@ -174,7 +174,7 @@ function PlayCard({
       <div className="movecard__foot">
         <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} severity={play.severity ?? 0} readOnly={readOnly} />
         {!readOnly ? (
-          <PlayActionButtons locationId={locationId} dateKey={dateKey} playKey={key} current={action ?? null} />
+          <PlayActionButtons locationId={locationId} dateKey={dateKey} playKey={key} current={action ?? null} play={play} />
         ) : null}
         {detailHrefBase ? (
           <a className="movecard__detail" href={`${detailHrefBase}/${rank}`}>Full detail &amp; evidence →</a>
@@ -294,7 +294,7 @@ export default function BriefView({
                   <span className="cleared-item" key={playKey(play)}>
                     <span className="cleared-item__title">{play.title}</span>
                     {!readOnly ? (
-                      <PlayActionButtons locationId={locationId} dateKey={brief.dateKey} playKey={playKey(play)} current={action} />
+                      <PlayActionButtons locationId={locationId} dateKey={brief.dateKey} playKey={playKey(play)} current={action} play={play} />
                     ) : (
                       <span className="cleared-item__state">{action === "snoozed" ? "Snoozed" : "Dismissed"}</span>
                     )}

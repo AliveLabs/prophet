@@ -12,8 +12,17 @@
 import { revalidatePath } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { recordPlayFeedback, type Verdict } from "@/lib/skills/preferences"
-import { recordDismissalCooldown, clearDismissalCooldown, type EvergreenStore } from "@/lib/insights/evergreen"
+import { recordPlayFeedback, playKey, type Verdict } from "@/lib/skills/preferences"
+import {
+  recordDismissalCooldown,
+  clearDismissalCooldown,
+  saveEvergreenPlay,
+  removeEvergreenPlay,
+  type EvergreenStore,
+  type EvergreenPlaysStore,
+} from "@/lib/insights/evergreen"
+import { getBrief } from "@/lib/insights/daily-brief"
+import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
@@ -83,18 +92,23 @@ export async function setPlayAction(input: {
   dateKey: string
   playKey: string
   action: "saved" | "snoozed" | "dismissed" | null
+  /** P7b: the full play, sent by the client on "save" so persistence doesn't depend on the live
+   *  brief still containing it (it may have been rebuilt since render). */
+  play?: EnrichedRecommendation
 }): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
   const raw = await createServerSupabaseClient()
   const supabase = raw as unknown as ActionStore
   // Cooldown writes go through the USER-SCOPED client so RLS enforces org membership — a foreign
   // locationId can't touch another org's cooldowns (the admin client would bypass RLS).
+  // Cooldown / evergreen writes go through the USER-SCOPED client so RLS enforces org membership.
   const evergreenClient = raw as unknown as EvergreenStore
+  const evergreenPlaysClient = raw as unknown as EvergreenPlaysStore
   try {
     if (input.action === null) {
-      // Only an undone DISMISSAL should lift the cross-day cooldown — undoing a save/snooze must not
-      // clear a still-active dismissal of a (key-colliding) play. Read the prior action first.
-      let wasDismissed = false
+      // Read the prior action so undo reverses exactly what it undid (lift a dismissal cooldown OR
+      // drop a persisted save) — and nothing else (e.g. undoing a save must not clear a cooldown).
+      let priorAction: string | undefined
       try {
         const { data } = await supabase
           .from("play_actions")
@@ -103,9 +117,9 @@ export async function setPlayAction(input: {
           .eq("date_key", input.dateKey)
           .eq("play_key", input.playKey)
           .maybeSingle()
-        wasDismissed = data?.action === "dismissed"
+        priorAction = data?.action
       } catch {
-        /* best-effort: if we can't read the prior action, don't clear a cooldown we're unsure about */
+        /* best-effort: if we can't read the prior action, reverse nothing extra */
       }
       const { error } = await supabase
         .from("play_actions")
@@ -114,12 +128,17 @@ export async function setPlayAction(input: {
         .eq("date_key", input.dateKey)
         .eq("play_key", input.playKey)
       if (error) return { ok: false, error: error.message }
-      if (wasDismissed) {
+      if (priorAction === "dismissed") {
         try {
           await clearDismissalCooldown(input.locationId, input.playKey, { client: evergreenClient })
         } catch (e) {
-          // Best-effort, but log so a real post-migration failure is observable (not silently kept suppressed).
           console.warn("[evergreen] clear cooldown failed:", e instanceof Error ? e.message : e)
+        }
+      } else if (priorAction === "saved") {
+        try {
+          await removeEvergreenPlay(input.locationId, input.playKey, { client: evergreenPlaysClient })
+        } catch (e) {
+          console.warn("[evergreen] remove saved play failed:", e instanceof Error ? e.message : e)
         }
       }
     } else {
@@ -141,6 +160,19 @@ export async function setPlayAction(input: {
           await recordDismissalCooldown(input.locationId, input.playKey, { client: evergreenClient })
         } catch (e) {
           console.warn("[evergreen] record cooldown failed:", e instanceof Error ? e.message : e)
+        }
+      } else if (input.action === "saved") {
+        // P7b: persist the saved play for relevance-based resurfacing. Prefer the play the client sent
+        // (robust even if today's brief was rebuilt since render); fall back to looking it up in the
+        // current brief. SECURITY: the getBrief fallback uses the admin client (RLS bypass), so it MUST
+        // stay after the user-scoped play_actions upsert above — that upsert's RLS with-check is what
+        // gates membership for this location; reordering it would be an IDOR.
+        try {
+          const play =
+            input.play ?? (await getBrief(input.locationId, { dateKey: input.dateKey }))?.plays.find((p) => playKey(p) === input.playKey)
+          if (play) await saveEvergreenPlay(input.locationId, play, { client: evergreenPlaysClient })
+        } catch (e) {
+          console.warn("[evergreen] persist saved play failed:", e instanceof Error ? e.message : e)
         }
       }
     }

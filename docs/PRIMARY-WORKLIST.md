@@ -21,9 +21,9 @@ engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
   `vercel env pull .env.local --environment=production` (from GetTicket/). Then local tooling reads real prod.
 - [ ] **Knowledge review** (#3) — `docs/engine-rewrite/skill-knowledge-review.md`: review food-pairing@v1 +
   guerrilla@v1 prose (you + Chris). Edits → bump `@v2` → redeploy.
-- [ ] **Run the P7a migration** — `supabase/migrations/20260622193000_evergreen_dismissals.sql` in the
-  Supabase SQL editor (the cross-day dismissal cooldown is a graceful no-op until this table exists). SQL
-  was handed over in chat 2026-06-22.
+- [x] **Run the P7a migration** — DONE 2026-06-22 (Bryan ran `evergreen_dismissals` DDL). P7a cooldown active.
+- [ ] **Run the P7b migration** — `supabase/migrations/20260622210000_evergreen_plays.sql` in the Supabase SQL
+  editor (persist + resurface is a graceful no-op until this table exists). SQL handed over in chat 2026-06-22.
 - [ ] DB **migrations** for upcoming phases go via the Supabase SQL editor — agent hands you the exact SQL,
   you run it (admin Phase 6, engine P7b/P9/P10 all need migrations).
 
@@ -55,8 +55,9 @@ Engine P0–P6.5 SHIPPED. Watchdog shipped (needs arming, above).
 
 - [x] **P7a — cross-day dismissal cooldown** SHIPPED (2f638cf) — dismissed plays stay suppressed 14d across
   rebuilds. ⚠️ needs the `evergreen_dismissals` migration run (above) to activate.
-- [ ] **P7b — Evergreen persist + resurface** ← NEXT. Persist saved/good plays; resurface when their
-  grounding signals re-fire (relevance match). New migration `evergreen_plays`.
+- [x] **P7b — Evergreen persist + resurface** SHIPPED — saving a play persists it; STANDING-advice plays
+  (positioning/reputation/ops) resurface when their grounding re-fires (score-ordered, capped). ⚠️ needs the
+  `evergreen_plays` migration run (above) to activate. ➡️ NEXT engine phase = **P8 per-operator rerank**.
 - [ ] **P8 — Per-operator category rerank controls** — operators boost/reorder categories per-location
   (sliders), overriding global priors. `locations.settings.categoryPriors` (no migration).
 - [ ] **P9 — Dynamic expertise feed (trends)** — make skill knowledge dynamic via a weekly curated feed

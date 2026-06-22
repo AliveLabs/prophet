@@ -8,6 +8,7 @@ import type { Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
+// (suppressedKeys / evergreen are loaded by the build caller from lib/insights/evergreen.ts)
 import { runProducerSkills } from "@/lib/skills/run"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
@@ -20,6 +21,8 @@ export type RunBriefOptions = {
   maxPlays?: number
   /** P7a: playKeys in cross-day dismissal cooldown (loaded by the build caller from evergreen_dismissals). */
   suppressedKeys?: Set<string>
+  /** P7b: persisted "saved" plays to consider resurfacing (loaded by the build caller from evergreen_plays). */
+  evergreen?: EnrichedRecommendation[]
 }
 
 export type BriefResult = {
@@ -41,7 +44,12 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
 
   const synthInput: SkillResult[] = [{ skillId: "reviewed", status: "ok", plays: kept }]
   const brief = await voicePass(
-    await synthesize(dossier, synthInput, { ...t, maxPlays: opts.maxPlays, suppressedKeys: opts.suppressedKeys }),
+    await synthesize(dossier, synthInput, {
+      ...t,
+      maxPlays: opts.maxPlays,
+      suppressedKeys: opts.suppressedKeys,
+      evergreen: opts.evergreen,
+    }),
   )
 
   return { brief, skillResults, dropped }

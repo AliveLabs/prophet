@@ -12,7 +12,7 @@ import type { PipelineStepDef } from "../types"
 import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief, hasAnyBrief } from "@/lib/insights/daily-brief"
-import { loadActiveCooldowns } from "@/lib/insights/evergreen"
+import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
 import { FirstBriefReady } from "@/lib/email/templates/first-brief-ready"
@@ -51,9 +51,12 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
         c.state.isFirstBrief = !(await hasAnyBrief(c.locationId))
 
         const dossier = await buildDossier(c.locationId)
-        // P7a: suppress plays the operator dismissed within the cooldown window (fail-soft → empty set).
-        const suppressedKeys = await loadActiveCooldowns(c.locationId)
-        const { brief, dropped } = await runBrief(dossier, { suppressedKeys })
+        // P7a/P7b: suppress dismissed plays (cooldown) + resurface relevant saved plays. Both fail-soft.
+        const [suppressedKeys, evergreen] = await Promise.all([
+          loadActiveCooldowns(c.locationId),
+          loadEvergreenPlays(c.locationId),
+        ])
+        const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen })
         await saveBrief(brief)
         c.state.headline = brief.headline ?? null
 

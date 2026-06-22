@@ -58,8 +58,13 @@ table (⚠️ **migration not yet run by Bryan** — graceful no-op until then),
 synthesis suppression (pre- AND post-fusion via fused stableKey). 3-lens review folded (fused-play stable
 key, RLS user-client, undo-gate). tsc · 336 tests · build green.
 
-**➡️ NEXT: P7b — evergreen persist + resurface** (persist saved/good plays; resurface when their grounding
-re-fires), then P8 per-operator rerank, P9 dynamic feed, P10 cross-org aggregate.
+**P7b SHIPPED TO PROD (2026-06-22):** evergreen persist + resurface — saving a play persists it
+(`evergreen_plays`, ⚠️ migration not yet run); at build, STANDING-advice plays (positioning/reputation/ops
+only — dated plays never resurface verbatim) come back when their grounding re-fires, score-ordered + capped
+at 3. 3-lens review folded (kind-gate #1, ordered cap #3, reliable client-sent save #2, dropped dead columns).
+tsc · 344 tests · build green.
+
+**➡️ NEXT: P8 — per-operator category rerank controls**, then P9 dynamic feed, P10 cross-org aggregate.
 
 ---
 
@@ -213,7 +218,7 @@ index `new Set` + an LLM prompt line), so near-dups can both ship.
 - Conceptually the convergence skill, but operating on detected post-production clusters. +1 LLM call
   per cluster; touches shared synthesis for ALL skills → its own review + save point.
 
-## P7 — Evergreen insight bucket  ·  P7a (cooldown) 🚀 SHIPPED 2f638cf · P7b (persist+resurface) NEXT  ·  size: SMALL–MED  ·  deps: none (better after P3)
+## P7 — Evergreen insight bucket  ·  🚀 SHIPPED (P7a cooldown 2f638cf + P7b persist/resurface, 2026-06-22)  ·  size: SMALL–MED  ·  deps: none (better after P3)
 **Goal:** persist good advice; stop regenerating daily; don't re-show right after dismissal;
 resurface on relevance match.
 - NEW migration `evergreen_plays` (+ `evergreen_dismissals` for cooldown) with RLS.
