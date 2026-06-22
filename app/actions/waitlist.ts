@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { WaitlistDecline } from "@/lib/email/templates/waitlist-decline"
 import { createOrgWithOwner } from "@/lib/admin/org-factory"
+import { cascadeDeleteOrganization } from "@/lib/admin/cascade-cleanup"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -163,6 +164,83 @@ export async function approveWaitlistSignup(
   }
 
   return { ok: true, message: `Approved ${signup.email} — invitation email sent.` }
+}
+
+// Reverse an approval: signup back to 'pending', delete the org the approval created
+// (via the canonical cascade), and delete the auto-created auth user IF it now owns
+// no orgs (so it can't self-serve back in). Productizes the 2026-06-22 hand-fix.
+export async function unapproveWaitlistSignup(
+  signupId: string
+): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const { data: signup } = await supabase
+    .from("waitlist_signups")
+    .select("*")
+    .eq("id", signupId)
+    .single()
+  if (!signup) return { ok: false, error: "Signup not found." }
+  if (signup.status !== "approved") {
+    return { ok: false, error: `Signup is ${signup.status}, not approved — nothing to revert.` }
+  }
+
+  // Delete the org created from this signup (if any).
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("waitlist_signup_id", signupId)
+    .maybeSingle()
+  if (org) {
+    try {
+      await cascadeDeleteOrganization(supabase, org.id)
+    } catch (e) {
+      return {
+        ok: false,
+        error: `Failed to remove the org created on approval: ${e instanceof Error ? e.message : "unknown error"}`,
+      }
+    }
+  }
+
+  // Delete the auto-created auth user — but only if it no longer owns any org (i.e. it
+  // was created for this signup, not a real multi-org user). Closes the access vector.
+  let userDeleted = false
+  const email = (signup.email ?? "").toLowerCase()
+  if (email) {
+    const { data: users } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const u = users?.users?.find((x) => (x.email ?? "").toLowerCase() === email)
+    if (u) {
+      const { count } = await supabase
+        .from("organization_members")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", u.id)
+      if ((count ?? 0) === 0) {
+        await supabase.from("profiles").update({ current_organization_id: null }).eq("id", u.id)
+        const { error: delErr } = await supabase.auth.admin.deleteUser(u.id)
+        if (!delErr) userDeleted = true
+      }
+    }
+  }
+
+  await supabase
+    .from("waitlist_signups")
+    .update({ status: "pending", reviewed_by: null, reviewed_at: null })
+    .eq("id", signupId)
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "waitlist.unapprove",
+    targetType: "waitlist",
+    targetId: signupId,
+    details: { email: signup.email, orgDeleted: Boolean(org), userDeleted },
+  })
+
+  revalidatePath("/admin/waitlist")
+  return {
+    ok: true,
+    message: `Reverted ${signup.email} to pending${org ? " · org removed" : ""}${userDeleted ? " · account removed" : ""}.`,
+  }
 }
 
 export async function declineWaitlistSignup(

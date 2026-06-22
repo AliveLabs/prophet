@@ -11,7 +11,12 @@ import {
   updateOrgInfo,
   setTrialEndsAt,
   convertOrgToPaid,
+  setOrgKind,
+  clearOrgData,
+  transferOrgOwnership,
+  deleteOrg,
 } from "@/app/actions/org-management"
+import { useRouter } from "next/navigation"
 
 interface OrgDetail {
   id: string
@@ -57,6 +62,11 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
   const [showTierChange, setShowTierChange] = useState(false)
   const [showSetDate, setShowSetDate] = useState(false)
   const [showConvert, setShowConvert] = useState(false)
+  const [showSetKind, setShowSetKind] = useState(false)
+  const [showClearData, setShowClearData] = useState(false)
+  const [showTransfer, setShowTransfer] = useState(false)
+  const [showDeleteOrg, setShowDeleteOrg] = useState(false)
+  const router = useRouter()
 
   const isSuspended = org.tier === "suspended"
   // Trial = card-backed Stripe trial OR legacy clock-only org (null payment_state).
@@ -273,6 +283,71 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               onFeedback={setFeedback}
             />
           )}
+
+          <div className="rounded-xl border border-destructive/30 bg-card p-5">
+            <h3 className="mb-3 text-sm font-semibold text-destructive">Danger Zone</h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowSetKind(!showSetKind)}
+                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+              >
+                Set Kind
+              </button>
+              <button
+                onClick={() => setShowTransfer(!showTransfer)}
+                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+              >
+                Transfer Owner
+              </button>
+              <button
+                onClick={() => setShowClearData(!showClearData)}
+                className="h-9 rounded-lg bg-signal-gold/10 px-4 text-sm font-medium text-signal-gold hover:bg-signal-gold/20 transition-colors"
+              >
+                Clear Data
+              </button>
+              <button
+                onClick={() => setShowDeleteOrg(!showDeleteOrg)}
+                className="h-9 rounded-lg bg-destructive/10 px-4 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
+              >
+                Delete Org
+              </button>
+            </div>
+            <div className="mt-3 space-y-3">
+              {showSetKind && (
+                <SetKindPanel
+                  orgId={org.id}
+                  currentKind={org.orgKind}
+                  onClose={() => setShowSetKind(false)}
+                  onFeedback={setFeedback}
+                />
+              )}
+              {showTransfer && (
+                <TransferOwnerPanel
+                  orgId={org.id}
+                  members={org.members}
+                  onClose={() => setShowTransfer(false)}
+                  onFeedback={setFeedback}
+                />
+              )}
+              {showClearData && (
+                <ClearDataPanel
+                  orgId={org.id}
+                  orgName={org.name}
+                  onClose={() => setShowClearData(false)}
+                  onFeedback={setFeedback}
+                />
+              )}
+              {showDeleteOrg && (
+                <DeleteOrgPanel
+                  orgId={org.id}
+                  orgName={org.name}
+                  onClose={() => setShowDeleteOrg(false)}
+                  onFeedback={setFeedback}
+                  onDeleted={() => router.push("/admin/organizations")}
+                />
+              )}
+            </div>
+          </div>
 
           <div className="rounded-xl border border-border bg-card p-6">
             <h3 className="mb-4 text-sm font-semibold text-foreground">
@@ -793,6 +868,268 @@ function ConvertToPaidPanel({
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function SetKindPanel({
+  orgId,
+  currentKind,
+  onClose,
+  onFeedback,
+}: {
+  orgId: string
+  currentKind: string
+  onClose: () => void
+  onFeedback: (msg: string) => void
+}) {
+  const [kind, setKind] = useState<"real" | "demo" | "test">(
+    currentKind === "demo" ? "demo" : currentKind === "test" ? "test" : "real"
+  )
+  const [isPending, startTransition] = useTransition()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    startTransition(async () => {
+      const result = await setOrgKind(orgId, kind)
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onClose()
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <form onSubmit={handleSubmit} className="flex items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Classification</label>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as "real" | "demo" | "test")}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          >
+            <option value="real">Customer</option>
+            <option value="demo">Demo</option>
+            <option value="test">Test</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50"
+        >
+          {isPending ? "Saving..." : "Apply"}
+        </button>
+        <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+          Cancel
+        </button>
+      </form>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Demo/Test are excluded from real metrics &amp; billing. Setting to Customer is restricted.
+      </p>
+    </div>
+  )
+}
+
+function TransferOwnerPanel({
+  orgId,
+  members,
+  onClose,
+  onFeedback,
+}: {
+  orgId: string
+  members: Array<{ userId: string; email: string; role: string }>
+  onClose: () => void
+  onFeedback: (msg: string) => void
+}) {
+  const currentOwner = members.find((m) => m.role === "owner")
+  const candidates = members.filter((m) => m.userId !== currentOwner?.userId)
+  const [toUserId, setToUserId] = useState(candidates[0]?.userId ?? "")
+  const [isPending, startTransition] = useTransition()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!toUserId || !currentOwner) {
+      onFeedback("Pick a member to transfer ownership to.")
+      return
+    }
+    startTransition(async () => {
+      const result = await transferOrgOwnership(orgId, currentOwner.userId, toUserId)
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onClose()
+    })
+  }
+
+  if (candidates.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">
+        No other members to transfer ownership to. Add a member first.
+        <button onClick={onClose} className="ml-2 text-xs text-vatic-indigo hover:underline">
+          Close
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <form onSubmit={handleSubmit} className="flex items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">New owner</label>
+          <select
+            value={toUserId}
+            onChange={(e) => setToUserId(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          >
+            {candidates.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50"
+        >
+          {isPending ? "Transferring..." : "Transfer"}
+        </button>
+        <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+          Cancel
+        </button>
+      </form>
+    </div>
+  )
+}
+
+function ClearDataPanel({
+  orgId,
+  orgName,
+  onClose,
+  onFeedback,
+}: {
+  orgId: string
+  orgName: string
+  onClose: () => void
+  onFeedback: (msg: string) => void
+}) {
+  const [mode, setMode] = useState<"all" | "refresh">("refresh")
+  const [confirmText, setConfirmText] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const ready = confirmText === orgName
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ready) return
+    startTransition(async () => {
+      const result = await clearOrgData(orgId, mode)
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onClose()
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-signal-gold/30 bg-background p-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Mode</label>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "all" | "refresh")}
+            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          >
+            <option value="refresh">Refresh — wipe intelligence, keep locations</option>
+            <option value="all">Clear all — also drop locations (pre-onboarding)</option>
+          </select>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Keeps the org, members, and billing. Type <strong className="text-foreground">{orgName}</strong> to confirm.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={orgName}
+            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          />
+          <button
+            type="submit"
+            disabled={!ready || isPending}
+            className="h-9 rounded-lg bg-signal-gold px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {isPending ? "Clearing..." : "Clear Data"}
+          </button>
+          <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function DeleteOrgPanel({
+  orgId,
+  orgName,
+  onClose,
+  onFeedback,
+  onDeleted,
+}: {
+  orgId: string
+  orgName: string
+  onClose: () => void
+  onFeedback: (msg: string) => void
+  onDeleted: () => void
+}) {
+  const [confirmText, setConfirmText] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const ready = confirmText === orgName
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ready) return
+    startTransition(async () => {
+      const result = await deleteOrg(orgId)
+      if (result.ok) {
+        onDeleted()
+      } else {
+        onFeedback(result.error)
+        onClose()
+      }
+    })
+  }
+
+  return (
+    <div className="rounded-lg border border-destructive/30 bg-background p-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <p className="text-xs font-semibold text-destructive">
+          Permanently deletes {orgName} and all its data (locations, competitors, insights,
+          memberships). This cannot be undone.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Type <strong className="text-foreground">{orgName}</strong> to confirm.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={orgName}
+            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+          />
+          <button
+            type="submit"
+            disabled={!ready || isPending}
+            className="h-9 rounded-lg bg-destructive px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {isPending ? "Deleting..." : "Delete Permanently"}
+          </button>
+          <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   )
 }

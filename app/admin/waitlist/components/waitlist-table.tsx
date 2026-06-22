@@ -7,6 +7,7 @@ import {
   batchApproveWaitlistSignups,
   batchDeclineWaitlistSignups,
   resendWaitlistInvite,
+  unapproveWaitlistSignup,
 } from "@/app/actions/waitlist"
 
 interface WaitlistSignup {
@@ -60,6 +61,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
   const [showBatchConfirm, setShowBatchConfirm] = useState<
     "approve" | "decline" | null
   >(null)
+  const [showUnapprove, setShowUnapprove] = useState<string | null>(null)
 
   const filtered = useMemo(() => {
     return signups.filter((s) => {
@@ -107,6 +109,15 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
     startTransition(async () => {
       const result = await approveWaitlistSignup(id)
       setFeedback(result.ok ? result.message : result.error)
+      setTimeout(() => setFeedback(null), 4000)
+    })
+  }
+
+  function handleUnapprove(id: string) {
+    startTransition(async () => {
+      const result = await unapproveWaitlistSignup(id)
+      setFeedback(result.ok ? result.message : result.error)
+      setShowUnapprove(null)
       setTimeout(() => setFeedback(null), 4000)
     })
   }
@@ -298,13 +309,22 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
                         </div>
                       )}
                       {signup.status === "approved" && (
-                        <button
-                          onClick={() => handleResendInvite(signup.id)}
-                          disabled={isPending}
-                          className="rounded-md bg-vatic-indigo/15 px-2.5 py-1 text-xs font-semibold text-vatic-indigo hover:bg-vatic-indigo/25 disabled:opacity-50"
-                        >
-                          Resend Invite
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleResendInvite(signup.id)}
+                            disabled={isPending}
+                            className="rounded-md bg-vatic-indigo/15 px-2.5 py-1 text-xs font-semibold text-vatic-indigo hover:bg-vatic-indigo/25 disabled:opacity-50"
+                          >
+                            Resend Invite
+                          </button>
+                          <button
+                            onClick={() => setShowUnapprove(signup.id)}
+                            disabled={isPending}
+                            className="rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-secondary/70 disabled:opacity-50"
+                          >
+                            Un-approve
+                          </button>
+                        </div>
                       )}
                       {signup.status !== "pending" && signup.admin_notes && (
                         <span
@@ -387,6 +407,23 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
             rows={2}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           />
+        </Dialog>
+      )}
+
+      {showUnapprove && (
+        <Dialog
+          title="Un-approve signup?"
+          onCancel={() => setShowUnapprove(null)}
+          onConfirm={() => handleUnapprove(showUnapprove)}
+          isPending={isPending}
+          confirmLabel="Un-approve"
+          confirmClass="bg-destructive text-white hover:bg-destructive/90"
+        >
+          <p className="text-sm text-muted-foreground">
+            Reverts the signup to <strong className="text-foreground">pending</strong>, deletes the
+            organization created on approval (and its data), and removes the auto-created account if it
+            owns no other orgs. The original invite email can&rsquo;t be unsent, but its link will lead nowhere.
+          </p>
         </Dialog>
       )}
     </div>
