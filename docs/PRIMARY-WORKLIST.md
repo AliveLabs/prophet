@@ -21,8 +21,11 @@ engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
   `vercel env pull .env.local --environment=production` (from GetTicket/). Then local tooling reads real prod.
 - [ ] **Knowledge review** (#3) — `docs/engine-rewrite/skill-knowledge-review.md`: review food-pairing@v1 +
   guerrilla@v1 prose (you + Chris). Edits → bump `@v2` → redeploy.
+- [ ] **Run the P7a migration** — `supabase/migrations/20260622193000_evergreen_dismissals.sql` in the
+  Supabase SQL editor (the cross-day dismissal cooldown is a graceful no-op until this table exists). SQL
+  was handed over in chat 2026-06-22.
 - [ ] DB **migrations** for upcoming phases go via the Supabase SQL editor — agent hands you the exact SQL,
-  you run it (admin Phase 6, engine P7/P9/P10 all need migrations).
+  you run it (admin Phase 6, engine P7b/P9/P10 all need migrations).
 
 ---
 
@@ -50,8 +53,10 @@ Phases 0–5 SHIPPED. **Phase 6 = Security Hardening is the last phase** (large,
 ## Track B — Insight engine + ops  (owner: Claude / engine session)
 Engine P0–P6.5 SHIPPED. Watchdog shipped (needs arming, above).
 
-- [ ] **P7 — Evergreen insight bucket** ← NEXT. Persist good advice; stop regenerating daily; cooldown after
-  dismissal; resurface on relevance. New migration `evergreen_plays` (+ `evergreen_dismissals`).
+- [x] **P7a — cross-day dismissal cooldown** SHIPPED (2f638cf) — dismissed plays stay suppressed 14d across
+  rebuilds. ⚠️ needs the `evergreen_dismissals` migration run (above) to activate.
+- [ ] **P7b — Evergreen persist + resurface** ← NEXT. Persist saved/good plays; resurface when their
+  grounding signals re-fire (relevance match). New migration `evergreen_plays`.
 - [ ] **P8 — Per-operator category rerank controls** — operators boost/reorder categories per-location
   (sliders), overriding global priors. `locations.settings.categoryPriors` (no migration).
 - [ ] **P9 — Dynamic expertise feed (trends)** — make skill knowledge dynamic via a weekly curated feed

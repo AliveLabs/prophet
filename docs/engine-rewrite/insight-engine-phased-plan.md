@@ -52,7 +52,14 @@ evidence UNION + adopts the dominant play's identity. tsc · 329 unit tests (+11
 - **Watchdog (ops, shipped 64be2bf/35fbd02):** external GitHub-Actions pipeline-health monitor; NOT yet
   ARMED (needs a fresh `HEALTH_CHECK_TOKEN` in Vercel env + GitHub repo secret; CRON_SECRET is Sensitive).
 
-**➡️ NEXT: P7 evergreen bucket** (then P8 per-operator rerank, P9 dynamic feed, P10 cross-org aggregate).
+**P7a SHIPPED TO PROD (2f638cf, 2026-06-22):** cross-day dismissal cooldown — a dismissed play is
+suppressed from rebuilds for 14d (was per-date_key, so it reappeared next day). New `evergreen_dismissals`
+table (⚠️ **migration not yet run by Bryan** — graceful no-op until then), `lib/insights/evergreen.ts`,
+synthesis suppression (pre- AND post-fusion via fused stableKey). 3-lens review folded (fused-play stable
+key, RLS user-client, undo-gate). tsc · 336 tests · build green.
+
+**➡️ NEXT: P7b — evergreen persist + resurface** (persist saved/good plays; resurface when their grounding
+re-fires), then P8 per-operator rerank, P9 dynamic feed, P10 cross-org aggregate.
 
 ---
 
@@ -206,7 +213,7 @@ index `new Set` + an LLM prompt line), so near-dups can both ship.
 - Conceptually the convergence skill, but operating on detected post-production clusters. +1 LLM call
   per cluster; touches shared synthesis for ALL skills → its own review + save point.
 
-## P7 — Evergreen insight bucket  ·  size: SMALL–MED  ·  deps: none (better after P3)
+## P7 — Evergreen insight bucket  ·  P7a (cooldown) 🚀 SHIPPED 2f638cf · P7b (persist+resurface) NEXT  ·  size: SMALL–MED  ·  deps: none (better after P3)
 **Goal:** persist good advice; stop regenerating daily; don't re-show right after dismissal;
 resurface on relevance match.
 - NEW migration `evergreen_plays` (+ `evergreen_dismissals` for cooldown) with RLS.
