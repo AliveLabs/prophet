@@ -53,6 +53,14 @@ jobs:
           HEALTH_URL: ${{ secrets.PIPELINE_HEALTH_URL || 'https://app.getticket.ai/api/health/pipeline' }}
           HEALTH_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
         run: |
+          # Not armed yet? No-op cleanly (no curl, no alert, no failure) so an un-configured
+          # watchdog never spams "workflow failed". Arm it by setting the HEALTH_CHECK_TOKEN repo
+          # secret (a fresh random string, also set on the Vercel app env).
+          if [ -z "${HEALTH_TOKEN}" ]; then
+            echo "HEALTH_CHECK_TOKEN not set — watchdog is not armed; skipping."
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           set +e
           HTTP_CODE=$(curl -sS -m 30 -o /tmp/health.json -w "%{http_code}" \
             -H "Authorization: Bearer ${HEALTH_TOKEN}" "${HEALTH_URL}")
