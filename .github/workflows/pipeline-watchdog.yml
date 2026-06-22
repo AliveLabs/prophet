@@ -1,0 +1,134 @@
+# ---------------------------------------------------------------------------
+# Pipeline Watchdog — the EXTERNAL heartbeat.
+#
+# Runs on GitHub's infra (NOT Vercel), so it still fires when the Vercel cron
+# schedule goes dark — the exact failure that silently stalled the data pipeline
+# for ~2 weeks in 2026-06 with no alert (every in-app alerter was a Vercel cron,
+# dark alongside everything else).
+#
+# It polls GET /api/health/pipeline and alerts you + Chris (Slack + email) when the
+# pipeline is unhealthy OR the endpoint is unreachable (app/Vercel down). The final
+# step also fails the run, so GitHub's native "workflow failed" email is a free
+# third backstop channel to repo admins.
+#
+# REQUIRED repo secrets (Settings → Secrets and variables → Actions):
+#   HEALTH_CHECK_TOKEN     - must equal the same env var set on the Vercel app
+#                            (or set it to the existing CRON_SECRET value).
+# OPTIONAL repo secrets (set the channels you want; missing ones are skipped):
+#   PIPELINE_HEALTH_URL    - defaults to https://app.getticket.ai/api/health/pipeline
+#   SLACK_ALERT_WEBHOOK_URL- Slack incoming webhook (same one the app uses)
+#   RESEND_API_KEY         - to send the email alert via Resend
+#   OPS_ALERT_EMAILS       - comma-separated recipients (default: bryan + chris)
+#   RESEND_FROM            - verified Resend sender (default: Ticket <hello@getticket.ai>)
+#
+# SECURITY: no untrusted github.event.* inputs are used. All dynamic values flow
+# through env: vars and are JSON-escaped with jq before any HTTP body — no ${{ }}
+# expansion happens inside a shell script.
+#
+# NOTE: GitHub disables scheduled workflows after 60 days of repo inactivity — the
+# prophet repo is active, but if it ever goes quiet, re-enable this workflow.
+# ---------------------------------------------------------------------------
+name: Pipeline Watchdog
+
+on:
+  schedule:
+    # 13:00 UTC daily — after the 06:00 data pull + 08:00 brief build crons, plus a buffer.
+    - cron: "0 13 * * *"
+  workflow_dispatch: {} # manual "Run workflow" button for on-demand checks
+
+concurrency:
+  group: pipeline-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe pipeline health
+        id: probe
+        env:
+          HEALTH_URL: ${{ secrets.PIPELINE_HEALTH_URL || 'https://app.getticket.ai/api/health/pipeline' }}
+          HEALTH_TOKEN: ${{ secrets.HEALTH_CHECK_TOKEN }}
+        run: |
+          set +e
+          HTTP_CODE=$(curl -sS -m 30 -o /tmp/health.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${HEALTH_TOKEN}" "${HEALTH_URL}")
+          CURL_RC=$?
+          set -e
+          [ -s /tmp/health.json ] || echo '{}' > /tmp/health.json
+          STATUS=$(jq -r '.status // "unreachable"' /tmp/health.json 2>/dev/null || echo "unreachable")
+          REASONS=$(jq -r '(.reasons // []) | join(" | ")' /tmp/health.json 2>/dev/null || echo "")
+          # An auth rejection means the SECRET is wrong, not the pipeline — say so, or the operator
+          # chases a healthy pipeline. (Endpoint returns no reasons body on 401/403.)
+          if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+            REASONS="health endpoint rejected the token (HTTP $HTTP_CODE) — check the HEALTH_CHECK_TOKEN GitHub secret matches the Vercel app env"
+          elif [ "$CURL_RC" -ne 0 ]; then
+            REASONS="${REASONS:-could not reach the health endpoint (curl exit $CURL_RC) — app/Vercel may be down}"
+          fi
+          if [ "$CURL_RC" -ne 0 ] || [ "$HTTP_CODE" != "200" ] || [ "$STATUS" != "ok" ]; then
+            HEALTHY=false
+          else
+            HEALTHY=true
+          fi
+          echo "Probe: http=$HTTP_CODE curl_rc=$CURL_RC status=$STATUS healthy=$HEALTHY"
+          {
+            echo "healthy=$HEALTHY"
+            echo "status=$STATUS"
+            echo "http_code=$HTTP_CODE"
+            echo "reasons<<__EOF__"
+            echo "${REASONS:-<none returned>}"
+            echo "__EOF__"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Alert Slack
+        # always() so a failed Slack post never skips the email or the exit-1 backstop —
+        # independent alert paths are the whole point of a watchdog.
+        if: always() && steps.probe.outputs.healthy == 'false'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_ALERT_WEBHOOK_URL }}
+          STATUS: ${{ steps.probe.outputs.status }}
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
+          REASONS: ${{ steps.probe.outputs.reasons }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK}" ]; then echo "SLACK_ALERT_WEBHOOK_URL not set; skipping Slack"; exit 0; fi
+          TEXT=":rotating_light: *Ticket pipeline watchdog* — status: ${STATUS} (http ${HTTP_CODE})
+          The scheduled data/brief pipeline is not healthy.
+          Reasons: ${REASONS}
+          Check Vercel → prophet → Settings → Crons (enabled? billing OK?) and the worker queue.
+          Dashboard: https://app.getticket.ai/admin"
+          jq -n --arg t "$TEXT" '{text:$t}' \
+            | curl -fsS --fail-with-body -m 20 -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK"
+
+      - name: Alert email (Resend)
+        # always() so a failed Slack post never skips the email or the exit-1 backstop —
+        # independent alert paths are the whole point of a watchdog.
+        if: always() && steps.probe.outputs.healthy == 'false'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OPS_EMAILS: ${{ secrets.OPS_ALERT_EMAILS || 'bryan@alivelabs.io,chris@alivelabs.io' }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM || 'Ticket <hello@getticket.ai>' }}
+          STATUS: ${{ steps.probe.outputs.status }}
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
+          REASONS: ${{ steps.probe.outputs.reasons }}
+        run: |
+          if [ -z "${RESEND_API_KEY}" ]; then echo "RESEND_API_KEY not set; skipping email"; exit 0; fi
+          TO_JSON=$(printf '%s' "${OPS_EMAILS}" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length>0))')
+          SUBJECT="[Ticket] Pipeline watchdog: ${STATUS} — scheduled jobs unhealthy"
+          HTML="<h2>Ticket pipeline watchdog</h2><p>Status: <b>${STATUS}</b> (http ${HTTP_CODE})</p><p>The scheduled data/brief pipeline is not healthy.</p><p><b>Reasons:</b></p><pre>${REASONS}</pre><p>Check Vercel &rarr; prophet &rarr; Settings &rarr; Crons (enabled? billing OK?) and the worker queue.</p><p><a href=\"https://app.getticket.ai/admin\">Open dashboard</a></p>"
+          jq -n --argjson to "$TO_JSON" --arg from "$RESEND_FROM" --arg subject "$SUBJECT" --arg html "$HTML" \
+            '{from:$from, to:$to, subject:$subject, html:$html}' \
+            | curl -fsS --fail-with-body -m 20 -X POST https://api.resend.com/emails \
+                -H "Authorization: Bearer ${RESEND_API_KEY}" -H "Content-Type: application/json" -d @-
+
+      - name: Fail the run when unhealthy (GitHub-native backstop alert)
+        # always() so a failed Slack post never skips the email or the exit-1 backstop —
+        # independent alert paths are the whole point of a watchdog.
+        if: always() && steps.probe.outputs.healthy == 'false'
+        env:
+          STATUS: ${{ steps.probe.outputs.status }}
+        run: |
+          echo "Pipeline unhealthy (status=${STATUS}). Failing the run so it surfaces in the Actions UI + GitHub notifications."
+          exit 1
