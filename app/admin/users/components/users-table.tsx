@@ -17,15 +17,20 @@ interface UserRow {
   isBanned: boolean
   orgCount: number
   hasOnboarded: boolean
+  isAdmin: boolean
 }
 
 export function UsersTable({ users }: { users: UserRow[] }) {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<"all" | "active" | "deactivated">("all")
+  const [tab, setTab] = useState<"users" | "admins">("users")
   const [showInvite, setShowInvite] = useState(false)
   const [isPending, startTransition] = useTransition()
 
-  const filtered = users.filter((u) => {
+  const adminCount = users.filter((u) => u.isAdmin).length
+  const base = tab === "admins" ? users.filter((u) => u.isAdmin) : users
+
+  const filtered = base.filter((u) => {
     const matchesSearch =
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       (u.fullName ?? "").toLowerCase().includes(search.toLowerCase())
@@ -37,6 +42,29 @@ export function UsersTable({ users }: { users: UserRow[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex gap-1 border-b border-border">
+        <button
+          onClick={() => setTab("users")}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            tab === "users"
+              ? "border-vatic-indigo text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Users ({users.length})
+        </button>
+        <button
+          onClick={() => setTab("admins")}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+            tab === "admins"
+              ? "border-vatic-indigo text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Platform Admins ({adminCount})
+        </button>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="text"
@@ -163,7 +191,14 @@ function UserTableRow({
 
   return (
     <tr className="hover:bg-secondary/30 transition-colors">
-      <td className="px-4 py-3 font-medium text-foreground">{user.email}</td>
+      <td className="px-4 py-3 font-medium text-foreground">
+        {user.email}
+        {user.isAdmin && (
+          <span className="ml-2 rounded-full bg-vatic-indigo/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-vatic-indigo">
+            Admin
+          </span>
+        )}
+      </td>
       <td className="px-4 py-3 text-muted-foreground">
         {user.fullName || "—"}
       </td>

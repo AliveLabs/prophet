@@ -11,6 +11,7 @@ interface UserRow {
   isBanned: boolean
   orgCount: number
   hasOnboarded: boolean
+  isAdmin: boolean
 }
 
 async function fetchUsers(): Promise<{
@@ -32,6 +33,9 @@ async function fetchUsers(): Promise<{
   const { data: memberships } = await supabase
     .from("organization_members")
     .select("user_id")
+
+  const { data: admins } = await supabase.from("platform_admins").select("user_id")
+  const adminIds = new Set((admins ?? []).map((a) => a.user_id))
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
   const orgCountMap = new Map<string, number>()
@@ -58,6 +62,7 @@ async function fetchUsers(): Promise<{
       isBanned: !!u.banned_until && new Date(u.banned_until) > now,
       orgCount: orgCountMap.get(u.id) ?? 0,
       hasOnboarded: !!profile?.current_organization_id,
+      isAdmin: adminIds.has(u.id),
     }
   })
 
