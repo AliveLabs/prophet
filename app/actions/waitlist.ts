@@ -7,14 +7,7 @@ import { logAdminAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { WaitlistDecline } from "@/lib/email/templates/waitlist-decline"
-import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-}
+import { createOrgWithOwner } from "@/lib/admin/org-factory"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -76,51 +69,48 @@ export async function approveWaitlistSignup(
     ? `${fullName}'s Organization`
     : `${signup.email.split("@")[0]}'s Organization`
 
-  const baseSlug = slugify(orgName)
-  let orgId: string | null = null
-  let slugAttempt = baseSlug || "org"
+  // Dedupe: if this signup already has an org (e.g. it was previously approved,
+  // reverted to pending, then re-approved), reuse it instead of creating a second
+  // org for the same signup. (Fixes the duplicate-org-on-reapprove bug.)
+  let orgId: string
+  const { data: existingOrg } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("waitlist_signup_id", signup.id)
+    .maybeSingle()
 
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const now = new Date()
-    const trialEnd = new Date(
-      now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
-    )
-
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .insert({
-        name: orgName,
-        slug: slugAttempt,
-        billing_email: signup.email,
-        trial_started_at: now.toISOString(),
-        trial_ends_at: trialEnd.toISOString(),
-        waitlist_signup_id: signup.id,
+  if (existingOrg) {
+    orgId = existingOrg.id
+    const { data: existingMember } = await supabase
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", orgId)
+      .eq("user_id", userId)
+      .maybeSingle()
+    if (!existingMember) {
+      await supabase.from("organization_members").insert({
+        organization_id: orgId,
+        user_id: userId,
+        role: "owner",
       })
-      .select("id")
-      .single()
-
-    if (!orgError && org) {
-      orgId = org.id
-      break
     }
-
-    if (orgError?.code === "23505") {
-      slugAttempt = `${baseSlug}-${attempt + 2}`
-      continue
+  } else {
+    try {
+      const created = await createOrgWithOwner(supabase, {
+        ownerUserId: userId,
+        orgName,
+        billingEmail: signup.email,
+        orgKind: "real",
+        waitlistSignupId: signup.id,
+      })
+      orgId = created.orgId
+    } catch (e) {
+      return {
+        ok: false,
+        error: e instanceof Error ? e.message : "Failed to create organization.",
+      }
     }
-
-    return { ok: false, error: orgError?.message ?? "Failed to create organization." }
   }
-
-  if (!orgId) {
-    return { ok: false, error: "Could not generate a unique organization slug." }
-  }
-
-  await supabase.from("organization_members").insert({
-    organization_id: orgId,
-    user_id: userId,
-    role: "owner",
-  })
 
   await supabase
     .from("waitlist_signups")

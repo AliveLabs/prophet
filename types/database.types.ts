@@ -717,6 +717,7 @@ export type Database = {
           id: string
           industry_type: string
           name: string
+          org_kind: string
           payment_state: string | null
           settings: Json
           slug: string
@@ -737,6 +738,7 @@ export type Database = {
           id?: string
           industry_type?: string
           name: string
+          org_kind?: string
           payment_state?: string | null
           settings?: Json
           slug: string
@@ -757,6 +759,7 @@ export type Database = {
           id?: string
           industry_type?: string
           name?: string
+          org_kind?: string
           payment_state?: string | null
           settings?: Json
           slug?: string

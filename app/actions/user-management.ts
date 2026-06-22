@@ -6,6 +6,7 @@ import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
+import { cascadeDeleteOrganization, findSoleOwnerOrgIds } from "@/lib/admin/cascade-cleanup"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -312,7 +313,11 @@ export async function impersonateUser(
   return { ok: true, url }
 }
 
-export async function deleteUser(userId: string): Promise<ActionResult> {
+export async function deleteUser(
+  userId: string,
+  opts: { orgStrategy?: "preserve" | "cascade" } = {}
+): Promise<ActionResult> {
+  const { orgStrategy = "preserve" } = opts
   const admin = await requirePlatformAdmin()
   const supabase = createAdminSupabaseClient()
 
@@ -327,67 +332,24 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     return { ok: false, error: "You cannot delete your own account." }
   }
 
-  const { data: memberships } = await supabase
-    .from("organization_members")
-    .select("organization_id, role")
-    .eq("user_id", userId)
+  const { soleOwner, multiMember } = await findSoleOwnerOrgIds(supabase, userId)
 
-  const orgIds = (memberships ?? []).map((m) => m.organization_id)
-
-  const soleOwnerOrgIds: string[] = []
-  const multiMemberOrgIds: string[] = []
-
-  for (const orgId of orgIds) {
-    const { count } = await supabase
-      .from("organization_members")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", orgId)
-
-    if ((count ?? 0) <= 1) {
-      soleOwnerOrgIds.push(orgId)
-    } else {
-      multiMemberOrgIds.push(orgId)
+  // Default = preserve orgs. Deleting a user must not silently burn an org's history
+  // (e.g. a manager leaving). Sole-owner orgs require a transfer or an explicit opt-in.
+  if (orgStrategy === "preserve" && soleOwner.length > 0) {
+    const { data: orgs } = await supabase
+      .from("organizations")
+      .select("name")
+      .in("id", soleOwner)
+    const names = (orgs ?? []).map((o) => o.name).join(", ")
+    return {
+      ok: false,
+      error: `This user is the sole owner of ${soleOwner.length} org(s): ${names}. Transfer ownership first, or retry with the cascade option to delete those orgs too.`,
     }
   }
 
-  for (const orgId of soleOwnerOrgIds) {
-    const { data: locations } = await supabase
-      .from("locations")
-      .select("id")
-      .eq("organization_id", orgId)
-
-    const locationIds = (locations ?? []).map((l) => l.id)
-
-    const { data: competitors } = await supabase
-      .from("competitors")
-      .select("id")
-      .in("location_id", locationIds.length > 0 ? locationIds : ["__none__"])
-
-    const competitorIds = (competitors ?? []).map((c) => c.id)
-
-    if (locationIds.length > 0) {
-      await supabase
-        .from("social_profiles")
-        .delete()
-        .eq("entity_type", "location")
-        .in("entity_id", locationIds)
-    }
-
-    if (competitorIds.length > 0) {
-      await supabase
-        .from("social_profiles")
-        .delete()
-        .eq("entity_type", "competitor")
-        .in("entity_id", competitorIds)
-    }
-  }
-
-  await supabase
-    .from("profiles")
-    .update({ current_organization_id: null })
-    .eq("id", userId)
-
-  for (const orgId of multiMemberOrgIds) {
+  // Detach memberships from multi-member orgs (those orgs survive).
+  for (const orgId of multiMember) {
     await supabase
       .from("organization_members")
       .delete()
@@ -395,9 +357,34 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
       .eq("user_id", userId)
   }
 
-  for (const orgId of soleOwnerOrgIds) {
-    await supabase.from("organizations").delete().eq("id", orgId)
+  // cascade: fully delete the user's sole-owner orgs via the canonical module
+  // (handles the polymorphic social rows the old inline logic missed).
+  let soleOwnerOrgsDeleted = 0
+  if (orgStrategy === "cascade") {
+    for (const orgId of soleOwner) {
+      try {
+        await cascadeDeleteOrganization(supabase, orgId)
+      } catch (e) {
+        // Abort before the irreversible auth-user delete if an org cascade fails,
+        // so we don't delete the login while its orgs are only half-removed.
+        return {
+          ok: false,
+          error: `Failed to delete org ${orgId}: ${e instanceof Error ? e.message : "unknown error"}. User not deleted.`,
+        }
+      }
+      soleOwnerOrgsDeleted++
+    }
   }
+
+  // The next three writes are intentionally best-effort / unchecked: profiles,
+  // organization_members, and platform_admins all FK auth.users(id) ON DELETE
+  // CASCADE, so the final auth.admin.deleteUser below removes them regardless. They
+  // run first only to tidy state pre-delete. (Stricter per-write auditing of the
+  // whole deleteUser flow is folded into Phase 6 hardening.)
+  await supabase
+    .from("profiles")
+    .update({ current_organization_id: null })
+    .eq("id", userId)
 
   await supabase.from("platform_admins").delete().eq("user_id", userId)
 
@@ -427,8 +414,9 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
     targetId: userId,
     details: {
       email: userEmail,
-      soleOwnerOrgsDeleted: soleOwnerOrgIds.length,
-      multiMemberOrgsLeft: multiMemberOrgIds.length,
+      orgStrategy,
+      soleOwnerOrgsDeleted,
+      multiMemberOrgsLeft: multiMember.length,
     },
   })
 
@@ -436,6 +424,114 @@ export async function deleteUser(userId: string): Promise<ActionResult> {
   revalidatePath("/admin/waitlist")
   return {
     ok: true,
-    message: `Deleted ${userEmail} and ${soleOwnerOrgIds.length} sole-owner org(s). Waitlist status reset for reapply.`,
+    message:
+      orgStrategy === "cascade"
+        ? `Deleted ${userEmail} and ${soleOwnerOrgsDeleted} sole-owner org(s). Waitlist status reset for reapply.`
+        : `Deleted ${userEmail}. Orgs preserved; waitlist status reset for reapply.`,
+  }
+}
+
+// Revoke a single user's membership in one org. Both the user and the org survive.
+// Refuses to strand the org's sole owner (transfer ownership first).
+export async function removeUserFromOrg(
+  orgId: string,
+  userId: string
+): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const { data: target } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", orgId)
+    .eq("user_id", userId)
+    .maybeSingle()
+  if (!target) {
+    return { ok: false, error: "User is not a member of this organization." }
+  }
+
+  // Block only if this user is the LAST owner (count remaining owners, not total
+  // members — an org with [owner, member] still strands if you remove the owner).
+  if (target.role === "owner") {
+    const { count: otherOwners } = await supabase
+      .from("organization_members")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", orgId)
+      .eq("role", "owner")
+      .neq("user_id", userId)
+    if ((otherOwners ?? 0) === 0) {
+      return {
+        ok: false,
+        error: "This user is the sole owner. Transfer ownership before removing them.",
+      }
+    }
+  }
+
+  await supabase
+    .from("organization_members")
+    .delete()
+    .eq("organization_id", orgId)
+    .eq("user_id", userId)
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("current_organization_id")
+    .eq("id", userId)
+    .maybeSingle()
+  if (prof?.current_organization_id === orgId) {
+    await supabase
+      .from("profiles")
+      .update({ current_organization_id: null })
+      .eq("id", userId)
+  }
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "org.remove_member",
+    targetType: "org",
+    targetId: orgId,
+    details: { userId },
+  })
+
+  revalidatePath(`/admin/organizations/${orgId}`)
+  revalidatePath(`/admin/users/${userId}`)
+  return { ok: true, message: "Removed user from organization." }
+}
+
+// "Tombstone" a user: reset their onboarding so the next login routes them back
+// through the onboarding wizard. Does NOT touch org_kind, billing, members, or any
+// org data — pair with clearOrgData for a true fresh-onboarding rehearsal. The
+// onboarding gate is profiles.current_organization_id (app/onboarding/page.tsx).
+export async function tombstoneUser(userId: string): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("id, current_organization_id")
+    .eq("id", userId)
+    .maybeSingle()
+  if (!prof) return { ok: false, error: "User profile not found." }
+
+  await supabase
+    .from("profiles")
+    .update({ current_organization_id: null })
+    .eq("id", userId)
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "user.tombstone",
+    targetType: "user",
+    targetId: userId,
+    details: { previousCurrentOrg: prof.current_organization_id },
+  })
+
+  revalidatePath(`/admin/users/${userId}`)
+  return {
+    ok: true,
+    message:
+      "User reset to onboarding. Note: they resume their existing org (with its data) unless you also Clear all data for it.",
   }
 }

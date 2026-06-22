@@ -86,7 +86,10 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
 
   const handleDelete = () => {
     startTransition(async () => {
-      const result = await deleteUser(user.id)
+      // The confirm dialog states sole-member orgs will be deleted, so opt into the
+      // cascade (deleteUser defaults to 'preserve'). Phase 5 adds a preserve/transfer
+      // choice to this UI; until then this preserves the prior delete-button behavior.
+      const result = await deleteUser(user.id, { orgStrategy: "cascade" })
       if (result.ok) {
         router.push("/admin/users")
       } else {
@@ -223,7 +226,7 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
                   all associated data:
                 </p>
                 <ul className="mb-4 space-y-1 text-sm text-muted-foreground">
-                  <li>- Organizations where they are the sole member (and all locations, competitors, insights)</li>
+                  <li>- Organizations where they are the sole owner, including all locations, competitors, and insights (any other members lose access too)</li>
                   <li>- Their membership in shared organizations</li>
                   <li>- Their auth account and profile</li>
                 </ul>
