@@ -12,7 +12,8 @@ import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provide
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
-import { rankPlays, type ScoreInput } from "@/lib/skills/scoring-config"
+import { rankPlays, computeCombinedScore, type ScoreInput } from "@/lib/skills/scoring-config"
+import { fuseNearDuplicates } from "@/lib/skills/fusion"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 
 export type SynthOptions = { transport?: Transport; maxPlays?: number }
@@ -100,18 +101,26 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   const candidates = results.flatMap((r) => r.plays)
   if (candidates.length === 0) return quietBrief(d)
 
+  // P6.5: fuse near-duplicate plays (two lenses on ONE signal) into a single richer play BEFORE
+  // ranking, so the pool the model selects from has no split near-dups. One cheap reasoning call per
+  // fusable cluster; deterministic keep-best fallback. Usually a no-op (no clusters → no LLM call).
+  const pool = await fuseNearDuplicates(candidates, d, {
+    transport: opts.transport,
+    scoreOf: (p) => computeCombinedScore(toScoreInput(p)),
+  })
+
   // Score and rank the whole pool ONCE on the continuous combined score (impact +
   // confidence + importance, × a modest category prior). This is the deterministic
   // spine the model may reorder on success, and the grounded fallback otherwise.
   // leverage (impact) now actually drives rank — the old KIND ladder ignored it.
-  const { ranked, priorFlipped } = rankPlays(candidates, toScoreInput)
+  const { ranked, priorFlipped } = rankPlays(pool, toScoreInput)
   const rankedPlays = ranked.map((r) => r.item)
   const scoreByPlay = new Map(ranked.map((r) => [r.item, r.score]))
   if (priorFlipped) {
     // Instrument when the category priors changed the order vs the base alone, so the
     // SEED priors can be calibrated from evidence rather than asserted.
     console.log(
-      `[synthesis] prior-flip: category priors reordered ${candidates.length} plays (${d.locationId} ${d.dateKey})`,
+      `[synthesis] prior-flip: category priors reordered ${pool.length} plays (${d.locationId} ${d.dateKey})`,
     )
   }
 
@@ -126,7 +135,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   ].join("\n")
 
   const prompt = JSON.stringify(
-    { dateKey: d.dateKey, profile: { name: d.profile.name, attributes: d.profile.attributes }, candidates },
+    { dateKey: d.dateKey, profile: { name: d.profile.name, attributes: d.profile.attributes }, candidates: pool },
     null,
     2,
   )
@@ -145,7 +154,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
         if (typeof r?.headline !== "string" || typeof r?.deck !== "string") return null
         if (!r.headline.trim() || !r.deck.trim()) return null
         const order = Array.isArray(r?.order)
-          ? (r.order as unknown[]).filter((n): n is number => typeof n === "number" && n >= 0 && n < candidates.length)
+          ? (r.order as unknown[]).filter((n): n is number => typeof n === "number" && n >= 0 && n < pool.length)
           : []
         return { headline: r.headline, deck: r.deck, order }
       },
@@ -154,14 +163,14 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
         return {
           headline: top[0]?.title ?? "Your brief",
           deck: deterministicDeck(top),
-          order: top.map((p) => candidates.indexOf(p)),
+          order: top.map((p) => pool.indexOf(p)),
         }
       },
     },
   )
 
   // Dedupe the model's order so a repeated index can't ship the same play twice.
-  const ordered = [...new Set(selection.order)].map((i) => candidates[i]).filter(Boolean).slice(0, max)
+  const ordered = [...new Set(selection.order)].map((i) => pool[i]).filter(Boolean).slice(0, max)
   const chosen = ordered.length ? ordered : rankedPlays.slice(0, max)
   // P3: stamp each chosen play with its combined score + operator-facing category, for the
   // ranked display + category drill-down. Optional fields — old persisted briefs simply lack them.
