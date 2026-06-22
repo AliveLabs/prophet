@@ -38,19 +38,21 @@ play/boundary tests). tsc · 304 unit tests · next build green. **DEPLOYED 2026
 (prophet-5h4eguaso ● Ready). NOTE: P6 only affects NEW dossiers/briefs — takes effect on each
 location's next pull/brief build.**
 
+**P6.5 SHIPPED TO PROD (af665c9; origin/main FF'd, 2026-06-22):** play fusion — synthesis now FUSES
+near-duplicate plays (two lenses on ONE signal) into one richer play instead of dropping one. New
+`lib/skills/fusion.ts`: clusterPlays() (pure) groups candidates by kind + sorted lead ref, fusable only
+when ≥2 plays from ≥2 distinct skills; fuseNearDuplicates() runs one cheap reasoning call per cluster
+(fast-path no-op when none). 3-lens review folded: convergence plays NEVER fuse (can't be relabeled);
+the merge gate is CONSERVATIVE (default keepSeparate; the model decides, clustering only nominates);
+runtime anti-fabrication guard (a fused number not in any input → keep-best); fused play cites the
+evidence UNION + adopts the dominant play's identity. tsc · 329 unit tests (+11) · build green.
+
 ⏳ Deferred / follow-ons:
 - From P5: domain-map `ADJACENT_DOMAINS` adjacency (cheap overlap; touches every producer).
-- **NEW (P6.5 — play fusion):** synthesis has NO deterministic semantic dedup (only same-index Set +
-  an LLM prompt line). Two skills can ground a play on the SAME signal from different lenses (e.g.
-  marketing + grassroots on `behind_scenes_opportunity`). Bryan's call (2026-06-20): do NOT just drop
-  the lower-scored one — DETECT the near-dup cluster (shared lead evidenceRef + kind) and FUSE the 2+
-  plays into one richer play (union of evidenceRefs, merged recipe, best leverage/confidence), with a
-  deterministic fallback to keep-best and a prompt escape ("actually distinct → keep both") to guard
-  false-merges. A mini cross-skill synthesis pass before ranking; +1 LLM call per cluster. Its own
-  phase (touches shared synthesis for ALL skills; cost + false-merge risk → wants its own review/save
-  point). The Grassroots split + signal alignment make P6 skills distinguishable in the meantime.
+- **Watchdog (ops, shipped 64be2bf/35fbd02):** external GitHub-Actions pipeline-health monitor; NOT yet
+  ARMED (needs a fresh `HEALTH_CHECK_TOKEN` in Vercel env + GitHub repo secret; CRON_SECRET is Sensitive).
 
-**➡️ NEXT: P6.5 play fusion (above) and/or P7 evergreen bucket.** P8–P10 after.
+**➡️ NEXT: P7 evergreen bucket** (then P8 per-operator rerank, P9 dynamic feed, P10 cross-org aggregate).
 
 ---
 
@@ -192,7 +194,7 @@ Original goal/spec below.
   (Bryan/Chris), repo principles, and real operator knowledge; never from a single forum.
 - Can split into P6a (food-pairing) / P6b (guerrilla) if a window is tight.
 
-## P6.5 — Play fusion (near-dup coalescing)  ·  size: MEDIUM  ·  deps: P2 (pool), P3 (synthesis)
+## P6.5 — Play fusion (near-dup coalescing)  ·  🚀 SHIPPED TO PROD (af665c9, 2026-06-22)  ·  size: MEDIUM  ·  deps: P2 (pool), P3 (synthesis)
 **Goal (Bryan, 2026-06-20):** when two skills produce plays on the SAME signal from different lenses,
 do NOT drop one — FUSE them into one richer play. Today synthesis has no semantic dedup (only same-
 index `new Set` + an LLM prompt line), so near-dups can both ship.
