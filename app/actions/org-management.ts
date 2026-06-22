@@ -6,6 +6,7 @@ import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { cascadeDeleteOrganization, refreshOrgData } from "@/lib/admin/cascade-cleanup"
+import { createOrgWithOwner } from "@/lib/admin/org-factory"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -506,4 +507,69 @@ export async function setOrgKind(
     ok: true,
     message: `${org.name} is now ${kind === "real" ? "a Customer" : kind}.`,
   }
+}
+
+// Demo/test orgs are created ONLY from the admin panel: owned by the logged-in
+// admin, tagged demo/test, on a long (1yr) clock-only trial so they don't expire
+// mid-demo. No Stripe customer. They're excluded from real metrics + billing and
+// are the only orgs clear-test may delete.
+const DEMO_TEST_TRIAL_DAYS = 365
+
+type CreateOrgResult =
+  | { ok: true; orgId: string; message: string }
+  | { ok: false; error: string }
+
+async function createAdminOwnedOrg(
+  kind: "demo" | "test",
+  input: { name: string; industryType?: "restaurant" | "liquor_store" }
+): Promise<CreateOrgResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const name = input.name?.trim()
+  if (!name) return { ok: false, error: "Organization name is required." }
+
+  try {
+    const { orgId } = await createOrgWithOwner(supabase, {
+      ownerUserId: admin.id,
+      orgName: name,
+      billingEmail: admin.email ?? null,
+      industryType: input.industryType ?? "restaurant",
+      orgKind: kind,
+      trialDays: DEMO_TEST_TRIAL_DAYS,
+    })
+
+    await logAdminAction({
+      adminId: admin.id,
+      adminEmail: admin.email ?? "",
+      action: kind === "demo" ? "org.create_demo" : "org.create_test",
+      targetType: "org",
+      targetId: orgId,
+      details: { orgName: name, orgKind: kind, industryType: input.industryType ?? "restaurant" },
+    })
+
+    revalidatePath("/admin/organizations")
+    revalidatePath("/admin/sandbox")
+    return {
+      ok: true,
+      orgId,
+      message: `Created ${kind} org "${name}" — owned by you, non-expiring (1yr).`,
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Failed to create organization." }
+  }
+}
+
+export async function createDemoOrg(input: {
+  name: string
+  industryType?: "restaurant" | "liquor_store"
+}): Promise<CreateOrgResult> {
+  return createAdminOwnedOrg("demo", input)
+}
+
+export async function createTestOrg(input: {
+  name: string
+  industryType?: "restaurant" | "liquor_store"
+}): Promise<CreateOrgResult> {
+  return createAdminOwnedOrg("test", input)
 }

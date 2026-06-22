@@ -58,6 +58,16 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
             icon={orgsIcon}
           />
           <AdminNavItem
+            href="/admin/sandbox"
+            label="Demo & Test"
+            icon={sandboxIcon}
+          />
+          <AdminNavItem
+            href="/admin/maintenance"
+            label="Maintenance"
+            icon={maintenanceIcon}
+          />
+          <AdminNavItem
             href="/admin/settings"
             label="Settings"
             icon={settingsIcon}
@@ -136,6 +146,19 @@ const orgsIcon = (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
     <rect x="3" y="2" width="10" height="12" rx="1" />
     <path d="M6 5h4M6 8h4M6 11h2" strokeLinecap="round" />
+  </svg>
+)
+
+const sandboxIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M2 13 L8 3 L14 13 Z" strokeLinejoin="round" />
+    <path d="M5 13h6" strokeLinecap="round" />
+  </svg>
+)
+
+const maintenanceIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M10.5 2.5a3 3 0 0 0-4 4l-4 4a1.5 1.5 0 0 0 2 2l4-4a3 3 0 0 0 4-4l-2 2-2-1-1-2 2-2Z" strokeLinejoin="round" />
   </svg>
 )
 
