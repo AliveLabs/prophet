@@ -115,10 +115,15 @@ async function fuseCluster(
 ): Promise<EnrichedRecommendation[]> {
   const best = cluster.reduce((a, b) => (opts.scoreOf(b) > opts.scoreOf(a) ? b : a))
   const unionRefs = Array.from(new Set(cluster.flatMap((p) => p.evidenceRefs ?? [])))
+  // P7a: a DETERMINISTIC identity for the merged/collapsed output of this cluster, independent of the
+  // model-written title — so dismissing it keeps it suppressed even after re-fusion rewords the title.
+  // The clusterKey (kind + sorted lead ref) is the same for this cluster on any future build.
+  const ck = clusterKey(best)
+  const stableKey = ck ? `fused:${ck}` : undefined
   // Keep-best preserves the dominant play, annotated with the cluster's full evidence union so
-  // provenance + the ground-filter still reflect every merged signal. (Its narrative recipe is the
-  // dominant play's; the other lens's recipe is not carried on this fallback path.)
-  const keepBest = (): EnrichedRecommendation[] => [{ ...best, evidenceRefs: unionRefs }]
+  // provenance + the ground-filter still reflect every merged signal, and the cluster's stableKey so
+  // a dismissal sticks. (Its narrative recipe is the dominant play's; the other lens's is dropped here.)
+  const keepBest = (): EnrichedRecommendation[] => [{ ...best, evidenceRefs: unionRefs, stableKey }]
   // Numbers present anywhere in the inputs — the only figures a fused play may legitimately state.
   const inputNums = new Set(cluster.flatMap((p) => extractNumbers(playText(p))))
 
@@ -172,6 +177,7 @@ async function fuseCluster(
           evidenceRefs: unionRefs,
           skillId: best.skillId,
           knowledgeVersion: "fusion@v1",
+          stableKey, // P7a: survives re-fusion / title rewording so a dismissal keeps suppressing it
         }
         // Anti-fabrication: fusion is a net-new model write that bypasses run.ts's grounding gate, so
         // reject a fused narrative that states any number no input play had → deterministic keep-best.

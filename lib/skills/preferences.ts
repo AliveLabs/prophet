@@ -17,8 +17,11 @@ import type { EnrichedRecommendation } from "@/lib/skills/types"
 export type Verdict = "good" | "bad"
 export type PlayFeedback = { playKey: string; verdict: Verdict; severity: number }
 
-/** Stable key for a play (for feedback targeting), independent of brief ordering. */
-export function playKey(p: Pick<EnrichedRecommendation, "skillId" | "title">): string {
+/** Stable key for a play (for feedback + dismissal targeting), independent of brief ordering.
+ *  Prefers an explicit stableKey when present (FUSED plays — their model-written title is not
+ *  deterministic across regenerations; P7a). Producer plays fall back to skillId:title-slug. */
+export function playKey(p: Pick<EnrichedRecommendation, "skillId" | "title"> & { stableKey?: string }): string {
+  if (p.stableKey) return p.stableKey
   const slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60)
   return `${p.skillId}:${slug}`
 }

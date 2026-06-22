@@ -75,6 +75,11 @@ export type EnrichedRecommendation = {
    *  and the deterministic eval fixtures (which omit them) still type-check. */
   combinedScore?: number
   category?: Category
+  /** P7a: a deterministic identity that survives regeneration, set on FUSED plays (whose
+   *  model-written title is non-deterministic). playKey() prefers it, so dismissing a fused
+   *  play keeps it suppressed even after re-fusion rewords the title. Unset on producer plays
+   *  (their skillId:title-slug key is already stable). */
+  stableKey?: string
 }
 
 /** One signal source the engine checked when building the brief (the "what we checked" view). */

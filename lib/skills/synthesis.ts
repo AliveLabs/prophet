@@ -14,9 +14,16 @@ import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
 import { rankPlays, computeCombinedScore, type ScoreInput } from "@/lib/skills/scoring-config"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
+import { playKey } from "@/lib/skills/preferences"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 
-export type SynthOptions = { transport?: Transport; maxPlays?: number }
+export type SynthOptions = {
+  transport?: Transport
+  maxPlays?: number
+  /** P7a: playKeys in cross-day dismissal cooldown — filtered out of the pool before ranking so a
+   *  dismissed play doesn't regenerate into the next brief until its cooldown expires. */
+  suppressedKeys?: Set<string>
+}
 
 // The weekly brief is the spine (deep), so it carries the strongest plays across the
 // distinct kinds of opportunity. A daily glance can pass a smaller maxPlays.
@@ -98,16 +105,30 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // Prefer the rich per-signal coverage the dossier builder computes (with as-of/staleness);
   // fall back to a basic derivation for hand-built fixtures that omit it.
   const coverage = d.coverage ?? buildCoverage(d)
-  const candidates = results.flatMap((r) => r.plays)
+  // P7a: drop plays whose playKey is in cross-day dismissal cooldown (the user dismissed it recently),
+  // so it doesn't regenerate into this brief. Applied before fusion + the empty check.
+  const produced = results.flatMap((r) => r.plays)
+  const candidates =
+    opts.suppressedKeys && opts.suppressedKeys.size
+      ? produced.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
+      : produced
   if (candidates.length === 0) return quietBrief(d)
 
   // P6.5: fuse near-duplicate plays (two lenses on ONE signal) into a single richer play BEFORE
   // ranking, so the pool the model selects from has no split near-dups. One cheap reasoning call per
   // fusable cluster; deterministic keep-best fallback. Usually a no-op (no clusters → no LLM call).
-  const pool = await fuseNearDuplicates(candidates, d, {
+  const fusedPool = await fuseNearDuplicates(candidates, d, {
     transport: opts.transport,
     scoreOf: (p) => computeCombinedScore(toScoreInput(p)),
   })
+  // P7a: suppress again AFTER fusion. The pre-fusion filter above catches dismissed PRODUCER plays
+  // (and keeps them out of fusion); this catches a dismissed FUSED play, whose stableKey is stable
+  // across re-fusion even though its model-written title is not. (playKey prefers stableKey.)
+  const pool =
+    opts.suppressedKeys && opts.suppressedKeys.size
+      ? fusedPool.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
+      : fusedPool
+  if (pool.length === 0) return quietBrief(d)
 
   // Score and rank the whole pool ONCE on the continuous combined score (impact +
   // confidence + importance, × a modest category prior). This is the deterministic

@@ -14,7 +14,13 @@ import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
 import { synthesize } from "@/lib/skills/synthesis"
 import { voicePass } from "@/lib/skills/voice"
 
-export type RunBriefOptions = { transport?: Transport; skills?: ProducerSkill[]; maxPlays?: number }
+export type RunBriefOptions = {
+  transport?: Transport
+  skills?: ProducerSkill[]
+  maxPlays?: number
+  /** P7a: playKeys in cross-day dismissal cooldown (loaded by the build caller from evergreen_dismissals). */
+  suppressedKeys?: Set<string>
+}
 
 export type BriefResult = {
   brief: Brief
@@ -34,7 +40,9 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   const { kept, dropped } = applyHarmReview(candidates, verdicts, dossier.profile.brandTolerance ?? 50)
 
   const synthInput: SkillResult[] = [{ skillId: "reviewed", status: "ok", plays: kept }]
-  const brief = await voicePass(await synthesize(dossier, synthInput, { ...t, maxPlays: opts.maxPlays }))
+  const brief = await voicePass(
+    await synthesize(dossier, synthInput, { ...t, maxPlays: opts.maxPlays, suppressedKeys: opts.suppressedKeys }),
+  )
 
   return { brief, skillResults, dropped }
 }

@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { recordPlayFeedback, type Verdict } from "@/lib/skills/preferences"
+import { recordDismissalCooldown, clearDismissalCooldown, type EvergreenStore } from "@/lib/insights/evergreen"
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
@@ -65,6 +66,15 @@ type ActionStore = {
         }
       }
     }
+    select: (cols: string) => {
+      eq: (c: string, v: string) => {
+        eq: (c2: string, v2: string) => {
+          eq: (c3: string, v3: string) => {
+            maybeSingle: () => Promise<{ data: { action?: string } | null }>
+          }
+        }
+      }
+    }
   }
 }
 
@@ -75,9 +85,28 @@ export async function setPlayAction(input: {
   action: "saved" | "snoozed" | "dismissed" | null
 }): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
-  const supabase = (await createServerSupabaseClient()) as unknown as ActionStore
+  const raw = await createServerSupabaseClient()
+  const supabase = raw as unknown as ActionStore
+  // Cooldown writes go through the USER-SCOPED client so RLS enforces org membership — a foreign
+  // locationId can't touch another org's cooldowns (the admin client would bypass RLS).
+  const evergreenClient = raw as unknown as EvergreenStore
   try {
     if (input.action === null) {
+      // Only an undone DISMISSAL should lift the cross-day cooldown — undoing a save/snooze must not
+      // clear a still-active dismissal of a (key-colliding) play. Read the prior action first.
+      let wasDismissed = false
+      try {
+        const { data } = await supabase
+          .from("play_actions")
+          .select("action")
+          .eq("location_id", input.locationId)
+          .eq("date_key", input.dateKey)
+          .eq("play_key", input.playKey)
+          .maybeSingle()
+        wasDismissed = data?.action === "dismissed"
+      } catch {
+        /* best-effort: if we can't read the prior action, don't clear a cooldown we're unsure about */
+      }
       const { error } = await supabase
         .from("play_actions")
         .delete()
@@ -85,6 +114,14 @@ export async function setPlayAction(input: {
         .eq("date_key", input.dateKey)
         .eq("play_key", input.playKey)
       if (error) return { ok: false, error: error.message }
+      if (wasDismissed) {
+        try {
+          await clearDismissalCooldown(input.locationId, input.playKey, { client: evergreenClient })
+        } catch (e) {
+          // Best-effort, but log so a real post-migration failure is observable (not silently kept suppressed).
+          console.warn("[evergreen] clear cooldown failed:", e instanceof Error ? e.message : e)
+        }
+      }
     } else {
       const { error } = await supabase.from("play_actions").upsert(
         {
@@ -97,6 +134,15 @@ export async function setPlayAction(input: {
         { onConflict: "location_id,date_key,play_key" }
       )
       if (error) return { ok: false, error: error.message }
+      // P7a: a dismissal sets a cross-day cooldown so the play doesn't regenerate into the next
+      // brief for ~14 days (play_actions alone is per-date_key and wouldn't carry). Best-effort.
+      if (input.action === "dismissed") {
+        try {
+          await recordDismissalCooldown(input.locationId, input.playKey, { client: evergreenClient })
+        } catch (e) {
+          console.warn("[evergreen] record cooldown failed:", e instanceof Error ? e.message : e)
+        }
+      }
     }
     revalidatePath("/home")
     return { ok: true }

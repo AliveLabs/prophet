@@ -93,6 +93,9 @@ describe("fuseNearDuplicates", () => {
     expect(out[0].knowledgeVersion).toBe("fusion@v1")
     expect(out[0].confidence).toBe("high") // strongest in the cluster
     expect([...out[0].evidenceRefs].sort()).toEqual(["social.behind_scenes_opportunity", "social.x", "traffic.y"])
+    // P7a: a deterministic stableKey (cluster kind + sorted lead ref), independent of the model title,
+    // so a dismissal of this fused card survives re-fusion rewording the title.
+    expect(out[0].stableKey).toBe("fused:capitalize|social.behind_scenes_opportunity")
   })
 
   it("keeps both when the model says they're genuinely distinct", async () => {
