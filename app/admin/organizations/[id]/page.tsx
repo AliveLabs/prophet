@@ -77,6 +77,8 @@ async function fetchOrgDetail(orgId: string) {
     stripeCustomerId: org.stripe_customer_id,
     stripeSubscriptionId: org.stripe_subscription_id,
     createdAt: org.created_at,
+    industryType: org.industry_type,
+    orgKind: org.org_kind,
     members: (members ?? []).map((m) => ({
       id: m.id,
       userId: m.user_id,

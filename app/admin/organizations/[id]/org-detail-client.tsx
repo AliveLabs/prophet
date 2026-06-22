@@ -9,6 +9,8 @@ import {
   deactivateOrg,
   activateOrg,
   updateOrgInfo,
+  setTrialEndsAt,
+  convertOrgToPaid,
 } from "@/app/actions/org-management"
 
 interface OrgDetail {
@@ -23,6 +25,8 @@ interface OrgDetail {
   stripeCustomerId: string | null
   stripeSubscriptionId: string | null
   createdAt: string
+  industryType: string
+  orgKind: string
   members: Array<{
     id: string
     userId: string
@@ -51,6 +55,8 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
   const [feedback, setFeedback] = useState("")
   const [showEdit, setShowEdit] = useState(false)
   const [showTierChange, setShowTierChange] = useState(false)
+  const [showSetDate, setShowSetDate] = useState(false)
+  const [showConvert, setShowConvert] = useState(false)
 
   const isSuspended = org.tier === "suspended"
   // Trial = card-backed Stripe trial OR legacy clock-only org (null payment_state).
@@ -153,6 +159,15 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             </div>
           </div>
 
+          <TrialBanner
+            isSuspended={isSuspended}
+            paymentState={org.paymentState}
+            trialEndsAt={org.trialEndsAt}
+            trialActive={trialActive}
+            trialDaysLeft={trialDaysLeft}
+            orgKind={org.orgKind}
+          />
+
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowTierChange(!showTierChange)}
@@ -189,6 +204,20 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               Reset Trial
             </button>
             <button
+              onClick={() => setShowSetDate(!showSetDate)}
+              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            >
+              Set Trial Date
+            </button>
+            {org.orgKind === "real" && (
+              <button
+                onClick={() => setShowConvert(!showConvert)}
+                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-precision-teal hover:bg-secondary transition-colors"
+              >
+                Convert to Paid
+              </button>
+            )}
+            <button
               onClick={() => setShowEdit(!showEdit)}
               className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
             >
@@ -216,11 +245,30 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             />
           )}
 
+          {showSetDate && (
+            <SetTrialDatePanel
+              orgId={org.id}
+              currentTrialEndsAt={org.trialEndsAt}
+              onClose={() => setShowSetDate(false)}
+              onFeedback={setFeedback}
+            />
+          )}
+
+          {showConvert && org.orgKind === "real" && (
+            <ConvertToPaidPanel
+              orgId={org.id}
+              onClose={() => setShowConvert(false)}
+              onFeedback={setFeedback}
+            />
+          )}
+
           {showEdit && (
             <EditOrgPanel
               orgId={org.id}
               currentName={org.name}
               currentBillingEmail={org.billingEmail ?? ""}
+              currentSlug={org.slug}
+              currentIndustry={org.industryType}
               onClose={() => setShowEdit(false)}
               onFeedback={setFeedback}
             />
@@ -425,28 +473,45 @@ function TierChangePanel({
   )
 }
 
+type Industry = "restaurant" | "liquor_store"
+
 function EditOrgPanel({
   orgId,
   currentName,
   currentBillingEmail,
+  currentSlug,
+  currentIndustry,
   onClose,
   onFeedback,
 }: {
   orgId: string
   currentName: string
   currentBillingEmail: string
+  currentSlug: string
+  currentIndustry: string
   onClose: () => void
   onFeedback: (msg: string) => void
 }) {
   const [name, setName] = useState(currentName)
   const [billingEmail, setBillingEmail] = useState(currentBillingEmail)
+  const [slug, setSlug] = useState(currentSlug)
+  const [industry, setIndustry] = useState<Industry>(
+    currentIndustry === "liquor_store" ? "liquor_store" : "restaurant"
+  )
   const [isPending, startTransition] = useTransition()
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const updates: { name?: string; billingEmail?: string } = {}
+    const updates: {
+      name?: string
+      billingEmail?: string
+      slug?: string
+      industryType?: Industry
+    } = {}
     if (name !== currentName) updates.name = name
     if (billingEmail !== currentBillingEmail) updates.billingEmail = billingEmail
+    if (slug !== currentSlug) updates.slug = slug
+    if (industry !== currentIndustry) updates.industryType = industry
     if (Object.keys(updates).length === 0) {
       onFeedback("No changes to save.")
       return
@@ -486,6 +551,26 @@ function EditOrgPanel({
               className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Slug</label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Industry</label>
+            <select
+              value={industry}
+              onChange={(e) => setIndustry(e.target.value as Industry)}
+              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            >
+              <option value="restaurant">Restaurant</option>
+              <option value="liquor_store">Liquor store</option>
+            </select>
+          </div>
         </div>
         <button
           type="submit"
@@ -495,6 +580,219 @@ function EditOrgPanel({
           {isPending ? "Saving..." : "Save Changes"}
         </button>
       </form>
+    </div>
+  )
+}
+
+function TrialBanner({
+  isSuspended,
+  paymentState,
+  trialEndsAt,
+  trialActive,
+  trialDaysLeft,
+  orgKind,
+}: {
+  isSuspended: boolean
+  paymentState: string | null
+  trialEndsAt: string | null
+  trialActive: boolean
+  trialDaysLeft: number
+  orgKind: string
+}) {
+  const endStr = trialEndsAt
+    ? new Date(trialEndsAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null
+
+  let tone = "border-border bg-card text-foreground"
+  let text: string
+  if (isSuspended) {
+    tone = "border-destructive/30 bg-destructive/10 text-destructive"
+    text = "Suspended — members have no access."
+  } else if (paymentState === "active" || paymentState === "past_due") {
+    tone = "border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
+    text = "Paid — subscription active."
+  } else if (trialActive) {
+    tone =
+      trialDaysLeft <= 2
+        ? "border-destructive/30 bg-destructive/10 text-destructive"
+        : trialDaysLeft <= 5
+          ? "border-signal-gold/30 bg-signal-gold/10 text-signal-gold"
+          : "border-border bg-card text-foreground"
+    text = `Trial — ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left${
+      endStr ? `, expires ${endStr}` : ""
+    }${paymentState === "trialing" ? "" : " (no card)"}`
+  } else if (trialEndsAt) {
+    tone = "border-destructive/30 bg-destructive/10 text-destructive"
+    text = `Trial expired${endStr ? ` ${endStr}` : ""}.`
+  } else {
+    text = "No active trial or subscription."
+  }
+
+  const kindNote = orgKind !== "real" ? ` · ${orgKind.toUpperCase()} org (non-billable)` : ""
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>
+      {text}
+      {kindNote}
+    </div>
+  )
+}
+
+// datetime-local has no timezone — render the stored instant as LOCAL wall-clock so
+// the prefill and `new Date(value)` on submit agree (avoids a UTC-offset shift).
+function toLocalDatetimeInput(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function SetTrialDatePanel({
+  orgId,
+  currentTrialEndsAt,
+  onClose,
+  onFeedback,
+}: {
+  orgId: string
+  currentTrialEndsAt: string | null
+  onClose: () => void
+  onFeedback: (msg: string) => void
+}) {
+  const [value, setValue] = useState(
+    currentTrialEndsAt ? toLocalDatetimeInput(currentTrialEndsAt) : ""
+  )
+  const [isPending, startTransition] = useTransition()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!value) {
+      onFeedback("Pick a date.")
+      return
+    }
+    startTransition(async () => {
+      const result = await setTrialEndsAt(orgId, new Date(value).toISOString())
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onClose()
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Set Trial End Date</h3>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
+          Cancel
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="flex items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Trial ends</label>
+          <input
+            type="datetime-local"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
+        >
+          {isPending ? "Saving..." : "Set Date"}
+        </button>
+      </form>
+      <p className="mt-2 text-xs text-muted-foreground">
+        For a card-backed Stripe trial this updates Stripe; otherwise it sets the clock directly.
+      </p>
+    </div>
+  )
+}
+
+function ConvertToPaidPanel({
+  orgId,
+  onClose,
+  onFeedback,
+}: {
+  orgId: string
+  onClose: () => void
+  onFeedback: (msg: string) => void
+}) {
+  const [tier, setTier] = useState<"entry" | "mid" | "top">("mid")
+  const [cadence, setCadence] = useState<"monthly" | "annual">("monthly")
+  const [url, setUrl] = useState<string | null>(null)
+  const [isPending, startTransition] = useTransition()
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    startTransition(async () => {
+      const result = await convertOrgToPaid(orgId, { tier, cadence })
+      if (result.ok) {
+        setUrl(result.url)
+        onFeedback(result.message)
+      } else {
+        onFeedback(result.error)
+      }
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Convert to Paid</h3>
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
+          Cancel
+        </button>
+      </div>
+      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Tier</label>
+          <select
+            value={tier}
+            onChange={(e) => setTier(e.target.value as "entry" | "mid" | "top")}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          >
+            <option value="entry">Entry</option>
+            <option value="mid">Mid</option>
+            <option value="top">Top</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted-foreground">Cadence</label>
+          <select
+            value={cadence}
+            onChange={(e) => setCadence(e.target.value as "monthly" | "annual")}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          >
+            <option value="monthly">Monthly</option>
+            <option value="annual">Annual</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="h-9 rounded-lg bg-precision-teal px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-colors"
+        >
+          {isPending ? "Creating..." : "Generate Checkout Link"}
+        </button>
+      </form>
+      {url && (
+        <div className="mt-3">
+          <label className="mb-1 block text-xs text-muted-foreground">
+            Send this link to the customer:
+          </label>
+          <input
+            type="text"
+            readOnly
+            value={url}
+            onFocus={(e) => e.currentTarget.select()}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          />
+        </div>
+      )}
     </div>
   )
 }

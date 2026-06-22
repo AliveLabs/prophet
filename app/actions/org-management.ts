@@ -1,12 +1,16 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { randomUUID } from "node:crypto"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { cascadeDeleteOrganization, refreshOrgData } from "@/lib/admin/cascade-cleanup"
 import { createOrgWithOwner } from "@/lib/admin/org-factory"
+import { getStripeClient } from "@/lib/stripe/client"
+import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
+import { isValidIndustryType } from "@/lib/verticals"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -166,7 +170,7 @@ export async function deactivateOrg(orgId: string): Promise<ActionResult> {
 
   const { data: org } = await supabase
     .from("organizations")
-    .select("id, name, subscription_tier")
+    .select("id, name, subscription_tier, stripe_subscription_id, payment_state")
     .eq("id", orgId)
     .single()
 
@@ -182,18 +186,42 @@ export async function deactivateOrg(orgId: string): Promise<ActionResult> {
 
   if (error) return { ok: false, error: error.message }
 
+  // Cancel a live Stripe subscription so we don't keep billing a suspended org;
+  // the webhook then mirrors payment_state=canceled. Best-effort: a Stripe error
+  // doesn't undo the suspension, but it's logged for follow-up.
+  let stripeCanceled = false
+  const LIVE = ["active", "trialing", "past_due", "incomplete"]
+  if (org.stripe_subscription_id && org.payment_state && LIVE.includes(org.payment_state)) {
+    try {
+      await getStripeClient().subscriptions.cancel(org.stripe_subscription_id)
+      stripeCanceled = true
+    } catch (e) {
+      await logAdminAction({
+        adminId: admin.id,
+        adminEmail: admin.email ?? "",
+        action: "org.deactivate.stripe_cancel_failed",
+        targetType: "org",
+        targetId: orgId,
+        details: { orgName: org.name, error: e instanceof Error ? e.message : "unknown" },
+      })
+    }
+  }
+
   await logAdminAction({
     adminId: admin.id,
     adminEmail: admin.email ?? "",
     action: "org.deactivate",
     targetType: "org",
     targetId: orgId,
-    details: { orgName: org.name, previousTier: org.subscription_tier },
+    details: { orgName: org.name, previousTier: org.subscription_tier, stripeCanceled },
   })
 
   revalidatePath("/admin/organizations")
   revalidatePath(`/admin/organizations/${orgId}`)
-  return { ok: true, message: `Deactivated ${org.name}.` }
+  return {
+    ok: true,
+    message: `Deactivated ${org.name}${stripeCanceled ? " (Stripe subscription canceled)" : ""}.`,
+  }
 }
 
 export async function activateOrg(orgId: string): Promise<ActionResult> {
@@ -244,23 +272,37 @@ export async function activateOrg(orgId: string): Promise<ActionResult> {
 
 export async function updateOrgInfo(
   orgId: string,
-  updates: { name?: string; billingEmail?: string }
+  updates: {
+    name?: string
+    billingEmail?: string
+    slug?: string
+    industryType?: "restaurant" | "liquor_store"
+  }
 ): Promise<ActionResult> {
   const admin = await requirePlatformAdmin()
   const supabase = createAdminSupabaseClient()
+
+  if (updates.industryType && !isValidIndustryType(updates.industryType)) {
+    return { ok: false, error: `Invalid industry type: ${updates.industryType}` }
+  }
 
   const dbUpdates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   }
   if (updates.name) dbUpdates.name = updates.name
   if (updates.billingEmail) dbUpdates.billing_email = updates.billingEmail
+  if (updates.slug) dbUpdates.slug = updates.slug.trim().toLowerCase()
+  if (updates.industryType) dbUpdates.industry_type = updates.industryType
 
   const { error } = await supabase
     .from("organizations")
     .update(dbUpdates)
     .eq("id", orgId)
 
-  if (error) return { ok: false, error: error.message }
+  if (error) {
+    if (error.code === "23505") return { ok: false, error: "That slug is already taken." }
+    return { ok: false, error: error.message }
+  }
 
   await logAdminAction({
     adminId: admin.id,
@@ -572,4 +614,173 @@ export async function createTestOrg(input: {
   industryType?: "restaurant" | "liquor_store"
 }): Promise<CreateOrgResult> {
   return createAdminOwnedOrg("test", input)
+}
+
+// Set an exact trial end date/time. For a card-backed Stripe trial, Stripe owns
+// the clock — update it there and let the webhook mirror trial_ends_at (writing the
+// column directly would be clobbered by the next webhook). For clock-only orgs
+// (no Stripe sub / null payment_state), write the column directly. This is also the
+// lever for nudging a demo/test org's expiry.
+export async function setTrialEndsAt(orgId: string, isoDate: string): Promise<ActionResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+
+  const ts = Date.parse(isoDate)
+  if (Number.isNaN(ts)) return { ok: false, error: "Invalid date." }
+  const date = new Date(ts)
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id, name, payment_state, stripe_subscription_id, trial_started_at")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (!org) return { ok: false, error: "Organization not found." }
+
+  let viaStripe = false
+  if (org.stripe_subscription_id) {
+    // Stripe owns the clock for any org with a live subscription. Only a trialing
+    // sub can have its trial moved; for a past-trial sub (active/past_due/…) a trial
+    // date no longer applies — refuse rather than write a column the webhook clobbers.
+    if (org.payment_state !== "trialing") {
+      return {
+        ok: false,
+        error: "This org has a live Stripe subscription past its trial — a trial end date no longer applies.",
+      }
+    }
+    // Stripe requires trial_end to be at least ~48h in the future.
+    if (ts < Date.now() + 48 * 60 * 60 * 1000) {
+      return { ok: false, error: "Stripe trials must end at least 48 hours out. Pick a later date." }
+    }
+    try {
+      await getStripeClient().subscriptions.update(org.stripe_subscription_id, {
+        trial_end: Math.floor(ts / 1000),
+        proration_behavior: "none",
+      })
+      viaStripe = true
+    } catch (e) {
+      return {
+        ok: false,
+        error: `Stripe rejected the trial date: ${e instanceof Error ? e.message : "unknown error"}`,
+      }
+    }
+  } else {
+    const dbUpdates: Record<string, unknown> = {
+      trial_ends_at: date.toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    if (!org.trial_started_at) dbUpdates.trial_started_at = new Date().toISOString()
+    const { error } = await supabase.from("organizations").update(dbUpdates).eq("id", orgId)
+    if (error) return { ok: false, error: error.message }
+  }
+
+  await logAdminAction({
+    adminId: admin.id,
+    adminEmail: admin.email ?? "",
+    action: "org.set_trial_ends_at",
+    targetType: "org",
+    targetId: orgId,
+    details: { orgName: org.name, trialEndsAt: date.toISOString(), viaStripe },
+  })
+  revalidatePath("/admin/organizations")
+  revalidatePath(`/admin/organizations/${orgId}`)
+  return {
+    ok: true,
+    message: `Trial end set to ${date.toLocaleDateString()}${viaStripe ? " (via Stripe)" : ""}.`,
+  }
+}
+
+type ConvertResult =
+  | { ok: true; url: string; message: string }
+  | { ok: false; error: string }
+
+// Convert a Customer org to paid by generating a Stripe Checkout link to send to
+// them (decision: no admin-initiated charge — these orgs won't have a card on file).
+// Completing checkout fires the webhook, which sets payment_state via
+// applySubscriptionToOrg. We never write billing columns here.
+export async function convertOrgToPaid(
+  orgId: string,
+  opts: { tier?: "entry" | "mid" | "top"; cadence?: "monthly" | "annual" } = {}
+): Promise<ConvertResult> {
+  const admin = await requirePlatformAdmin()
+  const supabase = createAdminSupabaseClient()
+  const tier = opts.tier ?? "mid"
+  const cadence = opts.cadence ?? "monthly"
+
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("id, name, billing_email, industry_type, stripe_customer_id, org_kind")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (!org) return { ok: false, error: "Organization not found." }
+  if (org.org_kind !== "real") {
+    return { ok: false, error: "Only Customer orgs can be converted to paid. Reclassify it first." }
+  }
+  if (!isValidIndustryType(org.industry_type)) {
+    return { ok: false, error: `Unknown industry type '${org.industry_type}' on this org.` }
+  }
+
+  let priceId: string
+  try {
+    priceId = resolvePriceIdOrThrow(org.industry_type, tier, cadence)
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Price not configured." }
+  }
+
+  try {
+    const stripe = getStripeClient()
+    let customerId = org.stripe_customer_id
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: org.billing_email ?? undefined,
+        name: org.name,
+        metadata: { organization_id: org.id, industry_type: org.industry_type },
+      })
+      customerId = customer.id
+      const { error: linkErr } = await supabase
+        .from("organizations")
+        .update({ stripe_customer_id: customerId })
+        .eq("id", org.id)
+      if (linkErr) {
+        return {
+          ok: false,
+          error: `Created a Stripe customer but failed to link it to the org: ${linkErr.message}`,
+        }
+      }
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    const session = await stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        client_reference_id: org.id,
+        line_items: [{ price: priceId, quantity: 1 }],
+        mode: "subscription",
+        success_url: `${appUrl}/settings/billing?upgraded=true`,
+        cancel_url: `${appUrl}/settings/billing`,
+        allow_promotion_codes: true,
+        payment_method_collection: "always",
+        subscription_data: {
+          metadata: { organization_id: org.id, industry_type: org.industry_type, tier, cadence },
+        },
+      },
+      { idempotencyKey: `admin-convert:${org.id}:${priceId}:${randomUUID()}` }
+    )
+    if (!session.url) return { ok: false, error: "Stripe did not return a checkout URL." }
+
+    await logAdminAction({
+      adminId: admin.id,
+      adminEmail: admin.email ?? "",
+      action: "org.convert_to_paid",
+      targetType: "org",
+      targetId: orgId,
+      details: { orgName: org.name, tier, cadence, mode: "checkout_link" },
+    })
+    return {
+      ok: true,
+      url: session.url,
+      message: `Checkout link created for ${org.name} (${tier} / ${cadence}). Send it to the customer to complete payment.`,
+    }
+  } catch (e) {
+    return { ok: false, error: `Stripe error: ${e instanceof Error ? e.message : "unknown error"}` }
+  }
 }
