@@ -22,6 +22,7 @@ export default async function SandboxPage() {
     .from("organizations")
     .select("id, name, slug, org_kind, industry_type, subscription_tier, created_at")
     .in("org_kind", ["demo", "test"])
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
   const rows = orgs ?? []

@@ -1,4 +1,5 @@
 import { connection } from "next/server"
+import Link from "next/link"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isTrialing, isPaidActive } from "@/lib/billing/trial"
 import { OrgsTable } from "./components/orgs-table"
@@ -18,6 +19,7 @@ interface OrgRow {
 
 async function fetchOrgs(): Promise<{
   orgs: OrgRow[]
+  deleted: Array<{ id: string; name: string; slug: string; deletedAt: string }>
   stats: { total: number; activeTrials: number; expiredTrials: number; paid: number }
 }> {
   await connection()
@@ -28,7 +30,16 @@ async function fetchOrgs(): Promise<{
     .select(
       "id, name, slug, subscription_tier, trial_ends_at, payment_state, created_at, industry_type"
     )
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
+
+  // Soft-deleted orgs (Phase 6c) — surfaced as a separate section so they can be restored
+  // or purged from their detail page; excluded from the main list + all counts above.
+  const { data: deletedData } = await supabase
+    .from("organizations")
+    .select("id, name, slug, deleted_at")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false })
 
   const { data: members } = await supabase
     .from("organization_members")
@@ -85,11 +96,18 @@ async function fetchOrgs(): Promise<{
     paid: allOrgs.filter((o) => isPaidActive(o)).length,
   }
 
-  return { orgs, stats }
+  const deleted = (deletedData ?? []).map((o) => ({
+    id: o.id,
+    name: o.name,
+    slug: o.slug,
+    deletedAt: o.deleted_at as string,
+  }))
+
+  return { orgs, deleted, stats }
 }
 
 export default async function AdminOrgsPage() {
-  const { orgs, stats } = await fetchOrgs()
+  const { orgs, deleted, stats } = await fetchOrgs()
 
   return (
     <div className="space-y-6">
@@ -122,6 +140,29 @@ export default async function AdminOrgsPage() {
       </div>
 
       <OrgsTable orgs={orgs} />
+
+      {deleted.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+            Deleted ({deleted.length})
+          </h2>
+          <ul className="divide-y divide-border text-sm">
+            {deleted.map((o) => (
+              <li key={o.id} className="flex items-center justify-between py-2">
+                <Link
+                  href={`/admin/organizations/${o.id}`}
+                  className="text-vatic-indigo hover:underline"
+                >
+                  {o.name} <span className="text-muted-foreground">/{o.slug}</span>
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  deleted {new Date(o.deletedAt).toLocaleDateString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   )
 }

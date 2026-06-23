@@ -331,10 +331,10 @@ export const updateOrgInfo = withAdminAction(
 
 const VALID_ORG_KINDS = ["real", "demo", "test"] as const
 
-// Fully delete an org and everything under it (routes through the canonical cleanup
-// module, so the polymorphic social rows are handled). Irreversible — typed-confirm
-// is enforced in the UI. An admin may delete a demo/test org; deleting a Customer
-// (real) org additionally requires super_admin.
+// SOFT-delete an org (Phase 6c): set deleted_at so it's hidden from every list / count /
+// cron and from customer access, but recoverable. A super_admin can later permanently
+// purge it (purgeOrg) or anyone can restore it (restoreOrg). An admin may delete a
+// demo/test org; deleting a Customer (real) org additionally requires super_admin.
 export const deleteOrg = withAdminAction(
   "org.delete",
   async (ctx, orgId: string, reason: string): Promise<ActionResult> => {
@@ -347,9 +347,10 @@ export const deleteOrg = withAdminAction(
       .eq("id", orgId)
       .maybeSingle()
     if (!org) return { ok: false, error: "Organization not found." }
+    if (org.deleted_at) return { ok: false, error: "Organization is already deleted." }
 
-    // Customer (real) orgs are the billable, irreplaceable ones — gate their hard delete
-    // behind super_admin (checked before any destructive write).
+    // Customer (real) orgs are the billable, irreplaceable ones — gate their deletion
+    // behind super_admin (checked before any write).
     if (org.org_kind === "real") {
       requireSuperAdmin(ctx, "Deleting a Customer organization requires a super admin.")
     }
@@ -367,11 +368,66 @@ export const deleteOrg = withAdminAction(
     }
 
     // "no log ⇒ no action": record the intent + reason + full before-snapshot BEFORE the
-    // irreversible cascade. If the audit row can't be written, abort without deleting.
+    // write. If the audit row can't be written, abort.
     const intent = await logCriticalAction({
       adminId: ctx.adminId,
       adminEmail: ctx.adminEmail,
-      action: "org.delete",
+      action: "org.soft_delete",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      before: org,
+      details: { phase: "intent", orgKind: org.org_kind },
+    })
+    if (!intent.ok) return intent
+
+    const { error } = await supabase
+      .from("organizations")
+      .update({ deleted_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", orgId)
+    if (error) return { ok: false, error: error.message }
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.soft_delete",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      details: { phase: "result", orgKind: org.org_kind },
+    })
+
+    revalidatePath("/admin/organizations")
+    revalidatePath(`/admin/organizations/${orgId}`)
+    return {
+      ok: true,
+      message: `Deleted ${org.name} — hidden everywhere and recoverable. A super admin can permanently purge it.`,
+    }
+  }
+)
+
+// Permanently purge a SOFT-deleted org (Phase 6c, super_admin only). Routes through the
+// canonical cascade so the polymorphic social rows are handled. Irreversible.
+export const purgeOrg = withAdminAction(
+  "org.delete",
+  async (ctx, orgId: string, reason: string): Promise<ActionResult> => {
+    requireSuperAdmin(ctx, "Permanently purging an organization requires a super admin.")
+    const supabase = createAdminSupabaseClient()
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", orgId)
+      .maybeSingle()
+    if (!org) return { ok: false, error: "Organization not found." }
+    if (!org.deleted_at) {
+      return { ok: false, error: "Only a deleted org can be purged. Delete it first." }
+    }
+
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.purge",
       targetType: "org",
       targetId: orgId,
       reason,
@@ -384,16 +440,13 @@ export const deleteOrg = withAdminAction(
     try {
       result = await cascadeDeleteOrganization(supabase, orgId)
     } catch (e) {
-      return {
-        ok: false,
-        error: e instanceof Error ? e.message : "Failed to delete organization.",
-      }
+      return { ok: false, error: e instanceof Error ? e.message : "Failed to purge organization." }
     }
 
     await logAdminAction({
       adminId: ctx.adminId,
       adminEmail: ctx.adminEmail,
-      action: "org.delete",
+      action: "org.purge",
       targetType: "org",
       targetId: orgId,
       reason,
@@ -401,7 +454,42 @@ export const deleteOrg = withAdminAction(
     })
 
     revalidatePath("/admin/organizations")
-    return { ok: true, message: `Deleted ${org.name} and all its data.` }
+    return { ok: true, message: `Permanently purged ${org.name} and all its data.` }
+  }
+)
+
+// Restore a soft-deleted org (Phase 6c): clears deleted_at, bringing it back everywhere.
+export const restoreOrg = withAdminAction(
+  "org.manage",
+  async (ctx, orgId: string): Promise<ActionResult> => {
+    const supabase = createAdminSupabaseClient()
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, name, deleted_at")
+      .eq("id", orgId)
+      .maybeSingle()
+    if (!org) return { ok: false, error: "Organization not found." }
+    if (!org.deleted_at) return { ok: false, error: "This organization is not deleted." }
+
+    const { error } = await supabase
+      .from("organizations")
+      .update({ deleted_at: null, updated_at: new Date().toISOString() })
+      .eq("id", orgId)
+    if (error) return { ok: false, error: error.message }
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.restore",
+      targetType: "org",
+      targetId: orgId,
+      details: { orgName: org.name },
+    })
+
+    revalidatePath("/admin/organizations")
+    revalidatePath(`/admin/organizations/${orgId}`)
+    return { ok: true, message: `Restored ${org.name}.` }
   }
 )
 

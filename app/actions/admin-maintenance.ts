@@ -45,6 +45,7 @@ export const clearTestData = withAdminAction(
     .from("organizations")
     .select("id, name, org_kind, payment_state")
     .in("org_kind", kinds)
+    .is("deleted_at", null)
   if (error) return { ok: false, error: error.message }
 
   const allow = new Set(allowlistOrgIds)

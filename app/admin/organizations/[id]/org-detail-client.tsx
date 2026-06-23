@@ -15,6 +15,8 @@ import {
   clearOrgData,
   transferOrgOwnership,
   deleteOrg,
+  purgeOrg,
+  restoreOrg,
 } from "@/app/actions/org-management"
 import { useRouter } from "next/navigation"
 
@@ -32,6 +34,7 @@ interface OrgDetail {
   createdAt: string
   industryType: string
   orgKind: string
+  deletedAt: string | null
   members: Array<{
     id: string
     userId: string
@@ -50,6 +53,8 @@ interface OrgDetail {
     id: string
     action: string
     adminEmail: string
+    reason: string | null
+    actorType: string
     details: Record<string, unknown> | null
     createdAt: string
   }>
@@ -132,6 +137,17 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
         <div className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground">
           {feedback}
         </div>
+      )}
+
+      {org.deletedAt && (
+        <DeletedBanner
+          orgId={org.id}
+          orgName={org.name}
+          deletedAt={org.deletedAt}
+          onFeedback={setFeedback}
+          onRestored={() => router.refresh()}
+          onPurged={() => router.push("/admin/organizations")}
+        />
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -305,12 +321,14 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               >
                 Clear Data
               </button>
-              <button
-                onClick={() => setShowDeleteOrg(!showDeleteOrg)}
-                className="h-9 rounded-lg bg-destructive/10 px-4 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
-              >
-                Delete Org
-              </button>
+              {!org.deletedAt && (
+                <button
+                  onClick={() => setShowDeleteOrg(!showDeleteOrg)}
+                  className="h-9 rounded-lg bg-destructive/10 px-4 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
+                >
+                  Delete Org
+                </button>
+              )}
             </div>
             <div className="mt-3 space-y-3">
               {showSetKind && (
@@ -445,8 +463,13 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                     <p className="text-xs font-medium text-foreground">
                       {log.action.replace(/\./g, " → ")}
                     </p>
+                    {log.reason && (
+                      <p className="text-[11px] italic text-muted-foreground">
+                        &ldquo;{log.reason}&rdquo;
+                      </p>
+                    )}
                     <p className="text-[11px] text-muted-foreground">
-                      by {log.adminEmail} ·{" "}
+                      by {log.actorType === "system" ? "system" : log.adminEmail} ·{" "}
                       {new Date(log.createdAt).toLocaleString()}
                     </p>
                   </div>
@@ -1150,6 +1173,120 @@ function DeleteOrgPanel({
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+// Shown when an org is soft-deleted (Phase 6c): a restore path + a super-admin permanent
+// purge (typed-confirm + reason). Purge is server-gated to super_admin; a lower role gets a
+// clean error rather than the control being hidden (we don't have the viewer role here).
+function DeletedBanner({
+  orgId,
+  orgName,
+  deletedAt,
+  onFeedback,
+  onRestored,
+  onPurged,
+}: {
+  orgId: string
+  orgName: string
+  deletedAt: string
+  onFeedback: (msg: string) => void
+  onRestored: () => void
+  onPurged: () => void
+}) {
+  const [showPurge, setShowPurge] = useState(false)
+  const [confirmText, setConfirmText] = useState("")
+  const [reason, setReason] = useState("")
+  const [isPending, startTransition] = useTransition()
+  const purgeReady = confirmText === orgName && reason.trim().length > 0
+
+  const handleRestore = () => {
+    startTransition(async () => {
+      const result = await restoreOrg(orgId)
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onRestored()
+    })
+  }
+
+  const handlePurge = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!purgeReady) return
+    startTransition(async () => {
+      const result = await purgeOrg(orgId, reason)
+      if (result.ok) {
+        onPurged()
+      } else {
+        onFeedback(result.error)
+      }
+    })
+  }
+
+  return (
+    <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-destructive">This organization is deleted</p>
+          <p className="text-xs text-muted-foreground">
+            Deleted {new Date(deletedAt).toLocaleString()} · hidden from all lists, counts, and
+            customer access. Restore it, or permanently purge it (super admin).
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleRestore}
+            disabled={isPending}
+            className="h-9 rounded-lg bg-precision-teal/15 px-4 text-sm font-semibold text-precision-teal hover:bg-precision-teal/25 disabled:opacity-50"
+          >
+            {isPending ? "..." : "Restore"}
+          </button>
+          <button
+            onClick={() => setShowPurge((s) => !s)}
+            className="h-9 rounded-lg bg-destructive/15 px-4 text-sm font-semibold text-destructive hover:bg-destructive/25"
+          >
+            Purge Permanently
+          </button>
+        </div>
+      </div>
+
+      {showPurge && (
+        <form onSubmit={handlePurge} className="mt-4 space-y-3 border-t border-destructive/20 pt-4">
+          <p className="text-xs font-semibold text-destructive">
+            Permanently deletes {orgName} and all its data — irreversible. Type{" "}
+            <strong className="text-foreground">{orgName}</strong> and give a reason.
+          </p>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (required, recorded in the audit log)"
+            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+          />
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder={orgName}
+              className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+            />
+            <button
+              type="submit"
+              disabled={!purgeReady || isPending}
+              className="h-9 rounded-lg bg-destructive px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {isPending ? "Purging..." : "Purge"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPurge(false)}
+              className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }

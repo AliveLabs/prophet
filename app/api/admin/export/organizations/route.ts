@@ -16,6 +16,7 @@ export async function GET() {
     .select(
       "id, name, slug, subscription_tier, trial_started_at, trial_ends_at, billing_email, created_at"
     )
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
 
   const { data: members } = await supabase

@@ -79,6 +79,7 @@ export const broadcastEmail = withAdminAction(
       const { data: orgs } = await supabase
         .from("organizations")
         .select("id, subscription_tier, trial_ends_at, payment_state")
+        .is("deleted_at", null)
 
       if (members && orgs) {
         const orgMap = new Map(orgs.map((o) => [o.id, o]))

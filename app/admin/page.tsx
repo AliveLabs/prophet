@@ -27,7 +27,8 @@ async function fetchPlatformMetrics() {
   ] = await Promise.all([
     supabase
       .from("organizations")
-      .select("*", { count: "exact", head: true }),
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null),
     supabase.from("locations").select("*", { count: "exact", head: true }),
     supabase
       .from("competitors")
@@ -39,7 +40,8 @@ async function fetchPlatformMetrics() {
       .from("organizations")
       .select(
         "id, name, slug, subscription_tier, trial_started_at, trial_ends_at, payment_state, stripe_customer_id, created_at"
-      ),
+      )
+      .is("deleted_at", null),
     supabase
       .from("waitlist_signups")
       .select("id, email, status, created_at")

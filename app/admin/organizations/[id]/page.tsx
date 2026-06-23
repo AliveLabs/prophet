@@ -79,6 +79,7 @@ async function fetchOrgDetail(orgId: string) {
     createdAt: org.created_at,
     industryType: org.industry_type,
     orgKind: org.org_kind,
+    deletedAt: org.deleted_at,
     members: (members ?? []).map((m) => ({
       id: m.id,
       userId: m.user_id,
@@ -97,6 +98,8 @@ async function fetchOrgDetail(orgId: string) {
       id: log.id,
       action: log.action,
       adminEmail: log.admin_email ?? "",
+      reason: log.reason ?? null,
+      actorType: log.actor_type ?? "admin",
       details: log.details as Record<string, unknown> | null,
       createdAt: log.created_at ?? "",
     })),

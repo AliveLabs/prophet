@@ -69,6 +69,7 @@ export async function GET(req: Request) {
     .from("organizations")
     .select("id, subscription_tier, trial_ends_at, payment_state")
     .in("id", orgIds)
+    .is("deleted_at", null)
   const activeOrgs = new Set(
     (orgs ?? [])
       .filter((o) =>

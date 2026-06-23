@@ -40,6 +40,7 @@ export async function GET(request: Request) {
     .select("id, name, trial_ends_at, industry_type, subscription_tier, payment_state")
     .eq("payment_state", "trialing")
     .not("trial_ends_at", "is", null)
+    .is("deleted_at", null)
 
   if (error) {
     console.error("trial-reminders query failed:", error)
