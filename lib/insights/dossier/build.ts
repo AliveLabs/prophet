@@ -26,6 +26,8 @@ import { fetchBusyTimes } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
 import { corroboratePriceInsights } from "@/lib/content/insights"
+import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
+import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 
@@ -109,16 +111,23 @@ export function pickSocialSnapshot(candidates: SocialCandidate[]): SocialCandida
 async function loadSocial(
   sb: SB,
   entityIds: string[],
-  nowKey: string
-): Promise<{ byEntity: Map<string, SocialSnapshotData>; asOf: string | null; excludedDormant: number }> {
+  nowKey: string,
+  entityMeta: Map<string, { kind: "location" | "competitor"; name: string }>
+): Promise<{
+  byEntity: Map<string, SocialSnapshotData>
+  visualByEntity: Map<string, EntityVisualProfile>
+  asOf: string | null
+  excludedDormant: number
+}> {
   const byEntity = new Map<string, SocialSnapshotData>()
+  const visualByEntity = new Map<string, EntityVisualProfile>()
   let asOf: string | null = null
   let excludedDormant = 0
-  if (entityIds.length === 0) return { byEntity, asOf, excludedDormant }
+  if (entityIds.length === 0) return { byEntity, visualByEntity, asOf, excludedDormant }
   try {
     const { data: profiles } = await sb.from("social_profiles").select("id, entity_id, platform").in("entity_id", entityIds)
     const profs = profiles ?? []
-    if (profs.length === 0) return { byEntity, asOf, excludedDormant }
+    if (profs.length === 0) return { byEntity, visualByEntity, asOf, excludedDormant }
     const profById = new Map(profs.map((p) => [p.id as string, p as { entity_id: string; platform: string }]))
     // Note: content_as_of/freshness columns exist in the DB (Phase 1 migration) but are
     // intentionally NOT selected here — the generated types don't include them yet, and
@@ -164,6 +173,27 @@ async function loadSocial(
       if (best) {
         byEntity.set(entityId, best.raw)
         if (best.contentAsOf && (!asOf || best.contentAsOf > asOf)) asOf = best.contentAsOf
+        // Visual profile from the SAME chosen snapshot, so visual + social describe the
+        // same platform/snapshot. Cheap in-memory re-aggregation of existing Gemini Vision
+        // analyses already on the posts — NO recompute. Returns null when no post carries
+        // a visualAnalysis, so no-vision entities stay honestly empty (positioning +
+        // marketing skills both guard null).
+        const posts = best.raw.recentPosts ?? []
+        const analysisMap = new Map(
+          posts.filter((p) => p.visualAnalysis).map((p) => [p.platformPostId, p.visualAnalysis!]),
+        )
+        if (analysisMap.size > 0) {
+          const meta = entityMeta.get(entityId)
+          const vp = aggregateVisualMetrics(
+            meta?.kind ?? "competitor",
+            entityId,
+            meta?.name ?? "Unknown",
+            best.platform as SocialPlatform,
+            posts,
+            analysisMap,
+          )
+          if (vp) visualByEntity.set(entityId, vp)
+        }
       } else {
         excludedDormant++ // every platform dormant / empty / undated — kept out of the brief
       }
@@ -171,7 +201,7 @@ async function loadSocial(
   } catch {
     /* social is optional — absence is reported via coverage */
   }
-  return { byEntity, asOf, excludedDormant }
+  return { byEntity, visualByEntity, asOf, excludedDormant }
 }
 
 async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotType?: string): Promise<Record<string, unknown> | null> {
@@ -456,14 +486,25 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // loadSocial classifies by real CONTENT recency, so dormant accounts (e.g. last post
   // 2022) are excluded here — never attached, never presented as current activity.
   const entityIds = [loc.id as string, ...competitors.map((c) => c.entityId)]
-  const { byEntity: socialByEntity, asOf: socialAsOf, excludedDormant: socialDormant } = await loadSocial(sb, entityIds, dateKey)
+  const entityMeta = new Map<string, { kind: "location" | "competitor"; name: string }>([
+    [location.entityId, { kind: "location", name: location.name }],
+    ...competitors.map((c) => [c.entityId, { kind: "competitor" as const, name: c.name }] as const),
+  ])
+  const {
+    byEntity: socialByEntity,
+    visualByEntity: socialVisualByEntity,
+    asOf: socialAsOf,
+    excludedDormant: socialDormant,
+  } = await loadSocial(sb, entityIds, dateKey, entityMeta)
   const socialFresh = socialByEntity.size > 0
   if (socialFresh) {
     const own = socialByEntity.get(location.entityId)
     if (own) location.social = own
+    location.visual = socialVisualByEntity.get(location.entityId) ?? null
     for (const c of competitors) {
       const s = socialByEntity.get(c.entityId)
       if (s) c.social = s
+      c.visual = socialVisualByEntity.get(c.entityId) ?? null
     }
   }
 

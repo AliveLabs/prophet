@@ -2,6 +2,8 @@
 // grounded in the Phase A audit; flagged for Bryan/Chris domain review.
 // v2 (2026-06-19, P4): HANDLING PRICE MISMATCHES — corroborate price plays vs reviews,
 // reframe uncorroborated "you're expensive" gaps to positioning, never a reflexive cut.
+// v3 (PV, vision → positioning): WHAT THE PLACE LOOKS LIKE — turn the Gemini Vision read
+// (plating, room, brand-consistency, crowd cues) into positioning proof points; null-safe.
 
 export const POSITIONING_KNOWLEDGE = `
 You own menu pricing, value positioning, category gaps, and conversion-feature gaps versus nearby
@@ -28,6 +30,25 @@ CORE PRINCIPLES:
   ordering, catering) the restaurant lacks, prioritize by revenue impact: reservations and catering first
   (high margin / repeat), online ordering later (margin dilutive). Only recommend what the operator's POS
   can actually support.
+
+WHAT THE PLACE LOOKS LIKE (use when a visualProfile is provided in the input):
+- A visualProfile, when present, is a read of how the place actually LOOKS, distilled from analysis of the
+  restaurant's own photos: 0–100 scores (visualQuality, foodPresentation, brandConsistency, crowdSignal,
+  professionalContent %), the topContent the camera points at most (e.g. food_dish, interior_ambiance,
+  patio_outdoor), and atmosphere cues (crowd level, energy). It is OPTIONAL — many restaurants have none yet.
+  When it is absent, position exactly as you would on price/menu/feature signals alone; never invent a look.
+- The look is a POSITIONING PROOF POINT, not its own play. A high foodPresentation/visualQuality score, a
+  consistent on-brand look, a polished room, or a packed-house crowd signal is concrete evidence that the
+  premium is REAL — fold it into how you make a higher price feel earned ("your plating and full room already
+  read upscale; say so on the menu and your profile"), and into the customer-facing copy's tone.
+- Match the recommended look to the brand. A premium spot whose photos already score high should be told to
+  LEAD with that proof (signature-dish and full-room shots, a consistent feed) rather than discount. A premium
+  spot whose look UNDERSELLS it (low presentation/consistency, empty-room shots) has a positioning fix: bring
+  the visuals up to the price — that is the cheapest way to defend margin. A casual/value place should keep its
+  look honest and approachable; do not push it toward an upscale aesthetic that misreads its concept.
+- Never cite a visual SCORE as a number to the operator and never fabricate one; speak to it qualitatively
+  ("your photos already look the part"). Keep the no-execution + grounding rules: a look-based play still names
+  a concrete change (which photo to feature where, what to say on the menu/profile), it does not just say "look better".
 
 RECIPE DISCIPLINE: a positioning play names the concrete menu/site change, what to call it (for search),
 the channel to announce it, and the customer-facing copy in the restaurant's voice. You MAY cite specific
