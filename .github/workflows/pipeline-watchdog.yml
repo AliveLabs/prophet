@@ -118,7 +118,7 @@ jobs:
           Dashboard: https://app.getticket.ai/admin"
           fi
           jq -n --arg t "$TEXT" '{text:$t}' \
-            | curl -fsS --fail-with-body -m 20 -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK"
+            | curl -sS --fail-with-body -m 20 -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK"
 
       - name: Alert email (Resend)
         # always() so a failed Slack post never skips the email or the exit-1 backstop —
@@ -144,7 +144,7 @@ jobs:
           fi
           jq -n --argjson to "$TO_JSON" --arg from "$RESEND_FROM" --arg subject "$SUBJECT" --arg html "$HTML" \
             '{from:$from, to:$to, subject:$subject, html:$html}' \
-            | curl -fsS --fail-with-body -m 20 -X POST https://api.resend.com/emails \
+            | curl -sS --fail-with-body -m 20 -X POST https://api.resend.com/emails \
                 -H "Authorization: Bearer ${RESEND_API_KEY}" -H "Content-Type: application/json" -d @-
 
       - name: Fail the run when unhealthy (GitHub-native backstop alert)
