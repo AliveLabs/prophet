@@ -34,7 +34,12 @@ on:
   schedule:
     # 13:00 UTC daily — after the 06:00 data pull + 08:00 brief build crons, plus a buffer.
     - cron: "0 13 * * *"
-  workflow_dispatch: {} # manual "Run workflow" button for on-demand checks
+  workflow_dispatch:
+    inputs:
+      test_alert:
+        description: "Fire a TEST alert (Slack + email) to confirm delivery, even when healthy"
+        type: boolean
+        default: false
 
 concurrency:
   group: pipeline-watchdog
@@ -94,38 +99,49 @@ jobs:
       - name: Alert Slack
         # always() so a failed Slack post never skips the email or the exit-1 backstop —
         # independent alert paths are the whole point of a watchdog.
-        if: always() && steps.probe.outputs.healthy == 'false'
+        if: always() && (steps.probe.outputs.healthy == 'false' || github.event.inputs.test_alert == 'true')
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_ALERT_WEBHOOK_URL }}
+          IS_TEST: ${{ github.event.inputs.test_alert }}
           STATUS: ${{ steps.probe.outputs.status }}
           HTTP_CODE: ${{ steps.probe.outputs.http_code }}
           REASONS: ${{ steps.probe.outputs.reasons }}
         run: |
           if [ -z "${SLACK_WEBHOOK}" ]; then echo "SLACK_ALERT_WEBHOOK_URL not set; skipping Slack"; exit 0; fi
-          TEXT=":rotating_light: *Ticket pipeline watchdog* — status: ${STATUS} (http ${HTTP_CODE})
+          if [ "${IS_TEST}" = "true" ]; then
+            TEXT=":white_check_mark: *Ticket pipeline watchdog — TEST alert.* Manual drill to confirm Slack delivery; no action needed. (Live pipeline status: ${STATUS}.)"
+          else
+            TEXT=":rotating_light: *Ticket pipeline watchdog* — status: ${STATUS} (http ${HTTP_CODE})
           The scheduled data/brief pipeline is not healthy.
           Reasons: ${REASONS}
           Check Vercel → prophet → Settings → Crons (enabled? billing OK?) and the worker queue.
           Dashboard: https://app.getticket.ai/admin"
+          fi
           jq -n --arg t "$TEXT" '{text:$t}' \
             | curl -fsS --fail-with-body -m 20 -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK"
 
       - name: Alert email (Resend)
         # always() so a failed Slack post never skips the email or the exit-1 backstop —
         # independent alert paths are the whole point of a watchdog.
-        if: always() && steps.probe.outputs.healthy == 'false'
+        if: always() && (steps.probe.outputs.healthy == 'false' || github.event.inputs.test_alert == 'true')
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           OPS_EMAILS: ${{ secrets.OPS_ALERT_EMAILS || 'bryan@alivelabs.io,chris@alivelabs.io' }}
           RESEND_FROM: ${{ secrets.RESEND_FROM || 'Ticket <hello@getticket.ai>' }}
+          IS_TEST: ${{ github.event.inputs.test_alert }}
           STATUS: ${{ steps.probe.outputs.status }}
           HTTP_CODE: ${{ steps.probe.outputs.http_code }}
           REASONS: ${{ steps.probe.outputs.reasons }}
         run: |
           if [ -z "${RESEND_API_KEY}" ]; then echo "RESEND_API_KEY not set; skipping email"; exit 0; fi
           TO_JSON=$(printf '%s' "${OPS_EMAILS}" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length>0))')
-          SUBJECT="[Ticket] Pipeline watchdog: ${STATUS} — scheduled jobs unhealthy"
-          HTML="<h2>Ticket pipeline watchdog</h2><p>Status: <b>${STATUS}</b> (http ${HTTP_CODE})</p><p>The scheduled data/brief pipeline is not healthy.</p><p><b>Reasons:</b></p><pre>${REASONS}</pre><p>Check Vercel &rarr; prophet &rarr; Settings &rarr; Crons (enabled? billing OK?) and the worker queue.</p><p><a href=\"https://app.getticket.ai/admin\">Open dashboard</a></p>"
+          if [ "${IS_TEST}" = "true" ]; then
+            SUBJECT="[Ticket] Pipeline watchdog — TEST alert (delivery check)"
+            HTML="<h2>Ticket pipeline watchdog — TEST</h2><p>Manual drill to confirm email delivery to you + Chris. No action needed.</p><p>Live pipeline status: <b>${STATUS}</b>.</p>"
+          else
+            SUBJECT="[Ticket] Pipeline watchdog: ${STATUS} — scheduled jobs unhealthy"
+            HTML="<h2>Ticket pipeline watchdog</h2><p>Status: <b>${STATUS}</b> (http ${HTTP_CODE})</p><p>The scheduled data/brief pipeline is not healthy.</p><p><b>Reasons:</b></p><pre>${REASONS}</pre><p>Check Vercel &rarr; prophet &rarr; Settings &rarr; Crons (enabled? billing OK?) and the worker queue.</p><p><a href=\"https://app.getticket.ai/admin\">Open dashboard</a></p>"
+          fi
           jq -n --argjson to "$TO_JSON" --arg from "$RESEND_FROM" --arg subject "$SUBJECT" --arg html "$HTML" \
             '{from:$from, to:$to, subject:$subject, html:$html}' \
             | curl -fsS --fail-with-body -m 20 -X POST https://api.resend.com/emails \
