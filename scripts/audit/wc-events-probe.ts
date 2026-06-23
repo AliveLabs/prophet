@@ -18,6 +18,15 @@ type Item = {
   location_info?: { name?: string; address?: string }
 }
 
+type DataForSeoResponse = {
+  cost?: number
+  tasks?: Array<{
+    status_code?: number
+    status_message?: string
+    result?: Array<{ items?: Item[] }>
+  }>
+}
+
 async function probe(keyword: string, locationName: string, dateRange?: string, depth = 20) {
   const task: Record<string, unknown> = {
     keyword,
@@ -33,7 +42,7 @@ async function probe(keyword: string, locationName: string, dateRange?: string, 
     headers: { Authorization: auth, "Content-Type": "application/json" },
     body: JSON.stringify([task]),
   })
-  const json: any = await res.json()
+  const json = (await res.json()) as DataForSeoResponse
   const t = json.tasks?.[0]
   const items: Item[] = t?.result?.[0]?.items ?? []
   const events = items.filter((i) => !i.type || i.type === "event_item")
@@ -56,7 +65,7 @@ async function probe(keyword: string, locationName: string, dateRange?: string, 
 }
 
 async function main() {
-  const summary: any[] = []
+  const summary: Awaited<ReturnType<typeof probe>>[] = []
   // What prod ACTUALLY runs (Arlington):
   summary.push(await probe("events", "Arlington,Texas,United States", "week"))
   summary.push(await probe("events", "Arlington,Texas,United States", "weekend"))

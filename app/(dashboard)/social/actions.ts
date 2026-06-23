@@ -1,6 +1,5 @@
 "use server"
 
-import { updateTag } from "next/cache"
 import {
   saveSocialProfileAction as _save,
   deleteSocialProfileAction as _delete,
@@ -37,9 +36,4 @@ export async function fetchSocialDashboardData(locationId: string) {
 
 export async function generateSocialInsightsForLocation(locationId: string, dateKey: string) {
   return _generate(locationId, dateKey)
-}
-
-export async function revalidateSocialCache() {
-  updateTag("social-data")
-  updateTag("home-data")
 }

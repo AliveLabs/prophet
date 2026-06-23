@@ -11,6 +11,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         <p className="chrome-sub">A hiccup on our end, not yours. Try again — and if it keeps happening, we&apos;re on it.</p>
         <div className="chrome-actions">
           <button className="chrome-btn" onClick={() => reset()}>Try again</button>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- error boundary: force a full reload to recover from a corrupted React tree */}
           <a className="chrome-btn chrome-btn--ghost" href="/home">Back to your brief</a>
         </div>
         {error?.digest ? <p className="chrome-foot">Reference · {error.digest}</p> : null}

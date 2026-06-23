@@ -52,7 +52,7 @@ const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 6
 
 export function extractJson(text: string): unknown {
   // strip markdown code fences, then try whole-string parse
-  let t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
+  const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()
   try {
     return JSON.parse(t)
   } catch {

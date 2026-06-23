@@ -66,7 +66,7 @@ export default function CompetitorList({
     if (!persist || !adding) return
     const q = name.trim()
     if (debounce.current) clearTimeout(debounce.current)
-    if (q.length < 2) { setSuggestions([]); return }
+    if (q.length < 2) return
     debounce.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(q)}`)
@@ -138,7 +138,7 @@ export default function CompetitorList({
             onKeyDown={(e) => { if (e.key === "Enter" && !persist) add() }}
             disabled={pending}
           />
-          {persist && suggestions.length ? (
+          {persist && name.trim().length >= 2 && suggestions.length ? (
             <ul className="pv-ac__list" role="listbox">
               {suggestions.map((s) => (
                 <li key={s.place_id}>

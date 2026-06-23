@@ -198,6 +198,7 @@ function ProcessingStep({
   useEffect(() => {
     let cancelled = false
     const pollUntil = Date.now() + 2 * 60 * 60 * 1000
+    // eslint-disable-next-line prefer-const -- timer is referenced in poll() before assignment; const would cause a TDZ/use-before-define error
     let timer: ReturnType<typeof setInterval> | undefined
     async function poll() {
       if (Date.now() > pollUntil) {

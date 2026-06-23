@@ -18,6 +18,16 @@ import "../onboarding.css"
 // no trial clock and no recurring pulls. Honest copy: $0 today, the exact
 // charge amount and date, day 10 + 13 reminders, cancel anytime.
 
+// Computed outside render so the impure Date.now() read isn't called during
+// the component body. Returns the post-trial charge date (today + 14 days)
+// formatted as e.g. "July 7".
+function computeChargeDate() {
+  return new Date(Date.now() + 14 * 86_400_000).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+  })
+}
+
 export default async function TrialPage({
   searchParams,
 }: {
@@ -68,10 +78,7 @@ export default async function TrialPage({
   const midLimits = TIER_LIMITS.mid
   const monthly = TIER_PRICING.mid.monthly
 
-  const chargeDate = new Date(Date.now() + 14 * 86_400_000).toLocaleDateString(
-    "en-US",
-    { month: "long", day: "numeric" }
-  )
+  const chargeDate = computeChargeDate()
 
   const canceled = params.canceled === "1"
   const error = typeof params.error === "string" ? params.error : null

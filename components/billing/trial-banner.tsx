@@ -1,7 +1,33 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useSyncExternalStore } from "react"
 import Link from "next/link"
+
+// Per-day dismissal flag in localStorage. SSR-safe: returns false (→ "visible")
+// when window is unavailable or storage throws.
+function readDismissed(storageKey: string): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    return window.localStorage.getItem(storageKey) === "1"
+  } catch {
+    return false
+  }
+}
+
+// Same-tab pub/sub so dismiss() re-renders immediately (the native `storage`
+// event only fires in OTHER tabs; cross-tab dismissals arrive via that event).
+const listeners = new Set<() => void>()
+function emitDismissChange() {
+  for (const l of listeners) l()
+}
+function subscribe(cb: () => void): () => void {
+  listeners.add(cb)
+  if (typeof window !== "undefined") window.addEventListener("storage", cb)
+  return () => {
+    listeners.delete(cb)
+    if (typeof window !== "undefined") window.removeEventListener("storage", cb)
+  }
+}
 
 interface TrialBannerProps {
   /**
@@ -35,25 +61,24 @@ export function TrialBanner({
   endsOnLabel,
 }: TrialBannerProps) {
   const storageKey = `tk-trial-banner-dismissed:${daysRemaining}`
-  const [visible, setVisible] = useState(false)
+  // useSyncExternalStore is the SSR/hydration-safe way to read client-only state:
+  // getServerSnapshot renders the banner visible during SSR + hydration, then
+  // React reconciles to the real localStorage value with no hydration mismatch
+  // (and no set-state-in-effect). Re-surfaces per escalation tier because the
+  // storage key — and thus getSnapshot — is keyed on daysRemaining.
+  const getSnapshot = useCallback(() => readDismissed(storageKey), [storageKey])
+  const getServerSnapshot = useCallback(() => false, [])
+  const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
-  useEffect(() => {
-    try {
-      setVisible(window.localStorage.getItem(storageKey) !== "1")
-    } catch {
-      setVisible(true)
-    }
-  }, [storageKey])
-
-  if (!visible) return null
+  if (dismissed) return null
 
   const dismiss = () => {
-    setVisible(false)
     try {
       window.localStorage.setItem(storageKey, "1")
     } catch {
       // private mode — banner just reappears next load
     }
+    emitDismissChange()
   }
 
   const dayWord = daysRemaining === 1 ? "day" : "days"
