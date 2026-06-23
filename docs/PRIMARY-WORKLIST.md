@@ -1,77 +1,68 @@
 # Ticket — Primary Worklist (combined)
 
-**Updated 2026-06-22.** Single source of truth across the two active tracks. They are **independent**
-(different subsystems), so they run in **parallel** — Track A is the admin/ops tool, Track B is the
-customer-facing insight engine. `main` = `b8a9a2c` (admin P0–5 + engine P0–P6.5 + watchdog all shipped).
-
-Detailed specs: admin → `docs/admin-rebuild/ticket-admin-rebuild-plan.md` + `phase-6-handoff.md`;
-engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
+**Updated 2026-06-23.** Single source of truth across the two tracks (independent subsystems, run in
+parallel — A = admin/onboarding tool, B = customer-facing insight engine). `main` = `25bf2cd`.
+Detailed specs: admin → `docs/admin-rebuild/`; engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
+Repo handoff: `docs/SESSION-HANDOFF.md`. (This file is the at-a-glance list; the handoff has the narrative.)
 
 ---
 
-## 🔴 Needs Bryan (unblocks / can't be done by an agent)
-- [x] **Pipeline watchdog — fully armed + alert delivery verified** (2026-06-22). `HEALTH_CHECK_TOKEN`
-  (Vercel prod + GitHub secret), `SLACK_ALERT_WEBHOOK_URL` + `RESEND_API_KEY` (GitHub secrets) all set. Runs
-  daily 13:00 UTC; on failure → Slack + email to bryan+chris + GH-native backstop. Verified end-to-end via
-  the `test_alert` dispatch input (Actions → Pipeline Watchdog → Run workflow → test_alert=true) — a reusable
-  alerting drill. The health endpoint also confirmed real prod is healthy.
-- [ ] **`GetTicket/.env.local` is stale** (#2). It points at the **retired** ux-rework Supabase branch
-  (`eguflqjnodumjbmdxrnj`, deleted 2026-06-23); live prod is `triodvdspdsuudooyura`. The migration runner
-  (`scripts/db/sql.mts`) targets the linked prod ref directly, so it's unaffected. Other local tooling:
-  `vercel env pull .env.local --environment=production` (won't restore the account-level `SUPABASE_ACCESS_TOKEN`).
-- [ ] **Knowledge review** (#3) — `docs/engine-rewrite/skill-knowledge-review.md`: review food-pairing@v1 +
-  guerrilla@v1 prose (you + Chris). Edits → bump `@v2` → redeploy.
-- [x] **Run the P7a migration** — DONE 2026-06-22 (Bryan ran `evergreen_dismissals` DDL). P7a cooldown active.
-- [ ] **Run the P7b migration** — `supabase/migrations/20260622210000_evergreen_plays.sql` in the Supabase SQL
-  editor (persist + resurface is a graceful no-op until this table exists). SQL handed over in chat 2026-06-22.
-- [ ] DB **migrations** for upcoming phases go via the Supabase SQL editor — agent hands you the exact SQL,
-  you run it (admin Phase 6, engine P7b/P9/P10 all need migrations).
+## 🔴 Needs Bryan (unblocks / an agent can't do)
+- [ ] **Demo dry-run before the 6/24 demo** — the create+onboard-a-demo flow is shipped + reviewed but NOT
+  live-clicked. Walk it end-to-end on prod today so any runtime issue surfaces now, not in front of a prospect.
+  (Process in `SESSION-HANDOFF.md` / chat.)
+- [ ] **Tag Bush's + Cane's `org_kind='demo'`** via the Set-Kind UI on org-detail (both still `real`). Your
+  data call — Cane's has the delete+recreate-as-demo-at-end-of-work plan.
+- [ ] **Review/remove `anand@alivemethod.com` super_admin** (6a migration backfilled it; standing skepticism).
+- [ ] **Delete the dead Supabase branch DB** `eguflqjnodumjbmdxrnj` in dashboard → Branches (may have
+  auto-removed with the git branch).
+- [ ] **Knowledge review v2** — `docs/engine-rewrite/skill-knowledge-review.md`: food-pairing@v1 + guerrilla@v1
+  prose (you + Chris) → bump `@v2` → redeploy.
+- [ ] **P9 curated sources** — the dynamic-expertise-feed content (blocks engine P9).
+- [ ] `.env.local` is stale (points at retired `eguflqjnodumjbmdxrnj`; live prod `triodvdspdsuudooyura`). The
+  migration runner sidesteps it; `vercel env pull` to refresh other local tooling.
+
+> Note: the agent now applies prod migrations itself via `scripts/db/sql.mts`, so P10's migration is no longer
+> a Bryan blocker — **P9 is blocked on sources, not the migration.**
 
 ---
 
-## Track A — TicketAdmin panel  (owner: Bryan / admin session)
-Phases 0–5 SHIPPED. **Phase 6 = Security Hardening is the last phase** (large, security-critical; full spec in
-`phase-6-handoff.md`). Run an adversarial review BEFORE each sub-phase deploy (Phases 2 & 4 caught 6 + 5 bugs).
+## Track A — TicketAdmin panel + onboarding  (SHIPPED)
+- [x] **Phases 0–6 COMPLETE** — P0–5 + Phase 6 Security Hardening (6a roles · 6b audit · 6c soft-delete ·
+  6d impersonation · 6e rate-limit + atomic cascade). All live.
+- [x] **UX rework (2026-06-23)** — A0 provisioning keystone (`createLocationForOrgAction`) · A1 complete-a-demo
+  (wizard `mode="setup"` + state-aware `DemoSetupBanner` on org-detail) · B1 org-level "View as customer" ·
+  A3 onboarding routing fix (orgless→/onboarding) · A2 two-path add-location (upgrade vs separately-billed
+  account under one login) · B3 waitlist CSV export. All on prod (`main 25bf2cd`).
+- [x] Phase-0 orphaned-social sweep — audited CLEAN on prod (0 orphans).
+- [ ] **B2 — broadcast email panel: HELD** (Bryan, 2026-06-23). `broadcastEmail` stays unwired until the email
+  infra has an unsubscribe path + stops bypassing the `CLIENT_EMAILS_ENABLED` pause.
+- [ ] **B4 — triage 8 unrendered components** (`competitors/{intel-brief,rating-trend,signal-breakdown,
+  signal-timeline}`, `home/{activity-feed,competitor-watch,intelligence-brief,metric-cards}`): render or delete
+  — **review WITH Bryan** (his prior work).
+- [ ] **B5 — `app/preview/*` prototype**: keep as sales demo or retire — **review WITH Bryan**.
+- [ ] **ConfirmDialog/TypedConfirmDialog extraction** — cosmetic DRY across confirm dialogs. Lowest value.
 
-- [ ] **6a. Roles / capabilities (P0)** — `role` on `platform_admins` (super_admin/admin/read_only),
-  backfill admins → super_admin, `requireCapability()`, `withAdminAction(cap, fn)` wrapper across ~20 actions
-  (atomic — a partial rollout can lock admins out), `/admin/*` middleware as defense-in-depth.
-- [ ] **6b. Audit hardening (P1)** — make `admin_activity_log` append-only (REVOKE UPDATE/DELETE; inserts via
-  SECURITY DEFINER fn); before/after snapshots + required `reason` on destructive actions; "no log ⇒ no
-  action"; log Stripe webhook state changes.
-- [ ] **6c. Soft-delete + manual purge (P0/P1)** — `deleted_at` on `organizations`; delete actions soft-delete
-  + hide; pre-delete snapshot; separate super_admin manual hard-purge; exclude `deleted_at` from all lists.
-- [ ] **6d. Impersonation hardening (P0)** — session-flagged impersonation (no portable magic-link token);
-  time-boxed, read-only by default, full-session banner, dual audit attribution.
-- [ ] **6e. Rate limits + transactional cascades (P1)** — per-admin rate-limit on destructive actions; wrap
-  multi-statement cascades in a SECURITY DEFINER fn for atomicity.
-- [ ] **Carry-overs** — `deleteUser` post-cascade write checks; `clearTestData` pass previewed IDs (TOCTOU);
-  extract shared `ConfirmDialog`; tag Bush's/Cane's `org_kind='demo'` via the shipped Set-Kind UI (no SQL).
-- [ ] **Phase 0 loose end** — the 2026-06-22 bulk clear likely left **orphaned polymorphic
-  `social_profiles`/snapshots** (not yet swept). Audit + sweep. (See `[[ticket-admin-panel-and-demo-data]]`.)
-
-## Track B — Insight engine + ops  (owner: Claude / engine session)
-Engine P0–P6.5 SHIPPED. Watchdog shipped (needs arming, above).
-
-- [x] **P7a — cross-day dismissal cooldown** SHIPPED (2f638cf) — dismissed plays stay suppressed 14d across
-  rebuilds. ⚠️ needs the `evergreen_dismissals` migration run (above) to activate.
-- [x] **P7b — Evergreen persist + resurface** SHIPPED — saving a play persists it; STANDING-advice plays
-  (positioning/reputation/ops) resurface when their grounding re-fires (score-ordered, capped). ⚠️ needs the
-  `evergreen_plays` migration run (above) to activate. ➡️ NEXT engine phase = **P8 per-operator rerank**.
-- [ ] **P8 — Per-operator category rerank controls** — operators boost/reorder categories per-location
-  (sliders), overriding global priors. `locations.settings.categoryPriors` (no migration).
-- [ ] **P9 — Dynamic expertise feed (trends)** — make skill knowledge dynamic via a weekly curated feed
-  (RAG-style). Needs Bryan's curated sources + a cron + `knowledge_feeds` migration.
-- [ ] **P10 — Cross-org aggregate feedback weighting** — "many liked this TYPE → weight higher" second
-  multiplier with guardrails. `play_type_feedback_aggregate` migration. (Largest; last.)
-- [ ] **Deferred (cheap, opportunistic):** PV (vision→positioning wiring, ≈free); P5 `ADJACENT_DOMAINS`
-  adjacency (touches every producer).
+## Track B — Insight engine  (the big remaining body)
+- [x] **P0–P8 + P6.5 SHIPPED** — cross-source convergence, expert roster, play-fusion, evergreen (P7a/P7b
+  migrations run + verified), P8 per-operator category rerank, Events Impact Engine + location-density sampling.
+- [ ] **PV — vision → positioning** wiring (≈free, no migration, already scoped). **Unblocked quick win — next.**
+- [ ] **P5 — `ADJACENT_DOMAINS` adjacency** (touches every producer).
+- [ ] **P9 — dynamic expertise feed** (weekly curated RAG + cron + `knowledge_feeds` migration). Blocked on
+  Bryan's curated sources.
+- [ ] **P10 — cross-org aggregate feedback weighting** (`play_type_feedback_aggregate` migration). Largest; last.
+- [ ] **Events follow-ons** — density-refresh crons, L4 anomaly detection, P4 paid-events source.
 
 ---
 
-## Recommended sequencing
-- **Parallel tracks.** A (admin security) and B (engine) don't share code — run both.
-- **Highest priority overall:** admin **6a (roles)** + **6d (impersonation)** — real access-control gaps.
-  Don't let Phase 6 sit; it's the only thing between "internal tool" and "hardened internal tool."
-- **Engine:** P7 → P8 → P9 (gated on your curated sources) → P10. PV can slot in anytime as a quick win.
-- **This session:** Claude proceeds on **P7** now. The 🔴 Needs-Bryan items above are queued for you.
+## Negligible / cleanup
+- Dead code: unused `revalidateSocialCache` export; ops-only `/api/health/stripe-mode` route.
+- ~8 **PRE-EXISTING** eslint errors in unrelated files (`lib/ai/provider`, `lib/jobs/*`, `scripts/*`,
+  `components/billing/trial-banner`) — not from recent work; existing debt. (Gate is tsc + tests + build,
+  not eslint-clean.)
+
+## Recommended next
+- **Engine track** is the substantive remaining work; **PV** is the unblocked quick win, then P5 → P9 (gated on
+  sources) → P10; events follow-ons are additive.
+- Verify gate each change: `npx tsc --noEmit` + `npm run test:unit` (407) + `npx next build` + adversarial
+  review → commit on `spine-rewrite` → FF `main` → Vercel.
