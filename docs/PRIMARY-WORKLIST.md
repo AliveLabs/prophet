@@ -10,11 +10,11 @@ engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
 ---
 
 ## 🔴 Needs Bryan (unblocks / can't be done by an agent)
-- [ ] **Arm the pipeline watchdog** (#1 from this session). Set a fresh `HEALTH_CHECK_TOKEN` (any random
-  string) in **Vercel env** (prophet, Production) AND as a **GitHub repo secret** (Settings → Secrets →
-  Actions). Optional GH secrets for channels: `SLACK_ALERT_WEBHOOK_URL`, `RESEND_API_KEY`. Then GitHub →
-  Actions → *Pipeline Watchdog* → **Run workflow** to test (it'll report `down` until armed/healthy). It
-  no-ops silently until armed, so no rush — but it isn't monitoring anything until then.
+- [x] **Arm the pipeline watchdog** — DONE 2026-06-22. `HEALTH_CHECK_TOKEN` set in Vercel prod env + GitHub
+  repo secret; prod redeployed; manual run passed (live health = ok). Runs daily 13:00 UTC. On failure it
+  alerts via the **GitHub-native "workflow failed" email** to repo admins. OPTIONAL enrichment: add
+  `SLACK_ALERT_WEBHOOK_URL` + `RESEND_API_KEY` as GitHub repo secrets for Slack + a formatted email to
+  bryan+chris (values weren't reachable to set via CLI — add from the dashboard when you want them).
 - [ ] **Fix `GetTicket/.env.local`** (#2). It still points at the DEAD pre-cutover Supabase project
   (`eguflqjnodumjbmdxrnj`); live prod is `triodvdspdsuudooyura`. Agent can't pull (prod-secret dump is
   gated, and the service_role key isn't otherwise reachable). **You run:**
