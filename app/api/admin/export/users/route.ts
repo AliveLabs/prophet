@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
+import { requireCapability } from "@/lib/auth/platform-admin"
 
 export async function GET() {
   try {
-    await requirePlatformAdmin()
+    await requireCapability("export")
   } catch {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
   }

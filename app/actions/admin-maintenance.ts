@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
+import { withAdminAction } from "@/lib/auth/with-admin-action"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import {
   cascadeDeleteOrganization,
@@ -26,15 +26,17 @@ export type ClearTestResult =
 // the caller must explicitly pass dryRun:false (behind a typed-count confirm in the
 // UI) to actually delete. Fail-closed: never touches a Customer org or one with a
 // live Stripe subscription.
-export async function clearTestData(
-  opts: {
-    includeDemo?: boolean
-    allowlistOrgIds?: string[]
-    dryRun?: boolean
-  } = {}
-): Promise<ClearTestResult> {
+export const clearTestData = withAdminAction(
+  "demo.manage",
+  async (
+    ctx,
+    opts: {
+      includeDemo?: boolean
+      allowlistOrgIds?: string[]
+      dryRun?: boolean
+    } = {}
+  ): Promise<ClearTestResult> => {
   const { includeDemo = false, allowlistOrgIds = [], dryRun = true } = opts
-  const admin = await requirePlatformAdmin()
   const supabase = createAdminSupabaseClient()
 
   const kinds = includeDemo ? ["test", "demo"] : ["test"]
@@ -85,8 +87,8 @@ export async function clearTestData(
   }
 
   await logAdminAction({
-    adminId: admin.id,
-    adminEmail: admin.email ?? "",
+    adminId: ctx.adminId,
+    adminEmail: ctx.adminEmail,
     action: "admin.clear_test_data",
     targetType: "maintenance",
     targetId: "clear_test_data",
@@ -101,4 +103,5 @@ export async function clearTestData(
   revalidatePath("/admin/organizations")
   revalidatePath("/admin/sandbox")
   return { ok: true, dryRun: false, count: deleted.length, deleted }
-}
+  }
+)

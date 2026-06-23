@@ -1,7 +1,7 @@
 "use server"
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
+import { withAdminAction } from "@/lib/auth/with-admin-action"
 import { logAdminAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { AdminCustomEmail } from "@/lib/email/templates/admin-custom"
@@ -11,142 +11,147 @@ type ActionResult =
   | { ok: true; message: string }
   | { ok: false; error: string }
 
-export async function sendCustomEmail(
-  to: string,
-  subject: string,
-  body: string
-): Promise<ActionResult> {
-  const admin = await requirePlatformAdmin()
+export const sendCustomEmail = withAdminAction(
+  "email.send",
+  async (
+    ctx,
+    to: string,
+    subject: string,
+    body: string
+  ): Promise<ActionResult> => {
+    if (!to || !subject || !body) {
+      return { ok: false, error: "To, subject, and body are required." }
+    }
 
-  if (!to || !subject || !body) {
-    return { ok: false, error: "To, subject, and body are required." }
+    const result = await sendEmail({
+      to,
+      subject,
+      react: AdminCustomEmail({ subject, body }),
+      clientFacing: true,
+      overrideClientEmailPause: true,
+    })
+
+    if (!result.ok) {
+      return { ok: false, error: result.error ?? "Failed to send email." }
+    }
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "email.send_custom",
+      targetType: "user",
+      targetId: to,
+      details: { subject },
+    })
+
+    return { ok: true, message: `Email sent to ${to}.` }
   }
+)
 
-  const result = await sendEmail({
-    to,
-    subject,
-    react: AdminCustomEmail({ subject, body }),
-    clientFacing: true,
-    overrideClientEmailPause: true,
-  })
+export const broadcastEmail = withAdminAction(
+  "email.send",
+  async (
+    ctx,
+    subject: string,
+    body: string,
+    filter?: { tier?: string; trialStatus?: "active" | "expired" }
+  ): Promise<ActionResult> => {
+    const supabase = createAdminSupabaseClient()
 
-  if (!result.ok) {
-    return { ok: false, error: result.error ?? "Failed to send email." }
-  }
+    if (!subject || !body) {
+      return { ok: false, error: "Subject and body are required." }
+    }
 
-  await logAdminAction({
-    adminId: admin.id,
-    adminEmail: admin.email ?? "",
-    action: "email.send_custom",
-    targetType: "user",
-    targetId: to,
-    details: { subject },
-  })
+    const { data: authData } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1000,
+    })
 
-  return { ok: true, message: `Email sent to ${to}.` }
-}
+    let targetEmails = (authData?.users ?? [])
+      .map((u) => u.email)
+      .filter((e): e is string => !!e)
 
-export async function broadcastEmail(
-  subject: string,
-  body: string,
-  filter?: { tier?: string; trialStatus?: "active" | "expired" }
-): Promise<ActionResult> {
-  const admin = await requirePlatformAdmin()
-  const supabase = createAdminSupabaseClient()
+    if (filter?.tier || filter?.trialStatus) {
+      const { data: members } = await supabase
+        .from("organization_members")
+        .select("user_id, organization_id")
 
-  if (!subject || !body) {
-    return { ok: false, error: "Subject and body are required." }
-  }
+      const { data: orgs } = await supabase
+        .from("organizations")
+        .select("id, subscription_tier, trial_ends_at, payment_state")
 
-  const { data: authData } = await supabase.auth.admin.listUsers({
-    page: 1,
-    perPage: 1000,
-  })
+      if (members && orgs) {
+        const orgMap = new Map(orgs.map((o) => [o.id, o]))
+        const now = new Date()
 
-  let targetEmails = (authData?.users ?? [])
-    .map((u) => u.email)
-    .filter((e): e is string => !!e)
+        const validUserIds = new Set<string>()
+        for (const m of members) {
+          const org = orgMap.get(m.organization_id)
+          if (!org) continue
 
-  if (filter?.tier || filter?.trialStatus) {
-    const { data: members } = await supabase
-      .from("organization_members")
-      .select("user_id, organization_id")
+          let matches = true
+          if (filter.tier && org.subscription_tier !== filter.tier) matches = false
+          // Trials = Stripe card-backed (payment_state 'trialing') or legacy
+          // clock-only (null payment_state + trial_ends_at). Expired = a clock
+          // that ran out without ever converting.
+          if (filter.trialStatus === "active") {
+            if (!isTrialing(org)) matches = false
+          }
+          if (filter.trialStatus === "expired") {
+            if (
+              org.payment_state != null ||
+              !org.trial_ends_at ||
+              new Date(org.trial_ends_at) > now
+            )
+              matches = false
+          }
 
-    const { data: orgs } = await supabase
-      .from("organizations")
-      .select("id, subscription_tier, trial_ends_at, payment_state")
-
-    if (members && orgs) {
-      const orgMap = new Map(orgs.map((o) => [o.id, o]))
-      const now = new Date()
-
-      const validUserIds = new Set<string>()
-      for (const m of members) {
-        const org = orgMap.get(m.organization_id)
-        if (!org) continue
-
-        let matches = true
-        if (filter.tier && org.subscription_tier !== filter.tier) matches = false
-        // Trials = Stripe card-backed (payment_state 'trialing') or legacy
-        // clock-only (null payment_state + trial_ends_at). Expired = a clock
-        // that ran out without ever converting.
-        if (filter.trialStatus === "active") {
-          if (!isTrialing(org)) matches = false
+          if (matches) validUserIds.add(m.user_id)
         }
-        if (filter.trialStatus === "expired") {
-          if (
-            org.payment_state != null ||
-            !org.trial_ends_at ||
-            new Date(org.trial_ends_at) > now
-          )
-            matches = false
-        }
 
-        if (matches) validUserIds.add(m.user_id)
+        const users = authData?.users ?? []
+        targetEmails = users
+          .filter((u) => validUserIds.has(u.id))
+          .map((u) => u.email)
+          .filter((e): e is string => !!e)
       }
+    }
 
-      const users = authData?.users ?? []
-      targetEmails = users
-        .filter((u) => validUserIds.has(u.id))
-        .map((u) => u.email)
-        .filter((e): e is string => !!e)
+    if (targetEmails.length === 0) {
+      return { ok: false, error: "No recipients match the filter criteria." }
+    }
+
+    const batchSize = 50
+    let sentCount = 0
+    for (let i = 0; i < targetEmails.length; i += batchSize) {
+      const batch = targetEmails.slice(i, i + batchSize)
+      const promises = batch.map((email) =>
+        sendEmail({
+          to: email,
+          subject,
+          react: AdminCustomEmail({ subject, body }),
+          clientFacing: true,
+          overrideClientEmailPause: true,
+        })
+      )
+      const results = await Promise.allSettled(promises)
+      sentCount += results.filter(
+        (r) => r.status === "fulfilled" && r.value.ok
+      ).length
+    }
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "email.broadcast",
+      targetType: "broadcast",
+      targetId: "all",
+      details: { subject, recipientCount: targetEmails.length, sentCount, filter },
+    })
+
+    return {
+      ok: true,
+      message: `Broadcast sent to ${sentCount}/${targetEmails.length} recipients.`,
     }
   }
-
-  if (targetEmails.length === 0) {
-    return { ok: false, error: "No recipients match the filter criteria." }
-  }
-
-  const batchSize = 50
-  let sentCount = 0
-  for (let i = 0; i < targetEmails.length; i += batchSize) {
-    const batch = targetEmails.slice(i, i + batchSize)
-    const promises = batch.map((email) =>
-      sendEmail({
-        to: email,
-        subject,
-        react: AdminCustomEmail({ subject, body }),
-        clientFacing: true,
-        overrideClientEmailPause: true,
-      })
-    )
-    const results = await Promise.allSettled(promises)
-    sentCount += results.filter(
-      (r) => r.status === "fulfilled" && r.value.ok
-    ).length
-  }
-
-  await logAdminAction({
-    adminId: admin.id,
-    adminEmail: admin.email ?? "",
-    action: "email.broadcast",
-    targetType: "broadcast",
-    targetId: "all",
-    details: { subject, recipientCount: targetEmails.length, sentCount, filter },
-  })
-
-  return {
-    ok: true,
-    message: `Broadcast sent to ${sentCount}/${targetEmails.length} recipients.`,
-  }
-}
+)

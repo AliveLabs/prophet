@@ -1,7 +1,13 @@
 import { Suspense } from "react"
 import Link from "next/link"
-import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
+import { requirePlatformAdminContext } from "@/lib/auth/platform-admin"
 import ThemeToggle from "@/components/ui/theme-toggle"
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: "Super Admin",
+  admin: "Admin",
+  read_only: "Read-only",
+}
 
 function AdminSkeleton() {
   return (
@@ -15,7 +21,7 @@ function AdminSkeleton() {
 }
 
 async function AdminShell({ children }: { children: React.ReactNode }) {
-  const user = await requirePlatformAdmin()
+  const { user, role } = await requirePlatformAdminContext()
 
   return (
     <div className="flex h-dvh overflow-hidden bg-background text-foreground">
@@ -75,7 +81,12 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="border-t border-border px-4 py-3">
-          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+            <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {ROLE_LABEL[role] ?? role}
+            </span>
+          </div>
           <Link
             href="/home"
             className="mt-1 block text-xs text-vatic-indigo hover:underline"
