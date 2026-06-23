@@ -4,8 +4,12 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
+import { getImpersonation } from "@/lib/auth/impersonation"
 
 export async function updateOrganizationAction(formData: FormData) {
+  if (await getImpersonation()) {
+    redirect("/settings/organization?error=Disabled while viewing as a user (read-only)")
+  }
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()
 

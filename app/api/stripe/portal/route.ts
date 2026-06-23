@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { requireUser } from "@/lib/auth/server"
+import { impersonationReadOnlyBlock } from "@/lib/auth/impersonation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
@@ -22,6 +23,8 @@ import { isValidIndustryType } from "@/lib/verticals"
 
 export async function POST() {
   try {
+    const block = await impersonationReadOnlyBlock()
+    if (block) return NextResponse.json(block, { status: 403 })
     const user = await requireUser()
 
     const supabase = await createServerSupabaseClient()

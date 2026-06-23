@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getUser, requireUser } from "./server"
+import { getImpersonation } from "./impersonation"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { User } from "@supabase/supabase-js"
 import {
@@ -39,6 +40,9 @@ async function fetchAdminRow(userId: string): Promise<{ role: AdminRole } | null
  * Non-redirecting — callers decide how to handle a miss (actions throw, pages redirect).
  */
 export async function getAdminContext(): Promise<AdminActionContext | null> {
+  // An active impersonation session is NEVER an admin context — even if the impersonated user
+  // happens to be an admin, the session must not exercise admin capabilities (Phase 6d).
+  if (await getImpersonation()) return null
   const user = await getUser()
   if (!user) return null
   const row = await fetchAdminRow(user.id)

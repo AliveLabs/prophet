@@ -2,8 +2,14 @@
 
 import { revalidatePath } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { requireCapability } from "@/lib/auth/platform-admin"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { requireCapability, isPlatformAdmin } from "@/lib/auth/platform-admin"
 import { withAdminAction } from "@/lib/auth/with-admin-action"
+import {
+  setImpersonation,
+  clearImpersonation,
+  IMPERSONATION_MAX_AGE_SECONDS,
+} from "@/lib/auth/impersonation"
 import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
@@ -285,41 +291,89 @@ export const sendUserMagicLink = withAdminAction(
   }
 )
 
+// Phase 6d — session-flagged impersonation. Establishes the target's session SERVER-SIDE
+// (no portable magic-link returned to the client), flags it (signed, httpOnly, 30-min
+// time-box) for the banner + read-only + dual-attributed audit. The admin's browser becomes
+// the target's session; on Exit they sign out + re-auth (no portable admin token is stored).
 export const impersonateUser = withAdminAction(
   "user.impersonate",
-  async (
-    ctx,
-    userId: string
-  ): Promise<{ ok: true; url: string } | { ok: false; error: string }> => {
-    const supabase = createAdminSupabaseClient()
+  async (ctx, userId: string, reason: string = ""): Promise<ActionResult> => {
+    const admin = createAdminSupabaseClient()
 
-    const { data: userData } = await supabase.auth.admin.getUserById(userId)
+    const { data: userData } = await admin.auth.admin.getUserById(userId)
     if (!userData?.user?.email) {
       return { ok: false, error: "User not found or has no email." }
     }
+    if (userId === ctx.adminId) {
+      return { ok: false, error: "You can't impersonate yourself." }
+    }
+    // Never impersonate another platform admin — the impersonation session would borrow their
+    // role (incl. super_admin), an escalation path. (The admin gate is also impersonation-aware.)
+    if (await isPlatformAdmin(userId)) {
+      return { ok: false, error: "You can't impersonate another platform admin." }
+    }
+    const targetEmail = userData.user.email
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-    const { data: linkData, error } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email: userData.user.email,
-      options: { redirectTo: `${appUrl}/auth/callback` },
+    // "no log ⇒ no action" + rate limit: record intent (with a required reason) BEFORE
+    // establishing the session. logCriticalAction also brings impersonation under the 6e cap.
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "user.impersonate.start",
+      targetType: "user",
+      targetId: userId,
+      reason,
+      details: { phase: "intent", targetEmail, actorEmail: ctx.adminEmail },
+    })
+    if (!intent.ok) return intent
+
+    // Set the flag BEFORE swapping the session: a flag without a session is harmless, but a
+    // session without the flag is the dangerous unguarded state. Roll back the flag if the
+    // session swap fails.
+    await setImpersonation({
+      actorAdminId: ctx.adminId,
+      actorEmail: ctx.adminEmail,
+      targetUserId: userId,
+      targetEmail,
+      exp: Date.now() + IMPERSONATION_MAX_AGE_SECONDS * 1000,
     })
 
-    if (error) return { ok: false, error: error.message }
+    // Generate a magic-link token, then verify it on the cookie-bound client so the Set-Cookie
+    // (the target's session) lands on the admin's browser — never handing a portable link out.
+    const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email: targetEmail,
+    })
+    const tokenHash = linkData?.properties?.hashed_token
+    if (linkErr || !tokenHash) {
+      await clearImpersonation()
+      return {
+        ok: false,
+        error: linkErr?.message ?? "Could not generate an impersonation session.",
+      }
+    }
 
-    const url =
-      linkData?.properties?.action_link ?? `${appUrl}/login`
+    const ssr = await createServerSupabaseClient()
+    const { error: verifyErr } = await ssr.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: tokenHash,
+    })
+    if (verifyErr) {
+      await clearImpersonation()
+      return { ok: false, error: `Could not start impersonation: ${verifyErr.message}` }
+    }
 
     await logAdminAction({
       adminId: ctx.adminId,
       adminEmail: ctx.adminEmail,
-      action: "user.impersonate",
+      action: "user.impersonate.start",
       targetType: "user",
       targetId: userId,
-      details: { email: userData.user.email },
+      reason,
+      details: { phase: "result", targetEmail },
     })
 
-    return { ok: true, url }
+    return { ok: true, message: `Now viewing as ${targetEmail}.` }
   }
 )
 

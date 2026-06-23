@@ -74,11 +74,14 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
   }
 
   const handleImpersonate = () => {
-    if (!confirm(`Sign in as ${user.email}? This will be logged.`)) return
+    const reason = window.prompt(
+      `View as ${user.email}? You'll switch to their read-only session (30-min limit, banner, fully audited); "Exit" returns you to sign-in.\n\nReason (required):`
+    )
+    if (!reason || !reason.trim()) return
     startTransition(async () => {
-      const result = await impersonateUser(user.id)
+      const result = await impersonateUser(user.id, reason)
       if (result.ok) {
-        window.open(result.url, "_blank")
+        window.location.href = "/home" // now the target's session
       } else {
         setFeedback(result.error)
       }

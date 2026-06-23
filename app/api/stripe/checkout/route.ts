@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { randomUUID } from "node:crypto"
 import { requireUser } from "@/lib/auth/server"
+import { impersonationReadOnlyBlock } from "@/lib/auth/impersonation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
@@ -45,6 +46,8 @@ function isPaidTier(v: unknown): v is Exclude<SubscriptionTier, "suspended"> {
 
 export async function POST(request: Request) {
   try {
+    const block = await impersonationReadOnlyBlock()
+    if (block) return NextResponse.json(block, { status: 403 })
     const user = await requireUser()
     const body = await request.json().catch(() => ({}))
     const tier = body.tier

@@ -11,6 +11,8 @@ import { redirect } from "next/navigation"
 import { Suspense, type ReactNode } from "react"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
+import { getImpersonation } from "@/lib/auth/impersonation"
+import { ImpersonationBanner } from "@/components/impersonation-banner"
 import { isTrialActive, isTrialing, getTrialDaysRemaining } from "@/lib/billing/trial"
 import { asSubscriptionTier, TIER_PRICING } from "@/lib/billing/tiers"
 import { AccountHeldPanel } from "@/components/billing/account-held-panel"
@@ -65,6 +67,7 @@ function ShellSkeleton() {
 
 async function OperatorShell({ children }: { children: ReactNode }) {
   const user = await requireUser()
+  const impersonation = await getImpersonation()
   const supabase = await createServerSupabaseClient()
   const { data: profile } = await supabase
     .from("profiles")
@@ -126,6 +129,12 @@ async function OperatorShell({ children }: { children: ReactNode }) {
     return (
       <BrandProvider brand={dataBrand}>
         <Toaster position="top-right" richColors closeButton />
+        {impersonation && (
+          <ImpersonationBanner
+            actorEmail={impersonation.actorEmail}
+            targetEmail={impersonation.targetEmail}
+          />
+        )}
         <div className="ticket-app">
           <aside className="pv-sidebar">
             <div className="pv-brand"><TicketMark /> TICKET</div>
@@ -195,6 +204,12 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           become a grid item and steal the 228px sidebar column (displacing the whole
           shell — sidebar to 1fr, main below the fold). */}
       <Toaster position="top-right" richColors closeButton />
+      {impersonation && (
+        <ImpersonationBanner
+          actorEmail={impersonation.actorEmail}
+          targetEmail={impersonation.targetEmail}
+        />
+      )}
       {currentLoc ? (
         <NewBriefNotice locationId={currentLoc.id} generatedAt={briefGeneratedAt} enabled={noticeEnabled} />
       ) : null}
