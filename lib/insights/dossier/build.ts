@@ -15,6 +15,7 @@ import type { GeneratedInsight } from "@/lib/insights/types"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import type { MenuSnapshot } from "@/lib/content/types"
 import type { NormalizedEvent } from "@/lib/events/types"
+import { sanitizeCategoryPriors } from "@/lib/skills/category-priors"
 import type { DailyWeatherSummary } from "@/lib/providers/openweathermap"
 import type { SocialSnapshotData } from "@/lib/social/types"
 import type { BriefCoverage } from "@/lib/skills/types"
@@ -466,12 +467,18 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     }
   }
 
+  // P8: per-operator category prior override (locations.settings.categoryPriors), sanitized.
+  const sanitizedPriors = sanitizeCategoryPriors(
+    ((loc.settings as Record<string, unknown> | null) ?? {}).categoryPriors,
+  )
+
   const profile: RestaurantProfile = {
     locationId: loc.id as string,
     name: (loc.name as string) ?? "Your location",
     timezone: ((loc as Record<string, unknown>).timezone as string) ?? "America/New_York",
     voiceTone: "warm_personal", // column lands with the skill-layer migration; default until then
     ...(operatingHours ? { hours: operatingHours } : {}),
+    ...(Object.keys(sanitizedPriors).length ? { categoryPriors: sanitizedPriors } : {}),
     attributes: {
       ...(serviceModel ? { serviceModel } : {}),
       ...(priceTier ? { priceTier } : {}),

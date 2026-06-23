@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import type { GeneratedInsight } from "@/lib/insights/types"
+import type { CategoryPriors } from "@/lib/skills/category-priors"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import type { MenuSnapshot, SiteContentSnapshot, DetectedFeatures } from "@/lib/content/types"
 import type { NormalizedEvent } from "@/lib/events/types"
@@ -96,6 +97,9 @@ export type RestaurantProfile = {
   brandTolerance?: number
   /** Dayparts served — gates daypart-targeted plays (P1). */
   hours?: HoursGate
+  /** Per-operator category prior override (P8) — boosts/de-emphasizes domains for THIS location,
+   *  layered over the global priors. From locations.settings.categoryPriors. */
+  categoryPriors?: CategoryPriors
   attributes: {
     cuisine?: string
     priceTier?: string

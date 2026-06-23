@@ -193,6 +193,22 @@
 .bt__apply:disabled{ background:transparent; color:var(--ash-2); border-color:var(--rule); cursor:not-allowed; }
 .bt__hint{ font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); }
 
+/* P8 — per-operator category priors (Settings → "What to prioritize") */
+.cp{ max-width:380px; }
+.cp__row{ margin-bottom:16px; }
+.cp__head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:6px; }
+.cp__label{ font-size:13.5px; color:var(--ink); }
+.cp__emph{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:11px; color:var(--rust); }
+.cp__ends{ display:flex; justify-content:space-between; align-items:baseline; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); margin-top:5px; max-width:360px; }
+.cp__mult{ font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:none; color:var(--ash-2); }
+.cp__foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px; }
+.cp__apply{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; padding:9px 16px; border-radius:var(--radius); border:1px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer; transition:opacity .15s ease; }
+.cp__apply:hover{ opacity:.86; }
+.cp__apply:disabled{ background:transparent; color:var(--ash-2); border-color:var(--rule); cursor:not-allowed; }
+.cp__reset{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; padding:9px 14px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--ash-2); cursor:pointer; }
+.cp__reset:disabled{ opacity:.5; cursor:not-allowed; }
+.cp__hint{ font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); }
+
 /* ── Recommendation detail page (expanded) ───────────────────────── */
 .pv-detail__lede{ font-family:var(--font-sans); font-size:18px; line-height:1.5; color:var(--print); margin:14px 0 0; max-width:72ch; }
 .pv-pills{ margin-top:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }

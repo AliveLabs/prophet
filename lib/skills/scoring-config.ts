@@ -127,9 +127,16 @@ export function computeBaseScore(input: ScoreInput): number {
   })
 }
 
-/** The combined 0-100 score: base × the category's modest prior, as a whole number. */
-export function computeCombinedScore(input: ScoreInput): number {
-  const prior = CATEGORY_PRIORS[input.category] ?? NEUTRAL_PRIOR
+/**
+ * The combined 0-100 score: base × the category's modest prior, as a whole number.
+ * `priors` defaults to the global CATEGORY_PRIORS; pass a per-location override
+ * (P8) to rank with operator-tuned category weights.
+ */
+export function computeCombinedScore(
+  input: ScoreInput,
+  priors: Record<Category, number> = CATEGORY_PRIORS,
+): number {
+  const prior = priors[input.category] ?? NEUTRAL_PRIOR
   return Math.round(computeBaseScore(input) * prior)
 }
 
@@ -162,8 +169,16 @@ export type RankResult<T> = {
   priorFlipped: boolean
 }
 
-/** Rank a pool by combined score and report whether the priors changed the order. */
-export function rankPlays<T>(items: T[], toInput: (item: T) => ScoreInput): RankResult<T> {
+/**
+ * Rank a pool by combined score and report whether the priors changed the order.
+ * `priors` defaults to the global CATEGORY_PRIORS; pass a per-location override (P8)
+ * to rank with operator-tuned category weights.
+ */
+export function rankPlays<T>(
+  items: T[],
+  toInput: (item: T) => ScoreInput,
+  priors: Record<Category, number> = CATEGORY_PRIORS,
+): RankResult<T> {
   // Score each play ONCE on RAW (unrounded) values. Both the ordering and the prior-flip
   // comparison run on the raw scores, so integer rounding can never collapse two distinct
   // scores into a spurious tie — keeping the flip telemetry trustworthy even once a real
@@ -172,7 +187,7 @@ export function rankPlays<T>(items: T[], toInput: (item: T) => ScoreInput): Rank
   const scored: Scored<T>[] = items.map((item, index) => {
     const input = toInput(item)
     const base = computeBaseScore(input)
-    const prior = CATEGORY_PRIORS[input.category] ?? NEUTRAL_PRIOR
+    const prior = priors[input.category] ?? NEUTRAL_PRIOR
     return { item, index, base, combined: base * prior, confidence: CONFIDENCE_SCORE[input.confidence] }
   })
 

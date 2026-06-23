@@ -6,6 +6,8 @@ import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
 import { requireUser } from "@/lib/auth/server"
 import BriefTuning from "./brief-tuning"
+import CategoryPriorsControls from "./category-priors-controls"
+import type { CategoryPriors } from "@/lib/skills/category-priors"
 import { VoiceSelect, CommsPrefs, OwnNetworkSelect } from "./settings-controls"
 import RefreshControls from "./refresh-controls"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
@@ -72,6 +74,16 @@ export default async function SettingsPage() {
             <div className="pv-field__val">
               <BriefTuning initial={ctx.brandTolerance} locationId={ctx.locationId} />
               <div className="pv-field__hint">Sets how broad or narrow your recommendation thresholds are. Your 👍 / 👎 on the brief refine it over time.</div>
+            </div>
+          </div>
+          <div className="pv-field">
+            <div className="pv-field__label">What to prioritize</div>
+            <div className="pv-field__val">
+              <CategoryPriorsControls
+                initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
+                locationId={ctx.locationId}
+              />
+              <div className="pv-field__hint">Boost the kinds of moves you care about most at this location. A modest reweight, not a filter — applies to your next brief.</div>
             </div>
           </div>
           <div className="pv-field">

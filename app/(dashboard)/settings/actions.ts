@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { sanitizeCategoryPriors, diffFromDefaults } from "@/lib/skills/category-priors"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isSocialPlatform } from "@/lib/billing/tiers"
 import { enqueueAdhocPlatform } from "@/lib/jobs/queue"
@@ -75,6 +76,34 @@ export async function setOwnSocialNetwork(
     console.warn("setOwnSocialNetwork: adhoc enqueue failed", err)
   }
 
+  revalidatePath("/settings")
+  return { ok: true }
+}
+
+// P8: per-operator category prior override. Stored at locations.settings.categoryPriors;
+// build.ts loads it onto the profile and synthesis ranks with it. We persist only the
+// categories moved off their global default (diffFromDefaults) so untouched ones keep
+// following future global re-tuning. An empty map = "use the defaults" (reset).
+export async function setCategoryPriors(
+  locationId: string,
+  priors: Record<string, number>,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireUser()
+  const minimal = diffFromDefaults(sanitizeCategoryPriors(priors))
+  const supabase = await createServerSupabaseClient()
+  // RLS-guarded read doubles as the membership check.
+  const { data: loc, error: readErr } = await supabase
+    .from("locations")
+    .select("settings")
+    .eq("id", locationId)
+    .maybeSingle()
+  if (readErr || !loc) return { ok: false, error: readErr?.message ?? "Location not found" }
+  const settings = (loc.settings as Record<string, unknown> | null) ?? {}
+  const { error } = await supabase
+    .from("locations")
+    .update({ settings: { ...settings, categoryPriors: minimal } })
+    .eq("id", locationId)
+  if (error) return { ok: false, error: error.message }
   revalidatePath("/settings")
   return { ok: true }
 }

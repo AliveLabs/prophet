@@ -13,6 +13,7 @@ import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
 import { rankPlays, computeCombinedScore, type ScoreInput } from "@/lib/skills/scoring-config"
+import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
 import { playKey } from "@/lib/skills/preferences"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
@@ -114,6 +115,9 @@ function quietBrief(d: Dossier): Brief {
 
 export async function synthesize(d: Dossier, results: SkillResult[], opts: SynthOptions = {}): Promise<Brief> {
   const max = opts.maxPlays ?? WEEKLY_MAX
+  // P8: effective category priors = the operator's per-location override (if any) layered
+  // over the global priors. Used everywhere a play is scored/ranked below.
+  const priors = resolveCategoryPriors(d.profile.categoryPriors)
   // Prefer the rich per-signal coverage the dossier builder computes (with as-of/staleness);
   // fall back to a basic derivation for hand-built fixtures that omit it.
   const coverage = d.coverage ?? buildCoverage(d)
@@ -131,7 +135,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // fusable cluster; deterministic keep-best fallback. Usually a no-op (no clusters → no LLM call).
   const fusedPool = await fuseNearDuplicates(candidates, d, {
     transport: opts.transport,
-    scoreOf: (p) => computeCombinedScore(toScoreInput(p)),
+    scoreOf: (p) => computeCombinedScore(toScoreInput(p), priors),
   })
   // P7a: suppress again AFTER fusion. The pre-fusion filter above catches dismissed PRODUCER plays
   // (and keeps them out of fusion); this catches a dismissed FUSED play, whose stableKey is stable
@@ -152,7 +156,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
       .filter((p) => !opts.suppressedKeys?.has(playKey(p)))
       .filter((p) => (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((r) => allowedRefs.has(r)))
       // Strongest first so the cap keeps the best — don't rely on the DB load order (#3).
-      .sort((a, b) => computeCombinedScore(toScoreInput(b)) - computeCombinedScore(toScoreInput(a)))
+      .sort((a, b) => computeCombinedScore(toScoreInput(b), priors) - computeCombinedScore(toScoreInput(a), priors))
       .slice(0, MAX_RESURFACED)
       // Drop any persisted reach figure — it may no longer trace to a live signal (#4).
       .map((p) => (p.leverage?.reach ? { ...p, leverage: { ...p.leverage, reach: undefined } } : p))
@@ -165,7 +169,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // confidence + importance, × a modest category prior). This is the deterministic
   // spine the model may reorder on success, and the grounded fallback otherwise.
   // leverage (impact) now actually drives rank — the old KIND ladder ignored it.
-  const { ranked, priorFlipped } = rankPlays(pool, toScoreInput)
+  const { ranked, priorFlipped } = rankPlays(pool, toScoreInput, priors)
   const rankedPlays = ranked.map((r) => r.item)
   const scoreByPlay = new Map(ranked.map((r) => [r.item, r.score]))
   if (priorFlipped) {
