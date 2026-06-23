@@ -1,5 +1,6 @@
 import { type Capability, CapabilityError, hasRole } from "./capabilities"
-import { type AdminActionContext, requireCapability } from "./platform-admin"
+import { type AdminActionContext, getAdminContext, requireCapability } from "./platform-admin"
+import { logAdminAction } from "@/lib/admin/activity-log"
 
 export type { AdminActionContext }
 
@@ -30,6 +31,24 @@ export function withAdminAction<TArgs extends unknown[], TResult>(
       return await fn(ctx, ...args)
     } catch (e) {
       if (e instanceof CapabilityError) {
+        // Best-effort: record a denied attempt by a known admin (a privilege-escalation
+        // signal — e.g. an 'admin' trying a super_admin-only action). Never let a logging
+        // failure change the denial response. Non-admins resolve to null and aren't logged.
+        try {
+          const actor = await getAdminContext()
+          if (actor) {
+            await logAdminAction({
+              adminId: actor.adminId,
+              adminEmail: actor.adminEmail,
+              action: "capability.denied",
+              targetType: "capability",
+              targetId: capability,
+              details: { capability, role: actor.role, message: e.message },
+            })
+          }
+        } catch {
+          // ignore — the denial result below is what matters
+        }
         return { ok: false, error: e.message }
       }
       throw e

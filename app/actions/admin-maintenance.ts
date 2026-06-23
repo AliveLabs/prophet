@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { withAdminAction } from "@/lib/auth/with-admin-action"
-import { logAdminAction } from "@/lib/admin/activity-log"
+import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import {
   cascadeDeleteOrganization,
   type CascadeDeleteResult,
@@ -34,9 +34,10 @@ export const clearTestData = withAdminAction(
       includeDemo?: boolean
       allowlistOrgIds?: string[]
       dryRun?: boolean
+      reason?: string
     } = {}
   ): Promise<ClearTestResult> => {
-  const { includeDemo = false, allowlistOrgIds = [], dryRun = true } = opts
+  const { includeDemo = false, allowlistOrgIds = [], dryRun = true, reason = "" } = opts
   const supabase = createAdminSupabaseClient()
 
   const kinds = includeDemo ? ["test", "demo"] : ["test"]
@@ -74,6 +75,23 @@ export const clearTestData = withAdminAction(
     }
   }
 
+  // "no log ⇒ no action": record the full target set + reason before bulk-deleting.
+  const intent = await logCriticalAction({
+    adminId: ctx.adminId,
+    adminEmail: ctx.adminEmail,
+    action: "admin.clear_test_data",
+    targetType: "maintenance",
+    targetId: "clear_test_data",
+    reason,
+    before: {
+      includeDemo,
+      allowlistOrgIds,
+      targets: targets.map((o) => ({ id: o.id, name: o.name, orgKind: o.org_kind })),
+    },
+    details: { phase: "intent", count: targets.length },
+  })
+  if (!intent.ok) return intent
+
   const deleted: CascadeDeleteResult[] = []
   for (const o of targets) {
     try {
@@ -92,7 +110,9 @@ export const clearTestData = withAdminAction(
     action: "admin.clear_test_data",
     targetType: "maintenance",
     targetId: "clear_test_data",
+    reason,
     details: {
+      phase: "result",
       includeDemo,
       allowlistOrgIds,
       count: deleted.length,

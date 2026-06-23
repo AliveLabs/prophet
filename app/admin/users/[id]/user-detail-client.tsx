@@ -47,6 +47,7 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
   const [showEdit, setShowEdit] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteReason, setDeleteReason] = useState("")
 
   const handleToggleStatus = () => {
     if (
@@ -85,16 +86,18 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
   }
 
   const handleDelete = () => {
+    if (!deleteReason.trim()) return
     startTransition(async () => {
       // The confirm dialog states sole-member orgs will be deleted, so opt into the
       // cascade (deleteUser defaults to 'preserve'). Phase 5 adds a preserve/transfer
       // choice to this UI; until then this preserves the prior delete-button behavior.
-      const result = await deleteUser(user.id, { orgStrategy: "cascade" })
+      const result = await deleteUser(user.id, { orgStrategy: "cascade", reason: deleteReason })
       if (result.ok) {
         router.push("/admin/users")
       } else {
         setFeedback(result.error)
         setShowDeleteConfirm(false)
+        setDeleteReason("")
       }
     })
   }
@@ -233,12 +236,22 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
                 <p className="mb-4 text-sm text-signal-gold">
                   Their waitlist entry will be reset so they can reapply if needed.
                 </p>
-                <p className="mb-5 text-sm font-semibold text-destructive">
+                <p className="mb-4 text-sm font-semibold text-destructive">
                   This action cannot be undone.
                 </p>
+                <input
+                  type="text"
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="Reason (required, recorded in the audit log)"
+                  className="mb-5 h-9 w-full rounded-lg border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-destructive"
+                />
                 <div className="flex justify-end gap-3">
                   <button
-                    onClick={() => setShowDeleteConfirm(false)}
+                    onClick={() => {
+                      setShowDeleteConfirm(false)
+                      setDeleteReason("")
+                    }}
                     disabled={isPending}
                     className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary disabled:opacity-50"
                   >
@@ -246,7 +259,7 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
                   </button>
                   <button
                     onClick={handleDelete}
-                    disabled={isPending}
+                    disabled={isPending || !deleteReason.trim()}
                     className="rounded-md bg-destructive px-4 py-2 text-sm font-semibold text-white hover:bg-destructive/90 disabled:opacity-50"
                   >
                     {isPending ? "Deleting..." : "Delete Permanently"}

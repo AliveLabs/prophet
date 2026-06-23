@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { withAdminAction } from "@/lib/auth/with-admin-action"
-import { logAdminAction } from "@/lib/admin/activity-log"
+import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { WaitlistDecline } from "@/lib/email/templates/waitlist-decline"
@@ -171,7 +171,7 @@ export const approveWaitlistSignup = withAdminAction(
 // no orgs (so it can't self-serve back in). Productizes the 2026-06-22 hand-fix.
 export const unapproveWaitlistSignup = withAdminAction(
   "waitlist.manage",
-  async (ctx, signupId: string): Promise<ActionResult> => {
+  async (ctx, signupId: string, reason: string = ""): Promise<ActionResult> => {
     const supabase = createAdminSupabaseClient()
 
     const { data: signup } = await supabase
@@ -183,6 +183,20 @@ export const unapproveWaitlistSignup = withAdminAction(
     if (signup.status !== "approved") {
       return { ok: false, error: `Signup is ${signup.status}, not approved — nothing to revert.` }
     }
+
+    // Destructive (deletes the approval's org + possibly the auto-created user). Record
+    // intent + reason before any delete ("no log ⇒ no action").
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "waitlist.unapprove",
+      targetType: "waitlist",
+      targetId: signupId,
+      reason,
+      before: { email: signup.email, status: signup.status },
+      details: { phase: "intent" },
+    })
+    if (!intent.ok) return intent
 
     // Delete the org created from this signup (if any).
     const { data: org } = await supabase
@@ -232,7 +246,8 @@ export const unapproveWaitlistSignup = withAdminAction(
       action: "waitlist.unapprove",
       targetType: "waitlist",
       targetId: signupId,
-      details: { email: signup.email, orgDeleted: Boolean(org), userDeleted },
+      reason,
+      details: { phase: "result", email: signup.email, orgDeleted: Boolean(org), userDeleted },
     })
 
     revalidatePath("/admin/waitlist")

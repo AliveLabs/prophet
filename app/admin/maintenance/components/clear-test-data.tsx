@@ -7,12 +7,14 @@ export function ClearTestData() {
   const [includeDemo, setIncludeDemo] = useState(false)
   const [preview, setPreview] = useState<{ count: number; targets: ClearTestTarget[] } | null>(null)
   const [typed, setTyped] = useState("")
+  const [reason, setReason] = useState("")
   const [isPending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null)
 
   function runPreview() {
     setFeedback(null)
     setTyped("")
+    setReason("")
     startTransition(async () => {
       const result = await clearTestData({ includeDemo, dryRun: true })
       if (!result.ok) {
@@ -26,9 +28,9 @@ export function ClearTestData() {
   }
 
   function runClear() {
-    if (!preview || typed !== String(preview.count)) return
+    if (!preview || typed !== String(preview.count) || !reason.trim()) return
     startTransition(async () => {
-      const result = await clearTestData({ includeDemo, dryRun: false })
+      const result = await clearTestData({ includeDemo, dryRun: false, reason })
       if (!result.ok) {
         setFeedback({ ok: false, message: result.error })
         return
@@ -36,10 +38,15 @@ export function ClearTestData() {
       setFeedback({ ok: true, message: `Cleared ${result.count} org(s).` })
       setPreview(null)
       setTyped("")
+      setReason("")
     })
   }
 
-  const confirmReady = preview !== null && preview.count > 0 && typed === String(preview.count)
+  const confirmReady =
+    preview !== null &&
+    preview.count > 0 &&
+    typed === String(preview.count) &&
+    reason.trim().length > 0
 
   return (
     <div className="max-w-2xl space-y-5 rounded-xl border border-border bg-card p-6">
@@ -106,8 +113,15 @@ export function ClearTestData() {
               </ul>
               <p className="text-sm font-semibold text-destructive">
                 This cannot be undone. Type{" "}
-                <span className="font-mono">{preview.count}</span> to confirm.
+                <span className="font-mono">{preview.count}</span> and give a reason to confirm.
               </p>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Reason (recorded in the audit log)"
+                className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
               <div className="flex gap-3">
                 <input
                   type="text"

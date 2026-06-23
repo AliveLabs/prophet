@@ -8,7 +8,7 @@ import {
   requireSuperAdmin,
   type AdminActionContext,
 } from "@/lib/auth/with-admin-action"
-import { logAdminAction } from "@/lib/admin/activity-log"
+import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { cascadeDeleteOrganization, refreshOrgData } from "@/lib/admin/cascade-cleanup"
 import { createOrgWithOwner } from "@/lib/admin/org-factory"
@@ -337,12 +337,13 @@ const VALID_ORG_KINDS = ["real", "demo", "test"] as const
 // (real) org additionally requires super_admin.
 export const deleteOrg = withAdminAction(
   "org.delete",
-  async (ctx, orgId: string): Promise<ActionResult> => {
+  async (ctx, orgId: string, reason: string): Promise<ActionResult> => {
     const supabase = createAdminSupabaseClient()
 
+    // Full-row snapshot for the audit trail (handoff: "full snapshot on deletes").
     const { data: org } = await supabase
       .from("organizations")
-      .select("id, name, org_kind")
+      .select("*")
       .eq("id", orgId)
       .maybeSingle()
     if (!org) return { ok: false, error: "Organization not found." }
@@ -365,6 +366,20 @@ export const deleteOrg = withAdminAction(
       }
     }
 
+    // "no log ⇒ no action": record the intent + reason + full before-snapshot BEFORE the
+    // irreversible cascade. If the audit row can't be written, abort without deleting.
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.delete",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      before: org,
+      details: { phase: "intent", orgKind: org.org_kind },
+    })
+    if (!intent.ok) return intent
+
     let result
     try {
       result = await cascadeDeleteOrganization(supabase, orgId)
@@ -381,7 +396,8 @@ export const deleteOrg = withAdminAction(
       action: "org.delete",
       targetType: "org",
       targetId: orgId,
-      details: { orgKind: org.org_kind, ...result },
+      reason,
+      details: { phase: "result", orgKind: org.org_kind, ...result },
     })
 
     revalidatePath("/admin/organizations")
@@ -399,7 +415,12 @@ export const deleteOrg = withAdminAction(
 // pipeline can't write rows back after the wipe.
 export const clearOrgData = withAdminAction(
   "demo.manage",
-  async (ctx, orgId: string, mode: "all" | "refresh" = "all"): Promise<ActionResult> => {
+  async (
+    ctx,
+    orgId: string,
+    mode: "all" | "refresh" = "all",
+    reason: string = ""
+  ): Promise<ActionResult> => {
     const supabase = createAdminSupabaseClient()
 
     const { data: org } = await supabase
@@ -416,6 +437,7 @@ export const clearOrgData = withAdminAction(
       )
     }
 
+    // 'refresh' only wipes regenerable derived intelligence — non-destructive, best-effort log.
     if (mode === "refresh") {
       let result
       try {
@@ -439,6 +461,20 @@ export const clearOrgData = withAdminAction(
       }
     }
 
+    // 'all' drops locations + all data — destructive. Require a reason + record intent before
+    // wiping ("no log ⇒ no action").
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.clear_all",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      before: { orgName: org.name, orgKind: org.org_kind },
+      details: { phase: "intent" },
+    })
+    if (!intent.ok) return intent
+
     let result
     try {
       result = await cascadeDeleteOrganization(supabase, orgId, { keepShell: true })
@@ -451,7 +487,8 @@ export const clearOrgData = withAdminAction(
       action: "org.clear_all",
       targetType: "org",
       targetId: orgId,
-      details: { ...result },
+      reason,
+      details: { phase: "result", ...result },
     })
     revalidatePath("/admin/organizations")
     revalidatePath(`/admin/organizations/${orgId}`)

@@ -9,6 +9,7 @@ import {
   resolveOrganizationId,
 } from "@/lib/stripe/helpers"
 import { type SubscriptionTier } from "@/lib/billing/tiers"
+import { logAdminAction, SYSTEM_ACTOR_ID } from "@/lib/admin/activity-log"
 import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
 import { PaymentFailed } from "@/lib/email/templates/payment-failed"
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
@@ -173,6 +174,16 @@ async function handleCustomerDeleted(
       cancel_at_period_end: false,
     })
     .eq("stripe_customer_id", customer.id)
+
+  await logAdminAction({
+    adminId: SYSTEM_ACTOR_ID,
+    adminEmail: "stripe-webhook",
+    actorType: "system",
+    action: "stripe.customer.deleted",
+    targetType: "stripe_customer",
+    targetId: customer.id,
+    details: { result: "org unlinked, payment_state=canceled" },
+  })
 }
 
 async function handleSubscriptionEvent(
@@ -202,6 +213,26 @@ async function handleSubscriptionEvent(
   const { tier } = await applySubscriptionToOrg(admin, orgId, subscription, {
     deleted: eventType === "customer.subscription.deleted",
   })
+
+  // Audit the billing state change (Phase 6b — system actor). Best-effort; never blocks the
+  // ack. Skip trial_will_end: it's a no-op for our DB sync and fires recurrently, so logging
+  // it would just add noise to the immutable audit log.
+  if (eventType !== "customer.subscription.trial_will_end") {
+    await logAdminAction({
+      adminId: SYSTEM_ACTOR_ID,
+      adminEmail: "stripe-webhook",
+      actorType: "system",
+      action: `stripe.${eventType}`,
+      targetType: "org",
+      targetId: orgId,
+      details: {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        tier,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      },
+    })
+  }
 
   // trial_will_end fires 3 days before trial_end. Our Day 10 / Day 13
   // reminders are driven by the cron instead (so we control the send window
@@ -233,6 +264,16 @@ async function handleInvoicePaymentFailed(
     .eq("stripe_customer_id", customerId)
     .maybeSingle()
   if (!org) return
+
+  await logAdminAction({
+    adminId: SYSTEM_ACTOR_ID,
+    adminEmail: "stripe-webhook",
+    actorType: "system",
+    action: "stripe.invoice.payment_failed",
+    targetType: "org",
+    targetId: org.id,
+    details: { amountDue: (invoice.amount_due ?? 0) / 100, currency: invoice.currency ?? "usd" },
+  })
 
   const industryType: IndustryType = isValidIndustryType(org.industry_type)
     ? org.industry_type

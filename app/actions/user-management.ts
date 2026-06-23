@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { requireCapability } from "@/lib/auth/platform-admin"
 import { withAdminAction } from "@/lib/auth/with-admin-action"
-import { logAdminAction } from "@/lib/admin/activity-log"
+import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { cascadeDeleteOrganization, findSoleOwnerOrgIds } from "@/lib/admin/cascade-cleanup"
@@ -328,9 +328,9 @@ export const deleteUser = withAdminAction(
   async (
     ctx,
     userId: string,
-    opts: { orgStrategy?: "preserve" | "cascade" } = {}
+    opts: { orgStrategy?: "preserve" | "cascade"; reason?: string } = {}
   ): Promise<ActionResult> => {
-    const { orgStrategy = "preserve" } = opts
+    const { orgStrategy = "preserve", reason = "" } = opts
     const supabase = createAdminSupabaseClient()
 
     const { data: userData } = await supabase.auth.admin.getUserById(userId)
@@ -359,6 +359,40 @@ export const deleteUser = withAdminAction(
         error: `This user is the sole owner of ${soleOwner.length} org(s): ${names}. Transfer ownership first, or retry with the cascade option to delete those orgs too.`,
       }
     }
+
+    // Full forensic snapshot before the irreversible delete (the profiles row cascades
+    // away with the auth user, so capture it now).
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle()
+
+    // "no log ⇒ no action": record intent + reason + snapshot before the irreversible
+    // auth-user delete (and any org cascade). Abort if it can't be written.
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "user.delete",
+      targetType: "user",
+      targetId: userId,
+      reason,
+      before: {
+        authUser: {
+          id: userData.user.id,
+          email: userEmail,
+          createdAt: userData.user.created_at,
+          lastSignInAt: userData.user.last_sign_in_at ?? null,
+          metadata: userData.user.user_metadata ?? null,
+        },
+        profile: profileRow ?? null,
+        orgStrategy,
+        soleOwnerOrgIds: soleOwner,
+        multiMemberOrgIds: multiMember,
+      },
+      details: { phase: "intent" },
+    })
+    if (!intent.ok) return intent
 
     // Detach memberships from multi-member orgs (those orgs survive).
     for (const orgId of multiMember) {
@@ -424,7 +458,9 @@ export const deleteUser = withAdminAction(
       action: "user.delete",
       targetType: "user",
       targetId: userId,
+      reason,
       details: {
+        phase: "result",
         email: userEmail,
         orgStrategy,
         soleOwnerOrgsDeleted,

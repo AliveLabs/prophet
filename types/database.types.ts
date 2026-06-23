@@ -17,31 +17,37 @@ export type Database = {
       admin_activity_log: {
         Row: {
           action: string
+          actor_type: string
           admin_email: string | null
           admin_user_id: string
           created_at: string | null
           details: Json | null
           id: string
+          reason: string | null
           target_id: string | null
           target_type: string
         }
         Insert: {
           action: string
+          actor_type?: string
           admin_email?: string | null
           admin_user_id: string
           created_at?: string | null
           details?: Json | null
           id?: string
+          reason?: string | null
           target_id?: string | null
           target_type: string
         }
         Update: {
           action?: string
+          actor_type?: string
           admin_email?: string | null
           admin_user_id?: string
           created_at?: string | null
           details?: Json | null
           id?: string
+          reason?: string | null
           target_id?: string | null
           target_type?: string
         }
@@ -714,6 +720,7 @@ export type Database = {
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
+          deleted_at: string | null
           id: string
           industry_type: string
           name: string
@@ -735,6 +742,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          deleted_at?: string | null
           id?: string
           industry_type?: string
           name: string
@@ -756,6 +764,7 @@ export type Database = {
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
+          deleted_at?: string | null
           id?: string
           industry_type?: string
           name?: string

@@ -1015,14 +1015,17 @@ function ClearDataPanel({
 }) {
   const [mode, setMode] = useState<"all" | "refresh">("refresh")
   const [confirmText, setConfirmText] = useState("")
+  const [reason, setReason] = useState("")
   const [isPending, startTransition] = useTransition()
-  const ready = confirmText === orgName
+  // 'all' is destructive and requires a logged reason; 'refresh' (regenerable) does not.
+  const ready =
+    confirmText === orgName && (mode === "refresh" || reason.trim().length > 0)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!ready) return
     startTransition(async () => {
-      const result = await clearOrgData(orgId, mode)
+      const result = await clearOrgData(orgId, mode, reason)
       onFeedback(result.ok ? result.message : result.error)
       if (result.ok) onClose()
     })
@@ -1042,6 +1045,15 @@ function ClearDataPanel({
             <option value="all">Clear all — also drop locations (pre-onboarding)</option>
           </select>
         </div>
+        {mode === "all" && (
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (required, recorded in the audit log)"
+            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          />
+        )}
         <p className="text-xs text-muted-foreground">
           Keeps the org, members, and billing. Type <strong className="text-foreground">{orgName}</strong> to confirm.
         </p>
@@ -1083,14 +1095,15 @@ function DeleteOrgPanel({
   onDeleted: () => void
 }) {
   const [confirmText, setConfirmText] = useState("")
+  const [reason, setReason] = useState("")
   const [isPending, startTransition] = useTransition()
-  const ready = confirmText === orgName
+  const ready = confirmText === orgName && reason.trim().length > 0
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!ready) return
     startTransition(async () => {
-      const result = await deleteOrg(orgId)
+      const result = await deleteOrg(orgId, reason)
       if (result.ok) {
         onDeleted()
       } else {
@@ -1108,8 +1121,15 @@ function DeleteOrgPanel({
           memberships). This cannot be undone.
         </p>
         <p className="text-xs text-muted-foreground">
-          Type <strong className="text-foreground">{orgName}</strong> to confirm.
+          Type <strong className="text-foreground">{orgName}</strong> and give a reason to confirm.
         </p>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (required, recorded in the audit log)"
+          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+        />
         <div className="flex items-center gap-3">
           <input
             type="text"

@@ -58,6 +58,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [showDeclineDialog, setShowDeclineDialog] = useState<string | null>(null)
   const [declineNotes, setDeclineNotes] = useState("")
+  const [unapproveReason, setUnapproveReason] = useState("")
   const [showBatchConfirm, setShowBatchConfirm] = useState<
     "approve" | "decline" | null
   >(null)
@@ -114,10 +115,12 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
   }
 
   function handleUnapprove(id: string) {
+    if (!unapproveReason.trim()) return
     startTransition(async () => {
-      const result = await unapproveWaitlistSignup(id)
+      const result = await unapproveWaitlistSignup(id, unapproveReason)
       setFeedback(result.ok ? result.message : result.error)
       setShowUnapprove(null)
+      setUnapproveReason("")
       setTimeout(() => setFeedback(null), 4000)
     })
   }
@@ -413,9 +416,13 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
       {showUnapprove && (
         <Dialog
           title="Un-approve signup?"
-          onCancel={() => setShowUnapprove(null)}
+          onCancel={() => {
+            setShowUnapprove(null)
+            setUnapproveReason("")
+          }}
           onConfirm={() => handleUnapprove(showUnapprove)}
           isPending={isPending}
+          confirmDisabled={!unapproveReason.trim()}
           confirmLabel="Un-approve"
           confirmClass="bg-destructive text-white hover:bg-destructive/90"
         >
@@ -424,6 +431,13 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
             organization created on approval (and its data), and removes the auto-created account if it
             owns no other orgs. The original invite email can&rsquo;t be unsent, but its link will lead nowhere.
           </p>
+          <input
+            type="text"
+            value={unapproveReason}
+            onChange={(e) => setUnapproveReason(e.target.value)}
+            placeholder="Reason (required, recorded in the audit log)"
+            className="mt-3 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
         </Dialog>
       )}
     </div>
@@ -438,6 +452,7 @@ function Dialog({
   isPending,
   confirmLabel,
   confirmClass,
+  confirmDisabled = false,
 }: {
   title: string
   children: React.ReactNode
@@ -446,6 +461,7 @@ function Dialog({
   isPending: boolean
   confirmLabel: string
   confirmClass: string
+  confirmDisabled?: boolean
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -462,7 +478,7 @@ function Dialog({
           </button>
           <button
             onClick={onConfirm}
-            disabled={isPending}
+            disabled={isPending || confirmDisabled}
             className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-50 ${confirmClass}`}
           >
             {isPending ? "Processing..." : confirmLabel}
