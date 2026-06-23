@@ -81,7 +81,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id")
+    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id, deleted_at")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -107,6 +107,36 @@ async function OperatorShell({ children }: { children: ReactNode }) {
     })
 
   const account = await loadOperatorAccount()
+
+  // A soft-deleted org (Phase 6c) is gone for its members too — show a terminal notice (sign-out
+  // stays reachable via AccountMenu) instead of the dashboard. No redirect: current_organization_id
+  // still points here, so bouncing to /onboarding would loop. Only fires when deleted_at is set,
+  // so live orgs are unaffected.
+  if (orgRow?.deleted_at) {
+    return (
+      <BrandProvider brand={dataBrand}>
+        <Toaster position="top-right" richColors closeButton />
+        <div className="ticket-app">
+          <aside className="pv-sidebar">
+            <div className="pv-brand"><TicketMark /> TICKET</div>
+            <ShellNav locked />
+            <div className="pv-spacer" />
+            <AccountMenu userName={account.userName} locations={account.locations} locked />
+          </aside>
+          <main className="pv-main">
+            <div className="mx-auto mt-24 max-w-md rounded-xl border border-border bg-card p-8 text-center">
+              <h2 className="text-lg font-semibold text-foreground">
+                This organization is no longer active
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                It has been removed. If you believe this is a mistake, contact support.
+              </p>
+            </div>
+          </main>
+        </div>
+      </BrandProvider>
+    )
+  }
 
   if (gated && orgRow) {
     const locIds =

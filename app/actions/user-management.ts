@@ -476,20 +476,24 @@ export const deleteUser = withAdminAction(
       }
     }
 
-    // The next three writes are intentionally best-effort / unchecked: profiles,
-    // organization_members, and platform_admins all FK auth.users(id) ON DELETE
-    // CASCADE, so the final auth.admin.deleteUser below removes them regardless. They
-    // run first only to tidy state pre-delete. (Stricter per-write auditing of the
-    // whole deleteUser flow is folded into Phase 6 hardening.)
-    await supabase
+    // These pre-delete tidy writes all FK auth.users(id) ON DELETE CASCADE, so the final
+    // auth.admin.deleteUser removes them regardless — non-fatal. But check + WARN so a failure
+    // isn't fully silent (Phase 6 hardening of the post-cascade writes).
+    const { error: profErr } = await supabase
       .from("profiles")
       .update({ current_organization_id: null })
       .eq("id", userId)
+    if (profErr) {
+      console.warn(`deleteUser: profile tidy failed (non-fatal, cascade covers it): ${profErr.message}`)
+    }
 
-    await supabase.from("platform_admins").delete().eq("user_id", userId)
+    const { error: paErr } = await supabase.from("platform_admins").delete().eq("user_id", userId)
+    if (paErr) {
+      console.warn(`deleteUser: platform_admins tidy failed (non-fatal): ${paErr.message}`)
+    }
 
     if (userEmail) {
-      await supabase
+      const { error: wlErr } = await supabase
         .from("waitlist_signups")
         .update({
           status: "declined",
@@ -498,6 +502,9 @@ export const deleteUser = withAdminAction(
           reviewed_at: new Date().toISOString(),
         })
         .eq("email", userEmail.toLowerCase())
+      if (wlErr) {
+        console.warn(`deleteUser: waitlist reset failed (non-fatal): ${wlErr.message}`)
+      }
     }
 
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId)
