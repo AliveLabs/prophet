@@ -4,19 +4,49 @@
 // Geography is the events' content_as_of: an event isn't "local" because the
 // search said so — it's local because its venue is measurably near the restaurant.
 // Geocoder = Places API searchText (verified enabled on this key; the classic
-// Geocoding API is NOT — probed 2026-06-09 → REQUEST_DENIED). Results cached
-// per process (venues repeat week to week).
+// Geocoding API is NOT — probed 2026-06-09 → REQUEST_DENIED).
+//
+// Two-layer cache (P0): an in-process Map (L1, fast within a run) backed by a
+// persistent `venue_geocode_cache` table (L2, survives serverless cold starts).
+// On Vercel the per-process map is cold on most invocations, so without L2 every
+// event re-geocodes via the PAID searchText endpoint — and expanding event
+// keywords (P1) returns MORE events, multiplying that bill. The L2 cache makes a
+// venue geocode a one-time cost (venues repeat week to week). Pass `supabase` to
+// engage L2; callers without a client still work via L1 + live fetch.
 // ---------------------------------------------------------------------------
+
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 export type LatLng = { lat: number; lng: number }
 
 const cache = new Map<string, LatLng | null>()
 
-export async function geocodeVenue(name: string | undefined, address: string | undefined): Promise<LatLng | null> {
+export type GeocodeOpts = { supabase?: SupabaseClient }
+
+export async function geocodeVenue(
+  name: string | undefined,
+  address: string | undefined,
+  opts: GeocodeOpts = {},
+): Promise<LatLng | null> {
   const query = [name, address].filter(Boolean).join(", ").trim()
   if (!query) return null
   const key = query.toLowerCase()
   if (cache.has(key)) return cache.get(key) ?? null
+
+  const sb = opts.supabase
+  // L2: persistent cache hit (only successful resolutions are ever stored).
+  if (sb) {
+    const { data } = await sb
+      .from("venue_geocode_cache")
+      .select("lat,lng")
+      .eq("query_key", key)
+      .maybeSingle()
+    if (data && typeof data.lat === "number" && typeof data.lng === "number") {
+      const hit = { lat: data.lat, lng: data.lng }
+      cache.set(key, hit)
+      return hit
+    }
+  }
 
   const apiKey = process.env.GOOGLE_MAPS_API_KEY ?? process.env.GOOGLE_PLACES_API_KEY
   if (!apiKey) return null
@@ -39,6 +69,16 @@ export async function geocodeVenue(name: string | undefined, address: string | u
     const loc = data.places?.[0]?.location
     const out = typeof loc?.latitude === "number" && typeof loc?.longitude === "number" ? { lat: loc.latitude, lng: loc.longitude } : null
     cache.set(key, out)
+    // Persist successful resolutions only — a transient null must not be cached
+    // forever (it'll retry next run via L1 miss). Best-effort; never block geo.
+    if (sb && out) {
+      await sb
+        .from("venue_geocode_cache")
+        .upsert(
+          { query_key: key, lat: out.lat, lng: out.lng, resolved_at: new Date().toISOString() },
+          { onConflict: "query_key" },
+        )
+    }
     return out
   } catch {
     cache.set(key, null)

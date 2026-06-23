@@ -19,29 +19,11 @@ import type {
   NormalizedEventsSnapshotV1,
 } from "@/lib/events/types"
 import { fetchPlaceDetails } from "@/lib/places/google"
-import { geocodeVenue, haversineMiles } from "@/lib/events/geo"
-import { classifyEventMagnitude, classifyEventRole } from "@/lib/events/relevance"
-import type { NormalizedEvent } from "@/lib/events/types"
-
-/** Geocode venues (bounded concurrency) + stamp distance/magnitude/role on each event. */
-async function annotateEventGeo(events: NormalizedEvent[], lat: number, lng: number): Promise<void> {
-  const BATCH = 5
-  for (let i = 0; i < events.length; i += BATCH) {
-    await Promise.all(
-      events.slice(i, i + BATCH).map(async (e) => {
-        const pos = await geocodeVenue(e.venue?.name, e.venue?.address)
-        if (pos) {
-          e.venue = { ...(e.venue ?? {}), lat: pos.lat, lng: pos.lng }
-          e.distanceMiles = haversineMiles(lat, lng, pos.lat, pos.lng)
-        } else {
-          e.distanceMiles = null
-        }
-        e.magnitude = classifyEventMagnitude(e)
-        e.role = classifyEventRole(e.distanceMiles, e.magnitude)
-      })
-    )
-  }
-}
+import { annotateEventsGeo } from "@/lib/events/annotate"
+import { buildEventQueryPlan } from "@/lib/events/keywords"
+import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
+import { ensureLocationBaseline, loadDensityTier } from "@/lib/events/baseline"
+import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 
 // ---------------------------------------------------------------------------
 // Context
@@ -101,19 +83,22 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
         const maxQueries = getEventsQueriesPerRun(c.tier)
         const depth = getEventsMaxDepth(c.tier)
 
-        const queryDefs: Array<{
-          keyword: string
-          dateRange: "week" | "weekend" | "month"
-        }> = []
-
-        if (maxQueries >= 2) {
-          queryDefs.push(
-            { keyword: "events", dateRange: "week" },
-            { keyword: "events", dateRange: "weekend" }
-          )
-        } else {
-          queryDefs.push({ keyword: "events", dateRange: "weekend" })
-        }
+        // L0/L1: probe DataForSEO BY the marquee venues cataloged near this location
+        // (catches the stadium mega-event that generic "events" buries) + a generic
+        // net, all within the same per-run query budget. Falls back to generic
+        // "events" when no catalog exists yet (cold start / venue-less area).
+        const catalog = await ensureVenueCatalog(
+          c.supabase,
+          c.locationId,
+          c.location.geo_lat,
+          c.location.geo_lng,
+          { excludePlaceId: c.location.primary_place_id ?? undefined },
+        )
+        const queryDefs = buildEventQueryPlan({
+          catalog,
+          maxQueries,
+          dateKey: c.dateKey,
+        })
 
         const rawResults = await Promise.all(
           queryDefs.map((q) =>
@@ -136,10 +121,13 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
         c.state.snapshot = normalizeEventsSnapshot(rawResults, queries)
 
         // ── Geo-relevance (Layer 1/2): geography is the event's content_as_of. ──
-        // Geocode each venue, measure distance to the restaurant, classify role.
-        // "Returned by the search" is NOT "nearby" — the search is metro-wide.
+        // Geocode each venue, measure distance, catalog-match for a rebrand-proof
+        // magnitude upgrade, classify role. "Returned by the search" is NOT "nearby".
         if (c.location.geo_lat != null && c.location.geo_lng != null) {
-          await annotateEventGeo(c.state.snapshot.events, c.location.geo_lat, c.location.geo_lng)
+          await annotateEventsGeo(c.state.snapshot.events, c.location.geo_lat, c.location.geo_lng, {
+            supabase: c.supabase,
+            catalog,
+          })
           const roles = c.state.snapshot.events.reduce<Record<string, number>>((acc, e) => {
             const r = e.role ?? "ungeocoded"
             acc[r] = (acc[r] ?? 0) + 1
@@ -265,22 +253,31 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
             }),
         }
 
-        // Optionally fetch location rating
+        // Fetch location rating + service-model/daypart signals (one Places call).
         try {
           if (c.location.primary_place_id) {
-            const details = await fetchPlaceDetails(
-              c.location.primary_place_id
-            )
+            const details = await fetchPlaceDetails(c.location.primary_place_id)
             insightContext.locationRating =
               typeof details.rating === "number" ? details.rating : null
             insightContext.locationReviewCount =
               typeof details.userRatingCount === "number"
                 ? details.userRatingCount
                 : null
+            insightContext.serviceModel = deriveServiceModel(details)
+            insightContext.hours = deriveHoursGate(details)
           }
         } catch {
           /* non-critical */
         }
+
+        // Impact-model inputs: density tier + the restaurant's own baseline curve
+        // (cached; refreshed weekly off the synchronous path). Both fail soft.
+        insightContext.densityTier = await loadDensityTier(c.supabase, c.locationId)
+        insightContext.baselineCurveByDow = await ensureLocationBaseline(
+          c.supabase,
+          c.locationId,
+          c.location.primary_place_id,
+        )
 
         // Geo gate: only LOCAL events (≤3mi tiers) may generate "nearby event"
         // insights — a metro-wide search result is not local demand. metro_hook
@@ -314,6 +311,9 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
           locationId: c.locationId,
           dateKey: c.dateKey,
           context: insightContext,
+          // Full geo-annotated list (incl. route_corridor) for the impact rule; legacy
+          // rules keep using the local snapshot above.
+          allEvents: c.state.snapshot.events,
         })
 
         if (insights.length > 0) {

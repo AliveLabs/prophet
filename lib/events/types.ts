@@ -43,8 +43,19 @@ export type NormalizedEvent = {
   distanceMiles?: number | null
   /** Heuristic draw class (stadium/league keywords, ticketing). */
   magnitude?: "major" | "moderate" | "minor"
-  /** Distance × magnitude → role. local_* may drive demand; metro_hook = marketing tie-in only. */
-  role?: "local_foot" | "local_traffic" | "metro_hook" | "out_of_area" | "ungeocoded"
+  /** Distance × magnitude → role. local_* may drive demand; metro_hook = marketing tie-in only;
+   *  route_corridor = a street-closing route event (marathon/parade/race) near the restaurant. */
+  role?: "local_foot" | "local_traffic" | "metro_hook" | "route_corridor" | "out_of_area" | "ungeocoded"
+
+  // ── Catalog match (set by annotateEventsGeo when the event's geocoded venue lands on a known
+  //    marquee venue) — grounds magnitude + feeds the impact model's attendance estimate. ──
+  /** Name of the cataloged venue this event matched (rebrand-proof; coordinate match). */
+  catalogVenueName?: string
+  capacityLow?: number | null
+  capacityHigh?: number | null
+  capacityConfidence?: "measured" | "prior"
+  /** Route/street-closure event (marathon/parade/race) — not a point venue. */
+  isRouteEvent?: boolean
 
   source: "dataforseo_google_events"
   keyword: string

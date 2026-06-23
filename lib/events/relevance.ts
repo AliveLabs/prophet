@@ -24,14 +24,22 @@ export const PROXIMITY = {
 } as const
 
 export type EventMagnitude = "major" | "moderate" | "minor"
-export type EventRole = "local_foot" | "local_traffic" | "metro_hook" | "out_of_area" | "ungeocoded"
+export type EventRole = "local_foot" | "local_traffic" | "metro_hook" | "route_corridor" | "out_of_area" | "ungeocoded"
 
 // Venue-class + league/event keywords. Conservative: "major" needs a stadium-class
 // venue or a pro-league/headline keyword — metro hooks are the exception, not the rule.
 const MAJOR_VENUE = /\b(stadium|arena|speedway|amphitheat|fairgrounds|coliseum|bowl|field house|center)\b/i
-const MAJOR_EVENT = /\b(nfl|nba|mlb|nhl|mls|ncaa|playoff|championship|final|cup|monster jam|rodeo|state fair)\b/i
+const MAJOR_EVENT = /\b(nfl|nba|mlb|nhl|mls|ncaa|fifa|playoff|championship|final|cup|world cup|super bowl|grand prix|formula 1|monster jam|rodeo|state fair)\b/i
 // no bare "tour" — a club tour is small; stadium tours qualify via MAJOR venue+ticketing
 const MODERATE_EVENT = /\b(festival|fest|concert|expo|convention|marathon|parade)\b/i
+
+// Route / street-closure events: not point venues — the route can pass the block from a
+// "start venue" miles away. Detected by title so they're treated as access-disruption, not draw.
+const ROUTE_EVENT = /\b(marathon|half[- ]?marathon|10k|5k|fun run|road race|grand prix|criterium|parade|street fest|bike race|cycling|triathlon|relay race)\b/i
+
+export function isRouteEventTitle(title: string | null | undefined): boolean {
+  return ROUTE_EVENT.test(title ?? "")
+}
 
 export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue" | "ticketsAndInfo">): EventMagnitude {
   const venue = e.venue?.name ?? ""
@@ -43,8 +51,17 @@ export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue
   return "minor"
 }
 
-export function classifyEventRole(distanceMiles: number | null | undefined, magnitude: EventMagnitude): EventRole {
+export function classifyEventRole(
+  distanceMiles: number | null | undefined,
+  magnitude: EventMagnitude,
+  opts: { isRoute?: boolean } = {},
+): EventRole {
   if (distanceMiles == null || Number.isNaN(distanceMiles)) return "ungeocoded"
+  // Route events get a looser corridor role: a closure passes the block even when the
+  // anchor venue is up to a few miles away. It never claims "draw"; only access disruption.
+  if (opts.isRoute) {
+    return distanceMiles <= PROXIMITY.trafficMiles ? "route_corridor" : "out_of_area"
+  }
   if (distanceMiles <= PROXIMITY.footMiles) return "local_foot"
   if (distanceMiles <= PROXIMITY.trafficMiles) return "local_traffic"
   if (magnitude === "major") return "metro_hook"

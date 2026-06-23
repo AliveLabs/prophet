@@ -8,6 +8,12 @@ import type {
   EventMatchRecord,
 } from "./types"
 import type { GeneratedInsight } from "@/lib/insights/types"
+import {
+  scoreEventImpact,
+  attendancePrior,
+  type DensityTier,
+  type ImpactResult,
+} from "./impact"
 
 // ---------------------------------------------------------------------------
 // Config thresholds
@@ -22,6 +28,10 @@ const HIGH_SIGNAL_KEYWORDS = [
   "festival", "concert", "convention", "food", "wine", "beer", "taste",
   "chef", "sports", "game", "marathon", "parade", "expo", "fair",
   "market", "gala", "fundraiser", "block party", "music", "comedy", "pop-up",
+  // Major sporting events were invisible to the high-signal layer — a fetched World
+  // Cup / playoff match wouldn't flag without these (the secondary half of the miss).
+  "soccer", "world cup", "fifa", "fútbol", "futbol", "playoff", "championship",
+  "super bowl", "grand prix", "nfl", "nba", "mlb", "nhl", "mls", "ncaa", "rodeo",
 ]
 
 const KEYWORD_AUDIENCE: Record<string, string> = {
@@ -56,6 +66,21 @@ export type InsightContext = {
     rating: number | null
     reviewCount: number | null
   }>
+  // ── P2 impact-model inputs (all optional → the major-event rule degrades gracefully) ──
+  /** e.g. "quick service / drive-thru + dine-in", "bar + dine-in", "dine-in". */
+  serviceModel?: string | null
+  seats?: number | null
+  /** Local market density — calibrates the surface bars (rural surfaces small events). */
+  densityTier?: DensityTier
+  /** The restaurant's own popular-times curve per day-of-week (0..6 → hourly_scores 0..100). */
+  baselineCurveByDow?: Array<number[] | null> | null
+  /** Dayparts the restaurant serves (Google serves* flags) — gates by event time. */
+  hours?: {
+    servesBreakfast?: boolean
+    servesLunch?: boolean
+    servesDinner?: boolean
+    servesBrunch?: boolean
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -70,9 +95,17 @@ export function generateEventInsights(input: {
   locationId: string
   dateKey: string
   context: InsightContext
+  /** Full geo-annotated event list (all roles). The impact rule reads this; legacy
+   *  count/keyword rules keep using `current` (the local snapshot) to avoid regressions. */
+  allEvents?: NormalizedEvent[]
 }): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
   const ctx = input.context
+
+  // 0. Major nearby / route events — the impact model. A single mega-event near a
+  //    restaurant won't trip the count/keyword rules, so this scores each local/route
+  //    event against the restaurant's own baseline and emits channel-split insights.
+  insights.push(...detectImpactfulEvents(input.allEvents ?? input.current.events, ctx))
 
   // 1. Weekend density spike
   const weekendSpike = detectWeekendDensitySpike(input.current, input.previous, ctx)
@@ -91,6 +124,182 @@ export function generateEventInsights(input: {
   insights.push(...detectCadenceUp(input.matches, input.previousMatches, ctx))
 
   return insights
+}
+
+// ---------------------------------------------------------------------------
+// 0. events.major_lobby_surge / events.access_suppression — the impact model
+// ---------------------------------------------------------------------------
+
+const IMPACT_ROLES = new Set(["local_foot", "local_traffic", "route_corridor"])
+
+/** Score every local/route event against the restaurant's own baseline; surface the
+ *  single biggest demand-surge and the single biggest access-disruption (top-K=1 per
+ *  channel — also respects the (loc,comp,date,type) upsert key). Channel-split so a
+ *  stadium a block away can drive lobby UP *and* drive-thru DOWN at once. */
+function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): GeneratedInsight[] {
+  type Scored = { event: NormalizedEvent; result: ImpactResult }
+  let bestSurge: Scored | null = null
+  let bestDisruption: Scored | null = null
+
+  for (const e of events) {
+    if (!e.role || !IMPACT_ROLES.has(e.role)) continue
+
+    const overlap = daypartOverlap(eventLocalHour(e), ctx.hours)
+    if (overlap <= 0) continue // hard daypart gate
+
+    const magnitude = e.magnitude ?? "minor"
+    const capLow = e.capacityLow ?? attendancePrior(magnitude)
+    const capHigh = e.capacityHigh ?? capLow
+    const dow = dowOf(e.startDatetime)
+    const baselineCurve = dow != null ? ctx.baselineCurveByDow?.[dow] ?? null : null
+
+    const result = scoreEventImpact({
+      capacityLow: capLow,
+      capacityHigh: capHigh,
+      role: e.role as Parameters<typeof scoreEventImpact>[0]["role"],
+      isRoute: e.isRouteEvent ?? false,
+      ticketSourceCount: e.ticketsAndInfo?.length ?? 0,
+      daypartOverlap: overlap,
+      serviceModel: ctx.serviceModel ?? null,
+      seats: ctx.seats ?? null,
+      baselineCurve,
+      eventHour: eventLocalHour(e),
+      densityTier: ctx.densityTier ?? "suburban",
+    })
+    if (!result.surface) continue
+
+    const up = result.channels.find((c) => c.direction === "up")
+    const down = result.channels.find((c) => c.channel === "drive_thru" && c.direction === "down")
+    if (up && (!bestSurge || result.score > bestSurge.result.score)) bestSurge = { event: e, result }
+    if (down && (!bestDisruption || result.accessDisruption > bestDisruption.result.accessDisruption)) {
+      bestDisruption = { event: e, result }
+    }
+  }
+
+  const out: GeneratedInsight[] = []
+  if (bestSurge) out.push(buildSurgeInsight(bestSurge.event, bestSurge.result, ctx))
+  if (bestDisruption) out.push(buildSuppressionInsight(bestDisruption.event, bestDisruption.result, ctx))
+  return out
+}
+
+function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightContext): GeneratedInsight {
+  const channel = r.channels.find((c) => c.direction === "up")
+  const isLobby = channel?.channel === "lobby"
+  const venue = e.catalogVenueName ?? e.venue?.name ?? "a nearby venue"
+  const when = e.startDatetime ? fmtDate(e.startDatetime) : e.displayedDates ?? "soon"
+  const crowd = describeCrowd(e, r)
+  const dist = e.distanceMiles != null ? `${e.distanceMiles}mi from` : "near"
+  const surfaceLabel = isLobby ? "walk-in/lobby" : "dining-room"
+  const confidence: GeneratedInsight["confidence"] = e.capacityConfidence === "measured" ? "high" : "medium"
+  const severity: GeneratedInsight["severity"] =
+    (channel?.intensity ?? 0) >= 0.9 ? "critical" : "warning"
+
+  return {
+    insight_type: "events.major_lobby_surge",
+    title: `Major event nearby: ${e.title ?? venue}`,
+    summary: `"${e.title ?? "A major event"}" at ${venue} (${when}) draws ${crowd} ${dist} ${ctx.locationName}. Expect a ${surfaceLabel} surge${e.isRouteEvent ? "" : " around the start and let-out"} — well above your typical volume for that window.`,
+    confidence,
+    severity,
+    evidence: {
+      stable_key: stableKeyFor(e, isLobby ? "lobby" : "dine_in"),
+      channel: isLobby ? "lobby" : "dine_in",
+      direction: "up",
+      role: e.role,
+      attendance_estimate: r.attendance,
+      capacity_confidence: e.capacityConfidence ?? "prior",
+      distance_miles: e.distanceMiles ?? null,
+      pct_lift: r.pctLift != null ? Math.round(r.pctLift) : null,
+      absolute_incremental: r.absoluteIncremental,
+      impact_score: r.score,
+      doors: r.doors,
+      event: eventSummary(e),
+      location_name: ctx.locationName,
+    },
+    recommendations: [
+      {
+        title: isLobby ? `Staff the counter for a lobby rush` : `Add covers/turn capacity`,
+        rationale: `${venue} brings ${crowd} near ${ctx.locationName} around ${when}. Schedule extra hands and pre-stage high-volume items so the ${surfaceLabel} surge doesn't overwhelm service.`,
+      },
+      {
+        title: `Capture the crowd before it arrives`,
+        rationale: `Post your proximity and an event-day offer ahead of ${when}; attendees searching nearby convert fast when you're the closest option.`,
+      },
+    ],
+  }
+}
+
+function buildSuppressionInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightContext): GeneratedInsight {
+  const venue = e.catalogVenueName ?? e.venue?.name ?? "a nearby venue"
+  const when = e.startDatetime ? fmtDate(e.startDatetime) : e.displayedDates ?? "soon"
+  const cause = e.isRouteEvent ? "Road closures for" : "Traffic and parking gridlock around"
+
+  return {
+    insight_type: "events.access_suppression",
+    title: `Drive-thru/lot access at risk: ${e.title ?? venue}`,
+    summary: `${cause} "${e.title ?? "a major event"}" at ${venue} (${when}) is likely to choke streets and parking near ${ctx.locationName} during the event window — your drive-thru and lot will back up even as walk-in demand climbs.`,
+    confidence: e.isRouteEvent ? "medium" : "high",
+    severity: "warning",
+    evidence: {
+      stable_key: stableKeyFor(e, "drive_thru"),
+      channel: "drive_thru",
+      direction: "down",
+      role: e.role,
+      access_disruption: Math.round(r.accessDisruption * 100) / 100,
+      is_route_event: e.isRouteEvent ?? false,
+      distance_miles: e.distanceMiles ?? null,
+      event: eventSummary(e),
+      location_name: ctx.locationName,
+    },
+    recommendations: [
+      {
+        title: `Shift the drive-thru plan during the event`,
+        rationale: `As access degrades around ${when}, steer demand to walk-up and order-ahead, add a runner, and post signage so cars don't strand in a backed-up lane.`,
+      },
+    ],
+  }
+}
+
+function describeCrowd(e: NormalizedEvent, r: ImpactResult): string {
+  if (e.capacityConfidence === "measured" && (e.capacityHigh ?? 0) >= 1000) {
+    const k = Math.round((e.capacityHigh as number) / 1000)
+    return `up to ~${k}k attendees`
+  }
+  const cap = e.capacityHigh ?? r.attendance
+  if (cap >= 20000) return "a stadium-scale crowd"
+  if (cap >= 5000) return "a large crowd"
+  return "a sizable crowd"
+}
+
+function stableKeyFor(e: NormalizedEvent, channel: string): string {
+  const anchor = e.catalogVenueName ?? e.venue?.name ?? e.uid
+  return `events.impact:${anchor.toLowerCase().replace(/\s+/g, "_")}:${channel}`
+}
+
+/** Map an event's local hour → does it overlap a daypart the restaurant serves? Returns
+ *  0..1. Unknown hours or unset serves* flags = 1 (conservative; no restriction). */
+function daypartOverlap(hour: number | null, hours: InsightContext["hours"]): number {
+  if (hour == null || !hours) return 1
+  let daypart: keyof NonNullable<InsightContext["hours"]> | null = null
+  if (hour >= 6 && hour < 11) daypart = "servesBreakfast"
+  else if (hour >= 11 && hour < 15) daypart = "servesLunch"
+  else if (hour >= 17 && hour < 23) daypart = "servesDinner"
+  if (!daypart) return 1 // odd hour — don't gate
+  const serves = hours[daypart]
+  if (serves === undefined) return 1 // unknown → conservative
+  return serves ? 1 : 0
+}
+
+function eventLocalHour(e: NormalizedEvent): number | null {
+  const m = (e.startDatetime ?? "").match(/T(\d{2}):/)
+  if (m) return parseInt(m[1], 10)
+  return null
+}
+
+function dowOf(iso: string | null | undefined): number | null {
+  if (!iso) return null
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return null
+  return new Date(t).getUTCDay()
 }
 
 // ---------------------------------------------------------------------------
@@ -222,6 +431,17 @@ function detectDenseDays(
     const eventsOnDay = current.events.filter(
       (e) => e.startDatetime?.startsWith(dateStr)
     )
+
+    // Demoted: a raw pile of small events is not a story (this is what fired the
+    // low-value Latin-music insight). Require at least one major or high-signal event
+    // on the day before flagging density — the impact rule (0) carries the big ones.
+    const hasSignal = eventsOnDay.some(
+      (e) =>
+        e.magnitude === "major" ||
+        HIGH_SIGNAL_KEYWORDS.some((kw) => (e.title ?? "").toLowerCase().includes(kw))
+    )
+    if (!hasSignal) continue
+
     const topNames = topEventNames(eventsOnDay)
     const dateLabel = fmtDate(dateStr)
 

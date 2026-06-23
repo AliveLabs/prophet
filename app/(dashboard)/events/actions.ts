@@ -14,6 +14,11 @@ import { normalizeEventsSnapshot } from "@/lib/events/normalize"
 import { computeEventsSnapshotDiffHash } from "@/lib/events/hash"
 import { matchEventsToCompetitors } from "@/lib/events/match"
 import { generateEventInsights, type InsightContext } from "@/lib/events/insights"
+import { annotateEventsGeo } from "@/lib/events/annotate"
+import { buildEventQueryPlan } from "@/lib/events/keywords"
+import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
+import { ensureLocationBaseline, loadDensityTier } from "@/lib/events/baseline"
+import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 import type { EventsQuery, NormalizedEventsSnapshotV1 } from "@/lib/events/types"
 
 // ---------------------------------------------------------------------------
@@ -87,7 +92,7 @@ export async function fetchEventsAction(formData: FormData) {
   // Fetch location
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, city, region, country, geo_lat, geo_lng, organization_id")
+    .select("id, name, city, region, country, geo_lat, geo_lng, organization_id, primary_place_id")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
@@ -101,20 +106,13 @@ export async function fetchEventsAction(formData: FormData) {
   const maxQueries = getEventsQueriesPerRun(tier)
   const depth = getEventsMaxDepth(tier)
 
-  // Define queries based on tier
-  const queryDefs: Array<{
-    keyword: string
-    dateRange: "week" | "weekend" | "month"
-  }> = []
-
-  if (maxQueries >= 2) {
-    queryDefs.push(
-      { keyword: "events", dateRange: "week" },
-      { keyword: "events", dateRange: "weekend" }
-    )
-  } else {
-    queryDefs.push({ keyword: "events", dateRange: "weekend" })
-  }
+  // Same catalog-driven query plan as the cron pipeline: probe marquee venues by
+  // name + a generic net, within the per-run budget (falls back to generic "events").
+  // Builds the catalog on first use (or when stale) so a manual refresh can bootstrap it.
+  const catalog = await ensureVenueCatalog(supabase, locationId, location.geo_lat, location.geo_lng, {
+    excludePlaceId: location.primary_place_id ?? undefined,
+  })
+  const queryDefs = buildEventQueryPlan({ catalog, maxQueries, dateKey })
 
   try {
     // -----------------------------------------------------------------------
@@ -139,9 +137,20 @@ export async function fetchEventsAction(formData: FormData) {
     }))
 
     // -----------------------------------------------------------------------
-    // 2. Normalize + hash
+    // 2. Normalize + geo-annotate (parity with the cron pipeline) + hash
     // -----------------------------------------------------------------------
     const snapshot = normalizeEventsSnapshot(rawResults, queries)
+
+    // Geo gate: distance / catalog-match / magnitude / role on each event, so the
+    // manual refresh treats events identically to the cron path (it previously
+    // skipped geo and surfaced metro-wide events as if they were local).
+    if (location.geo_lat != null && location.geo_lng != null) {
+      await annotateEventsGeo(snapshot.events, location.geo_lat, location.geo_lng, {
+        supabase,
+        catalog,
+      })
+    }
+
     const diffHash = computeEventsSnapshotDiffHash(snapshot)
 
     // -----------------------------------------------------------------------
@@ -261,7 +270,8 @@ export async function fetchEventsAction(formData: FormData) {
         }),
     }
 
-    // Try to get location rating from metadata (places data on the location)
+    // Location rating + service-model/daypart signals (one Places call).
+    let primaryPlaceId: string | null = null
     try {
       const { fetchPlaceDetails } = await import("@/lib/places/google")
       const { data: locRow } = await supabase
@@ -269,27 +279,45 @@ export async function fetchEventsAction(formData: FormData) {
         .select("primary_place_id")
         .eq("id", locationId)
         .maybeSingle()
-      if (locRow?.primary_place_id) {
-        const details = await fetchPlaceDetails(locRow.primary_place_id)
+      primaryPlaceId = locRow?.primary_place_id ?? null
+      if (primaryPlaceId) {
+        const details = await fetchPlaceDetails(primaryPlaceId)
         insightContext.locationRating =
           typeof details.rating === "number" ? details.rating : null
         insightContext.locationReviewCount =
           typeof details.userRatingCount === "number"
             ? details.userRatingCount
             : null
+        insightContext.serviceModel = deriveServiceModel(details)
+        insightContext.hours = deriveHoursGate(details)
       }
     } catch {
-      // Non-critical — proceed without location rating
+      // Non-critical — proceed without location rating/service-model
+    }
+
+    insightContext.densityTier = await loadDensityTier(supabase, locationId)
+    insightContext.baselineCurveByDow = await ensureLocationBaseline(supabase, locationId, primaryPlaceId)
+
+    // Local snapshot for the legacy count/keyword rules (parity with the cron path);
+    // the impact rule reads the full annotated list via allEvents.
+    const localEvents = snapshot.events.filter(
+      (e) => e.role === "local_foot" || e.role === "local_traffic"
+    )
+    const localSnapshot = {
+      ...snapshot,
+      events: localEvents,
+      summary: { ...snapshot.summary, totalEvents: localEvents.length },
     }
 
     const insights = generateEventInsights({
-      current: snapshot,
+      current: localSnapshot,
       previous: previousSnapshot,
       matches: matchRecords,
       previousMatches: prevMatchRows ?? null,
       locationId,
       dateKey,
       context: insightContext,
+      allEvents: snapshot.events,
     })
 
     if (insights.length > 0) {

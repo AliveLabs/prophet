@@ -185,6 +185,8 @@ export type DiscoveredCompetitor = {
   reviewCount: number | null
   priceLevel: string | null
   distanceMeters: number | null
+  lat?: number | null
+  lng?: number | null
 }
 
 function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -196,11 +198,21 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-/** Nearby restaurants for competitor discovery (Places searchNearby, ranked by distance). */
-export async function fetchNearbyCompetitors(
+/** Nearby places of arbitrary type(s) (Places searchNearby). The generic primitive behind both
+ *  competitor discovery (includedTypes:["restaurant"]) and the events venue radar (stadium/arena/
+ *  theater/… taxonomy). One call returns up to maxResultCount (Places caps at 20) ranked by
+ *  distance, so callers TILE per type/radius to avoid the same truncation class as the depth-10
+ *  events bug. */
+export async function fetchNearbyPlaces(
   lat: number,
   lng: number,
-  opts: { radius?: number; excludePlaceId?: string; limit?: number } = {},
+  opts: {
+    includedTypes: string[]
+    radius?: number
+    maxResultCount?: number
+    excludePlaceId?: string
+    limit?: number
+  },
 ): Promise<DiscoveredCompetitor[]> {
   const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
@@ -211,8 +223,8 @@ export async function fetchNearbyCompetitors(
         "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.location",
     },
     body: JSON.stringify({
-      includedTypes: ["restaurant"],
-      maxResultCount: 20,
+      includedTypes: opts.includedTypes,
+      maxResultCount: Math.min(opts.maxResultCount ?? 20, 20),
       rankPreference: "DISTANCE",
       locationRestriction: {
         circle: { center: { latitude: lat, longitude: lng }, radius: opts.radius ?? 3000 },
@@ -239,8 +251,24 @@ export async function fetchNearbyCompetitors(
         typeof p.location?.latitude === "number" && typeof p.location?.longitude === "number"
           ? Math.round(haversineMeters(lat, lng, p.location.latitude, p.location.longitude))
           : null,
+      lat: typeof p.location?.latitude === "number" ? p.location.latitude : null,
+      lng: typeof p.location?.longitude === "number" ? p.location.longitude : null,
     }))
-    .slice(0, opts.limit ?? 8)
+    .slice(0, opts.limit ?? 20)
+}
+
+/** Nearby restaurants for competitor discovery (Places searchNearby, ranked by distance). */
+export async function fetchNearbyCompetitors(
+  lat: number,
+  lng: number,
+  opts: { radius?: number; excludePlaceId?: string; limit?: number } = {},
+): Promise<DiscoveredCompetitor[]> {
+  return fetchNearbyPlaces(lat, lng, {
+    includedTypes: ["restaurant"],
+    radius: opts.radius ?? 3000,
+    excludePlaceId: opts.excludePlaceId,
+    limit: opts.limit ?? 8,
+  })
 }
 
 export function mapPlaceToLocation(result: GooglePlaceDetailsResponse) {
