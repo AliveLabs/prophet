@@ -51,10 +51,27 @@ export async function logAdminAction(params: LogActionParams): Promise<void> {
   }
 }
 
+// Per-admin rate limit on destructive actions (Phase 6e) — a runaway/abuse guardrail. Counts
+// this admin's recent destructive INTENT rows; over the cap, the action is refused. Generous
+// enough for a legitimate cleanup session.
+export const DESTRUCTIVE_RATE_LIMIT = { max: 15, windowMinutes: 5 } as const
+
+/** Pure: is the admin at/over the destructive-action cap given their recent intent count? */
+export function isOverDestructiveLimit(
+  recentIntentCount: number,
+  max: number = DESTRUCTIVE_RATE_LIMIT.max
+): boolean {
+  return recentIntentCount >= max
+}
+
 /**
  * Strict audit log for DESTRUCTIVE actions — enforces "no log ⇒ no action". Call this BEFORE
  * the destructive write and ABORT the action if it returns { ok:false }: an operation we
  * cannot record must not happen. A non-empty `reason` is mandatory.
+ *
+ * Also applies the per-admin destructive rate limit (Phase 6e): it counts this admin's recent
+ * intent rows and refuses past the cap. Because every destructive action funnels through here
+ * and aborts on { ok:false }, this is the single chokepoint for both the audit and the limit.
  *
  * Returns a result (rather than throwing) so callers handle it explicitly with their own
  * { ok:false, error } shape — no reliance on exception flow through the action wrapper.
@@ -66,6 +83,27 @@ export async function logCriticalAction(
     return { ok: false, error: "A reason is required for this action." }
   }
   const supabase = createAdminSupabaseClient()
+
+  // Rate limit (admins only — system actors like the Stripe webhook are exempt).
+  if ((params.actorType ?? "admin") === "admin") {
+    const since = new Date(
+      Date.now() - DESTRUCTIVE_RATE_LIMIT.windowMinutes * 60_000
+    ).toISOString()
+    const { count } = await supabase
+      .from("admin_activity_log")
+      .select("*", { count: "exact", head: true })
+      .eq("admin_user_id", params.adminId)
+      .eq("actor_type", "admin")
+      .gte("created_at", since)
+      .filter("details->>phase", "eq", "intent")
+    if (isOverDestructiveLimit(count ?? 0)) {
+      return {
+        ok: false,
+        error: `Rate limit reached (${DESTRUCTIVE_RATE_LIMIT.max} destructive actions per ${DESTRUCTIVE_RATE_LIMIT.windowMinutes} min). Wait a moment and retry.`,
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("admin_activity_log")
     .insert(buildRow({ ...params, reason: params.reason.trim() }))
