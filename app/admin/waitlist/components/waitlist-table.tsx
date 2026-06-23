@@ -191,6 +191,12 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
           <option value="approved">Approved</option>
           <option value="declined">Declined</option>
         </select>
+        <a
+          href="/api/admin/export/waitlist"
+          className="inline-flex items-center rounded-lg border border-input bg-background px-3.5 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+        >
+          Export CSV
+        </a>
       </div>
 
       {selected.size > 0 && (
