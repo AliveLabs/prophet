@@ -10,28 +10,11 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { fetchBusyTimes } from "@/lib/providers/outscraper"
-import type { DensityTier } from "./impact"
 
 const BASELINE_TTL_DAYS = 7
 
 /** Curve indexed by day-of-week (0=Sun..6=Sat); each entry is hourly_scores[24] or null. */
 export type BaselineCurveByDow = Array<number[] | null>
-
-export async function loadDensityTier(
-  supabase: SupabaseClient,
-  locationId: string,
-): Promise<DensityTier> {
-  const { data } = await supabase
-    .from("location_density")
-    .select("tier")
-    .eq("location_id", locationId)
-    .maybeSingle()
-  const tier = data?.tier as string | undefined
-  if (tier === "rural" || tier === "suburban" || tier === "urban" || tier === "dense_urban") {
-    return tier
-  }
-  return "suburban" // sensible default until density sampling runs
-}
 
 function rowsToCurve(rows: Array<{ day_of_week: number; hourly_scores: number[] }>): BaselineCurveByDow {
   const curve: BaselineCurveByDow = Array(7).fill(null)

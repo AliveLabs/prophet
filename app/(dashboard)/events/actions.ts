@@ -17,7 +17,8 @@ import { generateEventInsights, type InsightContext } from "@/lib/events/insight
 import { annotateEventsGeo } from "@/lib/events/annotate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
-import { ensureLocationBaseline, loadDensityTier } from "@/lib/events/baseline"
+import { ensureLocationBaseline } from "@/lib/events/baseline"
+import { ensureLocationDensity } from "@/lib/events/density"
 import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 import type { EventsQuery, NormalizedEventsSnapshotV1 } from "@/lib/events/types"
 
@@ -295,7 +296,7 @@ export async function fetchEventsAction(formData: FormData) {
       // Non-critical — proceed without location rating/service-model
     }
 
-    insightContext.densityTier = await loadDensityTier(supabase, locationId)
+    insightContext.densityTier = await ensureLocationDensity(supabase, locationId, location.geo_lat, location.geo_lng)
     insightContext.baselineCurveByDow = await ensureLocationBaseline(supabase, locationId, primaryPlaceId)
 
     // Local snapshot for the legacy count/keyword rules (parity with the cron path);

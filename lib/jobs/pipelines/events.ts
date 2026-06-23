@@ -22,7 +22,8 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { annotateEventsGeo } from "@/lib/events/annotate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
-import { ensureLocationBaseline, loadDensityTier } from "@/lib/events/baseline"
+import { ensureLocationBaseline } from "@/lib/events/baseline"
+import { ensureLocationDensity } from "@/lib/events/density"
 import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 
 // ---------------------------------------------------------------------------
@@ -272,7 +273,12 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
 
         // Impact-model inputs: density tier + the restaurant's own baseline curve
         // (cached; refreshed weekly off the synchronous path). Both fail soft.
-        insightContext.densityTier = await loadDensityTier(c.supabase, c.locationId)
+        insightContext.densityTier = await ensureLocationDensity(
+          c.supabase,
+          c.locationId,
+          c.location.geo_lat,
+          c.location.geo_lng,
+        )
         insightContext.baselineCurveByDow = await ensureLocationBaseline(
           c.supabase,
           c.locationId,
