@@ -122,58 +122,29 @@ export async function cascadeDeleteOrganization(
 ): Promise<CascadeDeleteResult> {
   const { keepShell = false } = opts
 
-  const { data: org } = await admin
-    .from("organizations")
-    .select("id, name")
-    .eq("id", orgId)
-    .maybeSingle()
-
-  const { locationIds, competitorIds } = await resolveScope(admin, orgId)
-  const socialProfilesDeleted = await deletePolymorphicSocial(admin, locationIds, competitorIds)
-
-  if (keepShell) {
-    const locationsDeleted = await checked(
-      "locations",
-      admin.from("locations").delete({ count: "exact" }).eq("organization_id", orgId)
-    )
-    // Direct-org tables that do NOT hang off a location (so the locations cascade
-    // wouldn't reach them). refresh_jobs/signal_jobs also carry a location_id, but
-    // delete by organization_id too so the clear is correct regardless.
-    await checked("refresh_jobs", admin.from("refresh_jobs").delete().eq("organization_id", orgId))
-    await checked("signal_jobs", admin.from("signal_jobs").delete().eq("organization_id", orgId))
-    await checked("job_runs", admin.from("job_runs").delete().eq("organization_id", orgId))
-    await checked("insight_preferences", admin.from("insight_preferences").delete().eq("organization_id", orgId))
-    await checked("trial_reminder_sends", admin.from("trial_reminder_sends").delete().eq("organization_id", orgId))
-
-    return {
-      orgId,
-      orgName: org?.name ?? null,
-      keptShell: true,
-      locationsDeleted,
-      competitorsDeleted: competitorIds.length,
-      socialProfilesDeleted,
-      profilePointersNulled: 0,
-    }
+  // Phase 6e: the whole teardown runs ATOMICALLY in one transaction via the SECURITY DEFINER
+  // cascade_delete_organization() fn (migration 20260623030000). Same behavior as the prior
+  // inline sequence (explicit polymorphic-social cleanup + DB FK cascades), but all-or-nothing
+  // — a mid-sequence failure can no longer half-delete. The fn isn't in the generated types, so
+  // the rpc call goes through an untyped client (same pattern as ask_history/play_actions below).
+  const untyped = admin as unknown as SupabaseClient
+  const { data, error } = await untyped.rpc("cascade_delete_organization", {
+    p_org_id: orgId,
+    p_keep_shell: keepShell,
+  })
+  if (error) {
+    throw new Error(`cascade-cleanup: atomic delete failed: ${error.message}`)
   }
 
-  // Full delete: null the RESTRICT pointer, then drop the org (cascades everything).
-  const profilePointersNulled = await checked(
-    "profiles.current_organization_id",
-    admin
-      .from("profiles")
-      .update({ current_organization_id: null }, { count: "exact" })
-      .eq("current_organization_id", orgId)
-  )
-  await checked("organizations", admin.from("organizations").delete().eq("id", orgId))
-
+  const r = (data ?? {}) as Record<string, unknown>
   return {
     orgId,
-    orgName: org?.name ?? null,
-    keptShell: false,
-    locationsDeleted: locationIds.length,
-    competitorsDeleted: competitorIds.length,
-    socialProfilesDeleted,
-    profilePointersNulled,
+    orgName: (r.orgName as string | null) ?? null,
+    keptShell: keepShell,
+    locationsDeleted: Number(r.locationsDeleted ?? 0),
+    competitorsDeleted: Number(r.competitorsDeleted ?? 0),
+    socialProfilesDeleted: Number(r.socialProfilesDeleted ?? 0),
+    profilePointersNulled: Number(r.profilePointersNulled ?? 0),
   }
 }
 
