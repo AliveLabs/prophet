@@ -8,8 +8,8 @@
 - **Verify gate (every change):** `npx tsc --noEmit` + `npm run test:unit` (344 tests) + `npx next build`. All green before commit. Each phase also gets a folded adversarial review (Workflow) before deploy — it's caught a real bug every time.
 
 ## ⚠️ Standing gotchas (read before touching data/infra)
-- **`GetTicket/.env.local` points at the DEAD Supabase project** (`eguflqjnodumjbmdxrnj`). Live prod = **`triodvdspdsuudooyura`**. Do NOT trust local DB queries as prod — verify via `GET /api/health/pipeline` (it reads the right DB server-side; auth token is in Vercel env + the GitHub secret). Fix pending: `vercel env pull .env.local --environment=production`.
-- **DDL is Bryan's** — hand him exact SQL for the Supabase editor; don't run migrations or ad-hoc service-role prod writes.
+- **`GetTicket/.env.local` is stale** — it points at the **retired** ux-rework Supabase branch (`eguflqjnodumjbmdxrnj`, deleted 2026-06-23). Live prod = **`triodvdspdsuudooyura`**. The migration runner uses the linked prod ref directly so it's unaffected; other local tooling should `vercel env pull` (note: that won't restore the account-level `SUPABASE_ACCESS_TOKEN`). Verify prod via `GET /api/health/pipeline` if in doubt.
+- **Migrations now run from the repo** via `scripts/db/sql.mts` (Supabase Management API + `SUPABASE_ACCESS_TOKEN`): applies a migration file and verifies the result; gated behind a scoped `.claude` allow-rule; refuses `DROP`/`TRUNCATE` without `--allow-destructive`. (Was: hand Bryan SQL for the dashboard.)
 - Memories to read first: `[[ticket-insight-engine-deep-review]]`, `[[ticket-pipeline-stall-and-watchdog]]`, `[[ticket-events-keyword-monoculture]]`, `[[ticket-admin-panel-and-demo-data]]`, `[[bryan-finished-tools-not-good-enough]]`.
 
 ## Shipped recently (all in prod)

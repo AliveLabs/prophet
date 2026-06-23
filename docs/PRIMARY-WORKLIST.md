@@ -15,10 +15,10 @@ engine → `docs/engine-rewrite/insight-engine-phased-plan.md`.
   daily 13:00 UTC; on failure → Slack + email to bryan+chris + GH-native backstop. Verified end-to-end via
   the `test_alert` dispatch input (Actions → Pipeline Watchdog → Run workflow → test_alert=true) — a reusable
   alerting drill. The health endpoint also confirmed real prod is healthy.
-- [ ] **Fix `GetTicket/.env.local`** (#2). It still points at the DEAD pre-cutover Supabase project
-  (`eguflqjnodumjbmdxrnj`); live prod is `triodvdspdsuudooyura`. Agent can't pull (prod-secret dump is
-  gated, and the service_role key isn't otherwise reachable). **You run:**
-  `vercel env pull .env.local --environment=production` (from GetTicket/). Then local tooling reads real prod.
+- [ ] **`GetTicket/.env.local` is stale** (#2). It points at the **retired** ux-rework Supabase branch
+  (`eguflqjnodumjbmdxrnj`, deleted 2026-06-23); live prod is `triodvdspdsuudooyura`. The migration runner
+  (`scripts/db/sql.mts`) targets the linked prod ref directly, so it's unaffected. Other local tooling:
+  `vercel env pull .env.local --environment=production` (won't restore the account-level `SUPABASE_ACCESS_TOKEN`).
 - [ ] **Knowledge review** (#3) — `docs/engine-rewrite/skill-knowledge-review.md`: review food-pairing@v1 +
   guerrilla@v1 prose (you + Chris). Edits → bump `@v2` → redeploy.
 - [x] **Run the P7a migration** — DONE 2026-06-22 (Bryan ran `evergreen_dismissals` DDL). P7a cooldown active.
