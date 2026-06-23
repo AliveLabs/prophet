@@ -35,9 +35,11 @@ export const clearTestData = withAdminAction(
       allowlistOrgIds?: string[]
       dryRun?: boolean
       reason?: string
+      /** TOCTOU guard: on the real run, only delete orgs the operator previewed + confirmed. */
+      confirmedOrgIds?: string[]
     } = {}
   ): Promise<ClearTestResult> => {
-  const { includeDemo = false, allowlistOrgIds = [], dryRun = true, reason = "" } = opts
+  const { includeDemo = false, allowlistOrgIds = [], dryRun = true, reason = "", confirmedOrgIds } = opts
   const supabase = createAdminSupabaseClient()
 
   const kinds = includeDemo ? ["test", "demo"] : ["test"]
@@ -76,6 +78,13 @@ export const clearTestData = withAdminAction(
     }
   }
 
+  // TOCTOU close: the real run only deletes orgs the operator actually previewed + confirmed.
+  // An org that appeared after the preview isn't in confirmedOrgIds; one that changed out of the
+  // candidate set isn't in the fresh `targets`. Delete only the intersection.
+  const effectiveTargets = confirmedOrgIds
+    ? targets.filter((o) => new Set(confirmedOrgIds).has(o.id))
+    : targets
+
   // "no log ⇒ no action": record the full target set + reason before bulk-deleting.
   const intent = await logCriticalAction({
     adminId: ctx.adminId,
@@ -87,14 +96,15 @@ export const clearTestData = withAdminAction(
     before: {
       includeDemo,
       allowlistOrgIds,
-      targets: targets.map((o) => ({ id: o.id, name: o.name, orgKind: o.org_kind })),
+      confirmedOrgIds: confirmedOrgIds ?? null,
+      targets: effectiveTargets.map((o) => ({ id: o.id, name: o.name, orgKind: o.org_kind })),
     },
-    details: { phase: "intent", count: targets.length },
+    details: { phase: "intent", count: effectiveTargets.length },
   })
   if (!intent.ok) return intent
 
   const deleted: CascadeDeleteResult[] = []
-  for (const o of targets) {
+  for (const o of effectiveTargets) {
     try {
       deleted.push(await cascadeDeleteOrganization(supabase, o.id))
     } catch (e) {

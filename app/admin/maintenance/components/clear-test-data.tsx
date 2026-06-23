@@ -30,7 +30,12 @@ export function ClearTestData() {
   function runClear() {
     if (!preview || typed !== String(preview.count) || !reason.trim()) return
     startTransition(async () => {
-      const result = await clearTestData({ includeDemo, dryRun: false, reason })
+      const result = await clearTestData({
+        includeDemo,
+        dryRun: false,
+        reason,
+        confirmedOrgIds: preview.targets.map((t) => t.id),
+      })
       if (!result.ok) {
         setFeedback({ ok: false, message: result.error })
         return
