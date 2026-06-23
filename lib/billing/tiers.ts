@@ -263,3 +263,23 @@ export function asSubscriptionTier(value: unknown): SubscriptionTier {
   }
   return "entry"
 }
+
+// The next paid tier up in location count (the smallest maxLocations strictly
+// greater than `tier`'s) — i.e. the "upgrade to fit another location on this same
+// bill" target. null when the org is already at the most-locations tier (then the
+// only way to add more is a separate account). Drives the decision screen (A2 2a).
+export function nextTierWithMoreLocations(
+  tier: SubscriptionTier
+): SubscriptionTier | null {
+  const current = TIER_LIMITS[asSubscriptionTier(tier)].maxLocations
+  let best: SubscriptionTier | null = null
+  for (const t of PAID_TIERS) {
+    if (
+      TIER_LIMITS[t].maxLocations > current &&
+      (best === null || TIER_LIMITS[t].maxLocations < TIER_LIMITS[best].maxLocations)
+    ) {
+      best = t
+    }
+  }
+  return best
+}

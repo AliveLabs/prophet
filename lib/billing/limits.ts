@@ -33,6 +33,24 @@ export function ensureCanAddLocation(
   ensureLocationLimit(asSubscriptionTier(org.subscription_tier), currentCount)
 }
 
+// Non-throwing mirror of ensureCanAddLocation — for UI that branches between the
+// add form and the "plan full" decision screen without try/catch at the call site.
+export function canAddLocationHere(
+  org: {
+    subscription_tier: string
+    trial_ends_at: string | null
+    payment_state?: string | null
+  },
+  currentCount: number
+): boolean {
+  try {
+    ensureCanAddLocation(org, currentCount)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function ensureCompetitorLimit(
   tier: SubscriptionTier,
   currentCount: number

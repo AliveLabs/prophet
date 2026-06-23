@@ -54,6 +54,14 @@ export async function GET(request: Request) {
     const admin = createAdminSupabaseClient()
     await applySubscriptionToOrg(admin, orgId, subscription)
 
+    // Land the user IN the org they just paid for. Required for the multi-location
+    // path (a 2nd account isn't claimed as current until checkout); a no-op for
+    // first-time signup, where this org is already current. Membership verified above.
+    await admin
+      .from("profiles")
+      .update({ current_organization_id: orgId })
+      .eq("id", user.id)
+
     return NextResponse.redirect(`${appUrl}/home?trial_started=1`)
   } catch (err) {
     console.error("checkout-complete verification failed:", err)

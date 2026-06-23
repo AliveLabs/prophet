@@ -129,6 +129,21 @@ export default async function OnboardingPage({
     )
   }
 
+  // ---- A2 path 2b: a logged-in customer adding an ADDITIONAL, separately-billed
+  // location as its own org under the same login. Render a FRESH wizard regardless
+  // of their current org — createOrgAndLocationAction creates a new org and the
+  // flow ends at Stripe checkout for it (no demo skip). Reached from the
+  // add-location decision screen.
+  if (params.new === "1") {
+    return (
+      <BrandProvider brand={dataBrand}>
+        <div className="min-h-dvh bg-background text-foreground">
+          <OnboardingWizard verticalConfig={verticalConfig} />
+        </div>
+      </BrandProvider>
+    )
+  }
+
   // ---- Normal signup / resume path.
   const { data: profile } = await supabase
     .from("profiles")

@@ -14,6 +14,7 @@ import { scoreCompetitor } from "@/lib/providers/scoring"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
+import { isTrialActive } from "@/lib/billing/trial"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
@@ -781,12 +782,35 @@ export async function completeOnboardingAction(input: {
     return { ok: false, error: "Location does not belong to this organization." }
   }
 
-  // 1. Set current_organization_id on profile
-  const { error: profileError } = await admin.from("profiles").upsert({
-    id: user.id,
-    email: user.email ?? null,
-    current_organization_id: input.orgId,
-  })
+  // Org row — used for the current-org claim rule, the competitor cap, and the
+  // welcome-email gate.
+  const { data: org } = await admin
+    .from("organizations")
+    .select("subscription_tier, org_kind, trial_ends_at, payment_state")
+    .eq("id", input.orgId)
+    .maybeSingle()
+
+  // 1. Claim current_organization_id only on a FIRST org (user has none yet) or
+  // when the target is already trial-active (e.g. admin demo setup). For an
+  // ADDITIONAL not-yet-paid org (multi-location path 2b), keep the user on their
+  // existing org until checkout completes — abandoning setup must not strand a
+  // paying customer on an unpaid org. (checkout-complete switches them in on pay.)
+  const { data: existingProfile } = await admin
+    .from("profiles")
+    .select("current_organization_id")
+    .eq("id", user.id)
+    .maybeSingle()
+  const claimCurrentOrg =
+    !existingProfile?.current_organization_id || (org ? isTrialActive(org) : false)
+
+  const profilePayload: {
+    id: string
+    email: string | null
+    current_organization_id?: string
+  } = { id: user.id, email: user.email ?? null }
+  if (claimCurrentOrg) profilePayload.current_organization_id = input.orgId
+
+  const { error: profileError } = await admin.from("profiles").upsert(profilePayload)
 
   if (profileError) {
     return { ok: false, error: profileError.message }
@@ -815,12 +839,7 @@ export async function completeOnboardingAction(input: {
   }
 
   // 3. Bulk approve selected competitors (capped to tier limit)
-  const { data: onboardOrgData } = await admin
-    .from("organizations")
-    .select("subscription_tier, org_kind")
-    .eq("id", input.orgId)
-    .maybeSingle()
-  const onboardTier = asSubscriptionTier(onboardOrgData?.subscription_tier)
+  const onboardTier = asSubscriptionTier(org?.subscription_tier)
   const maxCompetitors = TIER_LIMITS[onboardTier].maxCompetitorsPerLocation
   const cappedCompetitorIds = input.competitorIds.slice(0, maxCompetitors)
 
@@ -861,7 +880,7 @@ export async function completeOnboardingAction(input: {
   // Fire-and-forget welcome email — real customers only. Demo/test orgs are
   // admin-built showcases; don't send the admin a customer "welcome" email.
   const isShowcase =
-    onboardOrgData?.org_kind === "demo" || onboardOrgData?.org_kind === "test"
+    org?.org_kind === "demo" || org?.org_kind === "test"
   const userEmail = user.email
   if (userEmail && !isShowcase) {
     const { data: locInfo } = await admin
