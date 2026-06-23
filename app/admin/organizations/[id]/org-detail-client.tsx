@@ -1228,8 +1228,8 @@ function DeletedBanner({
         <div>
           <p className="text-sm font-semibold text-destructive">This organization is deleted</p>
           <p className="text-xs text-muted-foreground">
-            Deleted {new Date(deletedAt).toLocaleString()} · hidden from all lists, counts, and
-            customer access. Restore it, or permanently purge it (super admin).
+            Deleted {new Date(deletedAt).toLocaleString()} · hidden from all admin lists, counts,
+            and crons. Restore it, or permanently purge it (super admin).
           </p>
         </div>
         <div className="flex gap-2">

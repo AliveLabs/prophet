@@ -74,7 +74,19 @@ export async function GET(req: Request) {
 
   for (const location of locations) {
     const orgTrial = orgTrialMap.get(location.organization_id)
-    if (orgTrial && !isTrialActive(orgTrial)) {
+    // Allowlist: the orgs query excludes soft-deleted (deleted_at) orgs, so an absent entry
+    // means "don't process". Without this guard a deleted org would fall through to the
+    // 'entry' default and run the full pipeline (matches build-brief / weekly-digest).
+    if (!orgTrial) {
+      jobs.push({
+        location_id: location.id,
+        location_name: location.name,
+        pipelines: [],
+        skipped_reason: "Org deleted or inaccessible",
+      })
+      continue
+    }
+    if (!isTrialActive(orgTrial)) {
       jobs.push({
         location_id: location.id,
         location_name: location.name,
