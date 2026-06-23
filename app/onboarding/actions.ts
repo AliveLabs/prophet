@@ -345,6 +345,98 @@ export async function createOrgAndLocationAction(
   return { ok: true, orgId: org.id, locationId: loc.id }
 }
 
+type CreateLocationForOrgInput = {
+  orgId: string
+  cuisine: string | null
+  businessName?: string
+  place: CreateOrgInput["place"]
+}
+
+/**
+ * Attach a FIRST location to an EXISTING org and kick initial data — the
+ * "setup mode" counterpart to createOrgAndLocationAction. Used when an admin
+ * completes a demo/test org (created as a bare placeholder) through the same
+ * onboarding wizard, and (later) when a member adds a location to an org they
+ * already belong to. Membership-gated + ensureCanAddLocation; NEVER creates an
+ * org. This is the keystone that decouples provisioning from new-account signup.
+ */
+export async function createLocationForOrgAction(
+  input: CreateLocationForOrgInput
+): Promise<{ ok: true; locationId: string } | { ok: false; error: string }> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const { data: membership } = await admin
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", input.orgId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!membership) {
+    return { ok: false, error: "You are not a member of this organization." }
+  }
+
+  const { data: orgRow } = await admin
+    .from("organizations")
+    .select("subscription_tier, trial_ends_at, payment_state")
+    .eq("id", input.orgId)
+    .maybeSingle()
+
+  if (!orgRow) {
+    return { ok: false, error: "Organization not found." }
+  }
+
+  const { count: locationCount } = await admin
+    .from("locations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", input.orgId)
+
+  try {
+    ensureCanAddLocation(orgRow, locationCount ?? 0)
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+
+  const geoLat = Number.isFinite(input.place.geo_lat) ? input.place.geo_lat : null
+  const geoLng = Number.isFinite(input.place.geo_lng) ? input.place.geo_lng : null
+
+  const { data: loc, error: locError } = await admin
+    .from("locations")
+    .insert({
+      organization_id: input.orgId,
+      name: input.place.name || input.businessName || "New location",
+      address_line1: input.place.address_line1 ?? null,
+      city: input.place.city ?? null,
+      region: input.place.region ?? null,
+      postal_code: input.place.postal_code ?? null,
+      country: input.place.country ?? "US",
+      timezone: "America/New_York",
+      primary_place_id: input.place.primary_place_id ?? null,
+      website: input.place.website ?? null,
+      geo_lat: geoLat,
+      geo_lng: geoLng,
+      settings: {
+        category: input.cuisine ?? input.place.category ?? null,
+        types: input.place.types ?? [],
+      },
+    })
+    .select("id")
+    .single()
+
+  if (locError || !loc) {
+    return { ok: false, error: locError?.message ?? "Failed to create location" }
+  }
+
+  triggerInitialLocationData(loc.id, input.orgId, {
+    website: input.place.website ?? null,
+    geoLat,
+    geoLng,
+  }).catch(() => {})
+
+  return { ok: true, locationId: loc.id }
+}
+
 // ---------------------------------------------------------------------------
 // Competitor discovery — pure function (no redirect)
 // ---------------------------------------------------------------------------
@@ -725,7 +817,7 @@ export async function completeOnboardingAction(input: {
   // 3. Bulk approve selected competitors (capped to tier limit)
   const { data: onboardOrgData } = await admin
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, org_kind")
     .eq("id", input.orgId)
     .maybeSingle()
   const onboardTier = asSubscriptionTier(onboardOrgData?.subscription_tier)
@@ -766,9 +858,12 @@ export async function completeOnboardingAction(input: {
     console.warn("[Onboarding] enqueueFirstRun failed:", err)
   }
 
-  // Fire-and-forget welcome email
+  // Fire-and-forget welcome email — real customers only. Demo/test orgs are
+  // admin-built showcases; don't send the admin a customer "welcome" email.
+  const isShowcase =
+    onboardOrgData?.org_kind === "demo" || onboardOrgData?.org_kind === "test"
   const userEmail = user.email
-  if (userEmail) {
+  if (userEmail && !isShowcase) {
     const { data: locInfo } = await admin
       .from("locations")
       .select("name")

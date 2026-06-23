@@ -69,6 +69,16 @@ const ADHOC_LOCATION_DATA = ["content", "visibility", "events", "weather", "busy
 
 /** First-time onboarding pull: everything once (force = ignore cadence), insights after a head start. */
 export async function enqueueFirstRun(sb: SB, args: { organizationId: string; locationId: string; runId?: string }): Promise<number> {
+  // Idempotent: a "first run" happens once per location. If this location already
+  // has signal_jobs (a prior first-run or daily cycle), skip — re-running onboarding
+  // (an admin re-opening a demo's setup, or a double-submit) must not double-enqueue
+  // the whole pipeline. After a data clear (jobs deleted) it correctly runs again.
+  const { count: existing } = await sb
+    .from("signal_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("location_id", args.locationId)
+  if ((existing ?? 0) > 0) return 0
+
   const runId = args.runId ?? crypto.randomUUID()
   let n = await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: FIRST_RUN_DATA, scope: { mode: "first_run", force: true } })
   n += await enqueueRun(sb, { runId, organizationId: args.organizationId, locationId: args.locationId, pipelines: ["insights"], delaySeconds: 15 * 60, scope: { mode: "first_run" } })

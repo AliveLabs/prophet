@@ -18,7 +18,9 @@ import {
   purgeOrg,
   restoreOrg,
 } from "@/app/actions/org-management"
-import { useRouter } from "next/navigation"
+import { impersonateUser } from "@/app/actions/user-management"
+import { switchOrganizationAction } from "@/app/(dashboard)/actions"
+import { unstable_rethrow, useRouter } from "next/navigation"
 
 interface OrgDetail {
   id: string
@@ -123,6 +125,31 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
     })
   }
 
+  // "View as customer" — start a read-only impersonation session as this org's
+  // owner (impersonation is user-scoped; the owner is the customer). Mirrors the
+  // user-detail flow: required reason, 30-min time-box, banner, fully audited.
+  // Only for REAL orgs — demo/test you own, so use "Open demo" instead, and the
+  // action server-side refuses impersonating a fellow platform admin anyway.
+  const handleImpersonate = () => {
+    const target = org.members.find((m) => m.role === "owner") ?? org.members[0]
+    if (!target) {
+      setFeedback("This org has no members to view as.")
+      return
+    }
+    const reason = window.prompt(
+      `View as ${target.email} (owner of ${org.name})? You'll switch to their read-only session (30-min limit, banner, fully audited); "Exit" returns you to sign-in.\n\nReason (required):`
+    )
+    if (!reason || !reason.trim()) return
+    startTransition(async () => {
+      const result = await impersonateUser(target.userId, reason)
+      if (result.ok) {
+        window.location.href = "/home" // now the target's read-only session
+      } else {
+        setFeedback(result.error)
+      }
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -194,7 +221,20 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             orgKind={org.orgKind}
           />
 
+          {(org.orgKind === "demo" || org.orgKind === "test") && !org.deletedAt && (
+            <DemoSetupBanner org={org} onFeedback={setFeedback} />
+          )}
+
           <div className="flex flex-wrap gap-2">
+            {org.orgKind === "real" && !org.deletedAt && (
+              <button
+                onClick={handleImpersonate}
+                disabled={isPending}
+                className="h-9 rounded-lg border border-precision-teal/40 bg-precision-teal/5 px-4 text-sm font-medium text-precision-teal hover:bg-precision-teal/15 transition-colors disabled:opacity-50"
+              >
+                View as customer
+              </button>
+            )}
             <button
               onClick={() => setShowTierChange(!showTierChange)}
               className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
@@ -478,6 +518,79 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             )}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// A demo/test org is born as a bare placeholder (no location). This is the
+// state-aware entry that lets the admin complete its setup through the real
+// onboarding wizard (in setup mode), then open it to present. Three states:
+// fresh (no location) → set up · partial (location, no competitors) → resume ·
+// ready (location + competitors) → open the demo's dashboard.
+function DemoSetupBanner({
+  org,
+  onFeedback,
+}: {
+  org: OrgDetail
+  onFeedback: (msg: string) => void
+}) {
+  const [isPending, startTransition] = useTransition()
+
+  const hasLocation = org.locations.length > 0
+  const hasCompetitors = org.locations.some((l) => l.competitorCount > 0)
+  const state = !hasLocation ? "fresh" : !hasCompetitors ? "partial" : "ready"
+  const kindLabel = org.orgKind === "test" ? "Test" : "Demo"
+
+  const handleOpen = () => {
+    // Switches the admin's current org to this one + redirects to /home, where
+    // social setup and the brief live. The admin is already an owner-member.
+    startTransition(async () => {
+      try {
+        await switchOrganizationAction(org.id)
+      } catch (err) {
+        unstable_rethrow(err) // let Next's success redirect propagate
+        onFeedback(err instanceof Error ? err.message : "Couldn't open the demo.")
+      }
+    })
+  }
+
+  const title =
+    state === "fresh"
+      ? `${kindLabel} not set up yet`
+      : state === "partial"
+        ? `${kindLabel} setup unfinished`
+        : `${kindLabel} ready to show`
+  const blurb =
+    state === "fresh"
+      ? "An empty placeholder — pick its restaurant, choose competitors, and pull live data so you can present it."
+      : state === "partial"
+        ? "It has a location but no tracked competitors yet. Finish setup to populate the dashboard."
+        : "Open it to review the brief and set up social. Clear & re-run setup anytime from the Danger Zone."
+
+  return (
+    <div className="rounded-xl border border-vatic-indigo/30 bg-vatic-indigo/5 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">{title}</p>
+          <p className="text-xs text-muted-foreground">{blurb}</p>
+        </div>
+        {state === "ready" ? (
+          <button
+            onClick={handleOpen}
+            disabled={isPending}
+            className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-semibold text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
+          >
+            {isPending ? "Opening…" : "Open demo →"}
+          </button>
+        ) : (
+          <Link
+            href={`/onboarding?org=${org.id}`}
+            className="inline-flex h-9 items-center rounded-lg bg-vatic-indigo px-4 text-sm font-semibold text-white hover:bg-vatic-indigo/90 transition-colors"
+          >
+            {state === "fresh" ? "Set up demo →" : "Resume setup →"}
+          </Link>
+        )}
       </div>
     </div>
   )

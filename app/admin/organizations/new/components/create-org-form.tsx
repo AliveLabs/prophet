@@ -99,7 +99,8 @@ export function CreateOrgForm({ adminEmail }: { adminEmail: string }) {
 
       <p className="rounded-lg bg-secondary/50 px-3.5 py-2.5 text-xs text-muted-foreground">
         Owned by you ({adminEmail}) · non-expiring (1-year trial) · no billing ·
-        excluded from real metrics. Add a location via onboarding to pull data.
+        excluded from real metrics. Next, hit <strong className="text-foreground">Set up demo</strong>{" "}
+        on its page to pick the restaurant, choose competitors, and pull live data.
       </p>
 
       <div className="flex justify-end gap-3">

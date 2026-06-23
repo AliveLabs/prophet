@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
@@ -34,7 +35,9 @@ export default async function HomePage() {
     .maybeSingle()
 
   const organizationId = profile?.current_organization_id
-  if (!organizationId) return null
+  // Orgless = onboarding was never completed. Resume it instead of rendering a
+  // blank page (the catch-all for any entry point that lands here without an org).
+  if (!organizationId) redirect("/onboarding")
 
   // The org's primary location (id + name). Brand-tolerance now lives on the
   // Settings page (explicit refresh), not the brief rail.

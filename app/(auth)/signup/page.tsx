@@ -13,7 +13,14 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const supabase = await createServerSupabaseClient()
   const { data } = await supabase.auth.getUser()
   if (data.user) {
-    redirect("/home")
+    // Match the auth-callback rule: an authed user with no current org hasn't
+    // finished onboarding — resume it instead of bouncing to a blank /home.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("current_organization_id")
+      .eq("id", data.user.id)
+      .maybeSingle()
+    redirect(profile?.current_organization_id ? "/home" : "/onboarding")
   }
 
   const resolvedSearchParams = await Promise.resolve(searchParams)

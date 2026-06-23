@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import "./onboarding.css"
 import {
   createOrgAndLocationAction,
+  createLocationForOrgAction,
   discoverCompetitorsForLocation,
   completeOnboardingAction,
 } from "./actions"
@@ -54,6 +55,14 @@ type WizardProps = {
   existingLocationId?: string | null
   existingCompetitors?: OnboardingCandidate[]
   verticalConfig?: VerticalConfig
+  /**
+   * "signup" (default) = a new customer creating their account (ends at the
+   * Stripe trial step). "setup" = an admin completing an existing demo/test org
+   * through the same wizard: attaches to the existing org, skips billing, lands
+   * in the org's dashboard.
+   */
+  mode?: "signup" | "setup"
+  setupOrgName?: string | null
 }
 
 const PREFS: Array<{ key: string; title: string; sub: string }> = [
@@ -143,11 +152,13 @@ function ProcessingStep({
   locationId,
   competitorIds,
   monitoringPrefs,
+  setupMode,
 }: {
   orgId: string
   locationId: string
   competitorIds: string[]
   monitoringPrefs: Record<string, boolean>
+  setupMode: boolean
 }) {
   const router = useRouter()
   const [jobs, setJobs] = useState<Array<{ pipeline: string; status: string }> | null>(null)
@@ -297,10 +308,15 @@ function ProcessingStep({
                 </p>
               ) : null}
               <div className="ob-nav">
-                {/* The trial (and recurring data pulls) start at checkout —
-                    /onboarding/trial collects the card before the dashboard. */}
-                <button className="ob-btn" onClick={() => router.push("/onboarding/trial")}>
-                  Continue →
+                {/* Signup: the trial (and recurring pulls) start at checkout —
+                    /onboarding/trial collects the card before the dashboard.
+                    Setup (admin/demo): no billing — drop straight into the org's
+                    dashboard (context already switched by completeOnboardingAction). */}
+                <button
+                  className="ob-btn"
+                  onClick={() => router.push(setupMode ? "/home" : "/onboarding/trial")}
+                >
+                  {setupMode ? "Open demo dashboard →" : "Continue →"}
                 </button>
               </div>
             </>
@@ -321,8 +337,11 @@ export default function OnboardingWizard({
   existingLocationId,
   existingCompetitors,
   verticalConfig: externalConfig,
+  mode = "signup",
+  setupOrgName,
 }: WizardProps) {
   const verticalConfig = externalConfig ?? getVerticalConfig()
+  const setupMode = mode === "setup"
   const initialStep = existingOrgId && existingLocationId ? 2 : 0
   const [step, setStep] = useState(initialStep)
 
@@ -467,24 +486,45 @@ export default function OnboardingWizard({
     if (!place || !bizName.trim() || creating) return
     setCreating(true)
     setCreateError(null)
+    const placePayload = {
+      primary_place_id: place.primary_place_id,
+      name: bizName.trim(),
+      category: place.category,
+      types: place.types,
+      address_line1: address.trim() || null,
+      city: place.city,
+      region: place.region,
+      postal_code: place.postal_code,
+      country: place.country,
+      geo_lat: place.geo_lat,
+      geo_lng: place.geo_lng,
+      website: website.trim() || null,
+    }
+    // Setup mode (orgId already set — e.g. completing a demo): attach the
+    // location to the EXISTING org. Signup: create a fresh org + location.
+    if (orgId) {
+      const result = await createLocationForOrgAction({
+        orgId,
+        cuisine: cuisine.trim() || null,
+        businessName: bizName.trim(),
+        place: placePayload,
+      })
+      setCreating(false)
+      if (!result.ok) {
+        setCreateError(result.error)
+        return
+      }
+      setLocationId(result.locationId)
+      setStep(2)
+      void discover(result.locationId)
+      return
+    }
+
     const result = await createOrgAndLocationAction({
       businessName: bizName.trim(),
       cuisine: cuisine.trim() || null,
       industryType: verticalConfig.industryType,
-      place: {
-        primary_place_id: place.primary_place_id,
-        name: bizName.trim(),
-        category: place.category,
-        types: place.types,
-        address_line1: address.trim() || null,
-        city: place.city,
-        region: place.region,
-        postal_code: place.postal_code,
-        country: place.country,
-        geo_lat: place.geo_lat,
-        geo_lng: place.geo_lng,
-        website: website.trim() || null,
-      },
+      place: placePayload,
     })
     setCreating(false)
     if (!result.ok) {
@@ -560,6 +600,22 @@ export default function OnboardingWizard({
 
   return (
     <div className="ob">
+      {setupMode ? (
+        <div
+          style={{
+            margin: "0 0 16px",
+            padding: "10px 14px",
+            borderRadius: 10,
+            border: "1px solid color-mix(in srgb, currentColor 18%, transparent)",
+            background: "color-mix(in srgb, currentColor 6%, transparent)",
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          Admin setup{setupOrgName ? ` — ${setupOrgName}` : ""}. This won&apos;t
+          bill or email anyone — it builds the demo&apos;s data so you can show it.
+        </div>
+      ) : null}
       <div className="ob-top">
         <span className="ob-brand">TICKET</span>
         <span className="ob-steplabel">
@@ -862,6 +918,7 @@ export default function OnboardingWizard({
             locationId={locationId}
             competitorIds={Array.from(selectedIds)}
             monitoringPrefs={monitoringPrefs}
+            setupMode={setupMode}
           />
         ) : null}
       </div>
