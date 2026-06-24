@@ -17,7 +17,8 @@ export function shouldSuppressInsight(
     "traffic.surge",
     "traffic.new_slow_period",
     "traffic.extended_busy",
-    "review_velocity",
+    "review_velocity_falling",
+    "review_velocity_rising",
   ]
   return trafficDeclineTypes.includes(insight.insight_type) &&
     insight.severity !== "critical"

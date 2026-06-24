@@ -25,7 +25,7 @@ const ruleOutputs: GeneratedInsight[] = [
     recommendations: [{ title: "Set a cadence", rationale: "Show up consistently." }],
   },
   {
-    insight_type: "review_velocity",
+    insight_type: "review_velocity_falling",
     title: "Your review velocity is slipping behind a rival",
     summary: "A competitor is gathering new reviews faster than you are.",
     confidence: "medium",

@@ -71,10 +71,12 @@ const SCHEMA_INSTRUCTION = [
   '"kind": one of prepare|capitalize|positioning|reputation|ops,',
   '"ownerRole": one of owner|gm|marketing|kitchen|foh,',
   '"confidence": one of high|medium|directional,',
+  '"stance": one of fix|capture|maintain — the operator intent: "fix" a real problem (negative trend / complaint / encroachment), "capture" fresh upside (an event, demand, a competitor gap), or "maintain" a good habit you already do well (keep replying to reviews, keep the patio clean),',
   '"recipe": [ { "channel": string, "platforms": string[], "audience": string, "window": {"note": string, "start"?: string, "end"?: string}, "offer"?: string, "copy"?: string, "creativeDirection"?: string, "dependencies"?: string[] } ],',
   '"leverage": { "label": high|medium|low, "reach"?: string (ONLY if grounded in real data), "basisInternal": string },',
   '"evidenceRefs": string[] (chosen ONLY from allowedEvidenceRefs) }',
   "ALWAYS include leverage and size its label (high|medium|low) — it drives ranking; never omit it.",
+  'ALWAYS set stance. A "maintain" play earns its weight from the RISK OF STOPPING, not novelty — so only rate a maintain play high impact if you cite a real failure signal (a negative trend, complaint, or competitor encroachment); otherwise keep it modest.',
   "No prose outside the JSON array.",
 ].join("\n")
 
@@ -141,6 +143,7 @@ export function coercePlays(raw: unknown): Record<string, unknown>[] | null {
 const KINDS = new Set(["prepare", "capitalize", "positioning", "reputation", "ops"])
 const ROLES = new Set(["owner", "gm", "marketing", "kitchen", "foh"])
 const CONF = new Set(["high", "medium", "directional"])
+const STANCES = new Set(["fix", "capture", "maintain"])
 
 function str(v: unknown): string {
   return typeof v === "string" ? v : ""
@@ -207,6 +210,9 @@ export function coerceEnrichedPlays(
             }
           : defaultLeverage(opts.skillId),
       evidenceRefs: Array.isArray(p.evidenceRefs) ? (p.evidenceRefs as unknown[]).map(str).filter(Boolean) : [],
+      // P11 calibration: a producer MAY stamp its operator intent (fix/capture/maintain). Unset →
+      // undefined, treated as `capture` by scoring (no maintain cap) — preserves prior behavior.
+      ...(STANCES.has(str(p.stance)) ? { stance: p.stance as import("@/lib/skills/types").Stance } : {}),
       knowledgeVersion: opts.knowledgeVersion,
     })
   }

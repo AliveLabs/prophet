@@ -13,6 +13,8 @@ import { runProducerSkills } from "@/lib/skills/run"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
 import { synthesize } from "@/lib/skills/synthesis"
+import { synthesisWrite } from "@/lib/skills/synthesis-write"
+import { presentBrief } from "@/lib/skills/presenter"
 import { voicePass } from "@/lib/skills/voice"
 
 export type RunBriefOptions = {
@@ -43,14 +45,23 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   const { kept, dropped } = applyHarmReview(candidates, verdicts, dossier.profile.brandTolerance ?? 50)
 
   const synthInput: SkillResult[] = [{ skillId: "reviewed", status: "ok", plays: kept }]
-  const brief = await voicePass(
-    await synthesize(dossier, synthInput, {
-      ...t,
-      maxPlays: opts.maxPlays,
-      suppressedKeys: opts.suppressedKeys,
-      evergreen: opts.evergreen,
-    }),
-  )
+
+  // synthesis SELECT+ORDER -> P11.B WRITE step (tighten fused/multi-signal plays) ->
+  // P11.A presenter (real evidence + relational framing + strip internal numerics) -> voice.
+  // Each P11 step is fail-soft (keep-original / un-presented), so a model hiccup degrades to
+  // the grounded floor rather than breaking the brief.
+  const synthesized = await synthesize(dossier, synthInput, {
+    ...t,
+    maxPlays: opts.maxPlays,
+    suppressedKeys: opts.suppressedKeys,
+    evergreen: opts.evergreen,
+  })
+  const written: Brief = {
+    ...synthesized,
+    plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
+  }
+  const presented = presentBrief(written, dossier)
+  const brief = await voicePass(presented)
 
   return { brief, skillResults, dropped }
 }

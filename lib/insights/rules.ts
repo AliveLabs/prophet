@@ -20,13 +20,17 @@ export function buildInsights(diff: SnapshotDiff): GeneratedInsight[] {
   }
 
   if (typeof diff.reviewCountDelta === "number" && Math.abs(diff.reviewCountDelta) >= 2) {
-    const direction = diff.reviewCountDelta >= 0 ? "up" : "down"
+    const falling = diff.reviewCountDelta < 0
+    const direction = falling ? "down" : "up"
     insights.push({
-      insight_type: "review_velocity",
+      // Split by direction so the FAILURE-signal semantics are unambiguous: a FALLING cadence is a
+      // failure signal (it can lift the maintain-impact cap); a RISING cadence is a GOOD signal and
+      // must not. Keeping one `review_velocity` type made the scoring failure-match fire on both.
+      insight_type: falling ? "review_velocity_falling" : "review_velocity_rising",
       title: "Review velocity changed",
       summary: `Review count is ${direction} by ${Math.abs(diff.reviewCountDelta)}.`,
       confidence: "high",
-      severity: "info",
+      severity: falling ? "warning" : "info",
       evidence: {
         field: "reviewCount",
         delta: diff.reviewCountDelta,

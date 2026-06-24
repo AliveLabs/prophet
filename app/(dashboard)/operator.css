@@ -232,6 +232,15 @@
 .pv-ev__summary{ font-size:14.5px; line-height:1.5; color:var(--print); margin-top:7px; }
 .pv-ev__refs{ display:flex; flex-wrap:wrap; gap:8px; }
 
+/* P11 verbatim cited artifacts on the detail page */
+.pv-cites{ display:flex; flex-direction:column; gap:10px; }
+.pv-cite{ margin:0; padding:10px 13px; border-left:3px solid var(--rust); background:var(--thermal,rgba(184,92,56,.06)); border-radius:0 var(--radius) var(--radius) 0; }
+.pv-cite__quote{ display:block; font-style:italic; font-size:15px; line-height:1.5; color:var(--ink); }
+.pv-cite__stat{ display:block; font-weight:600; font-size:14.5px; color:var(--ink); }
+.pv-cite__rate{ display:block; font-family:var(--font-mono); font-size:13px; color:var(--print); }
+.pv-cite__src{ display:block; margin-top:6px; font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ash); font-style:normal; }
+.pv-cite__src a{ color:var(--rust); }
+
 /* ── Competitor detail head + list management ────────────────────── */
 .pv-comp-head{ display:flex; gap:18px; align-items:flex-start; margin:18px 0 0; }
 .pv-comp-head__mark{ width:54px; height:54px; flex:0 0 auto; border-radius:8px; display:grid; place-items:center; font-family:var(--font-cond); font-weight:700; font-size:18px; color:#fff; background:var(--slate); margin-top:6px; }

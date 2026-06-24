@@ -12,7 +12,7 @@ import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provide
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
-import { rankPlays, computeCombinedScore, type ScoreInput } from "@/lib/skills/scoring-config"
+import { rankPlays, computeCombinedScore, calibrationOf, type ScoreInput } from "@/lib/skills/scoring-config"
 import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
 import { playKey } from "@/lib/skills/preferences"
@@ -80,6 +80,9 @@ function toScoreInput(p: EnrichedRecommendation): ScoreInput {
     confidence: p.confidence,
     impact: p.leverage?.label,
     category: category ?? "marketing", // marketing == the neutral 1.0 prior
+    // P11: a maintain play with no failure signal is capped at low impact before scoring, so a
+    // best-practice habit ("keep replying to reviews") can't outrank a real problem.
+    ...calibrationOf(p),
   }
 }
 

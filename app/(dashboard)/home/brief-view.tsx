@@ -147,6 +147,28 @@ function PlayCard({
         {domains.length ? <span className="topic">{domains.join(" · ")}</span> : null}
       </div>
 
+      {/* P11: the REAL cited artifacts (verbatim review quote / relational stat + its "so what"),
+          surfaced inline — not a category chip. Falls back to the ref label drill below. */}
+      {play.evidence?.length ? (
+        <div className="movecard__evidence">
+          {play.evidence.map((e, i) => (
+            <blockquote className="ev-cite" key={i}>
+              {e.quote ? <span className="ev-cite__quote">&ldquo;{e.quote}&rdquo;</span> : null}
+              {e.relativeStat ? (
+                <span className="ev-cite__stat">{e.relativeStat}{e.soWhat ? `, ${e.soWhat}` : ""}</span>
+              ) : null}
+              {e.rate ? (
+                <span className="ev-cite__rate">{e.rate.numerator} of {e.rate.denominator} ({e.rate.pct}%)</span>
+              ) : null}
+              <cite className="ev-cite__src">
+                {humanizeRef(e.source)}{e.asOf ? ` · as of ${fmtShortDate(e.asOf)}` : ""}
+                {e.sourceUrl ? <> · <a href={e.sourceUrl} target="_blank" rel="noopener noreferrer">source</a></> : null}
+              </cite>
+            </blockquote>
+          ))}
+        </div>
+      ) : null}
+
       {play.recipe?.length ? (
         <details className="drill">
           <summary><span className="car">▸</span> The play</summary>

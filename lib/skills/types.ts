@@ -18,6 +18,51 @@ export type RecKind = "prepare" | "capitalize" | "positioning" | "reputation" | 
 export type Confidence = "high" | "medium" | "directional"
 
 /**
+ * P11 calibration: the OPERATOR INTENT a play encodes, independent of RecKind.
+ *  - `fix`     — there is a real problem to correct (negative trend / complaint / encroachment).
+ *  - `capture` — there is fresh upside to seize (an event, demand, a competitor gap).
+ *  - `maintain`— keep doing a good thing (a best-practice / standing habit).
+ * Stance drives calibration: a `maintain` play's impact is RISK-OF-STOPPING, not novelty, so a
+ * "keep replying to reviews" play cannot outrank a real problem unless a failure signal is present.
+ * Defaults to `capture` when a producer doesn't stamp one (the prior behavior — no impact cap).
+ */
+export type Stance = "fix" | "capture" | "maintain"
+
+/**
+ * P11: a count expressed as a RATE with its denominator, so the brief reads
+ * "3 of your last 20 reviews (15%)" instead of the bare "3 reviews". Carried on an
+ * Evidence entry; the presenter renders the rate, and a checks.ts gate requires the
+ * denominator to be present whenever a count-based number is surfaced.
+ */
+export type EvidenceRate = { numerator: number; denominator: number; pct: number }
+
+/**
+ * P11: ONE piece of REAL cited source text behind a play — the verbatim artifact, not a
+ * category chip. Resolved by `lib/skills/presenter.ts#resolveEvidence` from the dossier
+ * (e.g. a byte-exact `ReviewSentiment.themes[].examples[]` quote, an event name+date+venue,
+ * a competitor menu line). Surfaced inline on the brief card + detail page. `quote` MUST
+ * byte-match a stored example (no paraphrase) and the originating ref MUST pass `buildRefIndex`
+ * grounding. `relativeStat` is a RELATIONAL framing ("12% slower than your Friday peak") that
+ * the presenter only keeps when paired with an operational consequence (`soWhat`).
+ */
+export type Evidence = {
+  /** The verbatim cited text (e.g. a real review quote). Byte-matches a stored example. */
+  quote?: string
+  /** The dossier ref this evidence resolves from — MUST be in the play's evidenceRefs. */
+  source: string
+  /** A public link to the artifact, when one exists (review URL, event page). */
+  sourceUrl?: string
+  /** ISO date the artifact is "as of". */
+  asOf?: string
+  /** A relational framing of a number ("12% slower than your Friday peak"). */
+  relativeStat?: string
+  /** The operational consequence paired with `relativeStat` ("so you can cut one closer"). */
+  soWhat?: string
+  /** A count expressed as a rate with its denominator (replaces a bare count). */
+  rate?: EvidenceRate
+}
+
+/**
  * Operator-facing DOMAIN of a play — used by the scoring priors, drill-down, and the
  * per-operator rerank controls (P2/P3/P8). Declared INTRINSICALLY on each ProducerSkill;
  * NOT derived from RecKind (local-demand and marketing both carry kind "capitalize" yet are
@@ -66,6 +111,18 @@ export type EnrichedRecommendation = {
   leverage?: Leverage
   /** insight_type / evidence keys this play is grounded in. MUST resolve to real dossier rule outputs. */
   evidenceRefs: string[]
+  /**
+   * P11: the REAL cited artifacts behind this play (verbatim review quotes, event name+date+venue,
+   * competitor menu lines), each tracing to a ref in `evidenceRefs`. Populated by the presenter pass
+   * (`resolveEvidence`); rendered inline on the card + detail page so the operator sees the actual
+   * source text, not a category tag. Optional so producer plays and old persisted briefs type-check.
+   */
+  evidence?: Evidence[]
+  /**
+   * P11 calibration: the play's operator intent (fix/capture/maintain). Drives the maintain-impact
+   * cap in scoring. Optional — unset is treated as `capture` (prior behavior, no cap).
+   */
+  stance?: Stance
   knowledgeVersion: string
   /** Reviewer's boldness score (0 on-brand .. 3 wild), stamped by applyHarmReview —
    *  carried onto feedback so tolerance recalibration actually moves. */

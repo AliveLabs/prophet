@@ -19,10 +19,52 @@
 // from one place as live restaurants generate evidence.
 // ---------------------------------------------------------------------------
 
-import type { Category, Confidence } from "@/lib/skills/types"
+import type { Category, Confidence, EnrichedRecommendation, Stance } from "@/lib/skills/types"
 
 /** leverage.label — the play's qualitative impact tier (see Leverage in types.ts). */
 export type ImpactLabel = "high" | "medium" | "low"
+
+// --- P11 calibration: maintain stance + failure signals ---------------------
+//
+// A "maintain" play (keep replying to reviews, keep the patio clean) earns its
+// impact from RISK-OF-STOPPING, not novelty. Without evidence that the good thing
+// is actually slipping — a negative trend, a complaint theme, a competitor
+// encroachment ref — a maintain play is capped at LOW impact so it can never
+// outrank a real problem. WHERE such a failure signal IS present, the cap lifts
+// and the play scores by the size of the risk like any other.
+
+/**
+ * Ref-base patterns that mark a FAILURE signal — evidence that something is going wrong
+ * (so a maintain play has a real risk-of-stopping to defend against). Matched against the
+ * BASE of each evidenceRef (the part before ":"), case-insensitively. SEED — extend as new
+ * negative-signal rules ship; matching is substring-based so families like `*_decline_*`
+ * or `review.theme` (when negative) are caught by their stem.
+ */
+export const FAILURE_REF_PATTERNS: readonly string[] = [
+  "negative",
+  "complaint",
+  "decline",
+  "drop",
+  "loss",
+  "churn",
+  "encroach",
+  "competitor_growth", // e.g. seo_competitor_growth_trend
+  "competitor_gain",
+  "competitor_overtake", // e.g. seo_competitor_overtake
+  "threat", // e.g. seo_competitor_top_page_threat
+  "slipping",
+  "slow_service",
+  // review_velocity is split by direction (lib/insights/rules.ts): only the FALLING cadence is a
+  // failure signal. Match it precisely — the old broad "velocity" matched the RISING (good) case too.
+  "review_velocity_falling",
+  "warning",
+  // NOTE: "gap" was removed — it false-positives on OPPORTUNITY refs (seo_keyword_opportunity_gap,
+  // social.engagement_gap, menu.category_gap, …), which are upside to seize, not failure signals.
+  // "risk" was also dropped (no real failure insight_type carries it; it only invited false matches).
+] as const
+
+/** The impact a `maintain` play is capped to ABSENT a failure signal (low). Tunable. */
+export const MAINTAIN_IMPACT_CAP: ImpactLabel = "low"
 
 // --- Factor → 0-100 normalizations ------------------------------------------
 
@@ -107,6 +149,36 @@ export type ScoreInput = {
   /** 0-100; undefined → IMPORTANCE_NEUTRAL. */
   importance?: number
   category: Category
+  /**
+   * P11: the play's operator intent. A `maintain` play with NO failure signal is capped at
+   * MAINTAIN_IMPACT_CAP before scoring (risk-of-stopping, not novelty). Undefined → `capture`
+   * (no cap — prior behavior).
+   */
+  stance?: Stance
+  /** P11: true when this play cites a failure signal (negative trend / complaint / encroachment),
+   *  which lifts the maintain cap. Undefined/false → cap applies to maintain plays. */
+  hasFailureSignal?: boolean
+}
+
+/** Does any of a play's evidenceRefs match a FAILURE_REF_PATTERN? Case-insensitive, matched against
+ *  the WHOLE ref (base + field suffix) so a negative-signal FIELD like `review.theme:negative_sentiment`
+ *  or `..._TREND:PCT_DECLINE` is caught even when the rule's base name is neutral. */
+export function hasFailureSignal(refs: readonly string[] | undefined): boolean {
+  if (!refs?.length) return false
+  return refs.some((ref) => {
+    const r = ref.toLowerCase()
+    return FAILURE_REF_PATTERNS.some((p) => r.includes(p))
+  })
+}
+
+/**
+ * P11: the effective impact a play is scored on, after the maintain-stance calibration.
+ * A `maintain` play with no failure signal is forced to MAINTAIN_IMPACT_CAP (low) so a
+ * best-practice habit can't outrank a real problem; everything else keeps its declared impact.
+ */
+export function calibratedImpact(input: ScoreInput): ImpactLabel | undefined {
+  if (input.stance === "maintain" && !input.hasFailureSignal) return MAINTAIN_IMPACT_CAP
+  return input.impact
 }
 
 /** Pure weighted base from three already-normalized 0-100 factors. */
@@ -118,13 +190,25 @@ export function weightedBase(factors: { impact: number; confidence: number; impo
   )
 }
 
-/** The base score (pre-prior) for a play, mapping its enum factors to 0-100. */
+/** The base score (pre-prior) for a play, mapping its enum factors to 0-100. The impact factor
+ *  is the CALIBRATED impact (P11), so a maintain play with no failure signal is capped at low. */
 export function computeBaseScore(input: ScoreInput): number {
+  const impact = calibratedImpact(input)
   return weightedBase({
-    impact: input.impact ? IMPACT_SCORE[input.impact] : IMPACT_DEFAULT,
+    impact: impact ? IMPACT_SCORE[impact] : IMPACT_DEFAULT,
     confidence: CONFIDENCE_SCORE[input.confidence],
     importance: input.importance ?? IMPORTANCE_NEUTRAL,
   })
+}
+
+/** Convenience: build the calibration-relevant ScoreInput fields from a play (stance + failure
+ *  signal derived from its evidenceRefs). Used by synthesis' toScoreInput so the scoring core
+ *  stays the single source of truth for the maintain cap. */
+export function calibrationOf(play: Pick<EnrichedRecommendation, "stance" | "evidenceRefs">): {
+  stance?: Stance
+  hasFailureSignal: boolean
+} {
+  return { stance: play.stance, hasFailureSignal: hasFailureSignal(play.evidenceRefs) }
 }
 
 /**

@@ -94,6 +94,24 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
 
       <div className="pv-section">
         <div className="pv-section-head">Why we flagged this <span className="pv-section-sub">the signals behind it</span></div>
+        {/* P11: the REAL cited artifacts (verbatim review quote / relational stat + "so what"),
+            surfaced verbatim above the rule summaries. */}
+        {play.evidence?.length ? (
+          <div className="pv-card pv-cites">
+            {play.evidence.map((e, i) => (
+              <blockquote className="pv-cite" key={i}>
+                {e.quote ? <span className="pv-cite__quote">&ldquo;{e.quote}&rdquo;</span> : null}
+                {e.relativeStat ? (
+                  <span className="pv-cite__stat">{e.relativeStat}{e.soWhat ? `, ${e.soWhat}` : ""}</span>
+                ) : null}
+                {e.rate ? (
+                  <span className="pv-cite__rate">{e.rate.numerator} of {e.rate.denominator} ({e.rate.pct}%)</span>
+                ) : null}
+                <cite className="pv-cite__src">{humanizeRef(e.source)}{e.sourceUrl ? <> · <a href={e.sourceUrl} target="_blank" rel="noopener noreferrer">source</a></> : null}</cite>
+              </blockquote>
+            ))}
+          </div>
+        ) : null}
         {evidence.length ? evidence.map((e, i) => (
           <div className="pv-card pv-ev" key={i}>
             <div className="pv-ev__type">{humanizeRef(e.insight_type as string)}</div>

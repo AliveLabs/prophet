@@ -87,6 +87,16 @@
 .ticket-brief .relevance{ margin-top:9px; font-size:13px; line-height:1.45; color:var(--ash); }
 .ticket-brief .relevance .pin{ color:var(--rust); font-weight:700; margin-right:5px; }
 
+/* P11 evidence: the REAL cited artifact (verbatim review quote / relational stat + "so what"),
+   surfaced inline on the card — not a category chip. */
+.ticket-brief .movecard__evidence{ margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+.ticket-brief .ev-cite{ margin:0; padding:9px 12px; border-left:3px solid var(--rust); background:var(--thermal); border-radius:0 var(--radius) var(--radius) 0; font-size:13.5px; line-height:1.45; color:var(--ink); }
+.ticket-brief .ev-cite__quote{ display:block; font-style:italic; color:var(--print); }
+.ticket-brief .ev-cite__stat{ display:block; font-weight:600; color:var(--ink); }
+.ticket-brief .ev-cite__rate{ display:block; font-family:var(--font-mono); font-size:12.5px; color:var(--print); }
+.ticket-brief .ev-cite__src{ display:block; margin-top:5px; font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ash); font-style:normal; }
+.ticket-brief .ev-cite__src a{ color:var(--rust); }
+
 /* confidence chip */
 .ticket-brief .conf{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:11px; display:inline-flex; align-items:center; gap:6px; color:var(--ash); }
 .ticket-brief .conf .pip{ display:inline-flex; gap:2px; }

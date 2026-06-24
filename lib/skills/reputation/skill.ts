@@ -37,6 +37,10 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
     skillId: "reputation",
     ownerRole: "owner" as const,
     kind: "reputation" as const,
+    // Stance drives the maintain-impact calibration. A warning-severity signal (a negative theme,
+    // a falling review cadence) is a real problem to FIX; a positive/neutral one is a good habit to
+    // MAINTAIN — which the scoring core caps at low impact unless a failure signal is cited.
+    stance: ins.severity === "warning" ? ("fix" as const) : ("maintain" as const),
     recipe: [
       {
         channel: "Google / review replies + the floor",
