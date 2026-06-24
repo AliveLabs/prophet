@@ -344,6 +344,73 @@ export async function loadPlayTypeMultipliersForLocation(
   return loadPlayTypeMultipliers(skillIds, { organizationId, locationId }, { client: opts.client })
 }
 
+// ── (4) SHADOW multiplier loader (P17a) — what a NOT-YET-SERVED feedback learning WOULD do ───────────
+//
+// A `shadow`-status feedback_pattern (skill_knowledge) carries the play_type_key it concerns in its
+// provenance. Its multiplier isn't served (shadow rows never reach the prompt/score), but we still
+// want to OBSERVE what it WOULD do. This loader reads the shadow feedback_pattern rows and maps each
+// to the multiplier its rollup row already computed (the real, grounded nudge) — handing synthesis a
+// lookup that returns 1.0 for every NON-shadow key (so only the shadow learnings move the replay).
+//
+// FAIL-SOFT: any error / absent table → an EMPTY shadow set (signalCount 0) ⇒ no shadow replay at all.
+
+/** Loose surface reading shadow skill_knowledge feedback_pattern rows (their provenance.play_type_key). */
+type ShadowKnowledgeStore = {
+  from: (t: string) => {
+    select: (cols: string) => {
+      eq: (c: string, v: string) => {
+        eq: (c2: string, v2: string) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
+      }
+    }
+  }
+}
+
+export type ShadowMultiplierSet = { lookup: PlayTypeMultiplierLookup; signalCount: number }
+
+/** The EMPTY shadow set — no shadow learnings ⇒ no replay (the floor). */
+export const EMPTY_SHADOW_SET: ShadowMultiplierSet = { lookup: NEUTRAL_LOOKUP, signalCount: 0 }
+
+/**
+ * Build the SHADOW multiplier set: the play_type_keys of shadow feedback_pattern learnings → the
+ * multiplier their served rollup row computed. PURE-ish (one read of shadow knowledge + one of the
+ * rollup). FAIL-SOFT → EMPTY_SHADOW_SET on ANY error so the brief build is never affected.
+ */
+export async function loadShadowPlayTypeMultipliers(
+  skillIds: string[],
+  scope: RollupScopeIds = {},
+  opts: { knowledgeClient?: ShadowKnowledgeStore; rollupClient?: RollupStore } = {},
+): Promise<ShadowMultiplierSet> {
+  if (skillIds.length === 0) return EMPTY_SHADOW_SET
+  try {
+    const kc =
+      opts.knowledgeClient ?? (createAdminSupabaseClient() as unknown as ShadowKnowledgeStore)
+    // shadow feedback_pattern rows carry their play_type_key in provenance.
+    const shadowKeys = new Set<string>()
+    for (const skillId of skillIds) {
+      const { data, error } = await kc
+        .from("skill_knowledge")
+        .select("skill_id, learning_kind, status, provenance")
+        .eq("skill_id", skillId)
+        .eq("status", "shadow")
+      if (error) continue
+      for (const r of data ?? []) {
+        if (String(r.learning_kind) !== "feedback_pattern") continue
+        const prov = (r.provenance ?? {}) as Record<string, unknown>
+        const ptk = typeof prov.play_type_key === "string" ? prov.play_type_key : ""
+        if (ptk) shadowKeys.add(ptk)
+      }
+    }
+    if (shadowKeys.size === 0) return EMPTY_SHADOW_SET
+
+    // Resolve each shadow key to the multiplier its rollup row computed (the real grounded nudge).
+    const served = await loadPlayTypeMultipliers(skillIds, scope, { client: opts.rollupClient })
+    const shadowMultiplierFor = (key: string) => (shadowKeys.has(key) ? served.multiplierFor(key) : PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    return { lookup: { multiplierFor: shadowMultiplierFor }, signalCount: shadowKeys.size }
+  } catch {
+    return EMPTY_SHADOW_SET
+  }
+}
+
 // ── (3) NIGHTLY RECOMPUTE — the cheap, deterministic, NO-LLM rollup runner (PIPELINE 2 nightly) ─────
 //
 // Reads raw feedback events (brief_feedback thumbs + play_actions save/snooze/dismiss), resolves each

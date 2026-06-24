@@ -223,6 +223,62 @@ export async function loadActiveKnowledge(
 }
 
 /**
+ * Learning Spine L3 (P17a) — SHADOW reader. Loads the SHADOW-status snippets for a skill (the same
+ * shape + window filter as loadActiveKnowledge, but status='shadow'). Shadow rows NEVER reach the
+ * served prompt — they exist only so shadow-mode instrumentation (lib/skills/shadow.ts) can COMPUTE
+ * what they WOULD do and LOG it. Same fail-soft posture: EMPTY on any error / absent table.
+ *
+ * The `status` param defaults to "shadow" but is parameterized so the active reader can share this
+ * core; the public loadActiveKnowledge keeps its own historic signature for back-compat.
+ */
+export async function loadShadowKnowledge(
+  skillId: string,
+  scope: KnowledgeScope = {},
+  opts: { client?: KnowledgeStore; nowMs?: number; acceptedKinds?: AcceptedKinds } = {},
+): Promise<KnowledgeInjection> {
+  const empty: KnowledgeInjection = { global: [], scoped: [], globalVersion: "" }
+  const now = opts.nowMs ?? Date.now()
+  const acceptedKinds = opts.acceptedKinds
+  const accepts = (kind: KnowledgeSnippet["learningKind"]): boolean =>
+    acceptedKinds === undefined || acceptedKinds.includes(kind)
+
+  try {
+    const { data, error } = await store(opts.client)
+      .from("skill_knowledge")
+      .select("id, skill_id, scope, scope_id, learning_kind, title, snippet, confidence, effective_from, effective_to")
+      .eq("skill_id", skillId)
+      .eq("status", "shadow")
+      .in("scope", ["global", "org", "location"])
+    if (error) return empty
+
+    const inWindow = (r: Record<string, unknown>): boolean => {
+      const from = r.effective_from ? Date.parse(String(r.effective_from)) : Number.NEGATIVE_INFINITY
+      const to = r.effective_to ? Date.parse(String(r.effective_to)) : Number.POSITIVE_INFINITY
+      const f = Number.isNaN(from) ? Number.NEGATIVE_INFINITY : from
+      const t = Number.isNaN(to) ? Number.POSITIVE_INFINITY : to
+      return now >= f && now <= t
+    }
+
+    const global: KnowledgeSnippet[] = []
+    const scoped: KnowledgeSnippet[] = []
+    for (const r of (data ?? []).filter(inWindow)) {
+      const s = toSnippet(r)
+      if (!s || !accepts(s.learningKind)) continue
+      if (s.scope === "global") global.push(s)
+      else if (s.scope === "org" && scope.organizationId && s.scopeId === scope.organizationId) scoped.push(s)
+      else if (s.scope === "location" && scope.locationId && s.scopeId === scope.locationId) scoped.push(s)
+    }
+    const byConf = (a: KnowledgeSnippet, b: KnowledgeSnippet) =>
+      b.confidence - a.confidence || a.title.localeCompare(b.title)
+    global.sort(byConf)
+    scoped.sort(byConf)
+    return { global, scoped, globalVersion: fingerprint(global) }
+  } catch {
+    return empty
+  }
+}
+
+/**
  * effectiveKnowledgeVersion = the skill's BASE knowledgeVersion + a short hash of the active GLOBAL
  * snippet set. This is the value stamped onto plays AND the cache key for the cached prefix:
  *   - EMPTY global set → returns the base version UNCHANGED (so an empty table is byte-identical to

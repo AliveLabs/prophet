@@ -17,6 +17,7 @@ import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
 import { playKey, computePlayTypeKey } from "@/lib/skills/preferences"
 import { NEUTRAL_LOOKUP, type PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
+import { observeShadow } from "@/lib/skills/shadow"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 
 export type SynthOptions = {
@@ -32,6 +33,13 @@ export type SynthOptions = {
    *  caller for this location's scope. Applied as a THIRD clamped factor (0.7–1.3) ALONGSIDE the
    *  category prior. Absent → NEUTRAL_LOOKUP (every play × 1.0) ⇒ ranking byte-identical to today. */
   playTypeMultipliers?: PlayTypeMultiplierLookup
+  /** P17a SHADOW MODE: a multiplier lookup built from SHADOW-status feedback_pattern rows. It NEVER
+   *  affects the served brief — it is only overlaid on a SHADOW REPLAY of the ranking, and we LOG
+   *  whether it would have reordered/changed selection (mirrors the priorFlipped log). Absent →
+   *  NEUTRAL_LOOKUP + shadowSignalCount 0 ⇒ nothing computed, nothing logged (floor = today). */
+  shadowMultipliers?: PlayTypeMultiplierLookup
+  /** How many shadow multipliers were in play (0 → the shadow replay is skipped entirely). */
+  shadowSignalCount?: number
 }
 
 /** P7b: cap on how many persisted plays may resurface into one brief (avoid flooding). */
@@ -204,6 +212,25 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     console.log(
       `[synthesis] prior-flip: category priors reordered ${pool.length} plays (${d.locationId} ${d.dateKey})`,
     )
+  }
+
+  // P17a SHADOW MODE: replay the ranking with shadow-status multipliers overlaid and LOG whether they
+  // WOULD reorder / change selection — WITHOUT touching `ranked`/`rankedPlays` above (the served pool
+  // is already fixed). Pure compute + log; a no-op when shadowSignalCount is 0 (floor = today).
+  if ((opts.shadowSignalCount ?? 0) > 0) {
+    observeShadow({
+      pool,
+      baseScoreInput: scoreInput,
+      servedMultipliers: multipliers,
+      shadowMultipliers: opts.shadowMultipliers ?? NEUTRAL_LOOKUP,
+      toScoreInputWith: (p, m) => toScoreInput(p, m),
+      priors,
+      maxPlays: max,
+      shadowSignalCount: opts.shadowSignalCount ?? 0,
+      keyOf: (p) => computePlayTypeKey(p, { leadDomainOverride: LEAD_DOMAIN_BY_SKILL[p.skillId] }),
+      locationId: d.locationId,
+      dateKey: d.dateKey,
+    })
   }
 
   const system = [

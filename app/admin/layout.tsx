@@ -64,6 +64,11 @@ async function AdminShell({ children }: { children: React.ReactNode }) {
             icon={orgsIcon}
           />
           <AdminNavItem
+            href="/admin/knowledge-review"
+            label="Knowledge"
+            icon={knowledgeIcon}
+          />
+          <AdminNavItem
             href="/admin/sandbox"
             label="Demo & Test"
             icon={sandboxIcon}
@@ -157,6 +162,13 @@ const orgsIcon = (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
     <rect x="3" y="2" width="10" height="12" rx="1" />
     <path d="M6 5h4M6 8h4M6 11h2" strokeLinecap="round" />
+  </svg>
+)
+
+const knowledgeIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
+    <path d="M3 2h7l3 3v9H3z" strokeLinejoin="round" />
+    <path d="M10 2v3h3M5.5 8h5M5.5 11h5" strokeLinecap="round" />
   </svg>
 )
 

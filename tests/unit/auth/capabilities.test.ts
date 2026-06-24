@@ -31,6 +31,7 @@ const EXPECTED_MIN_ROLE: Record<Capability, AdminRole> = {
   "billing.convert": "super_admin",
   "user.delete": "super_admin",
   "admin.manage": "super_admin",
+  "knowledge.manage": "super_admin",
 }
 
 const ALL_CAPABILITIES = Object.keys(CAPABILITY_MIN_ROLE) as Capability[]
@@ -77,16 +78,17 @@ describe("roleHasCapability", () => {
   })
 
   it("admin has the day-to-day surface but NOT the super-only actions", () => {
-    const superOnly: Capability[] = ["billing.convert", "user.delete", "admin.manage"]
+    const superOnly: Capability[] = ["billing.convert", "user.delete", "admin.manage", "knowledge.manage"]
     for (const cap of ALL_CAPABILITIES) {
       expect(roleHasCapability("admin", cap)).toBe(!superOnly.includes(cap))
     }
   })
 
-  it("admin cannot delete users, convert billing, or manage admins", () => {
+  it("admin cannot delete users, convert billing, manage admins, or promote learnings", () => {
     expect(roleHasCapability("admin", "user.delete")).toBe(false)
     expect(roleHasCapability("admin", "billing.convert")).toBe(false)
     expect(roleHasCapability("admin", "admin.manage")).toBe(false)
+    expect(roleHasCapability("admin", "knowledge.manage")).toBe(false)
   })
 
   it("admin can do the day-to-day surface", () => {

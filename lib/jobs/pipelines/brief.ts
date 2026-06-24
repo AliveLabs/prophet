@@ -13,7 +13,7 @@ import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief, hasAnyBrief } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
-import { loadPlayTypeMultipliersForLocation } from "@/lib/skills/feedback-rollup"
+import { loadPlayTypeMultipliersForLocation, loadShadowPlayTypeMultipliers } from "@/lib/skills/feedback-rollup"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
@@ -55,12 +55,22 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
         const dossier = await buildDossier(c.locationId)
         // P7a/P7b: suppress dismissed plays (cooldown) + resurface relevant saved plays. Both fail-soft.
         // P15: load the distilled click-feedback multiplier lookup (fail-soft → neutral pre-migration).
-        const [suppressedKeys, evergreen, playTypeMultipliers] = await Promise.all([
+        // P17a: load the SHADOW multiplier set (shadow feedback_pattern learnings). It NEVER serves —
+        // it only drives the shadow replay + log in synthesis. Fail-soft → EMPTY (no replay).
+        const skillIds = PRODUCER_SKILLS.map((s) => s.id)
+        const [suppressedKeys, evergreen, playTypeMultipliers, shadow] = await Promise.all([
           loadActiveCooldowns(c.locationId),
           loadEvergreenPlays(c.locationId),
-          loadPlayTypeMultipliersForLocation(c.locationId, PRODUCER_SKILLS.map((s) => s.id)),
+          loadPlayTypeMultipliersForLocation(c.locationId, skillIds),
+          loadShadowPlayTypeMultipliers(skillIds, { locationId: c.locationId }),
         ])
-        const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen, playTypeMultipliers })
+        const { brief, dropped } = await runBrief(dossier, {
+          suppressedKeys,
+          evergreen,
+          playTypeMultipliers,
+          shadowMultipliers: shadow.lookup,
+          shadowSignalCount: shadow.signalCount,
+        })
         await saveBrief(brief)
         c.state.headline = brief.headline ?? null
 

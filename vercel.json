@@ -35,6 +35,14 @@
     {
       "path": "/api/cron/rollup-feedback?mode=weekly",
       "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/cron/ask-mining",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/ask-mining?mode=weekly",
+      "schedule": "0 22 * * 0"
     }
   ]
 }

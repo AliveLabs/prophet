@@ -34,6 +34,7 @@ export type Capability =
   | "billing.convert" // generate a paid Stripe checkout for a Customer org
   | "user.delete" // hard-delete a user (auth + cascade)
   | "admin.manage" // add / remove / re-role platform admins
+  | "knowledge.manage" // promote/retire learned skill_knowledge rows (the §2.3.3 human gate)
 
 // Minimum role required for each capability. Read-only = view + export; admin = the
 // day-to-day surface; super_admin = the destructive / billing / governance surface.
@@ -52,6 +53,10 @@ export const CAPABILITY_MIN_ROLE: Record<Capability, AdminRole> = {
   "billing.convert": "super_admin",
   "user.delete": "super_admin",
   "admin.manage": "super_admin",
+  // The learning-system human gate (P17a): promoting a learned row (esp. a global-scope change or a
+  // human-only question_demand) to ACTIVE — or retiring one — alters what every brief is built from.
+  // That is governance-grade, so it's super_admin only (bryan + chris), like admin.manage.
+  "knowledge.manage": "super_admin",
 }
 
 /** True iff `role` ranks at or above `minRole`. */

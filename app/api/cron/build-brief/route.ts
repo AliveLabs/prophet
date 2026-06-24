@@ -17,7 +17,7 @@ import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
-import { loadPlayTypeMultipliersForLocation } from "@/lib/skills/feedback-rollup"
+import { loadPlayTypeMultipliersForLocation, loadShadowPlayTypeMultipliers } from "@/lib/skills/feedback-rollup"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
@@ -42,12 +42,21 @@ export async function GET(req: Request) {
       const dossier = await buildDossier(single)
       // P7a/P7b: dismissal cooldown + evergreen resurfacing (both fail-soft).
       // P15: distilled click-feedback multiplier lookup (fail-soft → neutral pre-migration).
-      const [suppressedKeys, evergreen, playTypeMultipliers] = await Promise.all([
+      // P17a: shadow multiplier set (shadow feedback_pattern learnings) — replayed + logged, never served.
+      const skillIds = PRODUCER_SKILLS.map((s) => s.id)
+      const [suppressedKeys, evergreen, playTypeMultipliers, shadow] = await Promise.all([
         loadActiveCooldowns(single),
         loadEvergreenPlays(single),
-        loadPlayTypeMultipliersForLocation(single, PRODUCER_SKILLS.map((s) => s.id)),
+        loadPlayTypeMultipliersForLocation(single, skillIds),
+        loadShadowPlayTypeMultipliers(skillIds, { locationId: single }),
       ])
-      const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen, playTypeMultipliers })
+      const { brief, dropped } = await runBrief(dossier, {
+        suppressedKeys,
+        evergreen,
+        playTypeMultipliers,
+        shadowMultipliers: shadow.lookup,
+        shadowSignalCount: shadow.signalCount,
+      })
       await saveBrief(brief)
       // Pinned standing question re-runs on the fresh signals, right after the brief.
       const standing = await runStandingQuestion(single)

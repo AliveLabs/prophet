@@ -30,6 +30,11 @@ export type RunBriefOptions = {
   /** P15: distilled click-feedback multiplier lookup (skill_feedback_rollup), loaded by the build
    *  caller for this location's scope. Absent → NEUTRAL_LOOKUP (every play × 1.0) ⇒ no rank change. */
   playTypeMultipliers?: PlayTypeMultiplierLookup
+  /** P17a SHADOW MODE: a multiplier lookup built from SHADOW-status rows. NEVER serves — it is only
+   *  replayed + logged (would it have reordered the brief?). Absent → no shadow replay. */
+  shadowMultipliers?: PlayTypeMultiplierLookup
+  /** How many shadow multipliers were in play (0 → the shadow replay is skipped). */
+  shadowSignalCount?: number
 }
 
 export type BriefResult = {
@@ -61,6 +66,8 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     suppressedKeys: opts.suppressedKeys,
     evergreen: opts.evergreen,
     playTypeMultipliers: opts.playTypeMultipliers,
+    shadowMultipliers: opts.shadowMultipliers,
+    shadowSignalCount: opts.shadowSignalCount,
   })
   const written: Brief = {
     ...synthesized,
