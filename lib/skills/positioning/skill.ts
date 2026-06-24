@@ -7,6 +7,7 @@ import type { ProducerSkill } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import type { EntityVisualProfile } from "@/lib/social/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
+import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { POSITIONING_KNOWLEDGE } from "@/lib/skills/positioning/knowledge"
 
 const POS_PREFIXES = ["menu.", "content.", "seo_competitor"]
@@ -66,6 +67,10 @@ function selectInput(d: Dossier) {
   // PV: positioning now reads the venue's LOOK. Distilled (token-budget-aware), and omitted
   // entirely when absent so no-vision orgs see the exact pre-PV prompt.
   const visualRead = visualPositioningRead(d.location.visual)
+  // P5 adjacency: the GROUNDED reputation rule-outputs (rating/review insight_types) — a
+  // citeable counterpart to the prose reviewThemes, so a price move can lean on a real ref
+  // when guests actually flag value. Omitted when none → byte-identical to the pre-P5 prompt.
+  const adjacentSignals = selectAdjacentSignals(d, "positioning")
   return {
     pricingSignals: d.ruleOutputs.filter((i) => isPositioningInsight(i.insight_type)),
     ownMenu: d.location.menu ?? null,
@@ -77,6 +82,7 @@ function selectInput(d: Dossier) {
     // What the place LOOKS like (Gemini Vision). Present only when there is real vision data —
     // see WHAT THE PLACE LOOKS LIKE in the playbook for how to turn it into positioning proof.
     ...(visualRead ? { visualProfile: visualRead } : {}),
+    ...(adjacentSignals.length ? { adjacentSignals } : {}),
   }
 }
 

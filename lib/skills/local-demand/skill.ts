@@ -6,6 +6,7 @@ import type { Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
+import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { LOCAL_DEMAND_KNOWLEDGE } from "@/lib/skills/local-demand/knowledge"
 
 // Events + weather are demand drivers. Traffic/hours patterns belong to the Operations skill.
@@ -17,11 +18,15 @@ function isDemandInsight(insightType: string): boolean {
 
 function selectInput(d: Dossier) {
   // Token discipline: cap the input so the model's output stays well within limits.
+  // P5 adjacency: own throughput limits (operations) + "slow when busy" reviews (reputation)
+  // decide whether a demand spike is opportunity or risk. Omitted when none → pre-P5 prompt.
+  const adjacentSignals = selectAdjacentSignals(d, "local-demand")
   return {
     events: d.demandCalendar.events.slice(0, 6),
     weather: d.demandCalendar.weather.slice(0, 4),
     demandSignals: d.ruleOutputs.filter((i) => isDemandInsight(i.insight_type)).slice(0, 8),
     ownLocationBusyTimes: d.location.busyTimes ?? null,
+    ...(adjacentSignals.length ? { adjacentSignals } : {}),
   }
 }
 

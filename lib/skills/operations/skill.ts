@@ -6,6 +6,7 @@ import type { Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
+import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { OPERATIONS_KNOWLEDGE } from "@/lib/skills/operations/knowledge"
 
 const OPS_PREFIXES = ["traffic.", "hours"]
@@ -15,10 +16,15 @@ function isOpsInsight(t: string): boolean {
 }
 
 function selectInput(d: Dossier) {
+  // P5 adjacency: a small, capped peek at adjacent-domain signals (demand) so staffing
+  // can react to the demand spike driving the traffic. Omitted entirely when none, so the
+  // prompt is byte-identical to pre-P5 for locations with no adjacent signal.
+  const adjacentSignals = selectAdjacentSignals(d, "operations")
   return {
     trafficSignals: d.ruleOutputs.filter((i) => isOpsInsight(i.insight_type)),
     ownBusyTimes: d.location.busyTimes ?? null,
     competitorBusyTimes: d.competitors.map((c) => ({ name: c.name, busyTimes: c.busyTimes ?? null })),
+    ...(adjacentSignals.length ? { adjacentSignals } : {}),
   }
 }
 

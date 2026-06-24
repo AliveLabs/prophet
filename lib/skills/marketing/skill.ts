@@ -7,6 +7,7 @@ import type { Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
+import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { MARKETING_KNOWLEDGE } from "@/lib/skills/marketing/knowledge"
 
 function isSocialInsight(t: string): boolean {
@@ -14,6 +15,9 @@ function isSocialInsight(t: string): boolean {
 }
 
 function selectInput(d: Dossier) {
+  // P5 adjacency: what's happening locally (demand) + how guests talk (reputation) sharpen
+  // a campaign's angle. Omitted when none → byte-identical to the pre-P5 prompt.
+  const adjacentSignals = selectAdjacentSignals(d, "marketing")
   return {
     socialSignals: d.ruleOutputs.filter((i) => isSocialInsight(i.insight_type)),
     ownSocial: d.location.social ?? null,
@@ -29,6 +33,7 @@ function selectInput(d: Dossier) {
       magnitude: e.magnitude,
       role: e.role,
     })),
+    ...(adjacentSignals.length ? { adjacentSignals } : {}),
   }
 }
 

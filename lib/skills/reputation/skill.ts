@@ -6,6 +6,7 @@ import type { Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
+import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { REPUTATION_KNOWLEDGE } from "@/lib/skills/reputation/knowledge"
 
 const REP_PREFIXES = ["rating", "review"]
@@ -15,10 +16,15 @@ function isReputationInsight(t: string): boolean {
 }
 
 function selectInput(d: Dossier) {
+  // P5 adjacency: throughput/wait patterns (operations) are often what the bad reviews are
+  // ABOUT — let reputation tie a review theme to the operational cause. Omitted when none →
+  // byte-identical to the pre-P5 prompt.
+  const adjacentSignals = selectAdjacentSignals(d, "reputation")
   return {
     reputationSignals: d.ruleOutputs.filter((i) => isReputationInsight(i.insight_type)),
     ownReviews: d.location.reviews ?? null,
     competitorReviews: d.competitors.map((c) => ({ name: c.name, reviews: c.reviews ?? null })),
+    ...(adjacentSignals.length ? { adjacentSignals } : {}),
   }
 }
 
