@@ -280,3 +280,50 @@ describe("eval gates (the 3 P11 deterministic checks)", () => {
     expect(checkEvidenceGrounded(ungrounded, 0, index, stored).some((v) => v.code === "evidence_ungrounded_source")).toBe(true)
   })
 })
+
+describe("presentPlay — P11 fixes: idempotent re-present + unconditional unpaired-stat drop", () => {
+  it("does NOT duplicate a quote when re-presenting a play that already carries it (saved / P7b-resurfaced play)", () => {
+    const artifacts = new Map<string, Evidence[]>([
+      ["review.theme", [{ quote: "Service was painfully slow on Friday", source: "review.theme" }]],
+    ])
+    const allowed = new Set(["review.theme"])
+    // a play that ALREADY carries the resolved quote (as a saved/resurfaced play would) — re-presenting
+    // re-resolves the same quote, but the dedupe keeps exactly one.
+    const already = mkPlay({
+      evidenceRefs: ["review.theme"],
+      evidence: [{ quote: "Service was painfully slow on Friday", source: "review.theme" }],
+    })
+    const out = presentPlay(already, artifacts, allowed)
+    expect(out.evidence).toHaveLength(1)
+    expect(out.evidence![0].quote).toBe("Service was painfully slow on Friday")
+  })
+
+  it("omits evidence entirely when the only entry is an unpaired relativeStat (drop is unconditional)", () => {
+    // no soWhat → dropped; and the stale play.evidence must NOT ride along on the stripped copy.
+    const out = presentPlay(
+      mkPlay({ evidence: [{ source: "x.busy_times", relativeStat: "12% below your Friday peak" }] }),
+      new Map(),
+      new Set(),
+    )
+    expect(out.evidence).toBeUndefined()
+  })
+})
+
+describe("resolveEvidence — theme-keyed quotes prefer the finer ref (no cross-theme leakage)", () => {
+  it("attaches the cited theme's own quote, not another theme's", () => {
+    const artifacts = new Map<string, Evidence[]>([
+      // base key holds BOTH themes' quotes (back-compat for plays citing the bare ref)
+      ["review.theme", [
+        { quote: "Service was painfully slow", source: "review.theme" },
+        { quote: "The brisket is incredible", source: "review.theme" },
+      ]],
+      // finer keys hold each theme's own quote
+      ["review.theme:slow-service", [{ quote: "Service was painfully slow", source: "review.theme:slow-service" }]],
+      ["review.theme:great-food", [{ quote: "The brisket is incredible", source: "review.theme:great-food" }]],
+    ])
+    const allowed = new Set(["review.theme", "review.theme:slow-service", "review.theme:great-food"])
+    const out = resolveEvidence(mkPlay({ evidenceRefs: ["review.theme:slow-service"] }), artifacts, allowed)
+    expect(out).toHaveLength(1)
+    expect(out[0].quote).toBe("Service was painfully slow") // the cited theme's quote, not the food one
+  })
+})
