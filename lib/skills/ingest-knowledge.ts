@@ -63,6 +63,17 @@ export const DEFAULT_ACTIVE_WINDOW_DAYS = 60 // trends self-retire after ~2 mont
 // distill is the slow step) WITHOUT hammering source sites or the model's rate limits.
 export const FETCH_CONCURRENCY = 6
 export const DISTILL_CONCURRENCY = 6
+// When a source fans out (rss item links / scraped index → article pages), bound the per-source
+// article fetches so a single source can't open dozens of sockets inside the outer FETCH pool.
+export const ARTICLE_FETCH_CONCURRENCY = 3
+// Default # of articles to follow off a scraped index page.
+export const SCRAPE_ARTICLE_LINKS = 5
+// A fetched article body longer than this in the feed itself is "full enough" to distill without
+// following the link (avoids a needless second fetch when content:encoded already carries the body).
+export const FEED_FULL_BODY_MIN_CHARS = 600
+// Hard cap on extracted article text handed to the distill model (~500-char snippet target needs far
+// less; this just keeps a giant page from blowing the prompt while still capturing the real body).
+export const ARTICLE_TEXT_MAX_CHARS = 6000
 
 /** Run fn over items with at most `limit` promises in flight; PRESERVES input order in the results
  *  (so per-source tallies + per-skill grouping stay deterministic regardless of completion order). */
@@ -79,10 +90,16 @@ async function mapPool<T, R>(items: readonly T[], limit: number, fn: (item: T, i
 // ── (a) HTTP transport (injectable for tests; never hit live in unit tests) ─────────────────────────
 export type HttpFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>
 
+// Richer browser headers for sources that bot-block a bare fetch. Adding accept-language + referer
+// (a plausible Google referral) is enough to get a 200 from some WAFs (verified: QSR's WordPress feed
+// goes 403→200 with these). A hard block (e.g. Toast) is disabled in the registry instead — we never
+// burn weekly fetches on a guaranteed 403.
 const BROWSER_HEADERS: Record<string, string> = {
   "user-agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "accept-language": "en-US,en;q=0.9",
+  referer: "https://www.google.com/",
 }
 
 /** Strip tags + decode the handful of entities that matter; collapse whitespace. Dependency-free. */
@@ -135,22 +152,216 @@ export function parseHtmlItems(html: string, max = 4): FetchedItem[] {
   return items
 }
 
+// ── Main-content extraction — pull the REAL article body, not the nav/teaser chrome ─────────────────
+// Dependency-free + tolerant (this runs in a Vercel serverless fn — no jsdom/readability). The OLD
+// path windowed the whole stripped page, so an index page's NAV MENU ("Product Pricing How it works
+// …") became the "body" and the (correctly strict) distill gate rejected everything → 0 rows. These
+// heuristics isolate the actual article prose so the model has a durable tactic to distill.
+
+/** Remove non-content regions (scripts, styles, nav/header/footer/aside/form) from raw HTML. */
+function stripChromeRegions(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+    .replace(/<nav\b[\s\S]*?<\/nav>/gi, " ")
+    .replace(/<header\b[\s\S]*?<\/header>/gi, " ")
+    .replace(/<footer\b[\s\S]*?<\/footer>/gi, " ")
+    .replace(/<aside\b[\s\S]*?<\/aside>/gi, " ")
+    .replace(/<form\b[\s\S]*?<\/form>/gi, " ")
+}
+
+/** First inner-HTML match for a tag (e.g. <article>…</article>); "" when absent. */
+function firstRegion(html: string, re: RegExp): string {
+  return html.match(re)?.[1] ?? ""
+}
+
+/**
+ * Extract the main article TEXT from an HTML page. Strips chrome (script/style/nav/header/footer/
+ * aside/form), then PREFERS <article>, then <main>, then [role=main]; otherwise collects <p> blocks
+ * and keeps the largest CONTIGUOUS cluster of paragraphs (the body, not scattered nav captions).
+ * Collapses whitespace + caps length. Returns "" when there's no real body (so the caller can fall
+ * back to a teaser rather than feed the distill gate page chrome). Dependency-free.
+ */
+export function extractArticleText(html: string, maxChars = ARTICLE_TEXT_MAX_CHARS): string {
+  if (!html) return ""
+  const cleaned = stripChromeRegions(html)
+  const cap = (s: string) => stripHtml(s).slice(0, maxChars).trim()
+
+  // (1) Semantic containers, most-specific first.
+  const article = firstRegion(cleaned, /<article\b[^>]*>([\s\S]*?)<\/article>/i)
+  if (stripHtml(article).length >= 200) return cap(article)
+  const main = firstRegion(cleaned, /<main\b[^>]*>([\s\S]*?)<\/main>/i)
+  if (stripHtml(main).length >= 200) return cap(main)
+  const roleMainMatch = cleaned.match(/<([a-z0-9]+)\b[^>]*\srole=["']main["'][^>]*>([\s\S]*?)<\/\1>/i)
+  if (roleMainMatch && stripHtml(roleMainMatch[2]).length >= 200) return cap(roleMainMatch[2])
+
+  // (2) No semantic container → collect <p> blocks and take the largest contiguous cluster. A big gap
+  // of non-<p> markup (typical of a nav/sidebar break) starts a new cluster; keep the most-text one.
+  const pBlocks: Array<{ text: string; start: number; end: number }> = []
+  const pRe = /<p\b[^>]*>([\s\S]*?)<\/p>/gi
+  for (let m = pRe.exec(cleaned); m !== null; m = pRe.exec(cleaned)) {
+    const text = stripHtml(m[1])
+    if (text.length >= 40) pBlocks.push({ text, start: m.index, end: pRe.lastIndex })
+  }
+  if (pBlocks.length === 0) {
+    // (3) Last resort: a no-paragraph page (rare). Return "" so the caller falls back to its teaser —
+    // we explicitly do NOT window the whole stripped page (that's the bug we're fixing).
+    return ""
+  }
+  // Cluster paragraphs: a gap larger than GAP chars of intervening markup breaks the cluster.
+  const GAP = 1500
+  const clusters: string[][] = []
+  let current: string[] = []
+  let prevEnd = -1
+  for (const b of pBlocks) {
+    if (prevEnd >= 0 && b.start - prevEnd > GAP) {
+      clusters.push(current)
+      current = []
+    }
+    current.push(b.text)
+    prevEnd = b.end
+  }
+  if (current.length) clusters.push(current)
+  let best = ""
+  for (const c of clusters) {
+    const joined = c.join(" ")
+    if (joined.length > best.length) best = joined
+  }
+  return stripHtml(best).slice(0, maxChars).trim()
+}
+
+/**
+ * Extract same-host ARTICLE links from an index/listing page. Heuristics keep slug-like content links
+ * and drop nav/category/tag/login/anchors. Resolves relative → absolute against baseUrl, dedupes, caps.
+ * Dependency-free. Returns absolute URLs.
+ */
+export function extractArticleLinks(html: string, baseUrl: string, max = SCRAPE_ARTICLE_LINKS): string[] {
+  if (!html) return []
+  let base: URL
+  try {
+    base = new URL(baseUrl)
+  } catch {
+    return []
+  }
+  // Only mine the main body — drop nav/header/footer so we don't pick up menu links.
+  const body = stripChromeRegions(html)
+  const out: string[] = []
+  const seen = new Set<string>()
+  // Path segments that signal a nav/utility link rather than an article.
+  const BAD_SEGMENTS = new Set([
+    "category", "categories", "tag", "tags", "topic", "topics", "author", "authors", "page",
+    "login", "signin", "sign-in", "signup", "sign-up", "register", "account", "subscribe",
+    "search", "about", "contact", "privacy", "terms", "cookie", "cookies", "sitemap", "feed",
+    "rss", "wp-login", "cart", "checkout", "pricing", "demo", "careers", "press", "media", "legal",
+  ])
+  const hrefRe = /<a\b[^>]*\shref=["']([^"'#]+)["'][^>]*>/gi
+  for (let m = hrefRe.exec(body); m !== null && out.length < max; m = hrefRe.exec(body)) {
+    const raw = m[1].trim()
+    if (!raw || raw.startsWith("mailto:") || raw.startsWith("tel:") || raw.startsWith("javascript:")) continue
+    let u: URL
+    try {
+      u = new URL(raw, base)
+    } catch {
+      continue
+    }
+    if (u.protocol !== "http:" && u.protocol !== "https:") continue
+    if (u.host !== base.host) continue // same-host only
+    const segments = u.pathname.split("/").filter(Boolean)
+    if (segments.length === 0) continue // homepage
+    if (segments.some((s) => BAD_SEGMENTS.has(s.toLowerCase()))) continue
+    // Article heuristic: a reasonably deep path whose LAST segment is slug-like (letters + hyphens,
+    // several chars, usually multi-word). Drops shallow section roots like /news/ or /blog/.
+    const last = segments[segments.length - 1].toLowerCase()
+    const slugLike = /^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(last) || (segments.length >= 2 && /^[a-z0-9-]{8,}$/.test(last))
+    if (!slugLike) continue
+    const abs = `${u.origin}${u.pathname}`
+    if (seen.has(abs)) continue
+    seen.add(abs)
+    out.push(abs)
+  }
+  return out
+}
+
 /** Fetch + parse a single source by its strategy. Throws on transport failure (caller catches per
- *  source → increments failure_count; one dead source NEVER breaks the run). */
+ *  source → increments failure_count; one dead source NEVER breaks the run).
+ *
+ *  REAL-BODY EXTRACTION (the fix): the OLD path distilled either the RSS <description> TEASER or a
+ *  window of the whole stripped INDEX page (mostly nav menu). The strict distill gate correctly
+ *  rejected that chrome → 0 rows. Now:
+ *    • rss   → use the feed body if it's already a full article; else FOLLOW the item link and extract
+ *              the real article text; else fall back to the teaser. One dead article → teaser fallback.
+ *    • scrape / scrape-browser-headers → fetch the index, pull ARTICLE links, fetch + extract each;
+ *              if no links found, fall back to extractArticleText(index) (better than windowing chrome).
+ *    • data-api → unchanged JSON-as-text path. */
 export async function fetchSourceItems(source: SourceRow, http: HttpFetch): Promise<FetchedItem[]> {
   if (source.authKind !== "none") {
     // (a) key-gated sources are seeded DISABLED; if one is ever enabled without wiring its key, we do
     // NOT silently scrape it — skip with a clear status. (enabled is already checked by the caller.)
     throw new Error(`source ${source.id} requires auth_kind=${source.authKind}; skipped (no key path wired)`)
   }
-  const headers = source.fetchStrategy === "scrape-browser-headers" ? BROWSER_HEADERS : undefined
+  // Send browser headers for scrape-browser-headers AND rss: several feeds (QSR's WordPress /feed/ was
+  // VERIFIED 200 ONLY with these headers; a bare fetch is 403). Browser headers are harmless to a feed
+  // that doesn't need them (a /feed/ returns the same RSS either way), so this can't regress the others.
+  const useBrowserHeaders = source.fetchStrategy === "scrape-browser-headers" || source.fetchStrategy === "rss"
+  const headers = useBrowserHeaders ? BROWSER_HEADERS : undefined
+
+  // The index/feed fetch (this is what fails the source if it 403s/404s — propagated to the caller).
   const res = await http(source.url, headers ? { headers } : undefined)
   if (!res.ok) throw new Error(`http_${res.status}`)
   const text = await res.text()
-  if (source.fetchStrategy === "rss") return parseRssItems(text)
-  // scrape / scrape-browser-headers / data-api all degrade to the generic text path here (data-api
-  // bodies are usually JSON-as-text; the distill model reads them as prose). FULLY implemented: rss +
-  // generic http. Per-strategy richer parsers can drop in later without changing the gate.
+
+  // Fetch ONE article page; never throws (one dead article must not fail the source).
+  const fetchArticle = async (url: string): Promise<string> => {
+    try {
+      const r = await http(url, useBrowserHeaders ? { headers: BROWSER_HEADERS } : undefined)
+      if (!r.ok) return ""
+      return await r.text()
+    } catch {
+      return ""
+    }
+  }
+
+  if (source.fetchStrategy === "rss") {
+    const feedItems = parseRssItems(text)
+    // For each feed item: use a full feed body if present; else follow the link → real article text;
+    // else fall back to the teaser. Bounded fan-out so one source can't open many sockets at once.
+    const built = await mapPool(feedItems, ARTICLE_FETCH_CONCURRENCY, async (it): Promise<FetchedItem | null> => {
+      const teaser = it.body
+      if (teaser.length >= FEED_FULL_BODY_MIN_CHARS) {
+        // The feed already carried a full article body (content:encoded). Distill that directly.
+        return { title: it.title, body: teaser, url: it.url }
+      }
+      if (it.url) {
+        const articleText = extractArticleText(await fetchArticle(it.url))
+        if (articleText) return { title: it.title, body: articleText, url: it.url }
+      }
+      // Fallback: the teaser is all we have (link missing or its fetch failed/empty).
+      if (teaser) return { title: it.title, body: teaser, url: it.url }
+      return null
+    })
+    return built.filter((x): x is FetchedItem => x !== null)
+  }
+
+  if (source.fetchStrategy === "scrape" || source.fetchStrategy === "scrape-browser-headers") {
+    const links = extractArticleLinks(text, source.url)
+    if (links.length === 0) {
+      // No article links discovered → extract the index page's own main content (still far better than
+      // windowing the whole stripped page, which is mostly nav). Empty body → no items (fail-soft).
+      const body = extractArticleText(text)
+      const title = stripHtml(text.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "") || source.name
+      return body ? [{ title, body, url: source.url }] : []
+    }
+    const built = await mapPool(links, ARTICLE_FETCH_CONCURRENCY, async (url): Promise<FetchedItem | null> => {
+      const articleText = extractArticleText(await fetchArticle(url)) // fetchArticle never throws
+      if (!articleText) return null // one dead/empty article skipped, source still ok
+      return { title: source.name, body: articleText, url }
+    })
+    return built.filter((x): x is FetchedItem => x !== null)
+  }
+
+  // data-api (e.g. BLS): JSON-as-text path unchanged — the distill model reads the JSON as prose.
   return parseHtmlItems(text)
 }
 
