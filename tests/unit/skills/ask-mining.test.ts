@@ -325,8 +325,8 @@ describe("isAllowedTransition — the human promote/retire/shadow gate", () => {
 // =================================================================================================
 /** A stubbed AskMiningStore: serves ask_history rows, captures the skill_knowledge upsert payload,
  *  and serves existing skill_knowledge rows for the human-decision lock check. */
-function askStore(asks: Record<string, unknown>[], existing: Record<string, unknown>[] = []) {
-  const captured: { payload: Record<string, unknown>[] | null } = { payload: null }
+function askStore(asks: Record<string, unknown>[], existing: Record<string, unknown>[] = [], opts: { upsertError?: string } = {}) {
+  const captured: { payload: Record<string, unknown>[] | null; onConflict: string | null } = { payload: null, onConflict: null }
   const store: AskMiningStore = {
     from(table: string) {
       return {
@@ -336,9 +336,10 @@ function askStore(asks: Record<string, unknown>[], existing: Record<string, unkn
             in: async () => ({ data: table === "skill_knowledge" ? existing : [], error: null }),
           }
         },
-        upsert: async (rows: Record<string, unknown>[]) => {
+        upsert: async (rows: Record<string, unknown>[], o: { onConflict: string }) => {
           captured.payload = rows
-          return { error: null }
+          captured.onConflict = o.onConflict
+          return { error: opts.upsertError ? { message: opts.upsertError } : null }
         },
       }
     },
@@ -363,12 +364,29 @@ describe("runAskMining — weekly distill writes ONLY candidate question_demand 
     expect(result.candidates).toBeGreaterThan(0)
     expect(result.rowsWritten).toBe(captured.payload!.length)
     expect(captured.payload!.length).toBeGreaterThan(0)
+    // ON CONFLICT must target the full non-partial dedupe tuple (the old "skill_id,learning_kind,title"
+    // hit a PARTIAL index → 42P10 → swallowed → 0 rows). Candidate rows are all global, scope_id null.
+    expect(captured.onConflict).toBe("skill_id,scope,scope_id,learning_kind,title")
     for (const row of captured.payload!) {
       expect(row.status).toBe("candidate") // ★ human-only — never auto-promoted by the runner.
       expect(["question_demand", "editorial"]).toContain(row.learning_kind)
+      expect(row.scope).toBe("global")
+      expect(row.scope_id).toBeNull() // set EXPLICITLY (not omitted) so NULLS NOT DISTINCT dedups.
       // provenance carries sample ask ids as PROVENANCE only (never a citable evidenceRef).
       expect((row.provenance as Record<string, unknown>).streams).toEqual(["ask"])
     }
+    expect(result.writeErrors).toEqual([])
+  })
+
+  it("SURFACES an upsert error in result.writeErrors and does NOT increment rowsWritten (regression guard)", async () => {
+    const { store } = askStore(askRows, [], { upsertError: "no unique or exclusion constraint matching the ON CONFLICT specification" })
+    const result = await runAskMining({ store, mode: "weekly" })
+    // The run still succeeds (fail-soft) and reports the distilled candidates...
+    expect(result.candidates).toBeGreaterThan(0)
+    // ...but the write failure can NEVER be invisible again: surfaced in writeErrors + rowsWritten 0.
+    expect(result.writeErrors.length).toBeGreaterThan(0)
+    expect(result.writeErrors[0].error).toContain("ON CONFLICT")
+    expect(result.rowsWritten).toBe(0)
   })
 
   it("the NIGHTLY pass routes but writes NOTHING", async () => {

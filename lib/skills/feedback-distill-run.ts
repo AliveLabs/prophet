@@ -25,6 +25,11 @@ export type DistillResult = {
   dryRun: boolean
   rollupRows: number
   candidates: number
+  rowsWritten: number // rows actually upserted (0 on dryRun / on a write error)
+  /** Persistence (upsert) failures, SURFACED — never swallowed. A non-empty array means distilled
+   *  feedback_pattern candidates did NOT reach skill_knowledge (e.g. an ON CONFLICT mismatch). The run
+   *  stays fail-soft (no throw), but it can NEVER be invisible — this is what hid the original bug. */
+  writeErrors: Array<{ scope: string; error: string }>
 }
 
 function toReadRow(r: Record<string, unknown>): RollupReadRow {
@@ -46,7 +51,7 @@ export async function distillFeedbackPatterns(opts: {
   nowMs?: number
 }): Promise<DistillResult> {
   const now = opts.nowMs ?? Date.now()
-  const result: DistillResult = { dryRun: !!opts.dryRun, rollupRows: 0, candidates: 0 }
+  const result: DistillResult = { dryRun: !!opts.dryRun, rollupRows: 0, candidates: 0, rowsWritten: 0, writeErrors: [] }
 
   let rows: RollupReadRow[] = []
   try {
@@ -91,22 +96,26 @@ export async function distillFeedbackPatterns(opts: {
     updated_at: new Date(now).toISOString(),
   }))
 
-  // Idempotent on P14's global / scoped unique keys.
-  const globalPayload = payload.filter((p) => p.scope === "global")
-  const scopedPayload = payload.filter((p) => p.scope !== "global")
+  // Idempotent on P14's dedupe index (skill_id, scope, scope_id, learning_kind, title) — NULLS NOT
+  // DISTINCT, so ONE non-partial index covers BOTH global (scope_id NULL) and scoped rows, and a single
+  // upsert with the full conflict target dedupes all of them. (The old code split into two upserts
+  // against two PARTIAL indexes; neither could be an ON CONFLICT target, so every write raised 42P10 +
+  // was SWALLOWED → 0 rows. onConflict here MUST match uq_skill_knowledge_dedupe.)
   try {
-    if (globalPayload.length) {
-      const { error } = await opts.store.from("skill_knowledge").upsert(globalPayload, { onConflict: "skill_id,learning_kind,title" })
-      if (error) console.warn("[feedback-distill] global upsert failed:", error.message)
-    }
-    if (scopedPayload.length) {
-      const { error } = await opts.store
-        .from("skill_knowledge")
-        .upsert(scopedPayload, { onConflict: "skill_id,scope,scope_id,learning_kind,title" })
-      if (error) console.warn("[feedback-distill] scoped upsert failed:", error.message)
+    const { error } = await opts.store
+      .from("skill_knowledge")
+      .upsert(payload, { onConflict: "skill_id,scope,scope_id,learning_kind,title" })
+    if (error) {
+      // SURFACE it (never swallow): fail-soft (no throw), but visible in the result + the logs.
+      console.warn("[feedback-distill] upsert failed:", error.message)
+      result.writeErrors.push({ scope: "all", error: error.message })
+    } else {
+      result.rowsWritten = payload.length
     }
   } catch (e) {
-    console.warn("[feedback-distill] upsert threw:", e instanceof Error ? e.message : e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn("[feedback-distill] upsert threw:", msg)
+    result.writeErrors.push({ scope: "all", error: msg })
   }
 
   return result

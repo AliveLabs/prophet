@@ -14,12 +14,15 @@ import {
   extractArticleText,
   extractArticleLinks,
   fetchSourceItems,
+  runIngestion,
   ARTICLE_FETCH_CONCURRENCY,
   type DistillVerdict,
   type DistilledHit,
   type SourceRow,
   type HttpFetch,
+  type IngestStore,
 } from "@/lib/skills/ingest-knowledge"
+import type { Transport } from "@/lib/ai/provider"
 import { foodPairingSkill } from "@/lib/skills/food-pairing/skill"
 import type { Dossier } from "@/lib/insights/dossier/types"
 
@@ -600,6 +603,111 @@ describe("fetchSourceItems — scrape path: index → article links → bodies",
     // every request carried the browser user-agent.
     expect(hits.length).toBeGreaterThan(1)
     expect(hits.every((h) => h.init?.headers?.["user-agent"]?.includes("Mozilla/5.0"))).toBe(true)
+  })
+})
+
+// ── runIngestion — the upsert must use the FULL dedupe tuple AND surface a write error ─────────────
+// This is the regression guard for the CONFIRMED prod bug: the upsert targeted a PARTIAL index (42P10)
+// and the error was SWALLOWED (`if (!upErr) rowsWritten += …`), so the run reported success while
+// writing 0 rows. These tests pin (1) the conflict target = the new non-partial index tuple, and (2)
+// a write error is SURFACED in result.writeErrors with rowsWritten NOT incremented.
+
+/** A passing distill verdict (≥2 tier-1 sources corroborate the same title → an `active` row). */
+function distillTransport(): Transport {
+  return async () =>
+    ({
+      title: "Hot honey demand",
+      snippet: "Per the source, hot honey is a durable upsell; feature it on a sweet-heat item.",
+      confidence: 90,
+      attributable: true,
+      note: "durable, generalizable",
+    }) as unknown
+}
+
+/** A canned feed whose body is long enough to distill directly (no link follow). */
+function ingestFeed(): string {
+  const body = "Per the source, " + "durable hot honey operator tactic prose ".repeat(20) // > 600 chars
+  return `<rss><channel>
+    <item><title>Hot honey demand</title><content:encoded><![CDATA[${body}]]></content:encoded><link>https://src1.example.com/post</link></item>
+  </channel></rss>`
+}
+
+/** Two tier-1 sources (same skill) so corroborate() produces a writable row; HttpFetch serves the feed. */
+function ingestHttp(): HttpFetch {
+  const feed = ingestFeed()
+  return async () => ({ ok: true, status: 200, text: async () => feed })
+}
+
+/** A loose IngestStore stub: serves two enabled tier-1 sources, captures the upsert payload + the
+ *  onConflict it was called with, and lets the test force the upsert to return an error OR throw. */
+function ingestStore(opts: { upsertError?: string; upsertThrows?: string } = {}) {
+  const captured: { payload: Record<string, unknown>[] | null; onConflict: string | null } = {
+    payload: null,
+    onConflict: null,
+  }
+  const sources = [
+    { id: "src-1", skill_ids: ["food-pairing"], name: "Tier1 A", vertical: "culinary", url: "https://a.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
+    { id: "src-2", skill_ids: ["food-pairing"], name: "Tier1 B", vertical: "culinary", url: "https://b.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
+  ]
+  const store: IngestStore = {
+    from() {
+      return {
+        select() {
+          return {
+            eq: async () => ({ data: sources, error: null }),
+          }
+        },
+        upsert: async (rows: Record<string, unknown>[], o: { onConflict: string }) => {
+          captured.payload = rows
+          captured.onConflict = o.onConflict
+          if (opts.upsertThrows) throw new Error(opts.upsertThrows)
+          return { error: opts.upsertError ? { message: opts.upsertError } : null }
+        },
+        update() {
+          return { eq: async () => ({ data: null, error: null }) }
+        },
+      }
+    },
+  }
+  return { store, captured }
+}
+
+describe("runIngestion — full dedupe tuple + write errors are SURFACED (the prod-bug regression guard)", () => {
+  it("upserts skill_knowledge against the FULL non-partial dedupe tuple (scope,scope_id included)", async () => {
+    const { store, captured } = ingestStore()
+    const result = await runIngestion({ store, http: ingestHttp(), transport: distillTransport() })
+    expect(captured.onConflict).toBe("skill_id,scope,scope_id,learning_kind,title")
+    // every global payload row sets scope_id: null EXPLICITLY (NOT omitted) so NULLS NOT DISTINCT dedups.
+    expect(captured.payload!.length).toBeGreaterThan(0)
+    for (const row of captured.payload!) {
+      expect(row.scope).toBe("global")
+      expect(row.scope_id).toBeNull()
+      expect("scope_id" in row).toBe(true)
+    }
+    expect(result.rowsWritten).toBe(captured.payload!.length)
+    expect(result.writeErrors).toEqual([])
+  })
+
+  it("SURFACES an upsert error (42P10) in result.writeErrors and does NOT increment rowsWritten", async () => {
+    const { store } = ingestStore({ upsertError: "no unique or exclusion constraint matching the ON CONFLICT specification" })
+    const result = await runIngestion({ store, http: ingestHttp(), transport: distillTransport() })
+    // The run still succeeds (fail-soft, no throw) and reports distilled work...
+    expect(result.distilledKept).toBeGreaterThan(0)
+    // ...but the write failure can NEVER be invisible again: it's in writeErrors + rowsWritten stays 0.
+    expect(result.writeErrors.length).toBeGreaterThan(0)
+    expect(result.writeErrors[0].error).toContain("ON CONFLICT")
+    expect(result.rowsWritten).toBe(0)
+  })
+
+  it("SURFACES a THROWN upsert error (transport timeout) in writeErrors without aborting the run", async () => {
+    const { store } = ingestStore({ upsertThrows: "connection reset by peer" })
+    const result = await runIngestion({ store, http: ingestHttp(), transport: distillTransport() })
+    // Work done before the throw is still reported (the run never aborts)...
+    expect(result.distilledKept).toBeGreaterThan(0)
+    // ...and the thrown error is surfaced (fail-soft, no uncaught exception) with rowsWritten left at 0.
+    expect(result.writeErrors.length).toBeGreaterThan(0)
+    expect(result.writeErrors[0].error).toContain("connection reset")
+    expect(result.rowsWritten).toBe(0)
   })
 })
 

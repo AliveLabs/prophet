@@ -441,6 +441,11 @@ export type RecomputeResult = {
   unresolved: number // events whose play could not be found (skipped, not fabricated)
   rollupRows: number // skill_feedback_rollup rows built
   globalRows: number // of those, how many cleared the confounder guard (multi-org)
+  rowsWritten: number // rows actually upserted (0 on dryRun / on a write error)
+  /** Persistence (upsert) failures, SURFACED — never swallowed. A non-empty array means a built rollup
+   *  set did NOT reach skill_feedback_rollup (e.g. an ON CONFLICT mismatch). The run stays fail-soft (a
+   *  write error does not throw), but it can NEVER be invisible — this is what hid the original bug. */
+  writeErrors: Array<{ scope: string; error: string }>
 }
 
 /** Resolve a persisted brief's plays into a (play_key → play) map for play_type_key resolution. The
@@ -487,6 +492,8 @@ export async function runFeedbackRollup(opts: {
     unresolved: 0,
     rollupRows: 0,
     globalRows: 0,
+    rowsWritten: 0,
+    writeErrors: [],
   }
 
   // 1) Read raw feedback events: thumbs (brief_feedback) + directional actions (play_actions).
@@ -626,23 +633,26 @@ export async function runFeedbackRollup(opts: {
     last_recompute: new Date(now).toISOString(),
     updated_at: new Date(now).toISOString(),
   }))
-  // Global rows (scope_id NULL) and scoped rows hit different partial-unique indexes; upsert each set
-  // against its own conflict target so the recompute is idempotent.
-  const globalPayload = payload.filter((p) => p.scope === "global")
-  const scopedPayload = payload.filter((p) => p.scope !== "global")
+  // ONE non-partial dedupe index (uq_skill_feedback_rollup_dedupe) over the FULL tuple, declared NULLS
+  // NOT DISTINCT, now covers BOTH global rows (scope_id NULL) and scoped rows — so a single upsert with
+  // the full conflict target is idempotent for all of them. (The old code split into two upserts against
+  // two PARTIAL indexes; neither could be an ON CONFLICT target, so every write raised 42P10 + was
+  // SWALLOWED → 0 rows. onConflict here MUST match uq_skill_feedback_rollup_dedupe.)
   try {
-    if (globalPayload.length) {
-      const { error } = await opts.store.from("skill_feedback_rollup").upsert(globalPayload, { onConflict: "skill_id,play_type_key" })
-      if (error) console.warn("[feedback-rollup] global upsert failed:", error.message)
-    }
-    if (scopedPayload.length) {
-      const { error } = await opts.store
-        .from("skill_feedback_rollup")
-        .upsert(scopedPayload, { onConflict: "skill_id,scope,scope_id,play_type_key" })
-      if (error) console.warn("[feedback-rollup] scoped upsert failed:", error.message)
+    const { error } = await opts.store
+      .from("skill_feedback_rollup")
+      .upsert(payload, { onConflict: "skill_id,scope,scope_id,play_type_key" })
+    if (error) {
+      // SURFACE it (never swallow): fail-soft (no throw), but visible in the result + the logs.
+      console.warn("[feedback-rollup] upsert failed:", error.message)
+      result.writeErrors.push({ scope: "all", error: error.message })
+    } else {
+      result.rowsWritten = payload.length
     }
   } catch (e) {
-    console.warn("[feedback-rollup] upsert threw:", e instanceof Error ? e.message : e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn("[feedback-rollup] upsert threw:", msg)
+    result.writeErrors.push({ scope: "all", error: msg })
   }
 
   return result

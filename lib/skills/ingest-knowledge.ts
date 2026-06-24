@@ -389,6 +389,10 @@ export async function distillItem(
   const verdict = await generateStructured<DistillVerdict | null>(
     { tier: "reasoning", system: DISTILL_SYSTEM, prompt, temperature: 0.2, maxOutputTokens: 1200 },
     {
+      // Forward the injectable transport so distill is deterministic in tests (the docstring promises
+      // this, and runIngestion's write-path tests depend on it). In prod opts.transport is undefined →
+      // generateStructured falls back to defaultTransport exactly as before.
+      transport: opts.transport,
       validate: (raw) => {
         if (!raw || typeof raw !== "object") return null
         const r = raw as Record<string, unknown>
@@ -538,6 +542,11 @@ export type IngestResult = {
   rowsWritten: number
   bySkill: Record<string, number>
   errors: Array<{ sourceId: string; error: string }>
+  /** Persistence (upsert) failures, SURFACED — never swallowed. A non-empty array means rows that were
+   *  distilled+kept did NOT reach skill_knowledge (e.g. an ON CONFLICT mismatch). This is what made the
+   *  original bug invisible: an upsert error must show up here AND in the logs, even though the run
+   *  stays fail-soft (a write error does not throw). rowsWritten is NOT incremented on a failed write. */
+  writeErrors: Array<{ skillId: string; error: string }>
 }
 
 export type RunIngestionOpts = {
@@ -569,6 +578,7 @@ export async function runIngestion(opts: RunIngestionOpts): Promise<IngestResult
     rowsWritten: 0,
     bySkill: {},
     errors: [],
+    writeErrors: [],
   }
 
   const { data, error } = await opts.store.from("skill_source_registry").select("*").eq("enabled", true)
@@ -643,12 +653,29 @@ export async function runIngestion(opts: RunIngestionOpts): Promise<IngestResult
       effective_to: new Date(r.effectiveToMs).toISOString(),
       updated_at: new Date(now).toISOString(),
     }))
-    // Idempotent on the global unique key (skill_id, learning_kind, title): re-running refreshes the
-    // snippet/confidence/window in place instead of duplicating.
-    const { error: upErr } = await opts.store
-      .from("skill_knowledge")
-      .upsert(payload, { onConflict: "skill_id,learning_kind,title" })
-    if (!upErr) result.rowsWritten += payload.length
+    // Idempotent on the dedupe index (skill_id, scope, scope_id, learning_kind, title) — NULLS NOT
+    // DISTINCT, so global rows (scope_id NULL) dedupe too. This MUST match uq_skill_knowledge_dedupe;
+    // a mismatch makes Postgres raise 42P10 and write nothing. (External-trend rows are all global, so
+    // every payload row carries scope='global', scope_id=null, set above.)
+    try {
+      const { error: upErr } = await opts.store
+        .from("skill_knowledge")
+        .upsert(payload, { onConflict: "skill_id,scope,scope_id,learning_kind,title" })
+      if (upErr) {
+        // SURFACE the error (the original bug was swallowing it: `if (!upErr) rowsWritten += …`). Stay
+        // fail-soft — one skill's write failure must not abort the run — but it can NEVER be invisible.
+        console.warn(`[ingest-knowledge] skill_knowledge upsert failed for ${skillId}:`, upErr.message)
+        result.writeErrors.push({ skillId, error: upErr.message })
+      } else {
+        result.rowsWritten += payload.length
+      }
+    } catch (e) {
+      // A thrown transport error (timeout, connection reset) must NOT abort the whole run: catch it,
+      // surface it, and continue to the next skill — matching the fail-soft posture of the other writers.
+      const msg = e instanceof Error ? e.message : String(e)
+      console.warn(`[ingest-knowledge] skill_knowledge upsert threw for ${skillId}:`, msg)
+      result.writeErrors.push({ skillId, error: msg })
+    }
   }
 
   return result

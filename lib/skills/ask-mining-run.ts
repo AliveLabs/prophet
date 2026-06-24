@@ -39,9 +39,13 @@ export type AskMiningResult = {
   routedPairs: number
   /** question_demand/editorial candidates distilled (weekly only). */
   candidates: number
-  /** rows actually written (0 on dryRun / nightly). */
+  /** rows actually written (0 on dryRun / nightly / on a write error). */
   rowsWritten: number
   bySkill: Record<string, number>
+  /** Persistence (upsert) failures, SURFACED — never swallowed. A non-empty array means distilled
+   *  question_demand/editorial candidates did NOT reach skill_knowledge (e.g. an ON CONFLICT mismatch).
+   *  The run stays fail-soft (no throw), but it can NEVER be invisible — this is what hid the bug. */
+  writeErrors: Array<{ scope: string; error: string }>
 }
 
 function toAsk(r: Record<string, unknown>): AskForMining {
@@ -80,6 +84,7 @@ export async function runAskMining(opts: {
     candidates: 0,
     rowsWritten: 0,
     bySkill: {},
+    writeErrors: [],
   }
 
   // 1) Read recent asks. FAIL-SOFT: any error → no-op (floor = today).
@@ -173,19 +178,28 @@ export async function runAskMining(opts: {
 
   if (opts.dryRun || payload.length === 0) return result
 
-  // Idempotent on P14's GLOBAL unique key (skill_id, learning_kind, title): re-running refreshes a
-  // still-candidate theme's snippet/support in place instead of duplicating. Rows a human already
-  // moved out of 'candidate' were dropped above (lockedTitles), so this upsert can NEVER revert a
-  // promote/retire — the human gate is durable.
+  // Idempotent on P14's dedupe index (skill_id, scope, scope_id, learning_kind, title) — NULLS NOT
+  // DISTINCT, so global rows (scope_id NULL) dedupe too. Re-running refreshes a still-candidate theme's
+  // snippet/support in place instead of duplicating. Rows a human already moved out of 'candidate' were
+  // dropped above (lockedTitles), so this upsert can NEVER revert a promote/retire — the human gate is
+  // durable. onConflict MUST match uq_skill_knowledge_dedupe (the old "skill_id,learning_kind,title"
+  // targeted a PARTIAL index → 42P10 → the error was swallowed → 0 rows; every candidate row here is
+  // global, scope_id=null, set above).
   try {
-    const { error } = await opts.store.from("skill_knowledge").upsert(payload, { onConflict: "skill_id,learning_kind,title" })
+    const { error } = await opts.store
+      .from("skill_knowledge")
+      .upsert(payload, { onConflict: "skill_id,scope,scope_id,learning_kind,title" })
     if (error) {
+      // SURFACE it (never swallow): fail-soft (no throw), but visible in the result + the logs.
       console.warn("[ask-mining] candidate upsert failed:", error.message)
+      result.writeErrors.push({ scope: "global", error: error.message })
     } else {
       result.rowsWritten = payload.length
     }
   } catch (e) {
-    console.warn("[ask-mining] upsert threw:", e instanceof Error ? e.message : e)
+    const msg = e instanceof Error ? e.message : String(e)
+    console.warn("[ask-mining] upsert threw:", msg)
+    result.writeErrors.push({ scope: "global", error: msg })
   }
 
   return result

@@ -10,9 +10,11 @@ import {
   aggregateSignals,
   buildRollupRows,
   loadPlayTypeMultipliers,
+  runFeedbackRollup,
   NEUTRAL_LOOKUP,
   GLOBAL_MIN_ORG_SUPPORT_N,
   type MappedFeedback,
+  type RecomputeStore,
 } from "@/lib/skills/feedback-rollup"
 import {
   computePlayTypeKey,
@@ -30,6 +32,7 @@ import {
   PLAY_TYPE_MIN_SUPPORT_N,
   type ScoreInput,
 } from "@/lib/skills/scoring-config"
+import { distillFeedbackPatterns, type DistillStore } from "@/lib/skills/feedback-distill-run"
 import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
@@ -426,5 +429,158 @@ describe("loadPlayTypeMultipliers — fail-soft + precedence", () => {
       },
     )
     expect(lookup.multiplierFor(key)).toBeCloseTo(0.8) // location wins
+  })
+})
+
+// =================================================================================================
+// runFeedbackRollup — the upsert must use ONE full-tuple conflict target AND surface a write error.
+// Regression guard for the CONFIRMED prod bug: the recompute split into TWO upserts against TWO PARTIAL
+// indexes (42P10), and the errors were only console.warn'd — never returned — so the run reported
+// success while writing 0 rows. These tests pin the unified conflict target + the surfaced error.
+// =================================================================================================
+/** A liked play, persisted in a brief, that the feedback play_key (skillId:slug) resolves to. */
+const ROLLUP_PLAY = {
+  skillId: "food-pairing",
+  title: "Feature the hot honey",
+  kind: "capitalize",
+  evidenceRefs: ["menu_feature:hot_honey"],
+  severity: 0,
+}
+// playKey mirrors the runner: skillId:title-slug.
+const ROLLUP_PLAY_KEY = `${ROLLUP_PLAY.skillId}:${ROLLUP_PLAY.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`
+
+/** A RecomputeStore stub: thumbs_up feedback across TWO orgs (so global + scoped rows are built), the
+ *  persisted briefs that resolve each play, the locations→org map, and a capturing upsert. */
+function recomputeStore(opts: { upsertError?: string } = {}) {
+  const captured: { payload: Record<string, unknown>[] | null; onConflict: string | null } = {
+    payload: null,
+    onConflict: null,
+  }
+  const thumbs = [
+    ...Array.from({ length: 15 }, () => ({ location_id: "loc-1", date_key: "2026-06-20", play_key: ROLLUP_PLAY_KEY, verdict: "good", severity: 0 })),
+    ...Array.from({ length: 15 }, () => ({ location_id: "loc-2", date_key: "2026-06-20", play_key: ROLLUP_PLAY_KEY, verdict: "good", severity: 0 })),
+  ]
+  const briefs = [
+    { location_id: "loc-1", date_key: "2026-06-20", brief: { plays: [ROLLUP_PLAY] } },
+    { location_id: "loc-2", date_key: "2026-06-20", brief: { plays: [ROLLUP_PLAY] } },
+  ]
+  const locations = [
+    { id: "loc-1", organization_id: "org-1" },
+    { id: "loc-2", organization_id: "org-2" },
+  ]
+  const store: RecomputeStore = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            gte: async () => {
+              if (table === "brief_feedback") return { data: thumbs, error: null }
+              if (table === "play_actions") return { data: [], error: null }
+              return { data: [], error: null }
+            },
+            in: async () => {
+              if (table === "daily_briefs") return { data: briefs, error: null }
+              if (table === "locations") return { data: locations, error: null }
+              return { data: [], error: null }
+            },
+          }
+        },
+        upsert: async (rows: Record<string, unknown>[], o: { onConflict: string }) => {
+          captured.payload = rows
+          captured.onConflict = o.onConflict
+          return { error: opts.upsertError ? { message: opts.upsertError } : null }
+        },
+      }
+    },
+  }
+  return { store, captured }
+}
+
+describe("runFeedbackRollup — full dedupe tuple + write errors are SURFACED (prod-bug regression guard)", () => {
+  it("upserts skill_feedback_rollup ONCE against the full non-partial dedupe tuple", async () => {
+    const { store, captured } = recomputeStore()
+    const result = await runFeedbackRollup({ store })
+    expect(captured.onConflict).toBe("skill_id,scope,scope_id,play_type_key")
+    expect(result.rollupRows).toBeGreaterThan(0)
+    // both global (scope_id null) AND scoped rows ride the SAME upsert/tuple now.
+    expect(captured.payload!.some((r) => r.scope === "global" && r.scope_id === null)).toBe(true)
+    expect(captured.payload!.some((r) => r.scope !== "global")).toBe(true)
+    expect(result.rowsWritten).toBe(captured.payload!.length)
+    expect(result.writeErrors).toEqual([])
+  })
+
+  it("SURFACES an upsert error in result.writeErrors and does NOT increment rowsWritten", async () => {
+    const { store } = recomputeStore({ upsertError: "no unique or exclusion constraint matching the ON CONFLICT specification" })
+    const result = await runFeedbackRollup({ store })
+    expect(result.rollupRows).toBeGreaterThan(0) // work was done
+    expect(result.writeErrors.length).toBeGreaterThan(0) // but it can never be invisible again
+    expect(result.writeErrors[0].error).toContain("ON CONFLICT")
+    expect(result.rowsWritten).toBe(0)
+  })
+})
+
+// =================================================================================================
+// distillFeedbackPatterns — the WEEKLY rollup→skill_knowledge writer. Same prod-bug regression guard:
+// the upsert must target the full non-partial skill_knowledge dedupe tuple AND surface a write error.
+// =================================================================================================
+/** Rollup read-rows for ONE org-scoped play family across TWO severity bands, strongly liked + with
+ *  real mass — enough for distillPatterns() to emit a candidate (so we reach the upsert). */
+function distillRollupRows(): Record<string, unknown>[] {
+  const mk = (sevBand: string, supportN: number) => ({
+    skill_id: "food-pairing",
+    scope: "org",
+    scope_id: "org-1",
+    play_type_key: `food-pairing|capitalize|menu|${sevBand}`,
+    bayes_score: 0.85,
+    multiplier: 1.25,
+    support_n: supportN,
+    org_support_n: 1,
+  })
+  return [mk("tame", 18), mk("bold", 12)] // 2 bands, total 30 ≥ DISTILL_MIN_SUPPORT_N, liked
+}
+
+/** A DistillStore stub: serves the rollup read + captures the skill_knowledge upsert payload/onConflict. */
+function distillStore(opts: { upsertError?: string } = {}) {
+  const captured: { payload: Record<string, unknown>[] | null; onConflict: string | null } = {
+    payload: null,
+    onConflict: null,
+  }
+  const store: DistillStore = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            in: async () => ({ data: table === "skill_feedback_rollup" ? distillRollupRows() : [], error: null }),
+          }
+        },
+        upsert: async (rows: Record<string, unknown>[], o: { onConflict: string }) => {
+          captured.payload = rows
+          captured.onConflict = o.onConflict
+          return { error: opts.upsertError ? { message: opts.upsertError } : null }
+        },
+      }
+    },
+  }
+  return { store, captured }
+}
+
+describe("distillFeedbackPatterns — full dedupe tuple + write errors are SURFACED (prod-bug regression guard)", () => {
+  it("upserts skill_knowledge ONCE against the full non-partial dedupe tuple", async () => {
+    const { store, captured } = distillStore()
+    const result = await distillFeedbackPatterns({ store })
+    expect(result.candidates).toBeGreaterThan(0)
+    expect(captured.onConflict).toBe("skill_id,scope,scope_id,learning_kind,title")
+    expect(captured.payload!.length).toBeGreaterThan(0)
+    expect(result.rowsWritten).toBe(captured.payload!.length)
+    expect(result.writeErrors).toEqual([])
+  })
+
+  it("SURFACES an upsert error in result.writeErrors and does NOT increment rowsWritten", async () => {
+    const { store } = distillStore({ upsertError: "no unique or exclusion constraint matching the ON CONFLICT specification" })
+    const result = await distillFeedbackPatterns({ store })
+    expect(result.candidates).toBeGreaterThan(0)
+    expect(result.writeErrors.length).toBeGreaterThan(0)
+    expect(result.writeErrors[0].error).toContain("ON CONFLICT")
+    expect(result.rowsWritten).toBe(0)
   })
 })
