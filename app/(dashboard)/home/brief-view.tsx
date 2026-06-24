@@ -25,6 +25,7 @@ const KIND_LABEL: Record<EnrichedRecommendation["kind"], string> = {
 const CATEGORY_LABEL: Record<NonNullable<EnrichedRecommendation["category"]>, string> = {
   demand: "Demand",
   marketing: "Marketing",
+  social: "Social",
   menu: "Menu",
   grassroots: "Grassroots",
   positioning: "Positioning",

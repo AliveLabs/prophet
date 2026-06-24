@@ -30,6 +30,7 @@ export type CategoryPriors = Partial<Record<Category, number>>
 export const CATEGORY_ORDER: Category[] = [
   "demand",
   "marketing",
+  "social",
   "grassroots",
   "menu",
   "positioning",
@@ -40,7 +41,8 @@ export const CATEGORY_ORDER: Category[] = [
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   demand: "Demand (events & weather)",
-  marketing: "Marketing (digital & social)",
+  marketing: "Marketing (your own content)",
+  social: "Social counter-strategy (vs rivals)",
   grassroots: "Grassroots (hyper-local hustle)",
   menu: "Menu & food",
   positioning: "Positioning",

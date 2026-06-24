@@ -59,6 +59,27 @@ export type SocialPostAnalysis = {
   promotionalContent: boolean
   promotionalDetails: string
   confidence: number
+  // ── §4.4 (P12) additive post-anatomy dimensions ────────────────────────────
+  // OPTIONAL + back-compat: legacy stored analyses (and the deterministic default)
+  // omit these; every existing parse keeps working. The social-counter producer
+  // (lib/skills/social-counter) reads them to complete the winning-pattern teardown —
+  // "posts with people / owner+staff / steam+motion outperform" is the highest-signal
+  // cluster a F&B feed has, and a trending sound is the single biggest Reels/TikTok
+  // discovery lever. The Gemini tagger (visual-analysis.ts) now emits them.
+  /** A recognizable PERSON is present in frame (a human face/figure, not just hands or a logo). */
+  peoplePresent?: boolean
+  /** The person present reads as the OWNER or a STAFF MEMBER (uniform, behind the counter/pass,
+   *  "meet the team" framing) rather than a customer — the authentic owner/BOH content cluster. */
+  ownerOrStaffPresent?: boolean
+  /** Visible STEAM, sizzle, pour, flame, or motion-implied freshness — the "it's alive" cue that
+   *  reliably out-engages a static, plated, over-styled shot. */
+  steamOrMotion?: boolean
+  /** VIDEO-ONLY: the clip rides a trending/popular audio track (a discovery lever on Reels/TikTok).
+   *  Undefined/false for static images and videos with original/no notable audio. */
+  trendingSound?: boolean
+  /** VIDEO-ONLY: a short plain-words description of the FIRST FRAME / thumbnail (the scroll-stopper
+   *  the operator must nail), e.g. "close-up of cheese pull". Empty/omitted for static images. */
+  firstFrame?: string
 }
 
 export type EntityVisualProfile = {

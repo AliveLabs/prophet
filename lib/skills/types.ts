@@ -66,10 +66,16 @@ export type Evidence = {
  * Operator-facing DOMAIN of a play — used by the scoring priors, drill-down, and the
  * per-operator rerank controls (P2/P3/P8). Declared INTRINSICALLY on each ProducerSkill;
  * NOT derived from RecKind (local-demand and marketing both carry kind "capitalize" yet are
- * different categories). Social folds into marketing for now (no skill owns it yet). RecKind
- * stays the play SHAPE (prepare/capitalize/…); Category is the domain a play belongs to.
+ * different categories). RecKind stays the play SHAPE (prepare/capitalize/…); Category is the
+ * domain a play belongs to.
+ *
+ * P12: `social` is its OWN domain — the social counter-strategist (lib/skills/social-counter)
+ * owns competitor social-feed teardown + counter-plays, split from the generic `marketing`
+ * lens (which still covers the operator's own content cadence/mix) so the operator sees a
+ * distinct competitive-social lens and the per-operator rerank can weight it independently.
+ * Its lead click-feedback domain is also `social` (the P14 learning hook).
  */
-export type Category = "demand" | "marketing" | "menu" | "grassroots" | "positioning" | "reputation" | "operations" | "convergence"
+export type Category = "demand" | "marketing" | "social" | "menu" | "grassroots" | "positioning" | "reputation" | "operations" | "convergence"
 
 /** One concrete step of the plan — everything short of executing it. */
 export type RecipeStep = {

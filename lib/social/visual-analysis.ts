@@ -70,6 +70,11 @@ Analyze this ${platform} post image and return ONLY valid JSON with these fields
   - timeOfDay: "day" | "evening" | "night" | "unknown"
 - promotionalContent: boolean (true if the image advertises a deal, special, discount, event, or limited-time offer)
 - promotionalDetails: describe the promotion if detected, empty string otherwise
+- peoplePresent: boolean (true if a recognizable PERSON — a human face or figure — is in the frame; false for hands-only, food-only, or logo-only shots)
+- ownerOrStaffPresent: boolean (true if a person present reads as the OWNER or a STAFF MEMBER — uniform/apron, behind the counter or pass, "meet the team" framing — rather than a customer)
+- steamOrMotion: boolean (true if there is visible steam, sizzle, a pour, flame, or other motion-implied freshness, vs a static styled plate)
+- trendingSound: boolean (VIDEO ONLY — true if the clip rides a trending or popular audio track; false for static images or original/no notable audio)
+- firstFrame: short plain-words description of the FIRST FRAME / thumbnail for a video (e.g. "close-up of a cheese pull"); empty string for static images
 - confidence: number 0.0-1.0 for overall classification confidence
 ${captionContext}`
 }
@@ -379,7 +384,9 @@ const VALID_CATEGORIES = new Set([
   "product_merchandise", "community_collab", "other",
 ])
 
-function sanitizeAnalysis(p: Partial<SocialPostAnalysis>): SocialPostAnalysis {
+// Exported (pure, no I/O) so the §4.4 additive-field parsing + back-compat can be unit-tested
+// directly without a live Gemini call. The tagger uses it on every raw response.
+export function sanitizeAnalysis(p: Partial<SocialPostAnalysis>): SocialPostAnalysis {
   return {
     contentCategory: VALID_CATEGORIES.has(p.contentCategory as string)
       ? (p.contentCategory as SocialPostAnalysis["contentCategory"])
@@ -413,6 +420,15 @@ function sanitizeAnalysis(p: Partial<SocialPostAnalysis>): SocialPostAnalysis {
     },
     promotionalContent: p.promotionalContent === true,
     promotionalDetails: typeof p.promotionalDetails === "string" ? p.promotionalDetails : "",
+    // §4.4 (P12) additive fields — back-compat: only set when the tagger actually returned a value
+    // (legacy stored analyses + the old prompt omit them, so they stay undefined and existing
+    // consumers are unaffected). Booleans are strictly checked; firstFrame is carried only when
+    // it's a non-empty string.
+    ...(typeof p.peoplePresent === "boolean" ? { peoplePresent: p.peoplePresent } : {}),
+    ...(typeof p.ownerOrStaffPresent === "boolean" ? { ownerOrStaffPresent: p.ownerOrStaffPresent } : {}),
+    ...(typeof p.steamOrMotion === "boolean" ? { steamOrMotion: p.steamOrMotion } : {}),
+    ...(typeof p.trendingSound === "boolean" ? { trendingSound: p.trendingSound } : {}),
+    ...(typeof p.firstFrame === "string" && p.firstFrame.trim() ? { firstFrame: p.firstFrame } : {}),
     confidence: typeof p.confidence === "number" ? Math.max(0, Math.min(1, p.confidence)) : 0.5,
   }
 }

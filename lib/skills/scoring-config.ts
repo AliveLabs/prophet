@@ -119,6 +119,11 @@ export const FACTOR_WEIGHTS = {
 export const CATEGORY_PRIORS: Record<Category, number> = {
   demand: 1.0,
   marketing: 1.0,
+  // P12: social counter-strategy (the social-counter producer) is its OWN domain, split from
+  // marketing (own-content cadence) so the operator sees a distinct competitive-social lens and
+  // can rerank it. NEUTRAL prior — same calibrate-from-evidence stance as menu/grassroots; a
+  // cited-competitor-post counter-play competes on merit, no thumb on the scale before we have data.
+  social: 1.0,
   // P6: menu / food-pairing plays (the kitchen expert) compete on merit — NEUTRAL prior, like
   // demand/marketing. We start narrow and earn any bias from instrumented evidence rather than
   // asserting it (the calibration principle). A "feature the short rib this cold snap" play is a

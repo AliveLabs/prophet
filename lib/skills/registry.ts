@@ -9,6 +9,7 @@ import { reputationSkill } from "@/lib/skills/reputation/skill"
 import { operationsSkill } from "@/lib/skills/operations/skill"
 import { foodPairingSkill } from "@/lib/skills/food-pairing/skill"
 import { guerrillaMarketingSkill } from "@/lib/skills/guerrilla-marketing/skill"
+import { socialCounterSkill } from "@/lib/skills/social-counter/skill"
 import { convergenceSkill } from "@/lib/skills/convergence/skill"
 
 export const PRODUCER_SKILLS: ProducerSkill[] = [
@@ -22,6 +23,10 @@ export const PRODUCER_SKILLS: ProducerSkill[] = [
   // Both run on the standard reasoning tier (not the deep pass).
   foodPairingSkill,
   guerrillaMarketingSkill,
+  // P12 — social counter-strategy: reads a rival's winning posts (ranked by engagement RATE),
+  // diagnoses the winning pattern, and emits a phone-shootable counter-play. Its own `social`
+  // category (neutral prior), standard reasoning tier. Grounds on the social.* rule outputs.
+  socialCounterSkill,
   // P5: cross-domain convergence — sees the WHOLE dossier, runs on the deep (Opus + thinking)
   // pass, feeds the same global pool. Last so the domain experts' plays are produced alongside it.
   convergenceSkill,
