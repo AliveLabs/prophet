@@ -64,20 +64,24 @@ describe("guerrilla-marketing skill — deterministic fallback", () => {
   })
 })
 
-describe("guerrilla-marketing skill — parse", () => {
-  const rawPlay = (evidenceRefs: string[]) => ({
+describe("guerrilla-marketing skill — parse (P16: the named-anchor gate)", () => {
+  const rawPlay = (evidenceRefs: string[], extra: Record<string, unknown> = {}) => ({
     title: "Set an A-frame at the festival corner Saturday",
     rationale: "A street festival lands two blocks away; intercept the foot traffic with a same-day offer.",
     recipe: [{ channel: "the sidewalk", audience: "festival-goers walking past" }],
     confidence: "directional",
     leverage: { label: "medium", basisInternal: "grassroots interception sized ordinally" },
     evidenceRefs,
+    ...extra,
   })
-  it("coerces model JSON into stamped plays", () => {
+  it("SUPPRESSES a grounded play that names NO partner entity or dated event (the core upgrade)", () => {
+    // competitiveWeekDossier has no partnerEntities and no events, so even a play that cites a real
+    // grassroots signal must be dropped — it can't name an anchor.
     const plays = guerrillaMarketingSkill.parse([rawPlay(["events.new_high_signal_event"])], competitiveWeekDossier)
-    expect(plays).toHaveLength(1)
-    expect(plays![0].skillId).toBe("guerrilla-marketing")
-    expect(plays![0].knowledgeVersion).toBe("guerrilla@v1")
+    expect(plays).toEqual([])
+  })
+  it("stamps the upgraded knowledge version", () => {
+    expect(guerrillaMarketingSkill.knowledgeVersion).toBe("guerrilla@v2")
   })
   it("returns null on unparseable output so the deterministic fallback runs", () => {
     expect(guerrillaMarketingSkill.parse(42, competitiveWeekDossier)).toBeNull()

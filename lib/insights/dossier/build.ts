@@ -30,6 +30,7 @@ import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
+import { loadPartnerCatalog, PARTNER_TYPE_LABELS, type PartnerType } from "@/lib/local/partner-catalog"
 
 type SB = ReturnType<typeof createAdminSupabaseClient>
 
@@ -548,6 +549,23 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     )
   }
 
+  // ── partner-entity catalog (§4.1, P16): the grassroots anchor set. READ-ONLY here (the events
+  //    pipeline POPULATES + refreshes it, mirroring venue_catalog). FAIL-SOFT: an absent/empty
+  //    partner_catalog table → [] → the grassroots entity-grounded archetypes don't fire and the
+  //    skill stays on its number-free fallback (today's behavior). Never throws (loadPartnerCatalog
+  //    swallows a missing-table error). ──
+  const partners = await loadPartnerCatalog(sb, locationId)
+  const partnerEntities = partners.map((p) => ({
+    name: p.name,
+    partnerType: p.partnerType as string,
+    partnerLabel: PARTNER_TYPE_LABELS[p.partnerType as PartnerType] ?? p.partnerType,
+    distanceMi: p.distanceMi,
+    sizeBand: p.sizeBand as string,
+    sizeProxyLow: p.sizeProxyLow,
+    sizeProxyHigh: p.sizeProxyHigh,
+    sizeProxyKind: p.sizeProxyKind,
+  }))
+
   // ── coverage: per-signal health (present/stale/missing + as-of) for the panel + resilience ──
   const mk = (label: string, present: boolean, detail: string, asOf: string | null): BriefCoverage => ({
     label,
@@ -569,6 +587,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey),
     mk("Competitors", scraped > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
     mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null),
+    mk("Nearby partners", partnerEntities.length > 0, partnerEntities.length ? `${partnerEntities.length} nearby` : "not mapped yet", partnerEntities.length ? dateKey : null),
   ]
 
   return {
@@ -580,6 +599,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     location,
     competitors,
     demandCalendar: { events, metroHooks, weather },
+    ...(partnerEntities.length ? { partnerEntities } : {}),
     ruleOutputs: groundedRuleOutputs,
     coverage,
   }

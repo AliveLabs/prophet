@@ -22,6 +22,7 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { annotateEventsGeo } from "@/lib/events/annotate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
+import { ensurePartnerCatalog } from "@/lib/local/partner-catalog"
 import { loadFixtureIndex } from "@/lib/events/fixtures/loader"
 import { validateEvents } from "@/lib/events/validate"
 import { ensureLocationBaseline } from "@/lib/events/baseline"
@@ -97,6 +98,21 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
           c.location.geo_lng,
           { excludePlaceId: c.location.primary_place_id ?? undefined },
         )
+        // P16 §4.1: populate the grassroots partner-entity catalog on the SAME beat as the venue
+        // catalog (shared lat/lng + service-role client + ~quarterly TTL refresh). Fail-soft — its
+        // own try/catch returns whatever is cached (or []) so a partner-sweep blip never aborts the
+        // events run, and a missing partner_catalog table is a silent no-op until Bryan migrates.
+        try {
+          await ensurePartnerCatalog(
+            c.supabase,
+            c.locationId,
+            c.location.geo_lat,
+            c.location.geo_lng,
+            { excludePlaceId: c.location.primary_place_id ?? undefined },
+          )
+        } catch (err) {
+          c.state.warnings.push(`Partner catalog refresh skipped: ${String(err)}`)
+        }
         const queryDefs = buildEventQueryPlan({
           catalog,
           maxQueries,

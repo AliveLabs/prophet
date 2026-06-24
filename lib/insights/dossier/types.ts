@@ -148,6 +148,31 @@ export type EntitySignals = {
   reviews?: ReviewSentiment | null
 }
 
+// ── Partner-entity catalog read (§4.1, P16) — the grassroots anchor set ─────
+// Nearby NON-competitor entities (schools/PTA, offices, churches, gyms, hospitals,
+// hotels, theaters, breweries, bakeries, farmers-markets, …) the grassroots skill
+// turns into partner-named playbooks (spirit nights / catering drivers / reciprocal
+// cross-promos). FAIL-SOFT: an absent/unpopulated `partner_catalog` table yields an
+// EMPTY array — the grassroots entity-grounded archetypes then DON'T fire and the
+// skill stays on its number-free deterministic fallback (today's behavior).
+export type PartnerEntitySummary = {
+  name: string
+  /** One of the PartnerType taxonomy values (school | office | church | …). */
+  partnerType: string
+  /** Human label for the type (e.g. "school / PTA"). */
+  partnerLabel: string
+  /** Straight-line miles from this restaurant. */
+  distanceMi: number | null
+  /** Ordinal audience-size band (small | medium | large) — what the economics scale on. */
+  sizeBand: string
+  /** LOW anchor of the coarse audience-size proxy (enrollment / headcount / capacity); never a
+   *  fabricated true count — the prose treats it as a prior anchor, not a fact about the org. */
+  sizeProxyLow: number | null
+  sizeProxyHigh: number | null
+  /** What the proxy measures (e.g. "enrollment band", "staff headcount", "rooms"). */
+  sizeProxyKind: string
+}
+
 // ── The shared demand read (events + weather + busy times) ─────────────────
 export type DemandCalendar = {
   /** LOCAL demand drivers only (role local_foot/local_traffic, ≤~3mi). These may
@@ -172,6 +197,10 @@ export type Dossier = {
   location: EntitySignals // own
   competitors: EntitySignals[]
   demandCalendar: DemandCalendar
+  /** §4.1 (P16): nearby NON-competitor partner entities (the grassroots anchor set). Optional +
+   *  fail-soft: undefined/empty when the partner_catalog table is absent/unpopulated — the
+   *  grassroots entity-grounded archetypes then don't fire (number-free fallback = today). */
+  partnerEntities?: PartnerEntitySummary[]
   ruleOutputs: GeneratedInsight[] // all 76 deterministic rules = the grounded evidence layer
   /** Per-signal health: present/stale/missing + as-of date. Drives the "what we checked"
    *  panel and the provider-down resilience model (a stale signal is served, flagged).
