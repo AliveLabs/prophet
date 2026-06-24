@@ -4,6 +4,15 @@
 Memories to read first: `[[ticket-admin-panel-and-demo-data]]`, `[[bryan-design-flows-not-mechanisms]]`,
 `[[bryan-finished-tools-not-good-enough]]`, `[[ticket-insight-engine-deep-review]]`.
 
+**Engine sequence (2026-06-23, later autonomous session):** `main` advanced past the UX-rework SHAs —
+eslint/dead-code cleanup (`414b09b`) + **PV** vision→positioning (`e7ec6e6`) + **P5** ADJACENT_DOMAINS
+(`bcaf353`) all SHIPPED to prod (each: workflow build → adversarial review SHIP → tsc/0-lint/tests/build →
+FF main → Vercel green). **P9** dynamic feed: deep-research sources curated → `docs/engine-rewrite/p9-curated-sources.md`
+(Bryan: tune before seeding); **infra build PAUSED for context** at a clean boundary (nothing half-built).
+**Resume in a fresh session: P9 infra build → P10.** Full log: `[[2026-06-23-ticket-engine-pv-p5-p9-p10]]`.
+Ops this session: anand super_admin = already absent (no-op); dead `ux-rework` Supabase branch deletion
+HELD (classifier-blocked; dashboard → Branches → `ux-rework`, id `7c7c3a7f-8ecd-4c25-a1b9-649c52c15eb2`).
+
 ## Prod state
 - **`origin/main` = `6d857b0`** — `spine-rewrite` == `main` (synced). app.getticket.ai healthy.
 - **Shipped this session (all on prod, Vercel green):** completable demos (A1 — wizard `mode="setup"` + `DemoSetupBanner` = Set up/Resume/Open demo), provisioning keystone (A0 `createLocationForOrgAction`), org-level "View as customer" (B1), orgless→`/onboarding` routing (A3); **A2** two-path add-location (decision screen: upgrade tier on one bill, OR `/onboarding?new=1` = separately-billed org under one login); **B3** waitlist CSV export button. Reviews: security SHIP; correctness H1/M2 (batch 1) + M1/L1/L2 (A2) fixed. ⚠️ A2 NOT live-verified (auth+Stripe local gap) — recommend a prod click-through of add-location-when-full + the `?new=1` flow.
