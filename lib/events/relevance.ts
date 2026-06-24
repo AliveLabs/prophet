@@ -17,11 +17,35 @@
 // ---------------------------------------------------------------------------
 
 import type { NormalizedEvent } from "./types"
+import type { DensityClass } from "@/lib/local/census-density"
 
 export const PROXIMITY = {
   footMiles: 0.5,
   trafficMiles: 3.0, // Bryan: "5 or less, maybe even 3 or less" — start strict
 } as const
+
+// ── R2: density-scaled relevance radius (§3.3) ──────────────────────────────
+// "Local" is relative to how dense the surroundings are: in a dense urban core a draw a
+// quarter-mile away is the relevant ring and 3mi is metro noise; in the country a game
+// 4mi up the road is still "in town". So the foot/traffic thresholds become a FUNCTION of
+// the TRUE density class (from the Census R2 source) instead of the fixed 0.5/3.0mi.
+//
+// GRACEFUL NO-OP: when the density class is UNKNOWN (no CENSUS_API_KEY / Census failed /
+// the caller passes nothing), we use the suburban ring — which is EXACTLY today's
+// PROXIMITY.footMiles / trafficMiles — so the no-Census path is byte-identical to prod.
+export type ProximityRing = { footMiles: number; trafficMiles: number }
+
+export const DENSITY_RINGS: Record<DensityClass, ProximityRing> = {
+  dense_urban: { footMiles: 0.3, trafficMiles: 1.0 },
+  suburban: { footMiles: PROXIMITY.footMiles, trafficMiles: PROXIMITY.trafficMiles }, // = today (0.5 / 3.0)
+  rural: { footMiles: 0.75, trafficMiles: 5.0 },
+} as const
+
+/** The proximity ring for a density class. Unknown/undefined class → suburban (today's
+ *  exact 0.5/3.0mi), so omitting density is byte-identical to current behavior. */
+export function proximityRingFor(densityClass: DensityClass | null | undefined): ProximityRing {
+  return densityClass ? DENSITY_RINGS[densityClass] : DENSITY_RINGS.suburban
+}
 
 export type EventMagnitude = "major" | "moderate" | "minor"
 export type EventRole = "local_foot" | "local_traffic" | "metro_hook" | "route_corridor" | "out_of_area" | "ungeocoded"
@@ -54,16 +78,19 @@ export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue
 export function classifyEventRole(
   distanceMiles: number | null | undefined,
   magnitude: EventMagnitude,
-  opts: { isRoute?: boolean } = {},
+  opts: { isRoute?: boolean; densityClass?: DensityClass | null } = {},
 ): EventRole {
   if (distanceMiles == null || Number.isNaN(distanceMiles)) return "ungeocoded"
+  // R2: scale the foot/traffic ring by the TRUE density class. Unknown class → suburban,
+  // i.e. the original PROXIMITY.footMiles / trafficMiles — byte-identical to today.
+  const ring = proximityRingFor(opts.densityClass)
   // Route events get a looser corridor role: a closure passes the block even when the
   // anchor venue is up to a few miles away. It never claims "draw"; only access disruption.
   if (opts.isRoute) {
-    return distanceMiles <= PROXIMITY.trafficMiles ? "route_corridor" : "out_of_area"
+    return distanceMiles <= ring.trafficMiles ? "route_corridor" : "out_of_area"
   }
-  if (distanceMiles <= PROXIMITY.footMiles) return "local_foot"
-  if (distanceMiles <= PROXIMITY.trafficMiles) return "local_traffic"
+  if (distanceMiles <= ring.footMiles) return "local_foot"
+  if (distanceMiles <= ring.trafficMiles) return "local_traffic"
   if (magnitude === "major") return "metro_hook"
   return "out_of_area"
 }

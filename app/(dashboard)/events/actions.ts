@@ -20,7 +20,7 @@ import { validateEvents } from "@/lib/events/validate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
 import { ensureLocationBaseline } from "@/lib/events/baseline"
-import { ensureLocationDensity } from "@/lib/events/density"
+import { ensureLocationDensity, ensureLocationDensityClass } from "@/lib/events/density"
 import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 import type { EventsQuery, NormalizedEventsSnapshotV1 } from "@/lib/events/types"
 
@@ -148,9 +148,18 @@ export async function fetchEventsAction(formData: FormData) {
     // manual refresh treats events identically to the cron path (it previously
     // skipped geo and surfaced metro-wide events as if they were local).
     if (location.geo_lat != null && location.geo_lng != null) {
+      // R2: density-scaled relevance ring (parity with the cron pipeline). null when no
+      // CENSUS_API_KEY / Census fails → suburban 0.5/3.0mi ring (byte-identical to today).
+      const densityClass = await ensureLocationDensityClass(
+        supabase,
+        locationId,
+        location.geo_lat,
+        location.geo_lng,
+      )
       await annotateEventsGeo(snapshot.events, location.geo_lat, location.geo_lng, {
         supabase,
         catalog,
+        densityClass,
       })
 
       // Validation gate (P13 R1) — parity with the cron pipeline. Resolve venue identity,

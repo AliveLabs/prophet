@@ -26,7 +26,7 @@ import { ensurePartnerCatalog } from "@/lib/local/partner-catalog"
 import { loadFixtureIndex } from "@/lib/events/fixtures/loader"
 import { validateEvents } from "@/lib/events/validate"
 import { ensureLocationBaseline } from "@/lib/events/baseline"
-import { ensureLocationDensity } from "@/lib/events/density"
+import { ensureLocationDensity, ensureLocationDensityClass } from "@/lib/events/density"
 import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
 
 // ---------------------------------------------------------------------------
@@ -143,9 +143,19 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
         // Geocode each venue, measure distance, catalog-match for a rebrand-proof
         // magnitude upgrade, classify role. "Returned by the search" is NOT "nearby".
         if (c.location.geo_lat != null && c.location.geo_lng != null) {
+          // R2: resolve the TRUE-density CLASS (Census) to scale the relevance ring. null
+          // when no CENSUS_API_KEY / Census fails → annotate uses the suburban 0.5/3.0mi ring
+          // (byte-identical to today). Cached, so the tier lookup below reuses it.
+          const densityClass = await ensureLocationDensityClass(
+            c.supabase,
+            c.locationId,
+            c.location.geo_lat,
+            c.location.geo_lng,
+          )
           await annotateEventsGeo(c.state.snapshot.events, c.location.geo_lat, c.location.geo_lng, {
             supabase: c.supabase,
             catalog,
+            densityClass,
           })
 
           // ── Validation gate (P13 R1): VALIDATE-then-rank. Resolve a stable venue identity,

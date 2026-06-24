@@ -12,6 +12,7 @@ import type { NormalizedEvent } from "./types"
 import { geocodeVenue, haversineMiles } from "./geo"
 import { classifyEventMagnitude, classifyEventRole, isRouteEventTitle } from "./relevance"
 import { matchEventToCatalog, isMajorCapacity, type CatalogVenue } from "./venue-catalog"
+import type { DensityClass } from "@/lib/local/census-density"
 
 const GEO_BATCH = 5
 
@@ -19,7 +20,9 @@ export async function annotateEventsGeo(
   events: NormalizedEvent[],
   lat: number,
   lng: number,
-  opts: { supabase?: SupabaseClient; catalog?: CatalogVenue[] } = {},
+  // R2: pass `densityClass` to scale the foot/traffic relevance ring by true local
+  // density. Omitted/undefined → suburban ring = today's exact 0.5/3.0mi (no-op).
+  opts: { supabase?: SupabaseClient; catalog?: CatalogVenue[]; densityClass?: DensityClass | null } = {},
 ): Promise<void> {
   const catalog = opts.catalog ?? []
 
@@ -50,7 +53,7 @@ export async function annotateEventsGeo(
 
         const baseMagnitude = classifyEventMagnitude(e)
         e.magnitude = isMajorCapacity(e.capacityHigh) ? "major" : baseMagnitude
-        e.role = classifyEventRole(e.distanceMiles, e.magnitude, { isRoute })
+        e.role = classifyEventRole(e.distanceMiles, e.magnitude, { isRoute, densityClass: opts.densityClass })
       }),
     )
   }
