@@ -57,6 +57,20 @@ export type NormalizedEvent = {
   /** Route/street-closure event (marathon/parade/race) — not a point venue. */
   isRouteEvent?: boolean
 
+  // ── Validation gate (set by lib/events/validate.ts → wired in the events pipeline) ──
+  // The CLOSED set of validated fields that customer copy may template from. The raw scraped
+  // `title`/`venue.name` are NEVER interpolated into copy once these are present.
+  /** Venue-identity confidence: matched_place_id | geocoded_only | unresolved. */
+  venueConfidence?: "matched_place_id" | "geocoded_only" | "unresolved"
+  /** Canonical (catalog/fixture) venue name — replaces the scraped venue string in copy. */
+  validatedVenueName?: string | null
+  /** Authoritative local start "YYYY-MM-DD HH:MM" (fixtures) or ISO (resolved non-league). */
+  authoritativeLocalStart?: string | null
+  /** Provenance pointer to the authoritative fixture row (competition:venue:date). */
+  fixtureRef?: string | null
+  /** True only when a scheduled-league listing cleared the authoritative (venue+date) cross-check. */
+  leagueValidated?: boolean
+
   source: "dataforseo_google_events"
   keyword: string
   dateRange: string

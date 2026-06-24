@@ -64,6 +64,9 @@ export type ImpactResult = {
   fillSignal: number
   incrementalPerHour: number
   baselinePerHour: number | null
+  /** RELATIVE signal: incremental/hr ÷ THIS restaurant's own baseline/hr × 100. The same event
+   *  inverts by own-baseline — a big % for a thin-baseline indie, a small % for a high-baseline
+   *  QSR (Cane's). null when no baseline curve was available. */
   pctLift: number | null
   absoluteIncremental: number
   accessDisruption: number
@@ -72,6 +75,15 @@ export type ImpactResult = {
   /** 0..100 ranking score for top-K selection across a restaurant's events. */
   score: number
   channels: ImpactChannel[]
+  // ── P13 R3: baseline-presence confidence gate ──
+  /** True when the restaurant's own popular-times baseline was MISSING, so the relative door
+   *  couldn't run and surfacing rests on absolute/disruption only. The consumer should LOWER
+   *  confidence rather than silently treat the absolute-only read as fully trustworthy. */
+  baselineMissing: boolean
+  /** Surfacing confidence: "high" when the relative (own-baseline) door corroborates; "medium"
+   *  when an absolute/disruption door fires WITH a baseline present; "low" when the baseline was
+   *  missing (we couldn't relativize to this restaurant). */
+  surfaceConfidence: "high" | "medium" | "low"
 }
 
 // ── Tunable weights (0..100 scale where relevant; defaults, nudged from feedback) ──
@@ -175,14 +187,20 @@ export function scoreEventImpact(input: ImpactInputs): ImpactResult {
   const absoluteIncremental = Math.round(attendance * cap * fit * capt * input.daypartOverlap)
   const incrementalPerHour = absoluteIncremental / DRAW_WINDOW_HOURS
 
-  // Relative door (needs the restaurant's own curve).
+  // RELATIVE door (needs the restaurant's OWN curve). pctLift = incremental/hr ÷ this
+  // restaurant's own baseline/hr — so the SAME event inverts sign by own-baseline (a lift for a
+  // thin-baseline indie, a wash for a high-baseline QSR). P13 R3: when the baseline is MISSING we
+  // do NOT silently treat the absolute-only read as equivalent — we flag it so the consumer
+  // lowers confidence.
+  const baselineMissing = !(input.baselineCurve && input.baselineCurve.length > 0)
   let baselinePerHour: number | null = null
   let pctLift: number | null = null
-  if (input.baselineCurve && input.baselineCurve.length > 0) {
-    const hour = input.eventHour != null && input.eventHour >= 0 && input.eventHour < input.baselineCurve.length
+  if (!baselineMissing) {
+    const curve = input.baselineCurve as number[]
+    const hour = input.eventHour != null && input.eventHour >= 0 && input.eventHour < curve.length
       ? input.eventHour
-      : peakHourOf(input.baselineCurve)
-    const score = input.baselineCurve[hour] ?? 0
+      : peakHourOf(curve)
+    const score = curve[hour] ?? 0
     const throughput = peakThroughputPerHour(input.serviceModel, input.seats)
     baselinePerHour = Math.max(1, (score / 100) * throughput)
     pctLift = (incrementalPerHour / baselinePerHour) * 100
@@ -197,6 +215,14 @@ export function scoreEventImpact(input: ImpactInputs): ImpactResult {
     disruption: accessDisruption >= DISRUPTION_MATERIAL,
   }
   const surface = doors.relative || doors.absolute || doors.disruption
+
+  // P13 R3 confidence gate: the relative (own-baseline) door is the surest read because it's
+  // calibrated to THIS restaurant. Without a baseline we can't relativize → lower confidence.
+  const surfaceConfidence: ImpactResult["surfaceConfidence"] = doors.relative
+    ? "high"
+    : baselineMissing
+      ? "low"
+      : "medium"
 
   // Ranking score (0..100): the strongest door, so top-K picks the biggest fish.
   const relScore = pctLift != null ? Math.min(100, (pctLift / bars.pctBar) * 50) : 0
@@ -227,6 +253,8 @@ export function scoreEventImpact(input: ImpactInputs): ImpactResult {
     surface,
     score,
     channels: out,
+    baselineMissing,
+    surfaceConfidence,
   }
 }
 

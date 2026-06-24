@@ -185,19 +185,26 @@ function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): 
 function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightContext): GeneratedInsight {
   const channel = r.channels.find((c) => c.direction === "up")
   const isLobby = channel?.channel === "lobby"
-  const venue = e.catalogVenueName ?? e.venue?.name ?? "a nearby venue"
-  const when = e.startDatetime ? fmtDate(e.startDatetime) : e.displayedDates ?? "soon"
+  // VALIDATED FIELDS ONLY — the canonical venue + authoritative start, never the scraped title.
+  // (This is the World Cup mis-location/mis-dating fix: free-text title interpolation is removed.)
+  const venue = validatedVenue(e)
+  const when = validatedWhen(e)
+  const eventLabel = validatedEventLabel(e)
   const crowd = describeCrowd(e, r)
   const dist = e.distanceMiles != null ? `${e.distanceMiles}mi from` : "near"
   const surfaceLabel = isLobby ? "walk-in/lobby" : "dining-room"
-  const confidence: GeneratedInsight["confidence"] = e.capacityConfidence === "measured" ? "high" : "medium"
+  // Confidence reflects BOTH capacity grounding AND the R3 baseline gate: if we couldn't
+  // relativize to this restaurant's own curve (baseline missing), cap at the model's lower read
+  // instead of asserting a confident absolute-only surge.
+  const capConfidence: GeneratedInsight["confidence"] = e.capacityConfidence === "measured" ? "high" : "medium"
+  const confidence = lowerConfidence(capConfidence, mapSurfaceConfidence(r.surfaceConfidence))
   const severity: GeneratedInsight["severity"] =
     (channel?.intensity ?? 0) >= 0.9 ? "critical" : "warning"
 
   return {
     insight_type: "events.major_lobby_surge",
-    title: `Major event nearby: ${e.title ?? venue}`,
-    summary: `"${e.title ?? "A major event"}" at ${venue} (${when}) draws ${crowd} ${dist} ${ctx.locationName}. Expect a ${surfaceLabel} surge${e.isRouteEvent ? "" : " around the start and let-out"} — well above your typical volume for that window.`,
+    title: `Major event nearby: ${eventLabel}`,
+    summary: `${eventLabel} at ${venue} (${when}) draws ${crowd} ${dist} ${ctx.locationName}. Expect a ${surfaceLabel} surge${e.isRouteEvent ? "" : " around the start and let-out"} — well above your typical volume for that window.`,
     confidence,
     severity,
     evidence: {
@@ -212,6 +219,14 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
       absolute_incremental: r.absoluteIncremental,
       impact_score: r.score,
       doors: r.doors,
+      // P13 R3 + R1 provenance (internal; NOT customer copy).
+      surface_confidence: r.surfaceConfidence,
+      baseline_missing: r.baselineMissing,
+      venue_confidence: e.venueConfidence ?? null,
+      validated_venue: e.validatedVenueName ?? null,
+      authoritative_local_start: e.authoritativeLocalStart ?? null,
+      fixture_ref: e.fixtureRef ?? null,
+      league_validated: e.leagueValidated ?? false,
       event: eventSummary(e),
       location_name: ctx.locationName,
     },
@@ -229,14 +244,16 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
 }
 
 function buildSuppressionInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightContext): GeneratedInsight {
-  const venue = e.catalogVenueName ?? e.venue?.name ?? "a nearby venue"
-  const when = e.startDatetime ? fmtDate(e.startDatetime) : e.displayedDates ?? "soon"
+  // VALIDATED FIELDS ONLY (see buildSurgeInsight): canonical venue + authoritative start.
+  const venue = validatedVenue(e)
+  const when = validatedWhen(e)
+  const eventLabel = validatedEventLabel(e)
   const cause = e.isRouteEvent ? "Road closures for" : "Traffic and parking gridlock around"
 
   return {
     insight_type: "events.access_suppression",
-    title: `Drive-thru/lot access at risk: ${e.title ?? venue}`,
-    summary: `${cause} "${e.title ?? "a major event"}" at ${venue} (${when}) is likely to choke streets and parking near ${ctx.locationName} during the event window — your drive-thru and lot will back up even as walk-in demand climbs.`,
+    title: `Drive-thru/lot access at risk: ${venue}`,
+    summary: `${cause} ${eventLabel} at ${venue} (${when}) is likely to choke streets and parking near ${ctx.locationName} during the event window — your drive-thru and lot will back up even as walk-in demand climbs.`,
     confidence: e.isRouteEvent ? "medium" : "high",
     severity: "warning",
     evidence: {
@@ -257,6 +274,75 @@ function buildSuppressionInsight(e: NormalizedEvent, r: ImpactResult, ctx: Insig
       },
     ],
   }
+}
+
+// ---------------------------------------------------------------------------
+// Validated-field templating (P13 R1) — copy is built STRICTLY from validated fields.
+// The raw scraped `e.title` / `e.venue.name` are NEVER interpolated into customer copy.
+// ---------------------------------------------------------------------------
+
+/** Canonical venue for copy: the validated/catalog name, never the scraped venue string. */
+function validatedVenue(e: NormalizedEvent): string {
+  return e.validatedVenueName ?? e.catalogVenueName ?? "a nearby venue"
+}
+
+/** When for copy: the AUTHORITATIVE local start (fixture cross-check) when present, else the
+ *  event's own start date. Never a scraped free-text date string from the title.
+ *  Renders the LOCAL date component without any UTC roll — the authoritative date is already
+ *  the local calendar date at the venue, so we must not let a parse-as-UTC reinterpret it. */
+function validatedWhen(e: NormalizedEvent): string {
+  const src = e.authoritativeLocalStart ?? e.startDatetime
+  if (!src) return "soon"
+  const m = src.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (m) return fmtLocalDateParts(Number(m[1]), Number(m[2]), Number(m[3]))
+  return fmtDate(src)
+}
+
+/** Format a local Y/M/D with no timezone reinterpretation (anchored to UTC noon so it can't roll). */
+function fmtLocalDateParts(year: number, month: number, day: number): string {
+  try {
+    return new Date(Date.UTC(year, month - 1, day, 12)).toLocaleDateString("en-US", {
+      weekday: "short", month: "short", day: "numeric", timeZone: "UTC",
+    })
+  } catch {
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+  }
+}
+
+/** A safe event LABEL templated only from validated fields. For a cross-checked league fixture
+ *  we name the COMPETITION (from fixtureRef) + venue — never the scraped match pairing/title.
+ *  For a resolved non-league event we describe it generically by its canonical venue. */
+function validatedEventLabel(e: NormalizedEvent): string {
+  if (e.leagueValidated && e.fixtureRef) {
+    const competition = competitionDisplayFromRef(e.fixtureRef)
+    return competition ? `A ${competition} match` : "A scheduled match"
+  }
+  return "A major event"
+}
+
+const COMPETITION_DISPLAY: Record<string, string> = {
+  "fifa-world-cup-2026": "FIFA World Cup",
+}
+
+/** Map a fixtureRef ("competition:venue:date") → a human competition name (validated provenance). */
+function competitionDisplayFromRef(ref: string): string | null {
+  const compId = ref.split(":")[0] ?? ""
+  return COMPETITION_DISPLAY[compId] ?? null
+}
+
+/** ImpactResult.surfaceConfidence → the insight confidence enum (P13 R3). */
+function mapSurfaceConfidence(c: ImpactResult["surfaceConfidence"]): GeneratedInsight["confidence"] {
+  return c === "high" ? "high" : c === "medium" ? "medium" : "low"
+}
+
+const CONFIDENCE_RANK: Record<GeneratedInsight["confidence"], number> = { low: 0, medium: 1, high: 2 }
+
+/** The MORE conservative of two confidences (never over-claims). */
+function lowerConfidence(
+  a: GeneratedInsight["confidence"],
+  b: GeneratedInsight["confidence"],
+): GeneratedInsight["confidence"] {
+  return CONFIDENCE_RANK[a] <= CONFIDENCE_RANK[b] ? a : b
 }
 
 function describeCrowd(e: NormalizedEvent, r: ImpactResult): string {
@@ -289,7 +375,15 @@ function daypartOverlap(hour: number | null, hours: InsightContext["hours"]): nu
   return serves ? 1 : 0
 }
 
+/** Local hour the event lets out / peaks, for the curve lookup + daypart gate. P13 R3: prefer
+ *  the AUTHORITATIVE kickoff from the fixture cross-check (the validated field) over the
+ *  scraped/guessed start, so the impact model never daypart-gates on a wrong time. */
 function eventLocalHour(e: NormalizedEvent): number | null {
+  // authoritativeLocalStart is "YYYY-MM-DD HH:MM" (fixtures) or ISO (resolved non-league).
+  if (e.authoritativeLocalStart) {
+    const m = e.authoritativeLocalStart.match(/[ T](\d{2}):/)
+    if (m) return parseInt(m[1], 10)
+  }
   const m = (e.startDatetime ?? "").match(/T(\d{2}):/)
   if (m) return parseInt(m[1], 10)
   return null
@@ -320,9 +414,27 @@ function fmtRating(r: number | null): string {
   return r !== null ? `${r.toFixed(1)}-star` : ""
 }
 
+/**
+ * P13 (§5): titles in the density insights are RAW scraped text. They are illustrative flavor for a
+ * COUNT (not a venue/date impact claim — that path goes through validate.ts), but raw titles still
+ * leak emoji, promo/ticket noise, and wrong-location strings into customer copy. Sanitize before any
+ * title reaches copy: strip pictographs, drop promo/ticket tails + hype punctuation, collapse
+ * whitespace, length-cap. An emptied title is dropped (→ "multiple events" fallback).
+ */
+export function sanitizeEventTitle(title: string): string {
+  return (title ?? "")
+    .replace(/\p{Extended_Pictographic}/gu, "") // emoji / pictographs
+    .replace(/\s*[-–—|:]\s*(tickets?|buy now|on sale|get tickets|rsvp|limited).*$/i, "") // promo/ticket tail
+    .replace(/!{2,}/g, "") // hype punctuation
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60)
+    .trim()
+}
+
 function topEventNames(events: NormalizedEvent[], n = 3): string {
   return events
-    .map((e) => e.title)
+    .map((e) => sanitizeEventTitle(e.title ?? ""))
     .filter(Boolean)
     .slice(0, n)
     .map((t) => `"${t}"`)
@@ -512,16 +624,22 @@ function detectHighSignalEvents(
 
     if (matchedKeywords.length === 0 && !hasMultipleTicketSources) continue
 
-    const dateLabel = ev.startDatetime ? fmtDate(ev.startDatetime) : ev.displayedDates ?? "upcoming"
-    const venueName = ev.venue?.name ?? "a nearby venue"
+    // VALIDATED FIELDS ONLY (P13 §3.3 R1) — copy is templated strictly from validated fields
+    // (canonical venue + authoritative local start + competition label), NEVER the raw scraped
+    // `ev.title`/`ev.venue.name`/`ev.displayedDates`. This is the World Cup leak fix: a scraped
+    // title like "🔥 ENGLAND vs CROATIA — Tickets!! (WRONGtown)" must not reach customer copy.
+    // The audience descriptor stays keyword-based (derived, not interpolated free text).
+    const eventLabel = validatedEventLabel(ev)
+    const venueName = validatedVenue(ev)
+    const when = validatedWhen(ev)
     const audience = matchedKeywords
       .map((kw) => KEYWORD_AUDIENCE[kw])
       .filter(Boolean)[0] ?? "visitors exploring the area"
 
     insights.push({
       insight_type: "events.new_high_signal_event",
-      title: ev.title ?? "New notable event nearby",
-      summary: `"${ev.title ?? "Untitled"}" at ${venueName} on ${dateLabel} could draw ${audience}. ${hasMultipleTicketSources ? "Multiple ticket sources suggest strong attendance." : ""}`,
+      title: `New notable event nearby: ${eventLabel}`,
+      summary: `${eventLabel} at ${venueName} (${when}) could draw ${audience}. ${hasMultipleTicketSources ? "Multiple ticket sources suggest strong attendance." : ""}`.trim(),
       confidence: matchedKeywords.length >= 2 ? "high" : "medium",
       severity: "info",
       evidence: {
@@ -529,12 +647,17 @@ function detectHighSignalEvents(
         matched_keywords: matchedKeywords,
         ticket_source_count: ev.ticketsAndInfo?.length ?? 0,
         is_new: true,
+        // P13 R1 provenance (internal; NOT customer copy).
+        validated_venue: ev.validatedVenueName ?? null,
+        authoritative_local_start: ev.authoritativeLocalStart ?? null,
+        fixture_ref: ev.fixtureRef ?? null,
+        league_validated: ev.leagueValidated ?? false,
         location_name: ctx.locationName,
       },
       recommendations: [
         {
-          title: `Target ${ev.title ?? "event"} attendees`,
-          rationale: `This event attracts ${audience}. Consider a themed promotion at ${ctx.locationName} around ${dateLabel} to capture this audience.${ctx.locationRating ? ` Your ${fmtRating(ctx.locationRating)} rating makes you a strong choice for visitors.` : ""}`,
+          title: `Target ${eventLabel} attendees`,
+          rationale: `This event attracts ${audience}. Consider a themed promotion at ${ctx.locationName} around ${when} to capture this audience.${ctx.locationRating ? ` Your ${fmtRating(ctx.locationRating)} rating makes you a strong choice for visitors.` : ""}`,
         },
       ],
     })

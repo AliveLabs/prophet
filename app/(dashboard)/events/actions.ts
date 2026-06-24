@@ -15,6 +15,8 @@ import { computeEventsSnapshotDiffHash } from "@/lib/events/hash"
 import { matchEventsToCompetitors } from "@/lib/events/match"
 import { generateEventInsights, type InsightContext } from "@/lib/events/insights"
 import { annotateEventsGeo } from "@/lib/events/annotate"
+import { loadFixtureIndex } from "@/lib/events/fixtures/loader"
+import { validateEvents } from "@/lib/events/validate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
 import { ensureLocationBaseline } from "@/lib/events/baseline"
@@ -150,6 +152,23 @@ export async function fetchEventsAction(formData: FormData) {
         supabase,
         catalog,
       })
+
+      // Validation gate (P13 R1) — parity with the cron pipeline. Resolve venue identity,
+      // cross-check scheduled-league listings against the authoritative fixture schedule, and
+      // write VALIDATED FIELDS + a possibly-downgraded role back (the World Cup mis-location fix).
+      const fixtureIndex = await loadFixtureIndex(supabase)
+      const validated = validateEvents(snapshot.events, catalog, fixtureIndex)
+      snapshot.events = validated.map((v) => {
+        const e = v.event
+        e.role = v.role
+        e.venueConfidence = v.venueConfidence
+        e.validatedVenueName = v.fields.canonicalVenue
+        e.authoritativeLocalStart = v.fields.authoritativeLocalStart
+        e.fixtureRef = v.fields.fixtureRef
+        e.leagueValidated = v.leagueValidated
+        return e
+      })
+      snapshot.summary.totalEvents = snapshot.events.length
     }
 
     const diffHash = computeEventsSnapshotDiffHash(snapshot)

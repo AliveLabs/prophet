@@ -22,6 +22,8 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { annotateEventsGeo } from "@/lib/events/annotate"
 import { buildEventQueryPlan } from "@/lib/events/keywords"
 import { ensureVenueCatalog } from "@/lib/events/venue-catalog"
+import { loadFixtureIndex } from "@/lib/events/fixtures/loader"
+import { validateEvents } from "@/lib/events/validate"
 import { ensureLocationBaseline } from "@/lib/events/baseline"
 import { ensureLocationDensity } from "@/lib/events/density"
 import { deriveServiceModel, deriveHoursGate } from "@/lib/events/service-model"
@@ -129,12 +131,40 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
             supabase: c.supabase,
             catalog,
           })
+
+          // ── Validation gate (P13 R1): VALIDATE-then-rank. Resolve a stable venue identity,
+          // cross-check scheduled-league listings against the authoritative fixture schedule
+          // (WC2026 seed; fail-soft to in-code seed when the `fixtures` table is absent), and
+          // write VALIDATED FIELDS + a possibly-downgraded role back onto each event. This is
+          // the World Cup mis-location/mis-dating fix: an unresolved venue can never claim local,
+          // and a league listing at the wrong venue/date is downgraded to metro_hook BEFORE it
+          // reaches the local snapshot or any demand reasoning. Dedupes by (venue,date,title).
+          const fixtureIndex = await loadFixtureIndex(c.supabase)
+          const validated = validateEvents(c.state.snapshot.events, catalog, fixtureIndex)
+          // Dedupe collapses the snapshot to the surviving (strongest) occurrences.
+          c.state.snapshot.events = validated.map((v) => {
+            const e = v.event
+            e.role = v.role
+            e.venueConfidence = v.venueConfidence
+            e.validatedVenueName = v.fields.canonicalVenue
+            e.authoritativeLocalStart = v.fields.authoritativeLocalStart
+            e.fixtureRef = v.fields.fixtureRef
+            e.leagueValidated = v.leagueValidated
+            return e
+          })
+          c.state.snapshot.summary.totalEvents = c.state.snapshot.events.length
+
           const roles = c.state.snapshot.events.reduce<Record<string, number>>((acc, e) => {
             const r = e.role ?? "ungeocoded"
             acc[r] = (acc[r] ?? 0) + 1
             return acc
           }, {})
-          console.log(`[Events] geo roles for ${c.location.name}:`, JSON.stringify(roles))
+          const downgrades = validated.filter((v) => v.downgradeReason).length
+          console.log(
+            `[Events] geo roles for ${c.location.name}:`,
+            JSON.stringify(roles),
+            `| validation downgrades: ${downgrades}`,
+          )
         } else {
           c.state.warnings.push("Location has no geo coordinates — events left ungeocoded (no local-demand claims)")
           for (const e of c.state.snapshot.events) e.role = "ungeocoded"
