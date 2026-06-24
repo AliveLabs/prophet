@@ -51,3 +51,6 @@ app/docs/*Notes by Gemini*.md
 scripts/stripe/.e2e-screenshots
 .env.local.live.backup
 .env*.local
+
+# track the ops-env TEMPLATE (the real .env.ops.local stays ignored by .env*.local)
+!.env.ops.local.example
