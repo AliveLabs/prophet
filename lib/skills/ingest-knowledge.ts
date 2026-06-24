@@ -58,6 +58,23 @@ export const SNIPPET_MAX_CHARS = 600 // hard cap; the prompt asks for ~500
 export const TIER1_AUTOPROMOTE_CONFIDENCE = 70 // a corroborated tier-1 trend can reach `active`
 export const SINGLE_TIER1_SHADOW_CONFIDENCE = 60 // a lone tier-1 (uncorroborated) can reach `shadow`
 export const DEFAULT_ACTIVE_WINDOW_DAYS = 60 // trends self-retire after ~2 months
+// Throughput: the weekly run fetches many sources + distills many items against a 300s function limit.
+// Both phases run with a bounded concurrency pool so the run finishes well under the limit (the model
+// distill is the slow step) WITHOUT hammering source sites or the model's rate limits.
+export const FETCH_CONCURRENCY = 6
+export const DISTILL_CONCURRENCY = 6
+
+/** Run fn over items with at most `limit` promises in flight; PRESERVES input order in the results
+ *  (so per-source tallies + per-skill grouping stay deterministic regardless of completion order). */
+async function mapPool<T, R>(items: readonly T[], limit: number, fn: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let next = 0
+  const run = async (): Promise<void> => {
+    for (let i = next++; i < items.length; i = next++) results[i] = await fn(items[i], i)
+  }
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, run))
+  return results
+}
 
 // ── (a) HTTP transport (injectable for tests; never hit live in unit tests) ─────────────────────────
 export type HttpFetch = (url: string, init?: { headers?: Record<string, string> }) => Promise<{ ok: boolean; status: number; text: () => Promise<string> }>
@@ -347,35 +364,52 @@ export async function runIngestion(opts: RunIngestionOpts): Promise<IngestResult
   if (error) return result // fail-soft: registry absent/unreadable → no-op run (floor = today)
   const sources = (data ?? []).map(rowToSource).filter((s) => s.enabled)
 
-  // hits grouped per skill (a source can feed several skills).
-  const hitsBySkill = new Map<string, DistilledHit[]>()
+  result.sourcesTried = sources.length
 
-  for (const source of sources) {
-    result.sourcesTried++
+  // PHASE 1 — fetch every source CONCURRENTLY (bounded I/O). One dead source never breaks the run
+  // (per-source try/catch → failure_count++). mapPool keeps source order so the tallies below + errors[]
+  // stay deterministic regardless of which fetch finishes first.
+  type Fetched = { source: SourceRow; items: FetchedItem[]; ok: boolean; error?: string }
+  const fetched = await mapPool(sources, FETCH_CONCURRENCY, async (source): Promise<Fetched> => {
     try {
       const items = (await fetchSourceItems(source, opts.http)).slice(0, maxItems)
-      result.itemsFetched += items.length
-      let kept = 0
-      for (const item of items) {
-        const verdict = await distillItem(item, source, { transport: opts.transport })
-        if (!verdict || !passesDistillGate(verdict)) continue
-        kept++
-        for (const skillId of source.skillIds) {
-          const arr = hitsBySkill.get(skillId) ?? []
-          arr.push({ verdict, source, itemUrl: item.url })
-          hitsBySkill.set(skillId, arr)
-        }
-      }
-      result.distilledKept += kept
-      result.sourcesOk++
       await updateSourceStatus(opts.store, source.id, { last_fetch: new Date(now).toISOString(), last_status: items.length ? "ok" : "no_items", reset_failures: true })
+      return { source, items, ok: true }
     } catch (err) {
-      result.sourcesFailed++
       const msg = err instanceof Error ? err.message : "fetch_error"
-      result.errors.push({ sourceId: source.id, error: msg })
       await updateSourceStatus(opts.store, source.id, { last_fetch: new Date(now).toISOString(), last_status: msg.slice(0, 80), increment_failures: true })
+      return { source, items: [], ok: false, error: msg }
+    }
+  })
+  for (const f of fetched) {
+    if (f.ok) {
+      result.sourcesOk++
+      result.itemsFetched += f.items.length
+    } else {
+      result.sourcesFailed++
+      result.errors.push({ sourceId: f.source.id, error: f.error ?? "fetch_error" })
     }
   }
+
+  // PHASE 2 — distill every fetched item CONCURRENTLY (bounded). The model distill is the slow step, so
+  // this pool is what keeps the whole run well under the function time limit.
+  const toDistill = fetched.flatMap((f) => f.items.map((item) => ({ source: f.source, item })))
+  const verdicts = await mapPool(toDistill, DISTILL_CONCURRENCY, ({ source, item }) =>
+    distillItem(item, source, { transport: opts.transport }),
+  )
+
+  // hits grouped per skill (a source can feed several), built IN ORDER so corroboration is deterministic.
+  const hitsBySkill = new Map<string, DistilledHit[]>()
+  verdicts.forEach((verdict, i) => {
+    if (!verdict || !passesDistillGate(verdict)) return
+    result.distilledKept++
+    const { source, item } = toDistill[i]
+    for (const skillId of source.skillIds) {
+      const arr = hitsBySkill.get(skillId) ?? []
+      arr.push({ verdict, source, itemUrl: item.url })
+      hitsBySkill.set(skillId, arr)
+    }
+  })
 
   // Corroborate per skill → candidate rows → write (unless dry-run).
   for (const [skillId, hits] of hitsBySkill) {
