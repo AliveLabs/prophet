@@ -115,8 +115,16 @@ export const foodPairingSkill: ProducerSkill = {
   temperature: 0.5,
   knowledgeVersion: "food-pairing@v1",
   knowledge: FOOD_PAIRING_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(foodPairingSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(foodPairingSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "food-pairing", knowledgeVersion: "food-pairing@v1", defaultKind: "capitalize", defaultOwner: "kitchen" }),
   fallback,
+  // P14 learning hook: the kitchen consumes culinary-trend sources (NRA What's Hot, FoodBytes →
+  // external_trend priors on flavors/formats). Click feedback + ask routing. Opt-in metadata;
+  // injection still gated to ACTIVE rows.
+  learning: {
+    streams: ["external", "click", "ask"],
+    playTypeLeadDomain: "menu",
+    acceptedLearningKinds: ["external_trend", "editorial"],
+  },
 }

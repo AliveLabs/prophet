@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/vendor-health",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/ingest-knowledge-feeds",
+      "schedule": "0 21 * * 0"
     }
   ]
 }

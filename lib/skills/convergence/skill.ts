@@ -107,7 +107,7 @@ export const convergenceSkill: ProducerSkill = {
   temperature: 0.5, // ignored on the deep path (Opus rejects temperature); kept for the type
   knowledgeVersion: "convergence@v1",
   knowledge: CONVERGENCE_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(convergenceSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(convergenceSkill, d, selectInput(d), k),
   parse: (raw) => {
     const plays = coerceEnrichedPlays(raw, {
       skillId: "convergence",

@@ -7,6 +7,7 @@
 
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill } from "@/lib/skills/skill-types"
+import type { KnowledgeInjection, KnowledgeSnippet } from "@/lib/skills/knowledge-feeds"
 
 const NO_EXEC = [
   "Spell out the complete plan the operator could hand to staff. Stop before executing.",
@@ -80,23 +81,53 @@ const SCHEMA_INSTRUCTION = [
   "No prose outside the JSON array.",
 ].join("\n")
 
+// Learning Spine L0 (P14): the exact, load-bearing header for the learned-priors block. Trends
+// INFORM, they NEVER OVERRIDE the operator's own reality or the evidence — this line is a HARD rule,
+// not flavor. The block carries no new citable refs: it cannot add to allowedEvidenceRefs and cannot
+// relax GROUNDING. A play still grounds ONLY in the dossier's closed allowedEvidenceRefs set.
+const TRENDS_HEADER = "CURRENT TRENDS & LEARNED PRIORS (informational; never override the operator's own reality or the evidence)"
+const TRENDS_GUARD = [
+  "These are distilled industry trends and learned priors, NOT facts about THIS restaurant.",
+  "Use them only to inform judgment and prioritization. They are NOT evidence: never cite a trend as an evidenceRef, never quote a trend's number as if it were this restaurant's data, and never let a trend override the operator's own reality, the dossier evidence, or the GROUNDING rules above. If a trend conflicts with this restaurant's evidence, the evidence wins.",
+].join(" ")
+
+/** Render a list of snippets into the delimited TRENDS block, or "" if the set is empty (so an empty
+ *  active set OMITS the block entirely — leaving the surrounding prompt byte-identical to today). */
+function renderTrendsBlock(snippets: KnowledgeSnippet[]): string {
+  if (snippets.length === 0) return ""
+  const lines = snippets.map((s) => `- ${s.title}: ${s.snippet}`)
+  return [TRENDS_HEADER, TRENDS_GUARD, ...lines].join("\n")
+}
+
 /** Compose the system + user prompt for a skill, given the dossier slice it selected.
  *
  *  CACHE-AWARE SPLIT (prompt caching is a prefix match): `systemCached` holds
  *  everything byte-identical across locations and days — persona, domain playbook,
  *  rules, schema — so sequential brief builds (13 locations each morning) reuse it
  *  at ~0.1x input price. The per-location context (name, capability, voice) comes
- *  AFTER the cache breakpoint in `system`; the dossier stays in the user prompt. */
+ *  AFTER the cache breakpoint in `system`; the dossier stays in the user prompt.
+ *
+ *  P14 LEARNED PRIORS (optional, additive): pass `knowledge` (the pre-fetched, fail-soft loader
+ *  output) to inject the "CURRENT TRENDS & LEARNED PRIORS" block AFTER the DOMAIN PLAYBOOK and
+ *  BEFORE the RULES. GLOBAL snippets go INSIDE systemCached (weekly-stable → cache-safe; the cache
+ *  key carries effectiveKnowledgeVersion). Per-location/org snippets go AFTER the cache breakpoint in
+ *  `system` so they never bust the shared prefix. With no `knowledge` (or an EMPTY set) the block is
+ *  OMITTED and `systemCached` is BYTE-IDENTICAL to today — the floor when the table is empty/absent. */
 export function buildSkillPrompt(
   skill: ProducerSkill,
   d: Dossier,
   selectedInput: unknown,
+  knowledge?: KnowledgeInjection,
 ): { systemCached: string; system: string; prompt: string } {
+  // GLOBAL learned priors ride INSIDE the cached prefix (between PLAYBOOK and RULES). When empty the
+  // block string is "" and the filter drops it — so systemCached stays byte-identical to today.
+  const globalTrends = knowledge ? renderTrendsBlock(knowledge.global) : ""
   const systemCached = [
     `You are the ${skill.displayName} for Ticket, the expert advisor to a single restaurant. The specific restaurant you are advising is described after these standing instructions.`,
     "",
     "DOMAIN PLAYBOOK:",
     skill.knowledge,
+    ...(globalTrends ? ["", globalTrends] : []),
     "",
     "RULES:",
     NO_EXEC,
@@ -109,10 +140,14 @@ export function buildSkillPrompt(
   ].join("\n")
 
   const locale = [d.profile.attributes.cuisine, d.profile.attributes.priceTier].filter(Boolean).join(" ")
+  // SCOPED (org/location) learned priors ride AFTER the cache breakpoint, in the volatile `system`
+  // block — so a per-location learning never busts the shared 13-location morning prefix cache.
+  const scopedTrends = knowledge ? renderTrendsBlock(knowledge.scoped) : ""
   const system = [
     `THE RESTAURANT: you are advising ${d.profile.name}${locale ? `, a ${locale} restaurant` : ""}.`,
     capabilityLine(d),
     voiceLine(d),
+    ...(scopedTrends ? ["", scopedTrends] : []),
   ].join("\n")
 
   const allowedEvidenceRefs = [...buildRefIndex(d).allowedRefs].sort()

@@ -64,7 +64,7 @@ export const operationsSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: "operations@v1",
   knowledge: OPERATIONS_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(operationsSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(operationsSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "operations", knowledgeVersion: "operations@v1", defaultKind: "ops", defaultOwner: "gm" }),
   fallback,

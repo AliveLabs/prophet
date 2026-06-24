@@ -86,8 +86,16 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: "guerrilla@v1",
   knowledge: GUERRILLA_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(guerrillaMarketingSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(guerrillaMarketingSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "guerrilla-marketing", knowledgeVersion: "guerrilla@v1", defaultKind: "capitalize", defaultOwner: "marketing" }),
   fallback,
+  // P14 learning hook: grassroots consumes LSM / fundraiser-econ sources → external_trend priors
+  // (e.g. "spirit-night return ~32% within 60d" as a PRIOR, never a fabricated figure for this
+  // restaurant). Click feedback by archetype + ask routing. Opt-in metadata; injection ACTIVE-gated.
+  learning: {
+    streams: ["external", "click", "ask"],
+    playTypeLeadDomain: "grassroots",
+    acceptedLearningKinds: ["external_trend", "editorial"],
+  },
 }

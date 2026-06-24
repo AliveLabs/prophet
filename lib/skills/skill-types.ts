@@ -8,6 +8,25 @@
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Category, EnrichedRecommendation, OwnerRole, RecKind } from "@/lib/skills/types"
 import type { ModelTier } from "@/lib/ai/provider"
+import type { KnowledgeInjection } from "@/lib/skills/knowledge-feeds"
+
+// ── Learning Spine L0 (P14) — the opt-in per-skill learning hook ──────────────────────────────────
+// Declares, per skill: which signal STREAMS it consumes, its play_type_key lead-domain (used by the
+// feedback rollup, P15), and which learning_kinds it accepts into its prompt. OPT-IN: a skill with no
+// hook behaves EXACTLY as today (the loader still returns the floor; nothing changes). Adding a hook
+// is purely declarative metadata — it does not, by itself, alter prompt building or scoring.
+export type LearningStream = "external" | "click" | "ask"
+export type LearningKind = "external_trend" | "feedback_pattern" | "question_demand" | "editorial"
+
+export type SkillLearningHook = {
+  /** Which of the three signal streams this skill consumes. */
+  streams: LearningStream[]
+  /** Stable lead-domain for this skill's play_type_key (feedback rollup keying — P15). */
+  playTypeLeadDomain: string
+  /** Which learning_kinds this skill accepts INTO its prompt. A kind not listed here is never injected
+   *  for this skill even if an active row exists (defense in depth alongside the per-skill scope). */
+  acceptedLearningKinds: LearningKind[]
+}
 
 export type ProducerSkill = {
   id: string
@@ -29,12 +48,16 @@ export type ProducerSkill = {
   knowledge: string
   /** Build the prompts for this skill from the dossier (input selection lives here).
    *  systemCached = the stable, byte-identical-across-locations prefix (cached);
-   *  system = the volatile per-location context, after the cache breakpoint. */
-  buildPrompt: (d: Dossier) => { systemCached?: string; system: string; prompt: string }
+   *  system = the volatile per-location context, after the cache breakpoint.
+   *  P14: an OPTIONAL pre-fetched `knowledge` injection adds the "CURRENT TRENDS & LEARNED PRIORS"
+   *  block (global → cached prefix, scoped → volatile block). Absent → byte-identical to today. */
+  buildPrompt: (d: Dossier, knowledge?: KnowledgeInjection) => { systemCached?: string; system: string; prompt: string }
   /** Coerce model JSON into plays; return null to trigger the deterministic fallback. */
   parse: (raw: unknown, d: Dossier) => EnrichedRecommendation[] | null
   /** Deterministic, grounded fallback when the model fails/returns junk. Never fabricates. */
   fallback: (d: Dossier) => EnrichedRecommendation[]
+  /** P14: OPT-IN learning hook (which streams/kinds this skill consumes). Absence = today's behavior. */
+  learning?: SkillLearningHook
 }
 
 export type SkillResult = {

@@ -15,8 +15,19 @@ import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provide
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import {
+  loadActiveKnowledge,
+  effectiveKnowledgeVersion,
+  type KnowledgeInjection,
+} from "@/lib/skills/knowledge-feeds"
 
-export type RunOptions = { transport?: Transport }
+export type RunOptions = {
+  transport?: Transport
+  /** Test/ops seam: inject a pre-resolved knowledge set instead of reading skill_knowledge. */
+  knowledge?: KnowledgeInjection
+  /** Org id for org-scoped learnings (the dossier only carries locationId). */
+  organizationId?: string | null
+}
 
 export async function runProducerSkill(
   skill: ProducerSkill,
@@ -24,7 +35,24 @@ export async function runProducerSkill(
   opts: RunOptions = {},
 ): Promise<SkillResult> {
   try {
-    const { systemCached, system, prompt } = skill.buildPrompt(dossier)
+    // P14: ACTIVE learned priors for this skill (fail-soft → EMPTY when the table is absent/empty, so
+    // the prompt is byte-identical to today). Skipped entirely when a skill has no learning hook.
+    const knowledge: KnowledgeInjection =
+      opts.knowledge ??
+      (skill.learning
+        ? await loadActiveKnowledge(
+            skill.id,
+            {
+              locationId: dossier.profile.locationId,
+              organizationId: opts.organizationId ?? null,
+            },
+            // §2.5/§2.3 defense in depth: only the kinds this skill DECLARED it accepts are injected.
+            { acceptedKinds: skill.learning.acceptedLearningKinds },
+          )
+        : { global: [], scoped: [], globalVersion: "" })
+    // Plays stamp the EFFECTIVE version (base + global-set hash); empty set → base unchanged.
+    const knowledgeVersion = effectiveKnowledgeVersion(skill.knowledgeVersion, knowledge)
+    const { systemCached, system, prompt } = skill.buildPrompt(dossier, knowledge)
     // Deep skills (convergence) → Opus + adaptive thinking, high effort. Producers → the base
     // reasoning model (Sonnet 4.6) + adaptive thinking, MEDIUM effort (quality uplift, Bryan
     // 2026-06-20) bounded to 16k output. The provider omits temperature on any thinking path.
@@ -44,7 +72,7 @@ export async function runProducerSkill(
 
     const index = buildRefIndex(dossier)
     const grounded = plays
-      .map((p) => ({ ...p, skillId: skill.id, knowledgeVersion: skill.knowledgeVersion }))
+      .map((p) => ({ ...p, skillId: skill.id, knowledgeVersion }))
       .filter(
         (p) =>
           Array.isArray(p.evidenceRefs) &&

@@ -90,7 +90,7 @@ export const localDemandSkill: ProducerSkill = {
   temperature: 0.5,
   knowledgeVersion: "local-demand@v1",
   knowledge: LOCAL_DEMAND_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(localDemandSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(localDemandSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "local-demand", knowledgeVersion: "local-demand@v1", defaultKind: "capitalize", defaultOwner: "marketing" }),
   fallback,

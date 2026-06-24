@@ -148,7 +148,7 @@ export const positioningSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: "positioning@v3",
   knowledge: POSITIONING_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(positioningSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(positioningSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "positioning", knowledgeVersion: "positioning@v3", defaultKind: "positioning", defaultOwner: "owner" }),
   fallback,

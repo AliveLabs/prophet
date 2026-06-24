@@ -73,8 +73,15 @@ export const marketingSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: "marketing@v1",
   knowledge: MARKETING_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(marketingSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(marketingSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "marketing", knowledgeVersion: "marketing@v1", defaultKind: "capitalize", defaultOwner: "marketing" }),
   fallback,
+  // P14 learning hook: marketing consumes industry/menu-trend sources (NRN, MRM, NRA What's Hot →
+  // external_trend), click feedback, and ask routing. Opt-in metadata; injection still ACTIVE-gated.
+  learning: {
+    streams: ["external", "click", "ask"],
+    playTypeLeadDomain: "marketing",
+    acceptedLearningKinds: ["external_trend", "editorial"],
+  },
 }

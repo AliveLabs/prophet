@@ -322,9 +322,17 @@ export const socialCounterSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: SOCIAL_COUNTER_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(socialCounterSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(socialCounterSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // P14 learning hook: social counter-strategy has a clear external benchmark stream (Rival IQ /
+  // Socialinsider F&B benchmarks → external_trend priors). Consumes click feedback (which counter-move
+  // types operators act on) + ask routing. Opt-in metadata; injection still gated to ACTIVE rows.
+  learning: {
+    streams: ["external", "click", "ask"],
+    playTypeLeadDomain: "social",
+    acceptedLearningKinds: ["external_trend", "editorial"],
+  },
 }
 
 // Re-exported for the skill's own guardrail check + tests.

@@ -68,7 +68,7 @@ export const reputationSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: "reputation@v1",
   knowledge: REPUTATION_KNOWLEDGE,
-  buildPrompt: (d) => buildSkillPrompt(reputationSkill, d, selectInput(d)),
+  buildPrompt: (d, k) => buildSkillPrompt(reputationSkill, d, selectInput(d), k),
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "reputation", knowledgeVersion: "reputation@v1", defaultKind: "reputation", defaultOwner: "owner" }),
   fallback,
