@@ -145,6 +145,59 @@ export const CATEGORY_PRIORS: Record<Category, number> = {
 /** Prior used defensively if a play's category can't be resolved (neutral, no bias). */
 export const NEUTRAL_PRIOR = 1.0
 
+// --- P15: play-type feedback multiplier (Learning Spine L1) ------------------
+//
+// A SECOND, gentler multiplier applied ALONGSIDE the category prior in synthesis:
+//   combined = base × categoryPrior × playTypeMultiplier
+// It is derived from the distilled click-feedback rollup (skill_feedback_rollup), keyed by the
+// stable play_type_key. It only NUDGES rank — per-location brand_tolerance + the operator's
+// category-priors stay DOMINANT (the clamp below is deliberately tighter-feeling than the prior
+// range so a feedback nudge can't invert a tolerance/category signal).
+//
+// Every tunable for the multiplier lives HERE (the "one tunables file" invariant). The BAND that
+// maps actions → signal weight/confidence is the OTHER tuning surface and lives in feedback-signals.ts
+// (action semantics), kept separate on purpose: this file tunes how MUCH a distilled signal moves
+// rank; that file tunes WHICH actions count and how strongly. The rollup math (feedback-rollup.ts)
+// references these and never hard-codes them.
+
+/** Neutral multiplier — applied when there is no qualifying rollup (absent table, below support_n,
+ *  low confidence). The FLOOR: an empty rollup ⇒ every play multiplied by 1.0 ⇒ ranking is
+ *  byte-identical to today. */
+export const PLAY_TYPE_MULTIPLIER_NEUTRAL = 1.0
+
+/** The clamp on the feedback multiplier — a MODEST reweight, never a gate (matches the P10 0.7–1.3
+ *  decision in §6/§7). A strongly-disliked play-type bottoms at 0.7; a strongly-liked one tops at 1.3. */
+export const PLAY_TYPE_MULTIPLIER_MIN = 0.7
+export const PLAY_TYPE_MULTIPLIER_MAX = 1.3
+
+/** Minimum effective support (band-weighted count of feedback rows) before a rollup row is allowed to
+ *  move ranking at all. Below this, the multiplier is forced to NEUTRAL — one operator rage-clicking a
+ *  handful of times cannot move the engine (guardrail §2.2(a)). Tunable. */
+export const PLAY_TYPE_MIN_SUPPORT_N = 8
+
+/** Minimum self-trust before a rollup row counts: the rollup's aggregate confidence (the band's
+ *  confidence, support-weighted) must be >= this or the multiplier is forced NEUTRAL. The spec's
+ *  "confidence < 0.5 → zero weight → multiplier 1.0" guard. Tunable. */
+export const PLAY_TYPE_MIN_CONFIDENCE = 0.5
+
+/** Beta-Binomial smoothing prior (pseudo-counts) for the liked-rate. A symmetric prior centered at
+ *  0.5 means a row with little data smooths toward "neutral" (bayes_score ≈ 0.5 ⇒ multiplier ≈ 1.0),
+ *  so small samples can't swing the multiplier. Higher α=β ⇒ more smoothing / more data needed to move.
+ *  Tunable. */
+export const PLAY_TYPE_SMOOTHING_PRIOR = { alpha: 4, beta: 4 } as const
+
+/**
+ * Map a smoothed liked-rate (bayes_score, 0..1) onto the clamped multiplier range. 0.5 (neutral) →
+ * 1.0; 1.0 (all liked) → MAX; 0.0 (all disliked) → MIN. Linear around the neutral midpoint, then
+ * clamped. Pure — the single definition of how a liked-rate becomes a nudge.
+ */
+export function multiplierFromBayesScore(bayesScore: number): number {
+  const s = Number.isFinite(bayesScore) ? Math.max(0, Math.min(1, bayesScore)) : 0.5
+  const span = s >= 0.5 ? PLAY_TYPE_MULTIPLIER_MAX - 1.0 : 1.0 - PLAY_TYPE_MULTIPLIER_MIN
+  const raw = 1.0 + (s - 0.5) * 2 * span
+  return Math.max(PLAY_TYPE_MULTIPLIER_MIN, Math.min(PLAY_TYPE_MULTIPLIER_MAX, raw))
+}
+
 // --- Scoring ----------------------------------------------------------------
 
 export type ScoreInput = {
@@ -163,6 +216,14 @@ export type ScoreInput = {
   /** P11: true when this play cites a failure signal (negative trend / complaint / encroachment),
    *  which lifts the maintain cap. Undefined/false → cap applies to maintain plays. */
   hasFailureSignal?: boolean
+  /**
+   * P15: the distilled click-feedback multiplier for this play's play_type_key, applied as a THIRD
+   * clamped factor ALONGSIDE the category prior: combined = base × categoryPrior × playTypeMultiplier.
+   * Already clamped to [0.7, 1.3] by the rollup; undefined → PLAY_TYPE_MULTIPLIER_NEUTRAL (1.0) so an
+   * absent/empty rollup leaves the score identical to today. It only NUDGES — per-location
+   * brand_tolerance + the operator's category priors stay DOMINANT.
+   */
+  playTypeMultiplier?: number
 }
 
 /** Does any of a play's evidenceRefs match a FAILURE_REF_PATTERN? Case-insensitive, matched against
@@ -216,17 +277,27 @@ export function calibrationOf(play: Pick<EnrichedRecommendation, "stance" | "evi
   return { stance: play.stance, hasFailureSignal: hasFailureSignal(play.evidenceRefs) }
 }
 
+/** The play-type feedback multiplier for a ScoreInput, defensively clamped + defaulted to neutral.
+ *  Single definition so ranking + scoring + fusion all apply the SAME factor (P15). */
+export function effectivePlayTypeMultiplier(input: ScoreInput): number {
+  const m = input.playTypeMultiplier
+  if (typeof m !== "number" || !Number.isFinite(m)) return PLAY_TYPE_MULTIPLIER_NEUTRAL
+  return Math.max(PLAY_TYPE_MULTIPLIER_MIN, Math.min(PLAY_TYPE_MULTIPLIER_MAX, m))
+}
+
 /**
- * The combined 0-100 score: base × the category's modest prior, as a whole number.
- * `priors` defaults to the global CATEGORY_PRIORS; pass a per-location override
- * (P8) to rank with operator-tuned category weights.
+ * The combined 0-100 score: base × the category's modest prior × the play-type feedback multiplier
+ * (P15), as a whole number. `priors` defaults to the global CATEGORY_PRIORS; pass a per-location
+ * override (P8) to rank with operator-tuned category weights. The feedback multiplier is a SECOND,
+ * gentler factor — clamped to [0.7,1.3] and defaulting to 1.0 — so an empty rollup is a no-op and the
+ * category prior + brand_tolerance stay dominant.
  */
 export function computeCombinedScore(
   input: ScoreInput,
   priors: Record<Category, number> = CATEGORY_PRIORS,
 ): number {
   const prior = priors[input.category] ?? NEUTRAL_PRIOR
-  return Math.round(computeBaseScore(input) * prior)
+  return Math.round(computeBaseScore(input) * prior * effectivePlayTypeMultiplier(input))
 }
 
 // --- Ranking ----------------------------------------------------------------
@@ -277,7 +348,12 @@ export function rankPlays<T>(
     const input = toInput(item)
     const base = computeBaseScore(input)
     const prior = priors[input.category] ?? NEUTRAL_PRIOR
-    return { item, index, base, combined: base * prior, confidence: CONFIDENCE_SCORE[input.confidence] }
+    // P15: the play-type feedback multiplier rides alongside the category prior. Default 1.0 (empty
+    // rollup) ⇒ combined == base × prior, byte-identical to pre-P15 ranking. priorFlipped continues
+    // to measure ONLY the category prior's effect (base vs base×prior), so the feedback nudge does
+    // not pollute the prior-flip telemetry.
+    const feedback = effectivePlayTypeMultiplier(input)
+    return { item, index, base, combined: base * prior * feedback, confidence: CONFIDENCE_SCORE[input.confidence] }
   })
 
   const byCombined = sortByScore(scored, "combined")

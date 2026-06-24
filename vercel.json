@@ -27,6 +27,14 @@
     {
       "path": "/api/cron/ingest-knowledge-feeds",
       "schedule": "0 21 * * 0"
+    },
+    {
+      "path": "/api/cron/rollup-feedback",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/rollup-feedback?mode=weekly",
+      "schedule": "0 20 * * 0"
     }
   ]
 }

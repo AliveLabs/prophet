@@ -26,6 +26,61 @@ export function playKey(p: Pick<EnrichedRecommendation, "skillId" | "title"> & {
   return `${p.skillId}:${slug}`
 }
 
+// ── P15: play_type_key — the stable, low-cardinality descriptor the feedback rollup keys on ────────
+//
+// The rollup aggregates feedback BY PLAY TYPE, not by the exact play (a specific play rarely recurs;
+// its TYPE does). The key must be STABLE across regenerations (so feedback compounds) and LOW
+// CARDINALITY (so support_n accumulates instead of fragmenting into singletons that never clear the
+// small-N guard). It is: skillId + kind + lead-evidence-domain + severity-band. Lives beside playKey
+// because both are "the identity of a play for the feedback system" (the spec says here or a sibling).
+
+/** Severity (0 on-brand .. 3 wild, stamped by applyHarmReview) collapsed to a low-cardinality band,
+ *  so feedback on a sev-2 and a sev-3 of the same play-type aggregate together rather than splitting:
+ *  tame (0-1) | bold (2) | wild (3). Undefined severity → "tame" (the on-brand default). */
+export function severityBand(severity: number | undefined): "tame" | "bold" | "wild" {
+  if (typeof severity !== "number" || severity <= 1) return "tame"
+  if (severity >= 3) return "wild"
+  return "bold"
+}
+
+/** The lead evidence DOMAIN for a play — the stem of its first evidenceRef (the part before ":" or
+ *  the first "_"-segment), lower-cased. This is the coarse "what kind of signal grounds this play"
+ *  tag (e.g. `event`, `review`, `social`, `competitor`). A skill's declared learning.playTypeLeadDomain
+ *  is the PREFERRED source (stable + intentional); evidenceRefs are the fallback when no hook is set.
+ *  Empty refs → "none" (still low-cardinality, never undefined). */
+export function leadEvidenceDomain(refs: readonly string[] | undefined): string {
+  const first = refs?.find((r) => typeof r === "string" && r.trim().length > 0)
+  if (!first) return "none"
+  // Take the base before a ":" field-suffix, then the first underscore segment of that base, so
+  // `seo_competitor_growth_trend:pct` and `seo_competitor_overtake` both reduce to `seo` — keeping
+  // cardinality low while preserving the broad signal family.
+  const base = first.split(":")[0]
+  const stem = base.split("_")[0]
+  return (stem || base).toLowerCase()
+}
+
+/**
+ * computePlayTypeKey — the stable, low-cardinality key the feedback rollup aggregates on (P10/P15).
+ * Shape: `${skillId}|${kind}|${leadDomain}|${severityBand}`.
+ *
+ * - skillId      : which expert produced it (the rollup is keyed BY SKILL so it feeds that skill's loop).
+ * - kind         : the play SHAPE (prepare/capitalize/reputation/positioning/ops).
+ * - leadDomain   : the coarse evidence family (the skill's declared lead-domain, else the first ref's
+ *                  stem). Stable + intentional when the skill declares a hook.
+ * - severityBand : tame | bold | wild — so feedback on adventurous vs on-brand variants aggregates
+ *                  per band (severity-aware distillation, guardrail §2.2(b)).
+ *
+ * `leadDomainOverride` lets the caller pass the skill's declared learning.playTypeLeadDomain (the
+ * preferred, stable source); when absent it's derived from evidenceRefs. Deterministic + pure.
+ */
+export function computePlayTypeKey(
+  p: Pick<EnrichedRecommendation, "skillId" | "kind" | "evidenceRefs" | "severity">,
+  opts: { leadDomainOverride?: string } = {},
+): string {
+  const lead = opts.leadDomainOverride?.trim() || leadEvidenceDomain(p.evidenceRefs)
+  return [p.skillId, p.kind, lead.toLowerCase(), severityBand(p.severity)].join("|")
+}
+
 const STEP = 8
 const clamp = (n: number) => Math.max(0, Math.min(100, n))
 

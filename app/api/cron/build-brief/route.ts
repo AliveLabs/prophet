@@ -17,6 +17,8 @@ import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
+import { loadPlayTypeMultipliersForLocation } from "@/lib/skills/feedback-rollup"
+import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
@@ -39,8 +41,13 @@ export async function GET(req: Request) {
     try {
       const dossier = await buildDossier(single)
       // P7a/P7b: dismissal cooldown + evergreen resurfacing (both fail-soft).
-      const [suppressedKeys, evergreen] = await Promise.all([loadActiveCooldowns(single), loadEvergreenPlays(single)])
-      const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen })
+      // P15: distilled click-feedback multiplier lookup (fail-soft → neutral pre-migration).
+      const [suppressedKeys, evergreen, playTypeMultipliers] = await Promise.all([
+        loadActiveCooldowns(single),
+        loadEvergreenPlays(single),
+        loadPlayTypeMultipliersForLocation(single, PRODUCER_SKILLS.map((s) => s.id)),
+      ])
+      const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen, playTypeMultipliers })
       await saveBrief(brief)
       // Pinned standing question re-runs on the fresh signals, right after the brief.
       const standing = await runStandingQuestion(single)

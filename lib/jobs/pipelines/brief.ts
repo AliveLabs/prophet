@@ -13,6 +13,8 @@ import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
 import { saveBrief, hasAnyBrief } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
+import { loadPlayTypeMultipliersForLocation } from "@/lib/skills/feedback-rollup"
+import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { runStandingQuestion } from "@/lib/ask/history"
 import { sendEmail, FROM_ADDRESS_TICKET, FROM_ADDRESS_NEAT } from "@/lib/email/send"
 import { FirstBriefReady } from "@/lib/email/templates/first-brief-ready"
@@ -52,11 +54,13 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
 
         const dossier = await buildDossier(c.locationId)
         // P7a/P7b: suppress dismissed plays (cooldown) + resurface relevant saved plays. Both fail-soft.
-        const [suppressedKeys, evergreen] = await Promise.all([
+        // P15: load the distilled click-feedback multiplier lookup (fail-soft → neutral pre-migration).
+        const [suppressedKeys, evergreen, playTypeMultipliers] = await Promise.all([
           loadActiveCooldowns(c.locationId),
           loadEvergreenPlays(c.locationId),
+          loadPlayTypeMultipliersForLocation(c.locationId, PRODUCER_SKILLS.map((s) => s.id)),
         ])
-        const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen })
+        const { brief, dropped } = await runBrief(dossier, { suppressedKeys, evergreen, playTypeMultipliers })
         await saveBrief(brief)
         c.state.headline = brief.headline ?? null
 

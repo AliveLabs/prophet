@@ -15,7 +15,8 @@ import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } 
 import { rankPlays, computeCombinedScore, calibrationOf, type ScoreInput } from "@/lib/skills/scoring-config"
 import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
-import { playKey } from "@/lib/skills/preferences"
+import { playKey, computePlayTypeKey } from "@/lib/skills/preferences"
+import { NEUTRAL_LOOKUP, type PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 
 export type SynthOptions = {
@@ -27,6 +28,10 @@ export type SynthOptions = {
   /** P7b: persisted "saved" plays — resurfaced into the pool when their grounding signals re-fire
    *  today (and they're not already produced or in cooldown). Loaded by the build caller. */
   evergreen?: EnrichedRecommendation[]
+  /** P15: the distilled click-feedback multiplier lookup (skill_feedback_rollup), loaded by the build
+   *  caller for this location's scope. Applied as a THIRD clamped factor (0.7–1.3) ALONGSIDE the
+   *  category prior. Absent → NEUTRAL_LOOKUP (every play × 1.0) ⇒ ranking byte-identical to today. */
+  playTypeMultipliers?: PlayTypeMultiplierLookup
 }
 
 /** P7b: cap on how many persisted plays may resurface into one brief (avoid flooding). */
@@ -68,14 +73,24 @@ const CATEGORY_BY_SKILL: Record<string, Category> = Object.fromEntries(
   PRODUCER_SKILLS.map((s) => [s.id, s.category]),
 )
 
-/** Map a play to its scoring factors: confidence, impact (leverage.label), and category. */
-function toScoreInput(p: EnrichedRecommendation): ScoreInput {
+// P15: each skill's declared lead-domain for the play_type_key (its learning hook). Preferred over
+// deriving the domain from evidenceRefs because it's stable + intentional. Absent → derived per-play.
+const LEAD_DOMAIN_BY_SKILL: Record<string, string> = Object.fromEntries(
+  PRODUCER_SKILLS.filter((s) => s.learning?.playTypeLeadDomain).map((s) => [s.id, s.learning!.playTypeLeadDomain]),
+)
+
+/** Map a play to its scoring factors: confidence, impact (leverage.label), category, and (P15) the
+ *  distilled click-feedback multiplier for its play_type_key (1.0 when no rollup applies). The
+ *  multiplier lookup defaults to NEUTRAL_LOOKUP so callers that don't pass one (e.g. fusion's
+ *  scoreOf) behave exactly as pre-P15. */
+function toScoreInput(p: EnrichedRecommendation, multipliers: PlayTypeMultiplierLookup = NEUTRAL_LOOKUP): ScoreInput {
   const category = CATEGORY_BY_SKILL[p.skillId]
   if (!category) {
     // Defensive: a play from a skill not in the registry shouldn't happen — surface the
     // misconfig rather than silently scoring it at the neutral 1.0 prior.
     console.warn(`[synthesis] no category for skillId "${p.skillId}"; scoring at neutral prior`)
   }
+  const playTypeKey = computePlayTypeKey(p, { leadDomainOverride: LEAD_DOMAIN_BY_SKILL[p.skillId] })
   return {
     confidence: p.confidence,
     impact: p.leverage?.label,
@@ -83,6 +98,9 @@ function toScoreInput(p: EnrichedRecommendation): ScoreInput {
     // P11: a maintain play with no failure signal is capped at low impact before scoring, so a
     // best-practice habit ("keep replying to reviews") can't outrank a real problem.
     ...calibrationOf(p),
+    // P15: the click-feedback nudge for this play's TYPE (clamped 0.7–1.3; 1.0 when no rollup). It
+    // rides ALONGSIDE the category prior in computeCombinedScore/rankPlays — never inverting rank.
+    playTypeMultiplier: multipliers.multiplierFor(playTypeKey),
   }
 }
 
@@ -121,6 +139,11 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // P8: effective category priors = the operator's per-location override (if any) layered
   // over the global priors. Used everywhere a play is scored/ranked below.
   const priors = resolveCategoryPriors(d.profile.categoryPriors)
+  // P15: the distilled click-feedback multiplier lookup for this location (loaded by the build
+  // caller). Defaults to NEUTRAL_LOOKUP (every play × 1.0) so synthesis is byte-identical to today
+  // when no rollup is wired/present. Bound into the local scoring closure below.
+  const multipliers = opts.playTypeMultipliers ?? NEUTRAL_LOOKUP
+  const scoreInput = (p: EnrichedRecommendation): ScoreInput => toScoreInput(p, multipliers)
   // Prefer the rich per-signal coverage the dossier builder computes (with as-of/staleness);
   // fall back to a basic derivation for hand-built fixtures that omit it.
   const coverage = d.coverage ?? buildCoverage(d)
@@ -138,7 +161,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // fusable cluster; deterministic keep-best fallback. Usually a no-op (no clusters → no LLM call).
   const fusedPool = await fuseNearDuplicates(candidates, d, {
     transport: opts.transport,
-    scoreOf: (p) => computeCombinedScore(toScoreInput(p), priors),
+    scoreOf: (p) => computeCombinedScore(scoreInput(p), priors),
   })
   // P7a: suppress again AFTER fusion. The pre-fusion filter above catches dismissed PRODUCER plays
   // (and keeps them out of fusion); this catches a dismissed FUSED play, whose stableKey is stable
@@ -159,7 +182,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
       .filter((p) => !opts.suppressedKeys?.has(playKey(p)))
       .filter((p) => (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((r) => allowedRefs.has(r)))
       // Strongest first so the cap keeps the best — don't rely on the DB load order (#3).
-      .sort((a, b) => computeCombinedScore(toScoreInput(b), priors) - computeCombinedScore(toScoreInput(a), priors))
+      .sort((a, b) => computeCombinedScore(scoreInput(b), priors) - computeCombinedScore(scoreInput(a), priors))
       .slice(0, MAX_RESURFACED)
       // Drop any persisted reach figure — it may no longer trace to a live signal (#4).
       .map((p) => (p.leverage?.reach ? { ...p, leverage: { ...p.leverage, reach: undefined } } : p))
@@ -172,7 +195,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // confidence + importance, × a modest category prior). This is the deterministic
   // spine the model may reorder on success, and the grounded fallback otherwise.
   // leverage (impact) now actually drives rank — the old KIND ladder ignored it.
-  const { ranked, priorFlipped } = rankPlays(pool, toScoreInput, priors)
+  const { ranked, priorFlipped } = rankPlays(pool, scoreInput, priors)
   const rankedPlays = ranked.map((r) => r.item)
   const scoreByPlay = new Map(ranked.map((r) => [r.item, r.score]))
   if (priorFlipped) {

@@ -8,7 +8,9 @@ import type { Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
-// (suppressedKeys / evergreen are loaded by the build caller from lib/insights/evergreen.ts)
+import type { PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
+// (suppressedKeys / evergreen / playTypeMultipliers are loaded by the build caller from
+//  lib/insights/evergreen.ts and lib/skills/feedback-rollup.ts)
 import { runProducerSkills } from "@/lib/skills/run"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
@@ -25,6 +27,9 @@ export type RunBriefOptions = {
   suppressedKeys?: Set<string>
   /** P7b: persisted "saved" plays to consider resurfacing (loaded by the build caller from evergreen_plays). */
   evergreen?: EnrichedRecommendation[]
+  /** P15: distilled click-feedback multiplier lookup (skill_feedback_rollup), loaded by the build
+   *  caller for this location's scope. Absent → NEUTRAL_LOOKUP (every play × 1.0) ⇒ no rank change. */
+  playTypeMultipliers?: PlayTypeMultiplierLookup
 }
 
 export type BriefResult = {
@@ -55,6 +60,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     maxPlays: opts.maxPlays,
     suppressedKeys: opts.suppressedKeys,
     evergreen: opts.evergreen,
+    playTypeMultipliers: opts.playTypeMultipliers,
   })
   const written: Brief = {
     ...synthesized,
