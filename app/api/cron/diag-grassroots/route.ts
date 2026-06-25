@@ -43,9 +43,10 @@ export async function GET(req: Request) {
       : { global: [], scoped: [], globalVersion: "" }
     const { systemCached, system, prompt } = guerrillaMarketingSkill.buildPrompt(dossier, knowledge)
 
+    const maxOutputTokens = Number(new URL(req.url).searchParams.get("max_tokens")) || 16000
     let raw: unknown = null
     const postParse = await generateStructured<EnrichedRecommendation[]>(
-      { tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking: true, effort: "medium", maxOutputTokens: 16000 },
+      { tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking: true, effort: "medium", maxOutputTokens },
       {
         validate: (r) => {
           raw = r
@@ -76,10 +77,12 @@ export async function GET(req: Request) {
       datedEvents: dossier.demandCalendar?.events?.length ?? 0,
       allowedGrassrootsRefs,
       activeKnowledge: knowledge.global.length + knowledge.scoped.length,
+      maxOutputTokens,
       rawIsArray: Array.isArray(raw),
       rawCount: Array.isArray(raw) ? raw.length : ((raw as { plays?: unknown[] })?.plays?.length ?? null),
       coercedCount: coerced.length,
       postParseCount: postParse.length,
+      postParseTitles: postParse.map((p) => p.title),
       breakdown,
     })
   } catch (err) {
