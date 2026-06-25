@@ -15,9 +15,8 @@ import {
   namesAnAnchor,
 } from "@/lib/skills/guerrilla-marketing/skill"
 import { coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
-import { generateStructured } from "@/lib/ai/provider"
+import { claudeRaw, extractJson } from "@/lib/ai/provider"
 import { loadActiveKnowledge } from "@/lib/skills/knowledge-feeds"
-import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 export const maxDuration = 300
 
@@ -44,17 +43,16 @@ export async function GET(req: Request) {
     const { systemCached, system, prompt } = guerrillaMarketingSkill.buildPrompt(dossier, knowledge)
 
     const maxOutputTokens = Number(new URL(req.url).searchParams.get("max_tokens")) || 16000
-    let raw: unknown = null
-    const postParse = await generateStructured<EnrichedRecommendation[]>(
-      { tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking: true, effort: "medium", maxOutputTokens },
-      {
-        validate: (r) => {
-          raw = r
-          return guerrillaMarketingSkill.parse(r, dossier)
-        },
-        fallback: () => guerrillaMarketingSkill.fallback(dossier),
-      },
-    )
+    // Call the model DIRECTLY (not via generateStructured) so we capture the raw TEXT + any API error.
+    let rawText = ""
+    let rawErr: string | null = null
+    try {
+      rawText = await claudeRaw({ tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking: true, effort: "medium", maxOutputTokens })
+    } catch (e) {
+      rawErr = e instanceof Error ? e.message : String(e)
+    }
+    const raw = rawText ? extractJson(rawText) : null
+    const postParse = guerrillaMarketingSkill.parse(raw, dossier) ?? []
 
     const coerced =
       coerceEnrichedPlays(raw, { skillId: "guerrilla-marketing", knowledgeVersion: "diag", defaultKind: "capitalize", defaultOwner: "marketing" }) ?? []
@@ -78,7 +76,12 @@ export async function GET(req: Request) {
       allowedGrassrootsRefs,
       activeKnowledge: knowledge.global.length + knowledge.scoped.length,
       maxOutputTokens,
-      rawIsArray: Array.isArray(raw),
+      rawErr,
+      rawTextLength: rawText.length,
+      rawTextHead: rawText.slice(0, 1400),
+      rawTextTail: rawText.slice(-700),
+      extractJsonType: raw === null ? "null" : Array.isArray(raw) ? "array" : typeof raw,
+      extractJsonKeys: raw && typeof raw === "object" && !Array.isArray(raw) ? Object.keys(raw as object) : undefined,
       rawCount: Array.isArray(raw) ? raw.length : ((raw as { plays?: unknown[] })?.plays?.length ?? null),
       coercedCount: coerced.length,
       postParseCount: postParse.length,
