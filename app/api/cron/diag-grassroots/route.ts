@@ -42,15 +42,21 @@ export async function GET(req: Request) {
       : { global: [], scoped: [], globalVersion: "" }
     const { systemCached, system, prompt } = guerrillaMarketingSkill.buildPrompt(dossier, knowledge)
 
-    const maxOutputTokens = Number(new URL(req.url).searchParams.get("max_tokens")) || 16000
-    // Call the model DIRECTLY (not via generateStructured) so we capture the raw TEXT + any API error.
+    const url = new URL(req.url)
+    const maxOutputTokens = Number(url.searchParams.get("max_tokens")) || 16000
+    const effort = (url.searchParams.get("effort") as "low" | "medium" | "high" | null) ?? "medium"
+    const thinking = url.searchParams.get("thinking") !== "0"
+    const promptChars = (systemCached?.length ?? 0) + (system?.length ?? 0) + (prompt?.length ?? 0)
+    // Call the model DIRECTLY (not via generateStructured) so we capture the raw TEXT + any API error + latency.
+    const t0 = Date.now()
     let rawText = ""
     let rawErr: string | null = null
     try {
-      rawText = await claudeRaw({ tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking: true, effort: "medium", maxOutputTokens })
+      rawText = await claudeRaw({ tier: guerrillaMarketingSkill.tier, systemCached, system, prompt, temperature: guerrillaMarketingSkill.temperature, thinking, effort, maxOutputTokens })
     } catch (e) {
       rawErr = e instanceof Error ? e.message : String(e)
     }
+    const latencyMs = Date.now() - t0
     const raw = rawText ? extractJson(rawText) : null
     const postParse = guerrillaMarketingSkill.parse(raw, dossier) ?? []
 
@@ -76,6 +82,10 @@ export async function GET(req: Request) {
       allowedGrassrootsRefs,
       activeKnowledge: knowledge.global.length + knowledge.scoped.length,
       maxOutputTokens,
+      effort,
+      thinking,
+      promptChars,
+      latencyMs,
       rawErr,
       rawTextLength: rawText.length,
       rawTextHead: rawText.slice(0, 1400),
