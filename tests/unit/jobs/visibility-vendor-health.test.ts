@@ -10,6 +10,7 @@ vi.mock("@/lib/providers/dataforseo/ads-search", () => ({ fetchAdsSearch: vi.fn(
 import { buildVisibilitySteps } from "@/lib/jobs/pipelines/visibility"
 import { fetchAdsSearch } from "@/lib/providers/dataforseo/ads-search"
 import { DataForSEOError } from "@/lib/providers/dataforseo/client"
+import { isVendorOutageRun } from "@/lib/jobs/vendor-health"
 
 const adsStep = () => {
   const step = buildVisibilitySteps().find((s) => s.name === "ads_search")
@@ -54,5 +55,26 @@ describe("visibility pipeline — DataForSEO vendor-health propagation", () => {
   it("soft-degrades a non-payment DataForSEOError (e.g. a 500) — only payment outages propagate", async () => {
     const r = await outcome(async () => { throw new DataForSEOError("DataForSEO error: 500", 500) })
     expect(r).toMatchObject({ adCreatives: 0 })
+  })
+})
+
+// The FLEET-ALERT classifier (2026-06-25): the daily watchdog was firing "degraded" off benign partial
+// events runs (DataForSEO 40102 "no results" / 40501 "invalid field" on one query, no payment issue).
+// isVendorOutageRun must count ONLY genuine outages — payment/credits or a fully-failed run.
+describe("isVendorOutageRun — fleet-alert sensitivity (only genuine outages count)", () => {
+  const sig = (paymentRequired: boolean, status = 40102) => ({ vendor: { name: "dataforseo", status, paymentRequired } })
+
+  it("does NOT count a PARTIAL run with a benign non-payment vendor hiccup (the daily false alarm)", () => {
+    expect(isVendorOutageRun("partial", "DataForSEO events error: 40102", sig(false, 40102))).toBe(false)
+    expect(isVendorOutageRun("partial", "DataForSEO events error: 40501", sig(false, 40501))).toBe(false)
+  })
+  it("DOES count a payment/credit outage (the actionable refill case) even when partial", () => {
+    expect(isVendorOutageRun("partial", "out of credits", sig(true, 40200))).toBe(true)
+  })
+  it("DOES count a fully FAILED vendor run (got no data)", () => {
+    expect(isVendorOutageRun("failed", "DataForSEO error: 500", { vendor: { name: "dataforseo", status: 500, paymentRequired: false } })).toBe(true)
+  })
+  it("does NOT count a non-vendor run", () => {
+    expect(isVendorOutageRun("failed", "some unrelated timeout", null)).toBe(false)
   })
 })

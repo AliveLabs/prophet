@@ -53,6 +53,14 @@ export async function fetchGoogleEvents(
 
   const taskResult = data.tasks?.[0]
   if (taskResult?.status_code && taskResult.status_code !== 20000) {
+    // 40102 = "No Search Results" — NOT an error, just no events for this keyword/location (DataForSEO's
+    // benign no-data code; mirrors ads-search.ts). Many locations legitimately have no events. Returning
+    // empty here (instead of throwing a DataForSEOError) keeps a benign empty from being stamped as a
+    // vendor-failure signal — which the fleet health detector was reading as a fleet-wide DataForSEO
+    // outage and firing the daily "pipeline watchdog: degraded" alert on. (2026-06-25.)
+    if (taskResult.status_code === 40102) {
+      return { items: [], keyword: input.keyword, dateRange: input.dateRange ?? "all" }
+    }
     // Typed so a task-level credit/cost-limit code (40200/40201/40203/40210) is detectable as a
     // vendor outage by the worker (instanceof), not just an HTTP 402. Mirrors extractFirstResult.
     throw new DataForSEOError(

@@ -95,6 +95,20 @@ function isPaymentRun(reason: string | null, signals: unknown): boolean {
   return PAYMENT_REASON_RE.test(reason ?? "")
 }
 
+/**
+ * Stricter than isVendorDownRun (which the coverage UI uses): for the FLEET ALERT, count a location as
+ * vendor-down ONLY when the vendor is genuinely UNUSABLE — a payment/credit failure (the actionable
+ * refill case, which will soon fail everything) OR a fully FAILED run (got no data at all). A `partial`
+ * run with a benign task-level hiccup on one query (e.g. 40102 "no results", 40501 "invalid field") still
+ * produced data → the vendor is up → it must NOT fire the daily watchdog. This is what was firing
+ * "pipeline watchdog: degraded — scheduled jobs unhealthy" every day off benign no-event responses.
+ * (2026-06-25 sensitivity fix — the credits-outage + total-outage cases still alert.)
+ */
+export function isVendorOutageRun(outcome: string, reason: string | null, signals: unknown): boolean {
+  if (!isVendorDownRun(outcome, reason, signals)) return false
+  return outcome === "failed" || isPaymentRun(reason, signals)
+}
+
 // ── Coverage read (UI) ──────────────────────────────────────────────────────
 
 export type PipelineCoverage = {
@@ -232,7 +246,9 @@ export async function detectDataForSeoHealth(
     locationId: r.location_id as string,
     pipeline: r.pipeline as string,
     startedAtMs: new Date(r.started_at as string).getTime(),
-    down: isVendorDownRun(r.outcome as string, r.reason as string | null, r.signals),
+    // FLEET ALERT classification (stricter than the coverage-UI's isVendorDownRun): a benign partial
+    // hiccup (no-results / invalid-field for one query) is NOT a fleet outage and must not alert daily.
+    down: isVendorOutageRun(r.outcome as string, r.reason as string | null, r.signals),
     paymentRequired: isPaymentRun(r.reason as string | null, r.signals),
     reason: (r.reason as string | null) ?? null,
   }))
