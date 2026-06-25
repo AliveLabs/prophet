@@ -266,7 +266,6 @@
 .ticket-brief .pa{ display:inline-flex; align-items:center; gap:6px; }
 .ticket-brief .pa-btn{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; color:var(--slate); background:transparent; border:1px solid var(--rule); border-radius:100px; padding:3px 10px; cursor:pointer; }
 .ticket-brief .pa-btn:hover{ color:var(--ink); border-color:var(--rule-strong); }
-.ticket-brief .pa-btn--dismiss:hover{ color:var(--alert, #b3261e); border-color:var(--alert, #b3261e); }
 .ticket-brief .pa-btn:disabled{ opacity:.5; cursor:default; }
 .ticket-brief .pa-state{ font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
 .ticket-brief .cleared-strip{ margin-top:14px; padding:12px 14px; border:1px dashed var(--rule-strong); border-radius:var(--radius-card); display:flex; flex-direction:column; gap:8px; }

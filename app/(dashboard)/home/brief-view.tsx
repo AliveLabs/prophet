@@ -235,8 +235,8 @@ export default function BriefView({
     (best, p) => (CONF_RANK[p.confidence] > CONF_RANK[best] ? p.confidence : best),
     "directional",
   )
-  // The acted-on loop: snoozed/dismissed plays collapse into a compact "cleared"
-  // strip; saved + untouched plays stay in the active stack (saved keeps its badge).
+  // The acted-on loop: Removed (dismissed) plays — plus any legacy snoozed rows — collapse into a
+  // compact "cleared" strip; Kept (saved) + untouched plays stay in the active stack (Kept keeps its badge).
   const actions = playActions ?? {}
   const ranked = brief.plays.map((play, i) => ({ play, rank: i + 1, action: actions[playKey(play)] ?? null }))
   const active = ranked.filter((r) => r.action !== "snoozed" && r.action !== "dismissed")
@@ -319,7 +319,7 @@ export default function BriefView({
                     {!readOnly ? (
                       <PlayActionButtons locationId={locationId} dateKey={brief.dateKey} playKey={playKey(play)} current={action} play={play} />
                     ) : (
-                      <span className="cleared-item__state">{action === "snoozed" ? "Snoozed" : "Dismissed"}</span>
+                      <span className="cleared-item__state">{action === "snoozed" ? "Snoozed" : "Removed"}</span>
                     )}
                   </span>
                 ))}

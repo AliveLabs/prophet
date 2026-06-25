@@ -1,8 +1,13 @@
 "use client"
 
-// Save / Snooze / Dismiss on a play (Batch 5). The server owns the state — after an
-// action we router.refresh() so the brief re-renders (cleared plays collapse into the
-// "Cleared" strip server-side). Undo deletes the row.
+// Keep / Remove on a play. (Replaced Save/Snooze/Dismiss per the 2026-06-24 Bryan+Chris review.)
+//   KEEP   → stored as `saved`: a positive learning signal + persists the play so it doesn't vanish
+//            on the next brief refresh ("I want to do this later"). Stays in the active stack.
+//   REMOVE → stored as `dismissed`: visibility only — collapses into the "Cleared" strip and keeps a
+//            cross-day cooldown so it won't regenerate. NOT a learning signal (see feedback-signals).
+// Snooze is retired (Keep covers "do it later"). The DB still allows the legacy values, so LABEL keeps
+// a `snoozed` entry purely to render any pre-existing rows. The server owns state — after an action we
+// router.refresh() so the brief re-renders. Undo deletes the row.
 
 import { useTransition } from "react"
 import { useRouter } from "next/navigation"
@@ -11,9 +16,9 @@ import type { PlayAction } from "@/lib/insights/momentum"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 const LABEL: Record<PlayAction, string> = {
-  saved: "Saved",
-  snoozed: "Snoozed — back tomorrow",
-  dismissed: "Dismissed",
+  saved: "Kept",
+  snoozed: "Snoozed", // legacy rows only — no longer emitted
+  dismissed: "Removed",
 }
 
 export default function PlayActionButtons({
@@ -36,10 +41,10 @@ export default function PlayActionButtons({
   const [pending, startTransition] = useTransition()
   const router = useRouter()
 
-  function act(action: PlayAction | null) {
+  function act(action: "saved" | "dismissed" | null) {
     if (readOnly) return
     startTransition(async () => {
-      // Only send the (larger) play object on save, where the server needs it to persist.
+      // Only send the (larger) play object on Keep (saved), where the server needs it to persist.
       const res = await setPlayAction({ locationId, dateKey, playKey, action, play: action === "saved" ? play : undefined })
       if (res.ok) router.refresh()
     })
@@ -56,9 +61,8 @@ export default function PlayActionButtons({
 
   return (
     <span className="pa">
-      <button type="button" className="pa-btn" disabled={pending} onClick={() => act("saved")} aria-label="Save this play">Save</button>
-      <button type="button" className="pa-btn" disabled={pending} onClick={() => act("snoozed")} aria-label="Snooze this play">Snooze</button>
-      <button type="button" className="pa-btn pa-btn--dismiss" disabled={pending} onClick={() => act("dismissed")} aria-label="Dismiss this play">Dismiss</button>
+      <button type="button" className="pa-btn" disabled={pending} onClick={() => act("saved")} aria-label="Keep this play">Keep</button>
+      <button type="button" className="pa-btn" disabled={pending} onClick={() => act("dismissed")} aria-label="Remove this play">Remove</button>
     </span>
   )
 }

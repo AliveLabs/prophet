@@ -55,8 +55,9 @@ function many(action: FeedbackAction, n: number, over: Partial<MappedFeedback> =
 }
 
 // =================================================================================================
-// THE BAND — the single tuning point. Thumbs = high-confidence explicit; save/snooze/dismiss =
-// lower-confidence directional. A RETUNE of the map changes weights WITHOUT touching rollup code.
+// THE BAND — the single tuning point. Thumbs = high-confidence explicit PRIMARY; Keep (saved) =
+// positive secondary; Remove (dismissed) + retired Snooze = zero weight. A RETUNE of the map changes
+// weights WITHOUT touching rollup code.
 // =================================================================================================
 describe("feedback-signals BAND", () => {
   it("maps thumbs as the STRONG explicit primary signal (high confidence, full weight, clear polarity)", () => {
@@ -67,16 +68,20 @@ describe("feedback-signals BAND", () => {
     expect(FEEDBACK_SIGNAL_MAP.thumbs_up.weight).toBe(1.0)
   })
 
-  it("maps save/snooze/dismiss as LOWER-confidence DIRECTIONAL signals (provisional weights)", () => {
-    for (const a of ["saved", "snoozed", "dismissed"] as const) {
-      expect(FEEDBACK_SIGNAL_MAP[a].confidence).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_up.confidence)
-      expect(FEEDBACK_SIGNAL_MAP[a].weight).toBeLessThanOrEqual(FEEDBACK_SIGNAL_MAP.thumbs_up.weight)
-    }
-    // directionality: save positive, dismiss/snooze negative; snooze is the weakest read.
+  it("KEEP (saved) is a POSITIVE secondary signal kept BELOW thumbs (2026-06-24 review)", () => {
     expect(FEEDBACK_SIGNAL_MAP.saved.polarity).toBe(1)
-    expect(FEEDBACK_SIGNAL_MAP.dismissed.polarity).toBe(-1)
-    expect(FEEDBACK_SIGNAL_MAP.snoozed.polarity).toBe(-1)
-    expect(FEEDBACK_SIGNAL_MAP.snoozed.confidence).toBeLessThanOrEqual(FEEDBACK_SIGNAL_MAP.dismissed.confidence)
+    // below thumbs on both weight and confidence, so Keep only nudges — thumbs dominate.
+    expect(FEEDBACK_SIGNAL_MAP.saved.weight).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_up.weight)
+    expect(FEEDBACK_SIGNAL_MAP.saved.confidence).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_up.confidence)
+  })
+
+  it("REMOVE (dismissed) and the retired SNOOZE carry ZERO learning weight (visibility only)", () => {
+    // The meeting was explicit: a Remove only controls whether the card is seen — NEVER a negative
+    // signal (it may just mean "already did it"). Snooze is retired. Both must contribute nothing.
+    for (const a of ["dismissed", "snoozed"] as const) {
+      expect(FEEDBACK_SIGNAL_MAP[a].weight).toBe(0)
+      expect(FEEDBACK_SIGNAL_MAP[a].confidence).toBe(0)
+    }
   })
 
   it("signalFor degrades an UNKNOWN/legacy action to a true no-op (never throws) — engine isolated", () => {
@@ -199,11 +204,11 @@ describe("aggregateSignals — guards + smoothing", () => {
     expect(multiplierFromBayesScore(0.5)).toBe(1.0) // neutral midpoint
   })
 
-  it("a low-confidence directional-only stream is harder to move ranking (band confidence guard)", () => {
-    // Even a fair number of snooze events (very-low confidence) stays neutral because the support gate
-    // counts effective rows and the confidence guard catches a low-trust stream.
-    const cell = aggregateSignals(many("snoozed", 10))
-    expect(cell.multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+  it("a Remove/snooze-only stream cannot move ranking (zero-weight signals stay neutral)", () => {
+    // Remove (dismissed) and the retired snooze both carry weight 0 — no matter how many, the cell
+    // stays neutral. Keep + thumbs are the only signals that move the multiplier (2026-06-24 review).
+    expect(aggregateSignals(many("dismissed", 30)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(aggregateSignals(many("snoozed", 10)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
   })
 })
 

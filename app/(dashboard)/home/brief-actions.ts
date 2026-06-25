@@ -59,9 +59,11 @@ export async function submitPlayFeedback(input: {
   }
 }
 
-// Save / Snooze / Dismiss (Batch 5) — latest action wins per (location, date, play);
-// null clears (undo). User-scoped client: the play_actions RLS policies enforce
-// membership. Fail-soft pre-migration.
+// Keep / Remove (2026-06-24 review; was Save/Snooze/Dismiss) — latest action wins per
+// (location, date, play); null clears (undo). Keep persists as `saved` (positive signal +
+// evergreen resurface); Remove persists as `dismissed` (visibility + cross-day cooldown, but
+// NO learning weight — see feedback-signals). Snooze is retired. User-scoped client: the
+// play_actions RLS policies enforce membership. Fail-soft pre-migration.
 type ActionStore = {
   from: (t: string) => {
     upsert: (
@@ -91,9 +93,10 @@ export async function setPlayAction(input: {
   locationId: string
   dateKey: string
   playKey: string
-  action: "saved" | "snoozed" | "dismissed" | null
-  /** P7b: the full play, sent by the client on "save" so persistence doesn't depend on the live
-   *  brief still containing it (it may have been rebuilt since render). */
+  // Keep → "saved", Remove → "dismissed", undo → null. (Snooze retired 2026-06-24.)
+  action: "saved" | "dismissed" | null
+  /** P7b: the full play, sent by the client on Keep ("saved") so persistence doesn't depend on the
+   *  live brief still containing it (it may have been rebuilt since render). */
   play?: EnrichedRecommendation
 }): Promise<{ ok: boolean; error?: string }> {
   await requireUser()

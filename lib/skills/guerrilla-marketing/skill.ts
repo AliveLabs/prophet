@@ -4,8 +4,8 @@
 // (neutral 1.0 prior). Runs on the standard reasoning tier (NOT the Opus deep pass).
 //
 // THE UPGRADE: the skill now reads dossier.partnerEntities (§4.1 partner catalog) +
-// demandCalendar.events and EMITS named-anchor archetypes — spirit_night,
-// catering_lunch_driver, reciprocal_partner, event_activation, earned_media_stunt.
+// demandCalendar.events and EMITS named-anchor archetypes — spirit_night, workplace_lunch,
+// reciprocal_partner, event_activation, sponsorship, general_outreach, earned_media_stunt.
 // Each archetype REQUIRES a concrete named partner OR a dated event window, or it does
 // NOT fire (the core upgrade: SUPPRESS any play that can't name an anchor; penalize
 // generic chamber/flyer). Benchmark economics are PRIORS scaled by the location's own
@@ -36,9 +36,11 @@ const KNOWLEDGE_VERSION = "guerrilla@v2"
 //    sub-domain the rollup learns by (which archetype lands per scope). ─────────────────
 export const GRASSROOTS_ARCHETYPES = [
   "spirit_night",
-  "catering_lunch_driver",
+  "workplace_lunch",
   "reciprocal_partner",
   "event_activation",
+  "sponsorship",
+  "general_outreach",
   "earned_media_stunt",
 ] as const
 export type GrassrootsArchetype = (typeof GRASSROOTS_ARCHETYPES)[number]
@@ -47,8 +49,14 @@ export type GrassrootsArchetype = (typeof GRASSROOTS_ARCHETYPES)[number]
 // not the founder's guess). event_activation anchors on a dated event, not a partner type.
 const ARCHETYPE_PARTNER_TYPES: Record<Exclude<GrassrootsArchetype, "event_activation" | "earned_media_stunt">, Set<string>> = {
   spirit_night: new Set(["school", "youth_sports", "church"]),
-  catering_lunch_driver: new Set(["office", "hospital", "dealership"]),
+  workplace_lunch: new Set(["office", "hospital", "dealership"]),
   reciprocal_partner: new Set(["gym", "brewery", "bakery", "theater", "hotel", "farmers_market"]),
+  // Sponsorship: a team/booster/charity you GIVE to for brand presence (NOT a donation-night like
+  // spirit_night). Anchors on the youth-sports / booster / church orgs.
+  sponsorship: new Set(["youth_sports", "school", "church"]),
+  // General outreach: drop free trial cards to employers / clinics / dealerships / gym (clubs). Broader,
+  // lower-commitment than the workplace_lunch standing order; not a mutual swap like reciprocal_partner.
+  general_outreach: new Set(["office", "hospital", "dealership", "gym"]),
 }
 
 // ── Citable grassroots signals (the closed set this skill may ground a play ON). These are
@@ -219,14 +227,23 @@ function selectInput(d: Dossier) {
       // economics are PRIORS scaled by check-avg + size band; the model must use these, not invent.
       projectedEconomics: projectSpiritNightEconomics(check, p.sizeBand),
     })),
-    cateringAnchors: servesLunch(d)
-      ? partnersFor(d, ARCHETYPE_PARTNER_TYPES.catering_lunch_driver)
+    workplaceLunchAnchors: servesLunch(d)
+      ? partnersFor(d, ARCHETYPE_PARTNER_TYPES.workplace_lunch)
           .slice(0, 4)
           .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand, sizeProxyKind: p.sizeProxyKind }))
       : [],
     reciprocalAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.reciprocal_partner)
       .slice(0, 4)
       .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi })),
+    // Sponsorship anchors: teams/boosters/charities you give to for brand presence (qualitative — no
+    // scaled $ economics; the win is exposure + goodwill, not a tracked sales return).
+    sponsorshipAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.sponsorship)
+      .slice(0, 4)
+      .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand })),
+    // General-outreach anchors: employers/clinics/dealerships/gyms to drop free trial cards to.
+    generalOutreachAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.general_outreach)
+      .slice(0, 4)
+      .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand })),
     // Dated local events — the event_activation anchor (the demand calendar only carries LOCAL roles).
     datedEvents: d.demandCalendar.events.slice(0, 6).map((e) => ({
       name: e.validatedVenueName ?? e.venue?.name ?? e.title,

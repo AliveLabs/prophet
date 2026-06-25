@@ -104,12 +104,14 @@ describe("grassroots upgrade — wiring", () => {
     expect(guerrillaMarketingSkill.learning?.playTypeLeadDomain).toBe("grassroots")
     expect(guerrillaMarketingSkill.learning?.streams).toContain("external")
   })
-  it("exposes the five archetypes", () => {
+  it("exposes the seven archetypes (workplace_lunch renamed from catering_lunch_driver; +sponsorship, +general_outreach)", () => {
     expect([...GRASSROOTS_ARCHETYPES]).toEqual([
       "spirit_night",
-      "catering_lunch_driver",
+      "workplace_lunch",
       "reciprocal_partner",
       "event_activation",
+      "sponsorship",
+      "general_outreach",
       "earned_media_stunt",
     ])
   })

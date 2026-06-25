@@ -34,21 +34,24 @@
 //                                  small-N guard. confidence is also where Bryan dials an action down
 //                                  to "observe only" without removing it (set it below the support gate).
 //
-// SIGNAL TIERS (the band guidance — get this RIGHT):
+// SIGNAL TIERS (the band guidance — RESOLVED by Bryan + Chris on 2026-06-24, the action-semantics review):
 //   - THUMBS UP / DOWN  → the STRONG, STABLE, EXPLICIT PRIMARY signal (HIGH confidence ±). It ALREADY
 //     EXISTS in the product (brief_feedback writes via preferences.ts), so this stream is LIVE, not
-//     dark. These are the backbone of the rollup.
-//   - SAVE              → POSITIVE, LOW-confidence DIRECTIONAL signal (a save is interest, but it's
-//     not an explicit "this is a good recommendation").
-//   - DISMISS           → NEGATIVE, LOW-confidence DIRECTIONAL signal (a dismiss may mean "bad" OR
-//     just "not for me right now" — ambiguous, so low confidence).
-//   - SNOOZE            → MILD-NEGATIVE, VERY-LOW-confidence DIRECTIONAL signal (the weakest read:
-//     "later", barely a quality judgment at all).
+//     dark. The meeting's call: thumbs stay the PRIMARY quality signal — the backbone of the rollup.
+//   - KEEP (stored as `saved`)        → POSITIVE, SECONDARY signal. The new card affordance: "I want
+//     to do this later and don't want it to disappear when the brief refreshes." A deliberate keep is
+//     a genuine "this is valuable" lean → reads positive, but kept BELOW thumbs (modest weight) so
+//     thumbs still dominate.
+//   - REMOVE (stored as `dismissed`)  → NO signal (weight 0). The meeting was explicit: a Remove only
+//     controls whether the operator SEES the card. It is AMBIGUOUS by design — they may have already
+//     done it, can't run it right now, or just don't like it — so we must NOT read it into learning
+//     (that false-negative would suppress good recommendations). Visibility only; zero learning weight.
+//   - SNOOZE (`snoozed`)              → RETIRED. Replaced by Keep (which covers "do it later"). The UI
+//     no longer emits it; this entry is neutralized (weight 0) so any legacy rows contribute nothing.
 //
-// ⚠️ PROVISIONAL WEIGHTS: the save/snooze/dismiss numbers below are DIRECTIONAL PLACEHOLDERS pending
-// Bryan's action-semantics review (do these actions serve the customer? are they the right actions?).
-// They are intentionally conservative so the directional stream can only NUDGE, never dominate the
-// thumbs. Retune here when that review lands — nothing else changes.
+// ATTRIBUTION / "did it work?" is deliberately NOT a signal here: V1 does NO execution tracking or
+// redemption attribution (too subjective; risks reminding operators of losses). The loop learns from
+// thumbs + Keep only. (See ~/vault session log 2026-06-24 grassroots-marketing review.)
 // ---------------------------------------------------------------------------
 
 /**
@@ -56,7 +59,8 @@
  * as identifiers — downstream code keys off the normalized signal, not these strings.
  *
  * - thumbs_up / thumbs_down : the EXPLICIT primary signal (brief_feedback.verdict good|bad).
- * - saved / snoozed / dismissed : the directional play_actions (app/(dashboard)/home/brief-actions.ts).
+ * - saved (= "Keep" in the UI) : positive SECONDARY signal. dismissed (= "Remove" in the UI) :
+ *   visibility-only, NO learning weight. snoozed : RETIRED (neutralized). (play_actions; brief-actions.ts)
  *
  * To add an action: extend this union + add one FEEDBACK_SIGNAL_MAP entry + route its rows in the
  * capture/rollup read. To stop consuming one: drop its map weight to 0 (keep the entry for clarity).
@@ -83,13 +87,13 @@ export const FEEDBACK_SIGNAL_MAP: Record<FeedbackAction, FeedbackSignal> = {
   thumbs_up: { polarity: 1, weight: 1.0, confidence: 0.95 },
   thumbs_down: { polarity: -1, weight: 1.0, confidence: 0.95 },
 
-  // ── DIRECTIONAL (PROVISIONAL — pending Bryan's action-semantics review): save/snooze/dismiss. ────
-  // A SAVE is a positive lean, but not an explicit "good rec" → low confidence, partial weight.
-  saved: { polarity: 1, weight: 0.5, confidence: 0.4 },
-  // A DISMISS leans negative, but is ambiguous ("not for me" vs "bad") → low confidence.
-  dismissed: { polarity: -1, weight: 0.5, confidence: 0.4 },
-  // A SNOOZE is the weakest read ("later") → mild-negative, very-low confidence, small weight.
-  snoozed: { polarity: -1, weight: 0.25, confidence: 0.2 },
+  // ── SECONDARY: KEEP (stored as `saved`). Positive, but BELOW thumbs so it only nudges. ───────────
+  // Resolved 2026-06-24: a deliberate "Keep" is a real "this is valuable" lean.
+  saved: { polarity: 1, weight: 0.5, confidence: 0.5 },
+  // ── REMOVE (stored as `dismissed`): VISIBILITY ONLY — zero learning weight (ambiguous; never read).
+  dismissed: { polarity: 0, weight: 0, confidence: 0 },
+  // ── SNOOZE: RETIRED (replaced by Keep). Neutralized so any legacy rows contribute nothing. ───────
+  snoozed: { polarity: 0, weight: 0, confidence: 0 },
 }
 
 /**
