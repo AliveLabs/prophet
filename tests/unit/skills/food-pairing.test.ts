@@ -78,7 +78,7 @@ describe("food-pairing skill — parse", () => {
     const plays = foodPairingSkill.parse([rawPlay(["menu.menu_change_detected"])], competitiveWeekDossier)
     expect(plays).toHaveLength(1)
     expect(plays![0].skillId).toBe("food-pairing")
-    expect(plays![0].knowledgeVersion).toBe("food-pairing@v1")
+    expect(plays![0].knowledgeVersion).toBe("food-pairing@v1.1")
   })
   it("returns null on unparseable output so the deterministic fallback runs", () => {
     expect(foodPairingSkill.parse("not json at all", competitiveWeekDossier)).toBeNull()

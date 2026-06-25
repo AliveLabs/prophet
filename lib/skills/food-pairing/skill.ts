@@ -100,7 +100,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
       confidence: "medium" as const,
       leverage: { label: "medium" as const, basisInternal: "menu-fit feature sized ordinally; no margin/cost figures available" },
       evidenceRefs: [ins.insight_type],
-      knowledgeVersion: "food-pairing@v1",
+      knowledgeVersion: "food-pairing@v1.1",
     }
   })
 }
@@ -113,11 +113,11 @@ export const foodPairingSkill: ProducerSkill = {
   category: "menu",
   tier: "reasoning",
   temperature: 0.5,
-  knowledgeVersion: "food-pairing@v1",
+  knowledgeVersion: "food-pairing@v1.1",
   knowledge: FOOD_PAIRING_KNOWLEDGE,
   buildPrompt: (d, k) => buildSkillPrompt(foodPairingSkill, d, selectInput(d), k),
   parse: (raw) =>
-    coerceEnrichedPlays(raw, { skillId: "food-pairing", knowledgeVersion: "food-pairing@v1", defaultKind: "capitalize", defaultOwner: "kitchen" }),
+    coerceEnrichedPlays(raw, { skillId: "food-pairing", knowledgeVersion: "food-pairing@v1.1", defaultKind: "capitalize", defaultOwner: "kitchen" }),
   fallback,
   // P14 learning hook: the kitchen consumes culinary-trend sources (NRA What's Hot, FoodBytes →
   // external_trend priors on flavors/formats). Click feedback + ask routing. Opt-in metadata;
