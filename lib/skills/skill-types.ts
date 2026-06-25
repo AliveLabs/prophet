@@ -42,6 +42,12 @@ export type ProducerSkill = {
   /** P5: run this skill on the DEEP pass (Opus + adaptive thinking) instead of the default
    *  Sonnet reasoning tier. Used by the cross-domain convergence skill. Producers leave it unset. */
   deep?: boolean
+  /** Adaptive-thinking effort for this producer's model call. Defaults to "medium" in run.ts.
+   *  Override to "low" for a skill whose prompt is heavy enough that medium-effort thinking risks the
+   *  120s timeout (which silently degrades it to the deterministic fallback). guerrilla-marketing was
+   *  timing out at medium (~>120s on a 40k-char prompt) → 0 plays; at "low" it completes in ~74s with
+   *  full-quality anchored plays. (2026-06-25.) */
+  effort?: "low" | "medium" | "high"
   temperature: number
   knowledgeVersion: string
   /** The domain playbook (expert priors), authored as prose. */

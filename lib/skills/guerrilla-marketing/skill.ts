@@ -321,6 +321,11 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   kind: "capitalize",
   category: "grassroots",
   tier: "reasoning",
+  // Heaviest producer prompt (7 entity-grounded archetypes + per-archetype anchors/economics from the
+  // partner catalog → ~40k chars). At the default medium thinking effort this call ran >120s and hit the
+  // abort timeout → degraded to the number-free fallback (0 surviving plays). "low" completes in ~74s with
+  // full-quality anchored plays. (2026-06-25 — see diag + session log.)
+  effort: "low",
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: GUERRILLA_KNOWLEDGE,

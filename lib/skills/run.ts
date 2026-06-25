@@ -60,7 +60,7 @@ export async function runProducerSkill(
     // temperature (remove thinking/effort here) — that's the "like-for-like" 4.6 baseline.
     const reqTuning = skill.deep
       ? { model: DEEP_MODEL, thinking: true as const, effort: "high" as const }
-      : { thinking: true as const, effort: "medium" as const, maxOutputTokens: 16000 }
+      : { thinking: true as const, effort: skill.effort ?? ("medium" as const), maxOutputTokens: 16000 }
     const plays = await generateStructured<EnrichedRecommendation[]>(
       { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
       {
