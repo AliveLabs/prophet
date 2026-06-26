@@ -10,12 +10,14 @@ is the truth.)
 
 ---
 
+## ✅ Resolved 2026-06-26 (verified / done this session)
+- [x] **Bush's + Cane's `org_kind='demo'`** — both verified `demo` on prod.
+- [x] **`anand@alivemethod.com` super_admin** — verified GONE; `platform_admins` = bryan + chris only.
+- [x] **Dead `ux-rework` Supabase branch** (`eguflqjnodumjbmdxrnj`) — deleted (cleared persistent flag → delete);
+  prod now has only the `main` branch.
+
 ## 🔴 Needs Bryan (decisions / curation an agent can't make)
-- [ ] **Tag Bush's + Cane's `org_kind='demo'`** via the Set-Kind UI (both still `real`). Cane's has the
-  delete+recreate-as-demo-at-end-of-work plan — confirm intent.
-- [ ] **Review/remove `anand@alivemethod.com` super_admin** (6a backfill; standing skepticism).
-- [ ] **Delete the dead Supabase branch DB** `eguflqjnodumjbmdxrnj` (dashboard → Branches).
-- [ ] **`.env.local` is stale** (points at the retired branch DB) — `vercel env pull` to refresh local tooling.
+- [ ] **`.env.local` is stale** (pointed at the now-deleted branch DB) — `vercel env pull` to refresh local tooling.
 - [ ] **Knowledge review v2** (food-pairing / guerrilla prose pass with Chris) → bump version → redeploy.
 - [ ] **FSR/NRN on food-pairing** — keep (migration 190000's choice) vs pure-culinary; then match the seed.
 - [ ] **Engagement / social-trends expert** — ideation captured (`[[ticket-engagement-social-expert-ideation]]`);
