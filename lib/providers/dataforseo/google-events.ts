@@ -31,13 +31,24 @@ export type FetchGoogleEventsResult = {
  *
  * Docs: https://docs.dataforseo.com/v3/serp-google-events-live-advanced/
  */
+/**
+ * Event probe keywords are cataloged VENUE NAMES used verbatim (see lib/events/keywords.ts). DataForSEO
+ * rejects some characters in the keyword field with a task-level 40501 "Invalid Field" — observed on the
+ * venue "McKinney North Football/Soccer Auxiliary Field" (the "/" trips it), which silently dropped that
+ * probe to a partial run. Normalize structural separators (/ \ | < >) to spaces, collapse whitespace, and
+ * cap length, keeping the search intent (letters/digits/&/-/'/.,()/spaces survive). (2026-06-25.)
+ */
+export function sanitizeEventKeyword(keyword: string): string {
+  return keyword.replace(/[/\\|<>]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 100)
+}
+
 export async function fetchGoogleEvents(
   input: FetchGoogleEventsInput
 ): Promise<FetchGoogleEventsResult> {
   const depth = Math.min(input.depth ?? 10, 20) // hard cap at 20
 
   const task = {
-    keyword: input.keyword,
+    keyword: sanitizeEventKeyword(input.keyword),
     location_name: input.locationName,
     language_code: "en",
     device: "desktop",
