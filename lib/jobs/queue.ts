@@ -150,6 +150,48 @@ export function backoffSeconds(attempt: number): number {
   return Math.min(3600, 60 * 2 ** Math.max(0, attempt - 1))
 }
 
+// ── Worker time budget (don't start a job we can't finish) ───────────────────
+// A worker invocation has maxDuration=800s. Running a slow pipeline (content
+// ~334s avg, brief ~271s, visibility ~188s observed) as the 2nd+ job in a batch
+// can overrun the cap → the row is left 'running' → zombie-reclaimed 20min later
+// → staleQueued → watchdog "degraded". So the worker estimates each job's cost
+// and DEFERS (immediately requeues, no attempt burned) any job that can't finish
+// in the remaining budget. The first job of an invocation always runs (a fresh
+// invocation has the full budget; forward progress beats deferring forever).
+export const WORKER_BUDGET_MS = 800_000
+export const WORKER_SAFETY_MARGIN_MS = 90_000
+
+// Conservative per-pipeline runtime estimates — above observed averages, with
+// tail headroom (a job runs longer on a signal-rich location than the mean).
+const PIPELINE_TIME_ESTIMATE_MS: Record<string, number> = {
+  content: 450_000,
+  insights: 420_000,
+  photos: 420_000,
+  brief: 380_000,
+  visibility: 280_000,
+  social: 220_000,
+  events: 200_000,
+  busy_times: 150_000,
+  weather: 90_000,
+}
+const DEFAULT_PIPELINE_TIME_ESTIMATE_MS = 320_000
+
+export function estimatePipelineMs(pipeline: string): number {
+  return PIPELINE_TIME_ESTIMATE_MS[pipeline] ?? DEFAULT_PIPELINE_TIME_ESTIMATE_MS
+}
+
+/**
+ * Should the worker DEFER (not start) this job to avoid overrunning maxDuration?
+ * Pure decision so it's unit-testable. The first job of an invocation
+ * (`executed === 0`) always runs — a fresh invocation has the full budget, and
+ * forward progress on a slow pipeline beats deferring it forever.
+ */
+export function shouldDeferJob(args: { pipeline: string; elapsedMs: number; executed: number }): boolean {
+  if (args.executed === 0) return false
+  const remainingMs = WORKER_BUDGET_MS - args.elapsedMs - WORKER_SAFETY_MARGIN_MS
+  return remainingMs < estimatePipelineMs(args.pipeline)
+}
+
 export async function finishJob(
   sb: SB,
   job: SignalJob,
@@ -171,6 +213,24 @@ export async function finishJob(
     .update({ status: "queued", scheduled_for: scheduledFor, last_error: lastError ?? null, updated_at: now })
     .eq("id", job.id)
   return "requeued"
+}
+
+/**
+ * Requeue a claimed-but-not-run job immediately (budget defer — see
+ * `shouldDeferJob`). The claim already incremented `attempts`
+ * (claim_signal_jobs) — give it back, since the job never ran, so a deferred job
+ * is never pushed toward `max_attempts`. Due now → the next worker tick (with a
+ * fresh 800s budget) picks it up.
+ */
+export async function deferJob(sb: SB, job: SignalJob): Promise<"deferred"> {
+  const now = new Date().toISOString()
+  await sb
+    .from("signal_jobs")
+    // claimed_at: null — the job never ran, so don't leave a stale claim timestamp on the
+    // requeued row (keeps it cleanly distinct from a genuine in-flight/zombie 'running' row).
+    .update({ status: "queued", scheduled_for: now, claimed_at: null, attempts: Math.max(0, job.attempts - 1), updated_at: now })
+    .eq("id", job.id)
+  return "deferred"
 }
 
 /** Record an honest run outcome (not just "completed"). */

@@ -9,8 +9,8 @@
 
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-import { claimJobs } from "@/lib/jobs/queue"
-import { runJob } from "@/lib/jobs/worker"
+import { claimJobs, deferJob, shouldDeferJob } from "@/lib/jobs/queue"
+import { runJob, type WorkerJobResult } from "@/lib/jobs/worker"
 
 // 800 (Fluid Compute): the `brief` job runs the multi-skill LLM synthesis,
 // which can exceed 300s for a signal-rich location — same budget as the
@@ -48,9 +48,27 @@ export async function GET(req: Request) {
       .eq("status", "running")
       .lt("claimed_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
     const jobs = await claimJobs(sb, batch)
-    const results = []
+    const results: WorkerJobResult[] = []
+    // Budget-aware: don't START a job that can't finish in the remaining 800s
+    // (would zombie-out → reclaim → staleQueued → watchdog). Deferred jobs are
+    // requeued due-now (no attempt burned) for the next tick's fresh budget. A
+    // cheaper later job in the batch can still run, so evaluate each (no break).
+    const startMs = Date.now()
+    let executed = 0
     for (const job of jobs) {
+      if (shouldDeferJob({ pipeline: job.pipeline, elapsedMs: Date.now() - startMs, executed })) {
+        // Don't let one defer write failure abort the whole batch — on error the row simply
+        // stays 'running' and the zombie-reclaim above catches it next tick (self-healing).
+        try {
+          await deferJob(sb, job)
+          results.push({ jobId: job.id, pipeline: job.pipeline, outcome: "skipped", disposition: "deferred" })
+        } catch (e) {
+          console.warn(`[worker] deferJob failed for ${job.id} (${job.pipeline}):`, e)
+        }
+        continue
+      }
       results.push(await runJob(sb, job))
+      executed++
     }
     console.log(`[worker] claimed=${jobs.length}`, results.map((r) => `${r.pipeline}:${r.outcome}/${r.disposition}`).join(" "))
     return Response.json({ ok: true, claimed: jobs.length, results })

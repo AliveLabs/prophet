@@ -24,7 +24,7 @@ export type WorkerJobResult = {
   jobId: string
   pipeline: string
   outcome: PipelineOutcome
-  disposition: "done" | "failed" | "requeued"
+  disposition: "done" | "failed" | "requeued" | "deferred"
 }
 
 export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
