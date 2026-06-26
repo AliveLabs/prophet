@@ -228,31 +228,6 @@ async function OperatorShell({ children }: { children: ReactNode }) {
     noticeEnabled = comms.browser_notifications !== false
   }
 
-  // Conditional nav (Bryan: Weather/Events belong in the nav only where they matter). Weather shows
-  // when the location has weather history (the pipeline runs for walk-in/patio-relevant spots); Events
-  // shows for a non-rural density tier OR where an events snapshot exists. Fail-closed on any error so
-  // the shell never breaks — the routes stay reachable by URL regardless.
-  let showWeather = false
-  let showEvents = false
-  if (currentLoc) {
-    try {
-      const [{ count: weatherCount }, { data: densityRow }, { count: eventsCount }] = await Promise.all([
-        supabase.from("location_weather").select("id", { count: "exact", head: true }).eq("location_id", currentLoc.id),
-        supabase.from("location_density").select("tier").eq("location_id", currentLoc.id).maybeSingle(),
-        supabase
-          .from("location_snapshots")
-          .select("id", { count: "exact", head: true })
-          .eq("location_id", currentLoc.id)
-          .eq("provider", "dataforseo_google_events"),
-      ])
-      showWeather = (weatherCount ?? 0) > 0
-      const tier = (densityRow as { tier?: string } | null)?.tier
-      showEvents = (tier ? tier !== "rural" : false) || (eventsCount ?? 0) > 0
-    } catch {
-      /* fail-closed: hide both rather than break the shell */
-    }
-  }
-
   return (
     <BrandProvider brand={dataBrand}>
       {/* Toaster must stay OUTSIDE .ticket-app: its static wrapper would otherwise
@@ -271,7 +246,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
       <div className="ticket-app">
         <aside className="pv-sidebar">
           <div className="pv-brand"><TicketMark /> TICKET</div>
-          <ShellNav showWeather={showWeather} showEvents={showEvents} />
+          <ShellNav />
           <div className="pv-spacer" />
           <AccountMenu userName={account.userName} locations={account.locations} />
         </aside>

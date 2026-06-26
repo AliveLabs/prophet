@@ -51,10 +51,9 @@ remain reachable by direct URL for debugging. **My recommendation: confirm this 
   because the visual system is about to change with the chosen design concept — build it in the new skin.
 - **Weather "what it means for THIS restaurant" panel** — deterministic, profile-aware (patio + heat-wave
   + walk-in logic over the existing 7-day forecast). Deferred for the same design-dependent reason.
-- **Finer gating signals** — `hasPatio` / `nearVenues` on the profile are defined but never populated
-  (`build.ts`); today's gates use weather-history + density-tier + events-snapshot (works for all 4 demo
-  locations). Populating hasPatio (from Places `outdoor_seating` / competitor patio photos) would make the
-  Weather gate precise (patio/walk-in only) rather than "has weather data".
+- **Nav gating REMOVED 2026-06-26** (Bryan): Weather + Events are now live for ALL customers, just placed
+  LOWER in the nav (Today / Competitors / Ask / Weather / Events) since they're situational. No per-profile
+  gate. (`hasPatio`/`nearVenues` population is moot for nav now; could still sharpen in-page relevance copy.)
 
 ## #7 BLUEPRINT.md — banner + §9.3 nav corrected; full section rewrite deferred
 Updated the top banner to current reality + fixed the most-wrong inline statement (§9.3 "11 nav links").
