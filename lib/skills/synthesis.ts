@@ -3,9 +3,10 @@
 //
 // Takes every producer skill's grounded plays and produces the day's Brief:
 // a 3-8 word headline, a short deck, and the 1-3 plays that actually matter.
-// Ruthlessly SUBTRACTIVE (no diversity quota); forward demand outranks standing
-// rivalry. It SELECTS and ORDERS plays but never edits their recipes (grounding
-// is preserved). Deterministic fallback guarantees a brief even on model failure.
+// Ruthlessly SUBTRACTIVE; forward demand outranks standing rivalry. It SELECTS and
+// ORDERS plays but never edits their recipes (grounding is preserved). ONE diversity
+// exception: a grassroots visibility floor (guarantee ≥1 grassroots play — see below).
+// Deterministic fallback guarantees a brief even on model failure.
 // ---------------------------------------------------------------------------
 
 import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
@@ -281,9 +282,38 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // Dedupe the model's order so a repeated index can't ship the same play twice.
   const ordered = [...new Set(selection.order)].map((i) => pool[i]).filter(Boolean).slice(0, max)
   const chosen = ordered.length ? ordered : rankedPlays.slice(0, max)
+
+  // GRASSROOTS VISIBILITY FLOOR (Bryan 2026-06-25): grassroots (zero-budget hyper-local growth) is a top
+  // strategic need for our target operators — and something even chains worry about — but it scores
+  // mid-pack: its IMPACT is fine (~medium) while its CONFIDENCE lands medium/directional, so against the
+  // high-confidence convergence/menu/social plays the Opus selector ("do NOT force variety") often drops
+  // it (observed natural rank: 3rd-6th, and sometimes off the brief entirely). GUARANTEE the single BEST
+  // grassroots play a slot, WITHOUT thumbing the merit ranking of everything else (the category priors
+  // stay neutral / "earn the bias from evidence"). If the pool has no grassroots play (no partners / none
+  // generated), there is nothing to surface — correct. The play is appended (lowest position): a floor,
+  // not a promotion. Tunable: drop this block to go flat, or add a min-quality gate if it ever surfaces
+  // a weak one. (Every pooled play is already grounded — named anchor + real signal + not generic.)
+  const isGrassrootsPlay = (p: EnrichedRecommendation) => CATEGORY_BY_SKILL[p.skillId] === "grassroots"
+  let chosenFinal = chosen
+  if (!chosenFinal.some(isGrassrootsPlay)) {
+    const bestGrass = rankedPlays.find(isGrassrootsPlay) // rankedPlays is score-desc → first match = best
+    if (bestGrass) {
+      if (chosenFinal.length < max) {
+        chosenFinal = [...chosenFinal, bestGrass]
+      } else {
+        // At the cap: drop the lowest-scored NON-grassroots play to make room (keep the selector's order).
+        const weakest = chosenFinal
+          .filter((p) => !isGrassrootsPlay(p))
+          .reduce<EnrichedRecommendation | null>((lo, p) => (lo == null || (scoreByPlay.get(p) ?? 0) < (scoreByPlay.get(lo) ?? 0) ? p : lo), null)
+        chosenFinal = [...chosenFinal.filter((p) => p !== weakest), bestGrass]
+      }
+      console.log(`[synthesis] grassroots floor: surfaced "${bestGrass.title}" (${d.locationId} ${d.dateKey})`)
+    }
+  }
+
   // P3: stamp each chosen play with its combined score + operator-facing category, for the
   // ranked display + category drill-down. Optional fields — old persisted briefs simply lack them.
-  const plays = chosen.map((p) => ({ ...p, combinedScore: scoreByPlay.get(p), category: CATEGORY_BY_SKILL[p.skillId] }))
+  const plays = chosenFinal.map((p) => ({ ...p, combinedScore: scoreByPlay.get(p), category: CATEGORY_BY_SKILL[p.skillId] }))
 
   return {
     locationId: d.locationId,
