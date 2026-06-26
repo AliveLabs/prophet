@@ -1,0 +1,1581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket — The Feed Line</title>
+<style>
+  /* ============================================================
+     TICKET · THE FEED LINE
+     GROUND + RUST. Photos are the light source; the shell is dark.
+     ============================================================ */
+  :root{
+    /* grounds */
+    --ground:#141210;        /* warm near-black, faint rust undertone */
+    --ground-2:#19161300;
+    --panel:#1F1B18;         /* raised charcoal */
+    --panel-2:#241F1B;
+    --panel-3:#2B2521;
+    --line:#332C27;          /* warm hairline */
+    --line-2:#3D332C;
+    /* signature accent */
+    --rust:#B85C38;
+    --rust-deep:#8A3D20;
+    --rust-soft:#C8714E;
+    /* semantic */
+    --teal:#3A8066;          /* you're winning */
+    --teal-soft:#52A484;
+    --alert:#C44040;         /* they beat you */
+    --gold:#C9942A;          /* time-sensitive */
+    --slate:#3D4F5F;         /* secondary CTA / competitor chrome */
+    --slate-soft:#5A7184;
+    --ink:#1C1917;
+    /* type on dark */
+    --text:#EFE7DF;
+    --text-2:#C3B6AB;
+    --text-3:#8E817778;
+    --text-mute:#8E8177;
+    --text-faint:#6A5E55;
+    /* fonts */
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","SFMono-Regular",Menlo,Consolas,monospace;
+    --rail:280px;
+    --maxw:1320px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--ground);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+  /* faint rust atmosphere on the ground */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(900px 540px at 18% -8%, rgba(184,92,56,.10), transparent 60%),
+      radial-gradient(760px 600px at 102% 4%, rgba(61,79,95,.10), transparent 55%);
+  }
+  ::selection{background:rgba(184,92,56,.35);color:#fff}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+  img{max-width:100%}
+  :focus-visible{outline:2px solid var(--rust);outline-offset:2px;border-radius:4px}
+
+  /* ---- shared atoms ---------------------------------------- */
+  .label{
+    font-family:var(--mono);font-size:10.5px;font-weight:600;
+    letter-spacing:.22em;text-transform:uppercase;color:var(--text-mute);
+  }
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600}
+
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.08em;
+    text-transform:uppercase;padding:4px 9px;border-radius:999px;
+    border:1px solid var(--line-2);color:var(--text-2);white-space:nowrap;
+  }
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .pill.cat-competitive{color:var(--rust-soft);border-color:rgba(184,92,56,.4)}
+  .pill.cat-social{color:#C28FB0;border-color:rgba(194,143,176,.4)}
+  .pill.cat-menu{color:var(--gold);border-color:rgba(201,148,42,.4)}
+  .pill.cat-grassroots{color:var(--teal-soft);border-color:rgba(82,164,132,.45)}
+  .pill.cat-reputation{color:var(--slate-soft);border-color:rgba(90,113,132,.5)}
+  .pill.cat-events{color:var(--gold);border-color:rgba(201,148,42,.4)}
+
+  /* confidence chips — disciplined emphasis ladder */
+  .conf{
+    display:inline-flex;align-items:center;gap:7px;
+    font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.14em;
+    text-transform:uppercase;padding:4px 9px 4px 8px;border-radius:5px;
+  }
+  .conf .bars{display:inline-flex;gap:2px;align-items:flex-end;height:11px}
+  .conf .bars i{width:3px;background:currentColor;border-radius:1px;opacity:.3;display:block}
+  .conf .bars i.on{opacity:1}
+  .conf-high{color:var(--rust);background:rgba(184,92,56,.13);border:1px solid rgba(184,92,56,.32)}
+  .conf-high .bars i:nth-child(1){height:5px}
+  .conf-high .bars i:nth-child(2){height:8px}
+  .conf-high .bars i:nth-child(3){height:11px}
+  .conf-med{color:var(--gold);background:rgba(201,148,42,.10);border:1px solid rgba(201,148,42,.26)}
+  .conf-med .bars i:nth-child(1){height:5px}
+  .conf-med .bars i:nth-child(2){height:8px}
+  .conf-med .bars i:nth-child(3){height:11px}
+  /* DIRECTIONAL — explicit low-emphasis slate, must never read as HIGH */
+  .conf-dir{color:var(--slate-soft);background:rgba(61,79,95,.14);border:1px dashed rgba(90,113,132,.42);letter-spacing:.1em}
+  .conf-dir .bars i:nth-child(1){height:5px}
+  .conf-dir .bars i:nth-child(2){height:8px}
+  .conf-dir .bars i:nth-child(3){height:11px;opacity:.3}
+
+  .delta{font-family:var(--mono);font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:3px;font-variant-numeric:tabular-nums}
+  .delta.up{color:var(--teal-soft)}
+  .delta.down{color:var(--alert)}
+  .delta.warn{color:var(--gold)}
+
+  /* ============================================================
+     APP SHELL
+     ============================================================ */
+  .app{position:relative;z-index:1;display:grid;grid-template-columns:var(--rail) 1fr;min-height:100vh}
+
+  /* ---- LEFT RAIL ------------------------------------------- */
+  .rail{
+    border-right:1px solid var(--line);
+    padding:22px 18px;position:sticky;top:0;height:100vh;
+    display:flex;flex-direction:column;gap:6px;
+    background:linear-gradient(180deg,#16130F,#141210);
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:6px 8px 18px}
+  .brand .mark{
+    width:34px;height:34px;border-radius:9px;position:relative;flex:none;
+    background:linear-gradient(150deg,var(--rust),var(--rust-deep));
+    box-shadow:0 4px 16px rgba(184,92,56,.32);
+  }
+  .brand .mark::after{ /* perforation tab */
+    content:"";position:absolute;left:0;right:0;top:11px;height:2px;
+    background-image:radial-gradient(circle,rgba(20,18,16,.85) 1px,transparent 1.3px);
+    background-size:5px 2px;
+  }
+  .brand .name{font-weight:800;letter-spacing:-.02em;font-size:17px}
+  .brand .name b{color:var(--rust-soft)}
+  .brand .loc{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--text-faint);text-transform:uppercase}
+
+  .nav{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+  .nav .sect{padding:14px 10px 6px}
+  .navlink{
+    display:flex;align-items:center;gap:12px;padding:10px 11px;border-radius:9px;
+    color:var(--text-2);font-size:14px;font-weight:500;position:relative;transition:background .16s,color .16s;
+  }
+  .navlink svg{width:18px;height:18px;flex:none;opacity:.8}
+  .navlink .tag{margin-left:auto;font-family:var(--mono);font-size:10px;font-weight:700;
+    background:var(--rust);color:#fff;border-radius:999px;padding:1px 7px}
+  .navlink:hover{background:var(--panel);color:var(--text)}
+  .navlink.active{background:var(--panel-2);color:var(--text)}
+  .navlink.active::before{
+    content:"";position:absolute;left:-18px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;
+    background:linear-gradient(180deg,var(--rust),var(--rust-deep));
+  }
+  .rail .spacer{flex:1}
+  .opcard{
+    border:1px solid var(--line);border-radius:12px;padding:13px;background:var(--panel);
+    display:flex;flex-direction:column;gap:9px;
+  }
+  .opcard .row{display:flex;align-items:center;gap:10px}
+  .opcard .av{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--slate),#2A3742);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:#cfe0ea;flex:none}
+  .opcard .meta{line-height:1.2}
+  .opcard .meta b{font-size:12.5px}
+  .opcard .meta span{font-size:10.5px;color:var(--text-faint)}
+  .opcard .live{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;
+    letter-spacing:.1em;color:var(--text-mute);border-top:1px solid var(--line);padding-top:9px}
+  .opcard .live .ld{width:6px;height:6px;border-radius:50%;background:var(--teal-soft);box-shadow:0 0 0 0 rgba(82,164,132,.6);animation:ping 2.4s infinite}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(82,164,132,.55)}70%{box-shadow:0 0 0 7px rgba(82,164,132,0)}100%{box-shadow:0 0 0 0 rgba(82,164,132,0)}}
+
+  /* ---- MAIN ------------------------------------------------ */
+  .main{min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 30px 120px}
+
+  /* ============================================================
+     HERO · TODAY'S PASS
+     ============================================================ */
+  .masthead{
+    position:relative;margin:0 -30px;padding:30px 30px 26px;
+    background:
+      radial-gradient(120% 140% at 80% -20%, rgba(184,92,56,.10), transparent 55%),
+      linear-gradient(180deg,#1A1612,#141210);
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+  }
+  /* perforated top edge — the ticket motif, light touch */
+  .masthead::before{
+    content:"";position:absolute;left:0;right:0;top:0;height:9px;
+    background-image:radial-gradient(circle at center, var(--ground) 4px, transparent 4.4px);
+    background-size:16px 16px;background-position:0 -7px;
+  }
+  .mhtop{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  /* the rust→rust-deep date masthead chip (gradient moment #1 lives in hero gauge; this is the date stub) */
+  .datestub{
+    display:inline-flex;align-items:stretch;border-radius:8px;overflow:hidden;
+    background:linear-gradient(100deg,var(--rust),var(--rust-deep));
+    box-shadow:0 6px 22px rgba(138,61,32,.4);position:relative;
+  }
+  .datestub::after{ /* perforation between day + label */
+    content:"";position:absolute;left:54px;top:4px;bottom:4px;width:2px;
+    background-image:radial-gradient(circle,rgba(20,18,16,.5) 1px,transparent 1.3px);background-size:2px 5px;
+  }
+  .datestub .d{padding:8px 14px;text-align:center;color:#fff}
+  .datestub .d .day{font-family:var(--mono);font-weight:800;font-size:22px;line-height:1}
+  .datestub .d .mo{font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;opacity:.85}
+  .datestub .t{padding:8px 16px 8px 14px;display:flex;flex-direction:column;justify-content:center;color:#fff}
+  .datestub .t b{font-size:13px;letter-spacing:.02em}
+  .datestub .t span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;opacity:.85;text-transform:uppercase}
+  .mhtop .grow{flex:1}
+  .freshchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);border-radius:999px;
+    padding:6px 12px;font-family:var(--mono);font-size:11px;color:var(--text-2)}
+  .freshchip .ld{width:6px;height:6px;border-radius:50%;background:var(--teal-soft);animation:ping 2.4s infinite}
+
+  .herogrid{display:grid;grid-template-columns:1.15fr .85fr;gap:30px;align-items:center}
+
+  /* headline block */
+  .hl-eyebrow{margin-bottom:14px;display:flex;align-items:center;gap:10px}
+  .hl{font-size:clamp(30px,4.4vw,52px);font-weight:800;letter-spacing:-.028em;line-height:1.02;text-wrap:balance}
+  .hl em{font-style:normal;color:var(--rust-soft)}
+  .hl-rule{height:4px;width:78px;border-radius:3px;margin:18px 0 16px;
+    background:linear-gradient(90deg,var(--rust),var(--rust-deep))}
+  .hl-sub{color:var(--text-2);font-size:14.5px;max-width:46ch;line-height:1.55}
+  .hl-stats{display:flex;gap:26px;margin-top:22px;flex-wrap:wrap}
+  .hl-stat .v{font-family:var(--mono);font-size:26px;font-weight:700;letter-spacing:-.01em}
+  .hl-stat .v.teal{color:var(--teal-soft)} .hl-stat .v.alert{color:var(--alert)} .hl-stat .v.rust{color:var(--rust-soft)}
+  .hl-stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);margin-top:3px}
+
+  /* advantage ring */
+  .ringwrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:16px}
+  .ring{position:relative;width:268px;height:268px;max-width:72vw}
+  .ring svg{transform:rotate(-90deg);width:100%;height:100%}
+  .ring .seg{fill:none;stroke-linecap:butt;stroke-width:20}
+  .ring .track{stroke:#2A2420}
+  .ring-center{
+    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  }
+  .ring-center .plays{font-family:var(--mono);font-size:54px;font-weight:800;line-height:.9;letter-spacing:-.03em;
+    background:linear-gradient(160deg,#fff,var(--rust-soft));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .ring-center .pk{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text-mute);margin-top:6px}
+  .ring-center .split{display:flex;gap:14px;margin-top:14px;font-family:var(--mono);font-size:11px}
+  .ring-center .split .s{display:flex;align-items:center;gap:5px}
+  .ring-center .split .s b{font-weight:700}
+  .ring-center .split .you b{color:var(--teal-soft)} .ring-center .split .them b{color:var(--alert)}
+  .ring-legend{display:flex;gap:18px;font-family:var(--mono);font-size:10.5px;color:var(--text-2);flex-wrap:wrap;justify-content:center}
+  .ring-legend .lg{display:flex;align-items:center;gap:6px}
+  .ring-legend .sw{width:10px;height:10px;border-radius:3px}
+
+  /* hero competitor carousel — 3 cues */
+  .cues{margin-top:30px}
+  .cues-head{display:flex;align-items:center;gap:12px;margin-bottom:13px}
+  .cues-head .label{flex:none}
+  .cues-head .ln{flex:1;height:1px;background:var(--line)}
+  .cuerail{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .cue{
+    position:relative;height:188px;border-radius:14px;overflow:hidden;border:1px solid var(--line-2);
+    display:flex;flex-direction:column;justify-content:flex-end;isolation:isolate;
+  }
+  .cue .ph{position:absolute;inset:0;z-index:-2}
+  .cue .ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,16,0) 28%,rgba(16,14,12,.62) 64%,rgba(14,12,10,.94))}
+  .cue .kb{position:absolute;inset:-8%;z-index:-3;background-size:cover;animation:kenburns 22s ease-in-out infinite alternate}
+  @keyframes kenburns{from{transform:scale(1.04) translate(0,0)}to{transform:scale(1.16) translate(-2%,-2%)}}
+  .cue .why{position:absolute;top:11px;left:11px;z-index:2;display:inline-flex;align-items:center;gap:6px;
+    background:rgba(20,18,16,.66);backdrop-filter:blur(4px);border:1px solid rgba(184,92,56,.5);
+    color:#fff;font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+    padding:4px 8px;border-radius:6px}
+  .cue .why .bolt{color:var(--rust-soft)}
+  .cue .play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1;width:46px;height:46px;border-radius:50%;
+    background:rgba(20,18,16,.5);border:1.5px solid rgba(239,231,223,.7);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
+  .cue .play svg{width:18px;height:18px;margin-left:2px;fill:#fff}
+  .cue .meta{position:relative;z-index:2;padding:12px 13px}
+  .cue .meta .src{font-family:var(--mono);font-size:10px;color:var(--text-2);letter-spacing:.06em}
+  .cue .meta .ttl{font-weight:700;font-size:14px;margin-top:2px;letter-spacing:-.01em}
+  .cue .meta .stat{margin-top:7px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--text-2)}
+  .cue:hover .kb{animation-play-state:paused}
+
+  /* ============================================================
+     SECTION SCAFFOLD
+     ============================================================ */
+  .sec{margin-top:46px}
+  .sec-head{display:flex;align-items:flex-end;gap:14px;margin-bottom:18px}
+  .sec-head h2{font-size:21px;font-weight:800;letter-spacing:-.02em}
+  .sec-head .sub{font-family:var(--mono);font-size:11px;color:var(--text-faint);letter-spacing:.04em}
+  .sec-head .ln{flex:1;height:1px;background:var(--line);margin-bottom:6px}
+  .sec-head .act{font-family:var(--mono);font-size:11px;color:var(--rust-soft);letter-spacing:.06em;white-space:nowrap}
+
+  /* expo rail of dots separating ranked plays */
+  .exporail{display:flex;align-items:center;gap:10px;margin:22px 2px;color:var(--text-faint)}
+  .exporail .dots{flex:1;height:6px;
+    background-image:radial-gradient(circle, var(--line-2) 1.4px, transparent 1.8px);background-size:11px 6px;background-position:center;opacity:.8}
+  .exporail .rk{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+
+  /* ---- INSIGHT CARD SYSTEM — the asymmetry is the language -- */
+  .feed{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+  /* STEAL THE CUE — photo-background, their world is the light */
+  .card-steal{
+    position:relative;border-radius:16px;overflow:hidden;min-height:380px;
+    display:flex;flex-direction:column;justify-content:flex-end;isolation:isolate;
+    border:1px solid var(--line-2);
+  }
+  .card-steal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;z-index:3;
+    background:linear-gradient(180deg,var(--rust),var(--rust-deep))}
+  .card-steal .kb{position:absolute;inset:-6%;z-index:-2;background-size:cover;animation:kenburns 26s ease-in-out infinite alternate}
+  .card-steal .scrim{position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(180deg,rgba(20,18,16,.10) 0%,rgba(20,18,16,.30) 40%,rgba(16,14,12,.80) 70%,rgba(13,11,9,.97) 100%)}
+  .card-steal .topline{position:absolute;top:14px;left:16px;right:14px;z-index:3;display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+  .card-steal .why{
+    display:inline-flex;align-items:center;gap:6px;background:rgba(20,18,16,.62);backdrop-filter:blur(5px);
+    border:1px solid rgba(184,92,56,.55);color:#fff;border-radius:7px;padding:6px 10px;
+    font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+  .card-steal .why .bolt{color:var(--rust-soft);font-size:12px}
+  .card-steal .topline .grow{flex:1}
+  /* the OCR'd reel caption sitting on the glowing tile — pinned high in the photo zone */
+  .ocr{position:absolute;z-index:2;top:74px;left:50%;transform:translateX(-50%) rotate(-3deg);
+    text-align:center;width:84%}
+  .ocr .big{font-weight:900;font-size:clamp(26px,4vw,40px);line-height:.98;letter-spacing:-.02em;
+    color:#fff;text-shadow:0 3px 24px rgba(0,0,0,.6);filter:drop-shadow(0 0 1px rgba(0,0,0,.4))}
+  .ocr .big .hi{color:#FFD7A1}
+  .ocr .tag{display:inline-block;margin-top:10px;font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    background:rgba(184,92,56,.9);color:#fff;padding:5px 12px;border-radius:5px;text-shadow:none}
+  .card-steal .play{position:absolute;top:54%;left:50%;transform:translate(-50%,-50%);z-index:1;width:54px;height:54px;border-radius:50%;
+    background:rgba(20,18,16,.42);border:1.5px solid rgba(239,231,223,.65);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px);opacity:.0}
+  .card-steal:hover .play{opacity:1;transition:opacity .25s}
+  .card-steal .body{position:relative;z-index:3;padding:18px 18px 16px 20px}
+  .card-steal .src{font-family:var(--mono);font-size:10.5px;color:var(--text-2);letter-spacing:.05em;display:flex;align-items:center;gap:7px}
+  .card-steal .src .badge{width:18px;height:18px;border-radius:5px;background:linear-gradient(135deg,#7a3f6b,#3a2a55);font-size:9px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+  .card-steal h3{font-size:19px;font-weight:800;letter-spacing:-.015em;margin:7px 0 4px;line-height:1.12;text-wrap:balance}
+
+  /* inline comparison bar — their reels vs photo posts */
+  .cmpbar{margin:13px 0 14px;display:flex;flex-direction:column;gap:8px}
+  .cmpbar .row{display:flex;align-items:center;gap:10px}
+  .cmpbar .row .nm{font-family:var(--mono);font-size:10.5px;color:var(--text-2);width:96px;flex:none;letter-spacing:.02em}
+  .cmpbar .row .track{flex:1;height:9px;border-radius:6px;background:#2A221C;overflow:hidden;position:relative}
+  .cmpbar .row .fill{height:100%;border-radius:6px;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+  .cmpbar .row .fill.rust{background:linear-gradient(90deg,var(--rust),var(--rust-soft))}
+  .cmpbar .row .fill.dim{background:#54453B}
+  .cmpbar .row .vv{font-family:var(--mono);font-size:11px;font-weight:700;width:34px;text-align:right;flex:none}
+  .cmpbar .cap{font-family:var(--mono);font-size:10.5px;color:var(--rust-soft);letter-spacing:.02em}
+
+  .reco{
+    display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border-radius:11px;margin-bottom:14px;
+    background:rgba(184,92,56,.10);border:1px solid rgba(184,92,56,.26);
+  }
+  .reco.teal{background:rgba(58,128,102,.12);border-color:rgba(58,128,102,.3)}
+  .reco .ic{flex:none;margin-top:1px}
+  .reco .tx{font-size:13.5px;line-height:1.45}
+  .reco .tx b{color:#fff}
+
+  /* card actions */
+  .actions{display:flex;gap:10px;align-items:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:9px;
+    font-size:13px;font-weight:600;padding:10px 16px;letter-spacing:.01em;transition:transform .12s,filter .16s,background .16s,border-color .16s}
+  .btn:active{transform:translateY(1px)}
+  .btn-ghost{border:1px solid var(--line-2);color:var(--text-2);background:rgba(31,27,24,.5)}
+  .btn-ghost:hover{border-color:var(--slate-soft);color:var(--text)}
+  .btn-rust{background:linear-gradient(120deg,var(--rust),var(--rust-deep));color:#fff;box-shadow:0 5px 18px rgba(138,61,32,.42)}
+  .btn-rust:hover{filter:brightness(1.07)}
+  .btn-teal{background:linear-gradient(120deg,var(--teal),#2C6650);color:#fff;box-shadow:0 5px 18px rgba(44,102,80,.4)}
+  .btn-teal:hover{filter:brightness(1.08)}
+  .actions .spc{flex:1}
+  .actions .savedwhy{font-family:var(--mono);font-size:10px;color:var(--text-faint);letter-spacing:.04em}
+
+  /* PRESS THE ADVANTAGE — quiet dark card, YOUR data is the hero */
+  .card-press{
+    position:relative;border-radius:16px;background:linear-gradient(170deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column;
+    padding:20px 20px 16px 22px;min-height:380px;
+  }
+  .card-press::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+    background:linear-gradient(180deg,var(--teal-soft),#2C6650)}
+  .card-press .topline{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .card-press .topline .grow{flex:1}
+  .card-press .win-flag{display:inline-flex;align-items:center;gap:6px;color:var(--teal-soft);
+    font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .card-press h3{font-size:19px;font-weight:800;letter-spacing:-.015em;margin:8px 0 4px;line-height:1.14;text-wrap:balance}
+  .card-press .lede{color:var(--text-2);font-size:13px;line-height:1.5;max-width:50ch}
+
+  /* mini area chart (teal gradient fill) */
+  .areawrap{margin:14px 0 6px;position:relative;border:1px solid var(--line);border-radius:12px;
+    background:#1B1714;padding:14px 14px 10px}
+  .areawrap .akv{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
+  .areawrap .akv .v{font-family:var(--mono);font-size:24px;font-weight:700;color:var(--teal-soft)}
+  .areawrap .akv .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}
+  .areawrap svg{display:block;width:100%;height:84px}
+  .areawrap .xlab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--text-faint);margin-top:5px;letter-spacing:.05em}
+
+  /* win/loss pill row */
+  .wlrow{display:flex;flex-direction:column;gap:9px;margin:14px 0 6px}
+  .wlrow .wl{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:11px;background:#1B1714;border:1px solid var(--line)}
+  .wlrow .wl .ico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+  .wlrow .wl .ico.win{background:rgba(58,128,102,.16);color:var(--teal-soft)}
+  .wlrow .wl .ico.gap{background:rgba(201,148,42,.14);color:var(--gold)}
+  .wlrow .wl .tx{flex:1;min-width:0}
+  .wlrow .wl .tx b{font-size:13.5px}
+  .wlrow .wl .tx span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-top:1px}
+  .wlrow .wl .vv{font-family:var(--mono);font-weight:700;font-size:14px}
+  .card-press .actions{margin-top:auto;padding-top:14px}
+
+  /* ============================================================
+     SECONDARY FEED (compact plays)
+     ============================================================ */
+  .minifeed{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .play-mini{display:flex;gap:0;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--panel);position:relative;transition:border-color .18s,transform .18s}
+  .play-mini:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  .play-mini .stripe{width:4px;flex:none}
+  .play-mini.s-events .stripe{background:linear-gradient(180deg,var(--gold),#9A6E1C)}
+  .play-mini.s-rep .stripe{background:linear-gradient(180deg,var(--slate-soft),var(--slate))}
+  .play-mini.s-grass .stripe{background:linear-gradient(180deg,var(--teal-soft),#2C6650)}
+  .play-mini.s-menu .stripe{background:linear-gradient(180deg,var(--gold),#9A6E1C)}
+  .play-mini .pm-body{padding:15px 16px;flex:1;min-width:0;display:flex;flex-direction:column;gap:9px}
+  .play-mini .pm-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .play-mini h4{font-size:15px;font-weight:700;letter-spacing:-.01em;line-height:1.2;text-wrap:balance}
+  .play-mini p{font-size:12.5px;color:var(--text-2);line-height:1.45}
+  .play-mini p b{color:var(--text)}
+  .play-mini .pm-foot{display:flex;align-items:center;gap:10px;margin-top:3px}
+  .play-mini .pm-foot .spc{flex:1}
+  .play-mini .mini-act{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--rust-soft)}
+  .play-mini .mini-dismiss{font-family:var(--mono);font-size:11px;color:var(--text-faint)}
+
+  /* mini viz bits */
+  .miniviz-cal{display:flex;gap:4px}
+  .miniviz-cal .d{width:26px;text-align:center;border-radius:6px;padding:5px 0;background:#1B1714;border:1px solid var(--line);font-family:var(--mono)}
+  .miniviz-cal .d .dn{font-size:9px;color:var(--text-faint);letter-spacing:.06em}
+  .miniviz-cal .d .dd{font-size:12px;font-weight:700;margin-top:1px}
+  .miniviz-cal .d.spike{background:rgba(201,148,42,.16);border-color:rgba(201,148,42,.4)}
+  .miniviz-cal .d.spike .dd{color:var(--gold)}
+  .reptrack{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px}
+  .reptrack .lab{width:54px;color:var(--text-faint)}
+  .reptrack .t{flex:1;height:8px;background:#2A221C;border-radius:5px;overflow:hidden}
+  .reptrack .f{height:100%;border-radius:5px}
+  .reptrack .f.you{background:linear-gradient(90deg,var(--alert),#9A3030)}
+  .reptrack .f.them{background:linear-gradient(90deg,var(--slate-soft),var(--slate))}
+  .reptrack .vv{width:54px;text-align:right;font-weight:700}
+
+  /* mini map */
+  .minimap{position:relative;width:96px;height:78px;border-radius:10px;overflow:hidden;border:1px solid var(--line);flex:none;background:#16130F}
+  .minimap svg{position:absolute;inset:0;width:100%;height:100%}
+  .minimap .pin{position:absolute;left:54%;top:40%;width:14px;height:14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+    background:var(--teal-soft);box-shadow:0 0 0 4px rgba(58,128,102,.25)}
+  .minimap .you{position:absolute;left:28%;top:64%;width:8px;height:8px;border-radius:50%;background:var(--rust);box-shadow:0 0 0 3px rgba(184,92,56,.25)}
+  .minimap .lab{position:absolute;left:6px;bottom:5px;font-family:var(--mono);font-size:8.5px;color:var(--text-2);letter-spacing:.04em}
+
+  /* ============================================================
+     DASHBOARD · BENTO
+     ============================================================ */
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:18px;grid-auto-rows:minmax(10px,auto)}
+  .tile{border:1px solid var(--line);border-radius:16px;background:linear-gradient(170deg,var(--panel-2),var(--panel));
+    padding:18px;display:flex;flex-direction:column;min-width:0}
+  .tile .th{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .tile .th .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none;
+    background:var(--panel-3);border:1px solid var(--line-2)}
+  .tile .th .ic svg{width:16px;height:16px}
+  .tile .th h3{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+  .tile .th .label{margin-left:auto}
+
+  .col-3{grid-column:span 3} .col-2{grid-column:span 2} .col-4{grid-column:span 4}
+
+  /* price data-table */
+  .ptable{width:100%;border-collapse:collapse;font-size:12.5px}
+  .ptable th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--text-faint);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .ptable th.r,.ptable td.r{text-align:right}
+  .ptable td{padding:9px 8px;border-bottom:1px solid #271F1A}
+  .ptable tr:last-child td{border-bottom:0}
+  .ptable .who{display:flex;align-items:center;gap:9px}
+  .ptable .lg{width:24px;height:24px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:10px;color:#fff;font-family:var(--mono)}
+  .ptable .who .nm b{font-weight:600} .ptable .who .nm span{display:block;font-family:var(--mono);font-size:9.5px;color:var(--text-faint)}
+  .ptable .price{font-family:var(--mono);font-weight:700;font-variant-numeric:tabular-nums}
+  .ptable .you-row{background:rgba(184,92,56,.06)}
+  .ptable .spark{vertical-align:middle}
+  .ptable .pdelta{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:2px 6px;font-family:var(--mono);font-size:10.5px;font-weight:700}
+  .ptable .pdelta.up{color:var(--alert);background:rgba(196,64,64,.12)}
+  .ptable .pdelta.down{color:var(--teal-soft);background:rgba(58,128,102,.13)}
+  .ptable .pdelta.flat{color:var(--text-faint);background:#231C18}
+
+  /* sentiment convergence callout */
+  .convergence{margin-top:12px;border-radius:12px;border:1px solid rgba(196,64,64,.3);background:rgba(196,64,64,.08);padding:13px 14px;display:flex;gap:11px}
+  .convergence .ic{flex:none;color:var(--alert)}
+  .convergence b{color:#fff} .convergence .tx{font-size:13px;line-height:1.45;color:var(--text)}
+  .convergence .tx span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-top:4px;letter-spacing:.03em}
+
+  .sentbars{display:flex;flex-direction:column;gap:12px}
+  .sentbars .sb .top{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;margin-bottom:6px}
+  .sentbars .sb .top .nm{color:var(--text-2)} .sentbars .sb .top .vv{font-weight:700}
+  .sentbars .sb .track{height:12px;border-radius:7px;background:#241C18;overflow:hidden;position:relative}
+  .sentbars .sb .fill{height:100%;border-radius:7px;width:0;transition:width 1.1s cubic-bezier(.2,.7,.2,1)}
+  .sentbars .sb.you .fill{background:linear-gradient(90deg,#9A3030,var(--alert))}
+  .sentbars .sb.them .fill{background:linear-gradient(90deg,var(--slate),var(--slate-soft))}
+  .sentbars .note{font-family:var(--mono);font-size:10px;color:var(--text-faint);margin-top:2px;letter-spacing:.03em}
+
+  /* SEO trend area */
+  .seo-area svg{display:block;width:100%;height:120px}
+  .seo-foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+  .seo-foot .v{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--teal-soft)}
+  .seo-foot .v small{font-size:11px;color:var(--text-faint);font-weight:500}
+
+  /* week calendar strip */
+  .weekcal{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+  .weekcal .day{border:1px solid var(--line);border-radius:11px;padding:9px 6px 8px;text-align:center;background:#1B1714;position:relative;display:flex;flex-direction:column;gap:6px;min-height:96px;justify-content:flex-start}
+  .weekcal .day .dn{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text-faint);text-transform:uppercase}
+  .weekcal .day .dd{font-family:var(--mono);font-size:15px;font-weight:700}
+  .weekcal .day .bar{margin-top:auto;height:0;border-radius:4px 4px 2px 2px;width:60%;align-self:center;
+    background:linear-gradient(180deg,#3a342e,#2c2722);transition:height 1s cubic-bezier(.2,.7,.2,1)}
+  .weekcal .day.spike{border-color:rgba(201,148,42,.5);background:rgba(201,148,42,.09)}
+  .weekcal .day.spike .dd{color:var(--gold)}
+  .weekcal .day.spike .bar{background:linear-gradient(180deg,var(--gold),#9A6E1C);box-shadow:0 0 14px rgba(201,148,42,.4)}
+  .weekcal .day .ev{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:8px;
+    background:var(--gold);color:#241a05;font-weight:800;padding:1px 5px;border-radius:4px;white-space:nowrap;letter-spacing:.04em}
+  .events-note{margin-top:13px;display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text-2)}
+  .events-note b{color:#fff}
+  .events-note .gp{font-family:var(--mono);font-size:10px;color:var(--gold);border:1px solid rgba(201,148,42,.4);border-radius:6px;padding:3px 8px;letter-spacing:.06em}
+
+  /* grassroots map tile */
+  .grass-map{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line);height:150px;background:#15120E}
+  .grass-map svg{position:absolute;inset:0;width:100%;height:100%}
+  .grass-map .pin{position:absolute;width:18px;height:18px;border-radius:50% 50% 50% 0;transform:rotate(-45deg) translate(-50%,-50%);
+    left:60%;top:42%;background:var(--teal-soft);box-shadow:0 0 0 6px rgba(58,128,102,.22),0 4px 10px rgba(0,0,0,.4)}
+  .grass-map .pin::after{content:"";position:absolute;left:5px;top:5px;width:8px;height:8px;border-radius:50%;background:#15120E}
+  .grass-map .home{position:absolute;left:30%;top:66%;width:10px;height:10px;border-radius:50%;background:var(--rust);box-shadow:0 0 0 4px rgba(184,92,56,.25)}
+  .grass-map .dist{position:absolute;left:33%;top:52%;width:30%;height:1px;background:repeating-linear-gradient(90deg,var(--teal-soft) 0 4px,transparent 4px 8px);transform:rotate(20deg)}
+  .grass-map .tag{position:absolute;left:10px;bottom:9px;font-family:var(--mono);font-size:10px;color:var(--text)}
+  .grass-map .tag b{color:var(--teal-soft)}
+  .grass-stats{display:flex;gap:16px;margin-top:13px}
+  .grass-stats .gs .v{font-family:var(--mono);font-size:18px;font-weight:700;color:var(--teal-soft)}
+  .grass-stats .gs .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-top:2px}
+
+  /* ============================================================
+     COMPETITORS — photo-forward profile tiles
+     ============================================================ */
+  .compgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+  .comp{border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--panel);transition:transform .18s,border-color .18s}
+  .comp:hover{transform:translateY(-3px);border-color:var(--slate-soft)}
+  .comp .ph{position:relative;height:128px;overflow:hidden;isolation:isolate}
+  .comp .ph .kb{position:absolute;inset:-6%;background-size:cover;animation:kenburns 30s ease-in-out infinite alternate}
+  .comp .ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,18,16,0) 40%,rgba(16,14,12,.85))}
+  .comp .ph .lg{position:absolute;left:12px;bottom:10px;z-index:2;width:34px;height:34px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-family:var(--mono);font-size:12px;border:1.5px solid rgba(239,231,223,.25)}
+  .comp .ph .threat{position:absolute;top:10px;right:10px;z-index:2}
+  .comp .cb{padding:13px 14px 15px}
+  .comp .cb .nm{font-weight:700;font-size:15px;letter-spacing:-.01em}
+  .comp .cb .hd{font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-top:1px}
+  .comp .cb .stats{display:flex;gap:12px;margin-top:12px}
+  .comp .cb .stats .st{flex:1}
+  .comp .cb .stats .st .v{font-family:var(--mono);font-size:14px;font-weight:700}
+  .comp .cb .stats .st .v.up{color:var(--alert)} .comp .cb .stats .st .v.dn{color:var(--teal-soft)}
+  .comp .cb .stats .st .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin-top:2px}
+  .comp.add{display:flex;align-items:center;justify-content:center;border-style:dashed;border-color:var(--line-2);background:transparent;min-height:200px;cursor:pointer}
+  .comp.add .inner{text-align:center;color:var(--text-mute)}
+  .comp.add .inner .plus{width:42px;height:42px;border-radius:12px;border:1px dashed var(--slate-soft);margin:0 auto 11px;display:flex;align-items:center;justify-content:center;color:var(--slate-soft)}
+  .comp.add .inner b{font-size:13.5px;color:var(--text-2);display:block}
+  .comp.add .inner span{font-family:var(--mono);font-size:10px;color:var(--text-faint);letter-spacing:.04em}
+
+  /* manage-handles banner (the known UX gap, given a real home) */
+  .gapcard{margin-top:20px;border:1px solid var(--line-2);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+    background:linear-gradient(120deg,rgba(61,79,95,.16),var(--panel))}
+  .gapcard .ic{width:44px;height:44px;border-radius:12px;background:rgba(61,79,95,.3);display:flex;align-items:center;justify-content:center;color:var(--slate-soft);flex:none}
+  .gapcard .tx{flex:1;min-width:200px}
+  .gapcard .tx b{font-size:15px} .gapcard .tx p{font-size:12.5px;color:var(--text-2);margin-top:3px;line-height:1.45}
+  .gapcard .handles{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+  .gapcard .handles .h{font-family:var(--mono);font-size:11px;color:var(--text-2);border:1px solid var(--line-2);border-radius:7px;padding:4px 9px;display:flex;align-items:center;gap:6px}
+  .gapcard .handles .h.warn{border-color:rgba(201,148,42,.4);color:var(--gold)}
+
+  /* ============================================================
+     ASK BOX
+     ============================================================ */
+  .askbar{margin-top:46px;border:1px solid var(--line-2);border-radius:18px;overflow:hidden;
+    background:radial-gradient(120% 160% at 0% 0%,rgba(184,92,56,.13),transparent 50%),linear-gradient(170deg,var(--panel-2),var(--panel))}
+  .askbar .inner{padding:22px 22px 20px;display:flex;flex-direction:column;gap:14px}
+  .askbar .row1{display:flex;align-items:center;gap:12px}
+  .askbar .row1 .ic{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--rust),var(--rust-deep));display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 14px rgba(138,61,32,.4)}
+  .askbar .row1 b{font-size:16px;font-weight:800;letter-spacing:-.01em}
+  .askbar .row1 .label{margin-left:auto}
+  .askfield{display:flex;align-items:center;gap:10px;background:#15120E;border:1px solid var(--line-2);border-radius:12px;padding:6px 6px 6px 16px}
+  .askfield input{flex:1;background:none;border:0;color:var(--text);font-size:14px;font-family:var(--sans);padding:10px 0}
+  .askfield input::placeholder{color:var(--text-faint)}
+  .askfield .send{background:linear-gradient(120deg,var(--rust),var(--rust-deep));color:#fff;border-radius:9px;padding:10px 16px;font-weight:600;font-size:13px;display:inflex;align-items:center;gap:7px}
+  .suggest{display:flex;gap:9px;flex-wrap:wrap}
+  .suggest .s{font-family:var(--mono);font-size:11.5px;color:var(--text-2);border:1px solid var(--line-2);border-radius:999px;padding:7px 13px;transition:border-color .16s,color .16s}
+  .suggest .s:hover{border-color:var(--rust-soft);color:var(--text)}
+
+  /* ============================================================
+     MOBILE SHOWCASE (explicit phone frames)
+     ============================================================ */
+  .phones{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+  .phone{width:300px;max-width:88vw;border-radius:42px;border:1px solid #2A2420;padding:11px;
+    background:linear-gradient(160deg,#211C18,#16130F);box-shadow:0 30px 70px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)}
+  .phone .screen{border-radius:32px;overflow:hidden;background:var(--ground);height:600px;position:relative;border:1px solid #000}
+  .phone .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:22px;border-radius:14px;background:#000;z-index:20}
+  .pscroll{height:100%;overflow:hidden;position:relative}
+  .pscroll .pinner{padding:34px 13px 70px;display:flex;flex-direction:column;gap:13px}
+
+  /* condensed advantage-ring mobile header */
+  .m-head{padding:13px 13px 15px;border-radius:16px;background:linear-gradient(170deg,#1A1612,#141210);border:1px solid var(--line)}
+  .m-head .top{display:flex;align-items:center;gap:9px;margin-bottom:11px}
+  .m-head .ds{display:inline-flex;border-radius:7px;overflow:hidden;background:linear-gradient(100deg,var(--rust),var(--rust-deep))}
+  .m-head .ds .d{padding:4px 9px;color:#fff;text-align:center}
+  .m-head .ds .d .day{font-family:var(--mono);font-weight:800;font-size:15px;line-height:1}
+  .m-head .ds .d .mo{font-family:var(--mono);font-size:7px;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+  .m-head .hl{font-size:18px;line-height:1.1;letter-spacing:-.02em;font-weight:800}
+  .m-head .hl em{color:var(--rust-soft);font-style:normal}
+  .m-head .rule{height:3px;width:46px;border-radius:2px;margin:9px 0 11px;background:linear-gradient(90deg,var(--rust),var(--rust-deep))}
+  .m-ring{display:flex;align-items:center;gap:13px}
+  .m-ring .rg{width:74px;height:74px;flex:none;position:relative}
+  .m-ring .rg svg{transform:rotate(-90deg);width:100%;height:100%}
+  .m-ring .rg .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .m-ring .rg .ctr b{font-family:var(--mono);font-size:20px;font-weight:800;line-height:1;color:var(--rust-soft)}
+  .m-ring .rg .ctr span{font-family:var(--mono);font-size:6.5px;letter-spacing:.12em;color:var(--text-mute);text-transform:uppercase;margin-top:2px}
+  .m-chips{display:flex;flex-direction:column;gap:6px}
+  .m-chip{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;color:var(--text-2)}
+  .m-chip .sw{width:8px;height:8px;border-radius:2px;flex:none}
+  .m-chip b{font-weight:700}
+
+  /* mobile full-bleed steal card */
+  .m-card{border-radius:16px;overflow:hidden;position:relative;border:1px solid var(--line-2);min-height:340px;display:flex;flex-direction:column;justify-content:flex-end;isolation:isolate}
+  .m-card.steal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;z-index:3;background:linear-gradient(180deg,var(--rust),var(--rust-deep))}
+  .m-card .kb{position:absolute;inset:-6%;z-index:-2;background-size:cover}
+  .m-card .scrim{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(20,18,16,.08),rgba(16,14,12,.78) 62%,rgba(13,11,9,.97))}
+  .m-card .why{position:absolute;top:10px;left:11px;z-index:3;font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;
+    background:rgba(20,18,16,.6);border:1px solid rgba(184,92,56,.5);color:#fff;padding:3px 7px;border-radius:5px}
+  .m-card .ocr{position:absolute;top:52px;left:50%;transform:translateX(-50%) rotate(-3deg);text-align:center;z-index:2;width:86%}
+  .m-card .ocr .big{font-weight:900;font-size:23px;color:#fff;line-height:1;text-shadow:0 3px 18px rgba(0,0,0,.6)}
+  .m-card .ocr .big .hi{color:#FFD7A1}
+  .m-card .ocr .tag{display:inline-block;margin-top:7px;font-family:var(--mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;background:rgba(184,92,56,.9);color:#fff;padding:3px 8px;border-radius:4px}
+  .m-card .body{position:relative;z-index:3;padding:12px 13px 12px 14px}
+  .m-card .body .conf{margin-bottom:7px}
+  .m-card .body h4{font-size:15px;font-weight:800;letter-spacing:-.01em;line-height:1.12;text-wrap:balance}
+  .m-card .body .reco{margin:9px 0 11px;padding:9px 10px;font-size:11.5px}
+  .m-card .body .reco .tx{font-size:11.5px}
+  .m-card .m-actions{display:flex;gap:8px}
+  .m-card .m-actions .btn{flex:1;padding:11px;font-size:12.5px}
+
+  .m-press{border-radius:16px;border:1px solid var(--line);background:linear-gradient(170deg,var(--panel-2),var(--panel));padding:13px 13px 13px 15px;position:relative}
+  .m-press::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--teal-soft),#2C6650)}
+  .m-press .win-flag{color:var(--teal-soft);font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .m-press h4{font-size:15px;font-weight:800;letter-spacing:-.01em;margin:6px 0 4px;line-height:1.14}
+  .m-press .lede{font-size:11.5px;color:var(--text-2);line-height:1.45}
+  .m-press .areawrap{margin:11px 0 9px;padding:10px}
+  .m-press .areawrap .akv .v{font-size:18px}
+  .m-press .areawrap svg{height:54px}
+  .m-press .m-actions{display:flex;gap:8px;margin-top:4px}
+  .m-press .m-actions .btn{flex:1;padding:10px;font-size:12px}
+
+  /* bottom tab nav (mobile chrome) */
+  .m-tabs{position:absolute;left:0;right:0;bottom:0;height:62px;background:rgba(22,19,15,.94);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;z-index:15}
+  .m-tabs .t{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--text-faint);font-family:var(--mono);font-size:8.5px;letter-spacing:.04em}
+  .m-tabs .t svg{width:20px;height:20px}
+  .m-tabs .t.on{color:var(--rust-soft)}
+  .m-fab{position:absolute;right:18px;bottom:74px;z-index:18;width:54px;height:54px;border-radius:18px;
+    background:linear-gradient(135deg,var(--rust),var(--rust-deep));display:flex;align-items:center;justify-content:center;
+    box-shadow:0 10px 26px rgba(138,61,32,.55);color:#fff}
+  .m-fab svg{width:24px;height:24px}
+  .phone .caption{text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--text-faint);margin-top:14px;letter-spacing:.06em}
+
+  /* ============================================================
+     FLOATING DESKTOP FAB
+     ============================================================ */
+  .fab{position:fixed;right:28px;bottom:28px;z-index:50;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(135deg,var(--rust),var(--rust-deep));color:#fff;border-radius:16px;padding:14px 18px;
+    box-shadow:0 14px 36px rgba(138,61,32,.5);font-weight:700;font-size:14px;transition:transform .16s,filter .16s}
+  .fab:hover{transform:translateY(-2px);filter:brightness(1.06)}
+  .fab svg{width:20px;height:20px}
+
+  /* footer */
+  .ft{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:10.5px;color:var(--text-faint);letter-spacing:.06em}
+  .ft .dotrail{flex:1;height:6px;background-image:radial-gradient(circle,var(--line-2) 1.3px,transparent 1.7px);background-size:11px 6px;opacity:.7;min-width:60px}
+
+  /* ============================================================
+     ENTRANCE MOTION
+     ============================================================ */
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  .flash{animation:rustflash 1s ease-out 1}
+  @keyframes rustflash{0%{box-shadow:0 0 0 0 rgba(184,92,56,.0)}18%{box-shadow:-2px 0 0 0 var(--rust),0 0 22px rgba(184,92,56,.6)}100%{box-shadow:0 0 0 0 rgba(184,92,56,0)}}
+  .pulse-once{animation:pulse1 1.2s ease-out 1}
+  @keyframes pulse1{0%{transform:scale(1)}30%{transform:scale(1.06)}100%{transform:scale(1)}}
+
+  /* ============================================================
+     RESPONSIVE
+     ============================================================ */
+  @media (max-width:1180px){
+    .compgrid{grid-template-columns:repeat(3,1fr)}
+  }
+  @media (max-width:1040px){
+    .app{grid-template-columns:1fr}
+    .rail{display:none}
+    .herogrid{grid-template-columns:1fr;gap:26px}
+    .ringwrap{order:-1}
+    .col-3{grid-column:span 6} .col-2{grid-column:span 3} .col-4{grid-column:span 6}
+  }
+  @media (max-width:820px){
+    .feed{grid-template-columns:1fr}
+    .minifeed{grid-template-columns:1fr}
+    .compgrid{grid-template-columns:repeat(2,1fr)}
+    .cuerail{grid-template-columns:1fr;gap:12px}
+    .cue{height:150px}
+  }
+  @media (max-width:620px){
+    .wrap{padding:0 16px 110px}
+    .masthead{margin:0 -16px;padding:26px 16px 22px}
+    .hl{font-size:30px}
+    .bento{grid-template-columns:1fr;gap:14px}
+    .col-2{grid-column:span 1}
+    .compgrid{grid-template-columns:1fr}
+    .hl-stats{gap:18px}
+    .ptable{font-size:11.5px}
+    .ptable .who .nm span{display:none}
+    .mhtop{gap:10px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation:none !important;transition:none !important}
+    .reveal{opacity:1;transform:none}
+    .cue .kb,.card-steal .kb,.comp .ph .kb,.m-card .kb{animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============ LEFT RAIL ============ -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="name">Tick<b>et</b></div>
+        <div class="loc">Cane's · Arlington TX</div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="label sect">The Pass</div>
+      <a class="navlink active" href="#today" aria-current="page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16M4 12h16M4 19h10"/></svg>
+        Today's Brief <span class="tag">7</span>
+      </a>
+      <a class="navlink" href="#competitors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        Competitors
+      </a>
+      <a class="navlink" href="#events">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>
+        Events
+      </a>
+      <a class="navlink" href="#weather">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="3.4"/><path d="M12 2.5v1.5M12 14v1.5M4.6 9H3.1M20.9 9h-1.5M6.7 3.7l1 1M16.3 3.7l-1 1"/><path d="M6 18.5a3.5 3.5 0 0 1 .5-7 4.5 4.5 0 0 1 8.7 1A3 3 0 0 1 15 18.5z"/></svg>
+        Weather
+      </a>
+      <a class="navlink" href="#ask">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg>
+        Ask Ticket
+      </a>
+
+      <div class="label sect">Setup</div>
+      <a class="navlink" href="#competitors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L16.3 3h-4.6l-.3 2.5a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-1c.6.5 1.3.9 2 1.2l.3 2.5h4.6l.3-2.5c.7-.3 1.4-.7 2-1.2l2.3 1 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>
+        Handles &amp; Sources
+      </a>
+    </nav>
+
+    <div class="spacer"></div>
+
+    <div class="opcard">
+      <div class="row">
+        <div class="av">RC</div>
+        <div class="meta">
+          <b>Raising Cane's</b><br>
+          <span>1112 W Arbrook Blvd</span>
+        </div>
+      </div>
+      <div class="live"><span class="ld"></span> Feed synced · 06:12 AM CT</div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="wrap">
+
+      <!-- ===== HERO · TODAY'S PASS ===== -->
+      <header class="masthead" id="today">
+        <div class="mhtop">
+          <div class="datestub">
+            <div class="d"><div class="day">26</div><div class="mo">Jun</div></div>
+            <div class="t"><b>Today's Pass</b><span>Friday · Brief #214</span></div>
+          </div>
+          <div class="grow"></div>
+          <span class="freshchip"><span class="ld"></span> 6 competitors watched · 41 signals overnight</span>
+        </div>
+
+        <div class="herogrid">
+          <div>
+            <div class="hl-eyebrow"><span class="label">The headline</span><span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> Read first</span></div>
+            <h1 class="hl">Heat, brunch buzz, and <em>Friday openings</em></h1>
+            <div class="hl-rule"></div>
+            <p class="hl-sub">A stadium doubleheader, a reels gap you can close this week, and your highest-margin drink sitting quiet on the menu. Seven plays ranked by where they move the needle.</p>
+            <div class="hl-stats">
+              <div class="hl-stat"><div class="v rust"><span id="cnt-plays">0</span></div><div class="k">Plays today</div></div>
+              <div class="hl-stat"><div class="v teal">4</div><div class="k">You're ahead</div></div>
+              <div class="hl-stat"><div class="v alert">3</div><div class="k">They're ahead</div></div>
+              <div class="hl-stat"><div class="v">$2.6k</div><div class="k">Upside in view</div></div>
+            </div>
+          </div>
+
+          <!-- ADVANTAGE RING -->
+          <div class="ringwrap">
+            <div class="ring" role="img" aria-label="Head-to-head advantage. You lead 4 of 7 categories; the competitive set leads 3.">
+              <svg viewBox="0 0 200 200">
+                <circle class="seg track" cx="100" cy="100" r="80"></circle>
+                <!-- arcs drawn by JS so they can animate filling to share -->
+                <circle id="arc-you"  class="seg" cx="100" cy="100" r="80" stroke="url(#gteal)"></circle>
+                <circle id="arc-them" class="seg" cx="100" cy="100" r="80" stroke="url(#gthem)"></circle>
+                <defs>
+                  <linearGradient id="gteal" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#52A484"/><stop offset="1" stop-color="#2C6650"/></linearGradient>
+                  <linearGradient id="gthem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C44040"/><stop offset="1" stop-color="#B85C38"/></linearGradient>
+                </defs>
+              </svg>
+              <div class="ring-center">
+                <div class="plays">7</div>
+                <div class="pk">Plays today</div>
+                <div class="split">
+                  <span class="s you"><b id="ringyou">4</b> you lead</span>
+                  <span class="s them"><b id="ringthem">3</b> they lead</span>
+                </div>
+              </div>
+            </div>
+            <div class="ring-legend">
+              <span class="lg"><span class="sw" style="background:linear-gradient(135deg,#52A484,#2C6650)"></span>Categories you lead</span>
+              <span class="lg"><span class="sw" style="background:linear-gradient(135deg,#C44040,#B85C38)"></span>Categories they lead</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- HERO CAROUSEL · top 3 competitor cues -->
+        <div class="cues">
+          <div class="cues-head"><span class="label">Top competitor cues · why they're winning</span><span class="ln"></span></div>
+          <div class="cuerail">
+            <article class="cue">
+              <div class="kb" style="background-image:linear-gradient(135deg,#5a2f3e,#2a1622)"></div>
+              <div class="ph"></div>
+              <div class="why"><span class="bolt">⚡</span> 4× their photo posts</div>
+              <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+              <div class="meta">
+                <div class="src">@layne_chicken · Reel</div>
+                <div class="ttl">"$5 Modelo boots &amp; pints"</div>
+                <div class="stat"><span class="delta up">▲ 19.4k</span> views · 3d</div>
+              </div>
+            </article>
+            <article class="cue">
+              <div class="kb" style="background-image:linear-gradient(135deg,#4a3a1e,#241a0c)"></div>
+              <div class="ph"></div>
+              <div class="why"><span class="bolt">⚡</span> +$0.40 combo, no churn</div>
+              <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+              <div class="meta">
+                <div class="src">Slim Chickens · Menu</div>
+                <div class="ttl">3-finger combo raised</div>
+                <div class="stat"><span class="delta warn">▲ 4.6%</span> price · held velocity</div>
+              </div>
+            </article>
+            <article class="cue">
+              <div class="kb" style="background-image:linear-gradient(135deg,#3a4a52,#1a2228)"></div>
+              <div class="ph"></div>
+              <div class="why"><span class="bolt">⚡</span> 1 review / 15 covers</div>
+              <div class="play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+              <div class="meta">
+                <div class="src">PDQ · Reviews</div>
+                <div class="ttl">Out-reviewing you 2.7×</div>
+                <div class="stat"><span class="delta down">▼ gap</span> closing routine needed</div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </header>
+
+      <!-- ===== INSIGHT CARD SYSTEM ===== -->
+      <section class="sec" aria-labelledby="ranked-h">
+        <div class="sec-head">
+          <h2 id="ranked-h">The line</h2>
+          <span class="sub">7 plays · ranked by impact</span>
+          <span class="ln"></span>
+          <span class="act">Calibrate ranking →</span>
+        </div>
+
+        <div class="exporail"><span class="rk">Rank 01 — 02</span><span class="dots"></span><span class="rk">Steal · Press</span></div>
+
+        <div class="feed">
+
+          <!-- CARD 1 · STEAL THE CUE (their world = photo light source) -->
+          <article class="card-steal reveal" data-flash="1">
+            <div class="kb" style="background-image:linear-gradient(150deg,#6a2f3a 0%,#3a1822 55%,#1c0e14 100%)"></div>
+            <div class="scrim"></div>
+            <div class="topline">
+              <span class="pill cat-social"><span class="dot"></span> Social</span>
+              <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High</span>
+              <span class="grow"></span>
+              <span class="why"><span class="bolt">⚡</span> Why this wins · format, not budget</span>
+            </div>
+            <div class="play"><svg viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg></div>
+            <div class="ocr">
+              <div class="big">$5 MODELO<br>BOOTS &amp; <span class="hi">PINTS</span></div>
+              <span class="tag">OCR'd from reel · 19.4k views</span>
+            </div>
+            <div class="body">
+              <div class="src"><span class="badge">IG</span> @layne_chicken · Reel · posted 3 days ago</div>
+              <h3>Reels are the only format winning locally — start this week</h3>
+
+              <div class="cmpbar" aria-label="Their reels outperform their photo posts roughly 4 to 1">
+                <div class="row"><span class="nm">Their reels</span><span class="track"><span class="fill rust" data-w="100"></span></span><span class="vv" style="color:var(--rust-soft)">4×</span></div>
+                <div class="row"><span class="nm">Their photos</span><span class="track"><span class="fill dim" data-w="25"></span></span><span class="vv" style="color:var(--text-mute)">1×</span></div>
+                <div class="cap">Competitors' reels pull 4× their photo-post engagement.</div>
+              </div>
+
+              <div class="reco">
+                <span class="ic">⚡</span>
+                <span class="tx"><b>Post 3 reels this week</b> — kitchen close-ups, the lemonade pour, a sauce-pull. You've posted photos only for 6 weeks while the set went short-video.</span>
+              </div>
+
+              <div class="actions">
+                <button class="btn btn-ghost dismiss-btn">Dismiss</button>
+                <button class="btn btn-rust">Act on this</button>
+                <span class="spc"></span>
+                <span class="savedwhy">↩ undo · why?</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- CARD 2 · PRESS THE ADVANTAGE (your data = the hero, no photo) -->
+          <article class="card-press reveal">
+            <div class="topline">
+              <span class="pill cat-menu"><span class="dot"></span> Menu</span>
+              <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High</span>
+              <span class="grow"></span>
+              <span class="win-flag">▲ You're winning</span>
+            </div>
+            <h3>Feature Freshly Squeezed Lemonade as the hero drink</h3>
+            <p class="lede">Your highest-margin signature is under-promoted. Nobody in the set makes it fresh — it's a defensible lead you're sitting on.</p>
+
+            <div class="areawrap">
+              <div class="akv"><span class="v">62%</span><span class="k">Gross margin · vs 38% set avg</span></div>
+              <svg viewBox="0 0 300 84" preserveAspectRatio="none" aria-label="Lemonade attach-rate trending up; promotion flat">
+                <defs>
+                  <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A8066" stop-opacity=".5"/><stop offset="1" stop-color="#3A8066" stop-opacity="0"/></linearGradient>
+                </defs>
+                <path class="area-fill" d="M0,70 L0,58 C40,52 60,55 90,46 C120,38 150,42 180,30 C210,20 240,26 270,14 L300,8 L300,84 L0,84 Z" fill="url(#gfill)" opacity="0"/>
+                <path class="area-line" d="M0,58 C40,52 60,55 90,46 C120,38 150,42 180,30 C210,20 240,26 270,14 L300,8" fill="none" stroke="#52A484" stroke-width="2.5" stroke-dasharray="700" stroke-dashoffset="700"/>
+                <circle class="area-dot" cx="300" cy="8" r="4" fill="#52A484" opacity="0"/>
+              </svg>
+              <div class="xlab"><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span></div>
+            </div>
+
+            <div class="wlrow">
+              <div class="wl"><span class="ico win"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 13l4 4L19 7"/></svg></span><span class="tx"><b>Only fresh-squeezed in the set</b><span>4 competitors pour from concentrate</span></span><span class="vv" style="color:var(--teal-soft)">+24pt</span></div>
+              <div class="wl"><span class="ico gap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.4 18a1.8 1.8 0 0 0 1.6 2.7h16a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.9 1.9 0 0 0-3.4 0z"/></svg></span><span class="tx"><b>Mentioned on 0 of 9 boards</b><span>No menu, table, or social callout</span></span><span class="vv" style="color:var(--gold)">$0.9k/wk</span></div>
+            </div>
+
+            <div class="actions">
+              <button class="btn btn-ghost dismiss-btn">Dismiss</button>
+              <button class="btn btn-teal">Press the advantage</button>
+              <span class="spc"></span>
+              <span class="savedwhy">↩ undo · why?</span>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- expo rail · ranked continuation -->
+        <div class="exporail"><span class="rk">Rank 03 — 06</span><span class="dots"></span><span class="rk">The rest of the line</span></div>
+
+        <div class="minifeed">
+
+          <!-- EVENTS · stadium -->
+          <article class="play-mini s-events reveal">
+            <div class="stripe"></div>
+            <div class="pm-body">
+              <div class="pm-top">
+                <span class="pill cat-events"><span class="dot"></span> Competitive</span>
+                <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High</span>
+              </div>
+              <h4>Be the fast option when the stadium crowd pours out</h4>
+              <p>AT&amp;T Stadium runs events <b>Jun 25 &amp; 27</b>. Post-game surge favors drive-thru speed — pre-stage the line and push the app.</p>
+              <div class="miniviz-cal" aria-label="Demand spikes Jun 25 and Jun 27">
+                <div class="d"><div class="dn">Tue</div><div class="dd">24</div></div>
+                <div class="d spike"><div class="dn">Wed</div><div class="dd">25</div></div>
+                <div class="d"><div class="dn">Thu</div><div class="dd">26</div></div>
+                <div class="d spike"><div class="dn">Fri</div><div class="dd">27</div></div>
+                <div class="d"><div class="dn">Sat</div><div class="dd">28</div></div>
+              </div>
+              <div class="pm-foot"><span class="mini-dismiss">Dismiss</span><span class="spc"></span><span class="mini-act">Plan the surge →</span></div>
+            </div>
+          </article>
+
+          <!-- REPUTATION · sentiment convergence -->
+          <article class="play-mini s-rep reveal">
+            <div class="stripe"></div>
+            <div class="pm-body">
+              <div class="pm-top">
+                <span class="pill cat-competitive"><span class="dot"></span> Competitive</span>
+                <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High</span>
+              </div>
+              <h4>Your burnt chicken is the real problem, not your prices</h4>
+              <p>3 competitor reviews <b>and yours</b> converge on char complaints. Price gripes are noise — the kitchen is the signal.</p>
+              <div class="reptrack" style="margin-top:4px"><span class="lab">"burnt"</span><span class="t"><span class="f you" style="width:64%"></span></span><span class="vv" style="color:var(--alert)">31 mentions</span></div>
+              <div class="reptrack"><span class="lab">"pricey"</span><span class="t"><span class="f them" style="width:22%"></span></span><span class="vv" style="color:var(--text-mute)">9 mentions</span></div>
+              <div class="pm-foot"><span class="mini-dismiss">Dismiss</span><span class="spc"></span><span class="mini-act">Brief the line →</span></div>
+            </div>
+          </article>
+
+          <!-- GRASSROOTS · spirit night -->
+          <article class="play-mini s-grass reveal">
+            <div class="stripe"></div>
+            <div class="pm-body">
+              <div class="pm-top">
+                <span class="pill cat-grassroots"><span class="dot"></span> Grassroots</span>
+                <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High</span>
+              </div>
+              <h4>Spirit Night with Strive to Thrive</h4>
+              <p>A school <b>0.1 mi away</b>. At a $19.25 check average, a single night runs <b>$1,444–$2,599</b> incremental.</p>
+              <div style="display:flex;gap:13px;align-items:center;margin-top:2px">
+                <div class="minimap">
+                  <svg viewBox="0 0 96 78"><path d="M0 40 H96 M48 0 V78 M20 0 L40 78 M76 0 L60 78" stroke="#2a2420" stroke-width="1" fill="none"/></svg>
+                  <span class="pin"></span><span class="you"></span><span class="lab">0.1 mi</span>
+                </div>
+                <div style="flex:1;font-family:var(--mono);font-size:11px;color:var(--text-2);line-height:1.5">
+                  <div><b style="color:var(--teal-soft)">15%</b> night give-back</div>
+                  <div><b style="color:var(--teal-soft)">~310</b> families in list</div>
+                  <div>Best fit: <b style="color:var(--text)">Tue</b></div>
+                </div>
+              </div>
+              <div class="pm-foot"><span class="mini-dismiss">Dismiss</span><span class="spc"></span><span class="mini-act">Draft the outreach →</span></div>
+            </div>
+          </article>
+
+          <!-- REPUTATION · ask routine (MED) -->
+          <article class="play-mini s-rep reveal">
+            <div class="stripe"></div>
+            <div class="pm-body">
+              <div class="pm-top">
+                <span class="pill cat-reputation"><span class="dot"></span> Reputation</span>
+                <span class="conf conf-med"><span class="bars"><i class="on"></i><i class="on"></i><i></i></span> Medium</span>
+              </div>
+              <h4>Build an ask-for-reviews routine</h4>
+              <p>You earn <b>1 review per 40 covers</b> vs the set's <b>1 per 15</b>. A simple receipt-line prompt closes most of that gap.</p>
+              <div class="reptrack" style="margin-top:4px"><span class="lab">You</span><span class="t"><span class="f you" style="width:30%"></span></span><span class="vv">1 / 40</span></div>
+              <div class="reptrack"><span class="lab">Set</span><span class="t"><span class="f them" style="width:80%"></span></span><span class="vv">1 / 15</span></div>
+              <div class="pm-foot"><span class="mini-dismiss">Dismiss</span><span class="spc"></span><span class="mini-act">Set the routine →</span></div>
+            </div>
+          </article>
+
+        </div>
+      </section>
+
+      <!-- ===== DASHBOARD · BENTO ===== -->
+      <section class="sec" aria-labelledby="board-h">
+        <div class="sec-head">
+          <h2 id="board-h">The board</h2>
+          <span class="sub">live competitive read · sized by what matters today</span>
+          <span class="ln"></span>
+          <span class="act">Last sync 06:12 →</span>
+        </div>
+
+        <div class="bento">
+
+          <!-- MENU / PRICE TABLE -->
+          <div class="tile col-3">
+            <div class="th">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+              <h3>Menu &amp; price moves</h3>
+              <span class="label">7-day</span>
+            </div>
+            <div style="overflow-x:auto">
+            <table class="ptable">
+              <thead><tr><th>Operator · item</th><th class="r">Price</th><th>Trend</th><th class="r">Δ 7d</th></tr></thead>
+              <tbody>
+                <tr class="you-row">
+                  <td><div class="who"><span class="lg" style="background:linear-gradient(135deg,var(--rust),var(--rust-deep))">RC</span><span class="nm"><b>You</b><span>3-finger combo</span></span></div></td>
+                  <td class="r price">$9.59</td>
+                  <td><svg class="spark" width="60" height="20" viewBox="0 0 60 20"><polyline points="0,12 12,12 24,12 36,12 48,12 60,12" fill="none" stroke="var(--text-mute)" stroke-width="1.5"/></svg></td>
+                  <td class="r"><span class="pdelta flat">— 0%</span></td>
+                </tr>
+                <tr>
+                  <td><div class="who"><span class="lg" style="background:linear-gradient(135deg,#7a3550,#3a1a28)">SC</span><span class="nm"><b>Slim Chickens</b><span>3-finger meal</span></span></div></td>
+                  <td class="r price">$10.49</td>
+                  <td><svg class="spark" width="60" height="20" viewBox="0 0 60 20"><polyline points="0,14 12,13 24,13 36,11 48,8 60,5" fill="none" stroke="var(--alert)" stroke-width="1.5"/></svg></td>
+                  <td class="r"><span class="pdelta up">▲ 4.6%</span></td>
+                </tr>
+                <tr>
+                  <td><div class="who"><span class="lg" style="background:linear-gradient(135deg,#7a5a25,#3a2c10)">LC</span><span class="nm"><b>Layne's</b><span>The box</span></span></div></td>
+                  <td class="r price">$9.25</td>
+                  <td><svg class="spark" width="60" height="20" viewBox="0 0 60 20"><polyline points="0,8 12,9 24,11 36,11 48,13 60,15" fill="none" stroke="var(--teal-soft)" stroke-width="1.5"/></svg></td>
+                  <td class="r"><span class="pdelta down">▼ 3.1%</span></td>
+                </tr>
+                <tr>
+                  <td><div class="who"><span class="lg" style="background:linear-gradient(135deg,#35586a,#1a2c38)">PD</span><span class="nm"><b>PDQ</b><span>Tenders combo</span></span></div></td>
+                  <td class="r price">$11.19</td>
+                  <td><svg class="spark" width="60" height="20" viewBox="0 0 60 20"><polyline points="0,12 12,12 24,11 36,12 48,11 60,11" fill="none" stroke="var(--text-mute)" stroke-width="1.5"/></svg></td>
+                  <td class="r"><span class="pdelta flat">— 0.4%</span></td>
+                </tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+
+          <!-- REVIEW SENTIMENT / VELOCITY -->
+          <div class="tile col-3">
+            <div class="th">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="var(--alert)" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg></span>
+              <h3>Review velocity vs the set</h3>
+              <span class="label">reviews / covers</span>
+            </div>
+            <div class="sentbars">
+              <div class="sb you">
+                <div class="top"><span class="nm">You</span><span class="vv" style="color:var(--alert)">1 review / 40 covers</span></div>
+                <div class="track"><span class="fill" data-w="30"></span></div>
+              </div>
+              <div class="sb them">
+                <div class="top"><span class="nm">Competitive set</span><span class="vv" style="color:var(--slate-soft)">1 review / 15 covers</span></div>
+                <div class="track"><span class="fill" data-w="80"></span></div>
+              </div>
+              <div class="note">You generate reviews at 38% of the set's rate.</div>
+            </div>
+            <div class="convergence">
+              <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.4 18a1.8 1.8 0 0 0 1.6 2.7h16a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.9 1.9 0 0 0-3.4 0z"/></svg></span>
+              <span class="tx"><b>Sentiment convergence:</b> "burnt chicken" is the real problem, not your prices.<span>31 char mentions across you + 3 rivals · 9 price mentions</span></span>
+            </div>
+          </div>
+
+          <!-- LOCAL SEO TREND -->
+          <div class="tile col-4">
+            <div class="th">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal-soft)" stroke-width="1.8"><path d="M3 17l5-5 4 3 8-9"/><path d="M21 6v5h-5"/></svg></span>
+              <h3>Local search visibility</h3>
+              <span class="label">"chicken fingers near me"</span>
+            </div>
+            <div class="seo-area">
+              <svg viewBox="0 0 600 120" preserveAspectRatio="none" aria-label="Your local visibility trending up over 6 weeks">
+                <defs>
+                  <linearGradient id="seofill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A8066" stop-opacity=".42"/><stop offset="1" stop-color="#3A8066" stop-opacity="0"/></linearGradient>
+                  <linearGradient id="seofill2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3D4F5F" stop-opacity=".26"/><stop offset="1" stop-color="#3D4F5F" stop-opacity="0"/></linearGradient>
+                </defs>
+                <!-- grid -->
+                <g stroke="#271F1A" stroke-width="1">
+                  <line x1="0" y1="30" x2="600" y2="30"/><line x1="0" y1="60" x2="600" y2="60"/><line x1="0" y1="90" x2="600" y2="90"/>
+                </g>
+                <!-- set (slate) -->
+                <path d="M0,72 C100,70 180,74 280,66 C380,58 460,62 600,54 L600,120 L0,120 Z" fill="url(#seofill2)"/>
+                <path d="M0,72 C100,70 180,74 280,66 C380,58 460,62 600,54" fill="none" stroke="var(--slate-soft)" stroke-width="2" stroke-dasharray="4 4" opacity=".8"/>
+                <!-- you (teal) -->
+                <path class="seo-fill" d="M0,90 C100,84 180,80 280,62 C380,46 460,40 600,22 L600,120 L0,120 Z" fill="url(#seofill)" opacity="0"/>
+                <path class="seo-line" d="M0,90 C100,84 180,80 280,62 C380,46 460,40 600,22" fill="none" stroke="#52A484" stroke-width="2.8" stroke-dasharray="1300" stroke-dashoffset="1300"/>
+                <circle class="seo-dot" cx="600" cy="22" r="4.5" fill="#52A484" opacity="0"/>
+              </svg>
+            </div>
+            <div class="seo-foot">
+              <span style="font-family:var(--mono);font-size:11px;color:var(--text-faint)">6-wk · map-pack rank</span>
+              <span class="v">#2 <small>▲ 4 spots · passed Layne's</small></span>
+            </div>
+          </div>
+
+          <!-- EVENTS / WEATHER CALENDAR -->
+          <div class="tile col-2" id="events">
+            <div class="th">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg></span>
+              <h3>This week's demand</h3>
+              <span class="label">events · °F</span>
+            </div>
+            <div class="weekcal" aria-label="Demand by day; spikes on Wednesday and Friday from stadium events">
+              <div class="day"><div class="dn">Mon</div><div class="dd">23</div><div class="bar" data-h="34"></div></div>
+              <div class="day"><div class="dn">Tue</div><div class="dd">24</div><div class="bar" data-h="42"></div></div>
+              <div class="day spike"><span class="ev">AT&amp;T</span><div class="dn">Wed</div><div class="dd">25</div><div class="bar" data-h="86"></div></div>
+              <div class="day"><div class="dn">Thu</div><div class="dd">26</div><div class="bar" data-h="50"></div></div>
+              <div class="day spike"><span class="ev">AT&amp;T</span><div class="dn">Fri</div><div class="dd">27</div><div class="bar" data-h="92"></div></div>
+              <div class="day"><div class="dn">Sat</div><div class="dd">28</div><div class="bar" data-h="60"></div></div>
+              <div class="day"><div class="dn">Sun</div><div class="dd">29</div><div class="bar" data-h="46"></div></div>
+            </div>
+            <div class="events-note"><span class="gp">97°F</span> <b>Heat + post-game rush.</b> Be the fast option Wed &amp; Fri.</div>
+          </div>
+
+          <!-- GRASSROOTS MAP -->
+          <div class="tile col-2" id="weather">
+            <div class="th">
+              <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="var(--teal-soft)" stroke-width="1.8"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+              <h3>Grassroots in range</h3>
+              <span class="label">≤ 0.5 mi</span>
+            </div>
+            <div class="grass-map">
+              <svg viewBox="0 0 300 150"><g stroke="#2a2420" stroke-width="1.4" fill="none"><path d="M0 70 H300 M150 0 V150 M40 0 L120 150 M250 0 L180 150 M0 110 H300"/></g></svg>
+              <span class="dist"></span><span class="pin"></span><span class="home"></span>
+              <span class="tag">Strive to Thrive · <b>0.1 mi</b></span>
+            </div>
+            <div class="grass-stats">
+              <div class="gs"><div class="v">$2.6k</div><div class="k">Upside / night</div></div>
+              <div class="gs"><div class="v">$19.25</div><div class="k">Check avg</div></div>
+              <div class="gs"><div class="v">310</div><div class="k">Families</div></div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ===== COMPETITORS — photo-forward profiles ===== -->
+      <section class="sec" id="competitors" aria-labelledby="comp-h">
+        <div class="sec-head">
+          <h2 id="comp-h">The competitive set</h2>
+          <span class="sub">6 operators · 0.5 mi radius</span>
+          <span class="ln"></span>
+          <span class="act">+ Add competitor</span>
+        </div>
+
+        <div class="compgrid">
+          <article class="comp reveal">
+            <div class="ph"><div class="kb" style="background-image:linear-gradient(135deg,#6a2f3a,#2a1622)"></div><span class="lg" style="background:linear-gradient(135deg,#7a3550,#3a1a28)">SC</span><span class="threat conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> Hot</span></div>
+            <div class="cb"><div class="nm">Slim Chickens</div><div class="hd">@slimchickens · 0.3 mi</div>
+              <div class="stats"><div class="st"><div class="v up">+4.6%</div><div class="k">Price 7d</div></div><div class="st"><div class="v up">4×</div><div class="k">Reels lift</div></div><div class="st"><div class="v">4.4★</div><div class="k">Rating</div></div></div>
+            </div>
+          </article>
+          <article class="comp reveal">
+            <div class="ph"><div class="kb" style="background-image:linear-gradient(135deg,#5a4a1e,#241a0c)"></div><span class="lg" style="background:linear-gradient(135deg,#7a5a25,#3a2c10)">LC</span><span class="threat conf conf-med"><span class="bars"><i class="on"></i><i class="on"></i><i></i></span> Watch</span></div>
+            <div class="cb"><div class="nm">Layne's Chicken</div><div class="hd">@layne_chicken · 0.4 mi</div>
+              <div class="stats"><div class="st"><div class="v dn">−3.1%</div><div class="k">Price 7d</div></div><div class="st"><div class="v up">19.4k</div><div class="k">Top reel</div></div><div class="st"><div class="v">4.2★</div><div class="k">Rating</div></div></div>
+            </div>
+          </article>
+          <article class="comp reveal">
+            <div class="ph"><div class="kb" style="background-image:linear-gradient(135deg,#35586a,#1a2c38)"></div><span class="lg" style="background:linear-gradient(135deg,#35586a,#1a2c38)">PD</span><span class="threat conf conf-med"><span class="bars"><i class="on"></i><i class="on"></i><i></i></span> Watch</span></div>
+            <div class="cb"><div class="nm">PDQ Tenders</div><div class="hd">@eatpdq · 0.5 mi</div>
+              <div class="stats"><div class="st"><div class="v up">2.7×</div><div class="k">Reviews</div></div><div class="st"><div class="v">−0.4%</div><div class="k">Price 7d</div></div><div class="st"><div class="v">4.5★</div><div class="k">Rating</div></div></div>
+            </div>
+          </article>
+          <article class="comp reveal">
+            <div class="ph"><div class="kb" style="background-image:linear-gradient(135deg,#3a5a44,#16261d)"></div><span class="lg" style="background:linear-gradient(135deg,#2f5a44,#16261d)">CF</span><span class="threat conf conf-dir"><span class="bars"><i class="on"></i><i></i><i></i></span> Quiet</span></div>
+            <div class="cb"><div class="nm">Chick-fil-A</div><div class="hd">@chickfila · 0.5 mi</div>
+              <div class="stats"><div class="st"><div class="v dn">flat</div><div class="k">Price 7d</div></div><div class="st"><div class="v">low</div><div class="k">Local social</div></div><div class="st"><div class="v">4.7★</div><div class="k">Rating</div></div></div>
+            </div>
+          </article>
+          <!-- add competitor -->
+          <button class="comp add reveal">
+            <div class="inner">
+              <div class="plus"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+              <b>Add a competitor</b>
+              <span>handle, map pin, or name</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- THE UX GAP, given a real home -->
+        <div class="gapcard reveal">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/><path d="M4 12c0-.4 0-.8.1-1.2L2 9.3l2-3.4 2.4 1c.6-.5 1.3-.9 2-1.2L11 3h2l.6 2.7c.7.3 1.4.7 2 1.2l2.4-1 2 3.4-2.1 1.5c.1.4.1.8.1 1.2s0 .8-.1 1.2l2.1 1.5-2 3.4-2.4-1c-.6.5-1.3.9-2 1.2L13 21h-2l-.6-2.7c-.7-.3-1.4-.7-2-1.2l-2.4 1-2-3.4 2.1-1.5C4 12.8 4 12.4 4 12z"/></svg></div>
+          <div class="tx">
+            <b>Manage your handles &amp; sources</b>
+            <p>Add, change, or remove the social accounts and competitors Ticket watches. Two handles need a reconnect to keep the feed accurate.</p>
+            <div class="handles">
+              <span class="h"><span style="color:var(--rust-soft)">●</span> @raisingcanes</span>
+              <span class="h warn">⚠ @canes_arlington · reconnect</span>
+              <span class="h"><span style="color:var(--slate-soft)">●</span> 6 competitors</span>
+              <span class="h warn">⚠ TikTok · not linked</span>
+            </div>
+          </div>
+          <button class="btn btn-ghost" style="border-color:var(--slate-soft)">Manage sources</button>
+        </div>
+      </section>
+
+      <!-- ===== ASK BOX ===== -->
+      <section class="askbar reveal" id="ask" aria-labelledby="ask-h">
+        <div class="inner">
+          <div class="row1">
+            <div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 3l1.9 5.8H20l-4.9 3.6 1.9 5.8L12 14.6 7 18.2l1.9-5.8L4 8.8h6.1z"/></svg></div>
+            <b id="ask-h">Ask Ticket anything about your block</b>
+            <span class="label">grounded in your feed</span>
+          </div>
+          <label class="askfield">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            <input type="text" placeholder="e.g. Which competitor is gaining on me this month — and where?" aria-label="Ask Ticket">
+            <button class="send">Ask <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </label>
+          <div class="suggest">
+            <button class="s">Why is Slim Chickens "hot" this week?</button>
+            <button class="s">What should I post today?</button>
+            <button class="s">How do I beat the stadium rush?</button>
+            <button class="s">Where am I actually winning?</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MOBILE SHOWCASE ===== -->
+      <section class="sec" aria-labelledby="mob-h">
+        <div class="sec-head">
+          <h2 id="mob-h">On the line, on the phone</h2>
+          <span class="sub">the operator's primary screen</span>
+          <span class="ln"></span>
+          <span class="act">iPhone · 390pt</span>
+        </div>
+
+        <div class="phones">
+          <!-- PHONE 1 · HOME -->
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="pscroll"><div class="pinner">
+
+                <div class="m-head">
+                  <div class="top">
+                    <div class="ds"><div class="d"><div class="day">26</div><div class="mo">Jun</div></div></div>
+                    <div style="font-family:var(--mono);font-size:9px;color:var(--text-faint);letter-spacing:.1em">FRI · BRIEF #214</div>
+                  </div>
+                  <div class="hl">Heat, brunch buzz, and <em>Friday openings</em></div>
+                  <div class="rule"></div>
+                  <div class="m-ring">
+                    <div class="rg">
+                      <svg viewBox="0 0 80 80">
+                        <circle cx="40" cy="40" r="32" fill="none" stroke="#2A2420" stroke-width="8"/>
+                        <circle class="m-arc-you" cx="40" cy="40" r="32" fill="none" stroke="url(#gteal)" stroke-width="8" stroke-linecap="butt"/>
+                        <circle class="m-arc-them" cx="40" cy="40" r="32" fill="none" stroke="url(#gthem)" stroke-width="8" stroke-linecap="butt"/>
+                      </svg>
+                      <div class="ctr"><b>7</b><span>plays</span></div>
+                    </div>
+                    <div class="m-chips">
+                      <div class="m-chip"><span class="sw" style="background:var(--teal-soft)"></span><b style="color:var(--teal-soft)">4</b> you lead</div>
+                      <div class="m-chip"><span class="sw" style="background:var(--alert)"></span><b style="color:var(--alert)">3</b> they lead</div>
+                      <div class="m-chip"><span class="sw" style="background:var(--gold)"></span><b style="color:var(--gold)">2</b> time-sensitive</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- full-bleed steal card -->
+                <div class="m-card steal">
+                  <div class="kb" style="background-image:linear-gradient(150deg,#6a2f3a,#3a1822 55%,#1c0e14)"></div>
+                  <div class="scrim"></div>
+                  <span class="why">⚡ Why this wins · 4× their photos</span>
+                  <div class="ocr"><div class="big">$5 MODELO<br><span class="hi">PINTS</span></div><span class="tag">OCR'd reel · 19.4k</span></div>
+                  <div class="body">
+                    <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High · Social</span>
+                    <h4>Reels are the only format winning locally</h4>
+                    <div class="reco"><span class="ic">⚡</span><span class="tx">Post 3 reels this week — you've been photo-only for 6 weeks.</span></div>
+                    <div class="m-actions"><button class="btn btn-ghost">Dismiss</button><button class="btn btn-rust">Act</button></div>
+                  </div>
+                </div>
+
+                <!-- mobile press card -->
+                <div class="m-press">
+                  <span class="win-flag">▲ You're winning · Menu</span>
+                  <h4>Feature Freshly Squeezed Lemonade</h4>
+                  <p class="lede">Your highest-margin signature, under-promoted. Nobody in the set pours fresh.</p>
+                  <div class="areawrap">
+                    <div class="akv"><span class="v">62%</span><span class="k">margin · 38% set</span></div>
+                    <svg viewBox="0 0 260 54" preserveAspectRatio="none"><defs><linearGradient id="mg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A8066" stop-opacity=".5"/><stop offset="1" stop-color="#3A8066" stop-opacity="0"/></linearGradient></defs><path d="M0,42 C40,38 80,34 130,24 C180,16 220,18 260,6 L260,54 L0,54 Z" fill="url(#mg)"/><path d="M0,42 C40,38 80,34 130,24 C180,16 220,18 260,6" fill="none" stroke="#52A484" stroke-width="2.2"/></svg>
+                  </div>
+                  <div class="m-actions"><button class="btn btn-ghost">Dismiss</button><button class="btn btn-teal">Press</button></div>
+                </div>
+
+              </div></div>
+
+              <!-- bottom tab nav + FAB -->
+              <div class="m-fab"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg></div>
+              <div class="m-tabs">
+                <div class="t on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Today</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Rivals</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>Events</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg>Ask</div>
+              </div>
+            </div>
+            <div class="caption">Today · condensed pass</div>
+          </div>
+
+          <!-- PHONE 2 · CARD DETAIL SHEET -->
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="pscroll"><div class="pinner" style="padding-top:34px">
+
+                <div style="display:flex;align-items:center;gap:9px;padding:2px 2px 4px">
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--rust-soft);letter-spacing:.08em">← TODAY</div>
+                  <div style="flex:1"></div>
+                  <div style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">PLAY 1 / 7</div>
+                </div>
+
+                <!-- detail sheet of the steal card -->
+                <div class="m-card steal" style="min-height:330px">
+                  <div class="kb" style="background-image:linear-gradient(150deg,#6a2f3a,#3a1822 55%,#1c0e14)"></div>
+                  <div class="scrim"></div>
+                  <span class="why">⚡ Why this wins · format, not budget</span>
+                  <div class="ocr" style="top:60px"><div class="big">$5 MODELO<br>BOOTS &amp; <span class="hi">PINTS</span></div><span class="tag">OCR'd reel · 19.4k views</span></div>
+                  <div class="body">
+                    <span class="conf conf-high"><span class="bars"><i class="on"></i><i class="on"></i><i class="on"></i></span> High · Social</span>
+                    <h4>Reels are the only format winning locally</h4>
+                  </div>
+                </div>
+
+                <!-- inline comparison + recommendation under the sheet -->
+                <div class="m-press" style="border-left-color:transparent">
+                  <div class="cmpbar" style="margin:2px 0 4px">
+                    <div class="row"><span class="nm">Their reels</span><span class="track"><span class="fill rust" style="width:100%"></span></span><span class="vv" style="color:var(--rust-soft)">4×</span></div>
+                    <div class="row"><span class="nm">Their photos</span><span class="track"><span class="fill dim" style="width:25%"></span></span><span class="vv" style="color:var(--text-mute)">1×</span></div>
+                  </div>
+                  <div class="reco"><span class="ic">⚡</span><span class="tx"><b>Post 3 reels this week.</b> Kitchen close-ups, the lemonade pour, a sauce-pull. The set went short-video; you stayed on photos.</span></div>
+                  <div class="m-actions"><button class="btn btn-ghost">Dismiss</button><button class="btn btn-rust">Act on this</button></div>
+                  <div style="text-align:center;margin-top:9px;font-family:var(--mono);font-size:9.5px;color:var(--text-faint);letter-spacing:.06em">↩ Dismissed plays return with a reason — the loop stays legible</div>
+                </div>
+
+              </div></div>
+              <div class="m-tabs">
+                <div class="t on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Today</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Rivals</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg>Events</div>
+                <div class="t"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg>Ask</div>
+              </div>
+            </div>
+            <div class="caption">Tap a photo card → detail sheet</div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="ft">
+        <span>TICKET · THE FEED LINE</span>
+        <span class="dotrail"></span>
+        <span>Watching 6 · 41 signals / 24h · synced 06:12 CT</span>
+      </footer>
+
+    </div>
+  </main>
+</div>
+
+<!-- floating desktop FAB -->
+<a class="fab" href="#ask"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/></svg> Ask Ticket</a>
+
+<script>
+(function(){
+  "use strict";
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---- Advantage ring: arcs race to their share ---- */
+  function setRing(youEl, themEl, r, youShare, themShare, animate){
+    var C = 2*Math.PI*r;
+    var gap = C*0.012; // tiny seam between arcs
+    var youLen = C*youShare, themLen = C*themShare;
+    // YOU arc starts at top
+    youEl.style.strokeDasharray = (youLen-gap)+" "+(C-(youLen-gap));
+    youEl.style.strokeDashoffset = "0";
+    // THEM arc begins after YOU
+    themEl.style.strokeDasharray = (themLen-gap)+" "+(C-(themLen-gap));
+    themEl.style.strokeDashoffset = (-(youLen)) + "";
+    if(animate){
+      [youEl,themEl].forEach(function(el){
+        var da = el.style.strokeDasharray;
+        el.style.transition="none";
+        el.style.strokeDasharray = "0 "+C;
+        // force reflow
+        void el.getBoundingClientRect();
+        el.style.transition="stroke-dasharray 1.15s cubic-bezier(.2,.7,.2,1)";
+        el.style.strokeDasharray = da;
+      });
+    }
+  }
+  // shares: you lead 4/7, they lead 3/7
+  var arcYou=document.getElementById("arc-you"), arcThem=document.getElementById("arc-them");
+  if(arcYou){ setRing(arcYou, arcThem, 80, 4/7, 3/7, false); }
+  var mYou=document.querySelector(".m-arc-you"), mThem=document.querySelector(".m-arc-them");
+  if(mYou){ setRing(mYou, mThem, 32, 4/7, 3/7, false); }
+
+  /* ---- count-up plays today ---- */
+  function countUp(el, to, ms){
+    if(!el) return;
+    if(reduce){ el.textContent=to; return; }
+    var start=null;
+    function step(t){ if(!start)start=t; var p=Math.min((t-start)/ms,1);
+      el.textContent = Math.round(p*to); if(p<1) requestAnimationFrame(step); }
+    requestAnimationFrame(step);
+  }
+
+  /* ---- fill comparison + sentiment bars ---- */
+  function fillBars(scope){
+    scope.querySelectorAll(".fill[data-w]").forEach(function(f){
+      f.style.width = (reduce?1:1) * parseFloat(f.dataset.w) + "%";
+    });
+    scope.querySelectorAll(".weekcal .bar[data-h]").forEach(function(b){
+      b.style.height = parseFloat(b.dataset.h) + "%";
+    });
+  }
+
+  /* ---- draw the area / line charts ---- */
+  function drawArea(line, fill, dot){
+    if(!line) return;
+    if(reduce){ line.style.strokeDashoffset="0"; if(fill)fill.style.opacity="1"; if(dot)dot.style.opacity="1"; return; }
+    line.getBoundingClientRect();
+    line.style.transition="stroke-dashoffset 1.4s cubic-bezier(.2,.7,.2,1)";
+    line.style.strokeDashoffset="0";
+    if(fill){ fill.style.transition="opacity .9s ease .5s"; fill.style.opacity="1"; }
+    if(dot){ dot.style.transition="opacity .4s ease 1.2s"; dot.style.opacity="1"; }
+  }
+
+  /* ---- IntersectionObserver: reveal + trigger viz when in view ---- */
+  var seen = new WeakSet();
+  function trigger(el){
+    if(seen.has(el)) return; seen.add(el);
+    fillBars(el);
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        e.target.classList.add("in");
+        trigger(e.target);
+        io.unobserve(e.target);
+      }
+    });
+  }, {threshold:.18, rootMargin:"0px 0px -8% 0px"});
+
+  document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+  // tiles + cards that hold bars but aren't .reveal
+  document.querySelectorAll(".tile, .areawrap, .card-steal, .card-press, .feed").forEach(function(el){ io.observe(el); });
+
+  /* ---- ON LOAD orchestration ---- */
+  window.addEventListener("load", function(){
+    // ring fills racing to share
+    if(arcYou) setRing(arcYou, arcThem, 80, 4/7, 3/7, !reduce);
+    if(mYou)  setRing(mYou,  mThem, 32, 4/7, 3/7, !reduce);
+    countUp(document.getElementById("cnt-plays"), 7, 900);
+
+    // charts
+    drawArea(document.querySelector(".seo-line"), document.querySelector(".seo-fill"), document.querySelector(".seo-dot"));
+    drawArea(document.querySelector(".area-line"), document.querySelector(".area-fill"), document.querySelector(".area-dot"));
+
+    // fill any bars already on screen at load
+    fillBars(document);
+
+    // new-play clip-on flash on the lead steal card
+    if(!reduce){
+      var flashEl = document.querySelector('[data-flash="1"]');
+      if(flashEl){ setTimeout(function(){ flashEl.classList.add("flash"); }, 1400); }
+      // confidence chips pulse once when first revealed
+      setTimeout(function(){
+        document.querySelectorAll(".feed .conf-high").forEach(function(c,i){
+          setTimeout(function(){ c.classList.add("pulse-once");
+            setTimeout(function(){ c.classList.remove("pulse-once"); },1300); }, i*180);
+        });
+      }, 1700);
+    }
+  });
+
+  /* ---- Dismiss → undo affordance (learning loop legible) ---- */
+  document.querySelectorAll(".dismiss-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var card = btn.closest(".card-steal, .card-press");
+      if(!card) return;
+      card.style.transition="opacity .35s, transform .35s";
+      card.style.opacity=".28";
+      card.style.transform="scale(.98)";
+      var why = card.querySelector(".savedwhy");
+      if(why){ why.textContent="Dismissed — ↩ undo · tell us why"; why.style.color="var(--rust-soft)"; }
+      setTimeout(function(){ card.style.opacity=""; card.style.transform="";
+        if(why){ why.textContent="↩ undo · why?"; why.style.color=""; } }, 2400);
+    });
+  });
+
+  /* ---- Ask suggestions populate the field ---- */
+  var askInput = document.querySelector(".askfield input");
+  document.querySelectorAll(".suggest .s").forEach(function(s){
+    s.addEventListener("click", function(){ if(askInput){ askInput.value=s.textContent; askInput.focus(); } });
+  });
+
+  /* ---- rail active state on scroll ---- */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".rail .navlink[href^='#']"));
+  var targets = links.map(function(l){ return document.querySelector(l.getAttribute("href")); }).filter(Boolean);
+  var navio = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        links.forEach(function(l){ l.classList.toggle("active", l.getAttribute("href")==="#"+e.target.id); });
+      }
+    });
+  }, {rootMargin:"-40% 0px -55% 0px"});
+  targets.forEach(function(t){ navio.observe(t); });
+})();
+</script>
+</body>
+</html>

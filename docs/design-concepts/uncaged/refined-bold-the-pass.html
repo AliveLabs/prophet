@@ -1,0 +1,1494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket — The Pass</title>
+<style>
+  :root{
+    /* grounds & surfaces */
+    --ground:#16130F;
+    --surface:#211D18;
+    --raised:#2A2520;
+    --line:#332C25;
+    /* text */
+    --ink:#EDE6DF;
+    --muted:#8B8680;
+    --faint:#5A554F;
+    /* the one vivid accent */
+    --rust:#B85C38;
+    --rust-deep:#8A3D20;
+    /* semantic = data truth only */
+    --teal:#3A8066;
+    --alert:#C44040;
+    --gold:#C9942A;
+    --slate:#3D4F5F;
+    --slate-ink:#7E93A3;
+
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+
+    --r:14px;
+    --maxw:1180px;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    line-height:1.5;
+    overflow-x:hidden;
+  }
+  /* ambient warmth — barely-there, not decoration */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(1100px 600px at 78% -8%, rgba(184,92,56,.10), transparent 60%),
+      radial-gradient(900px 700px at -10% 110%, rgba(58,128,102,.05), transparent 60%);
+  }
+
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  :focus-visible{outline:2px solid var(--rust);outline-offset:2px;border-radius:6px}
+
+  /* ============ SHELL ============ */
+  .shell{position:relative;z-index:1;display:grid;grid-template-columns:248px 1fr;min-height:100vh;max-width:1440px;margin:0 auto}
+
+  /* ---- left nav (desktop) ---- */
+  .nav{
+    position:sticky;top:0;align-self:start;height:100vh;
+    border-right:1px solid var(--line);
+    padding:26px 18px;display:flex;flex-direction:column;gap:6px;
+    background:linear-gradient(180deg,rgba(33,29,24,.5),rgba(22,19,15,0));
+  }
+  .brand{display:flex;align-items:center;gap:11px;padding:4px 10px 22px}
+  .brand .stub{
+    position:relative;width:34px;height:34px;border-radius:9px;
+    background:var(--raised);border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .brand .stub::after{ /* perforation seam */
+    content:"";position:absolute;right:-1px;top:5px;bottom:5px;width:1px;
+    background:repeating-linear-gradient(180deg,var(--faint) 0 2px,transparent 2px 5px);
+  }
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--rust);box-shadow:0 0 10px rgba(184,92,56,.8)}
+  .brand b{font-size:16px;letter-spacing:.2px}
+  .brand small{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:1.6px;color:var(--muted);text-transform:uppercase}
+
+  .navitem{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:var(--muted);font-size:14.5px;font-weight:500;transition:background .18s,color .18s;position:relative}
+  .navitem svg{width:18px;height:18px;flex-shrink:0;stroke:currentColor;fill:none;stroke-width:1.7}
+  .navitem:hover{background:var(--surface);color:var(--ink)}
+  .navitem.on{background:var(--surface);color:var(--ink)}
+  .navitem.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--rust)}
+  .navitem .badge{margin-left:auto;font-family:var(--mono);font-size:10px;background:var(--rust);color:#fff;border-radius:20px;padding:1px 7px;font-weight:600}
+  .navsep{height:1px;background:var(--line);margin:14px 8px}
+  .navlabel{font-family:var(--mono);font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--faint);padding:4px 12px}
+  .nav-foot{margin-top:auto;padding:14px 10px 0;border-top:1px solid var(--line)}
+  .acct{display:flex;align-items:center;gap:10px}
+  .acct .av{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--rust),var(--rust-deep));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:#fff}
+  .acct .who{font-size:13px;font-weight:600}
+  .acct .who small{display:block;color:var(--muted);font-weight:400;font-size:11px}
+
+  /* ---- main ---- */
+  .main{min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:30px 34px 130px}
+
+  /* top utility bar */
+  .topbar{display:flex;align-items:center;gap:14px;margin-bottom:38px}
+  .live{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.6px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:6px 12px;border-radius:30px}
+  .live .pulse{width:8px;height:8px;border-radius:50%;background:var(--rust);box-shadow:0 0 0 0 rgba(184,92,56,.55);animation:breath 3s ease-in-out infinite}
+  @keyframes breath{0%,100%{box-shadow:0 0 0 0 rgba(184,92,56,.5);opacity:.9}50%{box-shadow:0 0 0 7px rgba(184,92,56,0);opacity:1}}
+  .topbar .spacer{flex:1}
+  .iconbtn{width:38px;height:38px;border-radius:10px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);transition:color .18s,border-color .18s}
+  .iconbtn:hover{color:var(--ink);border-color:var(--faint)}
+  .iconbtn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.7}
+
+  /* ============ HERO BEAT 1 — THE ANCHOR ============ */
+  .anchor{display:grid;grid-template-columns:1fr auto auto;gap:36px;align-items:center;margin-bottom:42px}
+  .anchor .eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+  .anchor .eyebrow .ld{width:8px;height:8px;border-radius:50%;background:var(--rust);box-shadow:0 0 9px rgba(184,92,56,.8)}
+  .anchor h1{font-size:clamp(28px,4vw,42px);line-height:1.08;font-weight:680;letter-spacing:-1px;margin:0;text-wrap:balance;max-width:15ch}
+  .anchor .sub{color:var(--muted);margin-top:14px;font-size:14.5px;max-width:46ch}
+  .anchor .sub b{color:var(--ink);font-weight:600}
+
+  /* the giant numeral + perforation stub + ticks */
+  .countstub{
+    position:relative;padding:20px 26px 18px;border-radius:16px;
+    background:linear-gradient(180deg,var(--raised),var(--surface));
+    border:1px solid var(--line);text-align:center;min-width:172px;
+  }
+  .countstub::before{ /* left perforation edge */
+    content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:2px;
+    background:repeating-linear-gradient(180deg,var(--faint) 0 3px,transparent 3px 7px);
+  }
+  .countstub .big{font-family:var(--mono);font-size:84px;line-height:.86;font-weight:680;color:var(--rust);letter-spacing:-3px}
+  .countstub .cap{font-size:12px;color:var(--muted);margin-top:8px;letter-spacing:.2px}
+  .ticks{display:flex;gap:5px;justify-content:center;margin-top:14px}
+  .ticks i{width:14px;height:5px;border-radius:2px;background:transparent;border:1px solid var(--rust)}
+  .ticks i.fill{background:var(--rust);box-shadow:0 0 7px rgba(184,92,56,.5)}
+  .ticks-legend{font-family:var(--mono);font-size:9.5px;color:var(--faint);letter-spacing:.6px;margin-top:9px}
+
+  /* teal position ring */
+  .posring{display:flex;flex-direction:column;align-items:center;gap:9px;min-width:150px}
+  .posring .ringwrap{position:relative;width:128px;height:128px}
+  .posring .pct{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .posring .pct b{font-family:var(--mono);font-size:30px;font-weight:680;color:var(--teal);letter-spacing:-1px}
+  .posring .pct .arr{font-size:12px;color:var(--teal)}
+  .posring .lab{font-size:11.5px;color:var(--muted);text-align:center;max-width:18ch;line-height:1.35}
+  .posring .lab b{color:var(--ink);display:block;font-size:12.5px;margin-bottom:1px}
+
+  /* ============ HERO BEAT 2 — POSITION CHART ============ */
+  .chartcard{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px 24px 14px;margin-bottom:46px;position:relative;overflow:hidden}
+  .chartcard .chead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px}
+  .chartcard h2{font-size:16px;font-weight:640;margin:0;letter-spacing:-.2px}
+  .chartcard .csub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .chartcard .cright{text-align:right;flex-shrink:0}
+  .chartcard .cdelta{font-family:var(--mono);font-size:24px;font-weight:680;color:var(--teal);letter-spacing:-1px}
+  .chartcard .cdelta small{font-size:11px;color:var(--muted);font-weight:400;display:block;letter-spacing:.3px}
+  .chartwrap{position:relative;width:100%;height:200px}
+  .chartwrap svg{display:block;width:100%;height:100%;overflow:visible}
+  .legendrow{display:flex;gap:20px;align-items:center;margin-top:4px;flex-wrap:wrap}
+  .legendrow span{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;letter-spacing:.4px;color:var(--muted)}
+  .legendrow .sw{width:16px;height:3px;border-radius:2px}
+  .firstrun{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--gold);border:1px solid rgba(201,148,42,.4);background:rgba(201,148,42,.08);padding:4px 9px;border-radius:20px;cursor:pointer}
+
+  /* section heading for the rail */
+  .railhead{display:flex;align-items:baseline;gap:14px;margin:0 0 6px}
+  .railhead h2{font-size:15px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;font-family:var(--mono);color:var(--muted);margin:0}
+  .railhead .rule{flex:1;height:1px;background:var(--line)}
+  .railhead .meta{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .filters{display:flex;gap:8px;margin:18px 0 22px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:6px 13px;border-radius:30px;transition:.16s}
+  .chip:hover{color:var(--ink);border-color:var(--faint)}
+  .chip.on{background:var(--rust);border-color:var(--rust);color:#fff}
+
+  /* ============ INSIGHT CARD SYSTEM ============ */
+  .rail{display:flex;flex-direction:column;gap:18px}
+  .card{
+    position:relative;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r);padding:24px 26px 22px 64px;overflow:hidden;
+    opacity:0;transform:translateY(14px);
+    animation:fire .5s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes fire{to{opacity:1;transform:none}}
+  /* ghost rank numeral bleeding off the left */
+  .card .ghost{
+    position:absolute;left:-14px;top:50%;transform:translateY(-50%);
+    font-family:var(--mono);font-weight:700;font-size:104px;line-height:1;
+    color:var(--faint);opacity:.16;pointer-events:none;user-select:none;letter-spacing:-4px;
+  }
+  /* polarity spine */
+  .card.steal{border-left:0}
+  .card.steal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--alert)}
+  .card.steal .ghost{color:var(--alert);opacity:.14}
+  .card.press::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+  .card.press .ghost{color:var(--teal);opacity:.14}
+  .card.neutral::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--slate)}
+
+  .card .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:13px}
+  .pill{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:4px 9px;border-radius:6px;background:var(--raised);color:var(--muted);border:1px solid var(--line)}
+  .polarity{font-family:var(--mono);font-size:10.5px;letter-spacing:1px;font-weight:600;padding:4px 9px;border-radius:6px;display:inline-flex;align-items:center;gap:5px}
+  .polarity.them{color:var(--alert);background:rgba(196,64,64,.1);border:1px solid rgba(196,64,64,.32)}
+  .polarity.you{color:var(--teal);background:rgba(58,128,102,.1);border:1px solid rgba(58,128,102,.32)}
+
+  /* confidence pip — one-tap expandable */
+  .conf{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.6px;color:var(--muted);cursor:pointer;border:1px solid transparent;padding:4px 8px;border-radius:7px;transition:.16s}
+  .conf:hover{border-color:var(--line);background:var(--raised)}
+  .conf .pips{display:inline-flex;gap:3px}
+  .conf .pips b{width:7px;height:7px;border-radius:50%;background:var(--faint);display:block}
+  .conf.high .pips b{background:var(--teal)}
+  .conf.med .pips b:nth-child(-n+2){background:var(--gold)}
+  .conf.dir .pips b:nth-child(1){background:var(--gold)}
+  .conf .car{transition:transform .2s;font-size:9px}
+  .conf[aria-expanded="true"] .car{transform:rotate(180deg)}
+
+  .why{display:none;margin:0 0 16px;padding:13px 15px;background:var(--raised);border:1px solid var(--line);border-radius:10px;border-left:2px solid var(--slate)}
+  .why.open{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  .why h5{margin:0 0 9px;font-family:var(--mono);font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted)}
+  .why ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+  .why li{display:flex;gap:9px;font-size:12.5px;color:var(--ink);align-items:flex-start}
+  .why li .src{font-family:var(--mono);font-size:9.5px;color:var(--faint);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:1px 6px;flex-shrink:0;margin-top:1px}
+
+  .card h3{font-size:21px;line-height:1.22;font-weight:640;margin:0 0 9px;letter-spacing:-.4px;text-wrap:balance;max-width:34ch}
+  .card .ev{font-size:13.5px;color:var(--muted);margin:0 0 18px;max-width:62ch;line-height:1.55}
+  .card .ev b{color:var(--ink);font-weight:600}
+
+  /* viz block */
+  .viz{margin:0 0 20px}
+
+  /* racing comparison bars */
+  .race{display:flex;flex-direction:column;gap:13px;background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:16px 18px}
+  .race .row{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:13px}
+  .race .who{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .race .who .lg{width:18px;height:18px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;font-family:var(--mono)}
+  .race .track{height:18px;background:var(--surface);border-radius:6px;overflow:hidden;position:relative}
+  .race .fill{height:100%;border-radius:6px;width:0;transition:width 1.1s cubic-bezier(.3,.8,.3,1)}
+  .race .fill.them{background:linear-gradient(90deg,var(--alert),#9c3030)}
+  .race .fill.you{background:linear-gradient(90deg,var(--slate),#2c3a46)}
+  .race .fill.youwin{background:linear-gradient(90deg,var(--teal),#2c6650)}
+  .race .val{font-family:var(--mono);font-size:13px;font-weight:600;min-width:42px;text-align:right}
+  .race .val.them{color:var(--alert)}
+  .race .val.you{color:var(--slate-ink)}
+  .race .val.youwin{color:var(--teal)}
+
+  /* review convergence chips */
+  .chips-cluster{background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:16px 18px}
+  .chips-cluster .cap{font-family:var(--mono);font-size:10px;letter-spacing:.6px;color:var(--muted);margin-bottom:13px;text-transform:uppercase}
+  .revchips{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+  .revchip{font-size:11.5px;padding:7px 11px;border-radius:9px;max-width:230px;line-height:1.3;position:relative}
+  .revchip.them{background:rgba(196,64,64,.08);border:1px solid rgba(196,64,64,.28);color:#d9b3b3}
+  .revchip.you{background:rgba(184,92,56,.1);border:1px solid rgba(184,92,56,.34);color:#e3bda9}
+  .revchip .tag{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.6px;color:var(--faint);margin-bottom:3px;text-transform:uppercase}
+  .converge{margin-left:6px;font-family:var(--mono);font-size:10px;color:var(--alert);background:rgba(196,64,64,.12);border:1px solid rgba(196,64,64,.4);border-radius:20px;padding:6px 12px;display:inline-flex;align-items:center;gap:6px}
+  .converge .ct{font-weight:700}
+
+  /* margin donut (you winning) */
+  .marginviz{display:flex;align-items:center;gap:22px;background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:16px 20px;flex-wrap:wrap}
+  .marginviz .donut{width:104px;height:104px;flex-shrink:0;position:relative}
+  .marginviz .donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .marginviz .donut .c b{font-family:var(--mono);font-size:22px;font-weight:680;color:var(--teal)}
+  .marginviz .donut .c small{font-size:8.5px;color:var(--muted);letter-spacing:.5px;font-family:var(--mono)}
+  .marginviz .mtext{font-size:12.5px;color:var(--muted);max-width:34ch;line-height:1.5}
+  .marginviz .mtext b{color:var(--ink)}
+  .marginviz .mtext .row2{display:flex;gap:18px;margin-top:11px}
+  .marginviz .mtext .row2 div{font-family:var(--mono)}
+  .marginviz .mtext .row2 b{color:var(--teal);font-size:16px;display:block}
+  .marginviz .mtext .row2 span{font-size:10px;color:var(--faint)}
+
+  /* climbing teal area (you winning velocity) */
+  .climb{background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:14px 18px}
+  .climb svg{display:block;width:100%;height:84px;overflow:visible}
+  .climb .cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:8px}
+
+  /* grassroots proximity dot + range bar */
+  .grass{display:grid;grid-template-columns:auto 1fr;gap:20px;background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:16px 20px;align-items:center}
+  .proxmap{width:118px;height:118px;border-radius:12px;background:radial-gradient(circle at 50% 50%,#1d2622,var(--surface));border:1px solid var(--line);position:relative;overflow:hidden;flex-shrink:0}
+  .proxmap .grid{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:20px 20px;opacity:.35}
+  .proxmap .ring{position:absolute;border-radius:50%;border:1px solid rgba(58,128,102,.3)}
+  .proxmap .you-pin,.proxmap .sch-pin{position:absolute;width:13px;height:13px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .proxmap .you-pin{background:var(--rust);left:46%;top:54%}
+  .proxmap .sch-pin{background:var(--teal);left:54%;top:42%;animation:bob 2.6s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:rotate(-45deg) translateY(0)}50%{transform:rotate(-45deg) translateY(-3px)}}
+  .proxmap .dist{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);font-family:var(--mono);font-size:9px;color:var(--teal);background:rgba(22,19,15,.8);padding:2px 7px;border-radius:10px;white-space:nowrap}
+  .grass .gright .glab{font-family:var(--mono);font-size:10px;letter-spacing:.6px;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+  .rangebar{height:34px;border-radius:8px;background:var(--surface);position:relative;overflow:hidden;margin-bottom:8px}
+  .rangebar .band{position:absolute;top:0;bottom:0;left:18%;right:14%;background:linear-gradient(90deg,var(--rust-deep),var(--rust));border-radius:8px;display:flex;align-items:center;justify-content:space-between;padding:0 11px}
+  .rangebar .band b{font-family:var(--mono);font-size:12px;font-weight:600;color:#fff}
+  .grass .gmeta{display:flex;gap:18px;font-size:11px;color:var(--muted)}
+  .grass .gmeta b{color:var(--ink);font-family:var(--mono)}
+
+  /* events calendar strip */
+  .calstrip{display:flex;gap:7px;background:var(--raised);border:1px solid var(--line);border-radius:11px;padding:15px 16px}
+  .calstrip .day{flex:1;text-align:center;padding:11px 4px 9px;border-radius:9px;background:var(--surface);border:1px solid var(--line);position:relative;min-width:0}
+  .calstrip .day .dow{font-family:var(--mono);font-size:9px;color:var(--faint);letter-spacing:.6px}
+  .calstrip .day .num{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:3px}
+  .calstrip .day .bar{height:30px;display:flex;align-items:flex-end;justify-content:center;margin-top:8px}
+  .calstrip .day .bar i{width:60%;background:var(--slate);border-radius:3px 3px 0 0;display:block}
+  .calstrip .day.hot{border-color:var(--rust);background:rgba(184,92,56,.1)}
+  .calstrip .day.hot .num{color:var(--rust)}
+  .calstrip .day.hot .bar i{background:linear-gradient(180deg,var(--rust),var(--rust-deep))}
+  .calstrip .day.hot::after{content:"●";position:absolute;top:5px;right:7px;font-size:7px;color:var(--rust)}
+  .calstrip .day .ev{font-size:8.5px;color:var(--rust);margin-top:5px;line-height:1.1;min-height:10px}
+
+  /* card actions */
+  .actions{display:flex;gap:11px;align-items:center}
+  .btn{font-size:13px;font-weight:600;padding:11px 20px;border-radius:10px;transition:.16s;display:inline-flex;align-items:center;gap:7px}
+  .btn.act{background:var(--rust);color:#fff}
+  .btn.act:hover{background:#c96841;transform:translateY(-1px);box-shadow:0 6px 16px rgba(184,92,56,.3)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .btn.ghost:hover{border-color:var(--faint);color:var(--ink)}
+  .actions .impact{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .actions .impact b{color:var(--ink)}
+
+  /* card tear (act) */
+  @keyframes tear{
+    0%{opacity:1;transform:none;max-height:600px}
+    40%{transform:translateX(8px) rotate(.4deg)}
+    100%{opacity:0;transform:translateX(-40px) rotate(-1deg);max-height:0;margin:0;padding-top:0;padding-bottom:0}
+  }
+  .card.torn{animation:tear .55s cubic-bezier(.4,0,.6,1) forwards;overflow:hidden}
+
+  /* ============ SECONDARY SURFACES (data-viz showcase) ============ */
+  .section{margin-top:64px}
+  .sectionhead{display:flex;align-items:baseline;gap:14px;margin-bottom:20px}
+  .sectionhead h2{font-size:15px;font-weight:600;letter-spacing:1.4px;text-transform:uppercase;font-family:var(--mono);color:var(--muted);margin:0}
+  .sectionhead .rule{flex:1;height:1px;background:var(--line)}
+  .sectionhead .ctl{font-family:var(--mono);font-size:11px;color:var(--rust);border:1px solid rgba(184,92,56,.4);padding:5px 11px;border-radius:8px;background:rgba(184,92,56,.07)}
+
+  /* competitor head-to-head table */
+  .tablecard{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .tablescroll{overflow-x:auto}
+  table.h2h{width:100%;border-collapse:collapse;min-width:660px}
+  table.h2h th{font-family:var(--mono);font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);text-align:left;padding:14px 16px;border-bottom:1px solid var(--line);font-weight:500;white-space:nowrap}
+  table.h2h td{padding:14px 16px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}
+  table.h2h tr:last-child td{border-bottom:none}
+  table.h2h tr:hover td{background:var(--raised)}
+  .logochip{display:flex;align-items:center;gap:11px}
+  .logochip .lg{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#fff;font-family:var(--mono);flex-shrink:0}
+  .logochip b{font-weight:600;font-size:13.5px}
+  .logochip small{display:block;color:var(--muted);font-size:10.5px;font-weight:400}
+  .wl{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:20px}
+  .wl.win{color:var(--teal);background:rgba(58,128,102,.12)}
+  .wl.loss{color:var(--alert);background:rgba(196,64,64,.12)}
+  .wl.even{color:var(--gold);background:rgba(201,148,42,.12)}
+  .spark{width:88px;height:26px;display:block}
+  .delta{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .delta.up{color:var(--rust)}
+  .delta.dn{color:var(--slate-ink)}
+  .sentiment{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px}
+  .sentiment .meter{width:54px;height:6px;border-radius:3px;background:var(--raised);overflow:hidden}
+  .sentiment .meter i{display:block;height:100%;border-radius:3px}
+
+  /* two-col grid for weather/events + social */
+  .grid2{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px}
+  .panel h3{font-size:14px;font-weight:640;margin:0 0 4px;letter-spacing:-.2px}
+  .panel .psub{font-size:12px;color:var(--muted);margin:0 0 18px}
+
+  /* demand calendar (weather+events) */
+  .demand{display:flex;gap:8px;align-items:flex-end;height:130px}
+  .demand .d{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end}
+  .demand .d .col{width:100%;border-radius:6px 6px 0 0;position:relative;display:flex;align-items:flex-start;justify-content:center;min-height:8px}
+  .demand .d .col .wx{position:absolute;top:-20px;font-size:13px}
+  .demand .d .lbl{font-family:var(--mono);font-size:9px;color:var(--muted)}
+  .demand .d .ev-m{position:absolute;bottom:4px;width:6px;height:6px;border-radius:50%;background:var(--rust);box-shadow:0 0 6px var(--rust)}
+  .legend-sm{display:flex;gap:16px;margin-top:16px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .legend-sm span{display:inline-flex;align-items:center;gap:6px}
+  .legend-sm i{width:10px;height:10px;border-radius:3px;display:block}
+
+  /* social photo cards */
+  .socialgrid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+  .socard{border-radius:12px;overflow:hidden;border:1px solid var(--line);position:relative;aspect-ratio:4/5;display:flex;flex-direction:column;justify-content:flex-end}
+  .socard .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .socard .ph svg{width:38px;height:38px;opacity:.5}
+  .socard .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(22,19,15,.1) 30%,rgba(22,19,15,.92))}
+  .socard .meta{position:relative;padding:13px;z-index:2}
+  .socard .ocr{font-size:12.5px;font-weight:600;line-height:1.25;margin-bottom:8px;text-wrap:balance}
+  .socard .row{display:flex;align-items:center;justify-content:space-between}
+  .socard .handle{font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .socard .mult{font-family:var(--mono);font-size:10px;font-weight:700;color:#fff;background:var(--rust);padding:3px 8px;border-radius:20px}
+  .socard .fmt{position:absolute;top:10px;left:10px;z-index:2;font-family:var(--mono);font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;background:rgba(0,0,0,.5);backdrop-filter:none;padding:3px 8px;border-radius:6px;color:var(--ink)}
+
+  /* SEO rank arc */
+  .seocard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-top:22px}
+  .seocard .grid3{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:18px;align-items:center}
+  .seocard svg{display:block;width:100%;height:120px;overflow:visible}
+  .kpi{text-align:left}
+  .kpi b{font-family:var(--mono);font-size:30px;font-weight:680;letter-spacing:-1px;display:block}
+  .kpi b.up{color:var(--teal)}
+  .kpi b.rust{color:var(--rust)}
+  .kpi small{font-size:11px;color:var(--muted);display:block;margin-top:2px;line-height:1.3}
+
+  /* manage handles / competitors panel (the UX gap) */
+  .managecard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;margin-top:22px}
+  .managehead{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .managehead h3{font-size:14px;font-weight:640;margin:0}
+  .managehead .gaptag{font-family:var(--mono);font-size:9px;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);border:1px solid rgba(201,148,42,.4);background:rgba(201,148,42,.08);padding:3px 8px;border-radius:6px}
+  .manage .psub{font-size:12px;color:var(--muted);margin:0 0 16px}
+  .watchlist{display:flex;flex-direction:column;gap:9px}
+  .watchrow{display:flex;align-items:center;gap:12px;padding:11px 13px;background:var(--raised);border:1px solid var(--line);border-radius:10px}
+  .watchrow .lg{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;font-family:var(--mono);flex-shrink:0}
+  .watchrow .nm{font-size:13px;font-weight:600}
+  .watchrow .nm small{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);font-weight:400}
+  .watchrow .tags{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .srcdot{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+  .srcdot svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .watchrow .rm{color:var(--faint);font-size:16px;padding:4px;border-radius:6px;line-height:1}
+  .watchrow .rm:hover{color:var(--alert);background:rgba(196,64,64,.1)}
+  .addrow{display:flex;gap:10px;margin-top:14px}
+  .addrow input{flex:1;background:var(--ground);border:1px solid var(--line);border-radius:10px;padding:11px 14px;color:var(--ink);font-family:var(--sans);font-size:13px}
+  .addrow input::placeholder{color:var(--faint)}
+  .addrow input:focus{outline:none;border-color:var(--rust)}
+  .addrow button{background:var(--raised);border:1px solid var(--line);color:var(--ink);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;transition:.16s}
+  .addrow button:hover{border-color:var(--rust);color:var(--rust)}
+
+  /* ============ ASK TICKET ============ */
+  .ask{margin-top:64px;background:linear-gradient(150deg,var(--raised),var(--surface));border:1px solid var(--line);border-radius:18px;padding:26px 28px;position:relative;overflow:hidden}
+  .ask::after{content:"";position:absolute;right:-60px;top:-60px;width:220px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(184,92,56,.14),transparent 70%);pointer-events:none}
+  .ask h2{font-size:18px;font-weight:660;margin:0 0 6px;letter-spacing:-.3px}
+  .ask p{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:54ch}
+  .askbox{display:flex;gap:11px;background:var(--ground);border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 18px;align-items:center}
+  .askbox input{flex:1;background:none;border:none;color:var(--ink);font-family:var(--sans);font-size:14.5px;padding:10px 0}
+  .askbox input:focus{outline:none}
+  .askbox input::placeholder{color:var(--faint)}
+  .askbox button{background:var(--rust);color:#fff;border-radius:9px;padding:11px 18px;font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:7px;flex-shrink:0}
+  .askbox button:hover{background:#c96841}
+  .suggest{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .suggest button{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--surface);border:1px solid var(--line);padding:7px 13px;border-radius:30px;transition:.16s}
+  .suggest button:hover{color:var(--ink);border-color:var(--rust)}
+
+  /* ============ MOBILE SHOWCASE SECTION ============ */
+  .phones{display:flex;gap:34px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+  .phone{width:300px;flex-shrink:0}
+  .phone .frame{background:#0c0a08;border:9px solid #050403;border-radius:38px;padding:0;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5);position:relative}
+  .phone .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:90px;height:22px;background:#050403;border-radius:0 0 14px 14px;z-index:6}
+  .phone .screen{background:var(--ground);height:600px;overflow-y:auto;position:relative;padding-bottom:62px}
+  .phone .screen::-webkit-scrollbar{width:0}
+  .ptitle{text-align:center;margin-top:16px;font-family:var(--mono);font-size:11px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+
+  /* phone-internal mini components */
+  .mtop{padding:34px 16px 8px;display:flex;align-items:center;gap:8px}
+  .mtop .ld{width:7px;height:7px;border-radius:50%;background:var(--rust);box-shadow:0 0 8px rgba(184,92,56,.8)}
+  .mtop .dt{font-family:var(--mono);font-size:10px;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+  .mhead{padding:4px 16px 14px}
+  .mhead h4{font-size:21px;font-weight:680;letter-spacing:-.6px;margin:0;line-height:1.1;text-wrap:balance}
+  /* mobile glance sparkline + count */
+  .mglance{margin:0 16px 16px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:13px 15px;display:flex;align-items:center;gap:14px}
+  .mglance .cnt{text-align:center;flex-shrink:0}
+  .mglance .cnt b{font-family:var(--mono);font-size:38px;font-weight:680;color:var(--rust);line-height:.85;display:block}
+  .mglance .cnt small{font-size:8.5px;color:var(--muted);display:block;margin-top:4px;letter-spacing:.3px}
+  .mglance .vs{flex:1;min-width:0}
+  .mglance .vs .vlab{font-size:10px;color:var(--muted);margin-bottom:4px;display:flex;justify-content:space-between;font-family:var(--mono)}
+  .mglance .vs .vlab b{color:var(--teal)}
+  .mglance .vs svg{display:block;width:100%;height:36px}
+  /* mobile cards */
+  .mcard{margin:0 16px 13px;background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 16px 15px 36px;position:relative;overflow:hidden}
+  .mcard .mg{position:absolute;left:-8px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-weight:700;font-size:58px;opacity:.15;color:var(--faint);line-height:1}
+  .mcard.steal::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--alert)}
+  .mcard.steal .mg{color:var(--alert);opacity:.16}
+  .mcard.press::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal)}
+  .mcard.press .mg{color:var(--teal);opacity:.16}
+  .mcard .mt{display:flex;gap:7px;align-items:center;margin-bottom:9px;flex-wrap:wrap}
+  .mcard .mp{font-family:var(--mono);font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;padding:3px 7px;border-radius:5px;background:var(--raised);color:var(--muted)}
+  .mcard .mpol{font-family:var(--mono);font-size:8.5px;font-weight:700;letter-spacing:.5px;padding:3px 7px;border-radius:5px}
+  .mcard .mpol.them{color:var(--alert);background:rgba(196,64,64,.12)}
+  .mcard .mpol.you{color:var(--teal);background:rgba(58,128,102,.12)}
+  .mcard h5{font-size:14.5px;font-weight:640;margin:0 0 7px;line-height:1.25;letter-spacing:-.3px}
+  .mcard .me{font-size:11.5px;color:var(--muted);line-height:1.45;margin:0 0 12px}
+  .mcard .mrace{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
+  .mcard .mrace .mr{display:flex;align-items:center;gap:8px}
+  .mcard .mrace .ml{font-size:9px;color:var(--muted);width:34px;font-family:var(--mono)}
+  .mcard .mrace .mtrack{flex:1;height:11px;background:var(--raised);border-radius:5px;overflow:hidden}
+  .mcard .mrace .mfill{height:100%;border-radius:5px}
+  .mcard .mrace .mfill.them{background:var(--alert)}
+  .mcard .mrace .mfill.you{background:var(--slate)}
+  .mcard .mrace .mv{font-family:var(--mono);font-size:10px;font-weight:600;width:30px;text-align:right}
+  .swipehint{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;padding-top:4px;border-top:1px dashed var(--line);margin-top:3px}
+  .swipehint .l{color:var(--muted)}
+  .swipehint .r{color:var(--rust)}
+  /* mobile bottom tabs + FAB */
+  .mtabs{position:absolute;bottom:0;left:0;right:0;height:54px;background:rgba(22,19,15,.96);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-around;z-index:5;padding:0 6px}
+  .mtab{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--faint);font-size:8.5px;font-family:var(--mono);letter-spacing:.3px}
+  .mtab svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .mtab.on{color:var(--rust)}
+  .mfab{position:absolute;bottom:64px;right:14px;width:48px;height:48px;border-radius:50%;background:var(--rust);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(184,92,56,.45);z-index:6}
+  .mfab svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.9}
+
+  /* footer note */
+  .foot{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .foot .seam{flex:1;height:1px;margin:0 6px;background:repeating-linear-gradient(90deg,var(--faint) 0 3px,transparent 3px 8px);opacity:.5;min-width:40px}
+
+  /* ============ MOBILE NAV (real responsive) ============ */
+  .mobilenav{display:none}
+
+  /* ====== RESPONSIVE ====== */
+  @media(max-width:1080px){
+    .grid2{grid-template-columns:1fr}
+    .seocard .grid3{grid-template-columns:1fr;gap:22px}
+  }
+  @media(max-width:880px){
+    .shell{grid-template-columns:1fr}
+    .nav{display:none}
+    .wrap{padding:22px 18px 110px}
+    .anchor{grid-template-columns:1fr;gap:24px}
+    .anchor .countstub,.anchor .posring{justify-self:start}
+    .anchor .extras{display:grid;grid-template-columns:auto auto;gap:20px;align-items:center}
+    /* real bottom nav */
+    .mobilenav{display:flex;position:fixed;bottom:0;left:0;right:0;height:60px;background:rgba(22,19,15,.97);border-top:1px solid var(--line);z-index:50;align-items:center;justify-content:space-around;padding:0 8px;backdrop-filter:saturate(120%)}
+    .mobilenav a{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--faint);font-size:9.5px;font-family:var(--mono);letter-spacing:.3px;min-width:44px;min-height:44px;justify-content:center}
+    .mobilenav a svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7}
+    .mobilenav a.on{color:var(--rust)}
+    .realfab{display:flex;position:fixed;bottom:74px;right:16px;width:54px;height:54px;border-radius:50%;background:var(--rust);align-items:center;justify-content:center;box-shadow:0 10px 26px rgba(184,92,56,.5);z-index:51}
+    .realfab svg{width:23px;height:23px;stroke:#fff;fill:none;stroke-width:1.9}
+    .card{padding:20px 18px 18px 46px}
+    .card .ghost{font-size:80px;left:-10px}
+    .card h3{font-size:18px}
+    .race .row{grid-template-columns:84px 1fr auto;gap:9px}
+    .race .who{font-size:11px}
+    .marginviz{gap:16px}
+  }
+  @media(min-width:881px){.realfab{display:none}}
+  @media(max-width:560px){
+    .anchor .extras{grid-template-columns:1fr}
+    .countstub .big{font-size:70px}
+    .socialgrid{grid-template-columns:1fr}
+    .actions{flex-wrap:wrap}
+    .actions .impact{width:100%;margin:6px 0 0;order:3}
+  }
+
+  @media(prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+    .card{opacity:1!important;transform:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ LEFT NAV ============ -->
+  <aside class="nav">
+    <div class="brand">
+      <span class="stub"><span class="dot"></span></span>
+      <span><b>Ticket</b><small>The Pass</small></span>
+    </div>
+
+    <a class="navitem on" href="#"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg>Today<span class="badge">7</span></a>
+    <a class="navitem" href="#competitors"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>Competitors</a>
+    <a class="navitem" href="#weather"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19"/></svg>Weather</a>
+    <a class="navitem" href="#events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Events</a>
+    <a class="navitem" href="#social"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>Social</a>
+    <a class="navitem" href="#ask"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Ask Ticket</a>
+
+    <div class="navsep"></div>
+    <div class="navlabel">Setup</div>
+    <a class="navitem" href="#manage"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg>Watchlist</a>
+
+    <div class="nav-foot">
+      <div class="acct">
+        <span class="av">RC</span>
+        <span class="who">Raising Cane's<small>Arlington, TX · #4471</small></span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+   <div class="wrap">
+
+    <div class="topbar">
+      <span class="live"><span class="pulse"></span>LIVE · reading your block</span>
+      <span class="spacer"></span>
+      <button class="iconbtn" aria-label="Refresh brief"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+      <button class="iconbtn" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 0 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H3a2 2 0 0 1 0-4h.1A1.7 1.7 0 0 0 4.6 7l-.1-.1A2 2 0 1 1 7.3 4.1l.1.1A1.7 1.7 0 0 0 9 4.6h.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9z"/></svg></button>
+    </div>
+
+    <!-- ===== HERO BEAT 1: ANCHOR ===== -->
+    <section class="anchor">
+      <div>
+        <span class="eyebrow"><span class="ld"></span>Today · Thu Jun 26 · 7:42a</span>
+        <h1>Heat, brunch buzz, and Friday openings.</h1>
+        <p class="sub">Three things are moving on your block today. The stadium empties twice this weekend, a competitor's Reels are pulling away, and your highest-margin drink is still <b>hiding on the menu.</b></p>
+      </div>
+
+      <div class="countstub">
+        <div class="big" id="playcount">7</div>
+        <div class="cap">plays on the rail tonight</div>
+        <div class="ticks" aria-label="Confidence per play">
+          <i class="fill"></i><i class="fill"></i><i class="fill"></i><i class="fill"></i><i class="fill"></i><i></i><i></i>
+        </div>
+        <div class="ticks-legend">● HIGH · ○ DIRECTIONAL</div>
+      </div>
+
+      <div class="posring">
+        <div class="ringwrap">
+          <svg viewBox="0 0 128 128" aria-label="Competitive position">
+            <circle cx="64" cy="64" r="54" fill="none" stroke="#2A2520" stroke-width="11"/>
+            <circle id="posarc" cx="64" cy="64" r="54" fill="none" stroke="#3A8066" stroke-width="11"
+                    stroke-linecap="round" stroke-dasharray="339.3" stroke-dashoffset="339.3"
+                    transform="rotate(-90 64 64)"/>
+          </svg>
+          <div class="pct"><b>+6</b><span class="arr">▲ this week</span></div>
+        </div>
+        <div class="lab"><b>Competitive position</b>You moved up vs your set</div>
+      </div>
+    </section>
+
+    <!-- ===== HERO BEAT 2: POSITION CHART ===== -->
+    <section class="chartcard">
+      <div class="chead">
+        <div>
+          <h2>Your competitive position · 14 days</h2>
+          <div class="csub">Where your index sits against the market average for your block. Above the band = you're pulling ahead.</div>
+        </div>
+        <div class="cright">
+          <div class="cdelta">+6<small>vs 7 days ago</small></div>
+        </div>
+      </div>
+      <div class="chartwrap">
+        <svg id="poschart" viewBox="0 0 900 200" preserveAspectRatio="none" aria-label="14-day competitive position area chart">
+          <defs>
+            <linearGradient id="hotfill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#B85C38" stop-opacity=".55"/>
+              <stop offset="55%" stop-color="#8A3D20" stop-opacity=".18"/>
+              <stop offset="100%" stop-color="#8A3D20" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="coldfill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#C44040" stop-opacity=".3"/>
+              <stop offset="100%" stop-color="#C44040" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- faint grid -->
+          <g stroke="#332C25" stroke-width="1">
+            <line x1="0" y1="50" x2="900" y2="50"/>
+            <line x1="0" y1="100" x2="900" y2="100"/>
+            <line x1="0" y1="150" x2="900" y2="150"/>
+          </g>
+          <!-- market average band -->
+          <path id="bandpath" fill="#3D4F5F" fill-opacity=".16" stroke="none"></path>
+          <line id="bandline" stroke="#3D4F5F" stroke-width="1.5" stroke-dasharray="5 5" stroke-opacity=".6"></line>
+          <!-- your area fill + line (drawn via JS) -->
+          <path id="areafill" fill="url(#hotfill)" stroke="none" opacity="0"></path>
+          <path id="areacold" fill="url(#coldfill)" stroke="none" opacity="0"></path>
+          <path id="posline" fill="none" stroke="#B85C38" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle id="poshead" r="5" fill="#B85C38" stroke="#16130F" stroke-width="2.5" opacity="0"></circle>
+        </svg>
+      </div>
+      <div class="legendrow">
+        <span><span class="sw" style="background:#B85C38"></span>Your position</span>
+        <span><span class="sw" style="background:#3D4F5F"></span>Market average</span>
+        <span><span class="sw" style="background:#C44040;opacity:.7"></span>Below market</span>
+        <button class="firstrun" id="frtoggle">↺ Show first-run (4 days in)</button>
+      </div>
+    </section>
+
+    <!-- ===== THE RAIL ===== -->
+    <div class="railhead">
+      <h2>The Rail</h2>
+      <span class="rule"></span>
+      <span class="meta">7 plays · ranked by impact</span>
+    </div>
+    <div class="filters">
+      <button class="chip on">All</button>
+      <button class="chip">Steal the cue</button>
+      <button class="chip">Press the advantage</button>
+      <button class="chip">Competitive</button>
+      <button class="chip">Social</button>
+      <button class="chip">Menu</button>
+      <button class="chip">Grassroots</button>
+    </div>
+
+    <section class="rail" id="rail">
+
+      <!-- 01 — STEAL: reels racing bars -->
+      <article class="card steal" style="animation-delay:.0s">
+        <div class="ghost">01</div>
+        <div class="top">
+          <span class="pill">Social</span>
+          <span class="polarity them">↑ They're winning</span>
+          <button class="conf high" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> HIGH <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we're confident</h5>
+          <ul>
+            <li><span class="src">IG · 30d</span>Competitors' Reels averaged <b>4.0× the engagement</b> of their own photo posts across 41 tracked posts.</li>
+            <li><span class="src">3 of 4</span>Three of your four closest competitors posted Reels weekly; you posted zero.</li>
+            <li><span class="src">local</span>Reels-vs-photo gap is wider in your zip than the national QSR baseline.</li>
+          </ul>
+        </div>
+        <h3>Reels are the only format winning locally — start this week.</h3>
+        <p class="ev">Competitors' Reels get <b>4× the engagement</b> of their photo posts. You're posting photos into a feed that has already moved on. One Reel a week closes most of the gap.</p>
+        <div class="viz">
+          <div class="race" data-race>
+            <div class="row">
+              <span class="who"><span class="lg" style="background:#C44040">CO</span>Their Reels</span>
+              <span class="track"><span class="fill them" data-w="100"></span></span>
+              <span class="val them">4.0×</span>
+            </div>
+            <div class="row">
+              <span class="who"><span class="lg" style="background:#3D4F5F">RC</span>Your photos</span>
+              <span class="track"><span class="fill you" data-w="25"></span></span>
+              <span class="val you">1.0×</span>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Build a Reel plan ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">Est. reach <b>+2,400/wk</b></span>
+        </div>
+      </article>
+
+      <!-- 02 — STEAL: burnt chicken review convergence -->
+      <article class="card steal" style="animation-delay:.06s">
+        <div class="ghost">02</div>
+        <div class="top">
+          <span class="pill">Reputation</span>
+          <span class="polarity them">↑ They're winning</span>
+          <button class="conf high" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> HIGH <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we're confident</h5>
+          <ul>
+            <li><span class="src">reviews</span><b>3 competitor reviews + 1 of yours</b> independently use the word "burnt" or "char" this month.</li>
+            <li><span class="src">trend</span>Your price complaints dropped 40% last quarter — pricing is no longer the story.</li>
+            <li><span class="src">cluster</span>The char cluster is the single largest negative theme across the set.</li>
+          </ul>
+        </div>
+        <h3>Your burnt chicken is the real problem, not your prices.</h3>
+        <p class="ev">Reviews across the set are converging on <b>char complaints</b> — and one is yours. Customers stopped talking about price. They're talking about the cook.</p>
+        <div class="viz">
+          <div class="chips-cluster">
+            <div class="cap">Review convergence · this month</div>
+            <div class="revchips">
+              <span class="revchip them"><span class="tag">Competitor · Layne's</span>"…a few pieces came out kinda burnt"</span>
+              <span class="revchip them"><span class="tag">Competitor · Slim Chickens</span>"tenders were charred on one side"</span>
+              <span class="revchip them"><span class="tag">Competitor · Guthrie's</span>"too dark, almost burnt taste"</span>
+              <span class="revchip you"><span class="tag">You · Raising Cane's</span>"good but one tender was overcooked"</span>
+              <span class="converge"><span class="ct">4</span> reviews → "char"</span>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Brief the kitchen ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">Defends <b>~0.3★</b> rating</span>
+        </div>
+      </article>
+
+      <!-- 03 — PRESS: margin donut, lemonade -->
+      <article class="card press" style="animation-delay:.12s">
+        <div class="ghost">03</div>
+        <div class="top">
+          <span class="pill">Menu</span>
+          <span class="polarity you">↑ You're winning</span>
+          <button class="conf high" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> HIGH <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we're confident</h5>
+          <ul>
+            <li><span class="src">margin</span>Freshly Squeezed Lemonade carries your <b>highest contribution margin</b> at 78%.</li>
+            <li><span class="src">menu</span>It appears in position 6 of 6 on the drink rail and in zero promos.</li>
+            <li><span class="src">set</span>No competitor offers a hand-squeezed signature — this is uncontested ground.</li>
+          </ul>
+        </div>
+        <h3>Feature Freshly Squeezed Lemonade as the hero drink.</h3>
+        <p class="ev">Your <b>highest-margin signature</b> is under-promoted and uncontested in your set. Move it to the top of the board and into the next promo. This is offense — lean in.</p>
+        <div class="viz">
+          <div class="marginviz">
+            <div class="donut">
+              <svg viewBox="0 0 104 104" aria-label="Lemonade margin 78%">
+                <circle cx="52" cy="52" r="42" fill="none" stroke="#2A2520" stroke-width="12"/>
+                <circle class="mdonut" cx="52" cy="52" r="42" fill="none" stroke="#3A8066" stroke-width="12"
+                        stroke-linecap="round" stroke-dasharray="263.9" stroke-dashoffset="263.9"
+                        transform="rotate(-90 52 52)" data-pct="78"/>
+              </svg>
+              <div class="c"><b>78%</b><small>MARGIN</small></div>
+            </div>
+            <div class="mtext">
+              <b>Lemonade out-earns every other drink</b> per cup — yet it sits last on the board and has never been in a promo.
+              <div class="row2">
+                <div><b>+38%</b><span>vs soda margin</span></div>
+                <div><b>6 / 6</b><span>menu position now</span></div>
+                <div><b>$0</b><span>promo spend to date</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Make it the hero ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">Est. margin lift <b>+$1,100/mo</b></span>
+        </div>
+      </article>
+
+      <!-- 04 — STEAL/EVENT: stadium calendar -->
+      <article class="card steal" style="animation-delay:.18s">
+        <div class="ghost">04</div>
+        <div class="top">
+          <span class="pill">Competitive</span>
+          <span class="polarity them">↑ Open lane</span>
+          <button class="conf high" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> HIGH <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we're confident</h5>
+          <ul>
+            <li><span class="src">events</span>AT&amp;T Stadium has confirmed gates <b>Jun 25 &amp; Jun 27</b> — ~80k each.</li>
+            <li><span class="src">geo</span>You sit on the primary egress corridor; competitors close earlier.</li>
+            <li><span class="src">history</span>Last comparable event night ran <b>+34% drive-thru</b> 10–11pm.</li>
+          </ul>
+        </div>
+        <h3>Be the fast option when the stadium crowd pours out.</h3>
+        <p class="ev">Two <b>~80k-seat events</b> this weekend empty onto your corridor after 10pm. Extend the drive-thru and pre-stage. Nobody else nearby is open late.</p>
+        <div class="viz">
+          <div class="calstrip" aria-label="7-day event calendar">
+            <div class="day"><div class="dow">TUE</div><div class="num">24</div><div class="bar"><i style="height:30%"></i></div><div class="ev"></div></div>
+            <div class="day hot"><div class="dow">WED</div><div class="num">25</div><div class="bar"><i style="height:92%"></i></div><div class="ev">Concert · 80k</div></div>
+            <div class="day"><div class="dow">THU</div><div class="num">26</div><div class="bar"><i style="height:42%"></i></div><div class="ev"></div></div>
+            <div class="day hot"><div class="dow">FRI</div><div class="num">27</div><div class="bar"><i style="height:100%"></i></div><div class="ev">Match · 80k</div></div>
+            <div class="day"><div class="dow">SAT</div><div class="num">28</div><div class="bar"><i style="height:58%"></i></div><div class="ev"></div></div>
+            <div class="day"><div class="dow">SUN</div><div class="num">29</div><div class="bar"><i style="height:50%"></i></div><div class="ev"></div></div>
+            <div class="day"><div class="dow">MON</div><div class="num">30</div><div class="bar"><i style="height:34%"></i></div><div class="ev"></div></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Plan late hours ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">Est. <b>+$3,200</b> across both nights</span>
+        </div>
+      </article>
+
+      <!-- 05 — PRESS: grassroots proximity + range -->
+      <article class="card press" style="animation-delay:.24s">
+        <div class="ghost">05</div>
+        <div class="top">
+          <span class="pill">Grassroots</span>
+          <span class="polarity you">↑ Open lane</span>
+          <button class="conf high" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> HIGH <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we're confident</h5>
+          <ul>
+            <li><span class="src">geo</span>Strive to Thrive Academy is <b>0.1 mi away</b> — closest school to your door.</li>
+            <li><span class="src">model</span>At a $19.25 check avg, a spirit night models <b>$1,444–$2,599</b> incremental.</li>
+            <li><span class="src">set</span>No competitor currently runs a school partnership in this zip.</li>
+          </ul>
+        </div>
+        <h3>Run a Spirit Night with Strive to Thrive.</h3>
+        <p class="ev">A school <b>0.1 mi from your door</b> with no competing partnership. At your $19.25 check average, one night models <b>$1,444–$2,599</b> incremental. Cheap goodwill, real money.</p>
+        <div class="viz">
+          <div class="grass">
+            <div class="proxmap" aria-label="School 0.1 miles away">
+              <div class="grid"></div>
+              <div class="ring" style="width:50px;height:50px;left:35%;top:38%"></div>
+              <div class="ring" style="width:84px;height:84px;left:21%;top:24%"></div>
+              <div class="you-pin"></div>
+              <div class="sch-pin"></div>
+              <div class="dist">◆ 0.1 mi</div>
+            </div>
+            <div class="gright">
+              <div class="glab">Modeled incremental · one night</div>
+              <div class="rangebar"><div class="band"><b>$1,444</b><b>$2,599</b></div></div>
+              <div class="gmeta">
+                <span>Check avg <b>$19.25</b></span>
+                <span>Est. covers <b>75–135</b></span>
+                <span>Donate-back <b>15%</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Draft the outreach ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">First contact <b>not yet made</b></span>
+        </div>
+      </article>
+
+      <!-- 06 — STEAL: review velocity (med confidence, climbing bar) -->
+      <article class="card steal" style="animation-delay:.30s">
+        <div class="ghost">06</div>
+        <div class="top">
+          <span class="pill">Reputation</span>
+          <span class="polarity them">↑ They're winning</span>
+          <button class="conf med" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> MED <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why we flagged this — and where it's soft</h5>
+          <ul>
+            <li><span class="src">ratio</span>You collect <b>1 review per 40 covers</b>; the set averages 1 per 15.</li>
+            <li><span class="src">caveat</span>Cover counts are estimated from POS samples, not exact — hence Medium.</li>
+            <li><span class="src">lever</span>A receipt-QR ask routine typically doubles velocity within 6 weeks.</li>
+          </ul>
+        </div>
+        <h3>Build an ask-for-reviews routine.</h3>
+        <p class="ev">You earn <b>one review per 40 covers</b>; competitors average one per 15. Same guests, fewer voices. A simple receipt-QR ask closes most of the gap.</p>
+        <div class="viz">
+          <div class="race" data-race>
+            <div class="row">
+              <span class="who"><span class="lg" style="background:#C44040">SET</span>Their rate</span>
+              <span class="track"><span class="fill them" data-w="100"></span></span>
+              <span class="val them">1 / 15</span>
+            </div>
+            <div class="row">
+              <span class="who"><span class="lg" style="background:#3D4F5F">RC</span>Your rate</span>
+              <span class="track"><span class="fill you" data-w="37"></span></span>
+              <span class="val you">1 / 40</span>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Set up the routine ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">Target <b>1 / 18</b> in 6 wks</span>
+        </div>
+      </article>
+
+      <!-- 07 — PRESS: SEO climb (directional, climbing area) -->
+      <article class="card press" style="animation-delay:.36s">
+        <div class="ghost">07</div>
+        <div class="top">
+          <span class="pill">Local SEO</span>
+          <span class="polarity you">↑ You're winning</span>
+          <button class="conf dir" aria-expanded="false" onclick="toggleWhy(this)">
+            <span class="pips"><b></b><b></b><b></b></span> DIRECTIONAL <span class="car">▾</span>
+          </button>
+        </div>
+        <div class="why">
+          <h5>Why this is Directional, not High</h5>
+          <ul>
+            <li><span class="src">rank</span>You climbed <b>#7 → #3</b> for "chicken fingers near me" over 21 days.</li>
+            <li><span class="src">caveat</span>Local rank is volatile and personalized — treat the trend, not the number.</li>
+            <li><span class="src">lever</span>Two more weeks of review velocity likely locks the top 3.</li>
+          </ul>
+        </div>
+        <h3>You're climbing the map — protect the gain.</h3>
+        <p class="ev">You moved <b>#7 → #3</b> for "chicken fingers near me." It's volatile, so treat it as direction: keep posting and collecting reviews to lock the top three.</p>
+        <div class="viz">
+          <div class="climb">
+            <svg viewBox="0 0 600 84" preserveAspectRatio="none" aria-label="SEO rank climbing">
+              <defs>
+                <linearGradient id="climbfill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#3A8066" stop-opacity=".4"/>
+                  <stop offset="100%" stop-color="#3A8066" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path class="climbarea" d="M0,72 L100,66 L200,58 L300,40 L400,30 L500,20 L600,12 L600,84 L0,84 Z" fill="url(#climbfill)" opacity="0"></path>
+              <path class="climbline" d="M0,72 L100,66 L200,58 L300,40 L400,30 L500,20 L600,12" fill="none" stroke="#3A8066" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <div class="cap"><span>21 days ago · #7</span><span style="color:var(--teal)">today · #3 ▲</span></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn act" onclick="actCard(this)">Keep the streak ↗</button>
+          <button class="btn ghost" onclick="dismissCard(this)">Dismiss</button>
+          <span class="impact">4 spots from <b>#1</b></span>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============ COMPETITORS — HEAD TO HEAD ============ -->
+    <section class="section" id="competitors">
+      <div class="sectionhead">
+        <h2>Competitors · head to head</h2>
+        <span class="rule"></span>
+        <span class="ctl">4 watched</span>
+      </div>
+      <div class="tablecard">
+        <div class="tablescroll">
+        <table class="h2h">
+          <thead>
+            <tr>
+              <th>Competitor</th><th>Status</th><th>Review velocity (30d)</th><th>Price move</th><th>Sentiment</th><th>Reels/wk</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="logochip"><span class="lg" style="background:#C44040">LA</span><span><b>Layne's Chicken</b><small>0.8 mi · Cooper St</small></span></div></td>
+              <td><span class="wl loss">LOSING TO</span></td>
+              <td><svg class="spark" viewBox="0 0 88 26"><polyline points="0,20 14,18 28,12 42,14 56,8 70,6 88,4" fill="none" stroke="#C44040" stroke-width="2"/></svg></td>
+              <td><span class="delta up">↑ $0.40 combo</span></td>
+              <td><div class="sentiment"><span class="meter"><i style="width:74%;background:#3A8066"></i></span>74</div></td>
+              <td><span class="delta up">3</span></td>
+            </tr>
+            <tr>
+              <td><div class="logochip"><span class="lg" style="background:#C9942A">SC</span><span><b>Slim Chickens</b><small>1.2 mi · I-20 access</small></span></div></td>
+              <td><span class="wl even">EVEN</span></td>
+              <td><svg class="spark" viewBox="0 0 88 26"><polyline points="0,12 14,14 28,10 42,16 56,12 70,14 88,11" fill="none" stroke="#C9942A" stroke-width="2"/></svg></td>
+              <td><span class="delta dn">↓ $0.25 tenders</span></td>
+              <td><div class="sentiment"><span class="meter"><i style="width:68%;background:#C9942A"></i></span>68</div></td>
+              <td><span class="delta up">2</span></td>
+            </tr>
+            <tr>
+              <td><div class="logochip"><span class="lg" style="background:#3D4F5F">GU</span><span><b>Guthrie's</b><small>1.5 mi · Matlock Rd</small></span></div></td>
+              <td><span class="wl win">BEATING</span></td>
+              <td><svg class="spark" viewBox="0 0 88 26"><polyline points="0,8 14,10 28,9 42,12 56,14 70,16 88,18" fill="none" stroke="#3A8066" stroke-width="2"/></svg></td>
+              <td><span class="delta up">↑ $0.60 meal</span></td>
+              <td><div class="sentiment"><span class="meter"><i style="width:59%;background:#C44040"></i></span>59</div></td>
+              <td><span class="delta dn">1</span></td>
+            </tr>
+            <tr>
+              <td><div class="logochip"><span class="lg" style="background:#3A8066">PE</span><span><b>The Pelican's</b><small>2.1 mi · Green Oaks</small></span></div></td>
+              <td><span class="wl win">BEATING</span></td>
+              <td><svg class="spark" viewBox="0 0 88 26"><polyline points="0,10 14,9 28,12 42,11 56,14 70,13 88,15" fill="none" stroke="#3A8066" stroke-width="2"/></svg></td>
+              <td><span class="delta dn">— no change</span></td>
+              <td><div class="sentiment"><span class="meter"><i style="width:71%;background:#3A8066"></i></span>71</div></td>
+              <td><span class="delta dn">0</span></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WEATHER + EVENTS + SOCIAL ============ -->
+    <section class="section" id="weather">
+      <div class="sectionhead">
+        <h2>Demand outlook &amp; what's working</h2>
+        <span class="rule"></span>
+        <span class="ctl" id="events">7-day</span>
+      </div>
+      <div class="grid2">
+
+        <!-- weather/events demand -->
+        <div class="panel">
+          <h3>Weather &amp; events demand</h3>
+          <p class="psub">Forecast-weighted demand for your block. Rust dots mark event nights.</p>
+          <div class="demand">
+            <div class="d"><div class="col" style="height:42%;background:linear-gradient(180deg,#3D4F5F,#2c3a46)"><span class="wx">☀️</span></div><span class="lbl">WED 24</span></div>
+            <div class="d"><div class="col" style="height:88%;background:linear-gradient(180deg,#B85C38,#8A3D20)"><span class="wx">🔥</span><span class="ev-m"></span></div><span class="lbl">THU 25</span></div>
+            <div class="d"><div class="col" style="height:56%;background:linear-gradient(180deg,#3D4F5F,#2c3a46)"><span class="wx">⛅</span></div><span class="lbl">FRI 26</span></div>
+            <div class="d"><div class="col" style="height:100%;background:linear-gradient(180deg,#B85C38,#8A3D20)"><span class="wx">🔥</span><span class="ev-m"></span></div><span class="lbl">SAT 27</span></div>
+            <div class="d"><div class="col" style="height:64%;background:linear-gradient(180deg,#3D4F5F,#2c3a46)"><span class="wx">🌧️</span></div><span class="lbl">SUN 28</span></div>
+            <div class="d"><div class="col" style="height:48%;background:linear-gradient(180deg,#3D4F5F,#2c3a46)"><span class="wx">⛅</span></div><span class="lbl">MON 29</span></div>
+            <div class="d"><div class="col" style="height:40%;background:linear-gradient(180deg,#3D4F5F,#2c3a46)"><span class="wx">☀️</span></div><span class="lbl">TUE 30</span></div>
+          </div>
+          <div class="legend-sm">
+            <span><i style="background:#B85C38"></i>High demand</span>
+            <span><i style="background:#3D4F5F"></i>Baseline</span>
+            <span><i style="background:#B85C38;border-radius:50%"></i>Event night</span>
+          </div>
+        </div>
+
+        <!-- social photo cards -->
+        <div class="panel" id="social">
+          <h3>Competitor social that's working</h3>
+          <p class="psub">OCR'd promos pulling engagement near you — the formats to answer.</p>
+          <div class="socialgrid">
+            <div class="socard">
+              <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="#EDE6DF" stroke-width="1.4"><path d="M8 5v14l11-7z" fill="#EDE6DF"/></svg></div>
+              <div class="scrim"></div>
+              <span class="fmt">Reel</span>
+              <div class="meta">
+                <div class="ocr">"$5 Modelo boots &amp; pints — Friday only 🍺"</div>
+                <div class="row"><span class="handle">@laynes_arlington</span><span class="mult">5.4× eng</span></div>
+              </div>
+            </div>
+            <div class="socard">
+              <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="#EDE6DF" stroke-width="1.4"><path d="M8 5v14l11-7z" fill="#EDE6DF"/></svg></div>
+              <div class="scrim" style="background:linear-gradient(180deg,rgba(22,19,15,.1) 30%,rgba(22,19,15,.92)),linear-gradient(135deg,#3a2820,#16130F)"></div>
+              <span class="fmt">Reel</span>
+              <div class="meta">
+                <div class="ocr">"Game day box — 25 tenders, 4 sauces"</div>
+                <div class="row"><span class="handle">@slimchickens</span><span class="mult">3.8× eng</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SEO rank arc -->
+      <div class="seocard">
+        <div class="grid3">
+          <div>
+            <h3 style="font-size:14px;font-weight:640;margin:0 0 12px">Local visibility · rank movement</h3>
+            <svg viewBox="0 0 360 120" aria-label="SEO rank movement arc">
+              <defs>
+                <linearGradient id="arcg" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stop-color="#3D4F5F"/>
+                  <stop offset="100%" stop-color="#3A8066"/>
+                </linearGradient>
+              </defs>
+              <line x1="20" y1="20" x2="340" y2="20" stroke="#332C25" stroke-dasharray="3 4"/>
+              <line x1="20" y1="60" x2="340" y2="60" stroke="#332C25" stroke-dasharray="3 4"/>
+              <line x1="20" y1="100" x2="340" y2="100" stroke="#332C25" stroke-dasharray="3 4"/>
+              <text x="0" y="24" fill="#5A554F" font-size="9" font-family="ui-monospace">#1</text>
+              <text x="0" y="64" fill="#5A554F" font-size="9" font-family="ui-monospace">#5</text>
+              <text x="0" y="104" fill="#5A554F" font-size="9" font-family="ui-monospace">#9</text>
+              <path d="M30,96 C120,92 180,70 240,46 S320,28 340,40" fill="none" stroke="url(#arcg)" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="30" cy="96" r="4" fill="#3D4F5F"/>
+              <circle cx="320" cy="32" r="5" fill="#3A8066" stroke="#16130F" stroke-width="2"/>
+            </svg>
+          </div>
+          <div class="kpi"><b class="up">#3</b><small>"chicken fingers near me" — up from #7</small></div>
+          <div class="kpi"><b class="rust">+4</b><small>positions gained in 21 days across 6 tracked terms</small></div>
+        </div>
+      </div>
+
+      <!-- MANAGE WATCHLIST — the known UX gap -->
+      <div class="managecard manage" id="manage">
+        <div class="managehead">
+          <h3>Your watchlist</h3>
+          <span class="gaptag">manage handles &amp; competitors</span>
+        </div>
+        <p class="psub">Add, swap, or remove the competitors and social handles Ticket watches for you. Changes apply to tomorrow's brief.</p>
+        <div class="watchlist">
+          <div class="watchrow">
+            <span class="lg" style="background:#C44040">LA</span>
+            <span class="nm">Layne's Chicken Fingers<small>@laynes_arlington · maps · reviews</small></span>
+            <span class="tags">
+              <span class="srcdot" title="Instagram"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg></span>
+              <span class="srcdot" title="Maps"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <button class="rm" aria-label="Remove Layne's">×</button>
+            </span>
+          </div>
+          <div class="watchrow">
+            <span class="lg" style="background:#C9942A">SC</span>
+            <span class="nm">Slim Chickens<small>@slimchickens · maps · reviews</small></span>
+            <span class="tags">
+              <span class="srcdot" title="Instagram"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg></span>
+              <span class="srcdot" title="Maps"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <button class="rm" aria-label="Remove Slim Chickens">×</button>
+            </span>
+          </div>
+          <div class="watchrow">
+            <span class="lg" style="background:#3D4F5F">GU</span>
+            <span class="nm">Guthrie's<small>@guthries · maps · reviews</small></span>
+            <span class="tags">
+              <span class="srcdot" title="Instagram"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/></svg></span>
+              <span class="srcdot" title="Maps"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12s-9-6-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+              <button class="rm" aria-label="Remove Guthrie's">×</button>
+            </span>
+          </div>
+        </div>
+        <div class="addrow">
+          <input type="text" placeholder="Add a competitor name or @social handle…" aria-label="Add competitor or handle">
+          <button>+ Add to watchlist</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ASK TICKET ============ -->
+    <section class="ask" id="ask">
+      <h2>Ask Ticket</h2>
+      <p>Anything about your block, your set, or a play on the rail. Ticket answers from the same signals it used to build today's brief.</p>
+      <div class="askbox">
+        <input type="text" placeholder="e.g. Which competitor is gaining on me fastest?" aria-label="Ask Ticket a question">
+        <button>Ask <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="suggest">
+        <button>Why did my position jump +6?</button>
+        <button>What's Layne's doing differently?</button>
+        <button>Best play for this weekend's heat?</button>
+        <button>Where am I losing reviews?</button>
+      </div>
+    </section>
+
+    <!-- ============ MOBILE SHOWCASE ============ -->
+    <section class="section">
+      <div class="sectionhead">
+        <h2>On the line · phone</h2>
+        <span class="rule"></span>
+        <span class="ctl">375px</span>
+      </div>
+      <p style="color:var(--muted);font-size:13px;max-width:60ch;margin:0 0 6px">The operator's primary device. The ghost rank and the colored polarity spine survive at 375px and do the at-a-glance reading. The position chart collapses to a glance sparkline; Act / Dismiss become swipe.</p>
+
+      <div class="phones">
+        <!-- PHONE 1: HOME / RAIL -->
+        <div class="phone">
+          <div class="frame">
+            <div class="notch"></div>
+            <div class="screen">
+              <div class="mtop"><span class="ld"></span><span class="dt">Today · Thu Jun 26</span></div>
+              <div class="mhead"><h4>Heat, brunch buzz, and Friday openings.</h4></div>
+              <div class="mglance">
+                <div class="cnt"><b>7</b><small>PLAYS</small></div>
+                <div class="vs">
+                  <div class="vlab"><span>Position · 14d</span><b>+6 ▲</b></div>
+                  <svg viewBox="0 0 200 36" preserveAspectRatio="none">
+                    <defs><linearGradient id="mglow" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B85C38" stop-opacity=".5"/><stop offset="100%" stop-color="#B85C38" stop-opacity="0"/></linearGradient></defs>
+                    <path d="M0,30 L30,28 L60,24 L90,26 L120,18 L150,14 L200,6 L200,36 L0,36 Z" fill="url(#mglow)"/>
+                    <path d="M0,30 L30,28 L60,24 L90,26 L120,18 L150,14 L200,6" fill="none" stroke="#B85C38" stroke-width="2"/>
+                  </svg>
+                </div>
+              </div>
+
+              <div class="mcard steal">
+                <div class="mg">01</div>
+                <div class="mt"><span class="mp">Social</span><span class="mpol them">↑ THEM</span></div>
+                <h5>Reels are the only format winning locally.</h5>
+                <p class="me">Their Reels get 4× their photo posts. Start one a week.</p>
+                <div class="mrace">
+                  <div class="mr"><span class="ml">Them</span><span class="mtrack"><span class="mfill them" style="width:100%"></span></span><span class="mv" style="color:var(--alert)">4.0×</span></div>
+                  <div class="mr"><span class="ml">You</span><span class="mtrack"><span class="mfill you" style="width:25%"></span></span><span class="mv" style="color:var(--slate-ink)">1.0×</span></div>
+                </div>
+                <div class="swipehint"><span class="l">◀ swipe to dismiss</span><span class="r">act ▶</span></div>
+              </div>
+
+              <div class="mcard press">
+                <div class="mg">03</div>
+                <div class="mt"><span class="mp">Menu</span><span class="mpol you">↑ YOU</span></div>
+                <h5>Feature Freshly Squeezed Lemonade.</h5>
+                <p class="me">Highest margin (78%), sitting last on the board.</p>
+                <div class="swipehint"><span class="l">◀ dismiss</span><span class="r">make it hero ▶</span></div>
+              </div>
+
+              <div class="mcard steal">
+                <div class="mg">04</div>
+                <div class="mt"><span class="mp">Events</span><span class="mpol them">↑ LANE</span></div>
+                <h5>Be the fast option after the stadium.</h5>
+                <p class="me">AT&amp;T Stadium · Jun 25 &amp; 27 · ~80k each.</p>
+                <div class="swipehint"><span class="l">◀ dismiss</span><span class="r">plan late hrs ▶</span></div>
+              </div>
+            </div>
+            <div class="mfab"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></div>
+            <div class="mtabs">
+              <div class="mtab on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Today</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>Compet.</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Events</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Ask</div>
+            </div>
+          </div>
+          <div class="ptitle">Today · the rail</div>
+        </div>
+
+        <!-- PHONE 2: SINGLE PLAY EXPANDED -->
+        <div class="phone">
+          <div class="frame">
+            <div class="notch"></div>
+            <div class="screen" style="padding-bottom:62px">
+              <div class="mtop"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#8B8680" stroke-width="2" style="margin-right:2px"><path d="M15 18l-6-6 6-6"/></svg><span class="dt">Play 02 of 7</span></div>
+
+              <div class="mcard steal" style="margin-top:6px">
+                <div class="mg">02</div>
+                <div class="mt"><span class="mp">Reputation</span><span class="mpol them">↑ THEM</span></div>
+                <h5>Your burnt chicken is the real problem, not your prices.</h5>
+                <p class="me">Reviews across your set converge on char complaints — one is yours. Customers stopped talking price.</p>
+                <div class="chips-cluster" style="padding:11px 12px;margin-bottom:11px">
+                  <div class="cap" style="margin-bottom:9px">Convergence · this month</div>
+                  <div class="revchips">
+                    <span class="revchip them" style="font-size:10.5px;max-width:none"><span class="tag">Layne's</span>"…came out kinda burnt"</span>
+                    <span class="revchip them" style="font-size:10.5px;max-width:none"><span class="tag">Slim's</span>"charred on one side"</span>
+                    <span class="revchip you" style="font-size:10.5px;max-width:none"><span class="tag">You</span>"one tender overcooked"</span>
+                  </div>
+                </div>
+                <div class="swipehint"><span class="l">◀ dismiss</span><span class="r">brief kitchen ▶</span></div>
+              </div>
+
+              <div style="margin:0 16px 14px;padding:13px 15px;background:var(--raised);border:1px solid var(--line);border-radius:11px;border-left:2px solid var(--alert)">
+                <div style="font-family:var(--mono);font-size:9px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);margin-bottom:9px">Why · HIGH ●●●</div>
+                <div style="font-size:11.5px;color:var(--ink);line-height:1.5">4 reviews independently used "burnt" / "char" this month. Price complaints fell 40% last quarter — the story changed.</div>
+                <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--faint);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 7px">reviews · 30d</span>
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--faint);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 7px">4 sources</span>
+                  <span style="font-family:var(--mono);font-size:9px;color:var(--faint);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 7px">char cluster</span>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:9px;margin:0 16px">
+                <button class="btn act" style="flex:1;justify-content:center">Brief the kitchen ↗</button>
+                <button class="btn ghost" style="justify-content:center">Snooze</button>
+              </div>
+            </div>
+            <div class="mtabs">
+              <div class="mtab on"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Today</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>Compet.</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Events</div>
+              <div class="mtab"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Ask</div>
+            </div>
+          </div>
+          <div class="ptitle">Tap a card · full play + why</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <span>Ticket · The Pass</span>
+      <span class="seam"></span>
+      <span>Brief built 7:42a · 7 plays · next refresh 6:00a</span>
+    </div>
+
+   </div>
+  </main>
+</div>
+
+<!-- ===== real mobile bottom nav + FAB (responsive only) ===== -->
+<nav class="mobilenav" aria-label="Primary">
+  <a class="on" href="#"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Today</a>
+  <a href="#competitors"><svg viewBox="0 0 24 24"><path d="M3 12h4l3 7 4-14 3 7h4"/></svg>Compet.</a>
+  <a href="#events"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>Events</a>
+  <a href="#ask"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>Ask</a>
+</nav>
+<a class="realfab" href="#ask" aria-label="Ask Ticket"><svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg></a>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- position arc sweep ---- */
+  function sweepRing(){
+    var arc=document.getElementById('posarc');
+    if(!arc) return;
+    var len=339.3, val=0.72; // +6 mapped to ~72% of ring
+    if(reduce){arc.style.strokeDashoffset=len*(1-val);return;}
+    arc.style.transition='stroke-dashoffset 1.3s cubic-bezier(.3,.8,.3,1)';
+    requestAnimationFrame(function(){arc.style.strokeDashoffset=len*(1-val);});
+  }
+
+  /* ---- margin donut ---- */
+  function sweepDonut(){
+    document.querySelectorAll('.mdonut').forEach(function(c){
+      var len=263.9, pct=(+c.getAttribute('data-pct'))/100;
+      if(reduce){c.style.strokeDashoffset=len*(1-pct);return;}
+      c.style.transition='stroke-dashoffset 1.2s cubic-bezier(.3,.8,.3,1) .2s';
+      requestAnimationFrame(function(){c.style.strokeDashoffset=len*(1-pct);});
+    });
+  }
+
+  /* ---- 14-day position area chart ---- */
+  // your index (0..100 visual), market average band
+  var W=900,H=200;
+  var you=[52,54,51,57,55,60,58,63,61,66,64,70,73,78];
+  var mkt=[55,56,54,58,57,59,58,60,59,61,60,62,61,63];
+  var n=you.length;
+  function x(i){return (i/(n-1))*W;}
+  function y(v){return H - (v/100)*H;} // higher value = higher on chart (lower y)
+
+  function buildChart(days){
+    days = days || n;
+    var yA=you.slice(0,days), mA=mkt.slice(0,days), nn=yA.length;
+    function xx(i){return (i/(n-1))*W;} // keep horizontal scale fixed to 14d
+    // your line
+    var line='';
+    for(var i=0;i<nn;i++){line+=(i?'L':'M')+xx(i).toFixed(1)+','+y(yA[i]).toFixed(1)+' ';}
+    // area fill (down to baseline)
+    var area=line+'L'+xx(nn-1).toFixed(1)+','+H+' L0,'+H+' Z';
+    // market band: a thin ribbon around mkt line (+/- ~3)
+    var top='',bot='';
+    for(var j=0;j<nn;j++){top+=(j?'L':'M')+xx(j).toFixed(1)+','+y(mA[j]+3).toFixed(1)+' ';}
+    for(var k=nn-1;k>=0;k--){bot+='L'+xx(k).toFixed(1)+','+y(mA[k]-3).toFixed(1)+' ';}
+    var band=top+bot+'Z';
+    // center band line
+    var bl='';for(var m=0;m<nn;m++){bl+=(m?'L':'M')+xx(m).toFixed(1)+','+y(mA[m]).toFixed(1)+' ';}
+
+    document.getElementById('bandpath').setAttribute('d',band);
+    var blEl=document.getElementById('bandline');
+    // bandline is a <line>; convert to path by drawing as polyline via attrs won't work — use a path instead
+    return {line:line.trim(),area:area,headX:xx(nn-1),headY:y(yA[nn-1])};
+  }
+
+  function drawChart(days,animate){
+    var res=buildChart(days);
+    var lineEl=document.getElementById('posline');
+    var areaEl=document.getElementById('areafill');
+    var head=document.getElementById('poshead');
+    // replace dashed <line> band with proper center path: reuse bandpath stroke instead
+    document.getElementById('bandline').setAttribute('x1','0');
+    document.getElementById('bandline').setAttribute('x2','0'); // hide the placeholder line
+    lineEl.setAttribute('d',res.line);
+    areaEl.setAttribute('d',res.area);
+    head.setAttribute('cx',res.headX); head.setAttribute('cy',res.headY);
+
+    var L=lineEl.getTotalLength();
+    if(reduce || !animate){
+      lineEl.style.strokeDasharray='none';lineEl.style.strokeDashoffset='0';
+      areaEl.style.opacity='1';head.style.opacity='1';return;
+    }
+    lineEl.style.strokeDasharray=L;lineEl.style.strokeDashoffset=L;
+    lineEl.style.transition='none';areaEl.style.opacity='0';head.style.opacity='0';
+    requestAnimationFrame(function(){
+      lineEl.style.transition='stroke-dashoffset 1.5s cubic-bezier(.4,.1,.2,1)';
+      lineEl.style.strokeDashoffset='0';
+      areaEl.style.transition='opacity 1.3s ease .25s';
+      areaEl.style.opacity='1';
+      setTimeout(function(){head.style.transition='opacity .4s';head.style.opacity='1';},1300);
+    });
+  }
+
+  /* first-run toggle */
+  var fr=false;
+  document.getElementById('frtoggle').addEventListener('click',function(){
+    fr=!fr;
+    this.textContent = fr ? '↺ Show full 14 days' : '↺ Show first-run (4 days in)';
+    if(fr){
+      this.style.color='var(--rust)';
+      drawChart(4,true);
+      // add a "still reading" note via head label? keep simple: shrink area
+    }else{
+      drawChart(14,true);
+    }
+  });
+
+  /* climbing SEO area in card 07 */
+  function drawClimb(){
+    document.querySelectorAll('.climbline').forEach(function(p){
+      var L=p.getTotalLength();
+      if(reduce){p.parentNode.querySelector('.climbarea').style.opacity='1';return;}
+      p.style.strokeDasharray=L;p.style.strokeDashoffset=L;
+      requestAnimationFrame(function(){
+        p.style.transition='stroke-dashoffset 1.4s ease .2s';p.style.strokeDashoffset='0';
+        var a=p.parentNode.querySelector('.climbarea');
+        a.style.transition='opacity 1.2s ease .5s';a.style.opacity='1';
+      });
+    });
+  }
+
+  /* racing comparison bars — animate parity -> true split */
+  function runRace(el){
+    el.querySelectorAll('.fill').forEach(function(f){
+      var w=+f.getAttribute('data-w');
+      if(reduce){f.style.width=w+'%';return;}
+      // start near parity, then open the gap
+      f.style.width='62%';
+      requestAnimationFrame(function(){
+        setTimeout(function(){f.style.width=w+'%';},120);
+      });
+    });
+  }
+
+  /* IntersectionObserver to fire viz when scrolled into view */
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        if(e.target.hasAttribute('data-race')) runRace(e.target);
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:.4});
+  document.querySelectorAll('[data-race]').forEach(function(r){io.observe(r);});
+
+  /* confidence "why" expander */
+  window.toggleWhy=function(btn){
+    var card=btn.closest('.card');
+    var why=card.querySelector('.why');
+    var open=btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', String(!open));
+    why.classList.toggle('open',!open);
+  };
+
+  /* act -> tear the card off the rail */
+  window.actCard=function(btn){
+    var card=btn.closest('.card');
+    if(reduce){card.style.display='none';updateCount();return;}
+    card.classList.add('torn');
+    setTimeout(function(){card.style.display='none';updateCount();},560);
+  };
+  window.dismissCard=function(btn){
+    var card=btn.closest('.card');
+    card.style.transition='opacity .3s, transform .3s';
+    card.style.opacity='0';card.style.transform='translateX(-20px)';
+    setTimeout(function(){card.style.display='none';updateCount();},300);
+  };
+  function updateCount(){
+    var left=document.querySelectorAll('#rail .card:not(.torn)').length;
+    var visible=0;
+    document.querySelectorAll('#rail .card').forEach(function(c){if(c.style.display!=='none')visible++;});
+    var pc=document.getElementById('playcount');
+    if(pc) pc.textContent=visible;
+    var badge=document.querySelector('.navitem.on .badge');
+    if(badge) badge.textContent=visible;
+    var meta=document.querySelector('.railhead .meta');
+    if(meta) meta.textContent=visible+' plays · ranked by impact';
+  }
+
+  /* filter chips (visual toggle only) */
+  document.querySelectorAll('.filters .chip').forEach(function(c){
+    c.addEventListener('click',function(){
+      document.querySelectorAll('.filters .chip').forEach(function(x){x.classList.remove('on');});
+      c.classList.add('on');
+    });
+  });
+
+  /* kick everything off */
+  window.addEventListener('load',function(){
+    setTimeout(sweepRing,250);
+    setTimeout(sweepDonut,400);
+    setTimeout(function(){drawChart(14,true);},150);
+    setTimeout(drawClimb,500);
+  });
+  // fallback if load already fired
+  if(document.readyState==='complete'){
+    sweepRing();sweepDonut();drawChart(14,true);drawClimb();
+  }
+})();
+</script>
+</body>
+</html>
