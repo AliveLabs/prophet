@@ -126,6 +126,8 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
               locationName,
               dateRange: q.dateRange,
               depth,
+              lat: c.location.geo_lat,
+              lng: c.location.geo_lng,
             })
           )
         )

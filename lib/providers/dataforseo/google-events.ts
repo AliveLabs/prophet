@@ -17,6 +17,10 @@ export type FetchGoogleEventsInput = {
   locationName: string // "City,State,United States"
   dateRange?: "today" | "tomorrow" | "week" | "weekend" | "next_week" | "month" | "next_month"
   depth?: number // defaults to 10
+  /** Restaurant GPS — used to FALL BACK to location_coordinate when DataForSEO doesn't recognize the
+   *  city name (some smaller cities aren't in its events location list → 40501 Invalid Field). */
+  lat?: number | null
+  lng?: number | null
 }
 
 export type FetchGoogleEventsResult = {
@@ -47,9 +51,8 @@ export async function fetchGoogleEvents(
 ): Promise<FetchGoogleEventsResult> {
   const depth = Math.min(input.depth ?? 10, 20) // hard cap at 20
 
-  const task = {
+  const baseTask = {
     keyword: sanitizeEventKeyword(input.keyword),
-    location_name: input.locationName,
     language_code: "en",
     device: "desktop",
     os: "windows",
@@ -57,12 +60,28 @@ export async function fetchGoogleEvents(
     ...(input.dateRange ? { date_range: input.dateRange } : {}),
   }
 
-  const data = await postDataForSEO<DataForSEOEventsResponse>(
-    "/v3/serp/google/events/live/advanced",
-    [task]
-  )
+  // DataForSEO requires exactly ONE of location_name | location_coordinate | location_code.
+  const callEvents = async (locationField: Record<string, string>) => {
+    const data = await postDataForSEO<DataForSEOEventsResponse>("/v3/serp/google/events/live/advanced", [
+      { ...baseTask, ...locationField },
+    ])
+    return data.tasks?.[0]
+  }
 
-  const taskResult = data.tasks?.[0]
+  let taskResult = await callEvents({ location_name: input.locationName })
+
+  // LOCATION FALLBACK (2026-06-25): some cities aren't in DataForSEO's events location list — e.g.
+  // "McKinney,Texas,United States" returns 40501 "Invalid Field: 'location_name'" while Forney/Arlington/
+  // Richardson resolve fine. A GPS coordinate is ALWAYS valid (no name lookup), and we have lat/lng for
+  // every location, so retry with location_coordinate. Working locations (valid names) never reach this.
+  const nameRejected =
+    taskResult?.status_code === 40501 && /location_name/i.test(taskResult?.status_message ?? "")
+  if (nameRejected && input.lat != null && input.lng != null) {
+    // "latitude,longitude,radius" — radius within DataForSEO's accepted bound; coordinate-centered on the
+    // restaurant is also MORE relevant for local events than a city-wide name.
+    taskResult = await callEvents({ location_coordinate: `${input.lat},${input.lng},40000` })
+  }
+
   if (taskResult?.status_code && taskResult.status_code !== 20000) {
     // 40102 = "No Search Results" — NOT an error, just no events for this keyword/location (DataForSEO's
     // benign no-data code; mirrors ads-search.ts). Many locations legitimately have no events. Returning
