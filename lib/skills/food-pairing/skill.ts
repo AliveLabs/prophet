@@ -119,12 +119,15 @@ export const foodPairingSkill: ProducerSkill = {
   parse: (raw) =>
     coerceEnrichedPlays(raw, { skillId: "food-pairing", knowledgeVersion: "food-pairing@v1.1", defaultKind: "capitalize", defaultOwner: "kitchen" }),
   fallback,
-  // P14 learning hook: the kitchen consumes culinary-trend sources (NRA What's Hot, FoodBytes →
-  // external_trend priors on flavors/formats). Click feedback + ask routing. Opt-in metadata;
-  // injection still gated to ACTIVE rows.
+  // FUNDAMENTALS-ONLY by design (Bryan, 2026-06-26): the kitchen runs on its authored fundamentals
+  // (FOOD_PAIRING_KNOWLEDGE v1.1 — weather/season/daypart + obvious pairing guardrails), NOT an external
+  // FOOD-trend feed. The culinary trend sources were scrape-hostile (paywall/JS) and, more importantly,
+  // food trends aren't where the leverage is for our target operators — "trends" belong to a FUTURE
+  // engagement/social expert (SOCIAL trends, not food). So no `external` stream here. The skill still
+  // learns from CLICK feedback (thumbs/Keep → rollup multiplier) + ASK demand — usage, not trends.
   learning: {
-    streams: ["external", "click", "ask"],
+    streams: ["click", "ask"],
     playTypeLeadDomain: "menu",
-    acceptedLearningKinds: ["external_trend", "editorial"],
+    acceptedLearningKinds: ["editorial"],
   },
 }
