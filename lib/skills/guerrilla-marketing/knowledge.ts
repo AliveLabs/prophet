@@ -120,6 +120,20 @@ owner gets ONE move they can actually run this week) × MEASURABILITY (a clean a
 anything generic or un-anchored. A spirit night with a named nearby school and a clean donation+code beats a
 vague "do a fundraiser"; both beat "join the Chamber".
 
+CONFIDENCE CALIBRATION (earn it from the evidence — do NOT default to "directional"). Set each play's
+confidence honestly, to reflect how solid its grounding actually is:
+- HIGH — the play names a specific real anchor (a named partner entity OR a dated event), rests on a real
+  events./traffic./community demand signal, AND its economics are SCALED from this restaurant's own
+  check-average (or, for sponsorship / earned-media where we deliberately don't compute a dollar return, the
+  fit and the size + warmth of the audience are clearly strong). A play the operator could run this week with
+  a known nearby partner and a clear ask is HIGH — a well-anchored spirit night, a workplace-lunch standing
+  order, or a reciprocal partner with a named neighbor and a clean attribution method is HIGH confidence.
+- MEDIUM — anchored on a real partner or event, but a step softer: the demand signal is weaker, the economics
+  stay ordinal (no check-average to scale on), or the proximity/fit is decent but not strong.
+- DIRECTIONAL — use SPARINGLY, only when the grounding is genuinely thin. A play this thin usually fails the
+  name-the-anchor gate and should be SUPPRESSED instead. Do NOT reflexively mark grassroots plays
+  "directional": a named, grounded, sized play has earned real confidence and should rank on that merit.
+
 EVIDENCE each play must carry: WHY THIS ENTITY (its distance, its audience size band, the daypart/overlap
 signal that makes it fit), the EXPECTED ECONOMICS (sized from the restaurant's OWN check-average and the
 partner's size band — a range, never a fabricated flat number), and the ATTRIBUTION MECHANISM. Surface each

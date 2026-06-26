@@ -307,7 +307,14 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
           .reduce<EnrichedRecommendation | null>((lo, p) => (lo == null || (scoreByPlay.get(p) ?? 0) < (scoreByPlay.get(lo) ?? 0) ? p : lo), null)
         chosenFinal = [...chosenFinal.filter((p) => p !== weakest), bestGrass]
       }
-      console.log(`[synthesis] grassroots floor: surfaced "${bestGrass.title}" (${d.locationId} ${d.dateKey})`)
+      // Log the play's NATURAL rank + score so we can see whether the confidence-calibration
+      // guidance (guerrilla@v2.1) is letting grassroots rank into the brief on merit (floor would
+      // then be a no-op) vs the floor still doing the work. Informs whether the floor can retire.
+      const naturalRank = rankedPlays.indexOf(bestGrass) + 1
+      const score = scoreByPlay.get(bestGrass)?.toFixed?.(1) ?? "?"
+      console.log(
+        `[synthesis] grassroots floor: surfaced "${bestGrass.title}" (natural rank #${naturalRank}, score ${score}) (${d.locationId} ${d.dateKey})`,
+      )
     }
   }
 

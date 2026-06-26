@@ -81,7 +81,7 @@ describe("guerrilla-marketing skill — parse (P16: the named-anchor gate)", () 
     expect(plays).toEqual([])
   })
   it("stamps the upgraded knowledge version", () => {
-    expect(guerrillaMarketingSkill.knowledgeVersion).toBe("guerrilla@v2")
+    expect(guerrillaMarketingSkill.knowledgeVersion).toBe("guerrilla@v2.1")
   })
   it("returns null on unparseable output so the deterministic fallback runs", () => {
     expect(guerrillaMarketingSkill.parse(42, competitiveWeekDossier)).toBeNull()

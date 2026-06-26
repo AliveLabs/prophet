@@ -30,7 +30,7 @@ import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
 import { GUERRILLA_KNOWLEDGE } from "@/lib/skills/guerrilla-marketing/knowledge"
 
-const KNOWLEDGE_VERSION = "guerrilla@v2"
+const KNOWLEDGE_VERSION = "guerrilla@v2.1"
 
 // ── The named-anchor archetypes (the upgrade). Stable keys: also the click-feedback
 //    sub-domain the rollup learns by (which archetype lands per scope). ─────────────────
