@@ -13,7 +13,7 @@
 // category net rotates to fill leftover budget. Pure + deterministic (testable).
 // ---------------------------------------------------------------------------
 
-import { isMajorCapacity, type CatalogVenue } from "./venue-catalog"
+import { effectiveCapacity, isMajorCapacity, type CatalogVenue } from "./venue-catalog"
 
 export type EventDateRange = "week" | "weekend" | "month"
 export type EventQueryDef = { keyword: string; dateRange: EventDateRange }
@@ -38,8 +38,10 @@ export function selectProbeVenues(catalog: CatalogVenue[]): CatalogVenue[] {
       return d <= STADIUM_PROBE_MILES && isMajorCapacity(v.capacityHigh)
     })
     .sort((a, b) => {
-      const ca = a.capacityHigh ?? 0
-      const cb = b.capacityHigh ?? 0
+      // Rank by conservative effective capacity (measured number, else prior LOW) so a
+      // mis-typed small venue's optimistic prior ceiling can't steal the top probe slot.
+      const ca = effectiveCapacity(a)
+      const cb = effectiveCapacity(b)
       if (cb !== ca) return cb - ca
       return (a.distanceMi ?? Infinity) - (b.distanceMi ?? Infinity)
     })

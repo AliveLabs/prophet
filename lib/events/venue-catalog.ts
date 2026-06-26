@@ -108,6 +108,21 @@ export function isMajorCapacity(capacityHigh: number | null | undefined): boolea
   return (capacityHigh ?? 0) >= MAJOR_CAPACITY_THRESHOLD
 }
 
+/**
+ * Capacity to RANK a venue by when picking the scarce event probes. For a MEASURED
+ * venue we trust the number; for a type-PRIOR venue we use the conservative LOW end
+ * of the range, NOT the optimistic high. Otherwise a small venue Google mis-typed
+ * as e.g. "stadium" inherits the 85k prior ceiling and outranks a real measured
+ * arena, stealing the top probe slot. Inclusion stays generous (isMajorCapacity on
+ * capacityHigh); this only ORDERS the slots. Pure + testable.
+ */
+export function effectiveCapacity(
+  v: Pick<CatalogVenue, "capacityLow" | "capacityHigh" | "capacityConfidence">,
+): number {
+  if (v.capacityConfidence === "measured") return v.capacityHigh ?? v.capacityLow ?? 0
+  return v.capacityLow ?? 0
+}
+
 /** Find the catalog venue an event's geocoded point lands on (coordinate match,
  *  rebrand-proof). Returns the closest within tolerance, or null. Pure + testable. */
 export function matchEventToCatalog(

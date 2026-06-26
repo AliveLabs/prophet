@@ -28,6 +28,34 @@ const smallTheater: CatalogVenue = {
   aliases: [],
 }
 
+// A small venue Google mis-typed as "stadium" → inherits the 18k–85k prior range
+// (NOT measured). It must NOT outrank a real measured arena on its 85k prior ceiling.
+const auxField: CatalogVenue = {
+  placeId: "z",
+  name: "Practice Auxiliary Field",
+  primaryType: "stadium",
+  lat: 32.75,
+  lng: -97.1,
+  distanceMi: 2.0,
+  capacityLow: 18000,
+  capacityHigh: 85000,
+  capacityConfidence: "prior",
+  aliases: [],
+}
+
+const measuredArena: CatalogVenue = {
+  placeId: "w",
+  name: "Dickies Arena",
+  primaryType: "arena",
+  lat: 32.745,
+  lng: -97.095,
+  distanceMi: 2.5,
+  capacityLow: 20000,
+  capacityHigh: 20000,
+  capacityConfidence: "measured",
+  aliases: [],
+}
+
 describe("selectProbeVenues", () => {
   it("includes an in-ring stadium and ranks biggest-capacity first", () => {
     const out = selectProbeVenues([smallTheater, stadium])
@@ -36,6 +64,17 @@ describe("selectProbeVenues", () => {
   it("excludes a far, small venue (15mi+ non-major)", () => {
     const far: CatalogVenue = { ...smallTheater, distanceMi: 20 }
     expect(selectProbeVenues([far])).toHaveLength(0)
+  })
+  it("ranks a real MEASURED arena above a mis-typed prior 'stadium' (no 85k ceiling steal)", () => {
+    // Old sort used raw capacityHigh → the field's 85k prior ceiling beat the arena's 20k
+    // and stole probe slot #0. Effective capacity ranks the field on its conservative 18k
+    // prior LOW, so the measured 20k arena correctly wins the top slot.
+    const out = selectProbeVenues([auxField, measuredArena])
+    expect(out.map((v) => v.name)).toEqual(["Dickies Arena", "Practice Auxiliary Field"])
+  })
+  it("a real measured mega-stadium still tops a mis-typed prior field", () => {
+    const out = selectProbeVenues([auxField, stadium])
+    expect(out[0].name).toBe("AT&T Stadium") // measured 80k > prior LOW 18k
   })
 })
 
