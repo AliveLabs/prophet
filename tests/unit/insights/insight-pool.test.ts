@@ -72,33 +72,46 @@ function play(title: string, score: number, category: string): EnrichedRecommend
 }
 
 describe("updateInsightPool", () => {
-  it("flags exactly the top-N by combined_score as is_top", async () => {
+  it("the latest brief's plays ARE the top; a prior play not in the new brief is demoted", async () => {
     const { store, rows } = makeMock()
-    const plays = Array.from({ length: 9 }, (_, i) => play(`Play ${i}`, 90 - i * 10, "convergence"))
-    await updateInsightPool("loc-1", plays, "2026-06-26", { client: store, topMax: 7, nowMs: 1_000_000_000_000 })
-
-    const top = rows.filter((r) => r.is_top === true)
-    expect(top).toHaveLength(7)
-    // The two lowest scores (10, 20) are pushed OUT of top.
-    const topTitles = top.map((r) => r.play_key)
-    expect(rows).toHaveLength(9) // all 9 retained in the pool (available via "see all")
-    expect(topTitles).not.toContain("convergence:play-8") // score 10
-    expect(topTitles).not.toContain("convergence:play-7") // score 20
+    // Brief 1: A, B, C — all top.
+    await updateInsightPool("loc-1", [play("A", 0, "convergence"), play("B", 0, "menu"), play("C", 0, "social")], "2026-06-26", {
+      client: store,
+      nowMs: 1_000_000_000_000,
+    })
+    expect(rows.filter((r) => r.is_top)).toHaveLength(3)
+    // Brief 2: B (repeats) + D (new). A and C drop out of top but stay in the pool.
+    await updateInsightPool("loc-1", [play("B", 0, "menu"), play("D", 0, "operations")], "2026-06-27", {
+      client: store,
+      nowMs: 1_000_086_400_000,
+    })
+    const topKeys = rows.filter((r) => r.is_top).map((r) => r.play_key).sort()
+    expect(topKeys).toEqual(["menu:b", "operations:d"]) // exactly the latest brief
+    expect(rows).toHaveLength(4) // A, B, C, D all retained (available via "see all")
+    expect(rows.find((r) => r.play_key === "convergence:a")?.is_top).toBe(false) // demoted, still present
   })
 
-  it("is idempotent + re-ranks on re-run (a re-appearing play refreshes, no duplicate)", async () => {
+  it("scores within-brief rank (rank-1 highest) for the see-all ordering", async () => {
     const { store, rows } = makeMock()
-    await updateInsightPool("loc-1", [play("Alpha", 50, "menu")], "2026-06-26", { client: store, nowMs: 1_000_000_000_000 })
-    // Re-run with a higher score + a new play.
-    await updateInsightPool("loc-1", [play("Alpha", 95, "menu"), play("Beta", 80, "social")], "2026-06-27", {
+    await updateInsightPool("loc-1", [play("X", 0, "menu"), play("Y", 0, "social"), play("Z", 0, "operations")], "2026-06-26", {
+      client: store,
+      nowMs: 1_000_000_000_000,
+    })
+    expect(rows.find((r) => r.play_key === "menu:x")?.combined_score).toBe(3) // rank 1 of 3
+    expect(rows.find((r) => r.play_key === "operations:z")?.combined_score).toBe(1) // rank 3
+  })
+
+  it("is idempotent — a re-appearing play refreshes recency, no duplicate", async () => {
+    const { store, rows } = makeMock()
+    await updateInsightPool("loc-1", [play("Alpha", 0, "menu")], "2026-06-26", { client: store, nowMs: 1_000_000_000_000 })
+    await updateInsightPool("loc-1", [play("Beta", 0, "social"), play("Alpha", 0, "menu")], "2026-06-27", {
       client: store,
       nowMs: 1_000_086_400_000,
     })
     expect(rows).toHaveLength(2) // Alpha de-duped on play_key, Beta added
     const alpha = rows.find((r) => r.play_key === "menu:alpha")
-    expect(alpha?.combined_score).toBe(95) // refreshed
-    expect(alpha?.last_seen_date).toBe("2026-06-27")
-    expect(rows.filter((r) => r.is_top).length).toBe(2)
+    expect(alpha?.last_seen_date).toBe("2026-06-27") // refreshed
+    expect(alpha?.is_top).toBe(true) // in the latest brief
   })
 
   it("does nothing for an empty play list", async () => {

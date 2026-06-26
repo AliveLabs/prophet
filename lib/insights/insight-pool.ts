@@ -14,7 +14,6 @@ import { playKey } from "@/lib/skills/preferences"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 export const POOL_RETENTION_DAYS = 30
-export const TOP_MAX = 7
 
 export type PoolEntry = {
   id: string
@@ -67,57 +66,46 @@ export async function updateInsightPool(
   locationId: string,
   plays: EnrichedRecommendation[],
   dateKey: string,
-  opts: { client?: PoolStore; nowMs?: number; retentionDays?: number; topMax?: number } = {},
+  opts: { client?: PoolStore; nowMs?: number; retentionDays?: number } = {},
 ): Promise<void> {
   if (plays.length === 0) return
   const now = opts.nowMs ?? Date.now()
   const retention = opts.retentionDays ?? POOL_RETENTION_DAYS
-  const topMax = opts.topMax ?? TOP_MAX
   const expiresAt = iso(now + retention * 86_400_000)
   const db = store(opts.client)
 
-  // 1. Upsert today's plays. first_seen_date is passed but a conflicting row keeps its earlier
-  //    value via GREATEST/LEAST? supabase-js upsert replaces the row, so first_seen tracks the most
-  //    recent write — last_seen_date is the canonical recency field, so this is acceptable.
-  const rows = plays.map((p) => ({
+  // The LATEST brief's plays ARE the "top" (Bryan: ~5-7 new top insights/day push the rest out of
+  // top). combinedScore is intentionally stripped from the served brief (presenter.ts — "play ORDER
+  // encodes rank"), so we use the brief's PLAY ORDER as the rank signal: rank-1 gets the highest
+  // combined_score. Older plays not in today's brief drop out of top but stay in the pool ("see all").
+  const rows = plays.map((p, i) => ({
     location_id: locationId,
     play_key: playKey(p),
     play: p as unknown as Record<string, unknown>,
-    first_seen_date: dateKey,
+    first_seen_date: dateKey, // upsert replaces; last_seen_date is the canonical recency field
     last_seen_date: dateKey,
-    combined_score: p.combinedScore ?? 0,
+    combined_score: plays.length - i, // within-brief rank: rank-1 highest
     category: p.category ?? null,
     kind: p.kind ?? null,
     confidence: p.confidence ?? null,
-    is_top: false, // recomputed below
+    is_top: true,
     expires_at: expiresAt,
     updated_at: iso(now),
   }))
+
+  // 1. Demote ALL of the location's current top entries first; then 2. upsert today's plays as the new
+  //    top. Net result: exactly today's brief is is_top. (A brief build for a location is serialized,
+  //    and only /home/pool reads is_top, so the sub-ms window where all are false is harmless.)
+  const { error: resetErr } = await db
+    .from("insight_pool_entries")
+    .update({ is_top: false, updated_at: iso(now) })
+    .eq("location_id", locationId)
+  if (resetErr) throw new Error(`insight pool reset is_top failed: ${resetErr.message}`)
+
   const { error: upsertErr } = await db.from("insight_pool_entries").upsert(rows, { onConflict: "location_id,play_key" })
   if (upsertErr) throw new Error(`insight pool upsert failed: ${upsertErr.message}`)
 
-  // 2. Reload all live entries for the location, ranked, to find the current top-N keys.
-  const { data, error: selErr } = await db
-    .from("insight_pool_entries")
-    .select("play_key, combined_score")
-    .eq("location_id", locationId)
-    .order("combined_score", { ascending: false })
-  if (selErr) throw new Error(`insight pool select failed: ${selErr.message}`)
-  const topKeys = (data ?? []).slice(0, topMax).map((r) => String(r.play_key))
-
-  // 3. Reset is_top, then flip the top-N (bounded ≤ topMax round trips; topMax is small).
-  const { error: resetErr } = await db.from("insight_pool_entries").update({ is_top: false }).eq("location_id", locationId)
-  if (resetErr) throw new Error(`insight pool reset is_top failed: ${resetErr.message}`)
-  for (const key of topKeys) {
-    const { error: flipErr } = await db
-      .from("insight_pool_entries")
-      .update({ is_top: true, updated_at: iso(now) })
-      .eq("location_id", locationId)
-      .eq("play_key", key)
-    if (flipErr) throw new Error(`insight pool flip is_top failed: ${flipErr.message}`)
-  }
-
-  // 4. Retention sweep — drop entries unseen past expiry (opportunistic; keeps the table bounded).
+  // 3. Retention sweep — drop entries unseen past expiry (opportunistic; keeps the table bounded).
   await db.from("insight_pool_entries").delete().lt("expires_at", iso(now)).eq("location_id", locationId)
 }
 
@@ -137,6 +125,13 @@ export async function loadPoolEntries(
     let entries = (data ?? []) as unknown as PoolEntry[]
     if (opts.topOnly) entries = entries.filter((e) => e.is_top)
     if (opts.category) entries = entries.filter((e) => e.category === opts.category)
+    // "See all" order: this week's top first, then most-recent, then within-brief rank.
+    entries = [...entries].sort(
+      (a, b) =>
+        Number(b.is_top) - Number(a.is_top) ||
+        b.last_seen_date.localeCompare(a.last_seen_date) ||
+        b.combined_score - a.combined_score,
+    )
     return entries
   } catch {
     return []
