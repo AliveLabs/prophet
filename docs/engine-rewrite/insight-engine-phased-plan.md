@@ -11,7 +11,20 @@ File:line and sketches grounded by an 11-agent parallel investigation (2026-06-1
 
 ---
 
-## STATUS — updated 2026-06-20 (← resume here)
+## ⚠️ STATUS — updated 2026-06-26 (this P0–P10 plan is now COMPLETE/superseded)
+
+**The entire P0–P10 sequence is SHIPPED to prod**, plus PV (vision→positioning) and P5 adjacency.
+**P9 (`knowledge_feeds`) and P10 (`play_type_feedback_aggregate`) were SUBSUMED** by the P11–P17
+Learning-Loop Spine (`docs/engine-rewrite/insights-learning-engine-plan.md`), which is **also built +
+shipped to prod** (skill_knowledge / skill_feedback_rollup / skill_source_registry tables live;
+external-trend ingest verified). Do not build the old P9/P10 tables. Then §4.6 grassroots redemption +
+food-pairing fundamentals-only shipped (2026-06-25). For the CURRENT remaining worklist see
+`docs/PRIMARY-WORKLIST.md`; for narrative, the latest `~/vault/logs/sessions/2026-06-2x-ticket-*` logs.
+Everything below this banner is the original (now historical) plan.
+
+---
+
+## STATUS — updated 2026-06-20 (historical)
 
 **P0–P5 are SHIPPED to prod** (spine-rewrite → FF'd to origin/main; app.getticket.ai 200):
 P0 QSR de-absolutize (b2794f3) · P1 hours gate (0d6bc01) · P2 scoring core · P4/P4.1 price

@@ -13,9 +13,13 @@ These phases slot in **AFTER** the shipped PV + P5/P6/P7/P8 work. They are numbe
 extend the existing plan. Each phase is self-contained, gated, and executable end-to-end by a fresh
 agent or an overnight run **without further planning**.
 
-> STATUS: PLAN ONLY (2026-06-24). Nothing here is built. Supersedes the planned-but-unbuilt **P9
-> `knowledge_feeds`** and **P10 `play_type_feedback_aggregate`** — this design SUBSUMES both into one
-> coherent learning system (see §2). Confirm with Bryan before diverging from those named tables.
+> STATUS: ✅ BUILT + SHIPPED TO PROD (2026-06-24/25). P11–P17 all merged to main + prod migrations
+> applied (120000–180000). The three spine tables (`skill_knowledge`, `skill_feedback_rollup`,
+> `skill_source_registry`) are LIVE; external-trend ingest verified (candidate/shadow rows written,
+> 0 ACTIVE by design — auto-promote needs ≥2 tier-1 sources + conf≥70). This SUBSUMED the old P9
+> `knowledge_feeds` / P10 `play_type_feedback_aggregate` (don't build those). Behavior is fail-soft:
+> with 0 ACTIVE learnings, briefs are byte-identical to the static-knowledge floor. Remaining is
+> tuning/curation, not build — see `docs/PRIMARY-WORKLIST.md`. The plan below is the build record.
 
 ---
 

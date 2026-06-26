@@ -1,5 +1,9 @@
 # Engine rewrite — build status (2026-06-04, autonomous session)
 
+> ⚠️ HISTORICAL SNAPSHOT (2026-06-04). The engine is fully built + live on prod since; anything below
+> marked "not yet written" / "gated" is long done (dossier builder, all skills, the learning spine).
+> 682 unit tests now pass. For current state see `docs/PRIMARY-WORKLIST.md` + the latest session logs.
+
 Honest ledger of what is REAL and TESTED vs. what is gated on the live environment (keys, the Supabase
 branch, spend). No placeholders in the product code; the only "fakes" are test mocks/fixtures, which is
 normal engineering. **93 unit tests pass (75 pre-existing + 18 new); the new files are type-clean.**
