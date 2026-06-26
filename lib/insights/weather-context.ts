@@ -46,6 +46,16 @@ export function addWeatherContext(
   }
 }
 
+// A patio is genuinely appealing in a COMFORTABLE band — not too cold, and NOT a heatwave
+// (nobody sits on a 100°F patio). The old gate (>=75°F, no upper bound) fired every warm day
+// AND on miserable 100°F heatwave days. Pure + testable.
+const PATIO_MIN_F = 62
+const PATIO_MAX_F = 88
+export function isPatioFavorable(d: DailyWeatherSummary | null | undefined): boolean {
+  if (!d) return false
+  return d.temp_high_f >= PATIO_MIN_F && d.temp_high_f <= PATIO_MAX_F && !d.is_severe && d.precipitation_in < 0.1
+}
+
 export function generateWeatherCrossSignals(
   weather: WeatherContext,
   hasPatioPhotos: boolean,
@@ -54,12 +64,18 @@ export function generateWeatherCrossSignals(
   const insights: GeneratedInsight[] = []
   if (!weather.today) return insights
 
-  if (
-    weather.today.temp_high_f >= 75 &&
-    !weather.today.is_severe &&
-    weather.today.precipitation_in < 0.1 &&
-    hasPatioPhotos
-  ) {
+  // Fire the patio opportunity ONLY when today is genuinely patio-pleasant AND it's a NOTABLE day —
+  // a pleasant break from recent conditions — not merely "warm". Ordinary seasonal heat (a hot-climate
+  // summer) is not a headline (Bryan: "we have heat in Texas, but that's not new"). Notability =
+  // today pleasant while the 7-day baseline was NOT, or while yesterday was not patio weather (a break).
+  // With no baseline at all we stay silent rather than spam "it's nice out" every day.
+  const wk = weather.weekAvg
+  const notableVsWeek =
+    wk != null && (wk.temp_high_f > PATIO_MAX_F + 4 || wk.temp_high_f < PATIO_MIN_F - 4 || wk.precipitation_in >= 0.1)
+  const notableVsYesterday = weather.yesterday != null && !isPatioFavorable(weather.yesterday)
+  const haveBaseline = wk != null || weather.yesterday != null
+
+  if (isPatioFavorable(weather.today) && hasPatioPhotos && haveBaseline && (notableVsWeek || notableVsYesterday)) {
     insights.push({
       insight_type: "visual.weather_patio",
       title: competitorName

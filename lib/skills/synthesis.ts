@@ -236,16 +236,27 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
 
   const system = [
     "You are the Chief of Staff assembling a restaurant's WEEKLY brief from candidate plays produced by expert skills.",
-    `Select the strongest plays that genuinely matter this week, up to ${max}. This is the weekly deep brief, so cover the DISTINCT kinds of opportunity that are real for this place: forward demand (events/weather), reputation, positioning, marketing, and operations.`,
+    `Select the strongest plays that genuinely matter this week, up to ${max}. Each candidate carries a _meritScore (0-100 = impact × confidence × fit) and its _meritRank. Cover the DISTINCT kinds of opportunity that are real for this place — competitive positioning, reputation, menu, marketing/social, grassroots, operations, and forward demand (events/weather) — WITHOUT privileging any kind by default.`,
     "Quality bar stays high: drop weak, generic, or near-duplicate plays, and never pad to hit the number. A calm week may have few; a busy one more.",
-    "Order them best-first. Forward demand (events/weather this week) leads; standing competitive and operational moves follow. Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
+    // Ranking is BY MERIT (the score), not by a fixed category order. Ticket is marketed as a COMPETITIVE
+    // insights tool: high-confidence, actionable moves the owner can run anchor the top. Weather/events lead
+    // ONLY when genuinely high-impact + time-sensitive this week — ordinary seasonal heat is not a headline.
+    "Order them best-first BY MERIT: _meritScore is a strong prior — a higher-scored play should lead unless you have a specific reason to override. A high-confidence, ACTIONABLE move the owner can actually run this week (a competitive, menu, reputation, social, or operations play) should anchor the top. Forward demand (events/weather) leads ONLY when it is genuinely high-impact and time-sensitive THIS week — a real, unusual event or a real weather swing — NOT merely because it is weather or events (ordinary seasonal heat in a hot climate is not a headline). Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
     "Write a 3-8 word headline and a 140-250 character deck that frame the week as a whole. Plain language, no em dashes, no chef jargon.",
     "Do NOT edit the plays. Only select and order them, and state any number ONLY if it appears in the plays.",
     'Return JSON: { "headline": string, "deck": string, "order": number[] (indices into the candidates array, best first) }.',
   ].join("\n")
 
+  // Hand the model each candidate's merit score + rank so it orders by MERIT (the deterministic
+  // spine), instead of imposing a fixed "demand leads" order with no score signal (the old root cause).
+  const candidatesForModel = pool.map((p, i) => ({
+    ...p,
+    _meritScore: Math.round(scoreByPlay.get(p) ?? 0),
+    _meritRank: rankedPlays.indexOf(p) + 1,
+  }))
+
   const prompt = JSON.stringify(
-    { dateKey: d.dateKey, profile: { name: d.profile.name, attributes: d.profile.attributes }, candidates: pool },
+    { dateKey: d.dateKey, profile: { name: d.profile.name, attributes: d.profile.attributes }, candidates: candidatesForModel },
     null,
     2,
   )

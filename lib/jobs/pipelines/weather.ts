@@ -107,10 +107,32 @@ export function buildWeatherSteps(): PipelineStepDef<WeatherPipelineCtx>[] {
       name: "generate_weather_signals",
       label: "Generating weather cross-signals",
       run: async (ctx) => {
+        // 7-day rolling baseline so the patio cross-signal fires only on a NOTABLE patio day
+        // (a pleasant break), not on ordinary seasonal warmth. Fail-soft: stays null on error,
+        // and the signal then falls back to the yesterday-contrast check.
+        let weekAvg: WeatherContext["weekAvg"] = null
+        try {
+          const since = new Date(Date.now() - 8 * 86400_000).toISOString().slice(0, 10)
+          const { data: hist } = await ctx.supabase
+            .from("location_weather")
+            .select("temp_high_f, precipitation_in")
+            .eq("location_id", ctx.locationId)
+            .gte("date", since)
+          if (hist && hist.length >= 3) {
+            const n = hist.length
+            weekAvg = {
+              temp_high_f: hist.reduce((s, r) => s + ((r.temp_high_f as number) ?? 0), 0) / n,
+              precipitation_in: hist.reduce((s, r) => s + ((r.precipitation_in as number) ?? 0), 0) / n,
+            }
+          }
+        } catch {
+          /* fail soft → weekAvg null */
+        }
+
         const weatherCtx: WeatherContext = {
           today: ctx.state.todayWeather,
           yesterday: ctx.state.yesterdayWeather,
-          weekAvg: null,
+          weekAvg,
         }
 
         // Check for patio photos among competitors

@@ -640,7 +640,14 @@ function detectHighSignalEvents(
       insight_type: "events.new_high_signal_event",
       title: `New notable event nearby: ${eventLabel}`,
       summary: `${eventLabel} at ${venueName} (${when}) could draw ${audience}. ${hasMultipleTicketSources ? "Multiple ticket sources suggest strong attendance." : ""}`.trim(),
-      confidence: matchedKeywords.length >= 2 ? "high" : "medium",
+      // HIGH confidence requires a genuinely strong signal — 3+ high-signal keywords, OR a solid
+      // 2-keyword match corroborated by multiple ticket sources (real ticketed demand). A bare
+      // 2-keyword match (e.g. "soccer" + "world cup" on every match-related result) is only MEDIUM,
+      // so a recurring tournament can't keep claiming high confidence on keywords alone (L4 ranking fix).
+      confidence:
+        matchedKeywords.length >= 3 || (matchedKeywords.length >= 2 && hasMultipleTicketSources)
+          ? "high"
+          : "medium",
       severity: "info",
       evidence: {
         event: eventSummary(ev),
