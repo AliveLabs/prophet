@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ticket — Insights</title>
+<style>
+  /* ============================================================
+     THE FRONT PAGE — Ticket /insights concept
+     90% paper-and-ink. Color earns meaning by scarcity.
+     ============================================================ */
+
+  :root {
+    /* grounds */
+    --paper:    #F5F3EF;
+    --paper-2:  #EFEBE4;
+    --card:     #FFFFFF;
+    --bond:     #F0EDE9;
+    --ledger:   #EBE8E3;
+    /* type ink */
+    --ink:      #1C1917;
+    --print:    #4D4843;
+    --ash:      #6E6862;
+    --ash-2:    #857F78;
+    /* the three rust placements + semantic confidence only */
+    --rust:      #B85C38;
+    --rust-deep: #8A3D20;
+    --slate:     #3D4F5F;
+    --teal:      #3A8066;
+    --wire-gold: #C9942A;
+
+    /* font stacks — evoke the brand faces with system fonts.
+       Instrument Serif  -> high-contrast transitional serif (Georgia family)
+       Space Grotesk     -> geometric grotesque for numerals (system grotesques)
+       Barlow Condensed  -> condensed via system + tracking + uppercase
+       Inter             -> system-ui humanist sans
+       Space Mono        -> ui-monospace */
+    --serif:   "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --display: "Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", system-ui, sans-serif;
+    --cond:    "Avenir Next Condensed", "Helvetica Neue", "Arial Narrow", system-ui, sans-serif;
+    --sans:    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono:    ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------------- Shell ---------------- */
+  .shell {
+    display: grid;
+    grid-template-columns: 228px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ---------------- Sidebar ---------------- */
+  .sidebar {
+    background: var(--paper-2);
+    border-right: 1px solid var(--ledger);
+    padding: 26px 0 24px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+  .brand {
+    padding: 0 26px 26px;
+  }
+  .brand .wordmark {
+    font-family: var(--serif);
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1;
+  }
+  .brand .est {
+    margin-top: 7px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--ash-2);
+    text-transform: uppercase;
+  }
+  .nav { display: flex; flex-direction: column; }
+  .nav a {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 26px;
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ash);
+    text-decoration: none;
+    transition: color .15s ease, background .15s ease;
+  }
+  .nav a:hover { color: var(--print); background: var(--bond); }
+  .nav a.active { color: var(--ink); }
+  .nav a.active::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 22px;
+    background: var(--rust);              /* RUST #1 — active nav tick */
+  }
+  .nav a .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; opacity: .42;
+    flex: none;
+  }
+  .nav a.active .dot { opacity: .9; }
+  .nav .group-label {
+    padding: 22px 26px 9px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ash-2);
+  }
+  .sidebar .foot {
+    margin-top: auto;
+    padding: 18px 26px 0;
+    border-top: 1px solid var(--ledger);
+  }
+  .sidebar .foot .row {
+    display: flex; align-items: center; gap: 9px;
+  }
+  .sidebar .foot .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--slate);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: var(--cond); font-weight: 600; font-size: 12px; letter-spacing: .04em;
+    flex: none;
+  }
+  .sidebar .foot .who { line-height: 1.25; }
+  .sidebar .foot .who .name { font-size: 13px; font-weight: 600; color: var(--print); }
+  .sidebar .foot .who .org { font-family: var(--mono); font-size: 10px; color: var(--ash-2); letter-spacing: .04em; }
+
+  /* ---------------- Main ---------------- */
+  .main { min-width: 0; }
+  .canvas {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 48px 160px;
+  }
+
+  /* ---------------- Masthead ---------------- */
+  .masthead { padding: 46px 0 0; }
+  .dateline {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ash);
+  }
+  .masthead .hairline {
+    height: 1px; background: var(--ledger);
+    margin: 16px 0 26px;
+  }
+  .hero {
+    max-width: 720px;
+  }
+  .hero h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 52px;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin: 0;
+    text-wrap: balance;
+  }
+  .hero .standfirst {
+    margin: 18px 0 0;
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--ash);
+    max-width: 60ch;
+  }
+  /* coverage strip — one thin mono line, replaces the bulky card */
+  .coverage {
+    margin-top: 26px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ledger);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .coverage .checked {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ash);
+  }
+  .coverage .checked b { color: var(--print); font-weight: 600; }
+  .coverage .checked .sep { color: var(--ledger); padding: 0 7px; }
+  .filters {
+    display: flex; align-items: center; gap: 18px;
+  }
+  .filters button {
+    background: none; border: none; cursor: pointer;
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--ash);
+    padding: 2px 0;
+    transition: color .15s ease;
+  }
+  .filters button:hover { color: var(--print); }
+  .filters button.on { color: var(--ink); border-bottom: 2px solid var(--ink); }
+
+  /* ---------------- Column of dispatches ---------------- */
+  .column {
+    margin-top: 40px;
+    max-width: 980px;
+    background: var(--card);
+    border-radius: 8px;
+    border: 1px solid var(--ledger);
+    overflow: hidden;
+  }
+
+  .row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 128px minmax(0,1fr) 140px;
+    gap: 28px;
+    padding: 40px 34px;
+    border-bottom: 1px solid var(--ledger);
+    transition: background .14s ease;
+  }
+  .row:last-child { border-bottom: none; }
+  .row:hover { background: var(--bond); }
+  .row:hover .kebab { opacity: 1; }
+
+  /* the single lede marker — RUST #2 (only on row 01) */
+  .row.lede::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--rust);
+  }
+  /* give the lede the most air */
+  .row.lede { padding-top: 48px; padding-bottom: 48px; }
+
+  /* Zone A — anchor rail */
+  .rail { text-align: left; }
+  .rail .rank {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.14em;
+    color: var(--ash);
+    margin-bottom: 18px;
+  }
+  .rail .caption {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ash-2);
+    margin-bottom: 4px;
+  }
+  .rail .numeral {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 64px;
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-stretch: condensed;
+  }
+  .row.lede .rail .numeral { font-size: 76px; }      /* lede numeral dominates */
+  .rail .dollar {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.35;
+    letter-spacing: 0.02em;
+    color: var(--ash);
+  }
+  .rail .dollar b { color: var(--print); font-weight: 700; }
+
+  /* Zone B — body */
+  .body { min-width: 0; }
+  .kicker {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ash-2);
+    margin-bottom: 11px;
+  }
+  .kicker .mid { color: var(--ledger); padding: 0 7px; }
+  .headline {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin: 0 0 12px;
+    text-wrap: balance;
+  }
+  .row.lede .headline { font-size: 33px; }
+  .rationale {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--print);
+    margin: 0;
+    max-width: 60ch;
+  }
+  .rationale em {
+    font-style: normal;
+    color: var(--ink);
+    box-shadow: inset 0 -0.5em 0 var(--bond);
+  }
+  .dispatch-dateline {
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ash);
+  }
+
+  /* Zone C — confidence + action */
+  .meta {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 14px;
+  }
+  .confidence {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .confidence.high   { color: var(--teal); }
+  .confidence.medium { color: var(--wire-gold); }
+  .action {
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--slate);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color .15s ease;
+  }
+  .action:hover { color: var(--rust-deep); }
+  .action .arrow { transition: transform .15s ease; display: inline-block; }
+  .action:hover .arrow { transform: translateX(3px); }
+  .kebab {
+    margin-top: 2px;
+    font-size: 16px;
+    line-height: 1;
+    color: var(--ash);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s ease, color .15s ease;
+    background: none; border: none; padding: 0;
+  }
+  .kebab:hover { color: var(--print); }
+
+  /* end-of-column note */
+  .endnote {
+    max-width: 980px;
+    margin: 22px auto 0;
+    padding-left: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ash-2);
+  }
+
+  /* ---------------- Ask Ticket — pinned footer ---------------- */
+  .ask {
+    position: sticky;
+    bottom: 0;
+    margin-top: 40px;
+    background: linear-gradient(to top, var(--paper) 62%, rgba(245,243,239,0));
+    padding: 22px 48px 26px;
+  }
+  .ask-inner {
+    max-width: 1040px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1.5px solid var(--rust);          /* RUST #3 — Ask input outline */
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    box-shadow: 0 6px 24px -16px rgba(28,25,23,.45);
+  }
+  .ask-inner .label {
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--rust-deep);
+    white-space: nowrap;
+  }
+  .ask-inner input {
+    flex: 1;
+    border: none;
+    background: none;
+    outline: none;
+    font-family: var(--sans);
+    font-size: 15px;
+    color: var(--ink);
+  }
+  .ask-inner input::placeholder { color: var(--ash-2); }
+  .ask-inner .send {
+    flex: none;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 3px;
+    padding: 9px 16px;
+    font-family: var(--cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  .ask-inner .send:hover { background: var(--rust-deep); }
+
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 2px solid var(--slate);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+
+  /* ---------------- Responsive ---------------- */
+  @media (max-width: 940px) {
+    .shell { grid-template-columns: 1fr; }
+    .sidebar {
+      position: static; height: auto; flex-direction: row;
+      align-items: center; padding: 14px 18px; overflow-x: auto;
+      border-right: none; border-bottom: 1px solid var(--ledger);
+    }
+    .brand { padding: 0 22px 0 0; }
+    .brand .est { display: none; }
+    .nav { flex-direction: row; }
+    .nav a { padding: 10px 14px; white-space: nowrap; }
+    .nav a.active::before { top: auto; bottom: 0; left: 14px; right: 14px;
+      width: auto; height: 3px; transform: none; }
+    .nav .group-label, .sidebar .foot { display: none; }
+    .canvas { padding: 0 22px 160px; }
+    .hero h1 { font-size: 38px; }
+    .ask { padding: 18px 22px 22px; }
+  }
+  @media (max-width: 720px) {
+    .row {
+      grid-template-columns: 96px minmax(0,1fr);
+      gap: 18px;
+    }
+    .rail .numeral { font-size: 52px; }
+    .row.lede .rail .numeral { font-size: 60px; }
+    .meta {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      text-align: left;
+      padding-top: 14px;
+      border-top: 1px dashed var(--ledger);
+    }
+    .kebab { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="wordmark">The Ticket</div>
+      <div class="est">Edition · Arlington TX</div>
+    </div>
+    <nav class="nav" aria-label="Sections">
+      <a href="#" class="active" aria-current="page"><span class="dot"></span>Today</a>
+      <a href="#"><span class="dot"></span>Competitors</a>
+      <a href="#"><span class="dot"></span>Weather</a>
+      <a href="#"><span class="dot"></span>Events</a>
+      <a href="#"><span class="dot"></span>Ask</a>
+      <div class="group-label">Archive</div>
+      <a href="#"><span class="dot"></span>Past Editions</a>
+      <a href="#"><span class="dot"></span>Saved Plays</a>
+    </nav>
+    <div class="foot">
+      <div class="row">
+        <div class="avatar">RC</div>
+        <div class="who">
+          <div class="name">Raising Cane's</div>
+          <div class="org">Cooper St · #4417</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="canvas">
+
+      <!-- MASTHEAD -->
+      <header class="masthead">
+        <div class="dateline">The Ticket · Arlington, TX · Fri Jun 26</div>
+        <div class="hairline"></div>
+        <div class="hero">
+          <h1>Heat, brunch buzz, and Friday openings.</h1>
+          <p class="standfirst">Seven plays the desk filed for you overnight, ranked by what moves the needle this week — the char complaint outweighs every price lever you were weighing.</p>
+        </div>
+        <div class="coverage">
+          <div class="checked">
+            <b>We checked:</b>
+            <span>11 competitors</span><span class="sep">·</span>
+            <span>240 reviews</span><span class="sep">·</span>
+            <span>3 events</span><span class="sep">·</span>
+            <span>weather</span>
+          </div>
+          <div class="filters" role="group" aria-label="Filter dispatches">
+            <button class="on">All</button>
+            <button>High only</button>
+            <button>$ Upside</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- COLUMN OF DISPATCHES -->
+      <section class="column" aria-label="Ranked plays">
+
+        <!-- 01 — LEDE -->
+        <article class="row lede">
+          <div class="rail">
+            <div class="rank">01</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">94</div>
+            <div class="dollar"><b>HIGHEST IMPACT</b><br>this edition</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Convergence<span class="mid">·</span>Competitive</div>
+            <h2 class="headline">Your burnt chicken is the real problem, not your prices.</h2>
+            <p class="rationale">Three competitor reviews and your own recent reviews <em>converge on char and "burnt" complaints</em> — the same word, four sources, two weeks running. Fixing the fry line beats any price move you were weighing this month; it's the one thing customers keep naming unprompted.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 4 sources · reviews + competitor set</div>
+          </div>
+          <div class="meta">
+            <span class="confidence high">High</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 02 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">02</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">88</div>
+            <div class="dollar"><b>$1,444–$2,599</b><br>est. upside</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Grassroots<span class="mid">·</span>Community</div>
+            <h2 class="headline">Run a Spirit Night with Strive to Thrive — a weeknight dinner fundraiser.</h2>
+            <p class="rationale">A school sits <em>0.1 miles away</em>. A weeknight fundraiser pulls 40–60 families through the door; at your $19.25 check average that's <em>$1,444–$2,599 incremental</em>, with 15–20% donated back to keep the school promoting it for you.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 2 sources · proximity + check avg</div>
+          </div>
+          <div class="meta">
+            <span class="confidence high">High</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 03 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">03</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">82</div>
+            <div class="dollar"><b>EVENT WINDOW</b><br>Jun 25 &amp; 27</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Convergence<span class="mid">·</span>Events</div>
+            <h2 class="headline">Be the fast option when the stadium crowd pours out.</h2>
+            <p class="rationale">AT&amp;T Stadium has events on <em>Jun 25 and 27</em>. Position the drive-thru for the post-event rush — staff the window heavy and lead with speed, not menu. The crowd is already deciding between you and the line at everyone else.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 3 sources · events + popular-times</div>
+          </div>
+          <div class="meta">
+            <span class="confidence high">High</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 04 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">04</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">76</div>
+            <div class="dollar"><b>MARGIN PLAY</b><br>signature item</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Menu<span class="mid">·</span>Margin</div>
+            <h2 class="headline">Feature Freshly Squeezed Lemonade as the hero drink.</h2>
+            <p class="rationale">Your <em>highest-margin signature item</em> is under-promoted while competitors push combos. Pull it to the top of the board and the counter script — it lifts ticket size without discounting a thing.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 2 sources · menu + competitor combos</div>
+          </div>
+          <div class="meta">
+            <span class="confidence high">High</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 05 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">05</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">71</div>
+            <div class="dollar"><b>4×</b><br>engagement vs photos</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Social<span class="mid">·</span>Format</div>
+            <h2 class="headline">Reels are the only format winning locally — start this week.</h2>
+            <p class="rationale">Across your competitor set, Reels pull <em>4× the engagement</em> of their photo posts. The format gap is the whole story; one short clip a week closes it before the trend cools.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 6 sources · competitor social feeds</div>
+          </div>
+          <div class="meta">
+            <span class="confidence high">High</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 06 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">06</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">58</div>
+            <div class="dollar"><b>1 / 40</b><br>vs 1 / 15 covers</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Reputation<span class="mid">·</span>Reviews</div>
+            <h2 class="headline">Build a simple ask-for-reviews routine the counter can run.</h2>
+            <p class="rationale">You earn one review per <em>~40 covers</em>; competitors get one per 15. A scripted ask at the window closes most of that gap with no spend — it just isn't anyone's job yet.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 2 sources · review velocity</div>
+          </div>
+          <div class="meta">
+            <span class="confidence medium">Medium</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+        <!-- 07 -->
+        <article class="row">
+          <div class="rail">
+            <div class="rank">07</div>
+            <div class="caption">Priority</div>
+            <div class="numeral">52</div>
+            <div class="dollar"><b>DAYPART</b><br>Fri to 8pm</div>
+          </div>
+          <div class="body">
+            <div class="kicker">Operations<span class="mid">·</span>Staffing</div>
+            <h2 class="headline">Staff Friday as a full arc: lunch through 8pm.</h2>
+            <p class="rationale">Your <em>Friday dinner daypart runs below its own peak</em> — the demand is there, the coverage isn't. Extend the arc instead of tapering after lunch and you capture a shift you're already half-paying for.</p>
+            <div class="dispatch-dateline">Checked 06.26 · 1 source · your popular-times curve</div>
+          </div>
+          <div class="meta">
+            <span class="confidence medium">Medium</span>
+            <a class="action" href="#">Open recipe <span class="arrow">→</span></a>
+            <button class="kebab" aria-label="More options">⋯</button>
+          </div>
+        </article>
+
+      </section>
+
+      <p class="endnote">— End of edition · Filed 06.26 04:12 CT · Next edition prints overnight</p>
+
+    </div>
+
+    <!-- ASK TICKET — pinned footer -->
+    <div class="ask">
+      <form class="ask-inner" onsubmit="return false;">
+        <span class="label">Ask Ticket</span>
+        <input type="text" aria-label="Ask Ticket a question" placeholder="Why is the char complaint ranked above pricing this week?">
+        <button class="send" type="submit">Ask</button>
+      </form>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

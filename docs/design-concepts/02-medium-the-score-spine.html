@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket — Today</title>
+<style>
+  :root{
+    /* surfaces */
+    --paper:#F5F3EF;
+    --paper-2:#EFEBE4;
+    --card:#FFFFFF;
+    --bond:#F0EDE9;
+    --ledger:#EBE8E3;
+    /* text */
+    --ink:#1C1917;
+    --print:#4D4843;
+    --ash:#6E6862;
+    --ash-2:#857F78;
+    /* signal */
+    --rust:#B85C38;
+    --rust-deep:#8A3D20;
+    --slate:#3D4F5F;
+    --signal:#D08548;
+    --wire-gold:#C9942A;
+    --teal:#3A8066;
+    --alert:#C44040;
+
+    /* type stacks evoking the brand fonts */
+    --serif:"Instrument Serif", Georgia, "Times New Roman", serif;     /* Instrument Serif */
+    --sans:system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* Inter */
+    --cond:"Arial Narrow", "Helvetica Neue", system-ui, sans-serif;     /* Barlow Condensed */
+    --mono:ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace; /* Space Mono */
+    --grotesk:"Helvetica Neue", system-ui, Arial, sans-serif;           /* Space Grotesk (scores) */
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  /* ============ APP SHELL ============ */
+  .app{
+    display:grid;
+    grid-template-columns:228px 1fr;
+    min-height:100vh;
+  }
+
+  /* ============ SIDEBAR ============ */
+  .sidebar{
+    background:var(--paper-2);
+    border-right:1px solid var(--ledger);
+    padding:28px 0 0;
+    position:sticky;
+    top:0;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .brand{
+    padding:0 26px 30px;
+    display:flex;
+    align-items:baseline;
+    gap:9px;
+  }
+  .brand .mark{
+    font-family:var(--serif);
+    font-size:25px;
+    letter-spacing:-.01em;
+    color:var(--ink);
+    line-height:1;
+  }
+  .brand .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--rust);
+    display:inline-block;
+    transform:translateY(-1px);
+  }
+  .brand .sub{
+    font-family:var(--mono);
+    font-size:9.5px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    color:var(--ash-2);
+    margin-left:auto;
+  }
+
+  .nav{ display:flex; flex-direction:column; }
+  .nav a{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:12px 26px;
+    font-family:var(--cond);
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.16em;
+    font-size:12.5px;
+    color:var(--ash);
+    text-decoration:none;
+    transition:color .14s ease;
+  }
+  .nav a .ico{
+    width:13px;height:13px;
+    opacity:.62;
+    flex:none;
+  }
+  .nav a:hover{ color:var(--print); }
+  .nav a.active{
+    color:var(--ink);
+  }
+  .nav a.active::before{
+    content:"";
+    position:absolute;
+    left:0; top:6px; bottom:6px;
+    width:2px;
+    background:var(--rust);
+  }
+  .nav a.active .ico{ opacity:1; }
+
+  .nav-divider{
+    height:1px;
+    background:var(--ledger);
+    margin:14px 26px;
+  }
+  .nav-label{
+    font-family:var(--mono);
+    font-size:9.5px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--ash-2);
+    padding:0 26px 8px;
+  }
+
+  .sidebar-foot{
+    margin-top:auto;
+    padding:18px 26px 22px;
+    border-top:1px solid var(--ledger);
+  }
+  .sidebar-foot .loc{
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.13em;
+    font-weight:600;
+    font-size:12.5px;
+    color:var(--ink);
+  }
+  .sidebar-foot .meta{
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--ash-2);
+    margin-top:4px;
+  }
+
+  /* ============ MAIN ============ */
+  .main{
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  /* ---- HERO / MASTHEAD ---- */
+  .hero{
+    background:var(--paper);
+    padding:48px 56px 38px;
+    border-bottom:1px solid var(--ledger);
+  }
+  .hero-inner{
+    max-width:980px;
+    margin:0 auto;
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:40px;
+  }
+  .hero-left{ min-width:0; }
+  .dateline{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.04em;
+    color:var(--ash);
+    text-transform:uppercase;
+  }
+  .dateline .sep{ color:var(--ledger); margin:0 7px; }
+  .hero-headline{
+    font-family:var(--serif);
+    font-weight:400;
+    font-size:52px;
+    line-height:1.05;
+    color:var(--ink);
+    letter-spacing:-.005em;
+    margin:14px 0 0;
+    max-width:13ch;
+  }
+
+  /* coverage card — the only white surface */
+  .coverage{
+    flex:none;
+    background:var(--card);
+    border-radius:4px;
+    padding:16px 18px;
+    box-shadow:0 1px 0 rgba(28,25,23,.04), 0 0 0 1px var(--ledger);
+    min-width:188px;
+  }
+  .coverage .ttl{
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.18em;
+    font-weight:600;
+    font-size:11px;
+    color:var(--ash-2);
+    margin-bottom:11px;
+  }
+  .coverage .stat{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ash);
+    padding:5px 0;
+  }
+  .coverage .stat + .stat{ border-top:1px solid var(--ledger); }
+  .coverage .stat b{
+    color:var(--ink);
+    font-weight:500;
+    font-size:14px;
+  }
+
+  /* ---- LEDGER WRAP ---- */
+  .ledger-wrap{
+    padding:0 56px 120px;
+  }
+  .ledger{
+    max-width:760px;
+    margin:0 auto;
+  }
+
+  /* filter strip — quiet, above the ledger */
+  .filters{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:22px;
+    padding:18px 0 4px;
+  }
+  .filters .grp{
+    display:flex;
+    gap:16px;
+    align-items:center;
+  }
+  .filters button{
+    background:none;border:none;cursor:pointer;padding:0;
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.15em;
+    font-weight:600;
+    font-size:11.5px;
+    color:var(--ash);
+    transition:color .14s ease;
+  }
+  .filters button:hover{ color:var(--print); }
+  .filters button.on{ color:var(--ink); border-bottom:1px solid var(--ink); padding-bottom:1px; }
+  .filters .lbl{
+    font-family:var(--mono);
+    font-size:10px;
+    letter-spacing:.04em;
+    color:var(--ash-2);
+    text-transform:uppercase;
+  }
+
+  /* ============ THE SCORE SPINE / LEDGER ROW ============ */
+  .row{
+    display:grid;
+    grid-template-columns:88px 1fr;
+    border-top:1px solid var(--ledger);
+    transition:border-color .15s ease;
+  }
+  .row:last-child{ border-bottom:1px solid var(--ledger); }
+  .row:hover{ border-top-color:var(--ash-2); }
+  .row:hover + .row{ border-top-color:var(--ash-2); }
+
+  /* the SCORE GUTTER — bond fill, full height, the one rail */
+  .gutter{
+    position:relative;
+    background:var(--bond);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    padding:34px 0 30px;
+  }
+  /* the single rust tick — only on rank 01 */
+  .gutter.lead::before{
+    content:"";
+    position:absolute;
+    left:0; top:0; bottom:0;
+    width:3px;
+    background:var(--rust);
+  }
+  .gutter .rank{
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.16em;
+    font-weight:700;
+    font-size:13px;
+    color:var(--ash);
+    line-height:1;
+  }
+  .gutter .score{
+    font-family:var(--grotesk);
+    font-weight:500;
+    font-size:64px;
+    line-height:.95;
+    color:var(--ink);
+    font-variant-numeric:tabular-nums;
+    font-feature-settings:"tnum" 1;
+    letter-spacing:-.02em;
+    margin:13px 0 0;
+  }
+  /* tier underline — teal=fresh, gold=medium. never a fill. */
+  .gutter .score.tier-fresh{ border-bottom:2px solid var(--teal); padding-bottom:3px; }
+  .gutter .score.tier-medium{ border-bottom:2px solid var(--wire-gold); padding-bottom:3px; }
+  /* dollar sub-line — does NOT replace the score */
+  .gutter .subline{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--print);
+    margin-top:8px;
+    text-align:center;
+    line-height:1.25;
+  }
+  .gutter .conf{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.02em;
+    margin-top:11px;
+    text-transform:uppercase;
+  }
+  .gutter .conf.high{ color:var(--teal); }
+  .gutter .conf.med{ color:var(--wire-gold); }
+
+  /* CONTENT column */
+  .content{
+    padding:32px 8px 32px 30px;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+    position:relative;
+  }
+  .kicker{
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.18em;
+    font-weight:600;
+    font-size:12px;
+    color:var(--ash-2);
+  }
+  .kicker .mid{ color:var(--ledger); margin:0 8px; }
+
+  .action{
+    font-family:var(--serif);
+    font-weight:400;
+    line-height:1.2;
+    color:var(--ink);
+    letter-spacing:-.003em;
+    margin:9px 0 0;
+  }
+  .row.lead-row .action{ font-size:34px; line-height:1.12; }
+  .action{ font-size:28px; }
+
+  .rationale{
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    color:var(--print);
+    margin:11px 0 0;
+    max-width:58ch;
+  }
+
+  /* RECIPE — inline 3-step list on bond tint band, flush, no border */
+  .recipe{
+    margin-top:18px;
+    background:var(--bond);
+    padding:14px 16px;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+  }
+  .recipe .step{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+    font-family:var(--sans);
+    font-size:13px;
+    line-height:1.5;
+    color:var(--print);
+  }
+  .recipe .arrow{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--ash);
+    line-height:1.8;
+    flex:none;
+  }
+
+  /* kebab — hover-only ash glyph, far right */
+  .kebab{
+    position:absolute;
+    top:32px; right:0;
+    border:none;background:none;cursor:pointer;
+    font-size:18px;
+    line-height:1;
+    color:var(--ash-2);
+    opacity:0;
+    transition:opacity .15s ease, color .15s ease;
+    padding:2px 4px;
+  }
+  .row:hover .kebab{ opacity:.8; }
+  .kebab:hover{ color:var(--print); opacity:1; }
+
+  /* ============ ASK TICKET — pinned bottom bar ============ */
+  .ask-bar{
+    position:fixed;
+    left:228px; right:0; bottom:0;
+    background:linear-gradient(to top, var(--paper) 62%, rgba(245,243,239,0));
+    padding:24px 56px 26px;
+    z-index:20;
+  }
+  .ask-inner{
+    max-width:760px;
+    margin:0 auto;
+    display:flex;
+    align-items:center;
+    gap:0;
+    background:var(--card);
+    border:1px solid var(--slate);
+    border-radius:4px;
+    overflow:hidden;
+    box-shadow:0 6px 22px -12px rgba(28,25,23,.28);
+  }
+  .ask-inner .tag{
+    font-family:var(--cond);
+    text-transform:uppercase;
+    letter-spacing:.15em;
+    font-weight:600;
+    font-size:11px;
+    color:#fff;
+    background:var(--slate);
+    padding:14px 15px;
+    align-self:stretch;
+    display:flex;
+    align-items:center;
+    flex:none;
+  }
+  .ask-inner input{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:14px 16px;
+    font-family:var(--serif);
+    font-size:18px;
+    color:var(--ink);
+    outline:none;
+  }
+  .ask-inner input::placeholder{
+    font-family:var(--serif);
+    color:var(--ash-2);
+    opacity:1;
+  }
+  .ask-inner .send{
+    flex:none;
+    border:none;cursor:pointer;
+    background:none;
+    color:var(--slate);
+    font-family:var(--mono);
+    font-size:13px;
+    padding:0 18px;
+  }
+  .ask-inner .send:hover{ color:var(--rust); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width:1080px){
+    .hero{ padding:40px 34px 32px; }
+    .ledger-wrap{ padding:0 34px 120px; }
+    .ask-bar{ padding:22px 34px 24px; }
+    .hero-inner{ flex-direction:column; gap:24px; }
+    .coverage{ align-self:flex-start; }
+  }
+  @media (max-width:780px){
+    .app{ grid-template-columns:1fr; }
+    .sidebar{ position:static; height:auto; flex-direction:row; flex-wrap:wrap; align-items:center; padding:14px 18px; }
+    .brand{ padding:0 18px 0 0; }
+    .nav{ flex-direction:row; flex-wrap:wrap; }
+    .nav a{ padding:8px 12px; }
+    .nav a.active::before{ display:none; }
+    .nav-divider,.nav-label,.sidebar-foot{ display:none; }
+    .hero-headline{ font-size:38px; }
+    .ask-bar{ left:0; }
+    .row{ grid-template-columns:72px 1fr; }
+    .gutter .score{ font-size:50px; }
+  }
+</style>
+</head>
+
+<div class="app">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark">Ticket</span><span class="dot"></span>
+      <span class="sub">v2</span>
+    </div>
+
+    <nav class="nav">
+      <a href="#" class="active">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+        Today
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="15" r="3"/><path d="M3 20a5 5 0 0 1 9-3M11 20a5 5 0 0 1 9-3"/></svg>
+        Competitors
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 17a4 4 0 0 0 0-8 6 6 0 0 0-11.3-1A4 4 0 0 0 6 17z"/></svg>
+        Weather
+      </a>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+        Events
+      </a>
+
+      <div class="nav-divider"></div>
+      <div class="nav-label">Inquire</div>
+      <a href="#">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 21l1.8-5.5A8 8 0 1 1 21 12z"/></svg>
+        Ask Ticket
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="loc">Raising Cane&rsquo;s</div>
+      <div class="meta">Fort Worth, TX &middot; #4471</div>
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main">
+
+    <!-- HERO / MASTHEAD -->
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="hero-left">
+          <div class="dateline">FT WORTH<span class="sep">&middot;</span>JUN 26 2026<span class="sep">&middot;</span>7 SIGNALS</div>
+          <h1 class="hero-headline">Heat, brunch buzz, and Friday openings.</h1>
+        </div>
+
+        <div class="coverage">
+          <div class="ttl">What we checked</div>
+          <div class="stat"><span>Reviews read</span><b>142</b></div>
+          <div class="stat"><span>Competitors</span><b>6</b></div>
+          <div class="stat"><span>Local events</span><b>3</b></div>
+          <div class="stat"><span>Run</span><b>06:14 CT</b></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- LEDGER -->
+    <section class="ledger-wrap">
+      <div class="ledger">
+
+        <!-- quiet filter strip -->
+        <div class="filters">
+          <span class="lbl">Sort</span>
+          <div class="grp">
+            <button class="on">Impact</button>
+            <button>Newest</button>
+            <button>Effort</button>
+          </div>
+          <span class="lbl">Show</span>
+          <div class="grp">
+            <button class="on">All</button>
+            <button>Saved</button>
+          </div>
+        </div>
+
+        <!-- ===== ROW 01 — LEAD (the only rust tick) ===== -->
+        <article class="row lead-row">
+          <div class="gutter lead">
+            <span class="rank">01</span>
+            <span class="score tier-fresh">94</span>
+            <span class="conf high">HIGH</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">CONVERGENCE<span class="mid">&middot;</span>COMPETITIVE</div>
+            <h2 class="action">Be the fast option when the stadium crowd pours out</h2>
+            <p class="rationale">AT&amp;T Stadium has back-to-back events Jun 25 &amp; 27 a few minutes up I-30. Three sources converge on a post-event surge window where speed wins — your drive-thru is the asset competitors can&rsquo;t match on those nights.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Pre-stage a second fry &amp; tender batch from event end +15 min.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Add a roaming order-taker to the drive lane for the 90-min push.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Post a 10pm &ldquo;skip the line&rdquo; story the morning of each event.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 02 ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">02</span>
+            <span class="score tier-fresh">91</span>
+            <span class="conf high">HIGH</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">CONVERGENCE<span class="mid">&middot;</span>COMPETITIVE</div>
+            <h2 class="action">Your burnt chicken is the real problem, not your prices</h2>
+            <p class="rationale">Three competitor reviews and your own recent reviews converge on the same word: char. Fixing the cook beats any price move on the table right now — it&rsquo;s the cheapest point you can win back.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Re-time the fry station and pull a sample tender every batch today.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Brief the line: golden, not dark &mdash; show the target photo.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Reply to the 3 char reviews; invite each back this week.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 03 — carries a $ sub-line ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">03</span>
+            <span class="score tier-fresh">88</span>
+            <span class="subline">+$2,599<br>/ event</span>
+            <span class="conf high">HIGH</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">GRASSROOTS<span class="mid">&middot;</span>COMMUNITY</div>
+            <h2 class="action">Spirit Night with Strive to Thrive, a weeknight dinner fundraiser</h2>
+            <p class="rationale">A school sits 0.1mi away &mdash; 40-60 families in reach. At your $19.25 check average that&rsquo;s $1,444&ndash;$2,599 incremental for one night, with 15&ndash;20% donated back to lock in the relationship.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Email the PTA coordinator a Tue/Wed date and the flyer template.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Set a 5&ndash;8pm window; staff one extra register for the rush.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Hand-count tickets at the door; cut the donation check on-site.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 04 ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">04</span>
+            <span class="score tier-fresh">82</span>
+            <span class="conf high">HIGH</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">MENU<span class="mid">&middot;</span>MARGIN</div>
+            <h2 class="action">Feature Freshly Squeezed Lemonade as the hero drink</h2>
+            <p class="rationale">Your highest-margin signature item is under-promoted while every nearby competitor leads with a combo. Make the lemonade the thing people see first, not an afterthought at the window.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Move it to the top-right of the menu board &mdash; the first-read zone.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Script one upsell line at the register; track attach rate for a week.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Shoot one pour reel; pin it to the profile.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 05 ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">05</span>
+            <span class="score tier-fresh">79</span>
+            <span class="conf high">HIGH</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">SOCIAL<span class="mid">&middot;</span>CHANNEL</div>
+            <h2 class="action">Reels are the only format winning locally &mdash; start this week</h2>
+            <p class="rationale">Across your six tracked competitors, Reels pull roughly 4&times; the engagement of their photo posts. The local feed has already shifted; matching the format is a free win before anyone optimizes content.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Commit to 3 short Reels a week; batch-shoot them on one shift.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Lead with the tender drop or lemonade pour &mdash; motion in the first second.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Reuse the top performer as a pinned post.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 06 — MEDIUM tier ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">06</span>
+            <span class="score tier-medium">71</span>
+            <span class="conf med">MEDIUM</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">REPUTATION<span class="mid">&middot;</span>REVIEWS</div>
+            <h2 class="action">Build a simple ask-for-reviews routine the counter can run</h2>
+            <p class="rationale">You earn about one review per 40 covers; competitors are closer to one per 15. The volume gap, not the rating, is what&rsquo;s holding your local ranking back &mdash; and it&rsquo;s entirely fixable at the register.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Print a QR card; hand it with the receipt on every fifth order.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Give the team one friendly line to say; rotate who owns it.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Check the weekly count; celebrate the best shift.</span></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ===== ROW 07 — MEDIUM, RANK numeral as anchor (no defensible score) + % sub-line ===== -->
+        <article class="row">
+          <div class="gutter">
+            <span class="rank">07</span>
+            <span class="score tier-medium">07</span>
+            <span class="subline">&minus;18% vs<br>own peak</span>
+            <span class="conf med">MEDIUM</span>
+          </div>
+          <div class="content">
+            <button class="kebab" aria-label="More">&#8943;</button>
+            <div class="kicker">OPERATIONS<span class="mid">&middot;</span>STAFFING</div>
+            <h2 class="action">Staff Friday as a full arc: lunch through 8pm</h2>
+            <p class="rationale">Your Friday dinner daypart runs about 18% below its own midday peak &mdash; not a market problem, a coverage one. There&rsquo;s no clean cross-category score here, so this sits last by rank, but the fix is straightforward.</p>
+            <div class="recipe">
+              <div class="step"><span class="arrow">&rarr;</span><span>Extend one mid-shift to bridge the 3&ndash;5pm dip.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Hold a second register open until 8pm Friday only.</span></div>
+              <div class="step"><span class="arrow">&rarr;</span><span>Re-check the daypart curve next Friday; adjust by 30 min.</span></div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </section>
+
+    <!-- ASK TICKET — pinned bottom bar -->
+    <div class="ask-bar">
+      <form class="ask-inner" onsubmit="return false;">
+        <span class="tag">Ask Ticket</span>
+        <input type="text" placeholder="What should I do about the slow Friday nights?" aria-label="Ask Ticket">
+        <button class="send" type="submit">&crarr;</button>
+      </form>
+    </div>
+
+  </main>
+</div>
+
+</html>
