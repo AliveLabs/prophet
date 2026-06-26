@@ -1,14 +1,33 @@
 # Prophet -- Codebase Blueprint
 
-> ⚠️ **PARTIALLY STALE as of 2026-06-20 — not maintained through the June engine rebuild.**
-> This blueprint (Anand, last updated **May 27, 2026**) predates the June "spine rewrite" and the
-> insight-engine rebuild. The sections on the **Insight Engine**, **Background Job System**, and
-> **Provider Architecture / Data Pipeline** no longer match production. The current engine —
-> producers → brand-fit review → synthesis → voice, cross-domain **convergence**, an **Opus 4.8
-> deep pass**, the durable `signal_jobs` / `pipeline_runs` queue, and the **DataForSEO
-> vendor-health failback** — is documented in `docs/engine-rewrite/insight-engine-phased-plan.md`
-> (P0–P10 with a status banner) and the session memory. Everything else here (auth, billing,
-> marketing, admin, DB schema, deployment) remains broadly accurate. Full rewrite is pending.
+> ⚠️ **SUBSTANTIALLY STALE as of 2026-06-26 — read `docs/PRIMARY-WORKLIST.md` for current state.**
+> This blueprint (Anand, **May 27, 2026**) predates the June rebuild. What is NOW true in prod and
+> contradicts sections below:
+> - **Product shape is BRIEF-FIRST, not an 11-module analyst dashboard.** The pipeline is
+>   `buildDossier → producer skills (parallel) → brand-fit review → synthesis (Opus 4.8 deep pass) →
+>   voice → eval gate` (`lib/skills/pipeline.ts`), plus cross-domain **convergence** and the P11–P17
+>   **learning spine** (`skill_knowledge` / `skill_feedback_rollup` / `skill_source_registry`, live).
+> - **Nav is 3 items — Today / Competitors / Ask — plus conditional Weather / Events** (shown only
+>   where relevant). NOT the 11-link sidebar in §9.3. Menu/**Content**, **Visibility**/SEO, Social,
+>   Photos, Traffic are SIGNAL SOURCES that feed the brief (and drill-downs), NOT nav modules. Their
+>   pipelines run in cron and their data is load-bearing for the food-pairing/positioning experts —
+>   keep them; they're just not surfaced as pages.
+> - **Ask IS shipped** (`/ask`, `lib/ask/*`) — ignore "Ask Prophet not yet built".
+> - **`/home` renders `BriefView`** (headline + ranked play cards + evidence + recipe + right rail),
+>   not the old KPI/checklist home in §9.4.
+> - **Background jobs** = the durable `signal_jobs` / `pipeline_runs` queue + a **budget-aware worker**
+>   (`lib/jobs/{queue,worker,cadence}.ts`), not the old SSE-stream model. ~9 cron routes now (daily,
+>   build-brief, worker, ask-mining, ingest-knowledge-feeds, rollup-feedback, vendor-health,
+>   weekly-digest, trial-reminders).
+> - **§22 ux-rework SHIPPED to `main`/prod**; the `ux-rework` Supabase branch is deleted. §22 is history.
+> - **New tables** (not in §7): `daily_briefs`, `brief_feedback`, `signal_jobs`, `pipeline_runs`,
+>   `skill_knowledge`, `skill_feedback_rollup`, `skill_source_registry`, `insight_pool_entries`, `ask_history`,
+>   `evergreen_*`, `venue_catalog`, `location_density`, `location_weather`.
+> - **Insights now ACCUMULATE in a pool** (`insight_pool_entries` + `/home/pool` "see all"), not overwrite.
+>
+> Current engine plan: `docs/engine-rewrite/insight-engine-phased-plan.md` (P0–P10) +
+> `insights-learning-engine-plan.md` (P11–P17). Auth, billing, marketing, admin, core DB schema,
+> deployment below remain broadly accurate. Treat anything about engine/nav/home/jobs/providers as historical.
 
 > **Author:** Anand, GitHub Username: anandiyerdigital
 > **Last updated:** May 27, 2026 (Marketing RLS hardening: `supabase/migrations/20260527220354_enable_rls_marketing_stream2.sql` enables Row-Level Security on the six `marketing` schema tables that the Supabase advisor flagged with `rls_disabled_in_public` on 2026-05-25 (`mentions`, `outbound_queue`, `prospects`, `replies_processed`, `studio_outbound_pending_approval`, `shared_domain_daily_counter`) and adds matching `<table>_anon_deny` policies to mirror the existing pattern on `marketing.contacts/email_log/events/failed_events`. Also revokes the loose anon/authenticated INSERT/UPDATE grants from `marketing.mentions` for defense-in-depth (anon SELECT remains, but RLS now denies it). Service-role traffic (Next.js admin client + n8n Stream 2 webhooks) is unaffected because `service_role` has `BYPASSRLS=true`; the audit before applying showed all REST traffic on these tables originates from service-role JWTs (DELETE/INSERT calls would fail under anon/authenticated grants). Same commit restores 8 previously-untracked migrations into `supabase/migrations/` (`20260306142531_social_media_bucket_policies`, `20260331171149_waitlist_admin_setup`, `20260331173237_admin_activity_log`, `20260506220255_fix_marketing_contacts_service_role_grants`, `20260520221713_19_mentions_table`, `20260525180019_align_billing_schema`, `20260525180031_stripe_events_table`, `20260525192924_stream2_outbound_schema`) using the exact SQL recorded in `supabase_migrations.schema_migrations` so local git history matches what's already applied on the remote project.)
@@ -1374,7 +1393,13 @@ Root Layout (app/layout.tsx)
 
 ### 9.3 Sidebar Navigation
 
-The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors, Social, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings. The sidebar footer contains an **org switcher** popover that lists all organizations the user belongs to with tier badges, allows switching between them, and includes a "New organization" link.
+> ⚠️ STALE (2026-06-26): the sidebar is now **3 core links — Today / Competitors / Ask — plus
+> conditional Weather / Events** (shown only where relevant per the location's profile). The old
+> 11-link analyst sidebar below was deliberately retired: every other signal source (Content/Menu,
+> Visibility/SEO, Social, Photos, Busy Times) became a drill-down/evidence behind the brief, not a
+> nav page. Settings + org/location switching live in the account flyout. The original text:
+>
+> ~~The dashboard sidebar includes 11 navigation links: Home, Insights, Competitors, Social, Events, Visibility, Content, Photos, Busy Times, Weather, Locations, Settings.~~ The sidebar footer contains an **org switcher** popover that lists all organizations the user belongs to with tier badges, allows switching between them, and includes a "New organization" link.
 
 ### 9.4 Page Details
 

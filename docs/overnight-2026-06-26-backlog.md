@@ -34,4 +34,31 @@ direction (or a fusion), THEN we apply it to the real components. Do not ship a 
 - **Fix 4:** real menu-board OCR comparison (Places photos already OCR `menu_board`).
 - Model stays `gemini-2.5-flash` (correct; the rich output proves it). No change.
 
-## (filled in as the night continues)
+## #6 Menu & Websites — RECOMMENDATION (no build needed; your call to confirm)
+**Keep the pipelines, keep them OUT of the nav (already are). Build nothing.** Findings: "Menu" +
+"Websites" were Anand's `/content` (Firecrawl menu scrape + compare) and `/visibility` (DataForSEO SEO)
+analyst dashboards. Both routes + pipelines still exist and RUN in the daily cron. Critically, **the menu
+data is load-bearing for the brief engine** — food-pairing + positioning experts consume `menu.*` rule
+outputs and the raw MenuSnapshot from the dossier; SEO signals feed positioning. So: keep the pipelines
+(cutting them breaks briefs), but they correctly stay drill-down/evidence sources, NOT nav modules
+(matches the "every signal source becomes evidence, not a nav item" mandate). `/content` + `/visibility`
+remain reachable by direct URL for debugging. **My recommendation: confirm this — no work needed.**
+
+## #4/#5 Weather/Events — shipped nav + insights; these are deferred (design-dependent polish)
+- **Events week-CALENDAR grid** — you asked for "a calendar for the week or some other view." The events
+  page already has a date-grouped feed ("some other view") + now the event-only insights. A true 7-col
+  week-grid `WeekCalendar` component is a rendering enhancement (data + grouping already exist). Deferred
+  because the visual system is about to change with the chosen design concept — build it in the new skin.
+- **Weather "what it means for THIS restaurant" panel** — deterministic, profile-aware (patio + heat-wave
+  + walk-in logic over the existing 7-day forecast). Deferred for the same design-dependent reason.
+- **Finer gating signals** — `hasPatio` / `nearVenues` on the profile are defined but never populated
+  (`build.ts`); today's gates use weather-history + density-tier + events-snapshot (works for all 4 demo
+  locations). Populating hasPatio (from Places `outdoor_seating` / competitor patio photos) would make the
+  Weather gate precise (patio/walk-in only) rather than "has weather data".
+
+## #7 BLUEPRINT.md — banner + §9.3 nav corrected; full section rewrite deferred
+Updated the top banner to current reality + fixed the most-wrong inline statement (§9.3 "11 nav links").
+A full section-by-section rewrite is deferred (2400+ lines, and the architecture is still moving with the
+design rework). The agent's precise patch list if/when we do it: §1 "what it does" (brief-first), §1 "Ask
+not shipped" (it is), §9.4 /home (now BriefView), §15 jobs (durable queue), §20.4 crons (now ~9), §4 file
+tree (+lib/skills, lib/eval, lib/ask, lib/insights/dossier, lib/jobs queue/worker), §7 new tables.
