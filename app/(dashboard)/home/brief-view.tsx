@@ -325,6 +325,22 @@ export default function BriefView({
                 ))}
               </div>
             ) : null}
+            <a
+              className="pool-link"
+              href="/home/pool"
+              style={{
+                display: "inline-block",
+                marginTop: "22px",
+                fontFamily: "var(--font-cond)",
+                fontSize: "12.5px",
+                letterSpacing: ".14em",
+                textTransform: "uppercase",
+                color: "var(--rust)",
+                textDecoration: "none",
+              }}
+            >
+              See all insights in your pool →
+            </a>
           </div>
         </div>
 

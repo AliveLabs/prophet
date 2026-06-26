@@ -9,6 +9,7 @@
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { Brief } from "@/lib/skills/types"
+import { updateInsightPool } from "@/lib/insights/insight-pool"
 
 type QueryBuilder = {
   upsert: (row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
@@ -39,6 +40,16 @@ export async function saveBrief(brief: Brief, opts: { fallback?: boolean; client
       { onConflict: "location_id,date_key" },
     )
   if (error) throw new Error(`saveBrief failed: ${error.message}`)
+
+  // Accumulate this brief's plays into the durable insight pool (#1/#2). Best-effort: a pool
+  // failure (or a not-yet-applied migration) must NEVER break a brief save. Skips for fallback briefs.
+  if (!(opts.fallback ?? !!brief.fallback) && brief.plays.length > 0) {
+    try {
+      await updateInsightPool(brief.locationId, brief.plays, brief.dateKey)
+    } catch (err) {
+      console.warn(`[saveBrief] insight pool update failed for ${brief.locationId}:`, err)
+    }
+  }
 }
 
 /** Does the location have ANY brief yet? Drives the one-time first-brief email. */
