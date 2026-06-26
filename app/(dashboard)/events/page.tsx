@@ -129,7 +129,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   const cached = selectedLocationId
     ? await fetchEventsPageData(selectedLocationId)
-    : { snapshot: null, matchRows: [] }
+    : { snapshot: null, matchRows: [], insights: [] }
 
   // Read live (uncached) so a vendor outage surfaces honestly — the page data above is served
   // from a 7-day cache that an outage never busts (no successful refresh during a 402).
@@ -188,6 +188,16 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     .slice(0, 5)
 
   const groupedEvents = groupEventsByDate(events)
+
+  // Event-only insights (events.* types), most-recent per type — the "what these events MEAN for
+  // your restaurant" layer. Computed by the events pipeline but never surfaced here until now.
+  const eventInsights = (() => {
+    const byType = new Map<string, (typeof cached.insights)[number]>()
+    for (const ins of cached.insights ?? []) {
+      if (!byType.has(ins.insight_type)) byType.set(ins.insight_type, ins) // first = most recent (ordered desc)
+    }
+    return [...byType.values()].slice(0, 6)
+  })()
 
   return (
     <section className="space-y-5">
@@ -317,6 +327,44 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               </span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* ----------------------------------------------------------------- */}
+      {/* What these events MEAN for you (event-only insights)              */}
+      {/* ----------------------------------------------------------------- */}
+      {eventInsights.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            What these events mean for you
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {eventInsights.map((ins) => {
+              const recs = (Array.isArray(ins.recommendations) ? ins.recommendations : []) as Array<{
+                title?: string
+                rationale?: string
+              }>
+              const rec = recs[0]
+              const warn = ins.severity === "warning" || ins.severity === "critical"
+              return (
+                <div
+                  key={ins.id}
+                  className={`rounded-2xl border bg-card p-4 ${warn ? "border-signal-gold/40" : "border-border"}`}
+                >
+                  <h3 className="text-sm font-semibold leading-snug text-foreground">{ins.title}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ins.summary}</p>
+                  {rec?.title && (
+                    <div className="mt-3 rounded-lg bg-secondary px-3 py-2">
+                      <p className="text-[11px] font-semibold text-foreground">{rec.title}</p>
+                      {rec.rationale && (
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{rec.rationale}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

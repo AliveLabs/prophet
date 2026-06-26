@@ -65,9 +65,11 @@ export async function fetchWeatherPageData(
       : Promise.resolve({ data: [] }),
     supabase
       .from("insights")
-      .select("id, title, summary, severity, insight_type, date_key")
+      .select("id, title, summary, severity, insight_type, date_key, recommendations")
       .eq("location_id", locationId)
-      .or("insight_type.like.visual.weather%,insight_type.like.traffic.weather%")
+      // Include social.cross_weather% — these weather-driven social insights were being dropped
+      // from the weather view despite being weather-domain.
+      .or("insight_type.like.visual.weather%,insight_type.like.traffic.weather%,insight_type.like.social.cross_weather%")
       .order("date_key", { ascending: false })
       .limit(10),
   ])

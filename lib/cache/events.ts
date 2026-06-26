@@ -8,6 +8,18 @@ export type CachedEventsResult = {
     competitor_id: string | null
     evidence: unknown
   }>
+  // Event-only insights (events.* types) — computed by the events pipeline but previously never
+  // surfaced on the events view. The "event-related insights, all inside types" the operator asked for.
+  insights: Array<{
+    id: string
+    title: string
+    summary: string
+    severity: string | null
+    insight_type: string
+    date_key: string
+    recommendations: unknown
+    evidence: unknown
+  }>
 }
 
 export async function fetchEventsPageData(
@@ -40,8 +52,17 @@ export async function fetchEventsPageData(
     matchRows = (data ?? []) as CachedEventsResult["matchRows"]
   }
 
+  const { data: insightRows } = await supabase
+    .from("insights")
+    .select("id, title, summary, severity, insight_type, date_key, recommendations, evidence")
+    .eq("location_id", locationId)
+    .like("insight_type", "events.%")
+    .order("date_key", { ascending: false })
+    .limit(20)
+
   return {
     snapshot: snapRow ? { raw_data: snapRow.raw_data, date_key: snapRow.date_key } : null,
     matchRows,
+    insights: (insightRows ?? []) as CachedEventsResult["insights"],
   }
 }
