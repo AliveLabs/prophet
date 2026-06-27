@@ -1,6 +1,12 @@
 import { fetchPlaceDetails, mapPlaceToLocation } from "@/lib/places/google"
+import { getUser } from "@/lib/auth/server"
 
 export async function GET(request: Request) {
+  // SEC-H3: spends GOOGLE_PLACES_API_KEY — require a session (callers are post-auth UIs). The one
+  // server-side caller, competitors/actions.ts, now calls the lib directly instead of self-fetching.
+  if (!(await getUser())) {
+    return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 })
+  }
   const { searchParams } = new URL(request.url)
   const placeId = searchParams.get("place_id")?.trim()
   if (!placeId) {

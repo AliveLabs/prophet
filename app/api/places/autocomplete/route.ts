@@ -1,4 +1,5 @@
 import { fetchAutocomplete, type AutocompleteOptions } from "@/lib/places/google"
+import { getUser } from "@/lib/auth/server"
 
 function parseCoord(value: string | null): number | undefined {
   if (!value) return undefined
@@ -7,6 +8,11 @@ function parseCoord(value: string | null): number | undefined {
 }
 
 export async function GET(request: Request) {
+  // SEC-H3: spends GOOGLE_PLACES_API_KEY — require a session (all callers are post-auth: onboarding,
+  // dashboard competitors, add-location). Closes the anonymous quota-drain / free-proxy vector.
+  if (!(await getUser())) {
+    return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 })
+  }
   const { searchParams } = new URL(request.url)
   const input = searchParams.get("input")?.trim()
   if (!input) {

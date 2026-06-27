@@ -74,19 +74,20 @@ export async function discoverCompetitorsAction(formData: FormData) {
   let targetCategory = (location.settings as { category?: string } | null)?.category ?? null
   if (!targetCategory && location.primary_place_id) {
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/places/details?place_id=${encodeURIComponent(location.primary_place_id)}`
-      )
-      const data = await response.json()
-      if (data?.place?.category) {
-        targetCategory = data.place.category
+      // Call the Places lib directly — NOT an HTTP self-fetch to /api/places/details. That route now
+      // requires a session (SEC-H3) which a server-side fetch wouldn't carry; the lib call is also
+      // faster and avoids a hop.
+      const details = await fetchPlaceDetails(location.primary_place_id)
+      const place = details ? mapPlaceToLocation(details) : null
+      if (place?.category) {
+        targetCategory = place.category
         await supabase
           .from("locations")
           .update({
             settings: {
               ...(location.settings as Record<string, unknown> | null),
-              category: data.place.category,
-              types: data.place.types ?? [],
+              category: place.category,
+              types: place.types ?? [],
             },
           })
           .eq("id", location.id)

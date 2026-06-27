@@ -1,15 +1,23 @@
 // ---------------------------------------------------------------------------
 // Lightweight Gemini endpoint – generates a single actionable tip
-// Called by the RefreshOverlay while the user waits for a long-running action
+// Called by the RefreshOverlay while the user waits for a long-running action.
+// SEC-H2: requires an authenticated session (it spends GOOGLE_AI_API_KEY) and
+// length-caps the caller-supplied context (cost + prompt-injection surface).
 // ---------------------------------------------------------------------------
+
+import { getUser } from "@/lib/auth/server"
+import { clampQuickTipContext } from "@/lib/ai/quick-tip"
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 export async function POST(req: Request) {
   try {
+    if (!(await getUser())) {
+      return Response.json({ tip: null }, { status: 401 })
+    }
     const body = await req.json().catch(() => ({}))
-    const context = String(body.context ?? "").trim()
+    const context = clampQuickTipContext(body.context)
 
     const key = process.env.GOOGLE_AI_API_KEY
     if (!key || !context) {
