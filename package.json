@@ -18,6 +18,8 @@
     "@react-email/render": "^2.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "framer-motion": "^12.29.2",
     "next": "16.1.5",
     "next-themes": "^0.4.6",

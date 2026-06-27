@@ -12,6 +12,7 @@ import {
   type MarketingIndustryType,
   type MarketingSource,
 } from "@/lib/marketing/contacts"
+import { rateLimit, clientIp } from "@/lib/http/rate-limit"
 
 const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
@@ -198,6 +199,18 @@ export async function POST(request: Request) {
       )
     }
 
+    // SEC-M2: rate-limit per IP and per email so this unauthenticated, service-role-backed endpoint
+    // can't be driven for lead-table spam or enumeration. Fail-open when Upstash is unconfigured.
+    const ipRl = await rateLimit(clientIp(request), { prefix: "waitlist:ip", limit: 10, windowSeconds: 60 })
+    const emailRl = await rateLimit(email.toLowerCase().trim(), { prefix: "waitlist:email", limit: 5, windowSeconds: 3600 })
+    if (!ipRl.ok || !emailRl.ok) {
+      return jsonWithCors(
+        origin,
+        { ok: false, error: "Too many requests. Please try again shortly." },
+        { status: 429 },
+      )
+    }
+
     const supabase = createAdminSupabaseClient()
     const normalizedEmail = email.toLowerCase().trim()
     const trimmedFirst = (first_name || "").trim()
@@ -273,15 +286,17 @@ export async function POST(request: Request) {
       }
 
       if (existing.status === "approved") {
-        const { data: authUsers } = await supabase.auth.admin.listUsers({
-          page: 1,
-          perPage: 1000,
-        })
-        const authUserExists = authUsers?.users?.some(
-          (u) => u.email === normalizedEmail,
-        )
+        // SEC-M2: targeted lookup instead of scanning auth.users 1000-at-a-time (a perf footgun +
+        // soft existence oracle). profiles.id IS the auth user id and a row is created on signup,
+        // so a matching profile means this person already completed signup (already a user, not a
+        // fresh lead).
+        const { data: profileRows } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", normalizedEmail)
+          .limit(1)
 
-        if (authUserExists) {
+        if (profileRows && profileRows.length > 0) {
           return jsonWithCors(
             origin,
             { ok: false, error: "This email is already on our waitlist." },

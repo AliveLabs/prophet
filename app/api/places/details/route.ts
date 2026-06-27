@@ -1,11 +1,20 @@
 import { fetchPlaceDetails, mapPlaceToLocation } from "@/lib/places/google"
 import { getUser } from "@/lib/auth/server"
+import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
 
 export async function GET(request: Request) {
   // SEC-H3: spends GOOGLE_PLACES_API_KEY — require a session (callers are post-auth UIs). The one
   // server-side caller, competitors/actions.ts, now calls the lib directly instead of self-fetching.
-  if (!(await getUser())) {
+  const user = await getUser()
+  if (!user) {
     return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), { status: 401 })
+  }
+  const rl = await rateLimit(user.id, { prefix: "places-details", limit: 60, windowSeconds: 60 })
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ ok: false, message: "Too many requests" }), {
+      status: 429,
+      headers: { "Retry-After": String(retryAfterSeconds(rl)) },
+    })
   }
   const { searchParams } = new URL(request.url)
   const placeId = searchParams.get("place_id")?.trim()

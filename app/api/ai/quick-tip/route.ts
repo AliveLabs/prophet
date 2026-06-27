@@ -7,14 +7,22 @@
 
 import { getUser } from "@/lib/auth/server"
 import { clampQuickTipContext } from "@/lib/ai/quick-tip"
+import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
 
 export async function POST(req: Request) {
   try {
-    if (!(await getUser())) {
+    const user = await getUser()
+    if (!user) {
       return Response.json({ tip: null }, { status: 401 })
+    }
+    // Per-user rate limit: this spends GOOGLE_AI_API_KEY, so cap burst abuse even for a signed-in
+    // caller. Fail-open when Upstash is unconfigured (see lib/http/rate-limit).
+    const rl = await rateLimit(user.id, { prefix: "quick-tip", limit: 20, windowSeconds: 60 })
+    if (!rl.ok) {
+      return Response.json({ tip: null }, { status: 429, headers: { "Retry-After": String(retryAfterSeconds(rl)) } })
     }
     const body = await req.json().catch(() => ({}))
     const context = clampQuickTipContext(body.context)
