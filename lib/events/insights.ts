@@ -150,7 +150,7 @@ function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): 
     const magnitude = e.magnitude ?? "minor"
     const capLow = e.capacityLow ?? attendancePrior(magnitude)
     const capHigh = e.capacityHigh ?? capLow
-    const dow = dowOf(e.startDatetime)
+    const dow = dowOf(e)
     const baselineCurve = dow != null ? ctx.baselineCurveByDow?.[dow] ?? null : null
 
     const result = scoreEventImpact({
@@ -389,11 +389,17 @@ function eventLocalHour(e: NormalizedEvent): number | null {
   return null
 }
 
-function dowOf(iso: string | null | undefined): number | null {
-  if (!iso) return null
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return null
-  return new Date(t).getUTCDay()
+/** Day-of-week (0=Sun..6=Sat) at the VENUE's LOCAL calendar date — NOT the UTC instant's day. An 8pm
+ *  local-Saturday event is ~02:00 UTC Sunday; `getUTCDay()` on the instant would look up the baseline
+ *  foot-traffic curve for the WRONG day. Mirrors eventLocalHour: prefer the authoritative venue-local
+ *  start, and read the DATE as local wall-clock (anchored at UTC noon so the parse can't roll a day),
+ *  exactly like validatedWhen/fmtLocalDateParts. Returns null when there's no parseable date. */
+export function dowOf(e: NormalizedEvent): number | null {
+  const src = e.authoritativeLocalStart ?? e.startDatetime
+  const m = src?.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12))
+  return Number.isNaN(d.getTime()) ? null : d.getUTCDay()
 }
 
 // ---------------------------------------------------------------------------
@@ -819,21 +825,18 @@ function detectCadenceUp(
 // Shared utilities
 // ---------------------------------------------------------------------------
 
-function isWeekendEvent(ev: NormalizedEvent): boolean {
-  if (!ev.startDatetime) {
-    if (ev.dateRange === "weekend") return true
-    if (ev.displayedDates) {
-      const lower = ev.displayedDates.toLowerCase()
-      return lower.includes("sat") || lower.includes("sun")
-    }
-    return false
+export function isWeekendEvent(ev: NormalizedEvent): boolean {
+  // Use the VENUE-LOCAL day (same basis as dowOf), so a Fri-11pm-local event (Sat in UTC) isn't
+  // misclassified as weekend and a Sun-late event (Mon in UTC) isn't misclassified as weekday.
+  const day = dowOf(ev)
+  if (day != null) return day === 0 || day === 6
+  // No parseable timestamp — fall back to coarse textual hints.
+  if (ev.dateRange === "weekend") return true
+  if (ev.displayedDates) {
+    const lower = ev.displayedDates.toLowerCase()
+    return lower.includes("sat") || lower.includes("sun")
   }
-  try {
-    const day = new Date(ev.startDatetime).getUTCDay()
-    return day === 0 || day === 6
-  } catch {
-    return false
-  }
+  return false
 }
 
 function countByCompetitor(matches: EventMatchRecord[]): Map<string, number> {

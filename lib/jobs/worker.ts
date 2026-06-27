@@ -29,6 +29,18 @@ export type WorkerJobResult = {
 
 export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
   const startedAt = new Date().toISOString()
+
+  // Cascade-delete race guard: an org clear/delete removes the location + signal_jobs atomically, but
+  // a job CLAIMED before that delete would otherwise keep running — writing snapshots/insights for a
+  // location that no longer exists (orphan rows) and FK-erroring on recordRun. If the location/org is
+  // gone or the org is soft-deleted, bail with NO writes: the signal_jobs row is already deleted (so
+  // there's nothing to finish) and recordRun would FK-fail on the missing location. (See the
+  // org-management clearOrgData TODO — this closes the in-flight-write window.)
+  if (!(await locationStillActive(sb, job.location_id, job.organization_id))) {
+    console.warn(`[worker] skipping ${job.pipeline} for ${job.location_id}: location/org no longer active (cleared or deleted after claim)`)
+    return { jobId: job.id, pipeline: job.pipeline, outcome: "skipped", disposition: "done" }
+  }
+
   const sub = PIPELINE_BY_NAME.get(job.pipeline)
 
   if (!sub) {
@@ -123,6 +135,33 @@ async function enqueueFirstBrief(sb: SB, job: SignalJob): Promise<void> {
   } catch (e) {
     // Non-fatal: the 8:00 UTC build-brief cron still covers the location.
     console.warn(`[worker] enqueueFirstBrief failed for ${job.location_id}:`, e)
+  }
+}
+
+/** True if the location still exists for this org AND the org is not (soft-)deleted. A cascade clear/
+ *  delete (app/actions/org-management.ts) removes the location + signal_jobs atomically; this lets a
+ *  worker that already claimed a job bail cleanly instead of writing orphan rows for data that no
+ *  longer exists. Fails OPEN on a read error so a transient blip never drops a legitimate job — the
+ *  buildCtx org-scoping + pipeline error handling remain the backstop. */
+export async function locationStillActive(sb: SB, locationId: string, organizationId: string): Promise<boolean> {
+  try {
+    const { data: loc } = await sb
+      .from("locations")
+      .select("id")
+      .eq("id", locationId)
+      .eq("organization_id", organizationId)
+      .maybeSingle()
+    if (!loc) return false // location cleared/deleted (cascade), or never belonged to this org
+    const { data: org } = await sb
+      .from("organizations")
+      .select("deleted_at")
+      .eq("id", organizationId)
+      .maybeSingle()
+    if (!org) return false // org hard-deleted
+    return !(org as { deleted_at?: string | null }).deleted_at // soft-deleted ⇒ inactive
+  } catch (e) {
+    console.warn(`[worker] locationStillActive check failed for ${locationId}; proceeding:`, e)
+    return true
   }
 }
 

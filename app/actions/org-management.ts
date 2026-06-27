@@ -499,8 +499,10 @@ export const restoreOrg = withAdminAction(
 // An admin may clear demo/test orgs and may 'refresh' any org (derived data is
 // regenerable); fully clearing ('all') a Customer (real) org additionally requires
 // super_admin, since it destroys their onboarded locations.
-// TODO(phase-2): refuse / stop in-flight signal_jobs before clearing so a live
-// pipeline can't write rows back after the wipe.
+// In-flight signal_jobs: the cascade deletes the org's signal_jobs atomically, so QUEUED jobs never
+// run. A job already CLAIMED by a worker can't be stopped from here, so the WORKER guards it instead:
+// lib/jobs/worker.ts#runJob calls locationStillActive() at the top and bails (no writes) when the
+// location/org has been cleared or (soft-)deleted — so a live pipeline can't write rows back after the wipe.
 export const clearOrgData = withAdminAction(
   "demo.manage",
   async (
