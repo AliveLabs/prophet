@@ -32,13 +32,13 @@
 > - Two confirmed bugs from the review: **events `dowOf()`** UTC→venue-local day-of-week + **org
 >   cascade-delete vs worker race** guard (`6629143`, +13 tests). README rewritten.
 >
-> ### 🔴 OPEN — remaining after 2026-06-27 session 2 (the list below is mostly DONE — see the shipped box above):
-> **Top of the list now:**
-> - **SEC-M3 (READY — needs apply + commit):** migration written + HELD at `supabase/migrations/20260627120000_sec_m3_revoke_marketing_stream2_select.sql` (REVOKE SELECT on 6 marketing Stream-2 tables + 1 view from anon/authenticated + an invariant guard). Apply: `npx tsx scripts/db/sql.mts --file supabase/migrations/20260627120000_sec_m3_revoke_marketing_stream2_select.sql`, then `git add` + commit it.
-> - **Activate rate-limiting:** add the Upstash Redis Marketplace integration (Vercel → Storage) + redeploy; injects `UPSTASH_REDIS_REST_URL`/`TOKEN`. Until then `lib/http/rate-limit.ts` fails open (no limiting — same as before).
-> - **(optional) `IMPERSONATION_SIGNING_SECRET`:** set in Vercel to cut impersonation signing off the service-role key (SEC-H1). Non-breaking if unset.
-> - **ENG-M4 cast sweep (DEFERRED):** type regen shipped; the ~30 `as unknown as <Store>` removals + dead-fallback cleanup deferred (risky churn in load-bearing fail-soft engine reads — do supervised). Carries ENG-M5.
-> - **Lower:** ENG-M2 (extract `synthesize()` pure fns) · ENG-M6 (bounded concurrency on serial SEO/insights loops) · SEC-Low L1 (remove temp stripe-mode diag route once Stripe work closes) · SEC-Low L2/L3 (query-string token→header; pricing-mismatch alert) · delete 6 stale remote branches · optional rotate the test webhook secret.
+> ### ✅ Shipped in the 2026-06-27 session-3 cleanup pass (on `main`) — don't redo:
+> SEC-M3 applied to prod (`1c0b677`) · Upstash provisioned + connected + deployed → rate-limiting LIVE (`e30bc01`) · `IMPERSONATION_SIGNING_SECRET` set in Vercel prod · **ENG-M4 cast sweep** done across the core engine read paths — lib/insights (`d0656a7`) + lib/skills & ask-history (`68120b4`) now use the typed client (Store types aliased to `SupabaseClient<Database>`, casts dropped) · **ENG-M5** dead `.gte` fallbacks in feedback-rollup removed · **SEC-Low L3** price/industry-mismatch alert (`077a1fc`) · **ENG-M2** extracted `buildCandidatePool` + `applyGrassrootsFloor` from synthesize (`ea57146`). 802 unit tests; tsc + build + CI green.
+>
+> ### 🔴 OPEN — what's actually left:
+> - **ENG-M6 (DEFERRED — do supervised):** bounded-concurrency on the serial SEO/insights loops (visibility.ts per-keyword SERP / insights.ts per-competitor reads / traffic.ts inserts). Those pipelines have NO unit tests (live-only, not in CI) + DataForSEO rate limits, so a change is unverifiable by the gate — not safe to ship unsupervised on a budget.
+> - **Leftover redundant casts (low value, cosmetic):** the cron routes (build-brief/ask-mining/rollup-feedback/ingest) + app actions (brief-actions/ask/knowledge-review) + preview-data still pass `... as unknown as <Store>`. Now that the lib Store types ARE the real client, these compile fine (redundant, not broken). feedback-distill-run's `DistillStore` + the cron `IngestStore`/`AskMiningStore` were left narrow.
+> - **Needs Bryan:** SEC-Low L1 (remove the temp `/api/health/stripe-mode` route — only once that Stripe work is closed) + L2 (move its token query-string→header if kept) · delete the 6 stale remote branches · optional rotate the test webhook secret.
 >
 > <details><summary>Original 2026-06-26 ordered list (historical — most now shipped)</summary>
 > 1. **TEST-2** — unit-test `app/api/stripe/webhook` + `lib/auth/org-access` (the two highest-blast-radius
@@ -81,7 +81,7 @@
 > typecheck + unit tests on every push/PR.** Verify gate before deploy: `npx tsc --noEmit` + `npm run
 > test:unit` (746 tests) + `npx next build`. PROD READS are classifier-gated in unsupervised mode (need
 > Bryan's per-target OK); cron triggers via `scripts/db/cron.mts`, prod SQL via `scripts/db/sql.mts`.
-> Latest `main` after this session ≈ `2b5d944` (2026-06-27 session 2; 801 unit tests; CI green). SEC-M3 migration is written but NOT applied (held for Bryan).
+> Latest `main` after this session ≈ `ea57146` (2026-06-27 sessions 2+3; 802 unit tests; CI green). SEC-M3 applied to prod; Upstash live; ENG-M4/M5/M2 + SEC-Low L3 shipped. Only ENG-M6 + cosmetic leftover casts + Bryan-decisions remain.
 
 ---
 
