@@ -167,8 +167,8 @@ All variables live in `.env.local` (development) and Vercel → Settings → Env
 
 | Variable | Example value | Source | What it does | Failure mode |
 | --- | --- | --- | --- | --- |
-| `STRIPE_SECRET_KEY` | `sk_live_51TK0AR…` | Stripe Dashboard → Developers → API keys | Server-side SDK key. **Never** exposed to browser. | Wrong mode (test vs live mismatch with price IDs) → all calls 404. |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_2PcH4K1f…` | Stripe Dashboard → Developers → Webhooks → endpoint → Signing secret. Also printed by `setup.ts` on first run. | Verifies inbound webhook signatures (HMAC-SHA256). Without this, `/api/stripe/webhook` returns 400 to all events. | Stripe events keep retrying for 3 days → exponential backoff visible in Dashboard. |
+| `STRIPE_SECRET_KEY` | `sk_live_…` (placeholder — never paste the real key here) | Stripe Dashboard → Developers → API keys | Server-side SDK key. **Never** exposed to browser. | Wrong mode (test vs live mismatch with price IDs) → all calls 404. |
+| `STRIPE_WEBHOOK_SECRET` | `whsec_…` (placeholder — never paste the real secret here) | Stripe Dashboard → Developers → Webhooks → endpoint → Signing secret. Also printed by `setup.ts` on first run. | Verifies inbound webhook signatures (HMAC-SHA256). Without this, `/api/stripe/webhook` returns 400 to all events. | Stripe events keep retrying for 3 days → exponential backoff visible in Dashboard. |
 | `STRIPE_PRICE_ID_TICKET_ENTRY_MONTHLY` | `price_1TPrTC…` | `setup.ts` output. | Resolves `(restaurant, entry, monthly) → price_id` in checkout. | Checkout returns "Unknown price for industry/tier/cadence". |
 | `STRIPE_PRICE_ID_TICKET_ENTRY_ANNUAL` | `price_1TPrTF…` | `setup.ts` output. | (annual variant) | (same) |
 | `STRIPE_PRICE_ID_TICKET_MID_MONTHLY` | `price_1TPrTJ…` | `setup.ts` | Mid tier ($299/mo) — **only tier with a 14-day trial**. | Checkout fails for Ticket Mid. |
