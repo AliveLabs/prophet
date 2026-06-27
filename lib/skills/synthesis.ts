@@ -156,47 +156,10 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // Prefer the rich per-signal coverage the dossier builder computes (with as-of/staleness);
   // fall back to a basic derivation for hand-built fixtures that omit it.
   const coverage = d.coverage ?? buildCoverage(d)
-  // P7a: drop plays whose playKey is in cross-day dismissal cooldown (the user dismissed it recently),
-  // so it doesn't regenerate into this brief. Applied before fusion + the empty check.
-  const produced = results.flatMap((r) => r.plays)
-  const candidates =
-    opts.suppressedKeys && opts.suppressedKeys.size
-      ? produced.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
-      : produced
-  // No early return on empty candidates — a quiet day can still resurface a relevant saved play (P7b).
-
-  // P6.5: fuse near-duplicate plays (two lenses on ONE signal) into a single richer play BEFORE
-  // ranking, so the pool the model selects from has no split near-dups. One cheap reasoning call per
-  // fusable cluster; deterministic keep-best fallback. Usually a no-op (no clusters → no LLM call).
-  const fusedPool = await fuseNearDuplicates(candidates, d, {
-    transport: opts.transport,
-    scoreOf: (p) => computeCombinedScore(scoreInput(p), priors),
-  })
-  // P7a: suppress again AFTER fusion. The pre-fusion filter above catches dismissed PRODUCER plays
-  // (and keeps them out of fusion); this catches a dismissed FUSED play, whose stableKey is stable
-  // across re-fusion even though its model-written title is not. (playKey prefers stableKey.)
-  let pool =
-    opts.suppressedKeys && opts.suppressedKeys.size
-      ? fusedPool.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
-      : fusedPool
-
-  // P7b: resurface persisted "saved" plays whose grounding signals re-fire today (relevance match),
-  // that aren't already produced or in cooldown. They then compete in ranking like any grounded play.
-  if (opts.evergreen?.length) {
-    const present = new Set(pool.map(playKey))
-    const allowedRefs = buildRefIndex(d).allowedRefs
-    const resurfaced = opts.evergreen
-      .filter((p) => RESURFACE_KINDS.has(p.kind)) // standing advice only — never resurface dated plays verbatim (#1)
-      .filter((p) => !present.has(playKey(p)))
-      .filter((p) => !opts.suppressedKeys?.has(playKey(p)))
-      .filter((p) => (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((r) => allowedRefs.has(r)))
-      // Strongest first so the cap keeps the best — don't rely on the DB load order (#3).
-      .sort((a, b) => computeCombinedScore(scoreInput(b), priors) - computeCombinedScore(scoreInput(a), priors))
-      .slice(0, MAX_RESURFACED)
-      // Drop any persisted reach figure — it may no longer trace to a live signal (#4).
-      .map((p) => (p.leverage?.reach ? { ...p, leverage: { ...p.leverage, reach: undefined } } : p))
-    if (resurfaced.length) pool = [...pool, ...resurfaced]
-  }
+  // Build the candidate pool: suppress cooldown'd producer plays → fuse near-dups → suppress a
+  // dismissed fused play → resurface relevant saved evergreen plays (P7a/P6.5/P7b). Extracted to a
+  // pure-ish helper for testability (ENG-M2); no early return on empty (a quiet day can resurface).
+  const pool = await buildCandidatePool(results, d, opts, scoreInput, priors)
 
   if (pool.length === 0) return quietBrief(d)
 
@@ -304,30 +267,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // generated), there is nothing to surface — correct. The play is appended (lowest position): a floor,
   // not a promotion. Tunable: drop this block to go flat, or add a min-quality gate if it ever surfaces
   // a weak one. (Every pooled play is already grounded — named anchor + real signal + not generic.)
-  const isGrassrootsPlay = (p: EnrichedRecommendation) => CATEGORY_BY_SKILL[p.skillId] === "grassroots"
-  let chosenFinal = chosen
-  if (!chosenFinal.some(isGrassrootsPlay)) {
-    const bestGrass = rankedPlays.find(isGrassrootsPlay) // rankedPlays is score-desc → first match = best
-    if (bestGrass) {
-      if (chosenFinal.length < max) {
-        chosenFinal = [...chosenFinal, bestGrass]
-      } else {
-        // At the cap: drop the lowest-scored NON-grassroots play to make room (keep the selector's order).
-        const weakest = chosenFinal
-          .filter((p) => !isGrassrootsPlay(p))
-          .reduce<EnrichedRecommendation | null>((lo, p) => (lo == null || (scoreByPlay.get(p) ?? 0) < (scoreByPlay.get(lo) ?? 0) ? p : lo), null)
-        chosenFinal = [...chosenFinal.filter((p) => p !== weakest), bestGrass]
-      }
-      // Log the play's NATURAL rank + score so we can see whether the confidence-calibration
-      // guidance (guerrilla@v2.1) is letting grassroots rank into the brief on merit (floor would
-      // then be a no-op) vs the floor still doing the work. Informs whether the floor can retire.
-      const naturalRank = rankedPlays.indexOf(bestGrass) + 1
-      const score = scoreByPlay.get(bestGrass)?.toFixed?.(1) ?? "?"
-      console.log(
-        `[synthesis] grassroots floor: surfaced "${bestGrass.title}" (natural rank #${naturalRank}, score ${score}) (${d.locationId} ${d.dateKey})`,
-      )
-    }
-  }
+  const chosenFinal = applyGrassrootsFloor(chosen, rankedPlays, max, scoreByPlay, d)
 
   // P3: stamp each chosen play with its combined score + operator-facing category, for the
   // ranked display + category drill-down. Optional fields — old persisted briefs simply lack them.
@@ -342,4 +282,88 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     asOf: d.generatedAt,
     coverage,
   }
+}
+
+/**
+ * Build the ranked-input candidate pool (ENG-M2 — extracted from synthesize). Steps: suppress
+ * cooldown'd PRODUCER plays (P7a) → fuse near-duplicates (P6.5) → suppress a dismissed FUSED play
+ * (P7a, stableKey-stable) → resurface relevant saved evergreen plays (P7b). Returns the pool that
+ * synthesize ranks + the model selects from. Pure aside from fuseNearDuplicates' optional LLM call.
+ */
+async function buildCandidatePool(
+  results: SkillResult[],
+  d: Dossier,
+  opts: SynthOptions,
+  scoreInput: (p: EnrichedRecommendation) => ScoreInput,
+  priors: ReturnType<typeof resolveCategoryPriors>,
+): Promise<EnrichedRecommendation[]> {
+  const produced = results.flatMap((r) => r.plays)
+  const candidates =
+    opts.suppressedKeys && opts.suppressedKeys.size
+      ? produced.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
+      : produced
+
+  const fusedPool = await fuseNearDuplicates(candidates, d, {
+    transport: opts.transport,
+    scoreOf: (p) => computeCombinedScore(scoreInput(p), priors),
+  })
+  let pool =
+    opts.suppressedKeys && opts.suppressedKeys.size
+      ? fusedPool.filter((p) => !opts.suppressedKeys!.has(playKey(p)))
+      : fusedPool
+
+  if (opts.evergreen?.length) {
+    const present = new Set(pool.map(playKey))
+    const allowedRefs = buildRefIndex(d).allowedRefs
+    const resurfaced = opts.evergreen
+      .filter((p) => RESURFACE_KINDS.has(p.kind)) // standing advice only — never resurface dated plays verbatim (#1)
+      .filter((p) => !present.has(playKey(p)))
+      .filter((p) => !opts.suppressedKeys?.has(playKey(p)))
+      .filter((p) => (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((r) => allowedRefs.has(r)))
+      // Strongest first so the cap keeps the best — don't rely on the DB load order (#3).
+      .sort((a, b) => computeCombinedScore(scoreInput(b), priors) - computeCombinedScore(scoreInput(a), priors))
+      .slice(0, MAX_RESURFACED)
+      // Drop any persisted reach figure — it may no longer trace to a live signal (#4).
+      .map((p) => (p.leverage?.reach ? { ...p, leverage: { ...p.leverage, reach: undefined } } : p))
+    if (resurfaced.length) pool = [...pool, ...resurfaced]
+  }
+  return pool
+}
+
+/**
+ * GRASSROOTS VISIBILITY FLOOR (ENG-M2 — extracted from synthesize). Guarantees the single BEST
+ * grassroots play a slot WITHOUT thumbing the merit ranking of everything else: appended at the
+ * lowest position (a floor, not a promotion), evicting the weakest NON-grassroots play if already at
+ * the cap. No-op when a grassroots play is already chosen or the pool has none. Pure except the
+ * instrumentation log (which informs whether the floor can retire once confidence-calibration proves
+ * grassroots ranks in on merit).
+ */
+function applyGrassrootsFloor(
+  chosen: EnrichedRecommendation[],
+  rankedPlays: EnrichedRecommendation[],
+  max: number,
+  scoreByPlay: Map<EnrichedRecommendation, number>,
+  d: Dossier,
+): EnrichedRecommendation[] {
+  const isGrassrootsPlay = (p: EnrichedRecommendation) => CATEGORY_BY_SKILL[p.skillId] === "grassroots"
+  if (chosen.some(isGrassrootsPlay)) return chosen
+  const bestGrass = rankedPlays.find(isGrassrootsPlay) // rankedPlays is score-desc → first match = best
+  if (!bestGrass) return chosen
+
+  let chosenFinal: EnrichedRecommendation[]
+  if (chosen.length < max) {
+    chosenFinal = [...chosen, bestGrass]
+  } else {
+    // At the cap: drop the lowest-scored NON-grassroots play to make room (keep the selector's order).
+    const weakest = chosen
+      .filter((p) => !isGrassrootsPlay(p))
+      .reduce<EnrichedRecommendation | null>((lo, p) => (lo == null || (scoreByPlay.get(p) ?? 0) < (scoreByPlay.get(lo) ?? 0) ? p : lo), null)
+    chosenFinal = [...chosen.filter((p) => p !== weakest), bestGrass]
+  }
+  const naturalRank = rankedPlays.indexOf(bestGrass) + 1
+  const score = scoreByPlay.get(bestGrass)?.toFixed?.(1) ?? "?"
+  console.log(
+    `[synthesis] grassroots floor: surfaced "${bestGrass.title}" (natural rank #${naturalRank}, score ${score}) (${d.locationId} ${d.dateKey})`,
+  )
+  return chosenFinal
 }
