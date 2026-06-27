@@ -247,7 +247,8 @@ export async function upsertPartnerCatalog(
     size_proxy_kind: p.sizeProxyKind,
     refreshed_at: new Date().toISOString(),
   }))
-  await supabase.from("partner_catalog").upsert(rows, { onConflict: "location_id,place_id" })
+  const { error } = await supabase.from("partner_catalog").upsert(rows, { onConflict: "location_id,place_id" })
+  if (error) throw new Error(`partner_catalog upsert failed: ${error.message}`)
 }
 
 const CATALOG_TTL_DAYS = 90 // partners are static; rebuild quarterly (same as venue catalog)

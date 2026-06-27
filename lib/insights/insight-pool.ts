@@ -106,7 +106,8 @@ export async function updateInsightPool(
   if (upsertErr) throw new Error(`insight pool upsert failed: ${upsertErr.message}`)
 
   // 3. Retention sweep — drop entries unseen past expiry (opportunistic; keeps the table bounded).
-  await db.from("insight_pool_entries").delete().lt("expires_at", iso(now)).eq("location_id", locationId)
+  const { error: sweepErr } = await db.from("insight_pool_entries").delete().lt("expires_at", iso(now)).eq("location_id", locationId)
+  if (sweepErr) console.warn(`[insight-pool] retention sweep failed: ${sweepErr.message}`)
 }
 
 /** Load pool entries for a location (the "see all insights" view). FAIL-SOFT: [] on any error. */

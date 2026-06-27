@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ticket
 
-## Getting Started
+Ticket is a competitive-intelligence tool for restaurant operators. Each location gets a periodic
+**brief**: a small, ranked set of grounded, actionable "plays" synthesized from the signals around that
+restaurant — reviews, local events, weather, foot traffic, competitor menus + social, and local search
+visibility. The product promise is *intelligence without execution*: it tells the operator the smartest
+move and why, but never acts on their behalf.
 
-First, run the development server:
+Codename **Prophet / Vatic** (repo `AliveLabs/prophet`). Built by [Alive Labs](https://alivelabs.io).
+
+## How it works (engine, high level)
+
+1. **Dossier** (`lib/insights/dossier`) — one structured context object per (location, day): all signals
+   + ~76 deterministic rule outputs (the grounded evidence layer a play may cite).
+2. **Producer skills** (`lib/skills/*`) — expert lenses (reputation, positioning, convergence,
+   food-pairing, social-counter, local-demand, grassroots, …) each reason over the same dossier.
+3. **Synthesis → presenter → voice** (`lib/skills/pipeline.ts`) — rank/select the plays, compose the
+   evidence-forward presentation layer, then scrub to Ticket's voice. Anti-fabrication is enforced
+   throughout (`lib/eval/checks.ts`): grounded refs, verbatim quotes, no POS/$ claims.
+4. **Persist + serve** — the brief is precomputed (cron/queue) and stored, so the app render path is a
+   plain DB read.
+
+## Tech stack
+
+- **Next.js 16** (App Router) · **React 19** · **TypeScript** · **Tailwind CSS 4**
+- **Supabase** (Postgres + auth + storage; service-role for the precompute jobs)
+- **Stripe** (subscriptions / trials) · **PostHog** (analytics)
+- Background work: a durable `signal_jobs` queue + Vercel cron (`app/api/cron/*`)
+- Tests: **Vitest** (unit) · **Playwright** (e2e)
+- Hosted on **Vercel** (production deploys from `main`).
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+# Pull env vars from Vercel (or copy .env.local). Requires Supabase + Stripe + provider keys.
+vercel env pull .env.local
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Scripts
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run test:unit    # vitest (the fast gate — run this before every commit)
+npm run test:e2e     # playwright
+npm run build        # next build
+npm run lint         # eslint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Verify gate before any deploy: `npx tsc --noEmit` + `npm run test:unit` + `npm run build`.
 
-## Learn More
+## Ops tooling (`scripts/db`)
 
-To learn more about Next.js, take a look at the following resources:
+- `npx tsx scripts/db/sql.mts --query "…"` — run SQL / apply a migration via the Supabase Management
+  API (refuses DROP/TRUNCATE without `--allow-destructive`).
+- `npx tsx scripts/db/cron.mts <name> [--param k=v]` — trigger a prod cron endpoint with `CRON_SECRET`
+  (e.g. `build-brief --param location_id=<id>` to rebuild one location's brief).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Docs
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Architecture and plans live in [`docs/`](docs/) — start with `docs/BLUEPRINT.md`, the
+`docs/engine-rewrite/*` plans, and `docs/SESSION-HANDOFF.md` / `docs/PRIMARY-WORKLIST.md` for current state.

@@ -113,10 +113,11 @@ export async function POST(request: Request) {
       })
       customerId = customer.id
 
-      await admin
+      const { error } = await admin
         .from("organizations")
         .update({ stripe_customer_id: customerId })
         .eq("id", org.id)
+      if (error) throw new Error(`checkout: failed to link stripe_customer_id for org ${org.id}: ${error.message}`)
     }
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"

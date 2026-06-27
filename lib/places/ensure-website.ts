@@ -81,8 +81,9 @@ export async function ensureCompetitorWebsites<T extends HealableCompetitor>(
       }
       if (website) {
         c.website = website
-        await supabase.from("competitors").update({ website }).eq("id", c.id)
-        console.log(`[ensureWebsite] healed ${c.id}: ${website}`)
+        const { error } = await supabase.from("competitors").update({ website }).eq("id", c.id)
+        if (error) console.error(`[ensureWebsite] update failed for ${c.id}: ${error.message}`)
+        else console.log(`[ensureWebsite] healed ${c.id}: ${website}`)
         return
       }
 
@@ -104,8 +105,9 @@ export async function ensureCompetitorWebsites<T extends HealableCompetitor>(
         update.website = resolved.website
         c.website = resolved.website
       }
-      await supabase.from("competitors").update(update).eq("id", c.id)
-      console.log(
+      const { error } = await supabase.from("competitors").update(update).eq("id", c.id)
+      if (error) console.error(`[ensureWebsite] re-resolve update failed for ${c.id}: ${error.message}`)
+      else console.log(
         `[ensureWebsite] re-resolved ${c.id} (${c.name ?? "?"}): id ${c.provider_entity_id} -> ${resolved.id}${resolved.website ? `, website ${resolved.website}` : " (no website on file with Google)"}`
       )
       c.provider_entity_id = resolved.id

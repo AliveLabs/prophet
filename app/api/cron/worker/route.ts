@@ -42,11 +42,12 @@ export async function GET(req: Request) {
     // Reclaim zombies: a worker invocation that died mid-job (timeout/crash) leaves the
     // row 'running' forever — observed in prod (16 stuck). Stale running → back to queued
     // (idempotent pipelines; attempts already counted by the claim).
-    await sb
+    const { error: reclaimErr } = await sb
       .from("signal_jobs")
       .update({ status: "queued", updated_at: new Date().toISOString() })
       .eq("status", "running")
       .lt("claimed_at", new Date(Date.now() - 20 * 60 * 1000).toISOString())
+    if (reclaimErr) console.error("[worker] zombie reclaim failed:", reclaimErr.message)
     const jobs = await claimJobs(sb, batch)
     const results: WorkerJobResult[] = []
     // Budget-aware: don't START a job that can't finish in the remaining 800s

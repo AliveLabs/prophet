@@ -135,10 +135,11 @@ async function handleCheckoutSessionCompleted(
   // Make sure the customer_id is linked; the rest (tier, price, trial end)
   // will flow in via the subscription.created event that follows.
   if (customerId) {
-    await admin
+    const { error } = await admin
       .from("organizations")
       .update({ stripe_customer_id: customerId })
       .eq("id", orgId)
+    if (error) throw new Error(`checkout.session.completed: failed to link stripe_customer_id for org ${orgId}: ${error.message}`)
   }
 }
 
@@ -149,10 +150,11 @@ async function handleCustomerUpdated(
   // If the user changed their email in the Portal, mirror it into billing_email.
   const email = customer.email
   if (!email) return
-  await admin
+  const { error } = await admin
     .from("organizations")
     .update({ billing_email: email })
     .eq("stripe_customer_id", customer.id)
+  if (error) console.warn(`customer.updated: failed to mirror billing_email for ${customer.id}: ${error.message}`)
 }
 
 async function handleCustomerDeleted(
@@ -163,7 +165,7 @@ async function handleCustomerDeleted(
   // fresh one. Subscription fields get cleared by subscription.deleted, which
   // always precedes this. Tier parks on 'entry'; payment_state 'canceled' is
   // what blocks access (there is no free tier).
-  await admin
+  const { error } = await admin
     .from("organizations")
     .update({
       stripe_customer_id: null,
@@ -174,6 +176,7 @@ async function handleCustomerDeleted(
       cancel_at_period_end: false,
     })
     .eq("stripe_customer_id", customer.id)
+  if (error) throw new Error(`customer.deleted: failed to clear billing state for ${customer.id}: ${error.message}`)
 
   await logAdminAction({
     adminId: SYSTEM_ACTOR_ID,

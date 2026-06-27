@@ -429,8 +429,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {/* ROW 5: Ranking Distribution */}
           <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold text-foreground">Keyword Ranking Distribution</h2>
-            {rankHasData ? (
-              <RankingDistribution distribution={rankData!.organic.distribution} />
+            {rankHasData && rankData?.organic?.distribution ? (
+              <RankingDistribution distribution={rankData.organic.distribution} />
             ) : rankedKeywords.length > 0 ? (
               <RankingDistribution distribution={{
                 pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,

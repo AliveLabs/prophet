@@ -25,7 +25,9 @@ type ReminderDay = 10 | 13
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization")
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Require the secret to be set AND match — a missing CRON_SECRET must FAIL CLOSED, not open the
+  // endpoint (matches the worker/build-brief cron guard). `if (cronSecret && ...)` let it through.
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
