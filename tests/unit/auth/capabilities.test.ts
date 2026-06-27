@@ -109,12 +109,16 @@ describe("normalizeRole", () => {
     }
   })
 
-  it("fails OPEN to super_admin for unknown / null / empty (never locks out)", () => {
-    expect(normalizeRole(undefined)).toBe("super_admin")
-    expect(normalizeRole(null)).toBe("super_admin")
-    expect(normalizeRole("")).toBe("super_admin")
-    expect(normalizeRole("owner")).toBe("super_admin")
-    expect(normalizeRole("READ_ONLY")).toBe("super_admin") // case-sensitive on purpose
+  it("resolves unknown / null / empty to 'admin' — never locks out, but not god mode (SEC-M4)", () => {
+    for (const v of [undefined, null, "", "owner", "READ_ONLY"]) {
+      expect(normalizeRole(v)).toBe("admin")
+    }
+    // The fallback keeps day-to-day admin access...
+    expect(roleHasCapability(normalizeRole("garbage"), "org.manage")).toBe(true)
+    // ...but must NOT silently grant the super_admin-only governance/destructive caps.
+    expect(roleHasCapability(normalizeRole("garbage"), "admin.manage")).toBe(false)
+    expect(roleHasCapability(normalizeRole("garbage"), "user.delete")).toBe(false)
+    expect(roleHasCapability(normalizeRole("garbage"), "billing.convert")).toBe(false)
   })
 })
 

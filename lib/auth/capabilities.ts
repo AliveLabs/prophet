@@ -72,17 +72,18 @@ export function roleHasCapability(role: AdminRole, capability: Capability): bool
 /**
  * Coerce an arbitrary stored value into a valid AdminRole.
  *
- * SAFETY: an unknown / null / missing value resolves to `super_admin` (full access) — the
- * SAME behavior every admin has today (pre-roles). This guarantees the role read can never
- * LOCK OUT an admin: the worst case of bad data is "too much access", never "no access".
- * It is deliberately fail-OPEN because the row already proves the user is a platform admin;
- * the role only ever narrows what an existing admin can do. New invites are written with an
- * explicit role, so this fallback only fires for legacy rows / a pre-migration deploy.
+ * SAFETY (SEC-M4): an unknown / null / missing value resolves to `admin`, NOT `super_admin`. The
+ * row already proves the user is a platform admin, so this never LOCKS OUT an existing admin — they
+ * keep the full day-to-day admin surface. But it no longer silently grants the super_admin-ONLY
+ * governance/destructive caps (billing.convert, user.delete, admin.manage, knowledge.manage) to a
+ * malformed / legacy / partially-migrated row: unknown data must not mean god mode. Valid invites
+ * are always written with an explicit role, so this fallback only fires for anomalous rows — and
+ * the I/O caller (fetchAdminRow) alerts when a non-null value fails to resolve so the row gets fixed.
  */
 export function normalizeRole(value: string | null | undefined): AdminRole {
   return (ADMIN_ROLES as readonly string[]).includes(value ?? "")
     ? (value as AdminRole)
-    : "super_admin"
+    : "admin"
 }
 
 /** True iff `value` is one of the three valid roles (strict — for input validation). */

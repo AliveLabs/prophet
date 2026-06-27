@@ -36,6 +36,19 @@ describe("applyHarmReview (graduated)", () => {
     expect(kept.find((p) => p.title === "c")?.confidence).toBe("directional") // medium downgraded one
     expect(kept.find((p) => p.title === "d")?.confidence).toBe("high") // none unchanged
   })
+
+  it("matches verdicts to plays by POSITION, not the model's index field (ENG-Low L2)", () => {
+    const plays = [play("a", "high"), play("b", "high")]
+    // The model returned a duplicate index 0 for both verdicts. Positional matching must still drop
+    // play b (the severe verdict at position 1); the old byIndex map collapsed these (last-wins) and
+    // left b with no verdict -> severity 0 -> kept (a tone-deaf play slipping through).
+    const verdicts: HarmVerdict[] = [
+      { index: 0, severity: 0, reason: "" },
+      { index: 0, severity: 3, reason: "severe" },
+    ]
+    const { dropped } = applyHarmReview(plays, verdicts)
+    expect(dropped.map((d) => d.play.title)).toEqual(["b"])
+  })
 })
 
 describe("reviewPlays parsing (mock)", () => {

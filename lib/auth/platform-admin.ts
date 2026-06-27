@@ -7,6 +7,7 @@ import {
   type AdminRole,
   type Capability,
   CapabilityError,
+  isValidRole,
   normalizeRole,
   roleHasCapability,
 } from "./capabilities"
@@ -32,7 +33,16 @@ async function fetchAdminRow(userId: string): Promise<{ role: AdminRole } | null
     .eq("user_id", userId)
     .maybeSingle()
   if (!data) return null
-  return { role: normalizeRole((data as { role?: string | null }).role) }
+  const rawRole = (data as { role?: string | null }).role
+  // SEC-M4: a non-null value that isn't a known role is a malformed / partially-migrated row. We
+  // still resolve it (normalizeRole -> 'admin', never a lockout), but alert so the bad row is fixed
+  // — otherwise a real super_admin could silently sit at reduced privilege, or an anomaly persist.
+  if (rawRole != null && !isValidRole(rawRole)) {
+    console.error(
+      `[platform-admin] unknown platform_admins.role '${rawRole}' for user ${userId}; resolving to 'admin'. Fix the row.`
+    )
+  }
+  return { role: normalizeRole(rawRole) }
 }
 
 /**

@@ -88,11 +88,15 @@ export function applyHarmReview(
   tolerance = 50,
 ): HarmApplication {
   const threshold = dropThreshold(tolerance)
-  const byIndex = new Map(verdicts.map((v) => [v.index, v]))
   const kept: EnrichedRecommendation[] = []
   const dropped: { play: EnrichedRecommendation; reason: string }[] = []
   plays.forEach((p, i) => {
-    const v = byIndex.get(i)
+    // ENG-Low L2: match a verdict to its play by POSITION, not the model-returned `index`. The
+    // prompt lists plays in array order and asks for one verdict each (the validator preserves that
+    // order), so verdict i belongs to play i. Trusting `index` let duplicate/garbage indices
+    // collapse (last-wins) and silently default a play to severity 0 (kept) — worst case a
+    // tone-deaf play slips through. Positional matching removes that failure mode.
+    const v = verdicts[i]
     const sev = v?.severity ?? 0
     if (sev >= threshold) {
       dropped.push({ play: p, reason: v?.reason ?? "off-brand for this tolerance" })
