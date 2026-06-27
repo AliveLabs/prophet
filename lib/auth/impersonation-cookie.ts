@@ -24,11 +24,19 @@ export interface ImpersonationContext {
   exp: number
 }
 
-// HMAC key. Fail CLOSED if absent — never sign/verify with an empty key (that would make the
-// signature forgeable). The service-role key is always present server-side in this app.
+// HMAC key. Prefer a DEDICATED IMPERSONATION_SIGNING_SECRET so that admin-session forgery and
+// DB-godmode aren't the same key (SEC-H1): a future leak of the service-role key should not also
+// let an attacker forge impersonation cookies. Falls back to SUPABASE_SERVICE_ROLE_KEY when the
+// dedicated secret is unset, so this change is non-breaking — set IMPERSONATION_SIGNING_SECRET in
+// the environment to cut over (in-flight impersonation cookies signed with the old key simply stop
+// verifying at cutover, which safely ends those sessions). Fail CLOSED if NEITHER is present —
+// never sign/verify with an empty key (that would make the signature forgeable).
 function signingKey(): string {
-  const k = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!k) throw new Error("impersonation: SUPABASE_SERVICE_ROLE_KEY (signing key) is missing")
+  const k = process.env.IMPERSONATION_SIGNING_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!k)
+    throw new Error(
+      "impersonation: no signing key (set IMPERSONATION_SIGNING_SECRET or SUPABASE_SERVICE_ROLE_KEY)"
+    )
   return k
 }
 

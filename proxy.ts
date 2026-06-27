@@ -17,6 +17,34 @@ import {
 
 const EXIT_PATH = "/api/impersonation/exit"
 
+// SEC-H1: re-assert an impersonation actor's CURRENT platform-admin status (the start path is
+// gated, but the signed cookie was previously trusted on signature + exp alone, so a demoted admin
+// kept a live target session until exp). Returns:
+//   true  — still a platform admin
+//   false — POSITIVELY no longer an admin (row gone) → caller tears the session down
+//   null  — couldn't determine (no service key / transient read error) → caller FAILS OPEN so a
+//           DB blip never strands a legitimate, already-read-only, time-boxed session.
+async function actorStillPlatformAdmin(actorId: string): Promise<boolean | null> {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ""
+  if (!serviceKey) return null
+  try {
+    const adminDb = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      serviceKey,
+      { auth: { persistSession: false } }
+    )
+    const { data, error } = await adminDb
+      .from("platform_admins")
+      .select("id")
+      .eq("user_id", actorId)
+      .maybeSingle()
+    if (error) return null
+    return !!data
+  } catch {
+    return null
+  }
+}
+
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const method = req.method
@@ -24,11 +52,12 @@ export async function proxy(req: NextRequest) {
   // ── Impersonation (all routes) ──────────────────────────────────────────────
   const imp = verifyImpersonationCookie(req.cookies.get(IMPERSONATION_COOKIE)?.value)
   if (imp && pathname !== EXIT_PATH) {
-    if (imp.expired) {
-      // Time-box elapsed → tear down the target session (the exit route signs out + clears).
-      // 303 (not the default 307) so a non-GET that hits the expired window is converted to a
-      // GET — otherwise a method-preserving redirect would 405 at the GET exit route and the
-      // teardown would never run, leaving the session alive past its guardrail.
+    // Tear the session down when the time-box has elapsed OR the actor is no longer a platform
+    // admin (SEC-H1 — only on a POSITIVE demotion; a null/unknowable result fails open).
+    // 303 (not the default 307) so a non-GET that hits this path is converted to a GET — otherwise
+    // a method-preserving redirect would 405 at the GET exit route and the teardown would never
+    // run, leaving the session alive past its guardrail.
+    if (imp.expired || (await actorStillPlatformAdmin(imp.ctx.actorAdminId)) === false) {
       return NextResponse.redirect(new URL(EXIT_PATH, req.url), 303)
     }
     if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
