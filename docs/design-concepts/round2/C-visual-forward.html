@@ -141,8 +141,11 @@ section{margin-top:34px}
 
 /* ============================ HERO ============================ */
 .hero{position:relative;margin-top:22px;border-radius:var(--r-xl);overflow:hidden;min-height:clamp(420px,60vh,560px);display:flex;align-items:flex-end;box-shadow:var(--shadow-lg);isolation:isolate}
-.hero .tphoto{position:absolute;inset:0;z-index:-2}
-.hero .scrim{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg, rgba(20,14,11,.05) 0%, rgba(20,14,11,.35) 45%, rgba(20,14,11,.86) 100%),linear-gradient(75deg, color-mix(in srgb,var(--rust-deep) 55%,transparent) 0%, transparent 55%)}
+.hero .tphoto{position:absolute;inset:0;z-index:-2;background-color:#1a1410;background-size:cover;background-position:center}
+/* The scrim is its OWN layer ABOVE the photo (z-1), so the data-URI photo injection can't override it
+   (the A/B "scrim killed by !important" bug). Strengthened so WHITE hero text clears AA across the
+   WHOLE hero — incl. the eyebrow/tags higher up — over any photo, not just the dark bottom edge. */
+.hero .scrim{position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg, rgba(20,14,11,.42) 0%, rgba(20,14,11,.40) 38%, rgba(20,14,11,.74) 74%, rgba(20,14,11,.93) 100%),linear-gradient(75deg, color-mix(in srgb,var(--rust-deep) 60%,transparent) 0%, transparent 60%)}
 .hero-inner{padding:clamp(22px,4vw,44px);color:#fff;width:100%}
 .hero-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
 .htag{font:700 11px/1 var(--mono);letter-spacing:.06em;padding:7px 11px;border-radius:999px;background:#ffffff22;border:1px solid #ffffff44;backdrop-filter:blur(6px);color:#fff;display:inline-flex;align-items:center;gap:6px}
@@ -531,7 +534,14 @@ section{margin-top:34px}
       <div class="hero-actions">
         <button class="btn btn-primary" data-drill="event">Plan the window →</button>
         <button class="btn btn-glass" data-keep>＋ Keep</button>
-        <button class="btn btn-glass" data-dismiss-hero>Dismiss</button>
+        <div class="dismiss-wrap">
+          <button class="btn btn-glass" data-dismiss-hero>Dismiss</button>
+          <div class="dismiss-pop"><h4>Why dismiss?</h4>
+            <button data-reason="Not relevant">Not relevant</button>
+            <button data-reason="Already doing it">Already doing it</button>
+            <button data-reason="Wrong call">Wrong call</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -1014,6 +1024,14 @@ section{margin-top:34px}
           <div class="actions">
             <button class="btn btn-primary" data-drill="event">Plan the window</button>
             <button class="btn btn-sec btn-sm" data-keep>Keep</button>
+            <div class="dismiss-wrap">
+              <button class="btn btn-ghost btn-sm" data-dismiss>Dismiss</button>
+              <div class="dismiss-pop"><h4>Why dismiss?</h4>
+                <button data-reason="Not relevant">Not relevant</button>
+                <button data-reason="Can't capitalize on it">Can't capitalize on it</button>
+                <button data-reason="Already planned">Already planned</button>
+              </div>
+            </div>
           </div>
         </div>
       </article>
@@ -1029,6 +1047,14 @@ section{margin-top:34px}
           <div class="actions">
             <button class="btn btn-primary" data-drill="brunch">Look closer</button>
             <button class="btn btn-sec btn-sm" data-keep>Keep</button>
+            <div class="dismiss-wrap">
+              <button class="btn btn-ghost btn-sm" data-dismiss>Dismiss</button>
+              <div class="dismiss-pop"><h4>Why dismiss?</h4>
+                <button data-reason="Not relevant">Not relevant</button>
+                <button data-reason="Too speculative">Too speculative</button>
+                <button data-reason="Already watching">Already watching</button>
+              </div>
+            </div>
           </div>
         </div>
       </article>
@@ -1621,13 +1647,27 @@ section{margin-top:34px}
     ioRing.observe(ring);
   }
 
-  /* hero dismiss */
+  /* hero dismiss — opens a reason popover (consistent with the play cards; the reason feeds learning) */
   var heroDismiss = document.querySelector('[data-dismiss-hero]');
-  if(heroDismiss) heroDismiss.addEventListener('click', function(){
-    var h = document.getElementById('brief');
-    h.style.transition='opacity .4s,transform .4s';
-    h.style.opacity='.35'; heroDismiss.textContent='Dismissed';
-  });
+  if(heroDismiss){
+    var heroPop = heroDismiss.parentElement.querySelector('.dismiss-pop');
+    heroDismiss.addEventListener('click', function(e){
+      e.stopPropagation();
+      if(heroDismiss.dataset.done) return;
+      var wasOpen = heroPop.classList.contains('open');
+      closeAllPops();
+      if(!wasOpen) heroPop.classList.add('open');
+    });
+    heroPop.querySelectorAll('[data-reason]').forEach(function(rb){
+      rb.addEventListener('click', function(e){
+        e.stopPropagation(); closeAllPops();
+        var h = document.getElementById('brief');
+        h.style.transition='opacity .4s,transform .4s';
+        h.style.opacity='.35'; h.style.transform='scale(.99)';
+        heroDismiss.textContent='Dismissed'; heroDismiss.dataset.done='1';
+      });
+    });
+  }
 
 })();
 </script>

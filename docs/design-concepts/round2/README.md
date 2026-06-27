@@ -26,6 +26,8 @@ not shipped. Real competitor images (from our Supabase storage) are embedded as 
 ## Known minor gaps (quick fixes when we reel in the winner — not worth polishing all 3)
 - **A:** last-7 weather shown as a correlation chart, not per-day tiles; theme-toggle aria-label not state-aware.
 - **B:** secondary (non-hero) Dismiss buttons are icon-only (no visible frame/label) — make consistent with hero.
-- **C:** the hero + the two events-section cards use ACT+KEEP without a Dismiss/reason; phone-mock dismiss is static.
+- **C:** ✅ FIXED 2026-06-27 — hero + both events-section cards now have ACT+KEEP+DISMISS(+reason) (reason
+  feeds learning, consistent with the play cards); hero scrim strengthened so white hero text clears AA
+  across the whole hero over any photo (+ dark photo-base fallback). Phone-mock dismiss still static (minor).
 
 UX/functionality gaps surfaced are in `docs/ux-gaps-tracker.md`. Next: pick a direction (or fusion) → reel in + apply to the real app.
