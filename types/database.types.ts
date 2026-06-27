@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -52,6 +52,53 @@ export type Database = {
           target_type?: string
         }
         Relationships: []
+      }
+      ask_history: {
+        Row: {
+          answer: string
+          asked_by: string | null
+          confidence: string
+          created_at: string
+          grounded: boolean
+          id: string
+          location_id: string
+          question: string
+          source: string
+          sources: Json
+        }
+        Insert: {
+          answer: string
+          asked_by?: string | null
+          confidence?: string
+          created_at?: string
+          grounded?: boolean
+          id?: string
+          location_id: string
+          question: string
+          source?: string
+          sources?: Json
+        }
+        Update: {
+          answer?: string
+          asked_by?: string | null
+          confidence?: string
+          created_at?: string
+          grounded?: boolean
+          id?: string
+          location_id?: string
+          question?: string
+          source?: string
+          sources?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ask_history_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       brief_feedback: {
         Row: {
@@ -345,6 +392,198 @@ export type Database = {
           },
         ]
       }
+      evergreen_dismissals: {
+        Row: {
+          created_at: string
+          dismissed_at: string
+          expires_at: string
+          id: string
+          location_id: string
+          play_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string
+          expires_at: string
+          id?: string
+          location_id: string
+          play_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string
+          expires_at?: string
+          id?: string
+          location_id?: string
+          play_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evergreen_dismissals_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      evergreen_plays: {
+        Row: {
+          id: string
+          location_id: string
+          play: Json
+          play_key: string
+          saved_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          location_id: string
+          play: Json
+          play_key: string
+          saved_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          location_id?: string
+          play?: Json
+          play_key?: string
+          saved_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evergreen_plays_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fixtures: {
+        Row: {
+          aliases: string[]
+          city: string | null
+          competition_id: string
+          created_at: string
+          id: string
+          label: string | null
+          lat: number | null
+          lng: number | null
+          local_date: string | null
+          local_kickoff: string | null
+          place_name: string | null
+          round: string | null
+          tz: string | null
+          updated_at: string
+          venue_id: string
+          window_end: string | null
+          window_start: string | null
+        }
+        Insert: {
+          aliases?: string[]
+          city?: string | null
+          competition_id: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          lat?: number | null
+          lng?: number | null
+          local_date?: string | null
+          local_kickoff?: string | null
+          place_name?: string | null
+          round?: string | null
+          tz?: string | null
+          updated_at?: string
+          venue_id: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Update: {
+          aliases?: string[]
+          city?: string | null
+          competition_id?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          lat?: number | null
+          lng?: number | null
+          local_date?: string | null
+          local_kickoff?: string | null
+          place_name?: string | null
+          round?: string | null
+          tz?: string | null
+          updated_at?: string
+          venue_id?: string
+          window_end?: string | null
+          window_start?: string | null
+        }
+        Relationships: []
+      }
+      insight_pool_entries: {
+        Row: {
+          category: string | null
+          combined_score: number
+          confidence: string | null
+          created_at: string
+          expires_at: string
+          first_seen_date: string
+          id: string
+          is_top: boolean
+          kind: string | null
+          last_seen_date: string
+          location_id: string
+          play: Json
+          play_key: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          combined_score?: number
+          confidence?: string | null
+          created_at?: string
+          expires_at: string
+          first_seen_date: string
+          id?: string
+          is_top?: boolean
+          kind?: string | null
+          last_seen_date: string
+          location_id: string
+          play: Json
+          play_key: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          combined_score?: number
+          confidence?: string | null
+          created_at?: string
+          expires_at?: string
+          first_seen_date?: string
+          id?: string
+          is_top?: boolean
+          kind?: string | null
+          last_seen_date?: string
+          location_id?: string
+          play?: Json
+          play_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insight_pool_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insight_preferences: {
         Row: {
           dismissed_count: number
@@ -502,6 +741,85 @@ export type Database = {
           },
         ]
       }
+      location_busy_times: {
+        Row: {
+          current_popularity: number | null
+          day_of_week: number
+          hourly_scores: number[]
+          id: string
+          location_id: string
+          peak_hour: number | null
+          peak_score: number | null
+          refreshed_at: string
+          slow_hours: number[] | null
+        }
+        Insert: {
+          current_popularity?: number | null
+          day_of_week: number
+          hourly_scores: number[]
+          id?: string
+          location_id: string
+          peak_hour?: number | null
+          peak_score?: number | null
+          refreshed_at?: string
+          slow_hours?: number[] | null
+        }
+        Update: {
+          current_popularity?: number | null
+          day_of_week?: number
+          hourly_scores?: number[]
+          id?: string
+          location_id?: string
+          peak_hour?: number | null
+          peak_score?: number | null
+          refreshed_at?: string
+          slow_hours?: number[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_busy_times_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_density: {
+        Row: {
+          commercial_proxy: number | null
+          location_id: string
+          refreshed_at: string
+          residential_density: number | null
+          source: string
+          tier: string
+        }
+        Insert: {
+          commercial_proxy?: number | null
+          location_id: string
+          refreshed_at?: string
+          residential_density?: number | null
+          source?: string
+          tier?: string
+        }
+        Update: {
+          commercial_proxy?: number | null
+          location_id?: string
+          refreshed_at?: string
+          residential_density?: number | null
+          source?: string
+          tier?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_density_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_snapshots: {
         Row: {
           captured_at: string
@@ -625,6 +943,7 @@ export type Database = {
           primary_place_id: string | null
           region: string | null
           settings: Json
+          standing_question: string | null
           timezone: string
           updated_at: string
           voice_tone: string | null
@@ -646,6 +965,7 @@ export type Database = {
           primary_place_id?: string | null
           region?: string | null
           settings?: Json
+          standing_question?: string | null
           timezone?: string
           updated_at?: string
           voice_tone?: string | null
@@ -667,6 +987,7 @@ export type Database = {
           primary_place_id?: string | null
           region?: string | null
           settings?: Json
+          standing_question?: string | null
           timezone?: string
           updated_at?: string
           voice_tone?: string | null
@@ -791,6 +1112,71 @@ export type Database = {
           },
         ]
       }
+      partner_catalog: {
+        Row: {
+          created_at: string
+          distance_mi: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          location_id: string
+          name: string
+          partner_type: string
+          place_id: string | null
+          primary_type: string | null
+          refreshed_at: string
+          size_band: string
+          size_confidence: string
+          size_proxy_high: number | null
+          size_proxy_kind: string | null
+          size_proxy_low: number | null
+        }
+        Insert: {
+          created_at?: string
+          distance_mi?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_id: string
+          name: string
+          partner_type: string
+          place_id?: string | null
+          primary_type?: string | null
+          refreshed_at?: string
+          size_band?: string
+          size_confidence?: string
+          size_proxy_high?: number | null
+          size_proxy_kind?: string | null
+          size_proxy_low?: number | null
+        }
+        Update: {
+          created_at?: string
+          distance_mi?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_id?: string
+          name?: string
+          partner_type?: string
+          place_id?: string | null
+          primary_type?: string | null
+          refreshed_at?: string
+          size_band?: string
+          size_confidence?: string
+          size_proxy_high?: number | null
+          size_proxy_kind?: string | null
+          size_proxy_low?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_catalog_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_runs: {
         Row: {
           competitor_id: string | null
@@ -871,6 +1257,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      play_actions: {
+        Row: {
+          action: string
+          created_at: string
+          date_key: string
+          id: string
+          location_id: string
+          play_key: string
+          updated_at: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          date_key: string
+          id?: string
+          location_id: string
+          play_key: string
+          updated_at?: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          date_key?: string
+          id?: string
+          location_id?: string
+          play_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "play_actions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -1032,6 +1456,171 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      skill_feedback_rollup: {
+        Row: {
+          bad_count: number
+          bad_weighted: number
+          bayes_score: number
+          created_at: string
+          good_count: number
+          good_weighted: number
+          id: string
+          last_recompute: string
+          multiplier: number
+          org_support_n: number
+          play_type_key: string
+          scope: string
+          scope_id: string | null
+          skill_id: string
+          support_n: number
+          updated_at: string
+        }
+        Insert: {
+          bad_count?: number
+          bad_weighted?: number
+          bayes_score?: number
+          created_at?: string
+          good_count?: number
+          good_weighted?: number
+          id?: string
+          last_recompute?: string
+          multiplier?: number
+          org_support_n?: number
+          play_type_key: string
+          scope?: string
+          scope_id?: string | null
+          skill_id: string
+          support_n?: number
+          updated_at?: string
+        }
+        Update: {
+          bad_count?: number
+          bad_weighted?: number
+          bayes_score?: number
+          created_at?: string
+          good_count?: number
+          good_weighted?: number
+          id?: string
+          last_recompute?: string
+          multiplier?: number
+          org_support_n?: number
+          play_type_key?: string
+          scope?: string
+          scope_id?: string | null
+          skill_id?: string
+          support_n?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      skill_knowledge: {
+        Row: {
+          confidence: number
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          knowledge_version: string
+          learning_kind: string
+          provenance: Json
+          scope: string
+          scope_id: string | null
+          skill_id: string
+          snippet: string
+          status: string
+          support_n: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          knowledge_version: string
+          learning_kind: string
+          provenance?: Json
+          scope?: string
+          scope_id?: string | null
+          skill_id: string
+          snippet: string
+          status?: string
+          support_n?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          knowledge_version?: string
+          learning_kind?: string
+          provenance?: Json
+          scope?: string
+          scope_id?: string | null
+          skill_id?: string
+          snippet?: string
+          status?: string
+          support_n?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      skill_source_registry: {
+        Row: {
+          auth_kind: string
+          created_at: string
+          enabled: boolean
+          failure_count: number
+          fetch_strategy: string
+          id: string
+          last_fetch: string | null
+          last_status: string | null
+          name: string
+          skill_ids: string[]
+          trust_tier: number
+          updated_at: string
+          url: string
+          vertical: string
+        }
+        Insert: {
+          auth_kind?: string
+          created_at?: string
+          enabled?: boolean
+          failure_count?: number
+          fetch_strategy?: string
+          id?: string
+          last_fetch?: string | null
+          last_status?: string | null
+          name: string
+          skill_ids?: string[]
+          trust_tier?: number
+          updated_at?: string
+          url: string
+          vertical: string
+        }
+        Update: {
+          auth_kind?: string
+          created_at?: string
+          enabled?: boolean
+          failure_count?: number
+          fetch_strategy?: string
+          id?: string
+          last_fetch?: string | null
+          last_status?: string | null
+          name?: string
+          skill_ids?: string[]
+          trust_tier?: number
+          updated_at?: string
+          url?: string
+          vertical?: string
+        }
+        Relationships: []
       }
       snapshots: {
         Row: {
@@ -1319,6 +1908,86 @@ export type Database = {
           },
         ]
       }
+      venue_catalog: {
+        Row: {
+          aliases: string[]
+          capacity_confidence: string
+          capacity_high: number | null
+          capacity_low: number | null
+          created_at: string
+          distance_mi: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          location_id: string
+          name: string
+          place_id: string | null
+          primary_type: string | null
+          refreshed_at: string
+        }
+        Insert: {
+          aliases?: string[]
+          capacity_confidence?: string
+          capacity_high?: number | null
+          capacity_low?: number | null
+          created_at?: string
+          distance_mi?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_id: string
+          name: string
+          place_id?: string | null
+          primary_type?: string | null
+          refreshed_at?: string
+        }
+        Update: {
+          aliases?: string[]
+          capacity_confidence?: string
+          capacity_high?: number | null
+          capacity_low?: number | null
+          created_at?: string
+          distance_mi?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          location_id?: string
+          name?: string
+          place_id?: string | null
+          primary_type?: string | null
+          refreshed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_catalog_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_geocode_cache: {
+        Row: {
+          lat: number
+          lng: number
+          query_key: string
+          resolved_at: string
+        }
+        Insert: {
+          lat: number
+          lng: number
+          query_key: string
+          resolved_at?: string
+        }
+        Update: {
+          lat?: number
+          lng?: number
+          query_key?: string
+          resolved_at?: string
+        }
+        Relationships: []
+      }
       waitlist_signups: {
         Row: {
           admin_notes: string | null
@@ -1378,6 +2047,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cascade_delete_organization: {
+        Args: { p_keep_shell?: boolean; p_org_id: string }
+        Returns: Json
+      }
       claim_signal_jobs: {
         Args: { batch: number }
         Returns: {
