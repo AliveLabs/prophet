@@ -3,7 +3,7 @@
 // mapping that decides who can access the product. A regression here silently corrupts billing.
 // These exercise the real helpers against a tiny chainable Supabase mock.
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest"
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type Stripe from "stripe"
 import {
@@ -191,6 +191,16 @@ describe("applySubscriptionToOrg — subscription -> org state (the access-gatin
     const admin = makeClient({ onUpdate: (_t, v) => (vals = v) })
     await applySubscriptionToOrg(admin, "org_1", sub({ trial_end: 1_700_000_000 } as Partial<Stripe.Subscription>))
     expect(vals?.trial_ends_at).toBe(new Date(1_700_000_000 * 1000).toISOString())
+  })
+
+  it("alerts on a price/industry mismatch but still accepts the tier (SEC-Low L3)", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+    // price_mid is a TICKET (restaurant) price; the org is a liquor_store -> mismatch.
+    const admin = makeClient({ selectResult: { data: { industry_type: "liquor_store" } } })
+    const { tier } = await applySubscriptionToOrg(admin, "org_1", sub())
+    expect(tier).toBe("mid") // accepted, never black-holed
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("MISMATCH"))
+    spy.mockRestore()
   })
 })
 

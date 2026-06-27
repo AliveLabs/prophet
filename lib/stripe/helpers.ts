@@ -2,7 +2,7 @@ import type Stripe from "stripe"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { IndustryType } from "@/lib/verticals"
 import type { SubscriptionTier } from "@/lib/billing/tiers"
-import { resolvePriceInfo } from "@/lib/stripe/pricing"
+import { resolvePriceInfo, priceBelongsToIndustry } from "@/lib/stripe/pricing"
 
 // ----------------------------------------------------------------------------
 // Organization resolution
@@ -211,6 +211,23 @@ export async function applySubscriptionToOrg(
       .eq("id", orgId)
       .maybeSingle()
     tier = (data?.subscription_tier as SubscriptionTier | undefined) ?? "entry"
+  }
+
+  // SEC-Low L3: a price that resolves but belongs to a DIFFERENT industry than the org is a
+  // mis-provisioned checkout. Accept it (never black-hole a real payment), but ALERT so ops can
+  // review — otherwise the wrong tier is granted silently.
+  if (!opts?.deleted && priceId && priceInfo) {
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("industry_type")
+      .eq("id", orgId)
+      .maybeSingle()
+    const orgIndustry = orgRow?.industry_type
+    if (orgIndustry && !priceBelongsToIndustry(priceId, orgIndustry as IndustryType)) {
+      console.error(
+        `[stripe] price/industry MISMATCH org=${orgId} price=${priceId} priceIndustry=${priceInfo.industry} orgIndustry=${orgIndustry} — accepted (tier=${tier}); FLAG FOR OPS REVIEW`,
+      )
+    }
   }
 
   const paymentState = opts?.deleted
