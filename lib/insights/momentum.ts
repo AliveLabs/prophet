@@ -6,19 +6,9 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type PlayAction = "saved" | "snoozed" | "dismissed"
 
-type LooseClient = {
-  from: (t: string) => {
-    select: (c: string) => {
-      eq: (c: string, v: string) => {
-        eq: (c2: string, v2: string) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-        gte: (c2: string, v2: string) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-      }
-    }
-  }
-}
-
-function admin(): LooseClient {
-  return createAdminSupabaseClient() as unknown as LooseClient
+// play_actions is now in the generated types, so the real typed client is used directly.
+function admin() {
+  return createAdminSupabaseClient()
 }
 
 /** playKey → action for one brief. Empty pre-migration. */

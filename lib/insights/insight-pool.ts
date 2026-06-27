@@ -10,8 +10,10 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { playKey } from "@/lib/skills/preferences"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import type { Database, Json } from "@/types/database.types"
 
 export const POOL_RETENTION_DAYS = 30
 
@@ -29,30 +31,12 @@ export type PoolEntry = {
   expires_at: string
 }
 
-type Res = { error: { message: string } | null }
-type DataRes<T> = { data: T | null; error: { message: string } | null }
-
-// Loose client surface — insight_pool_entries isn't in generated DB types until the migration is
-// applied + types regenerated (same pattern as daily-brief.ts / evergreen.ts).
-export type PoolStore = {
-  from: (t: string) => {
-    upsert: (rows: Record<string, unknown>[], opts: { onConflict: string }) => Promise<Res>
-    update: (vals: Record<string, unknown>) => {
-      eq: (c: string, v: string) => Promise<Res> & {
-        eq: (c2: string, v2: string) => Promise<Res>
-      }
-    }
-    delete: () => { lt: (c: string, v: string) => { eq: (c2: string, v2: string) => Promise<Res> } }
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        order: (c: string, opts: { ascending: boolean }) => Promise<DataRes<Record<string, unknown>[]>>
-      }
-    }
-  }
-}
+// insight_pool_entries is now in the generated types, so this is the real typed client. Aliased so
+// callers can still inject a (mock) client in tests.
+export type PoolStore = SupabaseClient<Database>
 
 function store(client?: PoolStore): PoolStore {
-  return client ?? (createAdminSupabaseClient() as unknown as PoolStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 const iso = (ms: number) => new Date(ms).toISOString()
@@ -81,7 +65,7 @@ export async function updateInsightPool(
   const rows = plays.map((p, i) => ({
     location_id: locationId,
     play_key: playKey(p),
-    play: p as unknown as Record<string, unknown>,
+    play: p as unknown as Json,
     first_seen_date: dateKey, // upsert replaces; last_seen_date is the canonical recency field
     last_seen_date: dateKey,
     combined_score: plays.length - i, // within-brief rank: rank-1 highest

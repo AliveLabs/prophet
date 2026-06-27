@@ -8,21 +8,17 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Brief } from "@/lib/skills/types"
+import type { Database, Json } from "@/types/database.types"
 import { updateInsightPool } from "@/lib/insights/insight-pool"
 
-type QueryBuilder = {
-  upsert: (row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
-  select: (cols: string) => QueryBuilder
-  eq: (col: string, val: string) => QueryBuilder
-  order: (col: string, opts: { ascending: boolean }) => QueryBuilder
-  limit: (n: number) => QueryBuilder
-  maybeSingle: () => Promise<{ data: { brief?: unknown } | null }>
-}
-export type BriefStore = { from: (table: string) => QueryBuilder }
+// Was a hand-written loose surface; daily_briefs is now in the generated types, so this is just the
+// real typed client. Aliased so callers can still inject a (mock) client in tests.
+export type BriefStore = SupabaseClient<Database>
 
 function store(client?: BriefStore): BriefStore {
-  return client ?? (createAdminSupabaseClient() as unknown as BriefStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 /** Upsert the synthesized brief for (location, date_key). */
@@ -33,7 +29,7 @@ export async function saveBrief(brief: Brief, opts: { fallback?: boolean; client
       {
         location_id: brief.locationId,
         date_key: brief.dateKey,
-        brief: brief as unknown as Record<string, unknown>,
+        brief: brief as unknown as Json,
         fallback: opts.fallback ?? !!brief.fallback,
         generated_at: new Date().toISOString(),
       },

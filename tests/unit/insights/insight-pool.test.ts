@@ -6,7 +6,7 @@ import type { EnrichedRecommendation } from "@/lib/skills/types"
 // update.eq[.eq] / delete.lt.eq), enough to exercise updateInsightPool's top-N recompute.
 function makeMock() {
   const rows: Record<string, unknown>[] = []
-  const store: PoolStore = {
+  const store = {
     from() {
       return {
         upsert(newRows: Record<string, unknown>[]) {
@@ -54,7 +54,7 @@ function makeMock() {
       }
     },
   }
-  return { store, rows }
+  return { store: store as unknown as PoolStore, rows }
 }
 
 function play(title: string, score: number, category: string): EnrichedRecommendation {

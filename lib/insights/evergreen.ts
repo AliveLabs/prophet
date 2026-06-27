@@ -11,30 +11,19 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
 import { playKey } from "@/lib/skills/preferences"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import type { Database, Json } from "@/types/database.types"
 
 export const DEFAULT_COOLDOWN_DAYS = 14
 
-// Loose client surface — evergreen_dismissals isn't in the generated DB types until the migration is
-// applied + types regenerated (same pattern as daily-brief.ts / brief-actions.ts). Exported so a
-// user-scoped client can be passed in (so RLS enforces membership on user-initiated writes).
-export type EvergreenStore = {
-  from: (t: string) => {
-    upsert: (row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
-    delete: () => {
-      eq: (c: string, v: string) => { eq: (c2: string, v2: string) => Promise<{ error: { message: string } | null }> }
-    }
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        gt: (c2: string, v2: string) => Promise<{ data: { play_key: string }[] | null; error: { message: string } | null }>
-      }
-    }
-  }
-}
+// evergreen_dismissals is now in the generated types, so this is the real typed client. Exported so a
+// user-scoped client can be passed in (so RLS enforces membership on user-initiated writes) + mocked in tests.
+export type EvergreenStore = SupabaseClient<Database>
 
 function store(client?: EvergreenStore): EvergreenStore {
-  return client ?? (createAdminSupabaseClient() as unknown as EvergreenStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 const iso = (ms: number) => new Date(ms).toISOString()
@@ -99,28 +88,14 @@ export async function loadActiveCooldowns(
 
 // ── P7b: evergreen_plays — persisted "keep this" plays for relevance-based resurfacing ──────────
 
-// Loose client surface for the evergreen_plays table (not in generated types yet).
-export type EvergreenPlaysStore = {
-  from: (t: string) => {
-    upsert: (row: Record<string, unknown>, opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
-    delete: () => {
-      eq: (c: string, v: string) => { eq: (c2: string, v2: string) => Promise<{ error: { message: string } | null }> }
-    }
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        order: (col: string, opts: { ascending: boolean }) => {
-          limit: (n: number) => Promise<{ data: { play: unknown }[] | null; error: { message: string } | null }>
-        }
-      }
-    }
-  }
-}
+// evergreen_plays is now in the generated types, so this is the real typed client (aliased for mocking).
+export type EvergreenPlaysStore = SupabaseClient<Database>
 
 /** Bound on how many persisted plays a single build loads as resurface candidates. */
 const MAX_EVERGREEN_LOAD = 50
 
 function playsStore(client?: EvergreenPlaysStore): EvergreenPlaysStore {
-  return client ?? (createAdminSupabaseClient() as unknown as EvergreenPlaysStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 /** Persist a SAVED play for later resurfacing. Throws on DB error (caller best-effort). */
@@ -136,7 +111,7 @@ export async function saveEvergreenPlay(
       {
         location_id: locationId,
         play_key: playKey(play),
-        play: play as unknown as Record<string, unknown>,
+        play: play as unknown as Json,
         updated_at: iso(now),
       },
       { onConflict: "location_id,play_key" },
