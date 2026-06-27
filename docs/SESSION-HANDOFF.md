@@ -1,6 +1,13 @@
 # Ticket — Session Handoff (start here)
 
-> ## ▶ START HERE — 2026-06-27 (session 2) · MOST OPEN AUDIT ITEMS NOW SHIPPED
+> ## ▶ START HERE — 2026-06-27 (sessions 2+3 DONE) · NEXT UP = 3 BRYAN DECISIONS
+>
+> **▶ NEXT SESSION STARTS HERE (Bryan's instruction): the next 3 things are DECISIONS, not code — answer these first, don't start new code until then:**
+> 1. **SEC-Low L1/L2** — is the Stripe diagnostic work closed? If yes, delete `app/api/health/stripe-mode`; if still needed, move its token query-string→header.
+> 2. **Stale branches** — OK to delete the 6 (`dev`, `feature-anand`, `feature-henry`, `feature/api-sandbox`, `feature/vatic-brand-refresh`, `feature/verticalization`)?
+> 3. **Test webhook secret** — rotate it (optional, test-mode) or skip?
+>
+> Everything else in the audit is shipped or deferred-with-reason (ENG-M6 — supervised; live-only/untested pipelines + DataForSEO rate limits). Detail below.
 >
 > **Master reference:** `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (a 4-pass A−/B audit;
 > its **§2 priority list** + **§8 next-session plan** are the SSOT for what's left). Work the OPEN items
