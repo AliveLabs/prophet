@@ -192,6 +192,42 @@ export function shouldDeferJob(args: { pipeline: string; elapsedMs: number; exec
   return remainingMs < estimatePipelineMs(args.pipeline)
 }
 
+// ── Brief data-readiness gate (ENG-H3) ───────────────────────────────────────
+// The 06:00 data cron enqueues per-pipeline jobs; the 08:00 build-brief cron enqueues briefs. At
+// scale the worker may not have drained the data jobs by 08:00, so a brief built on the wall clock
+// can use stale/half-loaded signals (the failure class the spine rewrite was built to kill). Fix:
+// a brief WAITS (defers, no attempt burned) until its location's data jobs settle — bounded by a
+// max wait so a permanently-stuck data job can never starve the brief.
+
+// The daily data run starts at 06:00 and the brief is enqueued at 08:00 (already +2h of headroom);
+// 90 min of additional brief-wait past its own enqueue is ample for a slow drain, and bounds the
+// worst case (build on whatever's there) for a wedged data job.
+export const BRIEF_MAX_DATA_WAIT_MS = 90 * 60 * 1000
+
+/** True if any non-brief data/insights job for this location is still queued or running. Fails
+ *  OPEN (returns false) on a read error so a transient blip can't stall the brief indefinitely. */
+export async function locationHasPendingDataJobs(sb: SB, locationId: string): Promise<boolean> {
+  const { count, error } = await sb
+    .from("signal_jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("location_id", locationId)
+    .neq("pipeline", "brief")
+    .in("status", ["queued", "running"])
+  if (error) {
+    console.warn(`[queue] pending-data-jobs check failed for ${locationId}; not waiting:`, error.message)
+    return false
+  }
+  return (count ?? 0) > 0
+}
+
+/**
+ * Should a claimed brief job DEFER to wait for its location's data to settle? Pure (unit-testable).
+ * Waits only while data is still pending AND the brief hasn't already waited past the max window.
+ */
+export function briefShouldWaitForData(args: { pending: boolean; briefAgeMs: number }): boolean {
+  return args.pending && args.briefAgeMs < BRIEF_MAX_DATA_WAIT_MS
+}
+
 export async function finishJob(
   sb: SB,
   job: SignalJob,

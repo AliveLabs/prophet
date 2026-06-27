@@ -9,7 +9,7 @@
 
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-import { claimJobs, deferJob, shouldDeferJob } from "@/lib/jobs/queue"
+import { claimJobs, deferJob, shouldDeferJob, locationHasPendingDataJobs, briefShouldWaitForData } from "@/lib/jobs/queue"
 import { runJob, type WorkerJobResult } from "@/lib/jobs/worker"
 
 // 800 (Fluid Compute): the `brief` job runs the multi-skill LLM synthesis,
@@ -57,6 +57,24 @@ export async function GET(req: Request) {
     const startMs = Date.now()
     let executed = 0
     for (const job of jobs) {
+      // ENG-H3: a scheduled brief waits for its location's data jobs to settle (up to
+      // BRIEF_MAX_DATA_WAIT_MS) so it builds on complete signals, not the wall clock. The
+      // first_run onboarding brief is exempt — it's chained right after its insights job and is
+      // meant to appear immediately. Defer (no attempt burned) re-checks on the next tick.
+      const scopeMode = (job.cursor as { mode?: string } | null)?.mode
+      if (job.pipeline === "brief" && scopeMode !== "first_run") {
+        const pending = await locationHasPendingDataJobs(sb, job.location_id)
+        const briefAgeMs = Date.now() - new Date(job.created_at).getTime()
+        if (briefShouldWaitForData({ pending, briefAgeMs })) {
+          try {
+            await deferJob(sb, job)
+            results.push({ jobId: job.id, pipeline: job.pipeline, outcome: "skipped", disposition: "deferred" })
+          } catch (e) {
+            console.warn(`[worker] brief data-wait defer failed for ${job.id}:`, e)
+          }
+          continue
+        }
+      }
       if (shouldDeferJob({ pipeline: job.pipeline, elapsedMs: Date.now() - startMs, executed })) {
         // Don't let one defer write failure abort the whole batch — on error the row simply
         // stays 'running' and the zombie-reclaim above catches it next tick (self-healing).
