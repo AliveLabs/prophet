@@ -12,6 +12,8 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 export type Verdict = "good" | "bad"
@@ -101,22 +103,11 @@ export function recalibrateTolerance(current: number, feedback: PlayFeedback[]):
   return clamp(Math.round(t))
 }
 
-// ── persistence (loose client; gated on the migration) ─────────────────────
-type FeedbackStore = {
-  from: (table: string) => {
-    insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
-    select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        order: (col: string, opts: { ascending: boolean }) => {
-          limit: (n: number) => Promise<{ data: Array<Record<string, unknown>> | null }>
-        }
-      }
-    }
-  }
-}
+// ── persistence — brief_feedback is now in the generated types (typed client; aliased for mocking) ──
+type FeedbackStore = SupabaseClient<Database>
 
 function store(client?: FeedbackStore): FeedbackStore {
-  return client ?? (createAdminSupabaseClient() as unknown as FeedbackStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 export async function recordPlayFeedback(

@@ -20,30 +20,10 @@ export type AskRecord = {
   createdAt: string
 }
 
-// Minimal query surface over the not-yet-generated table types.
-type LooseClient = {
-  from: (t: string) => {
-    insert: (row: Record<string, unknown>) => Promise<{ error: { message: string } | null }>
-    select: (c: string) => {
-      eq: (c: string, v: string) => {
-        order: (
-          c: string,
-          o: { ascending: boolean }
-        ) => { limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }> }
-        eq: (c2: string, v2: string) => {
-          order: (
-            c: string,
-            o: { ascending: boolean }
-          ) => { limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }> }
-        }
-        maybeSingle: () => Promise<{ data: Record<string, unknown> | null }>
-      }
-    }
-  }
-}
-
-function admin(): LooseClient {
-  return createAdminSupabaseClient() as unknown as LooseClient
+// ask_history + locations.standing_question are now in the generated types, so the real typed client
+// is used directly. Reads still degrade to empty/no-op on any error (the try/catch wrappers below).
+function admin() {
+  return createAdminSupabaseClient()
 }
 
 /** Persist one Q/A. Failure is never fatal to the ask itself (e.g. pre-migration). */

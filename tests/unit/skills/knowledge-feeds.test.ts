@@ -45,7 +45,7 @@ function makeDossier(): Dossier {
 
 // ── A loose-store stub matching the loader's chained eq/eq/in surface. ─────────────────────────────
 function knowledgeStore(rows: Record<string, unknown>[] | null, opts: { error?: boolean; throws?: boolean } = {}) {
-  return {
+  const __mock = {
     from() {
       return {
         select() {
@@ -67,6 +67,7 @@ function knowledgeStore(rows: Record<string, unknown>[] | null, opts: { error?: 
       }
     },
   }
+  return __mock as never
 }
 
 const baseRow = (over: Record<string, unknown>): Record<string, unknown> => ({

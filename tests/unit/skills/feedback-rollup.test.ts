@@ -497,7 +497,7 @@ function recomputeStore(opts: { upsertError?: string } = {}) {
         },
       }
     },
-  }
+  } as unknown as RecomputeStore
   return { store, captured }
 }
 

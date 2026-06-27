@@ -18,6 +18,8 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 
 /** One active, distilled snippet ready for prompt injection. */
 export type KnowledgeSnippet = {
@@ -52,22 +54,12 @@ export type KnowledgeScope = {
  *  (back-compat: a skill with no learning hook behaves exactly as today). */
 type AcceptedKinds = readonly KnowledgeSnippet["learningKind"][] | undefined
 
-// ── Loose client surface (skill_knowledge isn't in the generated DB types until the migration is
-//    applied — same posture as evergreen.ts / preferences.ts). ────────────────────────────────────
-type KnowledgeStore = {
-  from: (t: string) => {
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        eq: (c2: string, v2: string) => {
-          in: (c3: string, vals: string[]) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-        }
-      }
-    }
-  }
-}
+// skill_knowledge is now in the generated types, so this is the real typed client (aliased for the
+// injectable test client + the cron's admin client).
+type KnowledgeStore = SupabaseClient<Database>
 
 function store(client?: KnowledgeStore): KnowledgeStore {
-  return client ?? (createAdminSupabaseClient() as unknown as KnowledgeStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 // ── In-memory cache (1h TTL) — keyed by skill+org+location. The global set is weekly-stable, so the

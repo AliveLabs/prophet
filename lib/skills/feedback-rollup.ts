@@ -20,6 +20,8 @@
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import type { SupabaseClient } from "@supabase/supabase-js"
+import type { Database } from "@/types/database.types"
 import { signalFor, actionForVerdict, type FeedbackSignal } from "@/lib/skills/feedback-signals"
 import { computePlayTypeKey } from "@/lib/skills/preferences"
 import { PRODUCER_SKILLS, getProducerSkill } from "@/lib/skills/registry"
@@ -230,18 +232,11 @@ export const NEUTRAL_LOOKUP: PlayTypeMultiplierLookup = {
 
 // Loose client surface — skill_feedback_rollup isn't in the generated DB types until the migration is
 // applied (same posture as knowledge-feeds.ts / evergreen.ts / preferences.ts).
-type RollupStore = {
-  from: (t: string) => {
-    select: (cols: string) => {
-      in: (c: string, vals: string[]) => {
-        in: (c2: string, vals2: string[]) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-      }
-    }
-  }
-}
+// skill_feedback_rollup is now in the generated types — the real typed client (aliased for mocking).
+type RollupStore = SupabaseClient<Database>
 
 function readStore(client?: RollupStore): RollupStore {
-  return client ?? (createAdminSupabaseClient() as unknown as RollupStore)
+  return client ?? createAdminSupabaseClient()
 }
 
 export type RollupScopeIds = { organizationId?: string | null; locationId?: string | null }
@@ -311,17 +306,8 @@ export async function loadPlayTypeMultipliers(
   }
 }
 
-// Loose surface for resolving a location's org (so the loader can include org-scoped rows). Separate
-// from RollupStore because it queries `locations`, not the rollup table.
-type OrgLookupStore = {
-  from: (t: string) => {
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        maybeSingle: () => Promise<{ data: { organization_id?: string } | null; error: unknown }>
-      }
-    }
-  }
-}
+// Resolves a location's org (so the loader can include org-scoped rows); the real typed client.
+type OrgLookupStore = SupabaseClient<Database>
 
 /**
  * Convenience for the brief-build callers: load the multiplier lookup for a location, resolving its
@@ -335,7 +321,7 @@ export async function loadPlayTypeMultipliersForLocation(
 ): Promise<PlayTypeMultiplierLookup> {
   let organizationId: string | null = null
   try {
-    const orgClient = opts.orgClient ?? (createAdminSupabaseClient() as unknown as OrgLookupStore)
+    const orgClient = opts.orgClient ?? createAdminSupabaseClient()
     const { data } = await orgClient.from("locations").select("organization_id").eq("id", locationId).maybeSingle()
     organizationId = data?.organization_id ?? null
   } catch {
@@ -354,16 +340,8 @@ export async function loadPlayTypeMultipliersForLocation(
 //
 // FAIL-SOFT: any error / absent table → an EMPTY shadow set (signalCount 0) ⇒ no shadow replay at all.
 
-/** Loose surface reading shadow skill_knowledge feedback_pattern rows (their provenance.play_type_key). */
-type ShadowKnowledgeStore = {
-  from: (t: string) => {
-    select: (cols: string) => {
-      eq: (c: string, v: string) => {
-        eq: (c2: string, v2: string) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-      }
-    }
-  }
-}
+/** Reads shadow skill_knowledge feedback_pattern rows (their provenance.play_type_key); typed client. */
+type ShadowKnowledgeStore = SupabaseClient<Database>
 
 export type ShadowMultiplierSet = { lookup: PlayTypeMultiplierLookup; signalCount: number }
 
@@ -383,7 +361,7 @@ export async function loadShadowPlayTypeMultipliers(
   if (skillIds.length === 0) return EMPTY_SHADOW_SET
   try {
     const kc =
-      opts.knowledgeClient ?? (createAdminSupabaseClient() as unknown as ShadowKnowledgeStore)
+      opts.knowledgeClient ?? createAdminSupabaseClient()
     // shadow feedback_pattern rows carry their play_type_key in provenance.
     const shadowKeys = new Set<string>()
     for (const skillId of skillIds) {
@@ -423,16 +401,8 @@ export async function loadShadowPlayTypeMultipliers(
 // reference. The CAPTURE path (recordPlayFeedback / setPlayAction) is UNCHANGED + real-time; only this
 // DISTILLATION is batched.
 
-/** A loose surface for the nightly runner (service-role; reads feedback + briefs, upserts rollup). */
-export type RecomputeStore = {
-  from: (t: string) => {
-    select: (cols: string) => {
-      gte: (c: string, v: string) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-      in?: (c: string, vals: string[]) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
-    }
-    upsert: (rows: Record<string, unknown>[], opts: { onConflict: string }) => Promise<{ error: { message: string } | null }>
-  }
-}
+/** The nightly runner's client (service-role; reads feedback + briefs, upserts rollup); typed client. */
+export type RecomputeStore = SupabaseClient<Database>
 
 export type RecomputeResult = {
   dryRun: boolean
@@ -534,13 +504,11 @@ export async function runFeedbackRollup(opts: {
     if (hit) return hit
     let idx = new Map<string, EnrichedRecommendation>()
     try {
-      // The loose surface only exposes select().gte()/in() — fetch this location's recent briefs once
-      // and pick the matching date. (A real generated client would .eq twice; the loose store mirrors
-      // the existing daily-brief reader's shape.)
-      const sel = opts.store.from("daily_briefs").select("location_id, date_key, brief")
-      const { data } = sel.in
-        ? await sel.in("location_id", [locationId])
-        : await sel.gte("location_id", locationId) // fallback (never hit in prod client)
+      // Fetch this location's briefs once and index by date (the caller looks up by (loc, date)).
+      const { data } = await opts.store
+        .from("daily_briefs")
+        .select("location_id, date_key, brief")
+        .in("location_id", [locationId])
       for (const row of data ?? []) {
         if (String(row.location_id) !== locationId) continue
         const dk = String(row.date_key)
@@ -558,8 +526,10 @@ export async function runFeedbackRollup(opts: {
     if (orgCache.has(locationId)) return orgCache.get(locationId)!
     let org: string | null = null
     try {
-      const sel = opts.store.from("locations").select("id, organization_id")
-      const { data } = sel.in ? await sel.in("id", [locationId]) : await sel.gte("id", locationId)
+      const { data } = await opts.store
+        .from("locations")
+        .select("id, organization_id")
+        .in("id", [locationId])
       org = (data ?? []).find((r) => String(r.id) === locationId)?.organization_id as string | null ?? null
     } catch {
       org = null
