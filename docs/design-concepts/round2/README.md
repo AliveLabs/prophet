@@ -4,12 +4,13 @@ Built from the Bryan + Chris transcript review of the 4 un-caged concepts (Notio
 Self-contained, responsive, INTERACTIVE HTML (open directly; resize to phone width for mobile). For review —
 not shipped. Real competitor images (from our Supabase storage) are embedded as data URIs where it counts.
 
-## The three
+## The concepts
 | File | What it is |
 |---|---|
 | `A-the-pass-refined.html` | **The Pass, refined** — light, hero-led, modular 2-col square cards. The safest-to-ship composite. |
 | `B-widget-board.html` | **Widget Board** — iPad-home-screen weighted/variable-width widgets; combined events+weather+demand; inline handle/competitor management; competitive set with real photos. |
 | `C-visual-forward.html` | **Visual-Forward (ambitious)** — full-bleed event hero, glass + gradients, real embedded competitor social, the "wow" swing. |
+| `D-the-locale.html` | **The Locale (2026-06-27, the WILD swing)** — Bryan pushed for something fundamentally different (A–C all share a card-feed). The brief becomes a living **trade-area MAP canvas**: the background IS the subject (restaurant anchor, stadium demand-glow + dashed exit-route, competitor dots by closing-time, partner pin), the lead play floats as a glass callout on a leader line, then a calm negative-space **ledger** of ranked plays. Light, cartographic; Ticket palette extended with a cobalt **signal** accent + mono instrument labels. Inspired by Dribbble refs (ship/turbine-cutaway/iso-house "canvas + annotation" + airy negative space). Artifact: https://claude.ai/code/artifact/d8e83a64-95c6-4023-a24a-6b4357327c81 |
 
 ## How the transcript feedback was addressed
 - **Light mode primary + working dark toggle.** Palette built out beyond rust+teal with gradients/textures.
