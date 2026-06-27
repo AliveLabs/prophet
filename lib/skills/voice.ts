@@ -20,7 +20,11 @@ function dedash(s: string): string {
 function scrubTicket(s: string): string {
   let t = dedash(s)
   for (const { term, suggest } of CHEF_LINGO) {
-    while (term.test(t)) t = t.replace(term, suggest)
+    // Single GLOBAL replace — never a `while (term.test) replace` loop: that hangs forever if a
+    // replacement ever re-matches its own term (latent infinite-loop landmine). Force the global
+    // flag so one pass replaces every occurrence.
+    const g = term.flags.includes("g") ? term : new RegExp(term.source, term.flags + "g")
+    t = t.replace(g, suggest)
   }
   return t
 }

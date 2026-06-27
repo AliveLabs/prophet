@@ -209,9 +209,13 @@ async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotTy
   try {
     let q = sb.from("snapshots").select("raw_data").eq("competitor_id", competitorId)
     if (snapshotType) q = q.eq("snapshot_type", snapshotType)
-    const { data } = await q.order("date_key", { ascending: false }).limit(1).maybeSingle()
+    const { data, error } = await q.order("date_key", { ascending: false }).limit(1).maybeSingle()
+    // Log a real READ FAILURE so it's distinguishable from "this competitor has no snapshot" — the
+    // two collapse to the same null otherwise (ENG-M1), hiding a degraded dossier with no telemetry.
+    if (error) console.warn(`[dossier] competitor snapshot read error (${competitorId}${snapshotType ? `, ${snapshotType}` : ""}): ${error.message}`)
     return (data?.raw_data as Record<string, unknown>) ?? null
-  } catch {
+  } catch (err) {
+    console.warn(`[dossier] competitor snapshot read threw (${competitorId}${snapshotType ? `, ${snapshotType}` : ""}):`, err)
     return null
   }
 }

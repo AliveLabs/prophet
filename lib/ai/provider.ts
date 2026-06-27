@@ -229,11 +229,19 @@ export async function generateStructured<T>(req: GenerateRequest, opts: Structur
   try {
     raw = await transport(req)
   } catch (err) {
-    if (opts.fallback) return opts.fallback()
+    // Surface the degrade-to-floor transition — a fleet-wide model outage otherwise drops every
+    // brief to its deterministic fallback with no signal at this layer.
+    if (opts.fallback) {
+      console.warn("[generateStructured] model call failed; serving deterministic fallback:", err)
+      return opts.fallback()
+    }
     throw err
   }
   const validated = opts.validate ? opts.validate(raw) : (raw as T | null)
   if (validated != null) return validated
-  if (opts.fallback) return opts.fallback()
+  if (opts.fallback) {
+    console.warn("[generateStructured] model output failed validation; serving deterministic fallback")
+    return opts.fallback()
+  }
   throw new Error("generateStructured: model returned invalid output and no fallback was provided")
 }

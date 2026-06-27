@@ -19,6 +19,19 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 })
   }
 
+  // Defense-in-depth: explicitly confirm the requested location belongs to the caller's org before
+  // streaming its data — loadAmbientCards queries by location_id only, so don't rely on RLS alone for
+  // the tenant boundary (RLS does also enforce this; this makes the check explicit + auditable).
+  const { data: ownedLocation } = await auth.supabase
+    .from("locations")
+    .select("id")
+    .eq("id", locationId)
+    .eq("organization_id", auth.organizationId)
+    .maybeSingle()
+  if (!ownedLocation) {
+    return Response.json({ error: "Location not found" }, { status: 404 })
+  }
+
   const { stream, controller } = createSSEStream()
 
   ;(async () => {

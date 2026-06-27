@@ -1,0 +1,45 @@
+# CI — pre-merge type + unit-test gate (code-health audit 2026-06-26, TEST-1: "stand up CI").
+#
+# This is the team's first CI gate. It runs the two checks that are GREEN today and form the standing
+# verify gate (`tsc --noEmit` + `vitest run`) on every push and PR, so a regression is caught before it
+# rides to prod (the only prior automation was a *runtime* watchdog — failures were caught after deploy).
+#
+# Deliberately scoped (follow-ups, not blockers — see the audit):
+#   - `npm run lint` is NOT run yet (~8 pre-existing eslint errors; add once cleaned).
+#   - Playwright e2e is NOT run yet (only 2 shallow smoke specs; needs a seeded DB to be meaningful).
+#   - Secret scanning: prefer enabling GitHub native Secret Scanning + Push Protection on this PUBLIC
+#     repo (Settings → Code security) over a CI tool; add gitleaks here if you want PR-time scanning.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-test:
+    name: typecheck + unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
