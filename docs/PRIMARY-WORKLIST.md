@@ -8,6 +8,11 @@ is the truth.)
 > **Headline: the build is essentially COMPLETE and live on prod.** Both tracks shipped. What remains is
 > Bryan's decisions/curation + a small additive engineering tail — not new features.
 
+> **▶ NEXT FOCUS (2026-06-27): the OPEN code-health audit items.** See the START-HERE block at the top of
+> `docs/SESSION-HANDOFF.md` for the ordered list + what's already shipped; master ref is
+> `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (§2/§8). Secondary, also pending: the **design
+> concept pick** (A/B/C/D in `docs/design-concepts/round2/`) → apply to the app.
+
 ---
 
 ## ✅ Resolved 2026-06-26 (verified / done this session)

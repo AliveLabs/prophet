@@ -1,5 +1,73 @@
 # Ticket — Session Handoff (start here)
 
+> ## ▶ START HERE — 2026-06-27 · NEXT UP = THE OPEN CODE-HEALTH AUDIT ITEMS
+>
+> **Master reference:** `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (a 4-pass A−/B audit;
+> its **§2 priority list** + **§8 next-session plan** are the SSOT for what's left). Work the OPEN items
+> below — that's the agreed next focus. The design concepts (A–D) are ALSO still pending Bryan's pick;
+> tracked at the bottom of this block so they don't get lost.
+>
+> ### ✅ Already shipped from the audit (2026-06-26→27, all on `main`, CI green) — don't redo:
+> - **SEC-C1** committed-secret file removed (`b0b6dcd`) + truncated key-fragments scrubbed from a doc
+>   (`170e2fc`) + 3 stale branches that carried the blob deleted + **GitHub Secret Scanning + Push
+>   Protection enabled**. (Main-history rewrite DECLINED — test-mode secret in an already-public repo, low ROI.)
+> - **SEC-C2** trial-reminders fail-open cron auth → fail-closed (`9bbf8e5`).
+> - **SEC-M1** VERIFIED not a leak (job routes use the RLS user client + org-scoped builders) + added a
+>   defense-in-depth guard to `ambient-feed`.
+> - **SEC-H2/H3** the 3 unauth API-key endpoints (quick-tip, places autocomplete/details) now require a
+>   session + input cap + server-action direct-lib fix (`c7ec507`).
+> - **ENG-H1/H2** shared `lib/http/fetch-with-retry.ts` (timeout + retry, 9 tests) routed through all 8
+>   provider clients (`bed651d`).
+> - **TEST-1** stood up CI (`.github/workflows/ci.yml`: typecheck + unit tests on push/PR) + `typecheck` script.
+> - **ENG-Low L1** voice.ts infinite-loop landmine fixed · **L3** generateStructured logs the floor degrade ·
+>   **ENG-M1** highest-signal swallowed read-errors now logged (dossier competitor read + insights SEO reads).
+> - Two confirmed bugs from the review: **events `dowOf()`** UTC→venue-local day-of-week + **org
+>   cascade-delete vs worker race** guard (`6629143`, +13 tests). README rewritten.
+>
+> ### 🔴 OPEN audit items — work these next (ordered by impact; full detail in the audit doc):
+> 1. **TEST-2** — unit-test `app/api/stripe/webhook` + `lib/auth/org-access` (the two highest-blast-radius
+>    paths with ZERO coverage; the webhook is the single most dangerous untested code). CI now exists to catch regressions.
+> 2. **ENG-M4** (highest-value cleanup) — regenerate `types/database.types.ts` now the spine tables are live
+>    in prod, then delete the ~16 `as unknown as <Store>` loose-client casts + their dead fallbacks
+>    (`feedback-rollup.ts`, `evergreen.ts`, `daily-brief.ts`, `insight-pool.ts`, `ask/history.ts`, etc.).
+>    ⚠️ NEEDS prod DB access to regenerate types (classifier-gated — get Bryan's OK / he runs `supabase gen types`).
+> 3. **SEC-H1** — re-assert `isPlatformAdmin` on each impersonation use (a demoted admin keeps a live
+>    session until exp); move impersonation-cookie signing off `SUPABASE_SERVICE_ROLE_KEY` to a dedicated
+>    `IMPERSONATION_SIGNING_SECRET`. (`lib/auth/impersonation-cookie.ts`, `proxy.ts`.)
+> 4. **SEC-M2** — `/api/waitlist`: add rate limiting (per IP + per email), replace the
+>    `supabase.auth.admin.listUsers({perPage:1000})` scan with a targeted lookup, keep responses uniform
+>    (removes the email-existence oracle). (Needs a KV store — Upstash via Vercel marketplace.)
+> 5. **SEC-M3** — `REVOKE SELECT … FROM anon, authenticated` on the `marketing.*` Stream-2 tables (a
+>    latent `GRANT` footgun) + a test asserting no permissive `authenticated` policy on `marketing.*`.
+> 6. **ENG-H3** — gate `build-brief` (08:00) on "all today's data jobs for this location are `done`"
+>    rather than wall-clock; reuses `pipeline_runs`. Borderline at ~14 locations today, bites as the fleet grows.
+> 7. **Rate-limit the now-auth-gated endpoints** (SEC-H2/H3 follow-up) + restrict the Google key by
+>    referrer/IP in GCP — both need infra/console (KV + GCP).
+> 8. **Lower:** SEC-M4 (normalizeRole fail-open→read_only + NOT-NULL backfill) · SEC-Low L1–L3 (remove the
+>    temp stripe-mode diag route; query-string token→header; pricing-mismatch alert) · ENG-M2 (extract
+>    `synthesize()`'s pool-build + grassroots-floor into pure fns) · ENG-M3/M5/M6 (typed snapshot writers;
+>    bounded-concurrency on the serial SEO/insights/feedback loops) · ENG-Low L2/L4 · remaining low-signal
+>    ENG-M1 logs · delete the 6 other stale branches (`dev`, `feature-*`) · optional rotate the test webhook secret.
+>
+> ### 🎨 DESIGN CONCEPTS — still pending Bryan's pick (DON'T lose track):
+> Four round-2 light concepts, all live + in `docs/design-concepts/round2/` (`README.md` describes each):
+> **A** The Pass `debeba1e` · **B** Widget Board `2594e887` · **C** Visual-Forward `b8ec6e0d` ·
+> **D** The Locale (the wild swing — location-as-canvas + soft panels + mobile) `d8e83a64`. Decision =
+> pick a direction (or fusion) → reel in → apply to the real app + close the UX gaps
+> (`docs/ux-gaps-tracker.md`, esp. social-handle/competitor management). Standing wild-concept constraints:
+> stay light; extend (not limited to) the Ticket palette; background as a prominent canvas element; max
+> negative space; concepts must SCALE across location types; always include mobile. Memory:
+> `[[ticket-design-gap-rootcause]]`. **NOTE: design = concepts only, NOT applied to the app yet.**
+>
+> ### Ops facts the next session needs:
+> Deploy = push to `main` → Vercel auto-deploys (Bryan authorized direct main pushes). **CI now runs
+> typecheck + unit tests on every push/PR.** Verify gate before deploy: `npx tsc --noEmit` + `npm run
+> test:unit` (746 tests) + `npx next build`. PROD READS are classifier-gated in unsupervised mode (need
+> Bryan's per-target OK); cron triggers via `scripts/db/cron.mts`, prod SQL via `scripts/db/sql.mts`.
+> Latest `main` after this session ≈ `c79465b`.
+
+---
+
 **Updated 2026-06-26.** At-a-glance worklist: `docs/PRIMARY-WORKLIST.md` (the current SSOT — read it first).
 Freshest narrative: the latest `~/vault/logs/sessions/2026-06-2x-ticket-*` logs. Memories to read first:
 `[[ticket-insight-engine-deep-review]]`, `[[bryan-finished-tools-not-good-enough]]`,
