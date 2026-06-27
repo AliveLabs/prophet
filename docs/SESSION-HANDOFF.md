@@ -1,11 +1,19 @@
 # Ticket — Session Handoff (start here)
 
-> ## ▶ START HERE — 2026-06-27 · NEXT UP = THE OPEN CODE-HEALTH AUDIT ITEMS
+> ## ▶ START HERE — 2026-06-27 (session 2) · MOST OPEN AUDIT ITEMS NOW SHIPPED
 >
 > **Master reference:** `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (a 4-pass A−/B audit;
 > its **§2 priority list** + **§8 next-session plan** are the SSOT for what's left). Work the OPEN items
 > below — that's the agreed next focus. The design concepts (A–D) are ALSO still pending Bryan's pick;
 > tracked at the bottom of this block so they don't get lost.
+>
+> ### ✅ Shipped THIS session (2026-06-27 session 2, on `main`, CI green) — don't redo:
+> - **Type regen (ENG-M4 prereq)** `e13001d` — `types/database.types.ts` regenerated from prod (spine tables now typed).
+> - **TEST-2** `ba63208` — Stripe webhook dispatcher + helpers + org-access resolution tests (the 2 highest-blast-radius untested paths). 801 unit tests now.
+> - **SEC-H1** `02dd457` — `proxy.ts` re-validates the impersonation ACTOR's admin status each request (teardown on demotion); dedicated `IMPERSONATION_SIGNING_SECRET` (backward-compatible — falls back to the service-role key).
+> - **SEC-M2 + SEC-H2/H3 rate-limiting** `707e71d` — new `lib/http/rate-limit.ts` (Upstash, FAIL-OPEN) on waitlist (IP+email) / quick-tip / places; waitlist `listUsers(1000)` scan → targeted `profiles` lookup.
+> - **ENG-H3** `df60927` — a scheduled brief defers until its location's data jobs settle (90-min cap), not the wall clock; `first_run` brief exempt.
+> - **SEC-M4 + ENG-Low L2** `2b5d944` — `normalizeRole` unknown→`admin` (not super_admin god-mode) + alert; harm verdicts matched by position, not model-returned index.
 >
 > ### ✅ Already shipped from the audit (2026-06-26→27, all on `main`, CI green) — don't redo:
 > - **SEC-C1** committed-secret file removed (`b0b6dcd`) + truncated key-fragments scrubbed from a doc
@@ -24,7 +32,15 @@
 > - Two confirmed bugs from the review: **events `dowOf()`** UTC→venue-local day-of-week + **org
 >   cascade-delete vs worker race** guard (`6629143`, +13 tests). README rewritten.
 >
-> ### 🔴 OPEN audit items — work these next (ordered by impact; full detail in the audit doc):
+> ### 🔴 OPEN — remaining after 2026-06-27 session 2 (the list below is mostly DONE — see the shipped box above):
+> **Top of the list now:**
+> - **SEC-M3 (READY — needs apply + commit):** migration written + HELD at `supabase/migrations/20260627120000_sec_m3_revoke_marketing_stream2_select.sql` (REVOKE SELECT on 6 marketing Stream-2 tables + 1 view from anon/authenticated + an invariant guard). Apply: `npx tsx scripts/db/sql.mts --file supabase/migrations/20260627120000_sec_m3_revoke_marketing_stream2_select.sql`, then `git add` + commit it.
+> - **Activate rate-limiting:** add the Upstash Redis Marketplace integration (Vercel → Storage) + redeploy; injects `UPSTASH_REDIS_REST_URL`/`TOKEN`. Until then `lib/http/rate-limit.ts` fails open (no limiting — same as before).
+> - **(optional) `IMPERSONATION_SIGNING_SECRET`:** set in Vercel to cut impersonation signing off the service-role key (SEC-H1). Non-breaking if unset.
+> - **ENG-M4 cast sweep (DEFERRED):** type regen shipped; the ~30 `as unknown as <Store>` removals + dead-fallback cleanup deferred (risky churn in load-bearing fail-soft engine reads — do supervised). Carries ENG-M5.
+> - **Lower:** ENG-M2 (extract `synthesize()` pure fns) · ENG-M6 (bounded concurrency on serial SEO/insights loops) · SEC-Low L1 (remove temp stripe-mode diag route once Stripe work closes) · SEC-Low L2/L3 (query-string token→header; pricing-mismatch alert) · delete 6 stale remote branches · optional rotate the test webhook secret.
+>
+> <details><summary>Original 2026-06-26 ordered list (historical — most now shipped)</summary>
 > 1. **TEST-2** — unit-test `app/api/stripe/webhook` + `lib/auth/org-access` (the two highest-blast-radius
 >    paths with ZERO coverage; the webhook is the single most dangerous untested code). CI now exists to catch regressions.
 > 2. **ENG-M4** (highest-value cleanup) — regenerate `types/database.types.ts` now the spine tables are live
@@ -48,6 +64,7 @@
 >    `synthesize()`'s pool-build + grassroots-floor into pure fns) · ENG-M3/M5/M6 (typed snapshot writers;
 >    bounded-concurrency on the serial SEO/insights/feedback loops) · ENG-Low L2/L4 · remaining low-signal
 >    ENG-M1 logs · delete the 6 other stale branches (`dev`, `feature-*`) · optional rotate the test webhook secret.
+> </details>
 >
 > ### 🎨 DESIGN CONCEPTS — still pending Bryan's pick (DON'T lose track):
 > Four round-2 light concepts, all live + in `docs/design-concepts/round2/` (`README.md` describes each):
@@ -64,7 +81,7 @@
 > typecheck + unit tests on every push/PR.** Verify gate before deploy: `npx tsc --noEmit` + `npm run
 > test:unit` (746 tests) + `npx next build`. PROD READS are classifier-gated in unsupervised mode (need
 > Bryan's per-target OK); cron triggers via `scripts/db/cron.mts`, prod SQL via `scripts/db/sql.mts`.
-> Latest `main` after this session ≈ `c79465b`.
+> Latest `main` after this session ≈ `2b5d944` (2026-06-27 session 2; 801 unit tests; CI green). SEC-M3 migration is written but NOT applied (held for Bryan).
 
 ---
 
