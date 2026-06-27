@@ -103,6 +103,119 @@ export type Leverage = {
   basisInternal: string // internal only: the opportunity-sizing math + assumptions
 }
 
+// ---------------------------------------------------------------------------
+// Structured evidence-forward presentation layer (insight-quality upgrade).
+//
+// The concepts (Bryan + Chris, 2026-06-26) read closer to target than prod NOT
+// because prod's rationales are weak, but because the engine stopped at prose +
+// machine refs and never COMPOSED the evidence-forward, comparative, quantified
+// layer the dossier already holds. These types carry exactly what the concept
+// cards render. Each block is OPTIONAL + fail-soft (producers / old persisted
+// briefs simply lack it — mirrors how combinedScore / category were added), is
+// composed DETERMINISTICALLY by the presenter from the dossier, and is honest-
+// gated there. HARD RULE: never a POS/$ claim (margins, ticket counts, $ lift) —
+// estimates are ESTIMATED + percentage/ordinal framed; quotes are verbatim.
+// See docs/engine-rewrite/insight-quality-upgrade-plan.md.
+// ---------------------------------------------------------------------------
+
+/** A verbatim, attributed review quote behind a play (the "breakout quotes" rolldown). `text` MUST
+ *  byte-match a stored review example (no paraphrase); `source` traces to a grounded review.theme ref. */
+export type BreakoutQuote = {
+  /** The verbatim review text — byte-matches a stored dossier example. */
+  text: string
+  /** The dossier ref this quote resolves from (e.g. review.theme:slow-service) — must be grounded. */
+  source: string
+  /** A named competitor when the quote is from a competitor's reviews; absent ⇒ the operator's own. */
+  competitor?: string
+  /** Star rating of the originating review, when known. */
+  rating?: number
+  /** ISO date the review is "as of", when known. */
+  date?: string
+}
+
+/** Negative-sentiment share within one review category — the food/wait/price/cleanliness breakdown.
+ *  `pct` is a SHARE (0-100) of the categorized theme mentions, never a fabricated count of customers. */
+export type SentimentCategory = {
+  /** A normalized review category: food | service | wait | price | cleanliness | ambiance | ... */
+  category: string
+  /** Share of mentions in this category, 0-100 (rounded). */
+  pct: number
+  direction: "positive" | "negative" | "mixed"
+}
+
+/** One decodable you-vs-set (or you-vs-top-competitor) comparison on a real metric. */
+export type HeadToHead = {
+  /** What is compared, humanized: "review velocity", "local visibility", "social engagement", ... */
+  metric: string
+  /** The operator's value, pre-humanized for display (e.g. "4.6 stars", "12 a week"). */
+  you: string
+  /** The comparison value — the set average or a named top competitor (pre-humanized). */
+  setOrCompetitor: string
+  /** Who leads on this metric. */
+  lead: "you" | "them" | "even"
+  /** A one-line, plain-language framing of the delta ("You earn reviews about twice as fast as the set"). */
+  label: string
+}
+
+/** The single best competitor social post to embed on a social play — the #1-praised concept feature.
+ *  Pulled from the already-computed social signals (image + OCR'd caption + engagement). */
+export type ExemplarSocialPost = {
+  /** The competitor whose post this is. */
+  competitor: string
+  /** "instagram" | "facebook" | "tiktok" (kept as string to avoid coupling the core contract). */
+  platform: string
+  /** Public media URL of the post image/thumbnail (Supabase-storage or platform CDN). */
+  mediaUrl: string
+  /** The post caption / OCR'd on-image text. */
+  caption: string
+  /** Engagement framed as a % (likes+comments over followers) when derivable; omitted otherwise. */
+  engagementPct?: number
+  likes?: number
+  comments?: number
+  /** The dossier ref this post traces to (a social.* ref) — for grounding. */
+  source: string
+}
+
+/** A HONEST, %-framed (or ordinal/range) estimate of reach or frequency — NEVER a $ / POS figure.
+ *  `isEstimated` is always true so the renderer can flag it as an estimate, not a measured fact. */
+export type PlayEstimate = {
+  /** The pre-formatted, honest estimate ("roughly 1 in 25 visitors", "10-15% of weekend covers"). */
+  value: string
+  /** The shape of the value, for the renderer. */
+  unit: "%" | "range" | "count"
+  /** How it was derived, in plain language (the honest basis). */
+  basis: string
+  /** Always true — this is an estimate, not a measured fact. */
+  isEstimated: true
+}
+
+/** One line of the "why we're confident" expansion — a source plus what we actually saw from it. */
+export type ConfidenceBasisItem = {
+  /** Humanized source label ("Reviews", "Events", "SEO", "Competitor social"). */
+  source: string
+  /** What that source actually showed, in one readable line. */
+  whatWeSaw: string
+}
+
+/** The structured evidence-forward presentation block a play may carry. Composed by the presenter
+ *  from the dossier, honest-gated; OPTIONAL + fail-soft throughout. Never carries POS/$ claims. */
+export type PlayPresentation = {
+  /** 1-3 verbatim, attributed review quotes (own + competitor) behind a review-grounded play. */
+  breakoutQuotes?: BreakoutQuote[]
+  /** Negative-sentiment-by-category % breakdown derived from review analysis. */
+  sentimentByCategory?: SentimentCategory[]
+  /** Decodable you-vs-set / you-vs-competitor deltas. */
+  headToHead?: HeadToHead[]
+  /** The embedded competitor exemplar post on a social play. */
+  exemplarSocialPost?: ExemplarSocialPost
+  /** A %-framed honest estimate of reach/frequency (never $). */
+  estimate?: PlayEstimate
+  /** true ⇒ "press the advantage" (you're winning); false ⇒ "steal the cue"; unset ⇒ neither framing. */
+  advantage?: boolean
+  /** The structured "why we're confident" rolldown content. */
+  confidenceBasis?: ConfidenceBasisItem[]
+}
+
 export type EnrichedRecommendation = {
   // --- back-compat (the legacy card reads these) ---
   title: string
@@ -143,6 +256,11 @@ export type EnrichedRecommendation = {
    *  play keeps it suppressed even after re-fusion rewords the title. Unset on producer plays
    *  (their skillId:title-slug key is already stable). */
   stableKey?: string
+  /** Insight-quality upgrade: the structured, evidence-forward presentation block (breakout quotes,
+   *  sentiment-by-category, head-to-head, embedded competitor post, %-estimate, advantage flag, the
+   *  structured why-confident). Composed by the presenter from the dossier; optional + fail-soft so
+   *  producer plays and old persisted briefs deserialize cleanly. Never carries POS/$ claims. */
+  presentation?: PlayPresentation
 }
 
 /** One signal source the engine checked when building the brief (the "what we checked" view). */

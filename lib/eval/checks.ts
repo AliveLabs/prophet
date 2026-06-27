@@ -271,6 +271,73 @@ export function checkEvidenceGrounded(
   return v
 }
 
+// ── insight-quality: structured presentation block grounding ──────────────────
+
+/** $/POS guard — an estimate (or its basis) must never carry currency or POS-derived figures. */
+const PRESENTATION_MONEY_POS_RE = /[$£€]|\bdollars?\b|\brevenue\b|\bmargins?\b|\bprofit\b|\bsales\b|\btickets?\b|\bcovers?\b/i
+const PRESENTATION_ESTIMATE_UNITS = new Set(["%", "range", "count"])
+
+/**
+ * Insight-quality gate — validate the structured presentation block a play may carry (composed by
+ * the presenter from the dossier). Mirrors the evidence[] grounding contract: breakout quotes must
+ * byte-match a stored review example and trace to a grounded ref; the embedded competitor post must
+ * carry a media URL + a grounded source; the estimate must be %-framed/ordinal with NO $ / POS figure;
+ * sentiment percentages stay in range; the head-to-head lead is a valid flag. Fail-soft: a play with
+ * no presentation block produces no violations. `storedQuotes` enables the byte-match check (optional,
+ * matching checkEvidenceGrounded — skipped when not supplied).
+ */
+export function checkPresentationGrounded(
+  rec: EnrichedRecommendation,
+  i: number,
+  index: RefIndex,
+  storedQuotes?: Set<string>,
+): Violation[] {
+  const v: Violation[] = []
+  const pres = rec.presentation
+  if (!pres) return v
+  const grounded = (ref: string) => index.allowedRefs.has(ref) || index.allowedRefs.has(ref.split(":")[0])
+
+  for (const q of pres.breakoutQuotes ?? []) {
+    if (!grounded(q.source)) v.push({ code: "presentation_quote_ungrounded_source", recIndex: i, detail: q.source })
+    if (storedQuotes && q.text && !storedQuotes.has(q.text.trim())) {
+      v.push({ code: "presentation_quote_not_verbatim", recIndex: i, detail: q.text.slice(0, 60) })
+    }
+  }
+
+  if (pres.estimate) {
+    const e = pres.estimate
+    if (!PRESENTATION_ESTIMATE_UNITS.has(e.unit)) v.push({ code: "presentation_estimate_bad_unit", recIndex: i, detail: String(e.unit) })
+    if (e.isEstimated !== true) v.push({ code: "presentation_estimate_not_flagged", recIndex: i, detail: e.value })
+    if (PRESENTATION_MONEY_POS_RE.test(`${e.value} ${e.basis}`)) {
+      v.push({ code: "presentation_estimate_money_or_pos", recIndex: i, detail: e.value })
+    }
+  }
+
+  for (const s of pres.sentimentByCategory ?? []) {
+    if (!(typeof s.pct === "number" && s.pct >= 0 && s.pct <= 100)) {
+      v.push({ code: "presentation_sentiment_pct_oob", recIndex: i, detail: `${s.category}:${s.pct}` })
+    }
+  }
+
+  if (pres.exemplarSocialPost) {
+    const ex = pres.exemplarSocialPost
+    if (!ex.mediaUrl?.trim()) v.push({ code: "presentation_exemplar_no_media", recIndex: i, detail: ex.competitor })
+    if (!grounded(ex.source)) v.push({ code: "presentation_exemplar_ungrounded_source", recIndex: i, detail: ex.source })
+    // The competitor caption is verbatim third-party copy; it must never surface a $ / POS / discount line.
+    if (ex.caption && PRESENTATION_MONEY_POS_RE.test(ex.caption)) {
+      v.push({ code: "presentation_exemplar_caption_money_or_pos", recIndex: i, detail: ex.caption.slice(0, 60) })
+    }
+  }
+
+  for (const h of pres.headToHead ?? []) {
+    if (h.lead !== "you" && h.lead !== "them" && h.lead !== "even") {
+      v.push({ code: "presentation_h2h_bad_lead", recIndex: i, detail: String(h.lead) })
+    }
+  }
+
+  return v
+}
+
 /** Collect every verbatim review example the dossier stored — the allowed set for quote byte-match. */
 export function collectStoredQuotes(ruleOutputs: { evidence?: Record<string, unknown> }[]): Set<string> {
   const out = new Set<string>()
@@ -307,6 +374,8 @@ export function evaluateBrief(
       ...checkCountsHaveDenominator(rec, i),
       ...checkMaintainImpactCalibration(rec, i),
       ...(storedQuotes ? checkEvidenceGrounded(rec, i, index, storedQuotes) : []),
+      // insight-quality: structured presentation block grounding (quotes/estimate/exemplar/sentiment)
+      ...checkPresentationGrounded(rec, i, index, storedQuotes),
     )
   })
   // brief-level: the headline/deck are customer-facing too, so scan them for a raw internal score.

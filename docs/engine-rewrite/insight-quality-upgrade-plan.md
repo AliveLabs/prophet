@@ -1,5 +1,19 @@
 # Production Insight-Quality Upgrade — make prod insights/recommendations match the concepts
 
+> **STATUS 2026-06-26 — BUILT + SHIPPED (P1–P5).** The structured `presentation` block is live on
+> `EnrichedRecommendation`, composed deterministically in the presenter from the dossier and honesty-
+> gated. New: `lib/skills/presentation.ts` (all 7 builders), `PlayPresentation` + sub-types in
+> `lib/skills/types.ts`, `presentBrief`/`presentPlay` wiring in `lib/skills/presenter.ts`,
+> `checkPresentationGrounded` gate in `lib/eval/checks.ts`, and `tests/unit/skills/presentation.test.ts`
+> (25 tests). Gate: tsc clean · 720 unit tests · `next build` clean · adversarial review (3 findings
+> fixed: exemplar caption $/POS strip + gate, engagement-rate `viewsCount===0` fallback). Persists
+> automatically (brief is stored as JSON ⇒ `plays[].presentation` rides along; no migration). Composed
+> ENTIRELY in the presenter (no producer changes) and fail-soft (any builder error ⇒ block absent, the
+> served brief never breaks). **PENDING:** live verification on a real Cane's rebuild — blocked this
+> session (prod DB read is classifier-gated in unsupervised mode); the next daily build-brief cron
+> populates it. The **UI rendering** of the block is the DESIGN track (intentionally not built here).
+
+
 **2026-06-26.** Bryan + Chris: the concepts' INSIGHTS and RECOMMENDATIONS (not just the visuals) are much
 closer to where we want to go than what production generates. This plan closes that gap. **Plan only — build
 in a new session.** Scope = the INSIGHT/RECOMMENDATION ENGINE + the play data the brief renders. NOT the UI

@@ -28,6 +28,7 @@
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { BusyTimesResult } from "@/lib/providers/outscraper"
 import type { Brief, EnrichedRecommendation, Evidence } from "@/lib/skills/types"
+import { buildPresentation, buildPresentationContext, type PresentationContext } from "@/lib/skills/presentation"
 
 // ── A1. relational busy-times framing ───────────────────────────────────────
 
@@ -248,6 +249,7 @@ export function presentPlay(
   allowedRefs: Set<string>,
   busyTimes?: BusyTimesResult | null,
   trafficDayByRef?: Map<string, string>,
+  presentationCtx?: PresentationContext,
 ): EnrichedRecommendation {
   const trafficStats = trafficDayByRef
     ? relativeTrafficStats(play, busyTimes, trafficDayByRef, allowedRefs)
@@ -275,6 +277,21 @@ export function presentPlay(
   const next: EnrichedRecommendation = { ...stripped }
   if (resolved.length) next.evidence = resolved
   else delete next.evidence
+  // Insight-quality upgrade: compose the structured evidence-forward block (quotes, sentiment-by-
+  // category, head-to-head, embedded competitor post, %-estimate, advantage, why-confident) from the
+  // dossier. Built from the ORIGINAL play (its evidenceRefs/leverage/category survive the strip), and
+  // per-play fail-soft so one bad play never drops the block for the rest of the brief. Recomputed
+  // each pass ⇒ idempotent. Omitted entirely when the dossier lacks the signals.
+  if (presentationCtx) {
+    try {
+      const presentation = buildPresentation(play, presentationCtx)
+      if (presentation) next.presentation = presentation
+      else delete next.presentation
+    } catch (err) {
+      console.warn("[presenter] presentation block failed for play; omitting it", err)
+      delete next.presentation
+    }
+  }
   return next
 }
 
@@ -291,9 +308,11 @@ export function presentBrief(brief: Brief, dossier: Dossier): Brief {
     const { allowedRefs } = buildRefIndex(dossier)
     const trafficDayByRef = buildTrafficDayIndex(dossier)
     const busyTimes = dossier.location?.busyTimes
+    // Insight-quality upgrade: the shared lookups the structured presentation block reads, built once.
+    const presentationCtx = buildPresentationContext(dossier, allowedRefs)
     return {
       ...brief,
-      plays: brief.plays.map((p) => presentPlay(p, artifacts, allowedRefs, busyTimes, trafficDayByRef)),
+      plays: brief.plays.map((p) => presentPlay(p, artifacts, allowedRefs, busyTimes, trafficDayByRef, presentationCtx)),
     }
   } catch (err) {
     console.warn("[presenter] pass failed; serving un-presented brief", err)
