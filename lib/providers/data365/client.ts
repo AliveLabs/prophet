@@ -17,6 +17,7 @@
 // ---------------------------------------------------------------------------
 
 import { DATA365_POSTS_PER_PULL } from "@/lib/billing/cost-model"
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
 
 export type Data365Platform = "instagram" | "facebook" | "tiktok"
 
@@ -70,7 +71,9 @@ async function apiRequest<T>(
     }
   }
 
-  const res = await fetch(url.toString(), { method })
+  // Timeout-only (retries: 0) — the collection poll loop above owns retry/backoff; retrying a
+  // collection-start POST here could double-trigger. The timeout just bounds a hung connection.
+  const res = await fetchWithRetry(url.toString(), { method }, { timeoutMs: 60_000, retries: 0, label: "data365" })
 
   if (!res.ok) {
     const text = await res.text().catch(() => "")

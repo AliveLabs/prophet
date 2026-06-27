@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+
 type GooglePlacesAutocompleteResponse = {
   suggestions?: Array<{
     placePrediction?: {
@@ -103,7 +105,7 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
       },
     }
   }
-  const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+  const response = await fetchWithRetry("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -133,7 +135,7 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
 }
 
 export async function fetchPlaceDetails(placeId: string) {
-  const response = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+  const response = await fetchWithRetry(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: {
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask":
@@ -214,7 +216,7 @@ export async function fetchNearbyPlaces(
     limit?: number
   },
 ): Promise<DiscoveredCompetitor[]> {
-  const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+  const response = await fetchWithRetry("https://places.googleapis.com/v1/places:searchNearby", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

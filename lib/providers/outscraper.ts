@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+
 const BASE_URL = "https://api.app.outscraper.com/maps/search-v3"
 
 function getApiKey(): string {
@@ -61,9 +63,11 @@ export async function fetchBusyTimes(
   url.searchParams.set("limit", "1")
   url.searchParams.set("async", "false")
 
-  const res = await fetch(url.toString(), {
-    headers: { "X-API-KEY": getApiKey() },
-  })
+  const res = await fetchWithRetry(
+    url.toString(),
+    { headers: { "X-API-KEY": getApiKey() } },
+    { timeoutMs: 60_000, label: "outscraper" },
+  )
 
   if (!res.ok) {
     const text = await res.text()

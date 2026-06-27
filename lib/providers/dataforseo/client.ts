@@ -2,6 +2,8 @@
 // Shared DataForSEO HTTP client – auth + request helper
 // ---------------------------------------------------------------------------
 
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+
 export const DATAFORSEO_BASE_URL = "https://api.dataforseo.com"
 
 /**
@@ -42,14 +44,24 @@ export function getAuthHeader(): string {
 }
 
 export async function postDataForSEO<T>(path: string, body: unknown): Promise<T> {
-  const response = await fetch(`${DATAFORSEO_BASE_URL}${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: getAuthHeader(),
-      "Content-Type": "application/json",
+  const response = await fetchWithRetry(
+    `${DATAFORSEO_BASE_URL}${path}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: getAuthHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  })
+    {
+      timeoutMs: 60_000,
+      // Retry transient server/rate errors; NEVER retry a 402 (out of credits) — re-POSTing a task
+      // wastes another charge. The !response.ok check below still throws DataForSEOError on any non-OK.
+      shouldRetryResponse: (r) => r.status === 429 || r.status >= 500,
+      label: "dataforseo",
+    },
+  )
 
   if (!response.ok) {
     const text = await response.text()

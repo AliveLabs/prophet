@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+
 const GEMINI_INSIGHTS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
 
@@ -43,7 +45,7 @@ export async function generateGeminiJson(
   prompt: string,
   options?: { maxOutputTokens?: number; temperature?: number }
 ) {
-  const response = await fetch(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
+  const response = await fetchWithRetry(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -145,7 +147,7 @@ export async function fetchGoogleMenuData(
     }
     const prompt = `${contextPrefix}${GOOGLE_MENU_PROMPT}\n\nRestaurant: ${locationInfo}`
 
-    const response = await fetch(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
+    const response = await fetchWithRetry(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

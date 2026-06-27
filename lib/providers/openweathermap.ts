@@ -1,3 +1,5 @@
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+
 const DAY_SUMMARY_URL = "https://api.openweathermap.org/data/3.0/onecall/day_summary"
 const ONECALL_URL = "https://api.openweathermap.org/data/3.0/onecall"
 
@@ -82,7 +84,7 @@ export async function fetchHistoricalWeather(
   const dateStr = date.toISOString().split("T")[0]
 
   const url = `${DAY_SUMMARY_URL}?lat=${lat}&lon=${lon}&date=${dateStr}&appid=${getApiKey()}&units=metric`
-  const res = await fetch(url)
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 15_000, label: "openweathermap" })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`OpenWeatherMap error ${res.status}: ${text}`)
@@ -154,7 +156,7 @@ export async function fetchForecast(
   lon: number
 ): Promise<DailyWeatherSummary[]> {
   const url = `${ONECALL_URL}?lat=${lat}&lon=${lon}&exclude=minutely,hourly,alerts,current&appid=${getApiKey()}&units=metric`
-  const res = await fetch(url, { next: { revalidate: 3600 } })
+  const res = await fetchWithRetry(url, { next: { revalidate: 3600 } }, { timeoutMs: 15_000, label: "openweathermap" })
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`OpenWeatherMap forecast error ${res.status}: ${text}`)

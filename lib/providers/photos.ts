@@ -1,4 +1,5 @@
 import { createHash } from "crypto"
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
 
 const GEMINI_VISION_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -61,12 +62,12 @@ export type PhotoDiffResult = {
 // Stage 1: Fetch photo references from Google Places API (New)
 export async function fetchPhotoReferences(placeId: string): Promise<PhotoReference[]> {
   const url = `https://places.googleapis.com/v1/places/${placeId}`
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: {
       "X-Goog-Api-Key": getPlacesKey(),
       "X-Goog-FieldMask": "id,displayName,photos",
     },
-  })
+  }, { timeoutMs: 15_000, label: "places-photos" })
 
   if (!res.ok) {
     const text = await res.text()
@@ -91,14 +92,14 @@ export async function downloadPhoto(photoName: string): Promise<FetchedPhoto & {
   const mediaUrl =
     `https://places.googleapis.com/v1/${photoName}/media?maxHeightPx=800&maxWidthPx=800&key=${getPlacesKey()}&skipHttpRedirect=true`
 
-  const metaRes = await fetch(mediaUrl)
+  const metaRes = await fetchWithRetry(mediaUrl, {}, { timeoutMs: 20_000, label: "photo-meta" })
   if (!metaRes.ok) {
     throw new Error(`Photo media meta error ${metaRes.status}`)
   }
   const meta = await metaRes.json()
   const imageUrl: string = meta.photoUri ?? meta.uri ?? ""
 
-  const imgRes = await fetch(imageUrl)
+  const imgRes = await fetchWithRetry(imageUrl, {}, { timeoutMs: 20_000, label: "photo-download" })
   if (!imgRes.ok) {
     throw new Error(`Photo download error ${imgRes.status}`)
   }
@@ -162,7 +163,7 @@ Analyze this Google Places photo and return ONLY valid JSON with these fields:
 - confidence: number 0.0-1.0 for overall classification confidence
 - notable_changes: describe anything that suggests a recent renovation, new menu item, or operational change. Empty string if nothing notable.`
 
-  const res = await fetch(`${GEMINI_VISION_URL}?key=${getGeminiKey()}`, {
+  const res = await fetchWithRetry(`${GEMINI_VISION_URL}?key=${getGeminiKey()}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

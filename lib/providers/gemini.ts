@@ -1,4 +1,5 @@
 import type { Provider, ProviderCandidate, NormalizedSnapshot } from "./types"
+import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
 
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -184,7 +185,7 @@ export const geminiProvider: Provider = {
       centerLng: lng,
     })
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${getGeminiKey()}`, {
+    const response = await fetchWithRetry(`${GEMINI_API_URL}?key=${getGeminiKey()}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
