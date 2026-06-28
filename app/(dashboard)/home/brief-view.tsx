@@ -1,215 +1,55 @@
-// Server component: renders a real engine Brief in the editorial v5 layout.
-// Round-1 wire — only WIRED interactions are shown (drills, feedback thumbs,
-// tolerance slider). Save/Snooze and the live Ask answer are deferred (the
-// momentum store + bounded-ask architecture aren't built), shown as honest
-// previews rather than fake affordances.
+// The Pass — the flagship daily brief, REBUILT to Concept A's structure.
+//
+// This is a STRUCTURE rebuild (not a reskin): a brief header → a 2-col HERO for
+// the #1 play → a grid of play CARDS → weighted WIDGETS → a credibility right-rail,
+// all composed from the shared `components/ticket` kit. The REAL engine Brief is
+// mapped HONESTLY (no POS/$/covers — %/estimated/"you vs competitor" language).
+//
+// Server component: it pulls no new data (page.tsx owns fetching) and keeps the same
+// prop signature. Interactivity (ACT drawer, dismiss-reason popover, keep/dismiss/
+// thumbs) lives in the <PassPlayCard/> client island, which reuses the SAME wired
+// server actions (setPlayAction / submitPlayFeedback) — the learning loop is intact.
 
-import type { Brief, EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
+import type { CSSProperties } from "react"
+import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 import type { PipelineCheck } from "../proof-data"
 import type { PlayAction } from "@/lib/insights/momentum"
 import { playKey } from "@/lib/skills/preferences"
-import { humanizeRef, humanizeLabel, distinctDomains, dedupeRefs } from "@/lib/skills/evidence-format"
-import BriefFeedback from "./brief-feedback"
-import PlayActionButtons from "./play-action-buttons"
+import { dedupeRefs } from "@/lib/skills/evidence-format"
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkCard,
+  TkWidgetGrid,
+  TkWidget,
+  TkStillLearning,
+  TkToastProvider,
+  TkTooltipLayer,
+} from "@/components/ticket"
+import { PassPlayCard } from "./pass-play-card"
+import { PassClearedUndo } from "./pass-cleared-undo"
+import { PassHeroCanvas } from "./pass-hero-canvas"
+import { playFamily, confLabel } from "./pass-map"
 
 const CONF_RANK = { high: 3, medium: 2, directional: 1 } as const
-const CONF_LABEL = { high: "High", medium: "Medium", directional: "Directional" } as const
-const KIND_LABEL: Record<EnrichedRecommendation["kind"], string> = {
-  prepare: "Prepare",
-  capitalize: "Capitalize",
-  positioning: "Positioning",
-  reputation: "Reputation",
-  ops: "Operations",
-}
-// Operator-facing DOMAIN (the play's category), distinct from kind (the play shape). (P3)
-const CATEGORY_LABEL: Record<NonNullable<EnrichedRecommendation["category"]>, string> = {
-  demand: "Demand",
-  marketing: "Marketing",
-  social: "Social",
-  menu: "Menu",
-  grassroots: "Grassroots",
-  positioning: "Positioning",
-  reputation: "Reputation",
-  operations: "Operations",
-  convergence: "Cross-domain",
-}
-
-// True per-source run outcomes (pipeline_runs) for the provenance drill.
-const OUTCOME_LABEL: Record<string, string> = {
-  fresh: "Fresh pull",
-  served_stale: "Holding last good read",
-  dormant: "Source gone quiet",
-  no_data: "Nothing returned",
-  partial: "Partial pull",
-  failed: "Couldn't reach",
-  skipped: "Skipped",
-}
-const OUTCOME_MARK: Record<string, string> = {
-  fresh: "✓", served_stale: "◐", dormant: "◐", no_data: "—", partial: "◐", failed: "✕", skipped: "—",
-}
-const OUTCOME_STATE: Record<string, string> = {
-  fresh: "on", served_stale: "stale", dormant: "stale", no_data: "off", partial: "stale", failed: "bad", skipped: "off",
-}
-function fmtCheckedAt(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ""
-  const day = d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-  const t = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }).replace(" AM", "a").replace(" PM", "p")
-  return `${day}, ${t}`
-}
 
 function fmtDateline(dateKey: string): string {
   const d = new Date(`${dateKey}T12:00:00`)
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 function fmtSwept(asOf: string): string {
-  const t = new Date(asOf).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-  return "Last swept " + t.replace(" AM", "a").replace(" PM", "p").replace(/\s/g, "")
+  return new Date(asOf).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
 }
-function fmtShortDate(dateKey: string): string {
+function fmtShortDate(dateKey?: string | null): string {
+  if (!dateKey) return ""
   const d = new Date(`${dateKey.slice(0, 10)}T12:00:00`)
-  return Number.isNaN(d.getTime()) ? dateKey : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function RecipeStepView({ step }: { step: RecipeStep }) {
-  return (
-    <div className="recipe-step">
-      <dl className="rs-basis">
-        {step.audience ? (<><dt>Who</dt><dd>{step.audience}</dd></>) : null}
-        {step.window?.note ? (<><dt>When</dt><dd>{step.window.note}</dd></>) : null}
-        {step.channel ? (
-          <><dt>Channel</dt><dd>{humanizeLabel(step.channel)}{step.platforms?.length ? ` · ${step.platforms.map(humanizeLabel).join(", ")}` : ""}</dd></>
-        ) : null}
-        {step.offer ? (<><dt>Offer</dt><dd>{step.offer}</dd></>) : null}
-      </dl>
-      {step.dependencies?.length ? (
-        <ul className="rs-deps">
-          {step.dependencies.map((d, i) => (
-            <li key={i}><span className="box" />{d}</li>
-          ))}
-        </ul>
-      ) : null}
-      {step.copy ? (
-        <div className="rs-copy"><span className="copy-label">Customer copy — your voice</span>{step.copy}</div>
-      ) : null}
-      {step.creativeDirection ? (
-        <p className="rs-creative"><span className="cd-label">Creative direction</span>{step.creativeDirection}</p>
-      ) : null}
-    </div>
-  )
-}
-
-function PlayCard({
-  play,
-  rank,
-  isLead,
-  locationId,
-  dateKey,
-  readOnly,
-  detailHrefBase,
-  action,
-}: {
-  play: EnrichedRecommendation
-  rank: number
-  isLead: boolean
-  locationId: string
-  dateKey: string
-  readOnly?: boolean
-  detailHrefBase?: string
-  action?: PlayAction | null
-}) {
-  const refs = dedupeRefs(play.evidenceRefs)
-  const domains = distinctDomains(play.evidenceRefs)
-  const key = playKey(play)
-  return (
-    <article className={`movecard${isLead ? " movecard--lead" : ""}${play.kind === "prepare" ? " movecard--prep" : ""}`}>
-      <div className="movecard__rank-row">
-        <span className="movecard__rank">{String(rank).padStart(2, "0")}</span>
-      </div>
-      <h2 className="movecard__do">{play.title}</h2>
-      <p className="movecard__why">{play.rationale}</p>
-      {/* one consolidated label row: kind + explicit Confidence/Impact (same system) + topic */}
-      <div className="movecard__meta">
-        {/* Category is the operator-facing label; "Prep" badge flags the one kind worth
-            surfacing (get-ready work). Old briefs without a stamped category fall back to the
-            kind tag so they still read cleanly until they regenerate. */}
-        {play.category ? (
-          <>
-            <span className="category-tag">{CATEGORY_LABEL[play.category]}</span>
-            {play.kind === "prepare" ? <span className="kind-tag kind-tag--prepare">Prep</span> : null}
-          </>
-        ) : (
-          <span className={`kind-tag kind-tag--${play.kind}`}>{KIND_LABEL[play.kind]}</span>
-        )}
-        <span className="metric"><span className="metric-k">Confidence</span><span className="metric-v">{CONF_LABEL[play.confidence]}</span></span>
-        {play.leverage ? (
-          <span className="metric"><span className="metric-k">Impact</span><span className="metric-v">{play.leverage.label}{play.leverage.reach ? ` · ${play.leverage.reach}` : ""}</span></span>
-        ) : null}
-        {domains.length ? <span className="topic">{domains.join(" · ")}</span> : null}
-      </div>
-
-      {/* P11: the REAL cited artifacts (verbatim review quote / relational stat + its "so what"),
-          surfaced inline — not a category chip. Falls back to the ref label drill below. */}
-      {play.evidence?.length ? (
-        <div className="movecard__evidence">
-          {play.evidence.map((e, i) => (
-            <blockquote className="ev-cite" key={i}>
-              {e.quote ? <span className="ev-cite__quote">&ldquo;{e.quote}&rdquo;</span> : null}
-              {e.relativeStat ? (
-                <span className="ev-cite__stat">{e.relativeStat}{e.soWhat ? `, ${e.soWhat}` : ""}</span>
-              ) : null}
-              {e.rate ? (
-                <span className="ev-cite__rate">{e.rate.numerator} of {e.rate.denominator} ({e.rate.pct}%)</span>
-              ) : null}
-              <cite className="ev-cite__src">
-                {humanizeRef(e.source)}{e.asOf ? ` · as of ${fmtShortDate(e.asOf)}` : ""}
-                {e.sourceUrl ? <> · <a href={e.sourceUrl} target="_blank" rel="noopener noreferrer">source</a></> : null}
-              </cite>
-            </blockquote>
-          ))}
-        </div>
-      ) : null}
-
-      {play.recipe?.length ? (
-        <details className="drill">
-          <summary><span className="car">▸</span> The play</summary>
-          <div className="drill__body">
-            {play.recipe.map((step, i) => (
-              <RecipeStepView key={i} step={step} />
-            ))}
-          </div>
-        </details>
-      ) : null}
-
-      {refs.length ? (
-        <details className="drill">
-          <summary><span className="car">▸</span> The evidence</summary>
-          <div className="drill__body">
-            <div className="evidence">
-              {refs.map((r) => (
-                <span className="ev" key={r}>{humanizeRef(r)}</span>
-              ))}
-            </div>
-          </div>
-        </details>
-      ) : null}
-
-      <div className="movecard__foot">
-        <BriefFeedback locationId={locationId} dateKey={dateKey} playKey={key} severity={play.severity ?? 0} readOnly={readOnly} />
-        {!readOnly ? (
-          <PlayActionButtons locationId={locationId} dateKey={dateKey} playKey={key} current={action ?? null} play={play} />
-        ) : null}
-        {detailHrefBase ? (
-          <a className="movecard__detail" href={`${detailHrefBase}/${rank}`}>Full detail &amp; evidence →</a>
-        ) : null}
-      </div>
-    </article>
-  )
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 export default function BriefView({
   brief,
   locationId,
+  locationName,
   competitors,
   readOnly = false,
   detailHrefBase,
@@ -230,215 +70,370 @@ export default function BriefView({
   weeklyMomentum?: number
 }) {
   const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
-  const freshCount = (brief.coverage ?? []).filter((c) => c.present && !c.stale).length
+  const coverage = brief.coverage ?? []
+  const freshCount = coverage.filter((c) => c.present && !c.stale).length
   const leadConf = brief.plays.reduce<EnrichedRecommendation["confidence"]>(
     (best, p) => (CONF_RANK[p.confidence] > CONF_RANK[best] ? p.confidence : best),
     "directional",
   )
-  // The acted-on loop: Removed (dismissed) plays — plus any legacy snoozed rows — collapse into a
-  // compact "cleared" strip; Kept (saved) + untouched plays stay in the active stack (Kept keeps its badge).
+
+  // The acted-on loop (unchanged): Removed (dismissed)/legacy-snoozed collapse into a
+  // "cleared" strip; Kept (saved) + untouched plays stay in the active stack.
   const actions = playActions ?? {}
   const ranked = brief.plays.map((play, i) => ({ play, rank: i + 1, action: actions[playKey(play)] ?? null }))
   const active = ranked.filter((r) => r.action !== "snoozed" && r.action !== "dismissed")
   const cleared = ranked.filter((r) => r.action === "snoozed" || r.action === "dismissed")
-  // Ranked spine on top (plays arrive best-first by combined score); the rest sit behind a
-  // collapsible drill so a long brief doesn't overwhelm. Category rides on each card (the
-  // operator-facing domain) — ONE ranked list stays the spine, not parallel category columns. (P3)
+
   const SPINE_MAX = 5
-  const spine = active.slice(0, SPINE_MAX)
+  const lead = active[0] ?? null
+  const gridPlays = active.slice(1, SPINE_MAX)
   const rest = active.slice(SPINE_MAX)
 
-  return (
-    <div className="ticket-brief">
-      <div className="home-grid">
-        {/* ── LEFT: the brief ── */}
-        <div className="brief-main">
-          <header className="brief-head">
-            <span className="kicker">Your Brief</span>
-            <span className="dateline-mono">{fmtDateline(brief.dateKey)} · {fmtSwept(brief.asOf)}</span>
-          </header>
-          <hr className="rule-ink" />
+  // First-run / empty → the full "still learning" state (no plays at all).
+  const lowData = active.length === 0
+  // Fallback brief (served from last-good after a model failure) — keep the plays
+  // but flag it honestly with a banner so the operator knows it isn't a fresh sweep.
+  const isFallback = brief.fallback === true && !lowData
 
-          <div className="brief-lead">
-            <h1 className="brief-hed">{brief.headline}</h1>
-            <p className="brief-deck">{brief.deck}</p>
-            <p className="brief-synth">
+  // ── At-a-glance widgets (honest, %-framed) ──
+  const wonCount = brief.plays.filter((p) => p.presentation?.advantage === true).length
+
+  const card = (play: EnrichedRecommendation, rank: number, action: PlayAction | null, isLead: boolean) => (
+    <PassPlayCard
+      key={playKey(play)}
+      play={play}
+      rank={rank}
+      isLead={isLead}
+      locationId={locationId}
+      dateKey={brief.dateKey}
+      playKey={playKey(play)}
+      current={action}
+      readOnly={readOnly}
+      detailHref={detailHrefBase ? `${detailHrefBase}/${rank}` : undefined}
+      heroPhoto={isLead ? <PassHeroCanvas family={playFamily(play)} label={locationName} /> : undefined}
+    />
+  )
+
+  return (
+    <TkToastProvider>
+      <div className="ticket-brief tk-kit">
+        <TkTooltipLayer />
+
+        {/* ── BRIEF HEADER ── */}
+        <RevealOnView as="header" className="pass-brief-head">
+          <div className="pass-brief-head-text">
+            <div className="tk-eyebrow">Daily brief · {fmtDateline(brief.dateKey)}</div>
+            {/* The ONE editorial flourish (Fraunces) — the lead headline only. */}
+            <h1 className="pass-headline">{brief.headline}</h1>
+            {brief.deck ? <p className="pass-deck">{brief.deck}</p> : null}
+            <p className="pass-synth">
               Synthesized from <b>{signalCount} signal{signalCount === 1 ? "" : "s"}</b>
-              {competitors.length ? <> across <b>{competitors.length} competitor{competitors.length === 1 ? "" : "s"}</b></> : null}
-              {" · Confidence: "}{CONF_LABEL[leadConf]}
-              {brief.fallback ? " · Served from your last good brief" : ""}
+              {competitors.length ? (
+                <> across <b>{competitors.length} competitor{competitors.length === 1 ? "" : "s"}</b></>
+              ) : null}
+              {" · "}Confidence <b>{confLabel(leadConf)}</b>
+              {brief.fallback ? " · holding your last good brief" : ""}
             </p>
           </div>
+          <div className="pass-brief-meta">
+            <span className="pass-count-badge">
+              <span className="pass-count-n">{active.length}</span>
+              <span className="pass-count-lbl">
+                Play{active.length === 1 ? "" : "s"}
+                <br />
+                today
+              </span>
+            </span>
+            <span className="pass-run-note">
+              <span className="pass-dot" aria-hidden="true" />
+              Refreshed overnight · {fmtSwept(brief.asOf)}
+            </span>
+          </div>
+        </RevealOnView>
 
-          <div className="zone zone--do">
-            <div className="zone-head">
-              <span className="zh">Recommendations <span className="count">{active.length}</span></span>
-              {weeklyMomentum > 0 ? (
-                <span className="momentum">You&apos;ve acted on <b>{weeklyMomentum}</b> play{weeklyMomentum === 1 ? "" : "s"} this week</span>
-              ) : null}
-            </div>
-            {spine.map(({ play, rank, action }, i) => (
-              <PlayCard
-                key={playKey(play)}
-                play={play}
-                rank={rank}
-                isLead={i === 0}
-                locationId={locationId}
-                dateKey={brief.dateKey}
-                readOnly={readOnly}
-                detailHrefBase={detailHrefBase}
-                action={action}
-              />
-            ))}
+        {lowData ? (
+          /* ── FIRST-RUN / LOW-DATA STATE ── */
+          <RevealOnView className="pass-firstrun">
+            <TkStillLearning
+              days={Math.max(1, freshCount)}
+              target={Math.max(coverage.length, 6)}
+              title="Still reading your market"
+              description={
+                brief.fallback
+                  ? "We're holding your last good brief while tonight's data lands — fresh plays return on the next sweep."
+                  : "We're gathering enough signal to be honest about your standing. Your first plays land as the picture fills in."
+              }
+            />
+          </RevealOnView>
+        ) : (
+          <>
+            {/* ── FALLBACK BANNER (last-good brief; honest, not faked) ── */}
+            {isFallback ? (
+              <div className="pass-fallback-banner" role="status">
+                <span className="pass-dot" aria-hidden="true" />
+                Holding your last good brief while tonight&apos;s data lands — fresh plays return on the next sweep.
+              </div>
+            ) : null}
+
+            {/* ── HERO (lead play, rank 1) ── */}
+            {lead ? (
+              <RevealOnView className="pass-hero-wrap">
+                {card(lead.play, lead.rank, lead.action, true)}
+              </RevealOnView>
+            ) : null}
+
+            {/* ── PLAY GRID (remaining plays) ── */}
+            {gridPlays.length ? (
+              <>
+                <TkSectionHead
+                  title="More plays today"
+                  sub="Ranked by fit & confidence"
+                  className="pass-sec"
+                />
+                <RevealOnView className="tk-grid pass-grid" stagger>
+                  {gridPlays.map(({ play, rank, action }, i) => (
+                    <div key={playKey(play)} style={{ "--tk-i": i } as CSSProperties}>
+                      {card(play, rank, action, false)}
+                    </div>
+                  ))}
+                </RevealOnView>
+              </>
+            ) : null}
+
+            {/* ── "N more moves" collapse ── */}
             {rest.length ? (
-              <details className="zone-more drill">
-                <summary><span className="car">▸</span> {rest.length} more move{rest.length === 1 ? "" : "s"} this week</summary>
-                <div className="drill__body">
+              <details className="pass-more">
+                <summary>
+                  <span className="pass-more-car" aria-hidden="true">▸</span>{" "}
+                  {rest.length} more move{rest.length === 1 ? "" : "s"} this week
+                </summary>
+                <div className="tk-grid pass-grid pass-more-grid">
                   {rest.map(({ play, rank, action }) => (
-                    <PlayCard
-                      key={playKey(play)}
-                      play={play}
-                      rank={rank}
-                      isLead={false}
-                      locationId={locationId}
-                      dateKey={brief.dateKey}
-                      readOnly={readOnly}
-                      detailHrefBase={detailHrefBase}
-                      action={action}
-                    />
+                    <div key={playKey(play)}>{card(play, rank, action, false)}</div>
                   ))}
                 </div>
               </details>
             ) : null}
+
+            {/* ── "Cleared today" strip (dismissed/snoozed) ── */}
             {cleared.length ? (
-              <div className="cleared-strip">
-                <span className="cleared-strip__label">Cleared today</span>
-                {cleared.map(({ play, action }) => (
-                  <span className="cleared-item" key={playKey(play)}>
-                    <span className="cleared-item__title">{play.title}</span>
-                    {!readOnly ? (
-                      <PlayActionButtons locationId={locationId} dateKey={brief.dateKey} playKey={playKey(play)} current={action} play={play} />
-                    ) : (
-                      <span className="cleared-item__state">{action === "snoozed" ? "Snoozed" : "Removed"}</span>
-                    )}
-                  </span>
-                ))}
+              <div className="pass-cleared">
+                <span className="pass-cleared-lbl">Cleared today</span>
+                <div className="pass-cleared-items">
+                  {cleared.map(({ play, action }) => (
+                    <span className="pass-cleared-item" key={playKey(play)}>
+                      <span className="pass-cleared-title">{play.title}</span>
+                      {!readOnly ? (
+                        <PassClearedUndo
+                          locationId={locationId}
+                          dateKey={brief.dateKey}
+                          playKey={playKey(play)}
+                          state={action === "snoozed" ? "Snoozed" : "Removed"}
+                        />
+                      ) : (
+                        <span className="pass-cleared-state">
+                          {action === "snoozed" ? "Snoozed" : "Removed"}
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
               </div>
             ) : null}
-            <a
-              className="pool-link"
-              href="/home/pool"
-              style={{
-                display: "inline-block",
-                marginTop: "22px",
-                fontFamily: "var(--font-cond)",
-                fontSize: "12.5px",
-                letterSpacing: ".14em",
-                textTransform: "uppercase",
-                color: "var(--rust)",
-                textDecoration: "none",
-              }}
-            >
-              See all insights in your pool →
-            </a>
-          </div>
-        </div>
 
-        {/* ── RIGHT: Ask (lead) → what we checked (credibility) ──
-            Tuning moved to Settings (explicit refresh, not live); competitor
-            management moved to the Competitors page. ── */}
-        <aside className="rail-col">
-          {/* Ask Ticket leads the rail: the answer-first anchor. Live — links to /ask;
-              shows the morning standing answer when one is pinned. */}
-          <div className="rail-card ask-card">
-            <div className="rail-head"><span>Ask Ticket</span>{readOnly ? <span className="rail-tag">Preview</span> : <a className="rail-tag rail-tag--link" href="/ask">Open →</a>}</div>
-            {standingAsk ? (
-              <div className="ask-standing">
-                <div className="ask-standing__q">{standingAsk.question}</div>
-                <p className="ask-standing__a">{standingAsk.answer}</p>
-                <span className="ask-standing__meta">Your standing question · re-ran with this morning&apos;s brief</span>
-              </div>
-            ) : (
-              <>
+            {/* ── AT-A-GLANCE WIDGETS ── */}
+            <TkSectionHead title="At a glance" sub="Weighted widgets · your week" className="pass-sec" />
+            <RevealOnView>
+              <TkWidgetGrid>
+                <TkWidget
+                  tone="rust"
+                  size="wide"
+                  label="Signals read"
+                  value={String(signalCount)}
+                  sub="distinct sources behind today's plays"
+                  data-tip="Distinct grounded signals across all of today's plays"
+                  data-tipv={`${signalCount} signals`}
+                  spark={
+                    <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
+                      <path
+                        d="M0 50 L30 46 L55 40 L75 18 L95 10 L120 22"
+                        fill="none"
+                        stroke="rgba(255,255,255,.7)"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                  }
+                />
+                <TkWidget
+                  tone="teal"
+                  label="You're winning"
+                  value={wonCount > 0 ? `${wonCount} play${wonCount === 1 ? "" : "s"}` : "—"}
+                  sub={wonCount > 0 ? "advantages to press" : "no clear edge yet"}
+                  data-tip="Plays where you lead the set"
+                  data-tipv={`${wonCount} advantage${wonCount === 1 ? "" : "s"}`}
+                />
+                <TkWidget
+                  tone="slate"
+                  label="Acted this week"
+                  value={String(weeklyMomentum)}
+                  sub={weeklyMomentum > 0 ? "plays you're on" : "kept or acted — none yet"}
+                  data-tip="Plays you kept or acted on in the last 7 days"
+                  data-tipv={`${weeklyMomentum} this week`}
+                />
+                <TkWidget
+                  tone="gold"
+                  label="Competitors"
+                  value={String(competitors.length)}
+                  sub="tracked in your set"
+                  data-tip="Competitors in your watched set"
+                  data-tipv={`${competitors.length} tracked`}
+                />
+                <TkWidget
+                  tone="slate"
+                  label="Coverage fresh"
+                  value={coverage.length ? `${freshCount}/${coverage.length}` : "—"}
+                  sub="signal streams checked this sweep"
+                  data-tip="Live signal streams that returned fresh data"
+                  data-tipv={coverage.length ? `${freshCount} of ${coverage.length} fresh` : "no coverage yet"}
+                />
+              </TkWidgetGrid>
+            </RevealOnView>
+          </>
+        )}
+
+        {/* ── CREDIBILITY RAIL (Ask + what we checked) ── */}
+        <div className="pass-rail">
+          <RevealOnView className="pass-rail-col">
+            {/* Ask Ticket — live link; shows the morning standing answer when pinned. */}
+            <TkCard className="pass-ask-card">
+              <div className="pass-rail-head">
+                <span>Ask Ticket</span>
                 {readOnly ? (
-                  <div className="ask-field">
-                    <input type="text" placeholder="Ask about your market…" aria-label="Ask Ticket (preview)" disabled />
-                  </div>
+                  <span className="pass-rail-tag">Preview</span>
                 ) : (
-                  <a className="ask-field ask-field--link" href="/ask" aria-label="Ask Ticket">
-                    <span>Ask about your market…</span>
+                  <a className="pass-rail-tag pass-rail-link" href="/ask">
+                    Open &rarr;
                   </a>
                 )}
-                <div className="chips">
-                  {readOnly ? (
-                    <>
-                      <span className="chip">Who&apos;s undercutting me?</span>
-                      <span className="chip">What changed this week?</span>
-                      <span className="chip">Before the weekend?</span>
-                    </>
-                  ) : (
-                    <>
-                      <a className="chip chip--link" href="/ask">Who&apos;s undercutting me?</a>
-                      <a className="chip chip--link" href="/ask">What changed this week?</a>
-                      <a className="chip chip--link" href="/ask">Before the weekend?</a>
-                    </>
-                  )}
-                </div>
-                <p className="ask-foot">Domain-locked. Answers come only from your market and competitor data, never the open web.{readOnly ? " Coming soon." : ""}</p>
-              </>
-            )}
-          </div>
-
-          {/* What we checked — credibility module: which live streams fed today's brief,
-              how fresh each is, and what we couldn't reach. Source-by-source provenance is
-              prod-wired later; the honest fresh/aging/not-reached states are real now. */}
-          {brief.coverage?.length ? (
-            <div className="rail-card check-card">
-              <div className="rail-head">
-                <span>What we checked</span>
-                <span className="check-count">{freshCount} of {brief.coverage.length} fresh</span>
               </div>
-              <ul className="coverage">
-                {brief.coverage.map((c) => {
-                  const state = !c.present ? "off" : c.stale ? "stale" : "on"
-                  const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
-                  const status = !c.present
-                    ? (c.detail ?? "Not reached")
-                    : c.stale
-                      ? (c.asOf ? `As of ${fmtShortDate(c.asOf)}` : (c.detail ?? "Aging"))
-                      : (c.detail ?? "Fresh")
-                  return (
-                    <li key={c.label} className={`cov cov--${state}`}>
-                      <span className="cov-mark">{mark}</span>
-                      <span className="cov-label">{c.label}</span>
-                      <span className="cov-detail">{status}</span>
-                    </li>
-                  )
-                })}
-              </ul>
-              <details className="check-prov">
-                <summary><span className="car">▸</span> How we read this</summary>
-                <div className="check-prov__body">
-                  <p><b>Fresh</b> means we checked it in this sweep. <b>Aging</b> means we&apos;re holding the last good read until new data lands. <b>Not reached</b> means we couldn&apos;t pull it this time — so nothing in today&apos;s brief leans on it.</p>
-                  {checks?.length ? (
-                    <ul className="check-runs">
-                      {checks.map((c) => (
-                        <li key={c.pipeline} className={`check-run check-run--${OUTCOME_STATE[c.outcome] ?? "off"}`}>
-                          <span className="check-run__mark">{OUTCOME_MARK[c.outcome] ?? "—"}</span>
-                          <span className="check-run__label">{c.label}</span>
-                          <span className="check-run__what">
-                            {OUTCOME_LABEL[c.outcome] ?? c.outcome}{c.reason ? ` — ${c.reason}` : ""} · {fmtCheckedAt(c.at)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
+              {standingAsk ? (
+                <div className="pass-ask-standing">
+                  <div className="pass-ask-q">{standingAsk.question}</div>
+                  <p className="pass-ask-a">{standingAsk.answer}</p>
+                  <span className="pass-ask-meta">
+                    Your standing question · re-ran with this morning&apos;s brief
+                  </span>
                 </div>
-              </details>
-            </div>
-          ) : null}
-        </aside>
+              ) : (
+                <>
+                  {readOnly ? (
+                    <div className="pass-ask-field" aria-hidden="true">
+                      <span>Ask about your market…</span>
+                    </div>
+                  ) : (
+                    <a className="pass-ask-field" href="/ask" aria-label="Ask Ticket">
+                      <span>Ask about your market…</span>
+                    </a>
+                  )}
+                  <div className="pass-ask-chips">
+                    {readOnly ? (
+                      <>
+                        <span className="pass-ask-chip">Who&apos;s undercutting me?</span>
+                        <span className="pass-ask-chip">What changed this week?</span>
+                        <span className="pass-ask-chip">Before the weekend?</span>
+                      </>
+                    ) : (
+                      <>
+                        <a className="pass-ask-chip" href="/ask">Who&apos;s undercutting me?</a>
+                        <a className="pass-ask-chip" href="/ask">What changed this week?</a>
+                        <a className="pass-ask-chip" href="/ask">Before the weekend?</a>
+                      </>
+                    )}
+                  </div>
+                  <p className="pass-ask-foot">
+                    Domain-locked. Answers come only from your market and competitor data, never the open web.
+                    {readOnly ? " Coming soon." : ""}
+                  </p>
+                </>
+              )}
+            </TkCard>
+
+            {/* What we checked — credibility module (fresh / aging / not-reached). */}
+            {coverage.length ? (
+              <TkCard className="pass-check-card">
+                <div className="pass-rail-head">
+                  <span>What we checked</span>
+                  <span className="pass-check-count">
+                    {freshCount} of {coverage.length} fresh
+                  </span>
+                </div>
+                <ul className="pass-coverage">
+                  {coverage.map((c) => {
+                    const state = !c.present ? "off" : c.stale ? "stale" : "on"
+                    const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
+                    const status = !c.present
+                      ? c.detail ?? "Not reached"
+                      : c.stale
+                        ? c.asOf
+                          ? `As of ${fmtShortDate(c.asOf)}`
+                          : c.detail ?? "Aging"
+                        : c.detail ?? "Fresh"
+                    return (
+                      <li key={c.label} className={`pass-cov pass-cov-${state}`}>
+                        <span className="pass-cov-mark">{mark}</span>
+                        <span className="pass-cov-label">{c.label}</span>
+                        <span className="pass-cov-detail">{status}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <details className="pass-prov">
+                  <summary>
+                    <span className="pass-more-car" aria-hidden="true">▸</span> How we read this
+                  </summary>
+                  <div className="pass-prov-body">
+                    <p>
+                      <b>Fresh</b> means we checked it in this sweep. <b>Aging</b> means we&apos;re holding the
+                      last good read until new data lands. <b>Not reached</b> means we couldn&apos;t pull it this
+                      time — so nothing in today&apos;s brief leans on it.
+                    </p>
+                    {checks?.length ? (
+                      <ul className="pass-check-runs">
+                        {checks.map((c) => (
+                          <li key={c.pipeline} className="pass-check-run">
+                            <span className="pass-check-run-label">{c.label}</span>
+                            <span className="pass-check-run-what">
+                              {c.outcome}
+                              {c.reason ? ` — ${c.reason}` : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </details>
+              </TkCard>
+            ) : null}
+
+            {/* Position-over-time still-learning teaser (kept honest, not faked). */}
+            {!lowData && coverage.length < 4 ? (
+              <TkStillLearning
+                days={Math.max(1, freshCount)}
+                target={Math.max(coverage.length, 6)}
+                title="Trend charts unlock with more history"
+                description="We'll show how your standing moves once there's enough history to be honest about it."
+              />
+            ) : null}
+          </RevealOnView>
+        </div>
+
+        {/* ── See-all-insights link ── */}
+        {!lowData ? (
+          <a className="pass-pool-link" href="/home/pool">
+            See all insights in your pool &rarr;
+          </a>
+        ) : null}
       </div>
-    </div>
+    </TkToastProvider>
   )
 }

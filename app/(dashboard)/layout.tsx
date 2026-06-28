@@ -25,9 +25,11 @@ import ShellNav from "./shell-nav"
 import AccountMenu from "./account-menu"
 import MobileTabBar from "./mobile-tabbar"
 import NewBriefNotice from "./new-brief-notice"
+import ThemeToggle from "@/components/ui/theme-toggle"
 import { loadOperatorAccount } from "./operator-data"
 import "./home/brief.css"
 import "./operator.css"
+import "@/components/ticket/pass.css"
 
 // Theme-adaptive ticket-stub mark: body inherits --ink (currentColor) so it stays visible
 // in dark mode; the perforations punch through in the surface color (--paper).
@@ -125,12 +127,18 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <div className="pv-brand"><TicketMark /> TICKET</div>
             <ShellNav locked />
             <div className="pv-spacer" />
-            <AccountMenu userName={account.userName} locations={account.locations} locked />
+            <div className="pv-foot">
+              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <ThemeToggle className="pv-theme-btn" />
+            </div>
           </aside>
           <main className="pv-main">
             <header className="pv-mobilebar">
               <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
-              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <div className="pv-mobilebar__actions">
+                <ThemeToggle className="pv-theme-btn" />
+                <AccountMenu userName={account.userName} locations={account.locations} locked />
+              </div>
             </header>
             <div className="mx-auto mt-24 max-w-md rounded-xl border border-border bg-card p-8 text-center">
               <h2 className="text-lg font-semibold text-foreground">
@@ -179,12 +187,18 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <div className="pv-brand"><TicketMark /> TICKET</div>
             <ShellNav locked />
             <div className="pv-spacer" />
-            <AccountMenu userName={account.userName} locations={account.locations} locked />
+            <div className="pv-foot">
+              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <ThemeToggle className="pv-theme-btn" />
+            </div>
           </aside>
           <main className="pv-main">
             <header className="pv-mobilebar">
               <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
-              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <div className="pv-mobilebar__actions">
+                <ThemeToggle className="pv-theme-btn" />
+                <AccountMenu userName={account.userName} locations={account.locations} locked />
+              </div>
             </header>
             <AccountHeldPanel
               orgName={orgName}
@@ -262,12 +276,18 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           <div className="pv-brand"><TicketMark /> TICKET</div>
           <ShellNav />
           <div className="pv-spacer" />
-          <AccountMenu userName={account.userName} locations={account.locations} />
+          <div className="pv-foot">
+            <AccountMenu userName={account.userName} locations={account.locations} />
+            <ThemeToggle className="pv-theme-btn" />
+          </div>
         </aside>
         <main className="pv-main">
           <header className="pv-mobilebar">
             <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
-            <AccountMenu userName={account.userName} locations={account.locations} />
+            <div className="pv-mobilebar__actions">
+              <ThemeToggle className="pv-theme-btn" />
+              <AccountMenu userName={account.userName} locations={account.locations} />
+            </div>
           </header>
           {showDunningBanner && <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />}
           {showTrialBanner && (

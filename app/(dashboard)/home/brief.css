@@ -1,278 +1,547 @@
 /* ============================================================
-   TICKET — Your Brief (editorial home, real engine output)
-   Ported from the reviewed v5 prototype (public/concepts/*) into
-   the app, SCOPED under `.ticket-brief` so the editorial Newsprint
-   surface never leaks into the rest of the (dark) dashboard shell.
-   Round-1 wire of the real Brief; tuned via Vercel preview comments.
+   TICKET — "The Pass" daily brief (flagship home).
+   PAGE-SCOPED scaffolding only: the brief header, the hero wrap,
+   the play grid, the "more"/"cleared" collapses, and the credibility
+   rail. Every COMPONENT (hero, play card, confidence, why, drawer,
+   widgets, quotes, toast, tooltip) is the shared kit — see
+   components/ticket/pass.css. Tokens come from editorial-tokens.css /
+   ticket-theme.css; nothing here redefines a token VALUE.
+
+   All new classes are `pass-*` (page-scoped) under `.ticket-brief`,
+   so they never collide with the kit's `.tk-*` or legacy `.pv-*`.
+   Light + dark both ride the token layer (no hard-coded colors).
    ============================================================ */
 
-@import "../../editorial-tokens.css";
-
-/* ── The scoped surface (Newsprint paint; tokens from editorial-tokens.css) ─────────── */
+/* The page surface itself is just a transparent column on the shell's
+   atmospheric canvas — no card chrome, no newsprint border. */
 .ticket-brief {
-  /* --shadow-lift is brief-only (the lead recommendation's deeper lift) */
-  --shadow-lift:0 18px 50px -22px rgba(28,25,23,0.45);
-
-  background-color: var(--paper);
-  background-image:
-    radial-gradient(120% 80% at 100% -10%, rgba(184,92,56,0.05), transparent 55%),
-    radial-gradient(90% 70% at -10% 110%, rgba(201,148,42,0.045), transparent 60%);
+  max-width: var(--maxw, 1180px);
+  margin: 0 auto;
+  padding: 0 22px 120px;
   color: var(--ink);
-  font-family: var(--font-sans); font-size:15px; line-height:1.55; letter-spacing:0.005em;
-  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-  border:1px solid var(--rule); border-radius:10px;
-  padding:30px 0 8px; overflow:hidden;
+  font-family: var(--font-sans);
 }
-.ticket-brief ::selection { background: rgba(184,92,56,0.20); }
-
-/* ── Layout ─────────────────────────────────────────────────── */
-.ticket-brief .home-grid {
-  display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:48px;
-  align-items:start; max-width:1240px; margin:0 auto; padding:0 44px 90px;
+@media (max-width: 760px) {
+  .ticket-brief { padding: 0 16px 110px; }
 }
-@media (max-width:1160px){ .ticket-brief .home-grid{ grid-template-columns:1fr; gap:34px; } }
-@media (max-width:720px){ .ticket-brief .home-grid{ padding:0 22px 70px; } }
 
-/* ── Brief header (kicker + dateline) ───────────────────────── */
-.ticket-brief .brief-head{ display:flex; align-items:baseline; justify-content:space-between; gap:24px; }
-.ticket-brief .kicker{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; font-size:12.5px; letter-spacing:.22em; color:var(--rust); }
-.ticket-brief .dateline-mono{ font-family:var(--font-mono); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--ash); }
-.ticket-brief .rule-ink{ border:0; border-top:2px solid var(--ink); margin:12px 0 0; }
-.ticket-brief .rule-double{ border:0; border-top:3px double var(--rule-strong); margin:0; }
+/* ── BRIEF HEADER ─────────────────────────────────────────────── */
+.ticket-brief .pass-brief-head {
+  padding: 30px 0 14px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.ticket-brief .pass-brief-head-text { min-width: 0; }
+.ticket-brief .pass-brief-head .tk-eyebrow { margin-bottom: 10px; }
 
-/* ── The lead: big headline + deck + synth line ─────────────── */
-.ticket-brief .brief-lead{ margin:26px 0 0; }
-/* The lead headline — THE one editorial flourish (Fraunces) inside the dimensional shell. */
-.ticket-brief .brief-hed{ font-family:var(--font-editorial); font-weight:400; line-height:1.04; letter-spacing:-.005em; font-size:clamp(38px,4.6vw,56px); color:var(--ink); margin:0; max-width:18ch; text-wrap:balance; }
-.ticket-brief .brief-hed em{ font-style:italic; color:var(--rust-deep); }
-.ticket-brief .brief-deck{ font-family:var(--font-sans); font-size:18px; line-height:1.5; color:var(--print); margin:20px 0 0; max-width:60ch; }
-.ticket-brief .brief-deck b{ color:var(--ink); font-weight:600; }
-.ticket-brief .brief-synth{ font-family:var(--font-mono); font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); margin:18px 0 0; }
-.ticket-brief .brief-synth b{ color:var(--print); font-weight:700; }
+/* The lead headline — THE one editorial flourish (Fraunces italic). */
+.ticket-brief .pass-headline {
+  font-family: var(--font-editorial, Georgia, serif);
+  font-weight: 400;
+  font-style: italic;
+  font-size: clamp(28px, 4.6vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+  max-width: 20ch;
+  text-wrap: balance;
+}
+.ticket-brief .pass-deck {
+  font-family: var(--font-sans);
+  font-size: clamp(15px, 1.6vw, 18px);
+  line-height: 1.5;
+  color: var(--ink-2);
+  margin: 16px 0 0;
+  max-width: 60ch;
+}
+.ticket-brief .pass-deck b { color: var(--ink); font-weight: 600; }
+.ticket-brief .pass-synth {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 16px 0 0;
+}
+.ticket-brief .pass-synth b { color: var(--ink-2); font-weight: 700; }
 
-/* ── Zones (What to do / What to know) ──────────────────────── */
-.ticket-brief .zone{ margin-top:34px; }
-.ticket-brief .zone-head{ display:flex; align-items:baseline; justify-content:space-between; margin:4px 0 16px; gap:16px; }
-.ticket-brief .zone-head .zh{ font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.03em; font-size:21px; color:var(--ink); }
-.ticket-brief .zone-head .zh .count{ color:var(--ash); font-weight:500; }
-.ticket-brief .zone-sub{ font-size:13px; color:var(--ash); }
-.ticket-brief .zone-split{ margin:42px 0 30px; position:relative; }
-.ticket-brief .zone-split .tab{ position:absolute; left:0; top:-9px; background:var(--paper); padding-right:14px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ash-2); }
+.ticket-brief .pass-brief-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  gap: 9px;
+}
+.ticket-brief .pass-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-sm);
+}
+.ticket-brief .pass-count-n {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--rust-deep, var(--rust));
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ticket-brief .pass-count-lbl {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  line-height: 1.1;
+}
+.ticket-brief .pass-run-note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--ink-3);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.ticket-brief .pass-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--teal) 24%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ticket-brief .pass-dot { animation: pass-pulse 2.4s ease-in-out infinite; }
+  @keyframes pass-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 26%, transparent); }
+    50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--teal) 8%, transparent); }
+  }
+}
+@media (max-width: 760px) {
+  .ticket-brief .pass-brief-head { padding: 22px 0 8px; }
+  .ticket-brief .pass-brief-meta {
+    align-items: flex-start;
+    text-align: left;
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
 
-/* ── Move card (action leads, why is proof) ─────────────────── */
-.ticket-brief .movecard{ background:var(--card); border:1px solid var(--line); border-left:3px solid var(--rust); border-radius:0 var(--radius-card) var(--radius-card) 0; padding:18px 22px; box-shadow:var(--shadow-sm); transition:transform var(--t-fast), box-shadow var(--t), border-color var(--t-fast); }
-.ticket-brief .movecard + .movecard{ margin-top:14px; }
-.ticket-brief .movecard:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
-.ticket-brief .movecard--lead{ box-shadow:var(--shadow-lift); background:linear-gradient(162deg, var(--card) 62%, var(--thermal)); border-left-width:4px; padding:22px 24px; }
-.ticket-brief .movecard--lead:hover{ box-shadow:var(--shadow-lg); }
-.ticket-brief .movecard--prep{ border-left-color:var(--slate); }
-.ticket-brief .movecard__rank-row{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
-.ticket-brief .movecard__rank{ font-family:var(--font-mono); font-size:11px; color:var(--ash); text-transform:uppercase; letter-spacing:.04em; }
-.ticket-brief .kind-tag{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; padding:2px 8px; border-radius:3px; border:1px solid currentColor; }
-.ticket-brief .kind-tag--prepare{ color:var(--slate); background:var(--bond); }
-.ticket-brief .kind-tag--capitalize{ color:var(--rust); background:var(--thermal); }
-.ticket-brief .kind-tag--positioning,
-.ticket-brief .kind-tag--reputation,
-.ticket-brief .kind-tag--ops{ color:var(--gold-deep); background:rgba(201,148,42,.10); }
-/* Operator-facing DOMAIN (category) — muted/outlined so it reads as secondary to the kind tag. (P3) */
-.ticket-brief .category-tag{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; padding:2px 8px; border-radius:3px; border:1px solid var(--rule); color:var(--ash); background:transparent; }
-.ticket-brief .movecard__do{ font-family:var(--font-display); font-size:25px; line-height:1.12; color:var(--ink); margin:6px 0 0; }
-.ticket-brief .movecard__why{ margin-top:8px; font-size:14.5px; line-height:1.5; color:var(--print); }
-.ticket-brief .movecard__why .num{ font-weight:600; color:var(--ink); }
-.ticket-brief .movecard__why .name{ color:var(--slate); font-weight:500; }
-.ticket-brief .movecard__meta{ margin-top:12px; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
-/* Confidence + Impact share ONE explicit label:value system (per review). */
-.ticket-brief .metric{ display:inline-flex; align-items:baseline; gap:6px; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:11px; }
-.ticket-brief .metric-k{ color:var(--ash); }
-.ticket-brief .metric-v{ color:var(--ink); font-weight:600; }
-.ticket-brief .topic{ margin-left:auto; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--ash-2); }
-.ticket-brief .src{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ash); }
-.ticket-brief .relevance{ margin-top:9px; font-size:13px; line-height:1.45; color:var(--ash); }
-.ticket-brief .relevance .pin{ color:var(--rust); font-weight:700; margin-right:5px; }
+/* ── HERO WRAP ────────────────────────────────────────────────── */
+.ticket-brief .pass-hero-wrap { margin-top: 14px; }
+/* the hero canvas: ambient drift over the kit's gradient surface */
+.ticket-brief .pass-hero-art { animation: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .ticket-brief .pass-hero-art {
+    animation: pass-drift 26s ease-in-out infinite alternate;
+    transform-origin: center;
+  }
+  @keyframes pass-drift {
+    from { transform: translate3d(0, 0, 0) scale(1.02); }
+    to { transform: translate3d(-2%, 1.5%, 0) scale(1.08); }
+  }
+}
 
-/* P11 evidence: the REAL cited artifact (verbatim review quote / relational stat + "so what"),
-   surfaced inline on the card — not a category chip. */
-.ticket-brief .movecard__evidence{ margin-top:12px; display:flex; flex-direction:column; gap:8px; }
-.ticket-brief .ev-cite{ margin:0; padding:9px 12px; border-left:3px solid var(--rust); background:var(--thermal); border-radius:0 var(--radius) var(--radius) 0; font-size:13.5px; line-height:1.45; color:var(--ink); }
-.ticket-brief .ev-cite__quote{ display:block; font-style:italic; color:var(--print); }
-.ticket-brief .ev-cite__stat{ display:block; font-weight:600; color:var(--ink); }
-.ticket-brief .ev-cite__rate{ display:block; font-family:var(--font-mono); font-size:12.5px; color:var(--print); }
-.ticket-brief .ev-cite__src{ display:block; margin-top:5px; font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ash); font-style:normal; }
-.ticket-brief .ev-cite__src a{ color:var(--rust); }
+/* ── SECTION HEAD spacing tweak ───────────────────────────────── */
+.ticket-brief .pass-sec { margin-top: 46px; }
 
-/* confidence chip */
-.ticket-brief .conf{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:11px; display:inline-flex; align-items:center; gap:6px; color:var(--ash); }
-.ticket-brief .conf .pip{ display:inline-flex; gap:2px; }
-.ticket-brief .conf .pip i{ width:5px; height:11px; background:var(--ledger); display:inline-block; border-radius:1px; }
-.ticket-brief .conf--high .pip i{ background:var(--ink); }
-.ticket-brief .conf--medium .pip i:nth-child(-n+2){ background:var(--ink); }
-.ticket-brief .conf--directional .pip i:nth-child(1){ background:var(--ink); }
+/* ── PLAY GRID ────────────────────────────────────────────────── */
+/* .tk-grid (kit) gives the 2-col→1-col layout; pass-grid only tunes flow. */
+.ticket-brief .pass-grid { align-items: start; }
+.ticket-brief .pass-grid > div { display: flex; }
+.ticket-brief .pass-grid > div > * { width: 100%; }
 
-/* impact (leverage) chip — qualitative, never a dollar promise */
-.ticket-brief .lev{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:11px; color:var(--rust); display:inline-flex; align-items:center; gap:6px; }
-.ticket-brief .lev .reach{ color:var(--ash); font-weight:500; }
+/* ── "N more moves" collapse ──────────────────────────────────── */
+.ticket-brief .pass-more {
+  margin-top: 26px;
+  border-top: 1px solid var(--line-2);
+}
+.ticket-brief .pass-more > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 4px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.ticket-brief .pass-more > summary::-webkit-details-marker { display: none; }
+.ticket-brief .pass-more > summary:hover { color: var(--ink); }
+.ticket-brief .pass-more-car {
+  color: var(--rust-deep, var(--rust));
+  font-weight: 700;
+  display: inline-block;
+  transition: transform 0.2s var(--ease, ease);
+}
+.ticket-brief .pass-more[open] > summary .pass-more-car { transform: rotate(90deg); }
+.ticket-brief .pass-more-grid { margin-top: 16px; }
 
-/* ── The drill (progressive disclosure) ─────────────────────── */
-.ticket-brief .drill{ margin-top:15px; border-top:1px dashed var(--rule); }
-.ticket-brief .drill > summary{ list-style:none; cursor:pointer; padding:12px 10px 0; margin:0 -10px; border-radius:4px; display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12.5px; color:var(--slate); transition:color .15s ease, background .15s ease; }
-.ticket-brief .drill > summary::-webkit-details-marker{ display:none; }
-.ticket-brief .drill > summary:hover{ color:var(--ink); background:var(--bond); }
-.ticket-brief .drill > summary .car{ color:var(--rust); font-weight:700; transition:transform .2s ease; display:inline-block; }
-.ticket-brief .drill[open] > summary .car{ transform:rotate(90deg); }
-.ticket-brief .drill > summary .hint{ font-family:var(--font-mono); font-weight:400; text-transform:none; letter-spacing:0; font-size:11px; color:var(--ash-2); }
-.ticket-brief .drill__body{ padding:14px 0 4px; }
-/* Zone-level "N more moves" collapse — a solid rule + more breathing room than in-card drills. (P3) */
-.ticket-brief .zone-more{ margin-top:26px; border-top:1px solid var(--rule); }
-.ticket-brief .zone-more > summary{ padding-top:16px; font-size:13px; color:var(--ink); }
-.ticket-brief .zone-more .drill__body{ padding-top:8px; }
+/* ── "Cleared today" strip ────────────────────────────────────── */
+.ticket-brief .pass-cleared {
+  margin-top: 22px;
+  padding: 14px 16px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-lg);
+  background: var(--card-2);
+}
+.ticket-brief .pass-cleared-lbl {
+  display: block;
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+.ticket-brief .pass-cleared-items { display: flex; flex-direction: column; gap: 10px; }
+.ticket-brief .pass-cleared-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.ticket-brief .pass-cleared-title {
+  font-size: 13px;
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-2);
+}
+.ticket-brief .pass-cleared-state {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ticket-brief .pass-cleared-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
 
-.ticket-brief .insight-line{ border-left:2px solid var(--rust); padding:2px 0 2px 15px; margin:0 0 16px; }
-.ticket-brief .insight-line .il-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:10.5px; color:var(--rust); display:block; margin-bottom:4px; }
-.ticket-brief .insight-line p{ margin:0; font-size:14.5px; line-height:1.5; color:var(--ink); }
+/* ── PLAY-CARD FOOT (actions + thumbs + detail) — page glue ───── */
+.ticket-brief .pass-foot {
+  margin-top: auto;
+  padding-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+.ticket-brief .pass-foot-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.ticket-brief .pass-kept-state {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--teal-deep, var(--teal));
+}
+.ticket-brief .pass-detail-link {
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.ticket-brief .pass-detail-link:hover { color: var(--rust-deep, var(--rust)); }
+.ticket-brief .pass-quotes { margin-top: 2px; }
 
-/* recipe steps (the play) */
-.ticket-brief .recipe-step{ padding:13px 0; border-bottom:1px solid var(--rule); }
-.ticket-brief .recipe-step:last-child{ border-bottom:0; }
-.ticket-brief .rs-basis{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:6px 18px; }
-.ticket-brief .rs-basis dt{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--ash); padding-top:2px; }
-.ticket-brief .rs-basis dd{ margin:0; font-size:13.5px; line-height:1.45; color:var(--ink); }
-.ticket-brief .rs-deps{ margin:10px 0 0; padding:0; list-style:none; }
-.ticket-brief .rs-deps li{ display:grid; grid-template-columns:18px 1fr; gap:10px; align-items:start; padding:7px 0; font-size:13.5px; color:var(--print); }
-/* plain step marker (not a checkbox — we can't verify completion) */
-.ticket-brief .rs-deps li .box{ width:5px; height:5px; border-radius:50%; background:var(--rust); margin-top:8px; }
-.ticket-brief .rs-copy{ background:var(--thermal); border:1px dashed rgba(184,92,56,.35); border-radius:var(--radius); padding:11px 13px; margin-top:10px; font-size:13.5px; line-height:1.45; color:var(--ink); }
-.ticket-brief .rs-copy .copy-label{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--rust); margin-bottom:4px; }
-.ticket-brief .rs-creative{ margin-top:10px; font-size:13px; line-height:1.45; color:var(--print); }
-.ticket-brief .rs-creative .cd-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; color:var(--slate); margin-right:7px; }
+/* ── feedback thumbs (reuse the wired <BriefFeedback/>) — restyle ─ */
+.ticket-brief .fb { display: inline-flex; align-items: center; gap: 8px; }
+.ticket-brief .fb-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.ticket-brief .fb-btn {
+  font-size: 14px;
+  line-height: 1;
+  padding: 6px 9px;
+  min-height: 36px;
+  min-width: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color var(--t-fast, 0.16s), background var(--t-fast, 0.16s), transform var(--t-fast, 0.16s);
+}
+.ticket-brief .fb-btn:hover { border-color: var(--ink-3); transform: translateY(-1px); }
+.ticket-brief .fb-sent {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--teal-deep, var(--teal));
+}
 
-/* prepare / capitalize split inside a step */
-.ticket-brief .play{ padding:9px 12px; border-radius:0 var(--radius) var(--radius) 0; font-size:13.5px; line-height:1.46; color:var(--ink); margin-top:8px; }
-.ticket-brief .play .play-label{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.1em; font-size:10.5px; margin-right:8px; }
-.ticket-brief .play--prep{ background:var(--bond); border-left:2px solid var(--slate); }
-.ticket-brief .play--prep .play-label{ color:var(--slate); }
-.ticket-brief .play--promo{ background:var(--thermal); border-left:2px solid var(--rust); }
-.ticket-brief .play--promo .play-label{ color:var(--rust); }
+/* ── DRAWER body (recipe steps + draft) — page glue on the kit ──── */
+.ticket-brief .pass-plan-steps { display: flex; flex-direction: column; gap: 15px; }
+.pass-step-meta {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+.pass-step-deps {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.pass-step-deps li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.pass-step-deps li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--rust);
+}
 
-/* evidence basis chips */
-.ticket-brief .evidence{ display:flex; flex-wrap:wrap; gap:7px; }
-.ticket-brief .evidence .ev{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.04em; font-size:11px; color:var(--slate); border:1px solid var(--rule); border-radius:var(--radius); padding:5px 10px; background:var(--bond); }
+/* ── FIRST-RUN / low-data ─────────────────────────────────────── */
+.ticket-brief .pass-firstrun { margin-top: 18px; }
 
-/* ── Card footer: actions + feedback ────────────────────────── */
-.ticket-brief .movecard__foot{ margin-top:15px; display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding-top:13px; border-top:1px dashed var(--rule); }
-.ticket-brief .movecard__detail{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--slate); margin-left:auto; }
-.ticket-brief .movecard__detail:hover{ color:var(--ink); }
-.ticket-brief .movecard__actions{ display:flex; gap:8px; }
-.ticket-brief .act{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; padding:7px 13px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--print); cursor:pointer; transition:all .15s ease; }
-.ticket-brief .act:hover{ border-color:var(--ink); color:var(--ink); }
+/* ── FALLBACK BANNER (last-good brief) ────────────────────────── */
+.ticket-brief .pass-fallback-banner {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 15px;
+  border-radius: var(--r-md);
+  background: var(--gold-tint);
+  border: 1px solid color-mix(in srgb, var(--gold) 30%, transparent);
+  color: var(--gold-deep, var(--gold));
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ticket-brief .pass-fallback-banner .pass-dot { background: var(--gold); box-shadow: none; }
 
-/* feedback thumbs */
-.ticket-brief .fb{ display:inline-flex; align-items:center; gap:8px; }
-.ticket-brief .fb-label{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--ash-2); }
-.ticket-brief .fb-btn{ font-size:13px; padding:5px 9px; border-radius:var(--radius); border:1px solid var(--rule); background:transparent; color:var(--ash); cursor:pointer; line-height:1; transition:all .15s ease; }
-.ticket-brief .fb-btn:hover{ border-color:var(--ink); color:var(--ink); }
-.ticket-brief .fb-btn[aria-pressed="true"].fb-good{ color:var(--clear); border-color:var(--clear); background:var(--clear-wash); }
-.ticket-brief .fb-btn[aria-pressed="true"].fb-bad{ color:var(--alert); border-color:var(--alert); background:var(--alert-wash); }
-.ticket-brief .fb-sent{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--clear); }
+/* ── CREDIBILITY RAIL ─────────────────────────────────────────── */
+.ticket-brief .pass-rail { margin-top: 46px; }
+.ticket-brief .pass-rail-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .ticket-brief .pass-rail-col { grid-template-columns: 1fr; }
+}
+.ticket-brief .pass-rail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.ticket-brief .pass-rail-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+.ticket-brief .pass-rail-link { text-decoration: none; color: var(--rust-deep, var(--rust)); border-color: color-mix(in srgb, var(--rust) 28%, transparent); }
+.ticket-brief .pass-rail-link:hover { background: var(--rust-tint); }
 
-/* ── Right rail ─────────────────────────────────────────────── */
-.ticket-brief .rail-col{ position:sticky; top:8px; align-self:start; display:flex; flex-direction:column; gap:18px; }
-@media (max-width:1160px){ .ticket-brief .rail-col{ position:static; } }
-.ticket-brief .rail-bearings{ background:var(--card); border:1px solid var(--rule); border-top:2px solid var(--ink); border-radius:var(--radius-card); padding:4px 18px 6px; }
-.ticket-brief .rail-bearing{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; padding:11px 0; border-bottom:1px solid var(--rule); }
-.ticket-brief .rail-bearing:last-child{ border-bottom:0; }
-.ticket-brief .rail-bearing .b-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:11px; color:var(--ash); }
-.ticket-brief .rail-bearing .b-val{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.03em; font-size:14.5px; color:var(--ink); text-align:right; }
-.ticket-brief .rail-bearing .b-val.warn{ color:var(--rust); }
-.ticket-brief .rail-bearing .b-val.good{ color:var(--clear); }
-.ticket-brief .rail-card{ background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:17px 18px; }
-.ticket-brief .rail-head{ font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--ash); margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
-.ticket-brief .rail-tag{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em; color:var(--ash-2); border:1px solid var(--rule); border-radius:3px; padding:2px 6px; }
+/* Ask card */
+.ticket-brief .pass-ask-field {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card-2);
+  text-decoration: none;
+}
+.ticket-brief .pass-ask-field span { color: var(--ink-3); font-size: 13.5px; }
+.ticket-brief a.pass-ask-field:hover { border-color: var(--rust); }
+.ticket-brief .pass-ask-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.ticket-brief .pass-ask-chip {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--card);
+  text-decoration: none;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+}
+.ticket-brief a.pass-ask-chip:hover { border-color: var(--rust); color: var(--ink); }
+.ticket-brief .pass-ask-foot {
+  margin-top: 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.ticket-brief .pass-ask-q {
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  color: var(--rust-deep, var(--rust));
+}
+.ticket-brief .pass-ask-a { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.ticket-brief .pass-ask-meta {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
 
-/* tolerance slider */
-.ticket-brief .tol__row{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:10px; }
-.ticket-brief .tol__val{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12px; color:var(--rust); }
-.ticket-brief .tol input[type="range"]{ width:100%; accent-color:var(--rust); cursor:pointer; }
-.ticket-brief .tol__ends{ display:flex; justify-content:space-between; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); margin-top:5px; }
-.ticket-brief .tol__note{ font-size:12px; line-height:1.45; color:var(--ash); margin-top:10px; }
+/* coverage list */
+.ticket-brief .pass-coverage { list-style: none; margin: 0; padding: 0; }
+.ticket-brief .pass-cov {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ticket-brief .pass-cov:last-child { border-bottom: 0; }
+.ticket-brief .pass-cov-mark {
+  width: 14px;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: center;
+}
+.ticket-brief .pass-cov-on .pass-cov-mark { color: var(--teal-deep, var(--teal)); }
+.ticket-brief .pass-cov-stale .pass-cov-mark { color: var(--gold-deep, var(--gold)); }
+.ticket-brief .pass-cov-off .pass-cov-mark { color: var(--ink-3); }
+.ticket-brief .pass-cov-label {
+  font-family: var(--font-cond, var(--font-display));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  color: var(--ink);
+}
+.ticket-brief .pass-cov-off .pass-cov-label { color: var(--ink-3); }
+.ticket-brief .pass-cov-detail {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ticket-brief .pass-cov-stale .pass-cov-detail { color: var(--gold-deep, var(--gold)); }
+.ticket-brief .pass-check-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  color: var(--teal-deep, var(--teal));
+  font-weight: 400;
+}
+.ticket-brief .pass-prov { margin-top: 12px; border-top: 1px dashed var(--line-2); }
+.ticket-brief .pass-prov > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 11px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.ticket-brief .pass-prov > summary::-webkit-details-marker { display: none; }
+.ticket-brief .pass-prov > summary:hover { color: var(--ink); }
+.ticket-brief .pass-prov[open] > summary .pass-more-car { transform: rotate(90deg); }
+.ticket-brief .pass-prov-body { padding: 9px 0 2px; }
+.ticket-brief .pass-prov-body p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+.ticket-brief .pass-prov-body p b { color: var(--ink-2); font-weight: 600; }
+.ticket-brief .pass-check-runs {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px dashed var(--line-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ticket-brief .pass-check-run { display: flex; flex-direction: column; gap: 1px; }
+.ticket-brief .pass-check-run-label {
+  font-family: var(--font-cond, var(--font-display));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+.ticket-brief .pass-check-run-what {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.01em;
+  color: var(--ink-3);
+}
 
-/* ask preview */
-.ticket-brief .ask-field{ display:flex; align-items:center; gap:9px; border:1px solid var(--rule-strong); border-radius:var(--radius); padding:10px 13px; }
-.ticket-brief .ask-field input{ border:0; background:transparent; font-family:var(--font-display); font-size:15px; color:var(--ink); width:100%; outline:none; }
-.ticket-brief .ask-field input::placeholder{ color:var(--ash); }
-.ticket-brief .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:11px; }
-.ticket-brief .chip{ font-family:var(--font-cond); font-weight:500; text-transform:uppercase; letter-spacing:.05em; font-size:11px; color:var(--slate); border:1px solid var(--rule); border-radius:100px; padding:5px 12px; background:transparent; cursor:default; }
-.ticket-brief .ask-foot{ margin-top:12px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash); line-height:1.5; }
-
-/* coverage — "what we checked" */
-.ticket-brief .coverage{ list-style:none; margin:0; padding:0; }
-.ticket-brief .cov{ display:flex; align-items:baseline; gap:9px; padding:7px 0; border-bottom:1px solid var(--rule); }
-.ticket-brief .cov:last-child{ border-bottom:0; }
-.ticket-brief .cov-mark{ width:14px; flex:0 0 auto; font-family:var(--font-mono); font-size:12px; text-align:center; }
-.ticket-brief .cov--on .cov-mark{ color:var(--clear); }
-.ticket-brief .cov--stale .cov-mark{ color:var(--wire-gold); }
-.ticket-brief .cov--off .cov-mark{ color:var(--ash-2); }
-.ticket-brief .cov-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--ink); }
-.ticket-brief .cov--off .cov-label{ color:var(--ash); }
-.ticket-brief .cov--stale .cov-detail{ color:var(--gold-deep); }
-.ticket-brief .cov--off .cov-detail{ color:var(--ash-2); }
-.ticket-brief .cov-detail{ margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
-
-/* what-we-checked credibility module: fresh count + expandable "how we read this" */
-.ticket-brief .check-count{ font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:none; color:var(--clear); font-weight:400; }
-.ticket-brief .check-prov{ margin-top:12px; border-top:1px dashed var(--rule); }
-.ticket-brief .check-prov > summary{ list-style:none; cursor:pointer; padding:11px 0 0; display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:11.5px; color:var(--slate); }
-.ticket-brief .check-prov > summary::-webkit-details-marker{ display:none; }
-.ticket-brief .check-prov > summary:hover{ color:var(--ink); }
-.ticket-brief .check-prov > summary .car{ color:var(--rust); font-weight:700; transition:transform .2s ease; display:inline-block; }
-.ticket-brief .check-prov[open] > summary .car{ transform:rotate(90deg); }
-.ticket-brief .check-prov__body{ padding:9px 0 2px; }
-.ticket-brief .check-prov__body p{ margin:0; font-size:12px; line-height:1.5; color:var(--ash); }
-.ticket-brief .check-prov__body p b{ color:var(--print); font-weight:600; }
-.ticket-brief .check-prov__soon{ margin-top:8px !important; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
-
-/* ── Empty / first-run state ────────────────────────────────── */
-.ticket-brief .state{ max-width:760px; margin:10px auto 40px; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); padding:30px; }
-.ticket-brief .state .state-kicker{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.12em; font-size:12px; color:var(--rust); }
-.ticket-brief .state .state-head{ font-family:var(--font-display); font-size:30px; line-height:1.15; color:var(--ink); margin:8px 0 6px; }
-.ticket-brief .state .state-sub{ font-size:15px; line-height:1.55; color:var(--print); max-width:52ch; }
-.ticket-brief .sweep{ height:3px; border-radius:2px; margin:20px 0 0; background:linear-gradient(90deg,transparent,var(--rust),transparent); background-size:38% 100%; }
-@media (prefers-reduced-motion: no-preference){ .ticket-brief .sweep{ animation:tb-sweep 1.8s linear infinite; } @keyframes tb-sweep{ from{ background-position:-38% 0; } to{ background-position:138% 0; } } }
-
-@media (max-width:1160px){ .ticket-brief .brief-hed{ font-size:44px; } }
-@media (max-width:720px){ .ticket-brief .brief-hed{ font-size:36px; } }
-
-/* what-we-checked: true per-source run outcomes (pipeline_runs drill) */
-.ticket-brief .check-runs{ list-style:none; margin:10px 0 0; padding:8px 0 0; border-top:1px dashed var(--rule); display:flex; flex-direction:column; gap:5px; }
-.ticket-brief .check-run{ display:flex; align-items:baseline; gap:7px; font-size:11.5px; line-height:1.4; }
-.ticket-brief .check-run__mark{ flex:0 0 12px; font-family:var(--font-mono); font-size:10px; }
-.ticket-brief .check-run__label{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; color:var(--print); flex:0 0 auto; }
-.ticket-brief .check-run__what{ font-family:var(--font-mono); font-size:10px; letter-spacing:.01em; color:var(--ash-2); }
-.ticket-brief .check-run--on .check-run__mark{ color:var(--clear); }
-.ticket-brief .check-run--stale .check-run__mark{ color:var(--wire-gold); }
-.ticket-brief .check-run--bad .check-run__mark{ color:var(--alert, #b3261e); }
-.ticket-brief .check-run--off .check-run__mark{ color:var(--ash-2); }
-
-/* Ask rail (Batch 2): live link states + the morning standing answer */
-.ticket-brief .rail-tag--link{ text-decoration:none; color:var(--rust); cursor:pointer; }
-.ticket-brief .rail-tag--link:hover{ color:var(--ink); }
-.ticket-brief .ask-field--link{ display:block; text-decoration:none; cursor:text; }
-.ticket-brief .ask-field--link span{ color:var(--ash-2); font-size:13px; }
-.ticket-brief .chip--link{ text-decoration:none; cursor:pointer; }
-.ticket-brief .chip--link:hover{ border-color:var(--rust); color:var(--ink); }
-.ticket-brief .ask-standing{ padding:2px 0 0; }
-.ticket-brief .ask-standing__q{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:12px; color:var(--rust); }
-.ticket-brief .ask-standing__a{ margin:6px 0 0; font-size:13px; line-height:1.55; color:var(--print); }
-.ticket-brief .ask-standing__meta{ display:block; margin-top:8px; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
-
-/* Momentum loop (Batch 5): play actions, cleared strip, weekly momentum */
-.ticket-brief .momentum{ margin-left:auto; font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--clear); }
-.ticket-brief .pa{ display:inline-flex; align-items:center; gap:6px; }
-.ticket-brief .pa-btn{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.05em; font-size:10.5px; color:var(--slate); background:transparent; border:1px solid var(--rule); border-radius:100px; padding:3px 10px; cursor:pointer; }
-.ticket-brief .pa-btn:hover{ color:var(--ink); border-color:var(--rule-strong); }
-.ticket-brief .pa-btn:disabled{ opacity:.5; cursor:default; }
-.ticket-brief .pa-state{ font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
-.ticket-brief .cleared-strip{ margin-top:14px; padding:12px 14px; border:1px dashed var(--rule-strong); border-radius:var(--radius-card); display:flex; flex-direction:column; gap:8px; }
-.ticket-brief .cleared-strip__label{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:10.5px; color:var(--slate); }
-.ticket-brief .cleared-item{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-.ticket-brief .cleared-item__title{ font-size:13px; color:var(--ash); text-decoration:line-through; text-decoration-color:var(--rule-strong); }
-.ticket-brief .cleared-item__state{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; color:var(--ash-2); }
+/* ── See-all-insights link ────────────────────────────────────── */
+.ticket-brief .pass-pool-link {
+  display: inline-block;
+  margin-top: 30px;
+  font-family: var(--font-cond, var(--font-display));
+  font-size: 12.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rust-deep, var(--rust));
+  text-decoration: none;
+}
+.ticket-brief .pass-pool-link:hover { color: var(--ink); }

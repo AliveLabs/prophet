@@ -30,13 +30,27 @@
 /* ── Sidebar (premium frosted rail; keeps prod vertical layout) ── */
 .pv-sidebar{
   position:sticky; top:0; align-self:start; height:100dvh; z-index:30;
-  border-right:1px solid var(--line);
-  background:color-mix(in srgb, var(--card) 62%, var(--paper));
-  backdrop-filter:saturate(140%) blur(10px); -webkit-backdrop-filter:saturate(140%) blur(10px);
-  display:flex; flex-direction:column; padding:22px 14px 16px;
+  border-right:1px solid var(--line-2);
+  /* deeper frost over the atmospheric canvas — the rail reads as floating glass */
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 78%, transparent), color-mix(in srgb, var(--card) 60%, transparent));
+  backdrop-filter:saturate(160%) blur(16px); -webkit-backdrop-filter:saturate(160%) blur(16px);
+  box-shadow:1px 0 0 color-mix(in srgb, var(--card) 50%, transparent);
+  display:flex; flex-direction:column; padding:20px 14px 16px;
 }
-.pv-brand{ display:flex; align-items:center; gap:11px; padding:0 8px 20px; font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:20px; color:var(--ink); }
-.pv-brand svg{ flex:0 0 auto; }
+/* Brand: rust-gradient mark tile (Concept A .tk-mark) hosting the ticket-stub glyph */
+.pv-brand{ display:flex; align-items:center; gap:12px; padding:2px 6px 20px; font-family:var(--font-display); font-weight:700; letter-spacing:-.02em; font-size:20px; color:var(--ink); }
+.pv-brand svg{
+  flex:0 0 auto; box-sizing:content-box; width:18px; height:28px;
+  padding:5px 11px; border-radius:11px;
+  background:linear-gradient(145deg, var(--rust), var(--rust-2));
+  box-shadow:var(--shadow-sm);
+  /* override TicketMark's inline color (var(--ink)) so the stub body reads white on the rust tile */
+  color:#fff !important;
+}
+/* perforations punch through in the rust tile's lighter edge, not --paper */
+.pv-brand svg circle{ fill:color-mix(in srgb, var(--rust) 30%, #fff) !important; }
+.pv-brand svg line{ stroke:color-mix(in srgb, var(--rust) 30%, #fff) !important; }
 .pv-nav{ display:flex; flex-direction:column; gap:3px; padding:6px 0; }
 .pv-nav a{
   position:relative; display:flex; align-items:center; gap:12px; padding:10px 12px;
@@ -49,17 +63,37 @@
 .pv-nav a:hover{ color:var(--ink); background:var(--bond); }
 .pv-nav a:hover .pv-nav-ico{ opacity:1; }
 .pv-nav a:active{ transform:scale(.985); }
-.pv-nav a.is-active{ color:var(--rust-deep); background:var(--rust-tint); font-weight:600; }
+.pv-nav a.is-active{
+  color:var(--rust-deep); font-weight:600;
+  /* dimensional active fill: rust wash + faint inner contour (not a flat tint) */
+  background:linear-gradient(180deg, color-mix(in srgb, var(--rust-tint) 92%, var(--card)), var(--rust-tint));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rust) 16%, transparent);
+}
 .pv-nav a.is-active .pv-nav-ico{ opacity:1; color:var(--rust); }
 .pv-nav a.is-active .tick{ transform:translateY(-50%) scaleY(1); }
 /* Held-account state: nav present but inert (see ShellNav `locked`). */
 .pv-nav .is-locked{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ash-2); opacity:.5; cursor:default; }
 .pv-nav .is-locked .pv-nav-ico{ width:18px; height:18px; opacity:.5; }
 .pv-spacer{ flex:1 1 auto; }
-.pv-foot{ display:flex; align-items:center; gap:11px; padding:16px 8px 0; border-top:1px solid var(--rule); }
+/* Sidebar foot: account flyout (flex-grows) + Pass theme toggle, on one hairline-topped row */
+.pv-foot{ display:flex; align-items:center; gap:9px; padding-top:12px; margin-top:8px; border-top:1px solid var(--rule); }
+.pv-foot .pv-acct{ flex:1 1 auto; min-width:0; margin:0; padding:0; border:0; }
 .pv-mono{ width:34px; height:34px; flex:0 0 auto; border-radius:10px; display:grid; place-items:center; font-family:var(--font-display); font-weight:700; font-size:12.5px; color:#fff; background:linear-gradient(145deg, var(--rust), var(--rust-2)); box-shadow:var(--shadow-sm); }
-.pv-who b{ display:block; font-weight:600; font-size:13px; color:var(--ink); }
-.pv-who span{ font-family:var(--font-sans); font-size:11.5px; color:var(--ink-3); }
+
+/* ── Pass theme toggle (sun/moon) — Concept A .theme-btn, token-driven ── */
+.pv-theme-btn{
+  flex:0 0 auto; width:38px; height:38px; border-radius:11px;
+  border:1px solid var(--line-2); background:var(--card); color:var(--ink-2);
+  box-shadow:var(--shadow-sm);
+  transition:transform var(--t-fast), background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.pv-theme-btn:hover{ transform:translateY(-1px); background:var(--bond); color:var(--ink); border-color:var(--ink-3); }
+.pv-theme-btn:active{ transform:translateY(0); }
+.pv-theme-btn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+@media (prefers-reduced-motion: reduce){ .pv-theme-btn:hover{ transform:none; } }
+.pv-who{ flex:1 1 auto; min-width:0; }
+.pv-who b{ display:block; font-weight:600; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pv-who span{ display:block; font-family:var(--font-sans); font-size:11.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
 /* ── Account flyout (location switcher + settings + sign out) ── */
 .pv-acct{ position:relative; margin:16px 14px 0; padding-top:14px; border-top:1px solid var(--rule); }
@@ -118,6 +152,16 @@
 .pv-mobilebar{ display:none; }
 .pv-tabbar{ display:none; }
 .pv-mobilebar__brand{ display:flex; align-items:center; gap:9px; font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:18px; color:var(--ink); }
+/* the brand glyph on mobile gets the same rust-gradient tile as the sidebar */
+.pv-mobilebar__brand svg{
+  flex:0 0 auto; box-sizing:content-box; width:14px; height:22px;
+  padding:5px 9px; border-radius:9px;
+  background:linear-gradient(145deg, var(--rust), var(--rust-2));
+  box-shadow:var(--shadow-sm); color:#fff !important;
+}
+.pv-mobilebar__brand svg circle{ fill:color-mix(in srgb, var(--rust) 30%, #fff) !important; }
+.pv-mobilebar__brand svg line{ stroke:color-mix(in srgb, var(--rust) 30%, #fff) !important; }
+.pv-mobilebar__actions{ display:flex; align-items:center; gap:10px; }
 
 @media (max-width:900px){
   .ticket-app{ grid-template-columns:1fr; }
@@ -125,39 +169,49 @@
   .pv-main{ padding-bottom:calc(66px + env(safe-area-inset-bottom)); }
   .pv-topbar, .ticket-app .ticket-brief .home-grid{ padding-left:20px; padding-right:20px; }
 
-  /* top app bar */
+  /* top app bar — glass, native-feeling */
   .pv-mobilebar{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
-    position:sticky; top:0; z-index:35; padding:12px 18px;
-    padding-top:calc(12px + env(safe-area-inset-top));
-    background:color-mix(in srgb, var(--paper) 80%, transparent);
-    backdrop-filter:saturate(150%) blur(14px); -webkit-backdrop-filter:saturate(150%) blur(14px);
-    border-bottom:1px solid var(--line);
+    position:sticky; top:0; z-index:35; padding:11px 16px;
+    padding-top:calc(11px + env(safe-area-inset-top));
+    background:color-mix(in srgb, var(--paper) 78%, transparent);
+    backdrop-filter:saturate(160%) blur(16px); -webkit-backdrop-filter:saturate(160%) blur(16px);
+    border-bottom:1px solid var(--line-2);
+    box-shadow:0 1px 0 color-mix(in srgb, var(--card) 50%, transparent);
   }
+  /* mobile tap targets: bump the toggle to the 44px minimum */
+  .pv-mobilebar .pv-theme-btn{ width:44px; height:44px; border-radius:12px; }
 
-  /* bottom tab bar */
+  /* bottom tab bar — fixed glass dock */
   .pv-tabbar{
     display:flex; position:fixed; left:0; right:0; bottom:0; z-index:45;
     padding:8px 6px calc(8px + env(safe-area-inset-bottom));
-    background:color-mix(in srgb, var(--paper) 86%, transparent);
-    backdrop-filter:saturate(150%) blur(16px); -webkit-backdrop-filter:saturate(150%) blur(16px);
-    border-top:1px solid var(--line);
+    background:color-mix(in srgb, var(--paper) 84%, transparent);
+    backdrop-filter:saturate(160%) blur(18px); -webkit-backdrop-filter:saturate(160%) blur(18px);
+    border-top:1px solid var(--line-2);
+    box-shadow:0 -1px 0 color-mix(in srgb, var(--card) 50%, transparent), 0 -8px 24px rgba(36,30,26,.05);
   }
   .pv-tabbar a, .pv-tabbar button{
     position:relative; flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
-    min-height:48px; padding:5px 2px; border:0; background:none; cursor:pointer;
+    min-height:48px; padding:6px 2px; border:0; background:none; cursor:pointer;
     font-family:var(--font-sans); font-weight:600; font-size:10px; color:var(--ink-3);
     transition:color var(--t-fast), transform var(--t-fast);
   }
   .pv-tabbar a:active, .pv-tabbar button:active{ transform:scale(.92); }
-  .pv-tabbar .pv-nav-ico{ width:22px; height:22px; }
+  .pv-tabbar .pv-nav-ico{ width:22px; height:22px; opacity:.85; transition:opacity var(--t-fast); }
   .pv-tabbar a.is-active{ color:var(--rust); }
-  .pv-tabbar a.is-active::before{ content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:26px; height:3px; border-radius:0 0 3px 3px; background:var(--rust); }
+  .pv-tabbar a.is-active .pv-nav-ico{ opacity:1; }
+  .pv-tabbar a.is-active::before{ content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:26px; height:3px; border-radius:0 0 3px 3px; background:var(--rust); box-shadow:0 1px 6px color-mix(in srgb, var(--rust) 45%, transparent); }
+  @media (prefers-reduced-motion: reduce){ .pv-tabbar a:active, .pv-tabbar button:active{ transform:none; } }
 }
 /* tablet: tighter sidebar, content breathing room kept */
 @media (min-width:901px) and (max-width:1180px){
   .ticket-app{ grid-template-columns:220px 1fr; }
   .pv-topbar{ padding-left:28px; padding-right:28px; }
+  /* narrow rail: if the account button + toggle won't fit on one line, the
+     toggle wraps full-width beneath it rather than overflowing the rail */
+  .pv-foot{ flex-wrap:wrap; }
+  .pv-foot .pv-theme-btn{ flex:0 0 auto; }
 }
 
 /* ── Shared page chrome (Competitors / Ask / Settings / detail) ── */

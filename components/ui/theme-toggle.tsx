@@ -13,8 +13,18 @@ export default function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme()
   const mounted = useIsMounted()
 
+  // When a `className` is supplied (e.g. the operator shell's Pass-styled
+  // `.pv-theme-btn`), that class owns the entire appearance — surface, border,
+  // shadow, hover — via design tokens. Without one, fall back to the shadcn
+  // chrome used on admin / landing / standalone topbar surfaces.
+  const appearance = className
+    ? className
+    : "rounded-lg border border-border bg-card text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+
   if (!mounted) {
-    return <div className={`h-9 w-9 ${className ?? ""}`} />
+    // Placeholder must match the rendered button's footprint to avoid layout
+    // shift. The Pass class sizes itself (38px); the shadcn fallback is 36px.
+    return <div className={className ? className : "h-9 w-9"} aria-hidden />
   }
 
   const isDark = resolvedTheme === "dark"
@@ -24,7 +34,9 @@ export default function ThemeToggle({ className }: { className?: string }) {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className={`group relative inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all duration-200 hover:bg-secondary hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className ?? ""}`}
+      className={`group relative inline-flex items-center justify-center ${
+        className ? "" : "h-9 w-9 "
+      }${appearance}`}
     >
       {/* Sun — visible in dark mode */}
       <svg
