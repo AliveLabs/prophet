@@ -4,6 +4,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
+import { mapWithConcurrency } from "@/lib/jobs/concurrency"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import {
   discoverAllMenuUrls,
@@ -92,13 +93,6 @@ function extractDomain(url: string | null | undefined): string | null {
 }
 
 type CompetitorInput = { id: string; name: string | null; website: string | null; metadata: Record<string, unknown> | null }
-
-/** Run an async fn over items with bounded concurrency (batches of `limit`). */
-async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
-  for (let i = 0; i < items.length; i += limit) {
-    await Promise.allSettled(items.slice(i, i + limit).map(fn))
-  }
-}
 
 /**
  * Scrape one competitor's menu (Firecrawl + Gemini) and persist it. Extracted from the

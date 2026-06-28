@@ -6,6 +6,7 @@
 import { createHash } from "crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
+import { mapWithConcurrency } from "@/lib/jobs/concurrency"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { diffSnapshots, buildInsights, buildWeeklyInsights } from "@/lib/insights"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
@@ -293,12 +294,15 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         const competitorHistoricalTraffic = new Map<string, HistoricalTrafficPoint[]>()
         const allIntersectionRows: NormalizedIntersectionRow[] = []
 
-        for (const comp of c.competitors) {
+        // ENG-M6: read each competitor's SEO snapshots concurrently (bounded). Pure DB reads into
+        // id-keyed Maps + an aggregate bag, so result order doesn't matter; per-read try/catch keeps
+        // it fail-soft (mapWithConcurrency uses allSettled).
+        await mapWithConcurrency(c.competitors, 4, async (comp) => {
           try { const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", SEO_SNAPSHOT_TYPES.rankedKeywords).order("date_key", { ascending: false }).limit(1).maybeSingle(); if (s) { const kw = ((s.raw_data as Record<string, unknown>)?.keywords ?? []) as NormalizedRankedKeyword[]; if (kw.length) competitorRankedKeywords.set(comp.id, kw) } } catch (e) { console.warn(`[insights] competitor ranked-keywords read failed (${comp.id}):`, e) }
           try { const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", SEO_SNAPSHOT_TYPES.relevantPages).order("date_key", { ascending: false }).limit(1).maybeSingle(); if (s) { const p = ((s.raw_data as Record<string, unknown>)?.pages ?? []) as NormalizedRelevantPage[]; if (p.length) competitorRelevantPages.set(comp.id, p) } } catch (e) { console.warn(`[insights] competitor relevant-pages read failed (${comp.id}):`, e) }
           try { const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", SEO_SNAPSHOT_TYPES.historicalRank).order("date_key", { ascending: false }).limit(1).maybeSingle(); if (s) { const h = ((s.raw_data as Record<string, unknown>)?.history ?? []) as HistoricalTrafficPoint[]; if (h.length) competitorHistoricalTraffic.set(comp.id, h) } } catch (e) { console.warn(`[insights] competitor historical-traffic read failed (${comp.id}):`, e) }
           try { const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", SEO_SNAPSHOT_TYPES.domainIntersection).order("date_key", { ascending: false }).limit(1).maybeSingle(); if (s) { const r = ((s.raw_data as Record<string, unknown>)?.rows ?? []) as NormalizedIntersectionRow[]; allIntersectionRows.push(...r) } } catch (e) { console.warn(`[insights] competitor domain-intersection read failed (${comp.id}):`, e) }
-        }
+        })
 
         const compMetas = c.competitors.map((comp) => {
           const pd = comp.metadata?.placeDetails as Record<string, unknown> | null
@@ -338,10 +342,12 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
 
         type CompMenu = { competitorId: string; competitorName: string; menu: MenuSnapshot; siteContent: SiteContentSnapshot | null }
         const compMenus: CompMenu[] = []
-        for (const comp of c.competitors) {
+        // ENG-M6: read each competitor's weekly menu snapshot concurrently (bounded). compMenus is
+        // consumed by id/name lookup downstream, so push order doesn't matter.
+        await mapWithConcurrency(c.competitors, 4, async (comp) => {
           const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", "web_menu_weekly").order("date_key", { ascending: false }).limit(1).maybeSingle()
           if (s) compMenus.push({ competitorId: comp.id, competitorName: comp.name ?? "Competitor", menu: s.raw_data as MenuSnapshot, siteContent: null })
-        }
+        })
 
         const rawInsights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenu)
         // P4.1: corroborate price plays against our own reviews at WRITE time, so the persisted
