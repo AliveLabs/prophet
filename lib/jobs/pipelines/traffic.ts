@@ -61,8 +61,10 @@ export function buildTrafficSteps(): PipelineStepDef<TrafficPipelineCtx>[] {
                 .delete()
                 .eq("competitor_id", comp.id)
 
-              for (const day of result.days) {
-                await ctx.supabase.from("busy_times").insert({
+              // ENG-M6: batch all days into ONE insert (was N sequential inserts) — fewer round-trips
+              // and atomic per competitor (no partial-day state if a write fails mid-loop).
+              await ctx.supabase.from("busy_times").insert(
+                result.days.map((day) => ({
                   competitor_id: comp.id,
                   day_of_week: day.day_of_week,
                   hourly_scores: day.hourly_scores,
@@ -71,8 +73,8 @@ export function buildTrafficSteps(): PipelineStepDef<TrafficPipelineCtx>[] {
                   slow_hours: day.slow_hours,
                   typical_time_spent: result.typical_time_spent,
                   current_popularity: result.current_popularity,
-                })
-              }
+                })),
+              )
             }
             await sleep(500)
           } catch (err) {

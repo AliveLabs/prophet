@@ -177,7 +177,12 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       label: "Analyzing competitors & generating narratives",
       run: async (c) => {
         let generated = 0
-        for (const competitor of c.competitors) {
+        // ENG-M6: process competitors concurrently (bounded). Faster completion = less risk of the
+        // job hitting its worker time budget as competitor counts grow (a reliability win, not just
+        // latency). Fail-soft per competitor (try/catch + allSettled); writes go to a push-only
+        // payload + an atomic-increment counter, so concurrency is safe. Bound 3 matches content.ts's
+        // existing competitor+Gemini pattern.
+        await mapWithConcurrency(c.competitors, 3, async (competitor) => {
           const { data: currentSnapshot } = await c.supabase
             .from("snapshots")
             .select("raw_data, date_key")
@@ -235,7 +240,7 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
               generated++
             } catch { /* non-fatal */ }
           }
-        }
+        })
         return { competitorsAnalyzed: c.competitors.length, narratives: generated }
       },
     },
