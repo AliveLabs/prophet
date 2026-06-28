@@ -378,6 +378,15 @@
 .pv-btn--rust{ border-color:transparent; background:linear-gradient(145deg, var(--rust), var(--rust-2)); color:#fff; box-shadow:var(--shadow-sm); }
 .pv-btn--rust:hover{ opacity:1; transform:translateY(-1.5px); box-shadow:var(--shadow-md); }
 
+/* ── Manage social handles (competitor detail + list pointer) ───── */
+.pv-handles-note{ margin:14px 0 0; padding-top:12px; border-top:1px dashed var(--rule); font-size:12.5px; line-height:1.5; color:var(--ink-3); }
+.pv-handles-note a{ color:var(--rust-deep); font-weight:600; }
+.pv-handles-note a:hover{ text-decoration:underline; }
+.pv-handles-pointer{ margin:22px 0 0; padding:14px 16px; border:1px dashed var(--line-2); border-radius:var(--r-md); background:var(--card-2); font-size:13px; line-height:1.55; color:var(--ink-2); }
+.pv-handles-pointer a{ color:var(--rust-deep); font-weight:600; }
+.pv-handles-pointer a:hover{ text-decoration:underline; }
+.pv-handles-pointer b{ color:var(--ink); font-weight:600; }
+
 /* Add-a-competitor autocomplete (Batch 3) */
 .pv-comp-row--add{ flex-wrap:wrap; }
 .pv-ac__list{ position:absolute; top:100%; left:0; right:0; z-index:30; margin:4px 0 0; padding:4px; list-style:none; background:var(--card, #fff); border:1px solid var(--rule-strong); border-radius:var(--radius-card); box-shadow:var(--shadow-chit); }

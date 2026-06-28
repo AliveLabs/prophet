@@ -11,8 +11,12 @@
 @import "../editorial-tokens.css";
 
 .ob{
-  min-height:100vh; background-color:var(--paper);
-  background-image:radial-gradient(120% 80% at 100% -10%, rgba(184,92,56,0.05), transparent 55%), radial-gradient(90% 70% at -10% 110%, rgba(201,148,42,0.045), transparent 60%);
+  min-height:100dvh; background-color:var(--paper);
+  background-image:
+    radial-gradient(64% 56% at 50% 120%, rgba(184,92,56,0.11), transparent 70%),
+    radial-gradient(50% 46% at 92% 4%, rgba(58,128,102,0.085), transparent 72%),
+    radial-gradient(54% 50% at 4% 0%, rgba(201,148,42,0.085), transparent 72%),
+    radial-gradient(58% 58% at 104% 104%, rgba(61,79,95,0.06), transparent 72%);
   color:var(--ink); font-family:var(--font-sans); font-size:15px; line-height:1.55;
   -webkit-font-smoothing:antialiased; display:flex; flex-direction:column; align-items:center;
 }
@@ -30,13 +34,14 @@
 
 .ob-card{ width:100%; max-width:640px; padding:34px 24px 60px; }
 .ob-kicker{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.22em; font-size:12.5px; color:var(--rust); }
-.ob-h{ font-family:var(--font-display); font-weight:400; line-height:1.04; letter-spacing:-.01em; font-size:42px; color:var(--ink); margin:10px 0 0; }
+.ob-h{ font-family:var(--font-editorial); font-weight:400; line-height:1.05; letter-spacing:-.005em; font-size:clamp(34px,5vw,44px); color:var(--ink); margin:10px 0 0; text-wrap:balance; }
 .ob-sub{ font-size:16px; line-height:1.5; color:var(--print); margin:14px 0 0; max-width:52ch; }
 
 .ob-field{ margin-top:22px; }
 .ob-label{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--ash); display:block; margin-bottom:7px; }
-.ob-input{ width:100%; border:1px solid var(--rule-strong); border-radius:var(--radius); padding:13px 15px; font-family:var(--font-sans); font-size:16px; color:var(--ink); background:var(--card); }
-.ob-input--lg{ font-family:var(--font-display); font-size:21px; }
+.ob-input{ width:100%; border:1px solid var(--line-2); border-radius:var(--r-md); padding:14px 16px; font-family:var(--font-sans); font-size:16px; color:var(--ink); background:var(--card-2); transition:border-color var(--t-fast), box-shadow var(--t-fast); }
+.ob-input:focus{ outline:none; border-color:var(--rust); box-shadow:0 0 0 3px color-mix(in srgb, var(--rust) 18%, transparent); }
+.ob-input--lg{ font-family:var(--font-display); font-weight:600; font-size:21px; }
 .ob-hint{ font-size:13px; color:var(--ash); margin-top:8px; }
 .ob-derived{ display:inline-flex; align-items:center; gap:6px; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10.5px; color:var(--clear); margin-left:8px; }
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
 import { fetchEventsPageData } from "@/lib/cache/events"
@@ -255,7 +256,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-white">{totalEvents}</p>
+                <p className="text-2xl font-bold text-white"><AnimatedNumber value={totalEvents} /></p>
                 <p className="text-[11px] font-medium text-white/75">Total Events</p>
               </div>
             </div>

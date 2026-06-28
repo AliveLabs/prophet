@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import TrafficHeatmap, { type HeatmapData } from "@/components/traffic/traffic-heatmap"
@@ -174,7 +175,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
             {/* Rust gradient hero tile — single most important scalar KPI */}
             <Card className="bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white border-0 shadow-md">
               <p className="text-xs font-medium uppercase tracking-wide opacity-80">Competitors Tracked</p>
-              <p className="mt-2 text-4xl font-bold tabular-nums">{trackedCount}</p>
+              <p className="mt-2 text-4xl font-bold tabular-nums"><AnimatedNumber value={trackedCount} /></p>
               <p className="mt-1 text-[11px] opacity-70">with busy times data</p>
             </Card>
             <Card className="bg-card">

@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { AnimatedNumber } from "@/components/ui/animated-number"
 import LocationFilter from "@/components/ui/location-filter"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import SocialDashboard from "@/components/insights/social-dashboard"
@@ -161,7 +162,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
           {/* Hero stat — Total Followers gets the rust gradient tile */}
           <div className="rounded-lg border border-transparent bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] px-5 py-4 text-white animate-fade-up" style={{ animationDelay: "40ms" }}>
             <p className="text-[11.5px] font-medium text-white/70">Total Followers</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-white">{formatNumber(totalFollowers)}</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-white"><AnimatedNumber value={totalFollowers} format={formatNumber} /></p>
             <p className="mt-1 text-[11px] text-white/60">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
           </div>
           <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "80ms" }}>
