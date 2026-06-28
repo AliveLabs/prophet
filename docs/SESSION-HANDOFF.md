@@ -1,13 +1,13 @@
 # Ticket — Session Handoff (start here)
 
-> ## ▶ START HERE — 2026-06-28 · CODE-HEALTH AUDIT COMPLETE (only ENG-M6 + cosmetic casts remain, both optional)
+> ## ▶ START HERE — 2026-06-28 · CODE-HEALTH AUDIT COMPLETE (only deferred visibility loops + cosmetic casts remain, both optional)
 >
 > **▶ The 3 open Bryan-decisions are RESOLVED (2026-06-28):**
 > 1. **SEC-Low L1/L2 — DONE:** the temp `/api/health/stripe-mode` diagnostic route was DELETED (Stripe work closed). Closes L1; L2 (its query-string token) is moot. (`app/api/health/pipeline` watchdog kept.)
 > 2. **Stale branches — DONE:** the 6 (`dev`, `feature-anand`, `feature-henry`, `feature/api-sandbox`, `feature/vatic-brand-refresh`, `feature/verticalization`) deleted from origin.
 > 3. **Test webhook secret — NO ACTION NEEDED:** it's a Stripe CLI `stripe listen` TEST-mode secret, minted fresh per local session — not a stored credential. The old exposed one is ephemeral/dead. Nothing to rotate; future webhook testing just runs `stripe listen` again.
 >
-> **What's left — both OPTIONAL:** ENG-M6 (bounded concurrency — DEFERRED, do supervised: live-only/untested pipelines + DataForSEO rate limits) · cosmetic redundant `as unknown as <Store>` casts in cron/actions/preview (compile fine now the lib Store types are the real client; pure tidy-up). The audit's §2/§8 priority list is otherwise fully cleared.
+> **What's left — both OPTIONAL:** ENG-M6 is mostly DONE (shared tested `mapWithConcurrency` helper + insights competitor-read/analysis parallelization + traffic batch-insert, HEAD `8ef8b3d`); only the `visibility.ts` DataForSEO SERP/rank loops are DEFERRED (concurrency risks 429 throttling at fleet scale + live-only/untested — reliability > latency). Plus cosmetic redundant `as unknown as <Store>` casts in cron/actions/preview (compile fine; pure tidy-up). The audit's §2/§8 priority list is otherwise fully cleared.
 >
 > **Master reference:** `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (a 4-pass A−/B audit;
 > its **§2 priority list** + **§8 next-session plan** are the SSOT for what's left). Work the OPEN items
@@ -43,7 +43,7 @@
 > SEC-M3 applied to prod (`1c0b677`) · Upstash provisioned + connected + deployed → rate-limiting LIVE (`e30bc01`) · `IMPERSONATION_SIGNING_SECRET` set in Vercel prod · **ENG-M4 cast sweep** done across the core engine read paths — lib/insights (`d0656a7`) + lib/skills & ask-history (`68120b4`) now use the typed client (Store types aliased to `SupabaseClient<Database>`, casts dropped) · **ENG-M5** dead `.gte` fallbacks in feedback-rollup removed · **SEC-Low L3** price/industry-mismatch alert (`077a1fc`) · **ENG-M2** extracted `buildCandidatePool` + `applyGrassrootsFloor` from synthesize (`ea57146`). 802 unit tests; tsc + build + CI green.
 >
 > ### 🔴 OPEN — what's actually left:
-> - **ENG-M6 (DEFERRED — do supervised):** bounded-concurrency on the serial SEO/insights loops (visibility.ts per-keyword SERP / insights.ts per-competitor reads / traffic.ts inserts). Those pipelines have NO unit tests (live-only, not in CI) + DataForSEO rate limits, so a change is unverifiable by the gate — not safe to ship unsupervised on a budget.
+> - **ENG-M6 (mostly DONE 2026-06-28, reliability-first):** shipped the reliability-positive parts — shared tested `mapWithConcurrency` (`lib/jobs/concurrency.ts`) + insights competitor reads/analysis (bounded-3) + traffic batch-insert (atomic per competitor). DEFERRED: `visibility.ts` DataForSEO SERP/rank loops (concurrency risks 429 throttling at fleet scale + live-only/untested). NOTE: the parallelized pipelines are LIVE-ONLY — verify via a real cron run, not CI.
 > - **Leftover redundant casts (low value, cosmetic):** the cron routes (build-brief/ask-mining/rollup-feedback/ingest) + app actions (brief-actions/ask/knowledge-review) + preview-data still pass `... as unknown as <Store>`. Now that the lib Store types ARE the real client, these compile fine (redundant, not broken). feedback-distill-run's `DistillStore` + the cron `IngestStore`/`AskMiningStore` were left narrow.
 > - **Done 2026-06-28:** SEC-Low L1/L2 (temp `/api/health/stripe-mode` route DELETED — L2 moot) · the 6 stale remote branches deleted from origin · test webhook secret = no action (Stripe CLI ephemeral `stripe listen` secret, regenerated per session — not a stored credential).
 >
@@ -88,7 +88,7 @@
 > typecheck + unit tests on every push/PR.** Verify gate before deploy: `npx tsc --noEmit` + `npm run
 > test:unit` (746 tests) + `npx next build`. PROD READS are classifier-gated in unsupervised mode (need
 > Bryan's per-target OK); cron triggers via `scripts/db/cron.mts`, prod SQL via `scripts/db/sql.mts`.
-> Latest `main` after this session ≈ `ea57146` (2026-06-27 sessions 2+3; 802 unit tests; CI green). SEC-M3 applied to prod; Upstash live; ENG-M4/M5/M2 + SEC-Low L3 shipped. Only ENG-M6 + cosmetic leftover casts + Bryan-decisions remain.
+> Latest `main` ≈ `8ef8b3d` (2026-06-28; 807 unit tests; CI green). SEC-M3 applied; Upstash live; ENG-M4/M5/M2 + SEC-Low L1/L2/L3 + SEC-M4 shipped; 6 stale branches deleted; ENG-M6 mostly done. Only the deferred `visibility.ts` loops + cosmetic casts remain.
 
 ---
 
