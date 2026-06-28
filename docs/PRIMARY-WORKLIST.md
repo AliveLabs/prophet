@@ -68,7 +68,7 @@ is the truth.)
 ---
 
 ## Negligible / cleanup
-- `/api/health/stripe-mode` is a TEMP ops diagnostic — remove when the current Stripe work closes (confirm).
+- ~~`/api/health/stripe-mode` TEMP ops diagnostic~~ — REMOVED 2026-06-28 (Stripe work closed; route deleted, closing SEC-Low L1/L2).
 - ~8 PRE-EXISTING eslint errors in unrelated files (existing debt; gate is tsc + tests + build, not eslint).
 
 ## Recommended next

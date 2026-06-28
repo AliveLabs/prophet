@@ -1,13 +1,13 @@
 # Ticket — Session Handoff (start here)
 
-> ## ▶ START HERE — 2026-06-27 (sessions 2+3 DONE) · NEXT UP = 3 BRYAN DECISIONS
+> ## ▶ START HERE — 2026-06-28 · CODE-HEALTH AUDIT COMPLETE (only ENG-M6 + cosmetic casts remain, both optional)
 >
-> **▶ NEXT SESSION STARTS HERE (Bryan's instruction): the next 3 things are DECISIONS, not code — answer these first, don't start new code until then:**
-> 1. **SEC-Low L1/L2** — is the Stripe diagnostic work closed? If yes, delete `app/api/health/stripe-mode`; if still needed, move its token query-string→header.
-> 2. **Stale branches** — OK to delete the 6 (`dev`, `feature-anand`, `feature-henry`, `feature/api-sandbox`, `feature/vatic-brand-refresh`, `feature/verticalization`)?
-> 3. **Test webhook secret** — rotate it (optional, test-mode) or skip?
+> **▶ The 3 open Bryan-decisions are RESOLVED (2026-06-28):**
+> 1. **SEC-Low L1/L2 — DONE:** the temp `/api/health/stripe-mode` diagnostic route was DELETED (Stripe work closed). Closes L1; L2 (its query-string token) is moot. (`app/api/health/pipeline` watchdog kept.)
+> 2. **Stale branches — DONE:** the 6 (`dev`, `feature-anand`, `feature-henry`, `feature/api-sandbox`, `feature/vatic-brand-refresh`, `feature/verticalization`) deleted from origin.
+> 3. **Test webhook secret — NO ACTION NEEDED:** it's a Stripe CLI `stripe listen` TEST-mode secret, minted fresh per local session — not a stored credential. The old exposed one is ephemeral/dead. Nothing to rotate; future webhook testing just runs `stripe listen` again.
 >
-> Everything else in the audit is shipped or deferred-with-reason (ENG-M6 — supervised; live-only/untested pipelines + DataForSEO rate limits). Detail below.
+> **What's left — both OPTIONAL:** ENG-M6 (bounded concurrency — DEFERRED, do supervised: live-only/untested pipelines + DataForSEO rate limits) · cosmetic redundant `as unknown as <Store>` casts in cron/actions/preview (compile fine now the lib Store types are the real client; pure tidy-up). The audit's §2/§8 priority list is otherwise fully cleared.
 >
 > **Master reference:** `~/vault/inbox/prophet-code-health-audit-2026-06-26.md` (a 4-pass A−/B audit;
 > its **§2 priority list** + **§8 next-session plan** are the SSOT for what's left). Work the OPEN items
@@ -45,7 +45,7 @@
 > ### 🔴 OPEN — what's actually left:
 > - **ENG-M6 (DEFERRED — do supervised):** bounded-concurrency on the serial SEO/insights loops (visibility.ts per-keyword SERP / insights.ts per-competitor reads / traffic.ts inserts). Those pipelines have NO unit tests (live-only, not in CI) + DataForSEO rate limits, so a change is unverifiable by the gate — not safe to ship unsupervised on a budget.
 > - **Leftover redundant casts (low value, cosmetic):** the cron routes (build-brief/ask-mining/rollup-feedback/ingest) + app actions (brief-actions/ask/knowledge-review) + preview-data still pass `... as unknown as <Store>`. Now that the lib Store types ARE the real client, these compile fine (redundant, not broken). feedback-distill-run's `DistillStore` + the cron `IngestStore`/`AskMiningStore` were left narrow.
-> - **Needs Bryan:** SEC-Low L1 (remove the temp `/api/health/stripe-mode` route — only once that Stripe work is closed) + L2 (move its token query-string→header if kept) · delete the 6 stale remote branches · optional rotate the test webhook secret.
+> - **Done 2026-06-28:** SEC-Low L1/L2 (temp `/api/health/stripe-mode` route DELETED — L2 moot) · the 6 stale remote branches deleted from origin · test webhook secret = no action (Stripe CLI ephemeral `stripe listen` secret, regenerated per session — not a stored credential).
 >
 > <details><summary>Original 2026-06-26 ordered list (historical — most now shipped)</summary>
 > 1. **TEST-2** — unit-test `app/api/stripe/webhook` + `lib/auth/org-access` (the two highest-blast-radius
