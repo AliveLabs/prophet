@@ -48,12 +48,15 @@ export default async function InsightPoolPage() {
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-6">
+      <div className="mb-8 animate-fade-up">
         <Link href="/home" className="text-xs text-muted-foreground hover:text-foreground">
           ← Back to your brief
         </Link>
-        <h1 className="mt-2 font-display text-2xl font-semibold text-foreground">All insights</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <h1 className="mt-3 flex items-center gap-2 font-display text-2xl font-semibold text-foreground">
+          All insights
+          <span className="live-dot" aria-hidden="true" />
+        </h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">
           Every insight from your recent briefs{locRow.name ? ` for ${locRow.name}` : ""}. The top few
           surface on your brief each day; the rest stay here, filterable by type.
         </p>

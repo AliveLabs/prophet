@@ -136,7 +136,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   return (
     <section className="space-y-5">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         {locations && locations.length > 1 && selectedLocationId && (
           <LocationFilter
             locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
@@ -157,8 +157,14 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
         <>
           {/* KPI Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Current Conditions</p>
+            {/* Hero stat — rust gradient tile */}
+            <Card
+              className="animate-fade-up bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white border-0 shadow-md"
+              style={{ animationDelay: "40ms" }}
+            >
+              <p className="text-xs font-medium text-white/70 uppercase tracking-wide">
+                Current Conditions
+              </p>
               <div className="mt-2 flex items-center gap-2">
                 {latestWeather && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -169,27 +175,27 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                   />
                 )}
                 <div>
-                  <p className="text-2xl font-bold text-foreground">
+                  <p className="text-2xl font-bold text-white">
                     {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°F` : "N/A"}
                   </p>
-                  <p className="text-[11px] capitalize text-muted-foreground">
+                  <p className="text-[11px] capitalize text-white/70">
                     {latestWeather?.weather_condition.toLowerCase() ?? ""}
                   </p>
                 </div>
               </div>
             </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Avg High Temp</p>
+            <Card className="animate-fade-up bg-card" style={{ animationDelay: "80ms" }}>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Avg High Temp</p>
               <p className="mt-2 text-3xl font-bold text-signal-gold">{avgTemp}°F</p>
               <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
             </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Total Precipitation</p>
+            <Card className="animate-fade-up bg-card" style={{ animationDelay: "120ms" }}>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Precipitation</p>
               <p className="mt-2 text-3xl font-bold text-primary">{totalPrecip.toFixed(2)}&quot;</p>
               <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
             </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Severe Weather Days</p>
+            <Card className="animate-fade-up bg-card" style={{ animationDelay: "160ms" }}>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Severe Weather Days</p>
               <p className={`mt-2 text-3xl font-bold ${severeCount > 0 ? "text-destructive" : "text-precision-teal"}`}>
                 {severeCount}
               </p>
@@ -198,7 +204,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
           </div>
 
           {/* Weather History + Forecast Chart */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "80ms" }}>
             <WeatherHistory
               days={weatherDays}
               locationName={selectedLocation?.name ?? "Location"}
@@ -207,19 +213,21 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
           </div>
 
           {/* Actionable Weather Insights */}
-          <WeatherActionableInsights days={weatherDays} todayStr={todayStr} />
+          <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
+            <WeatherActionableInsights days={weatherDays} todayStr={todayStr} />
+          </div>
 
           {/* All Locations Cards */}
           {allLocationWeather.length > 1 && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
               <LocationWeatherCards locations={allLocationWeather} />
             </div>
           )}
 
           {/* Weather-Related Insights */}
           {(weatherInsights ?? []).length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-foreground">Weather-Related Insights</h3>
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
+              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Weather-Related Insights</h3>
               <div className="mt-3 space-y-2">
                 {(weatherInsights ?? []).map((ins) => (
                   <div
@@ -240,7 +248,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
           )}
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+        <div className="animate-fade-up rounded-2xl border border-dashed border-border bg-card py-16 text-center">
           <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
           </svg>

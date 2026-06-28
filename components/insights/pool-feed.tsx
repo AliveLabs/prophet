@@ -59,14 +59,14 @@ export default function PoolFeed({ entries }: { entries: PoolEntry[] }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="animate-fade-up flex flex-wrap items-center gap-2" style={{ animationDelay: "40ms" }}>
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => setCategory(t.key)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            className={`min-h-11 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
               category === t.key
                 ? "border-foreground bg-foreground text-background"
                 : "border-border bg-card text-muted-foreground hover:text-foreground"
@@ -75,7 +75,7 @@ export default function PoolFeed({ entries }: { entries: PoolEntry[] }) {
             {t.label} <span className="opacity-60">{t.count}</span>
           </button>
         ))}
-        <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+        <label className="ml-auto flex min-h-11 cursor-pointer items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={topOnly} onChange={(e) => setTopOnly(e.target.checked)} />
           This week&apos;s top only
         </label>
@@ -83,10 +83,14 @@ export default function PoolFeed({ entries }: { entries: PoolEntry[] }) {
 
       {/* Card list */}
       <ul className="space-y-3">
-        {shown.map((e) => {
+        {shown.map((e, i) => {
           const p = e.play
           return (
-            <li key={e.id} className="rounded-xl border border-border bg-card p-4">
+            <li
+              key={e.id}
+              className="animate-fade-up rounded-xl border border-border bg-card p-4"
+              style={{ animationDelay: `${80 + Math.min(i, 10) * 40}ms` }}
+            >
               <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
                 {e.category && (
                   <span className="font-semibold text-foreground">{CATEGORY_LABEL[e.category] ?? e.category}</span>

@@ -202,7 +202,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   return (
     <section className="space-y-5">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <EventsFilters
           locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
           selectedLocationId={selectedLocationId}
@@ -219,7 +219,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           />
         )}
         {snapshotDate && (
-          <span className="ml-auto text-[11px] text-muted-foreground">
+          <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="live-dot" />
             Last fetched: {snapshotDate}
           </span>
         )}
@@ -244,17 +245,18 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* KPI Stats                                                         */}
       {/* ----------------------------------------------------------------- */}
       {snapshot && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 animate-fade-up" style={{ animationDelay: "40ms" }}>
+          {/* Hero stat — rust gradient tile */}
+          <div className="group rounded-2xl border border-transparent bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] p-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary/15">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12V12z" />
                 </svg>
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalEvents}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">Total Events</p>
+                <p className="text-2xl font-bold text-white">{totalEvents}</p>
+                <p className="text-[11px] font-medium text-white/75">Total Events</p>
               </div>
             </div>
           </div>
@@ -308,7 +310,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* Top Venues Bar                                                    */}
       {/* ----------------------------------------------------------------- */}
       {topVenues.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/50 px-4 py-3">
+        <div className="animate-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/50 px-4 py-3" style={{ animationDelay: "80ms" }}>
           <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Hot Venues
           </span>
@@ -334,8 +336,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* What these events MEAN for you (event-only insights)              */}
       {/* ----------------------------------------------------------------- */}
       {eventInsights.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="animate-fade-up space-y-3" style={{ animationDelay: "120ms" }}>
+          <h2 className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             What these events mean for you
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -395,9 +397,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       {/* Events Feed (grouped by date)                                     */}
       {/* ----------------------------------------------------------------- */}
       {events.length > 0 && (
-        <div className="space-y-8">
-          {Array.from(groupedEvents.entries()).map(([dateLabel, dayEvents]) => (
-            <div key={dateLabel}>
+        <div className="animate-fade-up space-y-8" style={{ animationDelay: "160ms" }}>
+          {Array.from(groupedEvents.entries()).map(([dateLabel, dayEvents], groupIdx) => (
+            <div key={dateLabel} className="animate-fade-up" style={{ animationDelay: `${160 + groupIdx * 40}ms` }}>
               {/* Date separator */}
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex items-center gap-2">

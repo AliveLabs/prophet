@@ -417,7 +417,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   return (
     <section className="space-y-5">
       {/* Filters + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         <AutoFilterForm
           filters={[
             {
@@ -478,6 +478,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
       {/* Priority Briefing -- streamed via Suspense, never blocks page */}
       {allInsights.length > 0 && (
+        <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
         <Suspense fallback={<BriefingSkeleton />}>
           <PriorityBriefingSection
             insights={insightsForBriefing}
@@ -487,15 +488,19 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             context={briefingContext}
           />
         </Suspense>
+        </div>
       )}
 
       {/* Weather Context Badge */}
       {weatherForBadge && (
-        <WeatherBadge weather={weatherForBadge} />
+        <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
+          <WeatherBadge weather={weatherForBadge} />
+        </div>
       )}
 
       {/* Charts Dashboard (competitor analytics) */}
       {selectedLocationId && (
+        <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
         <InsightsDashboard
           ratingComparison={ratingComparison}
           reviewGrowthDelta={reviewGrowthDelta}
@@ -505,30 +510,35 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           reviewShare={reviewShare}
           recentReviews={recentReviews}
         />
+        </div>
       )}
 
       {/* Social Media Intelligence Dashboard */}
       {socialData.profiles.length > 0 && (
-        <SocialDashboard profiles={socialData.profiles} />
+        <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
+          <SocialDashboard profiles={socialData.profiles} />
+        </div>
       )}
 
       {/* Busy Times Traffic Chart */}
       {trafficData.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card p-5">
+        <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card p-5" style={{ animationDelay: "200ms" }}>
           <TrafficChart data={trafficData} />
         </div>
       )}
 
       {/* Client-side tabs + insight feed (instant tab switching) */}
+      <div className="animate-fade-up" style={{ animationDelay: "240ms" }}>
       <InsightFeed
         insights={feedInsights}
         baseParams={baseParams}
         statusFilter={statusFilter}
       />
+      </div>
 
       {/* Photo Gallery */}
       {photoItems.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card p-5">
+        <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card p-5" style={{ animationDelay: "280ms" }}>
           <PhotoGallery photos={photoItems} />
         </div>
       )}

@@ -185,7 +185,7 @@ function PhotoCard({
 }) {
   return (
     <div
-      className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition hover:shadow-md ${
+      className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-card-md ${
         expanded ? "col-span-2 row-span-2 border-primary/50" : "border-border"
       }`}
       onClick={onToggle}

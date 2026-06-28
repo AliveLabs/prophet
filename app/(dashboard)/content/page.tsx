@@ -165,7 +165,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
   return (
     <section className="space-y-5">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         {locations && locations.length > 0 && selectedLocationId && (
           <LocationFilter
             locations={locations.map((l) => ({ id: l.id, name: l.name }))}
@@ -180,14 +180,15 @@ export default async function ContentPage({ searchParams }: PageProps) {
           disabled={!selectedLocationId}
         />
         {lastRefreshDate && (
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="live-dot" aria-hidden="true" />
             Last refresh: {lastRefreshDate}
           </span>
         )}
       </div>
 
       {selectedLocation?.website && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
+        <div className="animate-fade-up flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground" style={{ animationDelay: "40ms" }}>
           <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
             <circle cx="12" cy="12" r="9" />
             <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
@@ -216,10 +217,10 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Empty state */}
       {!siteContentSnap && !menuSnap && (
-        <Card className="py-12 text-center">
+        <Card className="animate-fade-up py-12 text-center" style={{ animationDelay: "80ms" }}>
           <div className="mx-auto max-w-sm space-y-3">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-precision-teal/15">
-              <svg className="h-7 w-7 text-precision-teal" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--rust-tint,#F4E2D7)]">
+              <svg className="h-7 w-7 text-[var(--rust,#B85C38)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
               </svg>
             </div>
@@ -233,7 +234,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Hero Screenshot */}
       {screenshotUrl && (
-        <div className="overflow-hidden rounded-2xl border border-border shadow-sm">
+        <div className="animate-fade-up overflow-hidden rounded-2xl border border-border shadow-sm" style={{ animationDelay: "80ms" }}>
           <div className="relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -263,9 +264,9 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Site Features */}
       {siteContentSnap && (
-        <Card>
+        <Card className="animate-fade-up" style={{ animationDelay: "120ms" }}>
           <CardHeader>
-            <CardTitle className="text-base">Website Features Detected</CardTitle>
+            <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Website Features Detected</CardTitle>
           </CardHeader>
           <div className="flex flex-wrap gap-2 px-6 pb-5">
             <FeatureBadge label="Online Reservations" active={siteContentSnap.detected.reservation} />
@@ -288,7 +289,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Menu Viewer + Menu Screenshot */}
       {menuSnap && menuSnap.categories.length > 0 && (
-        <div className="grid gap-6 xl:grid-cols-3">
+        <div className="animate-fade-up grid gap-6 xl:grid-cols-3" style={{ animationDelay: "160ms" }}>
           <div className="xl:col-span-2">
             <MenuViewer
               categories={menuSnap.categories}
@@ -339,12 +340,14 @@ export default async function ContentPage({ searchParams }: PageProps) {
 
       {/* Competitor Menu Compare */}
       {menuSnap && menuSnap.categories.length > 0 && competitorMenus.length > 0 && (
-        <MenuCompare
-          locationName={selectedLocation?.name ?? "Your Location"}
-          locationCategories={menuSnap.categories}
-          locationAvgPrice={locAvgPrice}
-          competitors={competitorMenus}
-        />
+        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
+          <MenuCompare
+            locationName={selectedLocation?.name ?? "Your Location"}
+            locationCategories={menuSnap.categories}
+            locationAvgPrice={locAvgPrice}
+            competitors={competitorMenus}
+          />
+        </div>
       )}
     </section>
   )

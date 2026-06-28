@@ -139,9 +139,12 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div
+        className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 animate-fade-up"
+        style={{ animationDelay: "0ms" }}
+      >
         {locations && locations.length > 1 && selectedLocationId && (
           <LocationFilter
             locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
@@ -149,36 +152,43 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
           />
         )}
         {selectedLocationId && (
-          <JobRefreshButton
-            type="busy_times"
-            locationId={selectedLocationId}
-            label="Fetch Busy Times"
-            pendingLabel="Fetching busy times data"
-          />
+          <div className="flex items-center gap-2">
+            <span className="live-dot" aria-hidden="true" />
+            <JobRefreshButton
+              type="busy_times"
+              locationId={selectedLocationId}
+              label="Fetch Busy Times"
+              pendingLabel="Fetching busy times data"
+            />
+          </div>
         )}
       </div>
 
       {trackedCount > 0 ? (
         <>
           {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Competitors Tracked</p>
-              <p className="mt-2 text-3xl font-bold text-foreground">{trackedCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">with busy times data</p>
+          <div
+            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-fade-up"
+            style={{ animationDelay: "40ms" }}
+          >
+            {/* Rust gradient hero tile — single most important scalar KPI */}
+            <Card className="bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white border-0 shadow-md">
+              <p className="text-xs font-medium uppercase tracking-wide opacity-80">Competitors Tracked</p>
+              <p className="mt-2 text-4xl font-bold tabular-nums">{trackedCount}</p>
+              <p className="mt-1 text-[11px] opacity-70">with busy times data</p>
             </Card>
             <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Busiest Competitor</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Busiest Competitor</p>
               <p className="mt-2 text-lg font-bold text-foreground">{busiestComp?.competitor_name ?? "N/A"}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">Peak: {busiestComp?.peak_score ?? 0}% on {busiestComp?.busiest_day ?? "N/A"}</p>
             </Card>
             <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Most Popular Day</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Most Popular Day</p>
               <p className="mt-2 text-lg font-bold text-signal-gold">{DAY_NAMES[mostPopularDow]}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">avg peak: {avgPeak}% across all competitors</p>
             </Card>
             <Card className="bg-card">
-              <p className="text-xs font-medium text-muted-foreground">Best Time to Compete</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Best Time to Compete</p>
               <p className="mt-2 text-lg font-bold text-precision-teal">
                 {DAY_NAMES[bestCompeteDay]} {formatHour(bestCompeteHour)}
               </p>
@@ -187,25 +197,39 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
           </div>
 
           {/* Bar Chart */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
+            style={{ animationDelay: "80ms" }}
+          >
             <TrafficChart data={trafficData} />
           </div>
 
           {/* Heatmap */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
+            style={{ animationDelay: "120ms" }}
+          >
             <TrafficHeatmap data={trafficData} />
           </div>
 
           {/* Peak Comparison */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div
+            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
+            style={{ animationDelay: "160ms" }}
+          >
             <PeakComparison competitors={peakData} />
           </div>
 
           {/* Traffic Insights */}
-          <TrafficInsightsSection data={trafficData} />
+          <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
+            <TrafficInsightsSection data={trafficData} />
+          </div>
         </>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+        <div
+          className="rounded-2xl border border-dashed border-border bg-card py-16 text-center animate-fade-up"
+          style={{ animationDelay: "40ms" }}
+        >
           <svg className="mx-auto h-12 w-12 text-signal-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
           </svg>

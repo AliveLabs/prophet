@@ -157,9 +157,9 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const proRatio = totalPhotos > 0 ? Math.round((professionalCount / totalPhotos) * 100) : 0
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-6">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
         {locations && locations.length > 1 && selectedLocationId && (
           <LocationFilter
             locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
@@ -179,24 +179,28 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
       {/* KPI Cards */}
       {totalPhotos > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="bg-card">
-            <p className="text-xs font-medium text-muted-foreground">Total Photos</p>
-            <p className="mt-2 text-3xl font-bold text-foreground">{totalPhotos}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{competitorIds.length} competitors</p>
+          {/* Weighted hero tile — rust gradient for the primary aggregate stat */}
+          <Card
+            className="animate-fade-up bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white"
+            style={{ animationDelay: "40ms" }}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Total Photos</p>
+            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-white">{totalPhotos}</p>
+            <p className="mt-1 text-[11px] text-white/60">{competitorIds.length} competitors tracked</p>
           </Card>
-          <Card className="bg-card">
-            <p className="text-xs font-medium text-muted-foreground">Top Category</p>
+          <Card className="animate-fade-up bg-card" style={{ animationDelay: "80ms" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Top Category</p>
             <p className="mt-2 text-xl font-bold text-foreground capitalize">{topCategory?.[0]?.replace(/_/g, " ") ?? "N/A"}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">{topCategory?.[1] ?? 0} photos</p>
           </Card>
-          <Card className="bg-card">
-            <p className="text-xs font-medium text-muted-foreground">Promotions Detected</p>
-            <p className="mt-2 text-3xl font-bold text-destructive">{promoCount}</p>
+          <Card className="animate-fade-up bg-card" style={{ animationDelay: "120ms" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Promotions Detected</p>
+            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-destructive">{promoCount}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">across all competitors</p>
           </Card>
-          <Card className="bg-card">
-            <p className="text-xs font-medium text-muted-foreground">Professional Quality</p>
-            <p className="mt-2 text-3xl font-bold text-precision-teal">{proRatio}%</p>
+          <Card className="animate-fade-up bg-card" style={{ animationDelay: "160ms" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Professional Quality</p>
+            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-precision-teal">{proRatio}%</p>
             <p className="mt-1 text-[11px] text-muted-foreground">{professionalCount} of {totalPhotos} photos</p>
           </Card>
         </div>
@@ -204,21 +208,23 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
 
       {/* Visual Intelligence Insight Cards */}
       {totalPhotos > 0 && (
-        <VisualInsightsCards
-          insights={photoInsights}
-          categoryDistributions={categoryDistributions}
-          qualityBenchmarks={qualityBenchmarks}
-          promoActivity={promoActivity}
-        />
+        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
+          <VisualInsightsCards
+            insights={photoInsights}
+            categoryDistributions={categoryDistributions}
+            qualityBenchmarks={qualityBenchmarks}
+            promoActivity={promoActivity}
+          />
+        </div>
       )}
 
       {/* Photo Grid */}
       {totalPhotos > 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
           <PhotoGrid photos={photos} />
         </div>
       ) : (
-        <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
+        <div className="animate-fade-up rounded-2xl border border-dashed border-border bg-card py-16 text-center" style={{ animationDelay: "80ms" }}>
           <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />

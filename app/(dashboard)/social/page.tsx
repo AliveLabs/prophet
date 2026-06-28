@@ -138,7 +138,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   return (
     <section className="space-y-5">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 animate-fade-up" style={{ animationDelay: "0ms" }}>
         {locations && locations.length > 1 && selectedLocationId && (
           <LocationFilter
             locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
@@ -158,22 +158,23 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
       {/* KPI Cards */}
       {socialData.profiles.length > 0 && (
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div className="rounded-lg border border-border bg-card px-5 py-4">
-            <p className="text-[11.5px] font-medium text-muted-foreground">Total Followers</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{formatNumber(totalFollowers)}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
+          {/* Hero stat — Total Followers gets the rust gradient tile */}
+          <div className="rounded-lg border border-transparent bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] px-5 py-4 text-white animate-fade-up" style={{ animationDelay: "40ms" }}>
+            <p className="text-[11.5px] font-medium text-white/70">Total Followers</p>
+            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-white">{formatNumber(totalFollowers)}</p>
+            <p className="mt-1 text-[11px] text-white/60">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
           </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4">
+          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "80ms" }}>
             <p className="text-[11.5px] font-medium text-muted-foreground">Avg Engagement Rate</p>
             <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-primary">{avgEngagement.toFixed(1)}%</p>
             <p className="mt-1 text-[11px] text-muted-foreground">across your profiles</p>
           </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4">
+          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "120ms" }}>
             <p className="text-[11.5px] font-medium text-muted-foreground">Platforms Tracked</p>
             <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{platformCount}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">Instagram, Facebook, TikTok</p>
           </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4">
+          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "160ms" }}>
             <p className="text-[11.5px] font-medium text-muted-foreground">Competitor Profiles</p>
             <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{compProfiles.length}</p>
             <p className="mt-1 text-[11px] text-muted-foreground">being monitored</p>
@@ -183,26 +184,32 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
 
       {/* Handle Management Section */}
       {selectedLocationId && (
-        <SocialHandleSection
-          locationId={selectedLocationId}
-          locationName={selectedLocation?.name ?? "Your location"}
-          locationHandles={locationHandles}
-          competitorHandleGroups={competitorHandleGroups}
-        />
+        <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
+          <SocialHandleSection
+            locationId={selectedLocationId}
+            locationName={selectedLocation?.name ?? "Your location"}
+            locationHandles={locationHandles}
+            competitorHandleGroups={competitorHandleGroups}
+          />
+        </div>
       )}
 
       {/* Social Dashboard Charts */}
       {socialData.profiles.length > 0 && (
-        <SocialDashboard profiles={socialData.profiles} />
+        <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
+          <SocialDashboard profiles={socialData.profiles} />
+        </div>
       )}
 
       {/* Top Recent Posts */}
       {socialData.topPosts && socialData.topPosts.length > 0 && (
-        <SocialPostsGrid posts={socialData.topPosts} />
+        <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
+          <SocialPostsGrid posts={socialData.topPosts} />
+        </div>
       )}
 
       {/* Social Intelligence Insights */}
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-signal-gold/20 to-signal-gold/10 text-signal-gold">
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -210,7 +217,10 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
             </svg>
           </div>
           <div>
-            <h2 className="text-base font-semibold text-foreground">Social Intelligence Insights</h2>
+            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              Social Intelligence Insights
+              <span className="live-dot" aria-label="live" />
+            </h2>
             <p className="text-xs text-muted-foreground">AI-powered analysis of your social presence vs competitors</p>
           </div>
         </div>
