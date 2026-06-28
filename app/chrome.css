@@ -11,9 +11,12 @@
   align-items: center;
   justify-content: center;
   background-color: var(--paper);
+  /* pearlescent multi-hue canvas (Dribbble-inspired premium first impression) */
   background-image:
-    radial-gradient(120% 80% at 100% -10%, rgba(184, 92, 56, 0.05), transparent 55%),
-    radial-gradient(90% 70% at -10% 110%, rgba(201, 148, 42, 0.045), transparent 60%);
+    radial-gradient(70% 60% at 50% 122%, rgba(184,92,56,0.12), transparent 70%),
+    radial-gradient(52% 48% at 90% 6%, rgba(58,128,102,0.09), transparent 72%),
+    radial-gradient(56% 52% at 6% 2%, rgba(201,148,42,0.09), transparent 72%),
+    radial-gradient(60% 60% at 102% 102%, rgba(61,79,95,0.07), transparent 72%);
   color: var(--ink);
   font-family: var(--font-sans);
   line-height: 1.55;
@@ -25,27 +28,29 @@
 .ticket-chrome ::selection { background: rgba(184, 92, 56, 0.2); }
 .chrome-card { width: 100%; max-width: 560px; display: flex; flex-direction: column; align-items: center; }
 .chrome-kicker { font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .22em; font-size: 12.5px; color: var(--rust); }
-.chrome-h { font-family: var(--font-display); font-weight: 400; line-height: 1.04; letter-spacing: -.012em; font-size: 54px; color: var(--ink); margin: 14px 0 0; }
+.chrome-h { font-family: var(--font-editorial); font-weight: 400; line-height: 1.04; letter-spacing: -.005em; font-size: clamp(40px,5vw,56px); color: var(--ink); margin: 14px 0 0; text-wrap: balance; }
 .chrome-h em { font-style: italic; color: var(--rust-deep); }
 .chrome-sub { font-size: 16px; line-height: 1.55; color: var(--print); margin: 18px 0 0; max-width: 48ch; }
 .chrome-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 30px 0 0; }
-.chrome-btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-cond); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; font-size: 14px; padding: 13px 22px; border-radius: var(--radius); border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; }
-.chrome-btn:hover { opacity: .86; }
-.chrome-btn--ghost { background: transparent; color: var(--print); border-color: var(--rule-strong); }
-.chrome-btn--ghost:hover { background: var(--bond); opacity: 1; }
+.chrome-btn { display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; letter-spacing: .005em; font-size: 14.5px; padding: 14px 24px; min-height: 48px; border-radius: 999px; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); cursor: pointer; transition: transform var(--t-fast), box-shadow var(--t-fast), opacity var(--t-fast), background var(--t-fast); }
+.chrome-btn:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
+.chrome-btn:active { transform: translateY(0); }
+.chrome-btn--ghost { background: var(--card); color: var(--ink); border-color: var(--line-2); box-shadow: var(--shadow-sm); }
+.chrome-btn--ghost:hover { background: var(--bond); }
 .chrome-foot { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ash-2); margin: 56px 0 0; }
 @media (max-width: 560px) { .chrome-h { font-size: 40px; } }
 
-/* ── Auth (login / signup) — focused editorial card ──────────────── */
-.auth-card { max-width: 420px; align-items: stretch; text-align: left; background: var(--card); border: 1px solid var(--rule); border-radius: var(--radius-card); box-shadow: var(--shadow-chit); padding: 30px 30px 28px; }
-.auth-brand { font-family: var(--font-cond); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 20px; color: var(--ink); margin-bottom: 18px; }
+/* ── Auth (login / signup) — floating premium card on the pearlescent canvas ──── */
+.auth-card { max-width: 440px; align-items: stretch; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); box-shadow: var(--shadow-lg); padding: 40px 38px 34px; }
+@media (prefers-reduced-motion: no-preference){ .auth-card{ animation: ob-card-in .5s var(--ease) both; } @keyframes ob-card-in{ from{ opacity:0; transform:translateY(12px) scale(.99);} to{ opacity:1; transform:none; } } }
+.auth-brand { font-family: var(--font-display); font-weight: 700; letter-spacing: -.01em; font-size: 20px; color: var(--ink); margin-bottom: 20px; }
 .auth-card .chrome-kicker { text-align: left; }
-.auth-card .chrome-h { font-size: 33px; margin-top: 8px; text-align: left; }
+.auth-card .chrome-h { font-size: clamp(30px,6vw,38px); margin-top: 8px; text-align: left; }
 .auth-card .chrome-sub { text-align: left; margin-top: 12px; font-size: 14.5px; max-width: none; }
 .auth-form { display: grid; gap: 8px; margin-top: 22px; }
 .chrome-label { font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .08em; font-size: 11.5px; color: var(--ash); }
-.chrome-input { border: 1px solid var(--rule-strong); border-radius: var(--radius); padding: 12px 14px; font-family: var(--font-sans); font-size: 15px; color: var(--ink); background: var(--paper); }
-.chrome-input:focus { outline: 2px solid var(--rust); outline-offset: 1px; }
+.chrome-input { border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 14px 16px; font-family: var(--font-sans); font-size: 15px; color: var(--ink); background: var(--card-2); transition: border-color var(--t-fast), box-shadow var(--t-fast); }
+.chrome-input:focus { outline: none; border-color: var(--rust); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 18%, transparent); }
 .auth-submit { width: 100%; margin-top: 6px; }
 .auth-google { width: 100%; }
 .chrome-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; font-family: var(--font-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--ash-2); }
