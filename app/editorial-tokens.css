@@ -1,30 +1,154 @@
 /* ============================================================
-   TICKET — Editorial design tokens (single source of truth)
-   The Newsprint palette + fonts shared by the three editorial
-   surfaces: the Brief (.ticket-brief), the reworked app shell
-   (.ticket-app), and onboarding (.ob). Imported by each surface's
-   CSS so tokens never drift across them.
-   SCOPED to those three classes (not :root) on purpose, so the
-   editorial palette can't collide with the dark dashboard shell's
-   own --card/--radius/etc. design tokens.
-   `--shadow-lift` is intentionally NOT here — it's brief-only
-   (the lead recommendation's deeper lift), declared in brief.css.
+   TICKET — "The Pass" design tokens (single source of truth)
+   Premium LIGHT + dimensional system shared by the editorial
+   surfaces: the Brief (.ticket-brief), the app shell (.ticket-app),
+   onboarding (.ob), and standalone chrome (.ticket-chrome).
+   Imported by each surface's CSS so tokens never drift.
+
+   Replaces the old flat "newsprint" palette (cream + Instrument
+   Serif + hairlines) — the AI-design cliché diagnosed in
+   docs/design-gap-diagnosis-2026-06-26.md — with depth: an
+   atmospheric gradient canvas, soft elevation, confident color,
+   motion. Legacy token NAMES are preserved (so every existing
+   .pv-* / .ticket-brief rule keeps resolving) — only their values
+   are upgraded, plus new families/shadows/radii/motion are added.
+
+   Fonts come from next/font (app/layout.tsx) via CSS variables —
+   no external @import (faster, CSP-clean). Type system:
+   Space Grotesk (display/labels) · Inter (body) · Space Mono (data)
+   · Fraunces italic (rare editorial flourish: brief lead only).
+
+   Full reference: docs/design-system/THE-PASS-SYSTEM.md
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
-
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT
+   ═══════════════════════════════════════════════════════════════ */
 .ticket-brief, .ticket-app, .ob, .ticket-chrome {
-  --paper:#F5F3EF; --paper-2:#EFEBE4; --bond:#F0EDE9; --thermal:#FBF0E6;
-  --ledger:#EBE8E3; --card:#FFFFFF;
-  --ink:#1C1917; --press:#24211E; --print:#4D4843; --ash:#6E6862; --ash-2:#857f78;
-  --slate:#3D4F5F; --slate-deep:#2E3D4A; --rust:#B85C38; --rust-deep:#8A3D20;
-  --signal:#D08548; --wire-gold:#C9942A; --gold-deep:#8A6B18;
-  --clear:#3A8066; --clear-wash:#E8F5EE; --alert:#C44040; --alert-wash:#F7E9E6;
-  --radius:4px; --radius-card:6px;
-  --rule:rgba(28,25,23,0.14); --rule-strong:rgba(28,25,23,0.55);
-  --shadow-chit:0 1px 0 rgba(28,25,23,0.04), 0 6px 18px -10px rgba(28,25,23,0.30);
-  --font-display:'Instrument Serif',Georgia,serif;
-  --font-cond:'Barlow Condensed','Arial Narrow',sans-serif;
-  --font-sans:'Inter',system-ui,sans-serif;
-  --font-mono:'Space Mono',ui-monospace,monospace;
+  /* ── Surfaces ─────────────────────────────────────────────── */
+  --paper:#FAF8F4;        /* app ground (warmer, lighter than old newsprint) */
+  --paper-2:#F3EFE8;      /* recessed wells, track bg, hover */
+  --bond:#F4EFE8;         /* callout / secondary-button bg */
+  --thermal:#FBF0E6;      /* warm rust-adjacent wash (recommended tier, copy) */
+  --ledger:#EBE8E3;       /* legacy: muted fill */
+  --card:#FFFFFF;         /* elevated cards/panels */
+  --card-2:#FBF9F5;       /* nested surface inside a card */
+
+  /* ── Ink / text hierarchy ─────────────────────────────────── */
+  --ink:#241E1A;          /* primary text — warm near-black */
+  --press:#1B1714;        /* deepest (elevated-dark surfaces) */
+  --ink-2:#5C5249;        /* body */
+  --ink-3:#756A5D;        /* secondary / meta (≥14px or sparing — AA §8) */
+  --print:#5C5249;        /* legacy alias → body */
+  --ash:#756A5D;          /* legacy alias → secondary */
+  --ash-2:#9C9082;        /* faint meta */
+
+  /* ── Brand families: base (fill/large) · -deep (small text) · -tint (wash) ── */
+  --rust:#B85C38;   --rust-2:#A04E2E;   --rust-deep:#8A3D20;   --rust-tint:#F4E2D7;
+  --teal:#3A8066;   --teal-2:#2E6B54;   --teal-deep:#2E6B54;   --teal-tint:#DCEBE3;
+  --gold:#C9942A;   --gold-2:#A57A1E;   --gold-deep:#856017;   --gold-tint:#F4E8CC;
+  --slate:#3D4F5F;  --slate-2:#2C3A47;  --slate-deep:#2C3A47;  --slate-tint:#E0E6EB;
+  --alert:#C44040;  --alert-2:#A83232;  --alert-deep:#A83232;  --alert-wash:#F6DCDA;
+  /* legacy aliases */
+  --clear:#3A8066;  --clear-2:#2E6B54;  --clear-wash:#DCEBE3;
+  --wire-gold:#C9942A;
+  --signal:#D08548;       /* flagged / attention */
+
+  /* ── Canvas halos (the prominent background element) ──────── */
+  --halo-rust:rgba(184,92,56,0.10);
+  --halo-teal:rgba(58,128,102,0.10);
+  --halo-gold:rgba(201,148,42,0.07);
+
+  /* ── Lines ────────────────────────────────────────────────── */
+  --rule:rgba(36,30,26,0.10);
+  --rule-strong:rgba(36,30,26,0.42);
+  --line:#E9E2D7;
+  --line-2:#DAD2C4;
+
+  /* ── Radii (soft, premium) ────────────────────────────────── */
+  --radius:10px;
+  --radius-card:16px;
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-xl:28px;
+
+  /* ── Elevation (soft, warm-shifted) ───────────────────────── */
+  --shadow-sm:0 1px 2px rgba(36,30,26,0.05), 0 1px 3px rgba(36,30,26,0.06);
+  --shadow-md:0 4px 14px rgba(36,30,26,0.08), 0 2px 6px rgba(36,30,26,0.05);
+  --shadow-lg:0 18px 50px rgba(36,30,26,0.16), 0 6px 18px rgba(36,30,26,0.08);
+  --shadow-chit:var(--shadow-sm);   /* legacy alias */
+  --shadow-lift:var(--shadow-lg);   /* legacy alias (brief lead) */
+
+  /* ── Motion ───────────────────────────────────────────────── */
+  --t-fast:0.16s; --t:0.28s; --t-slow:0.5s;
+  --ease:cubic-bezier(0.22,0.61,0.36,1);
+  --focus:var(--rust);
+
+  /* ── Type (next/font variables; fallbacks for SSR/no-JS) ──── */
+  --font-sans:var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display:var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  --font-cond:var(--font-space-grotesk), system-ui, sans-serif;   /* labels (uppercase+tracked) */
+  --font-mono:var(--font-space-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-editorial:var(--font-fraunces), Georgia, "Times New Roman", serif; /* RARE flourish only */
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK (warm dark — a true peer; ThemeProvider toggles .dark on <html>)
+   -deep variants are LIGHTER than base here (light text on dark).
+   ═══════════════════════════════════════════════════════════════ */
+.dark .ticket-brief, .dark .ticket-app, .dark .ob, .dark .ticket-chrome,
+.ticket-brief.dark, .ticket-app.dark, .ob.dark {
+  --paper:#161310;        --paper-2:#1D1916;
+  --bond:#221D19;         --thermal:#3A271E;
+  --ledger:#332B24;       --card:#221D19;        --card-2:#1B1714;
+
+  --ink:#F3ECE3;          --press:#0F0D0B;
+  --ink-2:#C3B8AB;        --ink-3:#9C9082;
+  --print:#C3B8AB;        --ash:#9C9082;         --ash-2:#7C7268;
+
+  --rust:#D67A52;   --rust-2:#D9835A;   --rust-deep:#E8997A;   --rust-tint:#3A271E;
+  --teal:#5FB48E;   --teal-2:#5FB48E;   --teal-deep:#7FCBA6;   --teal-tint:#16332A;
+  --gold:#E0B14B;   --gold-2:#E0B14B;   --gold-deep:#EAC56F;   --gold-tint:#3A2F12;
+  --slate:#9DB1C0;  --slate-2:#B7C7D3;  --slate-deep:#B7C7D3;  --slate-tint:#23303B;
+  --alert:#E76A6A;  --alert-2:#E97777;  --alert-deep:#EE8C8C;  --alert-wash:#3A1E1E;
+  --clear:#5FB48E;  --clear-2:#7FCBA6;  --clear-wash:#16332A;
+  --wire-gold:#E0B14B;
+  --signal:#E2945F;
+
+  --halo-rust:rgba(214,122,82,0.16);
+  --halo-teal:rgba(95,180,142,0.14);
+  --halo-gold:rgba(224,177,75,0.10);
+
+  --rule:rgba(243,236,227,0.10);
+  --rule-strong:rgba(243,236,227,0.32);
+  --line:#332B24;
+  --line-2:#42372E;
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.40);
+  --shadow-md:0 6px 18px rgba(0,0,0,0.45);
+  --shadow-lg:0 22px 60px rgba(0,0,0,0.60), 0 8px 22px rgba(0,0,0,0.40);
+  --shadow-chit:var(--shadow-sm);
+  --shadow-lift:var(--shadow-lg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THE ATMOSPHERIC CANVAS — premium "light" depth (Bryan constraint #3)
+   A fixed, pointer-transparent multi-hue radial field behind a surface.
+   Drop <div class="bg-atmos" aria-hidden /> as the first child of a
+   positioned surface (the dashboard shell, auth, onboarding). A very
+   slow ambient drift makes the page feel alive at rest (motion §4).
+   ═══════════════════════════════════════════════════════════════ */
+.bg-atmos {
+  position:fixed; inset:0; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(900px 540px at 12% -8%,  var(--halo-rust), transparent 60%),
+    radial-gradient(820px 520px at 96% 4%,   var(--halo-teal), transparent 58%),
+    radial-gradient(680px 680px at 82% 102%, var(--halo-gold), transparent 70%);
+  background-size:160% 160%, 160% 160%, 160% 160%;
+  background-position:0% 0%, 100% 0%, 80% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bg-atmos { animation: atmos-drift 40s ease-in-out infinite alternate; }
+  @keyframes atmos-drift {
+    from { background-position: 0% 0%,   100% 0%,   80% 100%; }
+    to   { background-position: 8% 6%,   92% 8%,    72% 92%;  }
+  }
 }

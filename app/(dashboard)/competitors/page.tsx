@@ -2,6 +2,7 @@
 // management (Stage A port; replaces the legacy analyst module page, preserved in git
 // history). Real names, ratings, signal counts for the logged-in operator's location.
 
+import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
 import CompetitorList from "./competitor-list"
 
@@ -28,6 +29,12 @@ export default async function CompetitorsPage() {
         tierLabel={tierLabel(ctx.tier)}
         locationId={ctx.locationId}
       />
+
+      <p className="pv-handles-pointer">
+        Manage your own social handles on <Link href="/social">Social</Link>. To fix or add the
+        accounts we watch for a competitor, open them and edit <b>Social handles</b> — a wrong
+        handle means we read the wrong account.
+      </p>
     </div>
   )
 }

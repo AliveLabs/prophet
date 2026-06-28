@@ -45,19 +45,24 @@ export default async function OrganizationSettingsPage({
   return (
     <section className="space-y-5">
       {params.error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="animate-fade-up rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {params.error}
         </div>
       )}
       {params.success && (
-        <div className="rounded-lg border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
+        <div className="animate-fade-up rounded-lg border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
           {params.success}
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div
+        className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card"
+        style={{ animationDelay: "0ms" }}
+      >
         <div className="border-b border-border px-5 py-3">
-          <span className="text-[12.5px] font-semibold text-foreground">Organization</span>
+          <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Organization
+          </span>
         </div>
         <div className="p-5">
           <OrgSettingsForm
@@ -68,29 +73,34 @@ export default async function OrganizationSettingsPage({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div
+        className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card"
+        style={{ animationDelay: "40ms" }}
+      >
         <div className="border-b border-border px-5 py-3">
-          <span className="text-[12.5px] font-semibold text-foreground">Details</span>
+          <span className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            Details
+          </span>
         </div>
-        <div className="space-y-3 p-5 text-sm text-muted-foreground">
-          <div className="flex justify-between">
-            <span>Slug</span>
+        <div className="divide-y divide-border">
+          <div className="flex items-center justify-between px-5 py-3 text-sm">
+            <span className="text-muted-foreground">Slug</span>
             <span className="font-mono text-foreground">{org.slug}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Tier</span>
+          <div className="flex items-center justify-between px-5 py-3 text-sm">
+            <span className="text-muted-foreground">Tier</span>
             <span className="font-medium capitalize text-foreground">{org.subscription_tier}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Locations</span>
+          <div className="flex items-center justify-between px-5 py-3 text-sm">
+            <span className="text-muted-foreground">Locations</span>
             <span className="text-foreground">{locationCount ?? 0}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Team members</span>
+          <div className="flex items-center justify-between px-5 py-3 text-sm">
+            <span className="text-muted-foreground">Team members</span>
             <span className="text-foreground">{memberCount ?? 0}</span>
           </div>
-          <div className="flex justify-between">
-            <span>Created</span>
+          <div className="flex items-center justify-between px-5 py-3 text-sm">
+            <span className="text-muted-foreground">Created</span>
             <span className="text-foreground">
               {new Date(org.created_at).toLocaleDateString("en-US", {
                 month: "short",

@@ -42,7 +42,8 @@
 
 /* ── The lead: big headline + deck + synth line ─────────────── */
 .ticket-brief .brief-lead{ margin:26px 0 0; }
-.ticket-brief .brief-hed{ font-family:var(--font-display); font-weight:400; line-height:1.02; letter-spacing:-.012em; font-size:54px; color:var(--ink); margin:0; max-width:18ch; }
+/* The lead headline — THE one editorial flourish (Fraunces) inside the dimensional shell. */
+.ticket-brief .brief-hed{ font-family:var(--font-editorial); font-weight:400; line-height:1.04; letter-spacing:-.005em; font-size:clamp(38px,4.6vw,56px); color:var(--ink); margin:0; max-width:18ch; text-wrap:balance; }
 .ticket-brief .brief-hed em{ font-style:italic; color:var(--rust-deep); }
 .ticket-brief .brief-deck{ font-family:var(--font-sans); font-size:18px; line-height:1.5; color:var(--print); margin:20px 0 0; max-width:60ch; }
 .ticket-brief .brief-deck b{ color:var(--ink); font-weight:600; }
@@ -59,9 +60,11 @@
 .ticket-brief .zone-split .tab{ position:absolute; left:0; top:-9px; background:var(--paper); padding-right:14px; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ash-2); }
 
 /* ── Move card (action leads, why is proof) ─────────────────── */
-.ticket-brief .movecard{ background:var(--card); border:1px solid var(--rule); border-left:3px solid var(--rust); border-radius:0 var(--radius-card) var(--radius-card) 0; padding:18px 22px; box-shadow:var(--shadow-chit); }
+.ticket-brief .movecard{ background:var(--card); border:1px solid var(--line); border-left:3px solid var(--rust); border-radius:0 var(--radius-card) var(--radius-card) 0; padding:18px 22px; box-shadow:var(--shadow-sm); transition:transform var(--t-fast), box-shadow var(--t), border-color var(--t-fast); }
 .ticket-brief .movecard + .movecard{ margin-top:14px; }
-.ticket-brief .movecard--lead{ box-shadow:var(--shadow-lift); }
+.ticket-brief .movecard:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); }
+.ticket-brief .movecard--lead{ box-shadow:var(--shadow-lift); background:linear-gradient(162deg, var(--card) 62%, var(--thermal)); border-left-width:4px; padding:22px 24px; }
+.ticket-brief .movecard--lead:hover{ box-shadow:var(--shadow-lg); }
 .ticket-brief .movecard--prep{ border-left-color:var(--slate); }
 .ticket-brief .movecard__rank-row{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
 .ticket-brief .movecard__rank{ font-family:var(--font-mono); font-size:11px; color:var(--ash); text-transform:uppercase; letter-spacing:.04em; }

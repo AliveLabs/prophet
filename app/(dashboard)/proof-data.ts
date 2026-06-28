@@ -203,6 +203,46 @@ export async function loadCompetitorProof(
   return { posts, photos }
 }
 
+/** This competitor's social handles (for the operator-facing manage-handles section on the
+ *  competitor detail page). Scoped to the operator's location — a foreign id returns []
+ *  (mirrors loadCompetitorProof). Shape matches <HandleManager />. */
+export type ManagedHandle = {
+  id: string
+  platform: "instagram" | "facebook" | "tiktok"
+  handle: string
+  profileUrl: string | null
+  discoveryMethod: "auto_scrape" | "data365_search" | "manual"
+  isVerified: boolean
+}
+
+export async function loadCompetitorHandles(competitorId: string): Promise<ManagedHandle[]> {
+  const op = await resolveOperator()
+  const admin = createAdminSupabaseClient()
+  const { data: comp } = await admin
+    .from("competitors")
+    .select("id")
+    .eq("id", competitorId)
+    .eq("location_id", op.locationId)
+    .maybeSingle()
+  if (!comp) return []
+
+  const { data: rows } = await admin
+    .from("social_profiles")
+    .select("id, platform, handle, profile_url, discovery_method, is_verified")
+    .eq("entity_type", "competitor")
+    .eq("entity_id", competitorId)
+    .order("platform", { ascending: true })
+
+  return (rows ?? []).map((r) => ({
+    id: r.id as string,
+    platform: r.platform as ManagedHandle["platform"],
+    handle: r.handle as string,
+    profileUrl: (r.profile_url as string | null) ?? null,
+    discoveryMethod: r.discovery_method as ManagedHandle["discoveryMethod"],
+    isVerified: !!r.is_verified,
+  }))
+}
+
 // ---------------------------------------------------------------------------
 // "What we checked" — true per-source run outcomes from pipeline_runs.
 // ---------------------------------------------------------------------------

@@ -4,8 +4,9 @@
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { loadOperatorCompetitorDetail } from "../../operator-data"
-import { loadCompetitorProof } from "../../proof-data"
+import { loadCompetitorProof, loadCompetitorHandles } from "../../proof-data"
 import { ProofGrid, PhotoGrid } from "../../proof-grid"
+import CompetitorHandles from "../competitor-handles"
 import { humanizeRef } from "@/lib/skills/evidence-format"
 
 function initials(name: string): string {
@@ -20,7 +21,10 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
   const { id } = await params
   const c = await loadOperatorCompetitorDetail(id)
   if (!c) notFound()
-  const { posts, photos } = await loadCompetitorProof(id)
+  const [{ posts, photos }, handles] = await Promise.all([
+    loadCompetitorProof(id),
+    loadCompetitorHandles(id),
+  ])
 
   const meta = [
     c.rating != null ? `★ ${c.rating}${c.reviewCount != null ? ` · ${c.reviewCount.toLocaleString()} reviews` : ""}` : null,
@@ -63,9 +67,11 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
       ) : (
         <div className="pv-section">
           <div className="pv-section-head">Their recent posts <span className="pv-section-sub">live social activity</span></div>
-          <div className="pv-card"><p className="pv-ev__summary">No current social activity from this competitor — their accounts are quiet or unverified. If that changes, the posts land here.</p></div>
+          <div className="pv-card"><p className="pv-ev__summary">No current social activity from this competitor — their accounts are quiet or unverified. Add or fix their handles below and the next pull picks them up.</p></div>
         </div>
       )}
+
+      <CompetitorHandles competitorId={id} competitorName={c.name} handles={handles} />
 
       {photos.length ? (
         <div className="pv-section">

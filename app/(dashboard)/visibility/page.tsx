@@ -241,7 +241,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   return (
     <section className="space-y-5">
       {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 min-h-11 py-3">
         <VisibilityFilters
           locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
           selectedLocationId={selectedLocationId ?? ""}
@@ -301,7 +301,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
       {/* Last refreshed */}
       {lastRefreshed && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-precision-teal" />
+          <span className="live-dot" />
           Last refreshed: {new Date(lastRefreshed + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           {locationDomain && (
             <span className="ml-2 text-muted-foreground">
@@ -319,40 +319,48 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* ROW 1: Overview KPI Strip */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard
-              label="Organic Traffic"
-              value={organicEtv.toLocaleString()}
-              sub="est. clicks/mo"
-              accent="emerald"
-              badge={kpiSource === "ranked_keywords" ? "est." : undefined}
-            />
-            <KpiCard
-              label="Paid Traffic"
-              value={paidEtv.toLocaleString()}
-              sub="est. clicks/mo"
-              accent="violet"
-            />
-            <KpiCard
-              label="Traffic Cost"
-              value={trafficCost > 0 ? `$${Math.round(trafficCost).toLocaleString()}` : "—"}
-              sub={trafficCost > 0 ? "organic equiv." : undefined}
-              accent="amber"
-            />
-            <KpiCard
-              label="Keywords"
-              value={organicKeywords.toLocaleString()}
-              sub={`${trackedKwCount ?? 0} tracked`}
-              accent="indigo"
-              badges={[
-                { label: `+${newKw}`, color: "emerald" },
-                { label: `-${lostKw}`, color: "rose" },
-              ]}
-            />
+            <div className="animate-fade-up" style={{ animationDelay: "0ms" }}>
+              <KpiCard
+                label="Organic Traffic"
+                value={organicEtv.toLocaleString()}
+                sub="est. clicks/mo"
+                accent="hero"
+                badge={kpiSource === "ranked_keywords" ? "est." : undefined}
+              />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
+              <KpiCard
+                label="Paid Traffic"
+                value={paidEtv.toLocaleString()}
+                sub="est. clicks/mo"
+                accent="violet"
+              />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
+              <KpiCard
+                label="Traffic Cost"
+                value={trafficCost > 0 ? `$${Math.round(trafficCost).toLocaleString()}` : "—"}
+                sub={trafficCost > 0 ? "organic equiv." : undefined}
+                accent="amber"
+              />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
+              <KpiCard
+                label="Keywords"
+                value={organicKeywords.toLocaleString()}
+                sub={`${trackedKwCount ?? 0} tracked`}
+                accent="indigo"
+                badges={[
+                  { label: `+${newKw}`, color: "emerald" },
+                  { label: `-${lostKw}`, color: "rose" },
+                ]}
+              />
+            </div>
           </div>
 
           {/* ROW 2: Historical Traffic Chart */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-1 text-sm font-semibold text-foreground">Traffic Trends</h2>
+          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "80ms" }}>
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traffic Trends</h2>
             <p className="mb-3 text-xs text-muted-foreground">Organic and paid traffic over the past 12 months.</p>
             <TrafficChart data={historicalData} />
           </div>
@@ -360,9 +368,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {/* ROW 3: Keywords + Organic Competitors */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Organic Keywords with tabs */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">
-                Organic Keywords ({organicKeywords.toLocaleString()})
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "120ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Organic Keywords <span className="font-mono normal-case">({organicKeywords.toLocaleString()})</span>
               </h2>
               <KeywordTabs
                 keywords={rankedKeywords}
@@ -374,9 +382,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
 
             {/* Organic Competitors */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">
-                Organic Competitors ({organicCompetitors.length})
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Organic Competitors <span className="font-mono normal-case">({organicCompetitors.length})</span>
               </h2>
               {organicCompetitors.length > 0 ? (
                 <div className="max-h-[400px] overflow-y-auto">
@@ -424,11 +432,13 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           </div>
 
           {/* ROW 4: Keywords by Intent + SERP Features */}
-          <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
+          <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
+            <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
+          </div>
 
           {/* ROW 5: Ranking Distribution */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-foreground">Keyword Ranking Distribution</h2>
+          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keyword Ranking Distribution</h2>
             {rankHasData && rankData?.organic?.distribution ? (
               <RankingDistribution distribution={rankData.organic.distribution} />
             ) : rankedKeywords.length > 0 ? (
@@ -448,9 +458,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           {/* ROW 6: Top Pages + Subdomains */}
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top Pages */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">
-                Top Pages in Organic Search ({relevantPages.length})
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Top Pages <span className="font-mono normal-case">({relevantPages.length})</span>
               </h2>
               {relevantPages.length > 0 ? (
                 <div className="max-h-[300px] overflow-y-auto">
@@ -488,9 +498,9 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
             </div>
 
             {/* Subdomains */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">
-                Top Subdomains ({subdomains.length})
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Top Subdomains <span className="font-mono normal-case">({subdomains.length})</span>
               </h2>
               {subdomains.length > 0 ? (
                 <div className="max-h-[300px] overflow-y-auto">
@@ -523,8 +533,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* ROW 7: Keyword Gap Opportunities */}
           {gapOpportunities.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-1 text-sm font-semibold text-foreground">Keyword Gap Opportunities</h2>
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keyword Gap Opportunities</h2>
               <p className="mb-3 text-xs text-muted-foreground">Keywords competitors rank for that you don&apos;t appear for.</p>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -587,16 +597,24 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <div className="space-y-6">
           {/* KPI Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <KpiCard label="Est. Paid Traffic" value={paidEtv.toLocaleString()} sub="monthly visits" accent="amber" />
-            <KpiCard label="Paid Keywords" value={paidKeywords.toLocaleString()} accent="orange" />
-            <KpiCard label="Ad Creatives" value={String(adCreatives.length)} sub="detected" accent="rose" />
-            <KpiCard label="Paid Overlap" value={String(paidOverlap.length)} sub="shared keywords" accent="violet" />
+            <div className="animate-fade-up" style={{ animationDelay: "0ms" }}>
+              <KpiCard label="Est. Paid Traffic" value={paidEtv.toLocaleString()} sub="monthly visits" accent="amber" />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
+              <KpiCard label="Paid Keywords" value={paidKeywords.toLocaleString()} accent="orange" />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
+              <KpiCard label="Ad Creatives" value={String(adCreatives.length)} sub="detected" accent="rose" />
+            </div>
+            <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
+              <KpiCard label="Paid Overlap" value={String(paidOverlap.length)} sub="shared keywords" accent="violet" />
+            </div>
           </div>
 
           {/* Paid Keyword Overlap table */}
           {paidOverlap.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Paid Keyword Overlap</h2>
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "120ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Paid Keyword Overlap</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -626,8 +644,8 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
 
           {/* Ad Creatives feed */}
           {adCreatives.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-foreground">Competitor Ad Creatives</h2>
+            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
+              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Competitor Ad Creatives</h2>
               <div className="space-y-3">
                 {adCreatives.slice(0, 20).map((ad, i) => (
                   <div key={i} className="rounded-xl border border-border bg-secondary/50 p-3">
@@ -682,10 +700,12 @@ function KpiCard({
   label: string
   value: string
   sub?: string
-  accent: string
+  accent: "hero" | "indigo" | "violet" | "emerald" | "sky" | "amber" | "orange" | "rose" | "blue" | "slate"
   badge?: string
   badges?: Array<{ label: string; color: string }>
 }) {
+  const isHero = accent === "hero"
+
   const colorMap: Record<string, string> = {
     indigo: "border-l-primary bg-primary/10",
     violet: "border-l-vatic-indigo-soft bg-vatic-indigo-soft/10",
@@ -703,6 +723,37 @@ function KpiCard({
     emerald: "bg-precision-teal/15 text-precision-teal",
     rose: "bg-destructive/15 text-destructive",
     amber: "bg-signal-gold/15 text-signal-gold",
+  }
+
+  if (isHero) {
+    return (
+      <div
+        className="rounded-xl p-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, var(--ticket-rust), var(--ember-deep))",
+        }}
+      >
+        <p className="text-[10px] font-medium uppercase tracking-wider text-white/70">{label}</p>
+        <div className="mt-1 flex items-baseline gap-1">
+          <span className="text-xl font-bold text-white">{value}</span>
+          {sub && <span className="text-[10px] text-white/60">{sub}</span>}
+          {badge && (
+            <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white">
+              {badge}
+            </span>
+          )}
+        </div>
+        {badges && badges.length > 0 && (
+          <div className="mt-1 flex gap-1">
+            {badges.map((b) => (
+              <span key={b.label} className="rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white">
+                {b.label}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (

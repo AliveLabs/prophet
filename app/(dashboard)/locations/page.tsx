@@ -212,15 +212,15 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   return (
     <section className="space-y-5">
       {error ? (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="animate-fade-up rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {decodeURIComponent(error)}
         </div>
       ) : null}
 
       {/* Add Location */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card" style={{ animationDelay: "0ms" }}>
         <div className="border-b border-border px-5 py-3">
-          <span className="text-[12.5px] font-semibold text-foreground">Add Location</span>
+          <span className="font-mono text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">Add Location</span>
         </div>
         <div className="p-5">
           <LocationAddForm
@@ -232,13 +232,13 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
       </div>
 
       {/* Current Locations */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card" style={{ animationDelay: "40ms" }}>
         <div className="border-b border-border px-5 py-3">
-          <span className="text-[12.5px] font-semibold text-foreground">Current Locations</span>
+          <span className="font-mono text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground">Current Locations</span>
         </div>
-        <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+        <div className="mt-4 space-y-3 px-4 pb-4 text-sm text-muted-foreground">
           {locations && locations.length > 0 ? (
-            locations.map((location) => {
+            locations.map((location, i) => {
               const placeDetails = placeProfileMap.get(location.id)
               const weather = weatherMap.get(location.id) ?? null
               const latitude = placeDetails?.location?.latitude ?? location.geo_lat ?? null
@@ -259,7 +259,8 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
               return (
                 <div
                   key={location.id}
-                  className="rounded-2xl border border-border bg-gradient-to-r from-card via-secondary to-card px-5 py-4 shadow-sm"
+                  className="animate-fade-up rounded-2xl border border-border bg-gradient-to-r from-card via-secondary to-card px-5 py-4 shadow-sm"
+                  style={{ animationDelay: `${80 + i * 40}ms` }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
@@ -458,7 +459,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
               )
             })
           ) : (
-            <p>No locations yet. Add your first location above.</p>
+            <p className="px-1 pb-2 text-muted-foreground">No locations yet. Add your first location above.</p>
           )}
         </div>
       </div>
