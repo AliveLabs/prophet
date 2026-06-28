@@ -1,6 +1,14 @@
 # Ticket — Session Handoff (start here)
 
-> ## ▶ START HERE — 2026-06-28 · CODE-HEALTH AUDIT COMPLETE (only deferred visibility loops + cosmetic casts remain, both optional)
+> ## ▶ START HERE — 2026-06-28 · NEXT = a dedicated DESIGN session → see `docs/design-concepts/NEXT-SESSION-START-HERE.md`
+>
+> The code-health audit below is COMPLETE (only OPTIONAL leftovers remain: the deferred `visibility.ts`
+> DataForSEO loops + cosmetic redundant casts). **Parked TODO:** ENG-M6 live-verify — the insights/traffic
+> concurrency changes are LIVE-ONLY, so after the next daily cron (+ Mon for `traffic`) read `pipeline_runs`
+> / `/api/health/pipeline` to confirm clean runs. The next working session is **design** (Bryan will enable
+> Ultra Code); its brief is the design handoff linked above.
+>
+> ### (audit history below — done)
 >
 > **▶ The 3 open Bryan-decisions are RESOLVED (2026-06-28):**
 > 1. **SEC-Low L1/L2 — DONE:** the temp `/api/health/stripe-mode` diagnostic route was DELETED (Stripe work closed). Closes L1; L2 (its query-string token) is moot. (`app/api/health/pipeline` watchdog kept.)
