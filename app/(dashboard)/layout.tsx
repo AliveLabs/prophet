@@ -23,19 +23,22 @@ import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
 import { Toaster } from "sonner"
 import ShellNav from "./shell-nav"
 import AccountMenu from "./account-menu"
+import MobileTabBar from "./mobile-tabbar"
 import NewBriefNotice from "./new-brief-notice"
 import { loadOperatorAccount } from "./operator-data"
 import "./home/brief.css"
 import "./operator.css"
 
+// Theme-adaptive ticket-stub mark: body inherits --ink (currentColor) so it stays visible
+// in dark mode; the perforations punch through in the surface color (--paper).
 function TicketMark() {
   return (
-    <svg width="17" height="27" viewBox="0 0 72 114" aria-hidden="true">
-      <rect x="0" y="0" width="72" height="14" rx="1.5" fill="#1C1917" />
-      <rect x="18" y="14" width="36" height="100" fill="#1C1917" />
-      <circle cx="18" cy="16" r="3.5" fill="#F5F3EF" />
-      <circle cx="54" cy="16" r="3.5" fill="#F5F3EF" />
-      <line x1="21.5" y1="16" x2="50.5" y2="16" stroke="#F5F3EF" strokeWidth="1.6" strokeDasharray="2.5,2" />
+    <svg width="18" height="28" viewBox="0 0 72 114" aria-hidden="true" style={{ color: "var(--ink)" }}>
+      <rect x="0" y="0" width="72" height="14" rx="1.5" fill="currentColor" />
+      <rect x="18" y="14" width="36" height="100" fill="currentColor" />
+      <circle cx="18" cy="16" r="3.5" style={{ fill: "var(--paper)" }} />
+      <circle cx="54" cy="16" r="3.5" style={{ fill: "var(--paper)" }} />
+      <line x1="21.5" y1="16" x2="50.5" y2="16" style={{ stroke: "var(--paper)" }} strokeWidth="1.6" strokeDasharray="2.5,2" />
     </svg>
   )
 }
@@ -117,6 +120,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
       <BrandProvider brand={dataBrand}>
         <Toaster position="top-right" richColors closeButton />
         <div className="ticket-app">
+          <div className="bg-atmos" aria-hidden />
           <aside className="pv-sidebar">
             <div className="pv-brand"><TicketMark /> TICKET</div>
             <ShellNav locked />
@@ -124,6 +128,10 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <AccountMenu userName={account.userName} locations={account.locations} locked />
           </aside>
           <main className="pv-main">
+            <header className="pv-mobilebar">
+              <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
+              <AccountMenu userName={account.userName} locations={account.locations} locked />
+            </header>
             <div className="mx-auto mt-24 max-w-md rounded-xl border border-border bg-card p-8 text-center">
               <h2 className="text-lg font-semibold text-foreground">
                 This organization is no longer active
@@ -166,6 +174,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           />
         )}
         <div className="ticket-app">
+          <div className="bg-atmos" aria-hidden />
           <aside className="pv-sidebar">
             <div className="pv-brand"><TicketMark /> TICKET</div>
             <ShellNav locked />
@@ -173,6 +182,10 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <AccountMenu userName={account.userName} locations={account.locations} locked />
           </aside>
           <main className="pv-main">
+            <header className="pv-mobilebar">
+              <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
+              <AccountMenu userName={account.userName} locations={account.locations} locked />
+            </header>
             <AccountHeldPanel
               orgName={orgName}
               userEmail={user.email ?? null}
@@ -244,6 +257,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
         <NewBriefNotice locationId={currentLoc.id} generatedAt={briefGeneratedAt} enabled={noticeEnabled} />
       ) : null}
       <div className="ticket-app">
+        <div className="bg-atmos" aria-hidden />
         <aside className="pv-sidebar">
           <div className="pv-brand"><TicketMark /> TICKET</div>
           <ShellNav />
@@ -251,6 +265,10 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           <AccountMenu userName={account.userName} locations={account.locations} />
         </aside>
         <main className="pv-main">
+          <header className="pv-mobilebar">
+            <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
+            <AccountMenu userName={account.userName} locations={account.locations} />
+          </header>
           {showDunningBanner && <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />}
           {showTrialBanner && (
             <TrialBanner
@@ -272,6 +290,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           )}
           {children}
         </main>
+        <MobileTabBar />
       </div>
     </BrandProvider>
   )

@@ -30,27 +30,27 @@
 
 [data-brand="ticket"] {
 
-  /* ── Core semantic (shadcn convention) ───────────────────── */
-  --background:            #F5F3EF;  /* Newsprint */
-  --foreground:            #1C1917;  /* Ink */
-  --primary:               #3D4F5F;  /* Slate — CTAs, links */
-  --primary-foreground:    #FFFFFF;
-  --secondary:             #EBE8E3;  /* Ledger — alt surfaces */
-  --secondary-foreground:  #1C1917;  /* Ink */
+  /* ── Core semantic (shadcn convention) — "The Pass" premium-light ── */
+  --background:            #FAF8F4;  /* Paper (warmer/lighter than old newsprint) */
+  --foreground:            #241E1A;  /* Ink */
+  --primary:               #B85C38;  /* Rust — primary action (was flat Slate) */
+  --primary-foreground:    #FFFFFF;  /* white on rust ≈ 4.55:1 → AA ok */
+  --secondary:             #F3EFE8;  /* Paper-2 — alt surfaces */
+  --secondary-foreground:  #241E1A;  /* Ink */
   --destructive:           #C44040;  /* Alert */
   --destructive-foreground:#FFFFFF;
   --card:                  #FFFFFF;
-  --card-foreground:       #1C1917;  /* Ink */
+  --card-foreground:       #241E1A;  /* Ink */
   --popover:               #FFFFFF;
-  --popover-foreground:    #1C1917;  /* Ink */
-  --muted:                 #EBE8E3;  /* Ledger */
-  --muted-foreground:      #6E6862;  /* Ash */
+  --popover-foreground:    #241E1A;  /* Ink */
+  --muted:                 #F4EFE8;  /* Bond */
+  --muted-foreground:      #756A5D;  /* secondary ink */
   --accent:                #B85C38;  /* Rust */
   --accent-foreground:     #FFFFFF;
-  --border:                #EBE8E3;  /* Ledger */
-  --input:                 #EBE8E3;  /* Ledger */
-  --ring:                  #3D4F5F;  /* Slate */
-  --radius:                0.625rem; /* Inherited from Vatic */
+  --border:                #E9E2D7;  /* Line */
+  --input:                 #DAD2C4;  /* Line-2 (stronger for inputs) */
+  --ring:                  #B85C38;  /* Rust focus */
+  --radius:                0.9rem;   /* ≈16px — soft/premium */
 
   /* ── Extended palette (Forge → Ticket) ──────────────────── */
   --forge-amber:           #B85C38;  /* Rust */
@@ -62,13 +62,13 @@
   --patina-tint:           #E8F5EE;  /* Clear Wash */
   --patina-deep:           #2D6B4F;  /* Deep green (derived) */
   --surface-emphasis:      #FBF0E6;  /* Thermal */
-  --carbon-light:          #4D4843;  /* Print */
-  --forge-black:           #1C1917;  /* Ink */
-  --forge:                 #24211E;  /* Press */
-  --forge-card:            #2F2B28;  /* Counter */
-  --lumen:                 #F5F3EF;  /* Newsprint */
+  --carbon-light:          #5C5249;  /* Body ink */
+  --forge-black:           #161310;  /* deepest ground */
+  --forge:                 #221D19;  /* dark card */
+  --forge-card:            #1B1714;  /* nested dark */
+  --lumen:                 #FAF8F4;  /* Paper */
   --warm-lumen:            #FBF0E6;  /* Thermal */
-  --carbon:                #1C1917;  /* Ink */
+  --carbon:                #241E1A;  /* Ink */
   --lava:                  #B85C38;  /* Rust (brand signature) */
   --ember:                 #C9942A;  /* Wire Gold (readable accent) */
   --lava-deep:             #8A3D20;  /* Deep Rust */
@@ -127,15 +127,16 @@
   --ticket-slate:          #3D4F5F;  /* Slate — cool counterweight */
   --ticket-signal:         #D08548;  /* Signal — flagged/attention */
   --ticket-wire-gold:      #C9942A;  /* Wire Gold — accent */
-  --ticket-bond:           #F0EDE9;  /* Bond — callout bg */
-  --ticket-newsprint:      #F5F3EF;  /* Newsprint — primary bg */
-  --ticket-ink:            #1C1917;  /* Ink — primary dark */
-  --ticket-press:          #24211E;  /* Press — elevated dark */
-  --ticket-counter:        #2F2B28;  /* Counter — dark card */
+  --ticket-bond:           #F4EFE8;  /* Bond — callout bg */
+  --ticket-newsprint:      #FAF8F4;  /* Paper — primary bg */
+  --ticket-ink:            #241E1A;  /* Ink — primary dark */
+  --ticket-press:          #221D19;  /* Press — elevated dark */
+  --ticket-counter:        #1B1714;  /* Counter — dark card */
 
-  /* ── Font overrides ─────────────────────────────────────── */
-  --font-display:          var(--font-instrument-serif), Georgia, serif;
-  --font-condensed:        var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  /* ── Font overrides — geometric "software" system (was newsprint serif) ── */
+  --font-display:          var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  --font-condensed:        var(--font-space-grotesk), system-ui, sans-serif;
+  --font-editorial:        var(--font-fraunces), Georgia, serif; /* rare brief-lead flourish only */
 }
 
 
@@ -147,26 +148,26 @@
 .dark[data-brand="ticket"],
 [data-brand="ticket"] .dark {
 
-  /* ── Core semantic ──────────────────────────────────────── */
-  --background:            #1C1917;  /* Ink */
-  --foreground:            #F5F3EF;  /* Newsprint */
-  --card:                  #24211E;  /* Press */
-  --card-foreground:       #F5F3EF;  /* Newsprint */
-  --popover:               #24211E;
-  --popover-foreground:    #F5F3EF;
-  --primary:               #5A7A96;  /* Lighter Slate for dark */
-  --primary-foreground:    #FFFFFF;
-  --secondary:             #2F2B28;  /* Counter */
-  --secondary-foreground:  #C8C2BA;  /* Warm cream */
-  --muted:                 #2F2B28;
-  --muted-foreground:      #9B958E;  /* Warm mid */
-  --accent:                #D0714E;  /* Lighter Rust for dark */
-  --accent-foreground:     #FFFFFF;
-  --destructive:           #D05050;  /* Lighter red for dark bg */
-  --destructive-foreground:#FFFFFF;
-  --border:                #2F2B28;  /* Counter */
-  --input:                 #2F2B28;
-  --ring:                  #5A7A96;  /* Lighter Slate */
+  /* ── Core semantic — "The Pass" warm dark ─────────────────── */
+  --background:            #161310;  /* Paper (warm dark ground) */
+  --foreground:            #F3ECE3;  /* Ink (warm cream) */
+  --card:                  #221D19;  /* Card */
+  --card-foreground:       #F3ECE3;
+  --popover:               #221D19;
+  --popover-foreground:    #F3ECE3;
+  --primary:               #D67A52;  /* Rust (lightened for dark) */
+  --primary-foreground:    #1B1714;  /* dark text on light rust → AA ok */
+  --secondary:             #1D1916;  /* Paper-2 */
+  --secondary-foreground:  #C3B8AB;
+  --muted:                 #221D19;
+  --muted-foreground:      #9C9082;
+  --accent:                #D67A52;  /* Rust (dark) */
+  --accent-foreground:     #1B1714;
+  --destructive:           #E76A6A;  /* Alert (dark) */
+  --destructive-foreground:#1B1714;
+  --border:                #332B24;  /* Line (dark) */
+  --input:                 #42372E;  /* Line-2 (dark) */
+  --ring:                  #D67A52;  /* Rust focus */
 
   /* ── Extended dark overrides ────────────────────────────── */
   --forge-patina:          #4AAE80;  /* Lighter green for dark mode */
@@ -340,47 +341,48 @@
 [data-brand="ticket"] h1,
 [data-brand="ticket"] h2,
 [data-brand="ticket"] .font-display {
-  font-family: var(--font-instrument-serif), Georgia, serif;
-  font-weight: 400;
-  line-height: 1.2;
-  letter-spacing: 0;        /* Instrument Serif needs no extra tracking */
+  font-family: var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 600;            /* geometric sans needs weight where serif used 400 */
+  line-height: 1.14;
+  letter-spacing: -0.02em;     /* tight, confident */
 }
 
 [data-brand="ticket"] .text-display {
-  font-family: var(--font-instrument-serif), Georgia, serif;
-  font-weight: 400;
-  line-height: 1.15;
-  letter-spacing: 0;
+  font-family: var(--font-space-grotesk), var(--font-inter), system-ui, sans-serif;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
 }
 
+/* Editorial flourish — Fraunces italic. Reserve for the daily-brief lead / rare emphasis. */
 [data-brand="ticket"] .text-display-italic {
-  font-family: var(--font-instrument-serif), Georgia, serif;
+  font-family: var(--font-fraunces), Georgia, serif;
   font-style: italic;
   font-weight: 400;
-  line-height: 1.15;
+  line-height: 1.12;
   letter-spacing: 0;
 }
 
-/* Condensed layer — wordmark, labels, nav, section headers */
+/* Label layer — wordmark, labels, nav, section headers (now geometric, not condensed) */
 [data-brand="ticket"] .font-condensed,
 [data-brand="ticket"] .text-label,
 [data-brand="ticket"] .text-overline {
-  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
   font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
 }
 
 [data-brand="ticket"] .text-section-header {
-  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
 
 [data-brand="ticket"] .text-wordmark {
-  font-family: var(--font-barlow-condensed), 'Arial Narrow', sans-serif;
-  font-weight: 600;
+  font-family: var(--font-space-grotesk), system-ui, sans-serif;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: -0.01em;   /* Tight tracking for wordmark */
 }

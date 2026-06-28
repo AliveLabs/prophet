@@ -11,35 +11,55 @@
 @import "../editorial-tokens.css";
 
 .ticket-app {
-  min-height:100vh; display:grid; grid-template-columns:228px 1fr;
+  position:relative;
+  min-height:100dvh; display:grid; grid-template-columns:248px 1fr;
   background-color:var(--paper);
+  /* atmospheric canvas — the prominent light-depth element (also via .bg-atmos) */
   background-image:
-    radial-gradient(120% 80% at 100% -10%, rgba(184,92,56,0.05), transparent 55%),
-    radial-gradient(90% 70% at -10% 110%, rgba(201,148,42,0.045), transparent 60%);
+    radial-gradient(1000px 560px at 100% -12%, var(--halo-rust), transparent 58%),
+    radial-gradient(760px 520px at -8% 8%, var(--halo-teal), transparent 58%),
+    radial-gradient(820px 760px at 50% 116%, var(--halo-gold), transparent 70%);
+  background-attachment:fixed;
   color:var(--ink); font-family:var(--font-sans); font-size:15px; line-height:1.55;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  transition:background-color var(--t), color var(--t);
 }
-.ticket-app ::selection{ background:rgba(184,92,56,0.20); }
+.ticket-app ::selection{ background:color-mix(in srgb, var(--rust) 22%, transparent); }
 .ticket-app a{ color:inherit; text-decoration:none; }
 
-/* ── Sidebar ─────────────────────────────────────────────── */
-.pv-sidebar{ position:sticky; top:0; align-self:start; height:100vh; border-right:1px solid var(--rule); background:var(--paper-2); display:flex; flex-direction:column; padding:24px 0 18px; }
-.pv-brand{ display:flex; align-items:center; gap:10px; padding:0 22px 22px; font-family:var(--font-cond); font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:21px; color:var(--ink); }
+/* ── Sidebar (premium frosted rail; keeps prod vertical layout) ── */
+.pv-sidebar{
+  position:sticky; top:0; align-self:start; height:100dvh; z-index:30;
+  border-right:1px solid var(--line);
+  background:color-mix(in srgb, var(--card) 62%, var(--paper));
+  backdrop-filter:saturate(140%) blur(10px); -webkit-backdrop-filter:saturate(140%) blur(10px);
+  display:flex; flex-direction:column; padding:22px 14px 16px;
+}
+.pv-brand{ display:flex; align-items:center; gap:11px; padding:0 8px 20px; font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:20px; color:var(--ink); }
 .pv-brand svg{ flex:0 0 auto; }
-.pv-nav{ display:flex; flex-direction:column; gap:1px; padding:6px 0; }
-.pv-nav a{ display:flex; align-items:center; gap:11px; padding:11px 22px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.12em; font-size:13px; color:var(--ash); transition:color .15s ease; }
-.pv-nav a .tick{ width:3px; height:15px; border-radius:2px; background:var(--ledger); margin-left:-22px; margin-right:8px; }
-.pv-nav a:hover{ color:var(--ink); }
-.pv-nav a.is-active{ color:var(--ink); }
-.pv-nav a.is-active .tick{ background:var(--rust); }
+.pv-nav{ display:flex; flex-direction:column; gap:3px; padding:6px 0; }
+.pv-nav a{
+  position:relative; display:flex; align-items:center; gap:12px; padding:10px 12px;
+  border-radius:12px; font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ink-3);
+  transition:color var(--t-fast), background var(--t-fast), transform var(--t-fast);
+}
+.pv-nav a .pv-nav-ico{ width:18px; height:18px; flex:0 0 auto; opacity:.7; transition:opacity var(--t-fast), color var(--t-fast); }
+.pv-nav a .pv-nav-ico svg{ width:100%; height:100%; display:block; }
+.pv-nav a .tick{ position:absolute; left:-14px; top:50%; transform:translateY(-50%) scaleY(0); width:3px; height:18px; border-radius:0 3px 3px 0; background:var(--rust); transition:transform var(--t) var(--ease); }
+.pv-nav a:hover{ color:var(--ink); background:var(--bond); }
+.pv-nav a:hover .pv-nav-ico{ opacity:1; }
+.pv-nav a:active{ transform:scale(.985); }
+.pv-nav a.is-active{ color:var(--rust-deep); background:var(--rust-tint); font-weight:600; }
+.pv-nav a.is-active .pv-nav-ico{ opacity:1; color:var(--rust); }
+.pv-nav a.is-active .tick{ transform:translateY(-50%) scaleY(1); }
 /* Held-account state: nav present but inert (see ShellNav `locked`). */
-.pv-nav .is-locked{ display:flex; align-items:center; gap:11px; padding:11px 22px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.12em; font-size:13px; color:var(--ash-2); opacity:.55; cursor:default; }
-.pv-nav .is-locked .tick{ width:3px; height:15px; border-radius:2px; background:var(--ledger); margin-left:-22px; margin-right:8px; }
+.pv-nav .is-locked{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ash-2); opacity:.5; cursor:default; }
+.pv-nav .is-locked .pv-nav-ico{ width:18px; height:18px; opacity:.5; }
 .pv-spacer{ flex:1 1 auto; }
-.pv-foot{ display:flex; align-items:center; gap:11px; padding:16px 22px 0; border-top:1px solid var(--rule); }
-.pv-mono{ width:34px; height:34px; flex:0 0 auto; border:1.5px solid var(--ink); border-radius:4px; display:grid; place-items:center; font-family:var(--font-cond); font-weight:700; font-size:13px; color:var(--ink); background:var(--card); }
+.pv-foot{ display:flex; align-items:center; gap:11px; padding:16px 8px 0; border-top:1px solid var(--rule); }
+.pv-mono{ width:34px; height:34px; flex:0 0 auto; border-radius:10px; display:grid; place-items:center; font-family:var(--font-display); font-weight:700; font-size:12.5px; color:#fff; background:linear-gradient(145deg, var(--rust), var(--rust-2)); box-shadow:var(--shadow-sm); }
 .pv-who b{ display:block; font-weight:600; font-size:13px; color:var(--ink); }
-.pv-who span{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--ash); }
+.pv-who span{ font-family:var(--font-sans); font-size:11.5px; color:var(--ink-3); }
 
 /* ── Account flyout (location switcher + settings + sign out) ── */
 .pv-acct{ position:relative; margin:16px 14px 0; padding-top:14px; border-top:1px solid var(--rule); }
@@ -84,22 +104,60 @@
 .pv-save-note{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:10.5px; color:var(--clear); background:var(--clear-wash); border-radius:3px; padding:2px 8px; margin-left:10px; }
 
 /* ── Main + topbar ───────────────────────────────────────── */
-.pv-main{ min-width:0; display:flex; flex-direction:column; }
+.pv-main{ position:relative; min-width:0; display:flex; flex-direction:column; }
 .pv-topbar{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:18px 44px 0; }
 .pv-topbar .pv-date{ font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ash); }
 .pv-preview-flag{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ash-2); border:1px solid var(--rule); border-radius:3px; padding:2px 7px; }
 .pv-content{ flex:1 1 auto; }
 
 /* brief fills the content area inside the shell (drop its standalone panel chrome) */
-.ticket-app .ticket-brief{ border:0; border-radius:0; padding:18px 0 8px; background:transparent; }
+.ticket-app .ticket-brief{ border:0; border-radius:0; padding:18px 0 8px; background:transparent; box-shadow:none; }
 .ticket-app .ticket-brief .home-grid{ padding-top:0; }
+
+/* ── Mobile chrome (native feel: glass top app-bar + fixed bottom tab bar) ── */
+.pv-mobilebar{ display:none; }
+.pv-tabbar{ display:none; }
+.pv-mobilebar__brand{ display:flex; align-items:center; gap:9px; font-family:var(--font-display); font-weight:700; letter-spacing:-.01em; font-size:18px; color:var(--ink); }
 
 @media (max-width:900px){
   .ticket-app{ grid-template-columns:1fr; }
-  .pv-sidebar{ position:static; height:auto; flex-direction:row; align-items:center; padding:12px 18px; }
-  .pv-nav{ flex-direction:row; gap:0; }
-  .pv-nav a .tick, .pv-spacer, .pv-foot{ display:none; }
-  .pv-topbar, .ticket-app .ticket-brief .home-grid{ padding-left:22px; padding-right:22px; }
+  .pv-sidebar{ display:none; }
+  .pv-main{ padding-bottom:calc(66px + env(safe-area-inset-bottom)); }
+  .pv-topbar, .ticket-app .ticket-brief .home-grid{ padding-left:20px; padding-right:20px; }
+
+  /* top app bar */
+  .pv-mobilebar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    position:sticky; top:0; z-index:35; padding:12px 18px;
+    padding-top:calc(12px + env(safe-area-inset-top));
+    background:color-mix(in srgb, var(--paper) 80%, transparent);
+    backdrop-filter:saturate(150%) blur(14px); -webkit-backdrop-filter:saturate(150%) blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+
+  /* bottom tab bar */
+  .pv-tabbar{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:45;
+    padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    background:color-mix(in srgb, var(--paper) 86%, transparent);
+    backdrop-filter:saturate(150%) blur(16px); -webkit-backdrop-filter:saturate(150%) blur(16px);
+    border-top:1px solid var(--line);
+  }
+  .pv-tabbar a, .pv-tabbar button{
+    position:relative; flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    min-height:48px; padding:5px 2px; border:0; background:none; cursor:pointer;
+    font-family:var(--font-sans); font-weight:600; font-size:10px; color:var(--ink-3);
+    transition:color var(--t-fast), transform var(--t-fast);
+  }
+  .pv-tabbar a:active, .pv-tabbar button:active{ transform:scale(.92); }
+  .pv-tabbar .pv-nav-ico{ width:22px; height:22px; }
+  .pv-tabbar a.is-active{ color:var(--rust); }
+  .pv-tabbar a.is-active::before{ content:""; position:absolute; top:0; left:50%; transform:translateX(-50%); width:26px; height:3px; border-radius:0 0 3px 3px; background:var(--rust); }
+}
+/* tablet: tighter sidebar, content breathing room kept */
+@media (min-width:901px) and (max-width:1180px){
+  .ticket-app{ grid-template-columns:220px 1fr; }
+  .pv-topbar{ padding-left:28px; padding-right:28px; }
 }
 
 /* ── Shared page chrome (Competitors / Ask / Settings / detail) ── */
@@ -298,6 +356,27 @@
 .pv-btn--ghost:hover{ color:var(--ink); border-color:var(--ink); }
 .pv-form-error{ margin:7px 0 0; font-size:12px; color:var(--alert, #b3261e); }
 .pv-ask-sources{ margin:7px 0 0; font-family:var(--font-mono); font-size:10px; letter-spacing:.02em; text-transform:uppercase; color:var(--ash-2); }
+
+/* ── Micro-interactions & depth (The Pass) ──────────────────────── */
+/* page content eases in on navigation — the "alive" entrance */
+@media (prefers-reduced-motion: no-preference){
+  .pv-page, .ticket-app .ticket-brief .home-grid{ animation:pv-fade-up .42s var(--ease) both; }
+  @keyframes pv-fade-up{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+}
+/* soft elevation on the resting cards (auto-applied via upgraded tokens) + lift on interactive ones */
+.pv-card{ transition:transform var(--t-fast), box-shadow var(--t), border-color var(--t-fast); }
+.pv-card--link, a.pv-card, button.pv-card{ cursor:pointer; }
+.pv-card--link:hover, a.pv-card:hover, button.pv-card:hover{ transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--line-2); }
+.pv-comp{ transition:transform var(--t-fast); }
+.pv-comp:hover{ transform:translateX(2px); }
+/* mobile top-bar account: flyout opens downward (sidebar version opens up) */
+.pv-mobilebar .pv-acct{ margin:0; padding:0; border:0; }
+.pv-mobilebar .pv-acct__flyout{ bottom:auto; top:calc(100% + 8px); left:auto; right:0; min-width:240px; }
+.pv-mobilebar .pv-acct__btn .pv-who{ display:none; }
+/* primary CTA now reads as rust gradient app-wide (auto via --primary token, but pv-btn is ink by design;
+   keep pv-btn ink for "commit" emphasis, add a rust variant) */
+.pv-btn--rust{ border-color:transparent; background:linear-gradient(145deg, var(--rust), var(--rust-2)); color:#fff; box-shadow:var(--shadow-sm); }
+.pv-btn--rust:hover{ opacity:1; transform:translateY(-1.5px); box-shadow:var(--shadow-md); }
 
 /* Add-a-competitor autocomplete (Batch 3) */
 .pv-comp-row--add{ flex-wrap:wrap; }
