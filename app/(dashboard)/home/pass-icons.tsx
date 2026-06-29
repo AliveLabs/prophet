@@ -61,3 +61,18 @@ export const UNDO_ICON: ReactNode = (
     <path d="M3 13a9 9 0 1 0 3-7.7L3 8" />
   </svg>
 )
+
+// Two overlapping rounded squares — the standard "copy" glyph (Claude desktop style).
+export const COPY_ICON: ReactNode = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <rect x="9" y="9" width="11" height="11" rx="2.5" />
+    <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+  </svg>
+)
+
+// A check — shown briefly after a successful copy.
+export const CHECK_ICON: ReactNode = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+)

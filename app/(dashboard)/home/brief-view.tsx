@@ -15,7 +15,7 @@ import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 import type { PipelineCheck } from "../proof-data"
 import type { PlayAction } from "@/lib/insights/momentum"
 import { playKey } from "@/lib/skills/preferences"
-import { dedupeRefs } from "@/lib/skills/evidence-format"
+import { dedupeRefs, distinctDomains } from "@/lib/skills/evidence-format"
 import {
   RevealOnView,
   TkSectionHead,
@@ -69,7 +69,11 @@ export default function BriefView({
   playActions?: Record<string, PlayAction>
   weeklyMomentum?: number
 }) {
-  const signalCount = dedupeRefs(brief.plays.flatMap((p) => p.evidenceRefs)).length
+  const allRefs = brief.plays.flatMap((p) => p.evidenceRefs)
+  const signalCount = dedupeRefs(allRefs).length
+  // The distinct high-level sources behind today's plays — the detail the "Signals read" tile
+  // expands to show (ALT-181), so the count says WHY it matters instead of being a dead number.
+  const signalSources = distinctDomains(allRefs)
   const coverage = brief.coverage ?? []
   const freshCount = coverage.filter((c) => c.present && !c.stale).length
   const leadConf = brief.plays.reduce<EnrichedRecommendation["confidence"]>(
@@ -187,7 +191,7 @@ export default function BriefView({
               <>
                 <TkSectionHead
                   title="More plays today"
-                  sub="Ranked by fit & confidence"
+                  sub="Ranked by relevance"
                   className="pass-sec"
                 />
                 <RevealOnView className="tk-grid pass-grid" stagger>
@@ -250,9 +254,24 @@ export default function BriefView({
                   size="wide"
                   label="Signals read"
                   value={String(signalCount)}
-                  sub="distinct sources behind today's plays"
-                  data-tip="Distinct grounded signals across all of today's plays"
-                  data-tipv={`${signalCount} signals`}
+                  sub="distinct sources behind today's plays — tap to see them"
+                  expand={
+                    <>
+                      <p className="pass-sig-why">
+                        Every play today is grounded in these live sources. More distinct sources means a
+                        wider read of your market — fewer means we leaned on what was fresh this sweep.
+                      </p>
+                      {signalSources.length ? (
+                        <ul className="pass-sig-list">
+                          {signalSources.map((s) => (
+                            <li key={s}>{s}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="pass-sig-why">No grounded sources on this brief yet.</p>
+                      )}
+                    </>
+                  }
                   spark={
                     <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
                       <path

@@ -30,7 +30,11 @@ export async function loadPlayActions(
   }
 }
 
-/** Plays acted on in the trailing 7 days — the momentum strip's number. */
+/** Plays the operator is ON in the trailing 7 days — the "Acted this week" strip's number.
+ *  ONLY counts Kept plays (action = "saved"): the widget says "plays you kept or acted on",
+ *  so a Removed (dismissed) play — the opposite of acting — must NOT inflate it. Each play has at
+ *  most one row per (location, date, play) (the upsert key), so distinct rows = distinct kept plays;
+ *  no double-counting, and clicks/thumbs live in brief_feedback (not play_actions) so they don't count. */
 export async function loadWeeklyMomentum(locationId: string): Promise<number> {
   try {
     const since = new Date(Date.now() - 7 * 86_400_000).toISOString()
@@ -38,6 +42,7 @@ export async function loadWeeklyMomentum(locationId: string): Promise<number> {
       .from("play_actions")
       .select("id")
       .eq("location_id", locationId)
+      .eq("action", "saved")
       .gte("created_at", since)
     return (data ?? []).length
   } catch {

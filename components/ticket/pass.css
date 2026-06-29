@@ -59,8 +59,8 @@
 .tk-btn-keep { background: var(--card); color: var(--ink); border: 1.5px solid var(--line-2); }
 .tk-btn-keep:hover { background: var(--paper-2); border-color: var(--ink-3); }
 .tk-btn-keep.tk-is-kept { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
-.tk-btn-dismiss { color: var(--ink-3); padding: 11px 12px; border-radius: 10px; }
-.tk-btn-dismiss:hover { background: var(--paper-2); color: var(--alert-deep); }
+.tk-btn-dismiss { color: var(--ink-3); padding: 11px 14px; border-radius: 10px; border: 1.5px solid transparent; }
+.tk-btn-dismiss:hover { background: var(--paper-2); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 26%, transparent); }
 .tk-btn-add { background: var(--slate-2); color: #fff; border-radius: 11px; padding: 11px 16px; font-family: var(--font-display); font-weight: 700; font-size: 13.5px; min-height: 44px; }
 .tk-btn-add:hover { background: var(--slate); }
 .tk-btn-add[disabled] { opacity: .45; cursor: not-allowed; }
@@ -275,7 +275,13 @@
    QUOTES
    ════════════════════════════════════════════════════════════ */
 .tk-quotes { display: flex; flex-direction: column; gap: 10px; }
-.tk-quote { padding: 12px 14px; border-radius: var(--r-md); background: var(--card-2); border: 1px solid var(--line); border-left: 3px solid var(--alert); }
+/* The left-edge marker is colored by the review's SENTIMENT (ALT-178) — a positive review no
+   longer reads like a negative one. Tone class is set by TkQuote (explicit, else derived from
+   the star rating; unknown ⇒ neutral). Default (no tone class) stays muted, never red. */
+.tk-quote { padding: 12px 14px; border-radius: var(--r-md); background: var(--card-2); border: 1px solid var(--line); border-left: 3px solid var(--line-2); }
+.tk-quote.tk-quote-positive { border-left-color: var(--teal); }
+.tk-quote.tk-quote-neutral  { border-left-color: var(--ink-3); }
+.tk-quote.tk-quote-negative { border-left-color: var(--alert); }
 .tk-quote p { font-size: 12.5px; line-height: 1.5; color: var(--ink); font-style: italic; }
 .tk-quote .tk-qmeta { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 11px; color: var(--ink-3); }
 .tk-quote .tk-qmeta .tk-who { font-weight: 700; color: var(--ink-2); font-style: normal; }
@@ -285,10 +291,11 @@
    WHY ROLLDOWN
    ════════════════════════════════════════════════════════════ */
 .tk-why { margin-top: 2px; }
-.tk-why-toggle { display: inline-flex; align-items: center; gap: 8px; width: auto; padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--card-2); font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--slate-deep); transition: background var(--t-fast), border-color var(--t-fast); }
+.tk-why-toggle { display: inline-flex; align-items: center; gap: 9px; width: auto; padding: 9px 14px; min-height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--card-2); font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--slate-deep); transition: background var(--t-fast), border-color var(--t-fast); }
 .tk-why-toggle:hover { background: var(--paper-2); border-color: var(--slate); }
 .tk-why-toggle .tk-info-i { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--slate); color: #fff; font-size: 11px; font-weight: 800; font-style: italic; }
-.tk-why-toggle .tk-chev { margin-left: 2px; transition: transform var(--t); }
+/* The expander chevron — enlarged so it's an easy, obvious target (ALT-168a). */
+.tk-why-toggle .tk-chev { margin-left: auto; padding-left: 6px; font-size: 17px; line-height: 1; color: var(--slate); transition: transform var(--t); }
 .tk-why-toggle[aria-expanded="true"] .tk-chev { transform: rotate(180deg); }
 .tk-why-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t) var(--ease); }
 .tk-why-panel > div { overflow: hidden; }
@@ -325,6 +332,20 @@
 .tk-w-gold .tk-wval { font-size: 24px; }
 .tk-widget .tk-spark { position: absolute; right: 0; bottom: 0; width: 60%; height: 50%; opacity: .5; }
 .tk-widget.tk-w-tall .tk-wbody { display: flex; flex-direction: column; gap: 11px; margin-top: 6px; }
+
+/* expandable widget (native <details>) — the tile toggles open to reveal a detail panel (ALT-181).
+   When open it must grow past the fixed grid row, so it spans its own auto height and sits above
+   neighbours. summary carries the original tile content + a caret; the panel reveals below. */
+.tk-widget.tk-w-expandable { cursor: pointer; }
+.tk-widget.tk-w-expandable[open] { grid-row: auto; height: auto; z-index: 2; }
+.tk-w-summary { list-style: none; display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 6px; }
+.tk-w-summary::-webkit-details-marker { display: none; }
+.tk-w-summary:focus-visible { outline: 2.5px solid #fff; outline-offset: -3px; border-radius: 10px; }
+.tk-w-caret { position: absolute; top: 14px; right: 14px; font-size: 15px; line-height: 1; opacity: .85; transition: transform var(--t); }
+.tk-widget.tk-w-expandable[open] .tk-w-caret { transform: rotate(90deg); }
+.tk-w-expand { margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, #fff 26%, transparent); }
+/* on the light (slate=--card) tiles the divider rides the ink line instead of white */
+.tk-w-slate .tk-w-expand { border-top-color: var(--line-2); }
 .tk-wbody .tk-wrow { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .tk-wbody .tk-wrow .tk-nm { display: flex; align-items: center; gap: 7px; }
 .tk-wbody .tk-wrow .tk-thumb { width: 20px; height: 20px; border-radius: 5px; background: var(--slate-2); background-image: linear-gradient(135deg, color-mix(in srgb, var(--slate) 80%, #fff 8%), var(--slate-2)); }
@@ -414,8 +435,10 @@
 .tk-draft-box { border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--card); overflow: hidden; }
 .tk-draft-box .tk-db-head { padding: 10px 14px; border-bottom: 1px solid var(--line); font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; }
 .tk-draft-box .tk-db-body { padding: 15px; font-size: 13.5px; line-height: 1.6; color: var(--ink); white-space: pre-line; }
-.tk-copy-btn { font-size: 11px; font-weight: 700; color: var(--rust-deep); padding: 5px 10px; border-radius: 7px; border: 1px solid var(--rust-tint); }
+.tk-copy-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--rust-deep); padding: 6px 11px; border-radius: 8px; border: 1px solid var(--rust-tint); transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast); }
+.tk-copy-btn svg { width: 14px; height: 14px; }
 .tk-copy-btn:hover { background: var(--rust-tint); }
+.tk-copy-btn.tk-copied { color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 40%, transparent); background: var(--teal-tint); }
 
 @media (max-width: 760px) {
   /* bottom sheet on mobile */

@@ -424,20 +424,36 @@ export function TkSocialEmbed({
 /* ════════════════════════════════════════════════════════════════════
    TkQuote — a single review quote with stars + meta.
    ════════════════════════════════════════════════════════════════════ */
+export type TkQuoteSentiment = "positive" | "neutral" | "negative"
+
+/** Derive a quote's sentiment from its star rating when an explicit sentiment isn't supplied
+ *  (4–5★ positive · 3★ neutral · 1–2★ negative). No rating ⇒ neutral — we never invent a polarity. */
+function sentimentFromStars(stars?: number): TkQuoteSentiment {
+  if (stars == null || Number.isNaN(stars)) return "neutral"
+  if (stars >= 4) return "positive"
+  if (stars <= 2) return "negative"
+  return "neutral"
+}
+
 export function TkQuote({
   text,
   who,
   stars,
   when,
+  sentiment,
 }: {
   text: ReactNode
   who?: ReactNode
   /** 0–5 star rating; renders ★/☆ */
   stars?: number
   when?: ReactNode
+  /** Sentiment of the review behind the quote — colors the left-edge marker (positive=teal,
+   *  neutral=muted, negative=alert). When omitted it's derived from `stars`; absent both ⇒ neutral. */
+  sentiment?: TkQuoteSentiment
 }) {
+  const tone = sentiment ?? sentimentFromStars(stars)
   return (
-    <div className="tk-quote">
+    <div className={cx("tk-quote", `tk-quote-${tone}`)}>
       <p>{text}</p>
       {(who || stars != null || when) && (
         <div className="tk-qmeta">

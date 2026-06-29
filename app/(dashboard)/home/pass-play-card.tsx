@@ -33,7 +33,7 @@ import { DISMISS_REASONS, dismissReasonCode } from "@/lib/skills/feedback-signal
 import { setPlayAction } from "./brief-actions"
 import BriefFeedback from "./brief-feedback"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
-import { FAMILY_ICON, ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON } from "./pass-icons"
+import { FAMILY_ICON, ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON, COPY_ICON, CHECK_ICON } from "./pass-icons"
 import {
   playFamily,
   playChipLabel,
@@ -77,18 +77,28 @@ function RecipeStepView({ step, n }: { step: RecipeStep; n: number }) {
 
 function DraftCopyBox({ label, text }: { label: string; text: string }) {
   const toast = useTkToast()
+  const [copied, setCopied] = useState(false)
   function copy() {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       void navigator.clipboard.writeText(text)
     }
+    setCopied(true)
     toast("Copied to clipboard.")
+    window.setTimeout(() => setCopied(false), 1600)
   }
   return (
     <div className="tk-draft-box">
       <div className="tk-db-head">
         {label}
-        <button type="button" className="tk-copy-btn" onClick={copy}>
-          Copy
+        {/* Two-overlapping-squares copy glyph (Claude-desktop style), top-right (ALT-168c). */}
+        <button
+          type="button"
+          className={`tk-copy-btn${copied ? " tk-copied" : ""}`}
+          onClick={copy}
+          aria-label={copied ? "Copied" : "Copy to clipboard"}
+        >
+          {copied ? CHECK_ICON : COPY_ICON}
+          <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
       <div className="tk-db-body">{text}</div>
@@ -206,7 +216,16 @@ export function PassPlayCard({
   )
 
   // ── shared inner content (viz + quotes + why) ──
-  const body = (
+  // The evidence stack owns its own vertical rhythm (pass-evidence) so the bar graph,
+  // review quotes, and the why-rolldown each get real breathing room instead of being
+  // crammed together by the card's tight base gap (ALT-180).
+  //
+  // ALT-179: the reinforcing detail (the sentiment bar graph + the verbatim review quotes) is
+  // what makes a card blow out the grid. On a non-lead GRID card we tuck it behind a "See more"
+  // disclosure so one card can't dominate the view — the full version always lives one click away
+  // in "Full details & evidence" (and the drawer). The lead/hero is the flagship spotlight, so it
+  // keeps everything inline.
+  const reinforcing = (sentiment || quotes.length) ? (
     <>
       {sentiment ? (
         <TkSentimentRows
@@ -218,12 +237,29 @@ export function PassPlayCard({
       {quotes.length ? (
         <div className="tk-quotes pass-quotes">
           {quotes.map((q, i) => (
-            <TkQuote key={i} text={q.text} who={q.who} stars={q.stars} when={q.when} />
+            <TkQuote key={i} text={q.text} who={q.who} stars={q.stars} when={q.when} sentiment={q.sentiment} />
           ))}
         </div>
       ) : null}
-      <TkWhy label={whyLabel(play)} points={whyPoints} source={whySource} />
     </>
+  ) : null
+
+  const body = (
+    <div className="pass-evidence">
+      {isLead ? (
+        reinforcing
+      ) : reinforcing ? (
+        <details className="pass-seemore">
+          <summary>
+            <span className="pass-seemore-car" aria-hidden="true">▸</span>
+            <span className="pass-seemore-open">See the evidence</span>
+            <span className="pass-seemore-close">Hide the evidence</span>
+          </summary>
+          <div className="pass-seemore-body">{reinforcing}</div>
+        </details>
+      ) : null}
+      <TkWhy label={whyLabel(play)} points={whyPoints} source={whySource} />
+    </div>
   )
 
   // ── the action row (kit buttons; same wiring) ──
@@ -253,19 +289,20 @@ export function PassPlayCard({
         variant="dismiss"
         disabled={pending}
         onClick={() => setReasonOpen(true)}
-        aria-label="Dismiss this play"
+        aria-label="Remove this play"
         aria-expanded={reasonOpen}
       >
-        {DISMISS_ICON}
+        {DISMISS_ICON} <span className="kw">Remove</span>
       </TkButton>
     </>
   )
 
-  // thumbs sit alongside the actions — the wired brief_feedback signal.
+  // Footer (ALT-168b): the action buttons + the "helpful" thumbs module sit together on the
+  // LEFT; only "Full details and evidence" is pushed to the RIGHT.
   const foot = (
     <div className="pass-foot">
-      <TkActions>{actions}</TkActions>
-      <div className="pass-foot-right">
+      <div className="pass-foot-left">
+        <TkActions>{actions}</TkActions>
         <BriefFeedback
           locationId={locationId}
           dateKey={dateKey}
@@ -273,12 +310,12 @@ export function PassPlayCard({
           severity={play.severity ?? 0}
           readOnly={readOnly}
         />
-        {detailHref ? (
-          <a className="pass-detail-link" href={detailHref}>
-            Full detail &amp; evidence &rarr;
-          </a>
-        ) : null}
       </div>
+      {detailHref ? (
+        <a className="pass-detail-link" href={detailHref}>
+          Full details &amp; evidence &rarr;
+        </a>
+      ) : null}
     </div>
   )
 

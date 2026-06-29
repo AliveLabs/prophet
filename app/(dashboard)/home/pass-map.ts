@@ -96,6 +96,10 @@ export type MappedQuote = {
   who?: string
   stars?: number
   when?: string
+  /** Sentiment of the originating review — colors the quote's left-edge marker (ALT-178).
+   *  Only set when we have an honest basis (the star rating); otherwise left undefined so the
+   *  kit falls back to neutral rather than inventing a polarity. */
+  sentiment?: "positive" | "neutral" | "negative"
 }
 
 function fmtQuoteWhen(date?: string): string | undefined {
@@ -103,6 +107,16 @@ function fmtQuoteWhen(date?: string): string | undefined {
   const d = new Date(date)
   if (Number.isNaN(d.getTime())) return undefined
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+// Sentiment from the review's star rating — the only per-quote signal we have (BreakoutQuote /
+// Evidence carry no explicit sentiment). 4-5★ positive · 3★ neutral · 1-2★ negative; no rating
+// ⇒ undefined so the marker reads neutral and we never invent a polarity (ALT-178).
+function quoteSentiment(stars?: number): MappedQuote["sentiment"] {
+  if (stars == null || Number.isNaN(stars)) return undefined
+  if (stars >= 4) return "positive"
+  if (stars <= 2) return "negative"
+  return "neutral"
 }
 
 // Prefer the presenter's curated breakout quotes; fall back to the P11 inline
@@ -115,6 +129,7 @@ export function playQuotes(play: EnrichedRecommendation, max = 3): MappedQuote[]
       who: q.competitor ?? "Your reviews",
       stars: q.rating,
       when: fmtQuoteWhen(q.date),
+      sentiment: quoteSentiment(q.rating),
     }))
   }
   const quotes: MappedQuote[] = []

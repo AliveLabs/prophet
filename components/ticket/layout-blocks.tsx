@@ -177,6 +177,7 @@ export function TkWidget({
   sub,
   spark,
   children,
+  expand,
   className,
   ...props
 }: {
@@ -190,18 +191,21 @@ export function TkWidget({
   spark?: ReactNode
   /** custom body (e.g. the reputation-pulse rows in a tall slate tile) */
   children?: ReactNode
+  /** When provided, the tile becomes a native <details> disclosure: clicking it reveals this
+   *  panel below the value (e.g. the source list behind "Signals read"). Server-safe — uses
+   *  the HTML <details> element, so no client handler crosses the boundary (ALT-181). */
+  expand?: ReactNode
 } & HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cx(
-        "tk-widget",
-        `tk-w-${tone}`,
-        size === "wide" && "tk-w-wide",
-        size === "tall" && "tk-w-tall",
-        className
-      )}
-      {...props}
-    >
+  const klass = cx(
+    "tk-widget",
+    `tk-w-${tone}`,
+    size === "wide" && "tk-w-wide",
+    size === "tall" && "tk-w-tall",
+    expand != null && expand !== false && "tk-w-expandable",
+    className
+  )
+  const head = (
+    <>
       <span className="tk-wlbl">{label}</span>
       {children ? (
         <div className="tk-wbody">{children}</div>
@@ -212,6 +216,24 @@ export function TkWidget({
         </div>
       )}
       {spark && <span className="tk-spark" aria-hidden="true">{spark}</span>}
+    </>
+  )
+
+  if (expand) {
+    return (
+      <details className={klass} {...(props as HTMLAttributes<HTMLDetailsElement>)}>
+        <summary className="tk-w-summary">
+          {head}
+          <span className="tk-w-caret" aria-hidden="true">▸</span>
+        </summary>
+        <div className="tk-w-expand">{expand}</div>
+      </details>
+    )
+  }
+
+  return (
+    <div className={klass} {...props}>
+      {head}
     </div>
   )
 }
