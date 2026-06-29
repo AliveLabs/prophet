@@ -87,7 +87,7 @@ export default async function SettingsPage() {
                 <div className="tk-set-fval">
                   <div className="tk-set-row-actions">
                     <span className="tk-set-fval-strong">{tierLabel(ctx.tier)}</span>
-                    <Link className="tk-set-link" href="/settings/billing">Billing {ICON_ARROW}</Link>
+                    <Link className="tk-set-linkbtn" href="/settings/billing">View billing {ICON_ARROW}</Link>
                   </div>
                 </div>
               </div>
@@ -102,8 +102,8 @@ export default async function SettingsPage() {
                 <div className="tk-set-flbl">Workspace</div>
                 <div className="tk-set-fval">
                   <div className="tk-set-row-actions">
-                    <Link className="tk-set-link" href="/settings/organization">Organization {ICON_ARROW}</Link>
-                    <Link className="tk-set-link" href="/settings/team">Team {ICON_ARROW}</Link>
+                    <Link className="tk-set-linkbtn" href="/settings/organization">Manage organization {ICON_ARROW}</Link>
+                    <Link className="tk-set-linkbtn" href="/settings/team">Manage team {ICON_ARROW}</Link>
                   </div>
                 </div>
               </div>
@@ -119,31 +119,31 @@ export default async function SettingsPage() {
               <div className="tk-set-field">
                 <div className="tk-set-flbl">Idea boldness</div>
                 <div className="tk-set-fval">
-                  <SettingsBriefTuning initial={ctx.brandTolerance} locationId={ctx.locationId} />
-                  <p className="tk-set-hint">
+                  <p className="tk-set-desc">
                     Sets how broad or narrow your recommendation thresholds are. Your 👍 / 👎 on the brief
                     refine it over time.
                   </p>
+                  <SettingsBriefTuning initial={ctx.brandTolerance} locationId={ctx.locationId} />
                 </div>
               </div>
               <div className="tk-set-field">
                 <div className="tk-set-flbl">What to prioritize</div>
                 <div className="tk-set-fval">
+                  <p className="tk-set-desc">
+                    Boost the kinds of moves you care about most at this location. A modest reweight, not a
+                    filter — applies to your next brief. Hover any category for what it boosts.
+                  </p>
                   <SettingsCategoryPriors
                     initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
                     locationId={ctx.locationId}
                   />
-                  <p className="tk-set-hint">
-                    Boost the kinds of moves you care about most at this location. A modest reweight, not a
-                    filter — applies to your next brief.
-                  </p>
                 </div>
               </div>
               <div className="tk-set-field">
                 <div className="tk-set-flbl">Your voice</div>
                 <div className="tk-set-fval">
+                  <p className="tk-set-desc">Used when we draft customer-facing copy in your name.</p>
                   <VoiceSelectPass initial={ctx.voiceTone} locationId={ctx.locationId} />
-                  <p className="tk-set-hint">Used when we draft customer-facing copy in your name.</p>
                 </div>
               </div>
             </div>
@@ -174,12 +174,16 @@ export default async function SettingsPage() {
                         covered on all three networks regardless.
                       </p>
                       {otherOwnNetworks.length > 0 ? (
-                        <p className="tk-set-hint">
-                          We also found you on{" "}
-                          {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
-                          {" — tracked on Tier 2 and up. "}
-                          <Link className="tk-set-link" href="/settings/billing">Upgrade {ICON_ARROW}</Link>
-                        </p>
+                        <>
+                          <p className="tk-set-hint">
+                            We also found you on{" "}
+                            {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
+                            {" — tracked on Tier 2 and up."}
+                          </p>
+                          <div className="tk-set-row-actions">
+                            <Link className="tk-set-linkbtn" href="/settings/billing">Upgrade plan {ICON_ARROW}</Link>
+                          </div>
+                        </>
                       ) : null}
                     </>
                   ) : (
@@ -207,10 +211,10 @@ export default async function SettingsPage() {
                   <span className="tk-set-fval-strong">
                     Watching {ctx.competitors.length} {ctx.competitors.length === 1 ? "competitor" : "competitors"}
                   </span>
-                  <p className="tk-set-hint">
-                    Add, change, or remove who you track on the{" "}
-                    <Link className="tk-set-link" href="/competitors">Competitors page {ICON_ARROW}</Link>
-                  </p>
+                  <p className="tk-set-hint">Add, change, or remove who you track from the Competitors page.</p>
+                  <div className="tk-set-row-actions">
+                    <Link className="tk-set-linkbtn" href="/competitors">Manage competitors {ICON_ARROW}</Link>
+                  </div>
                 </div>
               </div>
             </div>

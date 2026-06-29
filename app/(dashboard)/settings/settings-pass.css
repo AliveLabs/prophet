@@ -16,7 +16,11 @@
 .tk-set-fields { display: flex; flex-direction: column; }
 .tk-set-field {
   display: grid;
-  grid-template-columns: 168px 1fr;
+  /* minmax(0, 1fr) (not the default minmax(auto, 1fr)) so the value column's
+     width is fixed by the track, never expanded to its content's min-content.
+     This keeps the page from widening when a field's copy gets longer
+     (e.g. toggling "show everything" in Briefs). ALT-219. */
+  grid-template-columns: 168px minmax(0, 1fr);
   gap: 16px 24px;
   align-items: start;
   padding: 16px 0;
@@ -43,19 +47,23 @@
   gap: 8px;
 }
 .tk-set-fval-strong { font-family: var(--font-display); font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
-.tk-set-hint { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); max-width: 60ch; }
+.tk-set-hint { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); max-width: 60ch; overflow-wrap: anywhere; }
 .tk-set-row-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* inline link styled as a Pass affordance */
-.tk-set-link {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-family: var(--font-display); font-weight: 700; font-size: 13px;
-  color: var(--rust-deep);
-  border-bottom: 1.5px solid transparent;
-  transition: border-color var(--t-fast), color var(--t-fast);
+/* an explicit navigation affordance — a clearly-labeled outline link-button.
+   Replaces the old "Word →" inline-arrow links that read ambiguously. ALT-217. */
+.tk-set-linkbtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px; line-height: 1;
+  color: var(--ink); background: var(--card);
+  border: 1.5px solid var(--line-2); border-radius: 10px;
+  padding: 9px 14px; min-height: 40px;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast), transform var(--t-fast);
 }
-.tk-set-link:hover { border-bottom-color: var(--rust); }
-.tk-set-link svg { width: 13px; height: 13px; }
+.tk-set-linkbtn:hover { background: var(--paper-2); border-color: var(--ink-3); transform: translateY(-1px); }
+.tk-set-linkbtn:active { transform: translateY(0); }
+.tk-set-linkbtn:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; }
+.tk-set-linkbtn svg { width: 14px; height: 14px; color: var(--rust-deep); }
 
 /* small status / saved seam (mono, low-key) */
 .tk-set-status {
@@ -117,7 +125,14 @@
   font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);
 }
 .tk-set-range-ends .tk-set-mid { color: var(--ink-2); font-weight: 700; }
-.tk-set-range-note { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin-top: 8px; }
+.tk-set-range-note { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin-top: 8px; overflow-wrap: anywhere; }
+
+/* a standing explainer that contrasts the slider vs. "show everything" (ALT-221) */
+.tk-set-explain {
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+  margin: 2px 0 4px; overflow-wrap: anywhere;
+}
+.tk-set-explain b { color: var(--ink); font-weight: 700; }
 
 /* a checkbox-ish escape hatch ("show everything") */
 .tk-set-check {
@@ -128,7 +143,22 @@
   font-size: 13px; color: var(--ink-2); line-height: 1.45;
   cursor: pointer;
 }
+.tk-set-check > span { min-width: 0; overflow-wrap: anywhere; }
 .tk-set-check input { width: 18px; height: 18px; accent-color: var(--rust); flex: none; margin-top: 1px; cursor: pointer; }
+
+/* a section-description line that sits directly under a field label (ALT-220b) */
+.tk-set-desc { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin: 0 0 10px; max-width: 60ch; overflow-wrap: anywhere; }
+
+/* an inline info trigger that floats a tooltip (used on category-prior rows). ALT-222 */
+.tk-set-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%; flex: none;
+  color: var(--ink-3); border: 1.4px solid currentColor;
+  font-family: var(--font-display); font-weight: 800; font-size: 10px; line-height: 1;
+  cursor: help; transition: color var(--t-fast), border-color var(--t-fast);
+}
+.tk-set-info:hover, .tk-set-info:focus-visible { color: var(--rust-deep); }
+.tk-set-info:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; }
 
 /* the apply foot row shared by the slider islands */
 .tk-set-apply-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
@@ -139,6 +169,7 @@
 .tk-set-cp { display: flex; flex-direction: column; gap: 18px; }
 .tk-set-cp-row { display: flex; flex-direction: column; gap: 2px; }
 .tk-set-cp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.tk-set-cp-labelwrap { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
 .tk-set-cp-label { font-family: var(--font-display); font-weight: 700; font-size: 14px; }
 .tk-set-cp-emph { font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--rust-deep); }
 .tk-set-cp-mult { color: var(--ink-2); font-weight: 700; }

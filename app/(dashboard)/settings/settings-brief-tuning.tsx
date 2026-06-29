@@ -72,14 +72,24 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
           ? "Showing every recommendation we generate, regardless of threshold. Tighten the slider to get back to a curated brief."
           : band.desc}
       </p>
+      <p className="tk-set-explain">
+        The slider sets how <b>broad or narrow</b> your recommendation thresholds are — narrower keeps only
+        the highest-impact, highest-confidence plays; broader opens the net. In practice it surfaces roughly
+        <b> 60–80%</b> of the insights we generate for you.
+      </p>
       <label className="tk-set-check">
         <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-        <span>Show everything — surface every recommendation, no threshold</span>
+        <span>
+          Show everything — surface <b>100%</b> of recommendations, including low-impact and low-confidence
+          ones. This ignores the slider thresholds entirely.
+        </span>
       </label>
       <div className="tk-set-apply-foot">
-        <TkButton variant="act" disabled={!dirty || saving} onClick={apply}>
-          {saving ? "Saving…" : "Update my recommendations"}
-        </TkButton>
+        {dirty && (
+          <TkButton variant="keep" disabled={saving} onClick={apply}>
+            {saving ? "Saving…" : "Update my recommendations"}
+          </TkButton>
+        )}
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
           {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
         </span>
