@@ -209,7 +209,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                   data-tipv={`${formatNumber(totalFollowers)} followers`}
                 />
                 <TkWidget
-                  tone="teal"
+                  tone={avgEngagement > 0 ? "teal" : "muted"}
                   label="Engagement / post"
                   value={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}%` : "—"}
                   sub={avgEngagement > 0 ? "when you post, on average" : "no posts read yet"}

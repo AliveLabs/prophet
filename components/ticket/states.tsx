@@ -12,16 +12,22 @@ export function TkEmptyState({
   title,
   description,
   action,
+  variant = "default",
   className,
 }: {
   icon?: ReactNode
   title: ReactNode
   description?: ReactNode
   action?: ReactNode
+  /** "muted" (ALT-155): the quiet neutral treatment for "none matched yet" / "not enough data yet".
+   *  A calm in-palette gray — NOT a disabled look, NOT an attention accent. The default treatment is
+   *  already in-palette; "muted" dials the title down to the secondary ink for a softer, lower-stakes
+   *  read when there's simply nothing to show yet. */
+  variant?: "default" | "muted"
   className?: string
 }) {
   return (
-    <div className={cx("tk-empty", className)}>
+    <div className={cx("tk-empty", variant === "muted" && "tk-empty--muted", className)}>
       {icon && <div className="tk-empty-ic" aria-hidden="true">{icon}</div>}
       <h4>{title}</h4>
       {description && <p>{description}</p>}

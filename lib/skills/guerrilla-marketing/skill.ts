@@ -192,6 +192,84 @@ export function isGenericAdvice(text: string): boolean {
   return GENERIC_PENALTY_PATTERNS.some((re) => re.test(text))
 }
 
+/** The partner TYPE(s) this play names from THIS dossier's catalog (a play can mention more than
+ *  one). Used by the spirit-night naming rule below; pure + case-insensitive substring match on the
+ *  same user-facing text fields the anchor gate reads. */
+function namedPartnerTypes(play: EnrichedRecommendation, d: Dossier): Set<string> {
+  const hay = [
+    play.title,
+    play.rationale,
+    ...play.recipe.flatMap((s) => [s.audience, s.channel, s.offer ?? "", s.copy ?? "", s.window?.note ?? ""]),
+    play.leverage?.basisInternal ?? "",
+  ]
+    .join("  ")
+    .toLowerCase()
+  const types = new Set<string>()
+  for (const p of d.partnerEntities ?? []) {
+    if (p.name && hay.includes(p.name.toLowerCase())) types.add(p.partnerType)
+  }
+  return types
+}
+
+// ── ALT-239: "Spirit Night" is a SCHOOL term — anything else is a "Fundraising Night" ───────────
+// The spirit_night archetype can anchor on a school, a youth-sports team/league, OR a church/booster
+// (ARCHETYPE_PARTNER_TYPES.spirit_night). "Spirit night" is school vocabulary, though — for a church,
+// band, nonprofit, or sports league it reads wrong. So we POST-PROCESS the generated copy: the phrase
+// "spirit night" survives ONLY when the play names a school partner; for any non-school anchor it
+// becomes "fundraising night". This renames, it does NOT change which play fires or its economics.
+const SPIRIT_NIGHT_RE = /\bspirit night(s?)\b/gi
+// A separate non-global copy for stateless .test() checks (a /g regex's .test() is stateful —
+// it advances lastIndex between calls — so never share one instance across both .test() and .replace()).
+const SPIRIT_NIGHT_TEST = /\bspirit nights?\b/i
+
+/** Case-preserving rename of "spirit night" → "fundraising night" (keeps the trailing plural).
+ *  "Spirit Night" → "Fundraising Night"; "spirit night" → "fundraising night"; "SPIRIT NIGHT" → "FUNDRAISING NIGHT". */
+function renameSpiritNight(text: string): string {
+  return text.replace(SPIRIT_NIGHT_RE, (match, plural: string) => {
+    const replacement = `fundraising night${plural ?? ""}`
+    if (match === match.toUpperCase()) return replacement.toUpperCase()
+    if (match[0] === match[0].toUpperCase()) {
+      // Title-case each word (the source phrase is title-cased, e.g. "Spirit Night").
+      return replacement.replace(/\b\w/g, (c) => c.toUpperCase())
+    }
+    return replacement
+  })
+}
+
+/** Apply the school-only "Spirit Night" rule to one play (ALT-239). When the play names a NON-school
+ *  partner (or names no school at all), every "spirit night" in its user-facing copy becomes
+ *  "fundraising night". A play that names a school keeps "spirit night" untouched. Pure; returns a
+ *  new play object (the original is not mutated). */
+export function applySpiritNightNaming(play: EnrichedRecommendation, d: Dossier): EnrichedRecommendation {
+  const mentionsSpiritNight =
+    SPIRIT_NIGHT_TEST.test(play.title) ||
+    SPIRIT_NIGHT_TEST.test(play.rationale) ||
+    play.recipe.some((s) =>
+      SPIRIT_NIGHT_TEST.test(`${s.audience} ${s.channel} ${s.offer ?? ""} ${s.copy ?? ""} ${s.window?.note ?? ""}`),
+    ) ||
+    SPIRIT_NIGHT_TEST.test(play.leverage?.basisInternal ?? "")
+  if (!mentionsSpiritNight) return play // no "spirit night" anywhere — nothing to do (cheap fast path)
+  const types = namedPartnerTypes(play, d)
+  // Keep "spirit night" ONLY when the play names a literal school partner. Otherwise rename.
+  if (types.has("school")) return play
+  return {
+    ...play,
+    title: renameSpiritNight(play.title),
+    rationale: renameSpiritNight(play.rationale),
+    recipe: play.recipe.map((s) => ({
+      ...s,
+      channel: renameSpiritNight(s.channel),
+      audience: renameSpiritNight(s.audience),
+      offer: s.offer != null ? renameSpiritNight(s.offer) : s.offer,
+      copy: s.copy != null ? renameSpiritNight(s.copy) : s.copy,
+      window: s.window ? { ...s.window, note: renameSpiritNight(s.window.note) } : s.window,
+    })),
+    leverage: play.leverage
+      ? { ...play.leverage, basisInternal: renameSpiritNight(play.leverage.basisInternal) }
+      : play.leverage,
+  }
+}
+
 /** Does this play NAME a real partner entity or a dated event from THIS dossier? The core gate. */
 export function namesAnAnchor(play: EnrichedRecommendation, d: Dossier): boolean {
   const hay = [
@@ -274,13 +352,17 @@ function parse(raw: unknown, d: Dossier): EnrichedRecommendation[] | null {
     defaultOwner: "marketing",
   })
   if (coerced === null) return null // unparseable -> deterministic fallback
-  return coerced.filter((p) => {
-    if (!p.evidenceRefs.some(isGrassrootsSignal)) return false // (1) domain grounding
-    const text = `${p.title} ${p.rationale} ${p.recipe.map((s) => `${s.audience} ${s.channel} ${s.offer ?? ""} ${s.copy ?? ""}`).join(" ")}`
-    if (isGenericAdvice(text)) return false // (3) kill generic/chamber/flyer
-    if (!namesAnAnchor(p, d)) return false // (2) SUPPRESS the entity-less play (the core upgrade)
-    return true
-  })
+  return coerced
+    .filter((p) => {
+      if (!p.evidenceRefs.some(isGrassrootsSignal)) return false // (1) domain grounding
+      const text = `${p.title} ${p.rationale} ${p.recipe.map((s) => `${s.audience} ${s.channel} ${s.offer ?? ""} ${s.copy ?? ""}`).join(" ")}`
+      if (isGenericAdvice(text)) return false // (3) kill generic/chamber/flyer
+      if (!namesAnAnchor(p, d)) return false // (2) SUPPRESS the entity-less play (the core upgrade)
+      return true
+    })
+    // (4) ALT-239: "Spirit Night" is a school-only term — rename to "Fundraising Night" for any
+    //     non-school anchor (church/band/nonprofit/sports league). Naming only; no logic change.
+    .map((p) => applySpiritNightNaming(p, d))
 }
 
 // ── Deterministic, grounded, NUMBER-FREE fallback (TODAY's behavior, preserved) ─────────────

@@ -166,7 +166,9 @@ export function TkWidgetGrid({
   )
 }
 
-export type TkWidgetTone = "rust" | "teal" | "gold" | "slate"
+// "muted" (ALT-155) = the neutral in-palette gray for an empty / insufficient-data metric —
+// a calm tile, never an accent. Use it when a widget's value is "none matched yet" / "not enough yet".
+export type TkWidgetTone = "rust" | "teal" | "gold" | "slate" | "muted"
 export type TkWidgetSize = "default" | "wide" | "tall"
 
 export function TkWidget({

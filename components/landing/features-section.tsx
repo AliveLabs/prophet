@@ -373,7 +373,7 @@ export function FeaturesSection() {
               </svg>
               <h3 className="mt-4 text-lg font-bold text-foreground">Visual Intelligence</h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                AI-powered photo analysis via Gemini Vision — quality scoring, ambiance detection, food presentation grading, and brand consistency audits.
+                AI-powered photo analysis — quality scoring, ambiance detection, food presentation grading, and brand consistency audits.
               </p>
             </div>
             <div className="mt-4">

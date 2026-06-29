@@ -242,7 +242,7 @@ export function WeatherTrend({
           </ResponsiveContainer>
         )}
       </div>
-      <p className="tk-trend-src">Data: OpenWeatherMap</p>
+      <p className="tk-trend-src">Data: local weather service</p>
     </TkCard>
   )
 }

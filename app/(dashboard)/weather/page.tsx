@@ -391,7 +391,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
               title="No weather data yet"
               description={
                 selectedLocationId
-                  ? "Hit “Update weather” to pull historical conditions and an 8-day forecast from OpenWeatherMap. Once it lands, we’ll read it for what it does to your foot traffic."
+                  ? "Hit “Update weather” to pull historical conditions and an 8-day forecast for your area. Once it lands, we’ll read it for what it does to your foot traffic."
                   : "Add a location to start tracking the forecast and how it moves your foot traffic."
               }
             />

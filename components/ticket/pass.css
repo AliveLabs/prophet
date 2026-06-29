@@ -337,6 +337,11 @@
 .tk-w-teal  { background: linear-gradient(150deg, var(--teal), var(--teal-2)); color: #fff; }
 .tk-w-gold  { background: linear-gradient(150deg, var(--gold), var(--gold-2)); color: #3a2a08; }
 .tk-w-slate { background: var(--card); color: var(--ink); border-color: var(--line-2); }
+/* ALT-155: neutral "none matched yet / not enough data yet" tile. A calm in-palette gray on the
+   recessed surface — NOT an accent (no rust/teal/gold) and NOT a disabled look. Use for an
+   insufficient-data widget so an empty metric never sits on an attention color. */
+.tk-w-muted { background: var(--paper-2); color: var(--ink-3); border-color: var(--line-2); }
+.tk-w-muted .tk-wval { color: var(--ink-3); font-size: 24px; }
 .tk-w-rust .tk-wval, .tk-w-teal .tk-wval { font-size: 30px; }
 .tk-w-slate .tk-wval { font-size: 24px; color: var(--slate-deep); }
 .tk-w-gold .tk-wval { font-size: 24px; }
@@ -400,6 +405,11 @@
 .tk-empty .tk-empty-ic svg { width: 24px; height: 24px; }
 .tk-empty h4 { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
 .tk-empty p { font-size: 13px; color: var(--ink-2); max-width: 42ch; }
+/* ALT-155: the quiet "none matched yet / not enough data yet" variant — same calm in-palette
+   surface, title dialed to the secondary ink so a "nothing yet" state reads low-stakes (NOT a
+   disabled look, NOT an attention accent). */
+.tk-empty--muted h4 { color: var(--ink-3); font-weight: 700; }
+.tk-empty--muted p { color: var(--ink-3); }
 
 /* ════════════════════════════════════════════════════════════
    WEATHER STRIP

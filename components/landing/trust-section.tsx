@@ -117,7 +117,7 @@ export function TrustSection() {
           variants={fadeUp}
           className="mt-12 text-center text-sm text-muted-foreground"
         >
-          Powered by Google AI, Google Places, DataForSEO, and real-time market data from 8+ intelligence sources.
+          Powered by Google AI, Google Places, and real-time search and market data from 8+ intelligence sources.
         </motion.p>
       </div>
     </section>

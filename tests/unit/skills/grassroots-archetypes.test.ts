@@ -20,6 +20,7 @@ import {
   hasNameableAnchor,
   isGenericAdvice,
   namesAnAnchor,
+  applySpiritNightNaming,
   GRASSROOTS_ARCHETYPES,
 } from "@/lib/skills/guerrilla-marketing/skill"
 import {
@@ -385,5 +386,86 @@ describe("model-success path — a spirit_night naming a real school survives th
     expect(res.plays[0].skillId).toBe("guerrilla-marketing")
     expect(res.plays[0].title).toContain("Forney High School")
     expect(res.plays[0].evidenceRefs).toEqual(["traffic.new_slow_period"])
+  })
+})
+
+// ── ALT-239: "Spirit Night" is school-only; non-school anchors become "Fundraising Night" ───────
+describe("applySpiritNightNaming — the school-only naming rule", () => {
+  const spiritPlay = (anchorName: string): EnrichedRecommendation =>
+    ({
+      title: `Run a Spirit Night with ${anchorName}`,
+      rationale: `A weeknight spirit night ${anchorName} promotes brings their families in to fill the slow window.`,
+      skillId: "guerrilla-marketing",
+      ownerRole: "marketing",
+      kind: "capitalize",
+      recipe: [
+        {
+          channel: `email the ${anchorName} fundraising chair`,
+          platforms: [],
+          audience: `${anchorName} families`,
+          window: { note: "a weeknight 2-3 weeks out for the spirit night" },
+          offer: "15-20% of the spirit night's sales donated back",
+          copy: `Bring this in for our Spirit Night supporting ${anchorName}.`,
+        },
+      ],
+      confidence: "medium",
+      leverage: { label: "high", basisInternal: "borrowed distribution; a spirit night fills the window" },
+      evidenceRefs: ["traffic.new_slow_period"],
+      knowledgeVersion: "guerrilla@v2.1",
+    }) as unknown as EnrichedRecommendation
+
+  it("KEEPS 'Spirit Night' when the named anchor is literally a school", () => {
+    const d = withCatalog([partner("Forney High School", "school")], [sig("traffic.new_slow_period")])
+    const out = applySpiritNightNaming(spiritPlay("Forney High School"), d)
+    expect(out.title).toContain("Spirit Night")
+    expect(out.rationale).toContain("spirit night")
+    expect(JSON.stringify(out)).not.toContain("Fundraising Night")
+  })
+
+  it("RENAMES to 'Fundraising Night' for a CHURCH anchor (case-preserved across every field)", () => {
+    const d = withCatalog([partner("Grace Community Church", "church")], [sig("traffic.new_slow_period")])
+    const out = applySpiritNightNaming(spiritPlay("Grace Community Church"), d)
+    expect(out.title).toBe("Run a Fundraising Night with Grace Community Church")
+    expect(out.rationale).toContain("fundraising night") // lowercase preserved
+    expect(out.recipe[0].copy).toContain("Fundraising Night") // title-case preserved
+    expect(out.recipe[0].window!.note).toContain("fundraising night")
+    expect(out.recipe[0].offer).toContain("fundraising night")
+    expect(out.leverage!.basisInternal).toContain("fundraising night")
+    // no "spirit night" survives anywhere for a non-school anchor
+    expect(/spirit night/i.test(JSON.stringify(out))).toBe(false)
+  })
+
+  it("RENAMES for a youth-sports anchor too (only a literal school keeps the term)", () => {
+    const d = withCatalog([partner("Forney Youth Soccer League", "youth_sports")], [sig("traffic.new_slow_period")])
+    const out = applySpiritNightNaming(spiritPlay("Forney Youth Soccer League"), d)
+    expect(out.title).toContain("Fundraising Night")
+    expect(/spirit night/i.test(JSON.stringify(out))).toBe(false)
+  })
+
+  it("is a no-op for a play that never says 'spirit night' (cheap fast path)", () => {
+    const d = withCatalog([partner("Grace Community Church", "church")], [sig("traffic.new_slow_period")])
+    const play = { ...spiritPlay("Grace Community Church"), title: "Sponsor the church food drive", rationale: "Give back.", recipe: [{ channel: "donate", platforms: [], audience: "congregants", window: { note: "this month" } }], leverage: { label: "medium", basisInternal: "exposure" } } as unknown as EnrichedRecommendation
+    expect(applySpiritNightNaming(play, d)).toBe(play) // same reference — untouched
+  })
+
+  it("end-to-end through parse(): a model spirit-night play on a CHURCH is renamed before it ships", () => {
+    const d = withCatalog([partner("Grace Community Church", "church")], [sig("traffic.new_slow_period", "Tuesday nights went quiet")])
+    const plays = guerrillaMarketingSkill.parse(
+      [
+        {
+          title: "Run a spirit night with Grace Community Church",
+          rationale: "Your Tuesdays run quiet; a spirit night Grace Community Church promotes fills it.",
+          recipe: [{ channel: "call the Grace Community Church office", platforms: [], audience: "Grace Community Church members", window: { note: "a weeknight 2-3 weeks out" } }],
+          confidence: "medium",
+          leverage: { label: "high", basisInternal: "borrowed distribution" },
+          evidenceRefs: ["traffic.new_slow_period"],
+        },
+      ],
+      d,
+    )
+    expect(plays).toHaveLength(1)
+    expect(/spirit night/i.test(JSON.stringify(plays![0]))).toBe(false)
+    // case is PRESERVED: the model wrote lowercase "spirit night", so it renames to lowercase.
+    expect(plays![0].title).toBe("Run a fundraising night with Grace Community Church")
   })
 })

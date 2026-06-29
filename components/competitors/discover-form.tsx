@@ -34,8 +34,8 @@ export default function DiscoverForm({
         geminiContext={geminiContext}
         steps={[
           "Searching nearby businesses...",
-          "Resolving Place IDs...",
-          "Fetching Google Places details...",
+          "Matching listings...",
+          "Fetching listing details...",
           "Enriching competitor profiles...",
           "Calculating relevance scores...",
           "Saving results...",

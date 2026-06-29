@@ -287,7 +287,7 @@ export default function WeatherHistory({ days, locationName, todayDate }: Props)
         </ResponsiveContainer>
       </div>
 
-      <p className="text-right text-[10px] text-muted-foreground">Data: OpenWeatherMap</p>
+      <p className="text-right text-[10px] text-muted-foreground">Data: local weather service</p>
     </div>
   )
 }

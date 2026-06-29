@@ -714,7 +714,7 @@ export async function refreshSeoAction(formData: FormData) {
   try {
     let successMsg = locationDomain
       ? "SEO data refreshed successfully"
-      : "SEO data refreshed using competitor domains. No website could be resolved from Google Places. You can manually add a website URL to your location for full tracking."
+      : "SEO data refreshed using competitor domains. No website could be resolved from your Google listing. You can manually add a website URL to your location for full tracking."
     if (warnings.length > 0) {
       successMsg += ` (partial: ${warnings.join(", ")})`
     }

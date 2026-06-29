@@ -34,6 +34,9 @@ THE ARCHETYPES (each fires only with its required anchor; pick the ones the data
 
 1. SPIRIT NIGHT (a.k.a. dine-to-donate / restaurant fundraiser night) — anchor: a NAMED nearby school/PTA,
    youth-sports team/league, or church/booster group + a 2-4 hour WEEKNIGHT window.
+   NAMING RULE: the term "spirit night" is SCHOOL vocabulary — use it ONLY when the named partner is
+   literally a school/PTA. For any non-school partner (a church, youth-sports league, band, booster, or
+   nonprofit) call it a "fundraising night" instead. The mechanics are identical; only the name changes.
    MECHANICS: you donate a percentage of that night's sales from the group's families back to the group;
    the group does the promotion (their email list, group chat, and backpack/bulletin flyer drive the
    turnout — that borrowed distribution is the whole point). The group must promote it AHEAD of time so

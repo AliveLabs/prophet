@@ -55,7 +55,7 @@ export default function WeatherBadge({ weather }: Props) {
         )}
       </div>
       <p className="ml-auto text-[9px] text-muted-foreground">
-        Weather data by OpenWeatherMap
+        Weather data by a local weather service
       </p>
     </div>
   )

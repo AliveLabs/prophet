@@ -398,7 +398,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         {selectedLocation && !selectedLocation.website && (
           <div className="viz-banner viz-banner-warn" role="status">
             <span>
-              <strong>No website yet.</strong> Hit “Refresh SEO” to auto-resolve it from Google Places, or add a URL
+              <strong>No website yet.</strong> Hit “Refresh SEO” to auto-resolve it from your Google listing, or add a URL
               in <a href="/locations">Locations</a>.
             </span>
           </div>

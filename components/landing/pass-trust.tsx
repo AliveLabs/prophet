@@ -39,7 +39,7 @@ export function PassTrust() {
         </LpReveal>
 
         <p className="lp-powered">
-          Powered by Google AI, Google Places, DataForSEO, and real-time market data from
+          Powered by Google AI, Google Places, and real-time search and market data from
           8+ intelligence sources.
         </p>
       </div>

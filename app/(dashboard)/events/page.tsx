@@ -584,7 +584,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 }
               />
               <TkWidget
-                tone="teal"
+                tone={totalMatched > 0 ? "teal" : "muted"}
                 label="Competitor tie-ins"
                 value={totalMatched > 0 ? String(totalMatched) : "—"}
                 sub={totalMatched > 0 ? "events a rival is attached to" : "none matched yet"}
