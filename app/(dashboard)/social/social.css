@@ -126,6 +126,72 @@
 .sp-spin { width: 15px; height: 15px; animation: sp-rot .8s linear infinite; }
 @keyframes sp-rot { to { transform: rotate(360deg); } }
 
+/* ── per-entity handle editor (HandleManager, sp-hm-) ─────────
+   Mirrors the Competitors roster's visual language (the tk-hr- and
+   tk-prov- families) so the two watched-accounts surfaces read as one
+   component. Actions are the kit's TkButton (>=44px); rows / glyphs /
+   provenance are token-driven here so light + warm-dark both work. */
+.sp-hm { display: flex; flex-direction: column; gap: 12px; }
+.sp-hm + .sp-hm { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line-2); }
+
+.sp-hm-head { display: flex; align-items: center; gap: 9px; }
+.sp-hm-title { font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.sp-hm-tag { font-family: var(--font-cond); font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.sp-hm-tag-you { color: var(--teal-deep); background: var(--teal-tint); }
+.sp-hm-tag-comp { color: var(--ink-3); background: var(--paper-2); }
+
+.sp-hm-rows { display: flex; flex-direction: column; gap: 10px; }
+.sp-hm-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-md);
+  border: 1px solid var(--line-2); background: var(--card-2);
+}
+.sp-hm-plat {
+  width: 38px; height: 38px; flex: none; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--paper-2); border: 1px solid var(--line);
+}
+.sp-hm-plat svg { width: 17px; height: 17px; }
+.sp-hm-ig { color: var(--gold-deep); }
+.sp-hm-fb { color: var(--slate-deep); }
+.sp-hm-tt { color: var(--ink); }
+
+.sp-hm-body { flex: 1; min-width: 0; }
+.sp-hm-handle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-hm-at { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--ink); }
+.sp-hm-url { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* provenance badges (UX gaps §7) */
+.sp-hm-prov { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.sp-hm-prov svg { width: 11px; height: 11px; }
+.sp-hm-prov-verified { background: var(--teal-tint); color: var(--teal-deep); }
+.sp-hm-prov-discovering { background: var(--gold-tint); color: var(--gold-deep); }
+.sp-hm-prov-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+@media (prefers-reduced-motion: no-preference) {
+  .sp-hm-prov-discovering .sp-hm-prov-dot { animation: sp-hm-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes sp-hm-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.sp-hm-acts { display: flex; align-items: center; gap: 8px; flex: none; }
+/* icon-only remove: keep the kit's 44px height, give it ≥44px width too */
+.sp-hm-rm { min-width: 44px; padding-left: 12px; padding-right: 12px; }
+
+/* add-a-handle affordances */
+.sp-hm-add-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sp-hm-add-panel {
+  padding: 14px; border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--rust) 30%, var(--line-2));
+  background: var(--rust-tint);
+}
+.sp-hm-add-field { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sp-hm-input-wrap { flex: 1; min-width: 160px; display: flex; align-items: center; gap: 2px; border-radius: 10px; border: 1.5px solid var(--line-2); background: var(--card); padding: 0 10px; }
+.sp-hm-input-wrap .sp-hm-at { font-family: var(--font-mono); color: var(--ink-3); font-size: 13px; }
+.sp-hm-input-wrap:focus-within { border-color: var(--rust); }
+.sp-hm-input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 11px 6px; min-height: 44px; font-family: var(--font-mono); font-size: 13px; color: var(--ink); }
+.sp-hm-input::placeholder { color: var(--ink-3); }
+.sp-hm-input:focus { outline: none; }
+.sp-hm-err { margin-top: 8px; font-size: 12px; color: var(--alert-deep); }
+
 /* ── empty-state CTA buttons (point to Competitors roster) ──── */
 .sp-cta { display: inline-flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 4px; }
 .sp-cta a { text-decoration: none; }
@@ -136,6 +202,12 @@
   .sp-sec { margin-top: 30px; }
   .sp-postbar { gap: 10px; }
   .sp-entsel, .sp-entsel select { width: 100%; }
+}
+
+/* handle rows: drop the actions to their own full-width line on narrow screens */
+@media (max-width: 520px) {
+  .sp-hm-row { flex-wrap: wrap; }
+  .sp-hm-acts { width: 100%; justify-content: flex-end; }
 }
 
 @media (prefers-reduced-motion: reduce) {
