@@ -62,6 +62,48 @@ export function ensureCompetitorLimit(
 }
 
 // ---------------------------------------------------------------------------
+// Team / multi-user (ALT-218)
+// ---------------------------------------------------------------------------
+// Inviting additional users is a Tier 2+ capability (mid/top). Tier 1 (entry) and
+// the suspended tier are single-operator. A free TRIAL is a trial OF Tier 2, so an
+// org that's actively trialing can invite — gate on the EFFECTIVE tier, not the raw
+// row. Use these from both the invite UI (canInviteTeamMembers, non-throwing) and the
+// future invite server action (ensureCanInviteTeamMember, the bypass-proof guard).
+
+const TEAM_INVITE_TIERS: readonly SubscriptionTier[] = ["mid", "top"] as const
+
+/** Tiers that may invite additional users. */
+export function tierAllowsTeamInvites(tier: SubscriptionTier): boolean {
+  return TEAM_INVITE_TIERS.includes(tier)
+}
+
+/** Non-throwing check for the invite UI. A live Tier-2 trial counts as Tier 2.
+ *  Returns false for Tier 1, suspended, and expired/no-access orgs. */
+export function canInviteTeamMembers(org: {
+  subscription_tier: string
+  trial_ends_at: string | null
+  payment_state?: string | null
+}): boolean {
+  // An active trial is a trial OF the mid tier — treat it as mid for this gate.
+  if (isTrialing(org)) return true
+  return tierAllowsTeamInvites(asSubscriptionTier(org.subscription_tier))
+}
+
+/** Throwing guard for the invite server action so a Tier-1 caller can't bypass a
+ *  disabled button by invoking the action directly. */
+export function ensureCanInviteTeamMember(org: {
+  subscription_tier: string
+  trial_ends_at: string | null
+  payment_state?: string | null
+}): void {
+  if (!canInviteTeamMembers(org)) {
+    throw new Error(
+      "Inviting team members is available on Tier 2 and Tier 3. Upgrade your plan to add your team."
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Events Intelligence
 // ---------------------------------------------------------------------------
 

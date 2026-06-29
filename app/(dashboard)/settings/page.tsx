@@ -16,6 +16,7 @@ import {
   TkSectionHead,
   TkSoftPanel,
 } from "@/components/ticket"
+import { getFullRefreshStatus } from "../refresh-actions"
 import SettingsBriefTuning from "./settings-brief-tuning"
 import SettingsCategoryPriors from "./settings-category-priors"
 import SettingsRefreshPass from "./settings-refresh-pass"
@@ -39,6 +40,7 @@ export default async function SettingsPage() {
     .maybeSingle()
   const locSettings = (locRow?.settings as Record<string, unknown> | null) ?? {}
   const comms = (locSettings.communications ?? null) as Record<string, boolean> | null
+  const refreshStatus = await getFullRefreshStatus(ctx.locationId)
 
   // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other
   // verified own handles render as the honest "tracked on Tier 2+" seam.
@@ -154,7 +156,11 @@ export default async function SettingsPage() {
         <RevealOnView className="tk-set-block">
           <TkSectionHead title="Your data" sub="Refresh on demand" />
           <TkSoftPanel>
-            <SettingsRefreshPass locationId={ctx.locationId} />
+            <SettingsRefreshPass
+              locationId={ctx.locationId}
+              canRunFull={refreshStatus.canRun}
+              fullAvailableAt={refreshStatus.availableAt}
+            />
           </TkSoftPanel>
         </RevealOnView>
 

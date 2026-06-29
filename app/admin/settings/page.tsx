@@ -11,6 +11,7 @@ import { requirePlatformAdminContext } from "@/lib/auth/platform-admin"
 import { RevealOnView, TkCard, TkSectionHead } from "@/components/ticket"
 import { AdminList } from "./components/admin-list"
 import { InviteAdmin } from "./components/invite-admin"
+import { BroadcastAnnouncement } from "./components/broadcast-announcement"
 
 export default async function AdminSettingsPage() {
   await connection()
@@ -55,6 +56,14 @@ export default async function AdminSettingsPage() {
           <RevealOnView>
             <TkCard>
               <InviteAdmin />
+            </TkCard>
+          </RevealOnView>
+
+          {/* ── BROADCAST (ALT-229c) — reaches every user, bypassing notification prefs ── */}
+          <TkSectionHead title="Announcement" sub="Reaches all users — for outages & notices" />
+          <RevealOnView>
+            <TkCard>
+              <BroadcastAnnouncement />
             </TkCard>
           </RevealOnView>
         </>
