@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react"
 export function AnimatedNumber({
   value,
   format,
+  localize = false,
   durationMs = 900,
   className,
   prefix = "",
@@ -17,6 +18,10 @@ export function AnimatedNumber({
 }: {
   value: number
   format?: (n: number) => string
+  // Serializable alternative to `format` for Server Components: pass `localize`
+  // (a boolean) to render with thousands separators (n.toLocaleString()) instead
+  // of a `format` function, which cannot cross the server→client boundary.
+  localize?: boolean
   durationMs?: number
   className?: string
   prefix?: string
@@ -66,7 +71,8 @@ export function AnimatedNumber({
     return () => io.disconnect()
   }, [value, durationMs])
 
-  const rendered = format ? format(Math.round(display)) : String(Math.round(display))
+  const n = Math.round(display)
+  const rendered = format ? format(n) : localize ? n.toLocaleString() : String(n)
   return (
     <span ref={ref} className={className} style={{ fontVariantNumeric: "tabular-nums" }}>
       {prefix}

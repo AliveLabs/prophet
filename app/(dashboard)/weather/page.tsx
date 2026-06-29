@@ -34,11 +34,13 @@ import {
   WeatherDemandCorrelation,
   WeatherActionPlays,
   LocationWeatherTiles,
+} from "./weather-client"
+import {
   toTkWeatherIcon,
   estimateDemand,
   type WeatherDay,
   type LocationWeather,
-} from "./weather-client"
+} from "./weather-shared"
 import "./weather.css"
 
 type WeatherPageProps = {

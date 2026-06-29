@@ -377,7 +377,7 @@ export default async function AdminOverviewPage() {
         <TkCard>
           <TkNumBig
             value={m.insights.total}
-            format={(n) => n.toLocaleString()}
+            localize
             caption="Total insights"
             captionRight="all time"
             sub={

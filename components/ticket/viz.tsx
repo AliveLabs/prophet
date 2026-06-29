@@ -105,6 +105,7 @@ export function TkNumBig({
   suffix = "",
   prefix = "",
   format,
+  localize = false,
   trend,
   trendLabel,
   unit,
@@ -118,6 +119,9 @@ export function TkNumBig({
   suffix?: string
   prefix?: string
   format?: (n: number) => string
+  // Serializable alternative to `format` so Server Components can request
+  // thousands separators without passing a function across the boundary.
+  localize?: boolean
   /** show an up/down arrow pill */
   trend?: "up" | "down"
   trendLabel?: ReactNode
@@ -138,6 +142,7 @@ export function TkNumBig({
           prefix={prefix}
           suffix={suffix}
           format={format}
+          localize={localize}
         />
         {trend && (
           <span
