@@ -3,6 +3,10 @@ import {
   FEEDBACK_SIGNAL_MAP,
   signalFor,
   actionForVerdict,
+  dismissActionFor,
+  dismissReasonCode,
+  isDismissReasonCode,
+  DISMISS_REASONS,
   type FeedbackAction,
   type FeedbackSignal,
 } from "@/lib/skills/feedback-signals"
@@ -30,6 +34,7 @@ import {
   PLAY_TYPE_MULTIPLIER_MAX,
   PLAY_TYPE_MULTIPLIER_NEUTRAL,
   PLAY_TYPE_MIN_SUPPORT_N,
+  PLAY_TYPE_MIN_CONFIDENCE,
   type ScoreInput,
 } from "@/lib/skills/scoring-config"
 import { distillFeedbackPatterns, type DistillStore } from "@/lib/skills/feedback-distill-run"
@@ -86,6 +91,51 @@ describe("feedback-signals BAND", () => {
 
   it("signalFor degrades an UNKNOWN/legacy action to a true no-op (never throws) — engine isolated", () => {
     expect(signalFor("totally_new_action")).toEqual({ polarity: 0, weight: 0, confidence: 0 })
+  })
+
+  it("a REASONED Remove disambiguates the bare dismissal into a directional signal (all BELOW thumbs)", () => {
+    // The reason is what turns an ambiguous Remove into something the engine can learn from.
+    const lw = FEEDBACK_SIGNAL_MAP["dismissed:looks_wrong"]
+    const nr = FEEDBACK_SIGNAL_MAP["dismissed:not_relevant"]
+    const ad = FEEDBACK_SIGNAL_MAP["dismissed:already_doing"]
+    // "looks wrong" → the strongest reasoned negative, but still below thumbs (it's directional).
+    expect(lw.polarity).toBe(-1)
+    expect(lw.weight).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.weight)
+    expect(lw.confidence).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.confidence)
+    // "not relevant" → a WEAKER negative than "looks wrong" (lower effective mass = weight × confidence).
+    expect(nr.polarity).toBe(-1)
+    expect(nr.weight * nr.confidence).toBeLessThan(lw.weight * lw.confidence)
+    // "already doing it" → NEUTRAL on purpose (not a quality complaint; never a false negative).
+    expect(ad).toEqual({ polarity: 0, weight: 0, confidence: 0 })
+  })
+
+  it("BOTH negative reasons clear the rollup confidence gate; the neutral one does not even try", () => {
+    // looks_wrong (0.6) and not_relevant (0.5) sit AT/above PLAY_TYPE_MIN_CONFIDENCE so they can move
+    // ranking on their own; already_doing carries no confidence at all (observe-nothing).
+    expect(FEEDBACK_SIGNAL_MAP["dismissed:looks_wrong"].confidence).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_CONFIDENCE)
+    expect(FEEDBACK_SIGNAL_MAP["dismissed:not_relevant"].confidence).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_CONFIDENCE)
+  })
+
+  it("dismissActionFor composes the band key from a reason code (bare/unknown → no-signal dismissed)", () => {
+    expect(dismissActionFor("looks_wrong")).toBe("dismissed:looks_wrong")
+    expect(dismissActionFor("not_relevant")).toBe("dismissed:not_relevant")
+    expect(dismissActionFor("already_doing")).toBe("dismissed:already_doing")
+    expect(dismissActionFor(undefined)).toBe("dismissed")
+    expect(dismissActionFor(null)).toBe("dismissed")
+    expect(dismissActionFor("garbage")).toBe("dismissed") // unknown → bare, never a fabricated band key
+    // and the composed key always resolves to a real band signal (no unknown leaks to signalFor).
+    expect(signalFor(dismissActionFor("looks_wrong")).polarity).toBe(-1)
+    expect(signalFor(dismissActionFor("garbage"))).toEqual({ polarity: 0, weight: 0, confidence: 0 })
+  })
+
+  it("the UI labels and the band codes are ONE source of truth (label ↔ code round-trips)", () => {
+    for (const r of DISMISS_REASONS) {
+      expect(dismissReasonCode(r.label)).toBe(r.code)
+      expect(isDismissReasonCode(r.code)).toBe(true)
+    }
+    expect(dismissReasonCode("a label that does not exist")).toBeUndefined()
+    expect(isDismissReasonCode("garbage")).toBe(false)
+    expect(isDismissReasonCode(null)).toBe(false)
   })
 
   it("the EXISTING thumbs verdict (good|bad) routes through the SAME band", () => {
@@ -209,6 +259,21 @@ describe("aggregateSignals — guards + smoothing", () => {
     // stays neutral. Keep + thumbs are the only signals that move the multiplier (2026-06-24 review).
     expect(aggregateSignals(many("dismissed", 30)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
     expect(aggregateSignals(many("snoozed", 10)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+  })
+
+  it("a sustained REASONED dismissal DOES move ranking — the reason is the difference", () => {
+    // The whole point of capturing WHY: "this looks wrong" sustained above support is a real negative
+    // and down-ranks the play-type, whereas the SAME count of bare Removes (or "already doing it") does
+    // nothing. This is the disambiguation working end to end through the band → aggregate.
+    const looksWrong = aggregateSignals(many("dismissed:looks_wrong", 20))
+    expect(looksWrong.supportN).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_SUPPORT_N)
+    expect(looksWrong.multiplier).toBeLessThan(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(looksWrong.multiplier).toBeGreaterThanOrEqual(PLAY_TYPE_MULTIPLIER_MIN)
+    // "already doing it" is NEUTRAL by design — reading it negative would suppress a GOOD rec.
+    expect(aggregateSignals(many("dismissed:already_doing", 20)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    // and "looks wrong" must NOT out-pull an explicit thumbs-down of equal count (stays SECONDARY).
+    const thumbsDown = aggregateSignals(many("thumbs_down", 20))
+    expect(thumbsDown.multiplier).toBeLessThan(looksWrong.multiplier)
   })
 })
 
@@ -521,6 +586,78 @@ describe("runFeedbackRollup — full dedupe tuple + write errors are SURFACED (p
     expect(result.writeErrors.length).toBeGreaterThan(0) // but it can never be invisible again
     expect(result.writeErrors[0].error).toContain("ON CONFLICT")
     expect(result.rowsWritten).toBe(0)
+  })
+})
+
+// =================================================================================================
+// runFeedbackRollup — a REASONED dismissal becomes a learning signal (the new dismiss-reason path).
+// Proves the rollup READS play_actions.reason, composes the band action (dismissed:<code>), and that
+// the reason — not the bare Remove — is what moves (or doesn't move) the served multiplier.
+// =================================================================================================
+/** A store with N `dismissed` play_actions carrying `reason`, the brief that resolves the play, the
+ *  locations→org map, and a capturing upsert. brief_feedback is empty so ONLY the reasoned dismissals
+ *  drive the rollup. (reason: null exercises the bare, no-signal Remove.) */
+function reasonedDismissStore(reason: string | null, opts: { count?: number } = {}) {
+  const captured: { payload: Record<string, unknown>[] | null } = { payload: null }
+  const actions = Array.from({ length: opts.count ?? 12 }, () => ({
+    location_id: "loc-1",
+    date_key: "2026-06-20",
+    play_key: ROLLUP_PLAY_KEY,
+    action: "dismissed",
+    reason,
+  }))
+  const briefs = [{ location_id: "loc-1", date_key: "2026-06-20", brief: { plays: [ROLLUP_PLAY] } }]
+  const locations = [{ id: "loc-1", organization_id: "org-1" }]
+  const store: RecomputeStore = {
+    from(table: string) {
+      return {
+        select() {
+          return {
+            gte: async () => {
+              if (table === "play_actions") return { data: actions, error: null }
+              return { data: [], error: null } // brief_feedback empty: only the dismissals drive this
+            },
+            in: async () => {
+              if (table === "daily_briefs") return { data: briefs, error: null }
+              if (table === "locations") return { data: locations, error: null }
+              return { data: [], error: null }
+            },
+          }
+        },
+        upsert: async (rows: Record<string, unknown>[]) => {
+          captured.payload = rows
+          return { error: null }
+        },
+      }
+    },
+  } as unknown as RecomputeStore
+  return { store, captured }
+}
+
+describe("runFeedbackRollup — reasoned dismissals (reads play_actions.reason → band signal)", () => {
+  it("'this looks wrong' sustained above support DOWN-RANKS the play-type (a real negative)", async () => {
+    const { store, captured } = reasonedDismissStore("looks_wrong")
+    const result = await runFeedbackRollup({ store })
+    expect(result.resolved).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_SUPPORT_N) // events grounded to the play
+    expect(captured.payload).not.toBeNull()
+    // the reason flowed: rollup read reason → dismissActionFor → signalFor(-1) → below-neutral multiplier.
+    expect(captured.payload!.some((r) => (r.multiplier as number) < PLAY_TYPE_MULTIPLIER_NEUTRAL)).toBe(true)
+    expect(captured.payload!.some((r) => (r.support_n as number) >= PLAY_TYPE_MIN_SUPPORT_N)).toBe(true)
+  })
+
+  it("'already doing it' resolves the SAME plays but contributes NO signal (no false negative)", async () => {
+    const { store, captured } = reasonedDismissStore("already_doing")
+    const result = await runFeedbackRollup({ store })
+    expect(result.resolved).toBeGreaterThan(0) // the events DID resolve to a play...
+    // ...but they carry zero weight, so every served multiplier stays neutral (the key disambiguation).
+    expect(captured.payload!.every((r) => (r.multiplier as number) === PLAY_TYPE_MULTIPLIER_NEUTRAL)).toBe(true)
+    expect(captured.payload!.every((r) => (r.support_n as number) === 0)).toBe(true)
+  })
+
+  it("a BARE dismissal (reason NULL) stays visibility-only — neutral, exactly as before", async () => {
+    const { store, captured } = reasonedDismissStore(null)
+    await runFeedbackRollup({ store })
+    expect(captured.payload!.every((r) => (r.multiplier as number) === PLAY_TYPE_MULTIPLIER_NEUTRAL)).toBe(true)
   })
 })
 

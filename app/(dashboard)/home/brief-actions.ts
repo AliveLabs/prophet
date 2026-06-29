@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { recordPlayFeedback, playKey, type Verdict } from "@/lib/skills/preferences"
+import { isDismissReasonCode } from "@/lib/skills/feedback-signals"
 import {
   recordDismissalCooldown,
   clearDismissalCooldown,
@@ -70,6 +71,13 @@ type ActionStore = {
       row: Record<string, unknown>,
       opts: { onConflict: string }
     ) => Promise<{ error: { message: string } | null }>
+    update: (row: Record<string, unknown>) => {
+      eq: (c: string, v: string) => {
+        eq: (c2: string, v2: string) => {
+          eq: (c3: string, v3: string) => Promise<{ error: { message: string } | null }>
+        }
+      }
+    }
     delete: () => {
       eq: (c: string, v: string) => {
         eq: (c2: string, v2: string) => {
@@ -98,6 +106,10 @@ export async function setPlayAction(input: {
   /** P7b: the full play, sent by the client on Keep ("saved") so persistence doesn't depend on the
    *  live brief still containing it (it may have been rebuilt since render). */
   play?: EnrichedRecommendation
+  /** WHY a play was dismissed — a stable reason CODE (feedback-signals DISMISS_REASONS). Only meaningful
+   *  with action="dismissed"; it disambiguates the Remove into a directional learning signal. Optional +
+   *  validated server-side (unknown/absent → stored NULL = a bare, no-signal dismissal). */
+  reason?: string
 }): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
   const raw = await createServerSupabaseClient()
@@ -159,6 +171,25 @@ export async function setPlayAction(input: {
       // P7a: a dismissal sets a cross-day cooldown so the play doesn't regenerate into the next
       // brief for ~14 days (play_actions alone is per-date_key and wouldn't carry). Best-effort.
       if (input.action === "dismissed") {
+        // Persist WHY (best-effort, SEPARATE from the core upsert above so it can NEVER break the
+        // Remove): a recognized reason code disambiguates the dismissal into a directional learning
+        // signal (the rollup composes feedback-signals `dismissed:<code>`). Pre-migration the `reason`
+        // column doesn't exist → this update errors → we ignore it (the reason is simply dark until the
+        // migration lands). Mirrors the cooldown/evergreen best-effort posture. Only RECOGNIZED codes
+        // are written; an absent/unknown reason leaves the row a bare, no-signal dismissal.
+        if (isDismissReasonCode(input.reason)) {
+          try {
+            const { error: reasonErr } = await supabase
+              .from("play_actions")
+              .update({ reason: input.reason })
+              .eq("location_id", input.locationId)
+              .eq("date_key", input.dateKey)
+              .eq("play_key", input.playKey)
+            if (reasonErr) console.warn("[play_actions] persist dismiss reason failed:", reasonErr.message)
+          } catch (e) {
+            console.warn("[play_actions] persist dismiss reason threw:", e instanceof Error ? e.message : e)
+          }
+        }
         try {
           await recordDismissalCooldown(input.locationId, input.playKey, { client: evergreenClient })
         } catch (e) {

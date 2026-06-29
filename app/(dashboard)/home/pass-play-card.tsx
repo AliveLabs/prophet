@@ -29,6 +29,7 @@ import {
 } from "@/components/ticket"
 import type { EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
 import type { PlayAction } from "@/lib/insights/momentum"
+import { DISMISS_REASONS, dismissReasonCode } from "@/lib/skills/feedback-signals"
 import { setPlayAction } from "./brief-actions"
 import BriefFeedback from "./brief-feedback"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
@@ -151,10 +152,17 @@ export function PassPlayCard({
     setReasonOpen(false)
     if (readOnly) return
     startTransition(async () => {
-      // The stored action stays "dismissed" — the server's existing contract (visibility +
-      // cross-day cooldown, NOT a learning weight). The reason is captured for the UX toast;
-      // persisting the reason as a signal needs a server-side field (noted in the return).
-      const res = await setPlayAction({ locationId, dateKey, playKey, action: "dismissed" })
+      // The stored action stays "dismissed" (the server's visibility + cross-day-cooldown contract is
+      // unchanged), but the chosen reason now rides along as a stable CODE: the server persists it and
+      // the rollup composes feedback-signals `dismissed:<code>`, so the reason — not the bare Remove —
+      // is what the engine learns from. Unknown label → undefined → a bare, no-signal dismissal.
+      const res = await setPlayAction({
+        locationId,
+        dateKey,
+        playKey,
+        action: "dismissed",
+        reason: dismissReasonCode(reason),
+      })
       if (res.ok) {
         toast(`Dismissed · “${reason}” — we’ll learn from it.`)
         router.refresh()
@@ -276,7 +284,12 @@ export function PassPlayCard({
 
   // the dismiss-reason popover is positioned inside the (relative) card
   const reasonPopover = !readOnly && !current ? (
-    <TkDismissReason open={reasonOpen} onSelect={dismissWithReason} onCancel={() => setReasonOpen(false)} />
+    <TkDismissReason
+      open={reasonOpen}
+      reasons={DISMISS_REASONS.map((r) => r.label)}
+      onSelect={dismissWithReason}
+      onCancel={() => setReasonOpen(false)}
+    />
   ) : null
 
   // ── the drawer (ACT plan + draft) — shared by both variants ──

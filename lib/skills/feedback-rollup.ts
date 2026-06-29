@@ -22,7 +22,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
-import { signalFor, actionForVerdict, type FeedbackSignal } from "@/lib/skills/feedback-signals"
+import { signalFor, actionForVerdict, dismissActionFor, type FeedbackSignal } from "@/lib/skills/feedback-signals"
 import { computePlayTypeKey } from "@/lib/skills/preferences"
 import { PRODUCER_SKILLS, getProducerSkill } from "@/lib/skills/registry"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
@@ -480,11 +480,22 @@ export async function runFeedbackRollup(opts: {
     return result
   }
   try {
-    const { data, error } = await opts.store
-      .from("play_actions")
-      .select("location_id, date_key, play_key, action")
-      .gte("created_at", sinceIso)
-    if (!error) actions = data ?? []
+    // Read `reason` too so a reasoned dismissal can become a directional signal. The column isn't in
+    // the generated types until the migration is applied, so this read goes through a loose cast; and we
+    // TWO-TRY it — if `reason` doesn't exist yet (pre-migration), fall back to the columns that always
+    // exist so the saved/dismissed stream STILL rolls up (no regression while the column is dark).
+    const pa = opts.store as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          gte: (col: string, v: string) => Promise<{ data: Record<string, unknown>[] | null; error: { message: string } | null }>
+        }
+      }
+    }
+    let res = await pa.from("play_actions").select("location_id, date_key, play_key, action, reason").gte("created_at", sinceIso)
+    if (res.error) {
+      res = await pa.from("play_actions").select("location_id, date_key, play_key, action").gte("created_at", sinceIso)
+    }
+    if (!res.error) actions = res.data ?? []
     // a play_actions read failure is non-fatal — the thumbs stream still rolls up (band isolation).
   } catch {
     /* directional stream optional; thumbs still distill */
@@ -576,9 +587,13 @@ export async function runFeedbackRollup(opts: {
       typeof r.severity === "number" ? r.severity : 0,
     )
   }
-  // directional actions → band action directly (saved/snoozed/dismissed are band action names).
+  // directional actions → band action. saved/snoozed map directly; a `dismissed` is qualified by its
+  // captured reason via dismissActionFor → `dismissed:<code>` (or bare `dismissed` when absent/unknown),
+  // so the band — not this loop — decides whether a reasoned Remove carries a signal (band isolation).
   for (const r of actions) {
-    await mapEvent(String(r.location_id ?? ""), String(r.date_key ?? ""), String(r.play_key ?? ""), String(r.action ?? ""), 0)
+    const rawAction = String(r.action ?? "")
+    const bandAction = rawAction === "dismissed" ? dismissActionFor(r.reason as string | null | undefined) : rawAction
+    await mapEvent(String(r.location_id ?? ""), String(r.date_key ?? ""), String(r.play_key ?? ""), bandAction, 0)
   }
 
   // 3) Build rows (with the guards baked in) + upsert (idempotent).

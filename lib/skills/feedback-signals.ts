@@ -42,10 +42,15 @@
 //     to do this later and don't want it to disappear when the brief refreshes." A deliberate keep is
 //     a genuine "this is valuable" lean → reads positive, but kept BELOW thumbs (modest weight) so
 //     thumbs still dominate.
-//   - REMOVE (stored as `dismissed`)  → NO signal (weight 0). The meeting was explicit: a Remove only
-//     controls whether the operator SEES the card. It is AMBIGUOUS by design — they may have already
-//     done it, can't run it right now, or just don't like it — so we must NOT read it into learning
-//     (that false-negative would suppress good recommendations). Visibility only; zero learning weight.
+//   - REMOVE, NO REASON (`dismissed`) → NO signal (weight 0). A bare Remove only controls whether the
+//     operator SEES the card. It is AMBIGUOUS by design — they may have already done it, can't run it
+//     right now, or just don't like it — so we must NOT read it into learning (that false-negative
+//     would suppress good recommendations). Visibility only; zero learning weight.
+//   - REMOVE, WITH A REASON (`dismissed:<code>`) → the captured reason DISAMBIGUATES the otherwise-
+//     ambiguous Remove, so a reasoned dismissal CAN carry a directional signal — but still SECONDARY
+//     (below thumbs; it's a directional action, not an explicit verdict). The reason is the difference
+//     between "this is wrong" (a real negative) and "already doing it" (NOT a quality complaint —
+//     stays neutral, because reading it negative would suppress a GOOD rec). See the map entries.
 //   - SNOOZE (`snoozed`)              → RETIRED. Replaced by Keep (which covers "do it later"). The UI
 //     no longer emits it; this entry is neutralized (weight 0) so any legacy rows contribute nothing.
 //
@@ -59,13 +64,24 @@
  * as identifiers — downstream code keys off the normalized signal, not these strings.
  *
  * - thumbs_up / thumbs_down : the EXPLICIT primary signal (brief_feedback.verdict good|bad).
- * - saved (= "Keep" in the UI) : positive SECONDARY signal. dismissed (= "Remove" in the UI) :
- *   visibility-only, NO learning weight. snoozed : RETIRED (neutralized). (play_actions; brief-actions.ts)
+ * - saved (= "Keep" in the UI) : positive SECONDARY signal. dismissed (= bare "Remove") :
+ *   visibility-only, NO learning weight. dismissed:<code> (a Remove WITH a captured reason) : the
+ *   reason disambiguates the Remove into a directional secondary signal. snoozed : RETIRED
+ *   (neutralized). (play_actions.action + play_actions.reason; brief-actions.ts)
  *
  * To add an action: extend this union + add one FEEDBACK_SIGNAL_MAP entry + route its rows in the
  * capture/rollup read. To stop consuming one: drop its map weight to 0 (keep the entry for clarity).
  */
-export type FeedbackAction = "thumbs_up" | "thumbs_down" | "saved" | "snoozed" | "dismissed"
+export type FeedbackAction =
+  | "thumbs_up"
+  | "thumbs_down"
+  | "saved"
+  | "snoozed"
+  | "dismissed"
+  // Reasoned removes — `dismissed` qualified by its captured reason code (dismissActionFor composes these).
+  | "dismissed:not_relevant"
+  | "dismissed:already_doing"
+  | "dismissed:looks_wrong"
 
 /** The normalized signal a single action contributes. Polarity is the direction; weight is how much
  *  one row moves the counts; confidence is how much we trust the action as a quality signal. */
@@ -90,8 +106,22 @@ export const FEEDBACK_SIGNAL_MAP: Record<FeedbackAction, FeedbackSignal> = {
   // ── SECONDARY: KEEP (stored as `saved`). Positive, but BELOW thumbs so it only nudges. ───────────
   // Resolved 2026-06-24: a deliberate "Keep" is a real "this is valuable" lean.
   saved: { polarity: 1, weight: 0.5, confidence: 0.5 },
-  // ── REMOVE (stored as `dismissed`): VISIBILITY ONLY — zero learning weight (ambiguous; never read).
+  // ── REMOVE, NO REASON (`dismissed`): VISIBILITY ONLY — zero learning weight (ambiguous; never read).
   dismissed: { polarity: 0, weight: 0, confidence: 0 },
+
+  // ── REMOVE, WITH A REASON (`dismissed:<code>`): the reason disambiguates the Remove. All SECONDARY
+  //    (below thumbs' 1.0/0.95 — a directional action, not an explicit verdict). Tunable here only.
+  //    "looks wrong" → the operator explicitly flags the rec as off; closest to a thumbs-down.
+  "dismissed:looks_wrong": { polarity: -1, weight: 0.6, confidence: 0.6 },
+  //    "not relevant to me" → a WEAKER negative: partly a targeting miss, not purely a quality fault.
+  //    Confidence sits AT the rollup's confidence gate (PLAY_TYPE_MIN_CONFIDENCE) so a sustained stream
+  //    can gently down-rank, but its lower WEIGHT (0.4) keeps its per-event mass below looks_wrong/saved.
+  //    Dial confidence below the gate to make it observe-only without removing it.
+  "dismissed:not_relevant": { polarity: -1, weight: 0.4, confidence: 0.5 },
+  //    "already doing it" → NOT a quality complaint. NEUTRAL on purpose: reading it as negative would
+  //    suppress a GOOD recommendation (the exact false-negative the bare-dismissed entry guards against).
+  "dismissed:already_doing": { polarity: 0, weight: 0, confidence: 0 },
+
   // ── SNOOZE: RETIRED (replaced by Keep). Neutralized so any legacy rows contribute nothing. ───────
   snoozed: { polarity: 0, weight: 0, confidence: 0 },
 }
@@ -115,4 +145,45 @@ export function signalFor(action: string): FeedbackSignal {
  */
 export function actionForVerdict(verdict: "good" | "bad"): FeedbackAction {
   return verdict === "good" ? "thumbs_up" : "thumbs_down"
+}
+
+// ── DISMISSAL REASONS — the bridge between the capture surface and the band ─────────────────────────
+//
+// A reasoned Remove is captured in the UI (TkDismissReason) and persisted as a stable CODE on
+// play_actions.reason. The rollup then composes the band action `dismissed:<code>` so the SAME band
+// (above) decides its signal — the engine still never hard-codes a reason string. This is the single
+// place the reason codes + their operator-facing labels live, so the capture UI and the band can't drift.
+
+/** The dismissal-reason codes the band qualifies a Remove by. STABLE + low-cardinality (they key the
+ *  band entries above). Adding one = a code here + a `dismissed:<code>` band entry + (optionally) a label. */
+export type DismissReasonCode = "not_relevant" | "already_doing" | "looks_wrong"
+
+/** Canonical dismissal reasons: the stable learning CODE (persisted; keys the band) + the operator-facing
+ *  LABEL (rendered by TkDismissReason). One source of truth shared by the capture surface and the band. */
+export const DISMISS_REASONS: ReadonlyArray<{ code: DismissReasonCode; label: string }> = [
+  { code: "not_relevant", label: "Not relevant to me" },
+  { code: "already_doing", label: "Already doing it" },
+  { code: "looks_wrong", label: "This looks wrong" },
+]
+
+/** Resolve an operator-facing label back to its stable code (capture-surface helper). Unknown label →
+ *  undefined, so the dismissal still records as a bare, no-signal Remove (never throws). */
+export function dismissReasonCode(label: string): DismissReasonCode | undefined {
+  return DISMISS_REASONS.find((r) => r.label === label)?.code
+}
+
+/** True for a recognized reason code — so the capture path can store ONLY clean codes (junk → null). */
+export function isDismissReasonCode(code: string | null | undefined): code is DismissReasonCode {
+  return code != null && DISMISS_REASONS.some((r) => r.code === code)
+}
+
+/**
+ * Compose the BAND action for a dismissal, qualified by its reason code when present + recognized:
+ *   - a known reason  → `dismissed:<code>`  (its own band entry decides the signal),
+ *   - bare / unknown  → `dismissed`          (visibility-only, zero learning weight).
+ * THE one place the (action, reason) → band-key composition lives; the rollup calls this so it never
+ * hard-codes reason semantics. signalFor() degrades any unrecognized result to a neutral no-op anyway.
+ */
+export function dismissActionFor(reasonCode?: string | null): FeedbackAction {
+  return isDismissReasonCode(reasonCode) ? (`dismissed:${reasonCode}` as FeedbackAction) : "dismissed"
 }
