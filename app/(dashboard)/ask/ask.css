@@ -12,6 +12,16 @@
 .tkask-hero { padding: 26px 28px 24px; }
 @media (max-width: 760px) { .tkask-hero { padding: 20px; } }
 
+/* ALT-206b — SINGLE focus treatment. The copper border+glow lives on the .tkask-field
+   wrapper (below). Two things otherwise compete with it: (1) the hero card's own border
+   sitting just outside the glowing field, and (2) the kit's generic :focus-visible rust
+   outline on the raw input. Calm both so the field is the only copper element on focus. */
+.tkask-hero:has(.tkask-field:focus-within) {
+  border-color: color-mix(in srgb, var(--line-2) 60%, transparent);
+}
+.tkask-input:focus,
+.tkask-input:focus-visible { outline: none; }
+
 .tkask-prompt {
   font-family: var(--font-display);
   font-size: clamp(19px, 2.4vw, 24px);
@@ -101,6 +111,15 @@
   transform: translateY(-1px);
 }
 .tkask-sg:disabled { opacity: .5; cursor: default; }
+.tkask-sg svg { width: 13px; height: 13px; margin-right: 5px; flex: none; }
+
+/* ALT-203a — the how-to suggestion chip: a quiet teal accent so it reads as
+   "help using the site", distinct from the market chips but still a clickable chip. */
+.tkask-sg-howto { color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 35%, var(--line-2)); }
+.tkask-sg-howto:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--teal) 55%, transparent);
+  color: var(--teal-deep);
+}
 
 /* domain-locked footnote (kept, restyled to the mono "terminal" label) */
 .tkask-foot {
@@ -195,6 +214,35 @@
 }
 .tkask-src b { color: var(--ink-2); font-weight: 700; }
 
+/* ALT-205a — "Pin this" on an answer: makes the question re-run each morning.
+   Sits at the end of the answer meta row; flips to a settled teal "Pinned" state. */
+.tkask-pin {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--rust-deep);
+  background: var(--rust-tint);
+  border: 1px solid color-mix(in srgb, var(--rust) 28%, transparent);
+  border-radius: 999px;
+  padding: 6px 12px;
+  min-height: 32px;
+  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast), transform var(--t-fast);
+}
+.tkask-pin svg { width: 13px; height: 13px; }
+.tkask-pin:hover:not(:disabled) { transform: translateY(-1px); border-color: color-mix(in srgb, var(--rust) 50%, transparent); }
+.tkask-pin:disabled { cursor: default; }
+.tkask-pin-on {
+  color: var(--teal-deep);
+  background: var(--teal-tint);
+  border-color: color-mix(in srgb, var(--teal) 30%, transparent);
+  opacity: 1;
+}
+
 /* the answer card gets a rust accent edge to mark it as the response */
 .tkask-answer-card { border-left: 3px solid var(--rust); }
 
@@ -235,9 +283,17 @@
 .tkask-sform .tkask-input { font-size: 15px; padding: 10px 0; }
 .tkask-form-error { font-size: 12.5px; color: var(--alert-deep); margin-top: 2px; }
 
-/* ── RECENT asks list ───────────────────────────────────────────────── */
-.tkask-recent { display: flex; flex-direction: column; gap: 14px; }
-.tkask-rcard { display: flex; flex-direction: column; gap: 9px; }
+/* ── RECENT asks ────────────────────────────────────────────────────── */
+/* ALT-206c — columns of cards, not one wide full-width card. Auto-fills 2-3
+   columns on wider viewports, collapses to a single column on narrow screens. */
+.tkask-recent {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 560px) { .tkask-recent { grid-template-columns: 1fr; } }
+.tkask-rcard { display: flex; flex-direction: column; gap: 9px; height: 100%; }
 .tkask-rmeta {
   display: flex;
   align-items: center;

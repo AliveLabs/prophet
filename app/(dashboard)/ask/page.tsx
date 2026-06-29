@@ -67,7 +67,11 @@ export default async function AskPage() {
       <div className="tk-kit">
         {/* ── HERO ASK SURFACE + LIVE ANSWER (client island) ── */}
         <div style={{ marginTop: 28 }}>
-          <PassAskBox locationName={op.locationName} />
+          <PassAskBox
+            locationId={op.locationId}
+            locationName={op.locationName}
+            standingQuestion={standingQuestion}
+          />
         </div>
 
         {/* ── STANDING QUESTION ── */}

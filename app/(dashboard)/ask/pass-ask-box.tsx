@@ -1,22 +1,29 @@
 "use client"
 
-// The Pass — Ask Ticket box, rebuilt to the kit. The DATA FLOW is unchanged from
-// the original ask-box.tsx: a bounded NL question -> grounded, domain-locked answer
-// from the location's own data (POST /api/ask). Only the PRESENTATION is rebuilt —
-// a hero-like answer-first surface (big input + suggested-question chips) and the
-// answer rendered in a TkCard with the product-wide TkConfidence pips + sources, plus
-// the honest "not in your data yet" state when the answer isn't grounded.
+// The Pass — Ask Ticket box, rebuilt to the kit. The DATA FLOW for the question is
+// unchanged from the original ask-box.tsx: a bounded NL question -> grounded answer
+// from the location's own data OR the platform how-to KB (POST /api/ask routes by
+// intent server-side). Presentation is the kit — a hero-like answer-first surface
+// (big input + suggested-question CHIPS) and the answer in a TkCard with the
+// product-wide TkConfidence pips + sources, the honest "not in your data yet" state,
+// and a "Pin this" action that makes the question re-run every morning (ALT-205).
 
-import { useState } from "react"
+import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { TkCard, TkConfidence, RevealOnView, type TkConfidenceLevel } from "@/components/ticket"
+import { setStandingQuestion } from "./actions"
 
 type AskAnswer = { answer: string; confidence: "high" | "medium" | "low"; sources: string[]; grounded: boolean }
 
-const SUGGESTED = [
-  "Who's undercutting me right now?",
-  "What changed this week?",
-  "What should I prep before the weekend?",
-  "Which competitor is gaining on social?",
+// Suggested questions. The last one is a HOW-TO (instructional) prompt so it's obvious
+// Ask also helps you use the site, not just read your market (ALT-203a). `kind` lets us
+// give the how-to chip a quiet distinct treatment while it stays a clickable chip.
+const SUGGESTED: { text: string; kind: "market" | "howto" }[] = [
+  { text: "Who's undercutting me right now?", kind: "market" },
+  { text: "What changed this week?", kind: "market" },
+  { text: "What should I prep before the weekend?", kind: "market" },
+  { text: "Which competitor is gaining on social?", kind: "market" },
+  { text: "How do I add a competitor's social handle?", kind: "howto" },
 ]
 
 // AskAnswer confidence ("high"|"medium"|"low") → the kit's single confidence
@@ -26,16 +33,25 @@ function toLevel(c: AskAnswer["confidence"]): TkConfidenceLevel {
 }
 
 export default function PassAskBox({
+  locationId,
   locationName,
+  standingQuestion = null,
   endpoint = "/api/ask",
 }: {
+  locationId: string
   locationName: string
+  /** the currently pinned standing question, if any (to reflect "Pinned" state) */
+  standingQuestion?: string | null
   endpoint?: string
 }) {
+  const router = useRouter()
   const [q, setQ] = useState("")
   const [asked, setAsked] = useState("")
   const [loading, setLoading] = useState(false)
   const [answer, setAnswer] = useState<AskAnswer | null>(null)
+  const [pinning, startPin] = useTransition()
+  const [pinnedThis, setPinnedThis] = useState(false)
+  const [pinError, setPinError] = useState<string | null>(null)
 
   async function ask(question: string) {
     const qq = question.trim()
@@ -44,6 +60,8 @@ export default function PassAskBox({
     setAsked(qq)
     setLoading(true)
     setAnswer(null)
+    setPinnedThis(false)
+    setPinError(null)
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -57,6 +75,25 @@ export default function PassAskBox({
       setLoading(false)
     }
   }
+
+  // ALT-205a: pin the asked question as the standing question (re-runs each morning).
+  // Reuses the same wired server action as the standing form; refresh so it appears in
+  // the Standing question card here and on the Today brief.
+  function pinThis() {
+    if (!asked.trim() || pinning) return
+    setPinError(null)
+    startPin(async () => {
+      const res = await setStandingQuestion(locationId, asked.trim())
+      if (!res.ok) setPinError(res.error ?? "Couldn't pin — try again.")
+      else {
+        setPinnedThis(true)
+        router.refresh()
+      }
+    })
+  }
+
+  const alreadyStanding = !!asked && standingQuestion?.trim() === asked.trim()
+  const isPinned = pinnedThis || alreadyStanding
 
   return (
     <div>
@@ -95,18 +132,32 @@ export default function PassAskBox({
 
           <div className="tkask-suggest">
             {SUGGESTED.map((s) => (
-              <button className="tkask-sg" key={s} onClick={() => ask(s)} disabled={loading} type="button">
-                {s}
+              <button
+                className={`tkask-sg${s.kind === "howto" ? " tkask-sg-howto" : ""}`}
+                key={s.text}
+                onClick={() => ask(s.text)}
+                disabled={loading}
+                type="button"
+              >
+                {s.kind === "howto" ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M9.5 9.5a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.9.6-.9 1.1v.5M11.8 16h.01" />
+                  </svg>
+                ) : null}
+                {s.text}
               </button>
             ))}
           </div>
 
+          {/* ALT-204: market-only message kept; internal "domain-locked / cost-controlled"
+              labels removed; a help line added so operators know Ask also helps with the site. */}
           <p className="tkask-foot">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <rect x="5" y="11" width="14" height="9" rx="2" />
               <path d="M8 11V8a4 4 0 0 1 8 0v3" />
             </svg>
-            Domain-locked · answers come only from {locationName}&apos;s market &amp; competitor data, never the open web · cost-controlled
+            Answers come only from {locationName}&apos;s market &amp; competitor data, never the open web. Ask can also help with how to use the site.
           </p>
         </TkCard>
       </RevealOnView>
@@ -143,7 +194,22 @@ export default function PassAskBox({
                     <b>From:</b> {answer.sources.join(" · ")}
                   </span>
                 ) : null}
+
+                {/* ALT-205a: pin this Q&A so it re-runs every morning with the brief */}
+                <button
+                  className={`tkask-pin${isPinned ? " tkask-pin-on" : ""}`}
+                  type="button"
+                  onClick={pinThis}
+                  disabled={pinning || isPinned}
+                  aria-pressed={isPinned}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M12 17v5M9 10.8V4h6v6.8l2 3.2H7l2-3.2z" />
+                  </svg>
+                  {isPinned ? "Pinned · re-runs each morning" : pinning ? "Pinning…" : "Pin this"}
+                </button>
               </div>
+              {pinError ? <p className="tkask-form-error" role="alert">{pinError}</p> : null}
             </div>
           </TkCard>
         </RevealOnView>

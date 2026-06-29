@@ -5,6 +5,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { gatherAskContext } from "@/lib/ask/gather"
 import { answerQuestion, MAX_QUESTION_LEN } from "@/lib/ask/answer"
+import { isHowToQuestion, answerHowTo } from "@/lib/ask/how-to"
 import { saveAsk } from "@/lib/ask/history"
 
 export const maxDuration = 60
@@ -44,8 +45,13 @@ export async function POST(req: Request) {
   if (!question) return Response.json({ error: "question required" }, { status: 400 })
 
   try {
-    const ctx = await gatherAskContext(loc.id)
-    const answer = await answerQuestion(ctx, question)
+    // Two answering paths, gated by intent. Platform / "how do I use the site"
+    // questions are answered from the curated how-to KB (no market data, no open web).
+    // Everything else stays on the market-data answerer, unchanged. The guardrails
+    // (domain-lock, cost bound) hold on both paths.
+    const answer = isHowToQuestion(question)
+      ? await answerHowTo(question)
+      : await answerQuestion(await gatherAskContext(loc.id), question)
     await saveAsk(loc.id, question, answer, "user", user.id) // non-fatal on failure
     return Response.json(answer)
   } catch (err) {
