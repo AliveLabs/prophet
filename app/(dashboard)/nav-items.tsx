@@ -15,12 +15,13 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: "/home",
     label: "Today",
+    // A day-on-the-calendar: a single calendar page with the current day marked.
+    // (Events uses a multi-day calendar; Today is one highlighted day — reads as "today".)
     icon: (
       <svg viewBox="0 0 20 20" {...sw}>
-        <rect x="2.5" y="2.5" width="6" height="6" rx="1.5" />
-        <rect x="11.5" y="2.5" width="6" height="6" rx="1.5" />
-        <rect x="2.5" y="11.5" width="6" height="6" rx="1.5" />
-        <rect x="11.5" y="11.5" width="6" height="6" rx="1.5" />
+        <rect x="3" y="4" width="14" height="13" rx="2" />
+        <path d="M3 8h14M6.5 2.5v3M13.5 2.5v3" />
+        <rect x="6.4" y="10.4" width="3.4" height="3.4" rx="0.8" fill="currentColor" stroke="none" />
       </svg>
     ),
   },
@@ -39,11 +40,13 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: "/ask",
     label: "Ask",
+    // Speech bubble + question mark, centered within the viewBox with even padding so
+    // the left edge isn't clipped (the old path hugged x=3 and read as cut off).
     icon: (
       <svg viewBox="0 0 20 20" {...sw}>
-        <path d="M3 5.5 A2.5 2.5 0 0 1 5.5 3 h9 A2.5 2.5 0 0 1 17 5.5 v6 A2.5 2.5 0 0 1 14.5 14 H8 l-4 3 v-3 H5.5" />
-        <path d="M7.7 7.4 a2.3 2.3 0 1 1 3 2.2 c-.8 .3-1 .7-1 1.4" />
-        <circle cx="9.7" cy="12.3" r=".5" fill="currentColor" stroke="none" />
+        <path d="M3.5 6 A2.5 2.5 0 0 1 6 3.5 h8 A2.5 2.5 0 0 1 16.5 6 v5.5 A2.5 2.5 0 0 1 14 14 H8.5 l-3.5 2.8 V14 H6 A2.5 2.5 0 0 1 3.5 11.5 Z" />
+        <path d="M8.4 7.6 a1.8 1.8 0 1 1 2.4 1.7 c-.6 .25-.8 .55-.8 1.1" />
+        <circle cx="10" cy="11.9" r=".55" fill="currentColor" stroke="none" />
       </svg>
     ),
   },

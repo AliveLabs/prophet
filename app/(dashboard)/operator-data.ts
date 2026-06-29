@@ -4,6 +4,7 @@
 
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
+import { getAdminContext } from "@/lib/auth/platform-admin"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
@@ -240,17 +241,46 @@ export type AccountLocation = {
   organizationId: string
 }
 
+/** Humanize a stored organization_members.role value (owner / admin / member / …) into a
+ *  display label. Never leaks a raw enum key (CLAUDE conventions). */
+export function memberRoleLabel(role: string | null | undefined): string | null {
+  if (!role) return null
+  const m: Record<string, string> = {
+    owner: "Owner",
+    admin: "Admin",
+    manager: "Manager",
+    member: "Member",
+    viewer: "Viewer",
+  }
+  return m[role] ?? role.charAt(0).toUpperCase() + role.slice(1)
+}
+
+export type OperatorAccount = {
+  userName: string
+  /** The signed-in user's role on the CURRENT org (humanized), e.g. "Owner". */
+  currentRole: string | null
+  /** Platform-admin (super-admin) — gates the admin-panel link in the switcher. Never true
+   *  during an impersonation session (getAdminContext excludes it). */
+  isPlatformAdmin: boolean
+  locations: AccountLocation[]
+}
+
 /** The locations this login can switch between — the primary location of each org the
  *  user belongs to (switching = switchOrganizationAction; the shell resolves each org's
- *  primary location). */
-export async function loadOperatorAccount(): Promise<{ userName: string; locations: AccountLocation[] }> {
+ *  primary location). Also surfaces the user's role on the current org + whether they're a
+ *  platform admin, so the shell switcher can lead with the business + role and (for admins)
+ *  link to the admin panel. */
+export async function loadOperatorAccount(): Promise<OperatorAccount> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
   const { data: memberships } = await sb
     .from("organization_members")
-    .select("organization_id")
+    .select("organization_id, role")
     .eq("user_id", op.userId)
   const orgIds = Array.from(new Set((memberships ?? []).map((m) => m.organization_id)))
+  const currentRole = memberRoleLabel(
+    (memberships ?? []).find((m) => m.organization_id === op.organizationId)?.role
+  )
 
   const locations: AccountLocation[] = []
   if (orgIds.length) {
@@ -272,6 +302,13 @@ export async function loadOperatorAccount(): Promise<{ userName: string; locatio
       })
     }
   }
-  locations.sort((a, b) => (a.current ? -1 : b.current ? 1 : a.name.localeCompare(b.name)))
-  return { userName: op.userName, locations }
+  // STABLE alphabetical order — the current location is MARKED, not floated to the top
+  // (ALT-162c: a list that reorders under the cursor is disorienting).
+  locations.sort((a, b) => a.name.localeCompare(b.name))
+
+  // Admin link gate (ALT-163). getAdminContext() already returns null during impersonation,
+  // so an impersonator never sees the link.
+  const adminCtx = await getAdminContext()
+
+  return { userName: op.userName, currentRole, isPlatformAdmin: !!adminCtx, locations }
 }

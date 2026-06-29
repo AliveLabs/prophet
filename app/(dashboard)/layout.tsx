@@ -128,7 +128,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <ShellNav locked />
             <div className="pv-spacer" />
             <div className="pv-foot">
-              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} locked />
               <ThemeToggle className="pv-theme-btn" />
             </div>
           </aside>
@@ -137,7 +137,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
               <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
               <div className="pv-mobilebar__actions">
                 <ThemeToggle className="pv-theme-btn" />
-                <AccountMenu userName={account.userName} locations={account.locations} locked />
+                <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} locked />
               </div>
             </header>
             <div className="mx-auto mt-24 max-w-md rounded-xl border border-border bg-card p-8 text-center">
@@ -188,7 +188,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <ShellNav locked />
             <div className="pv-spacer" />
             <div className="pv-foot">
-              <AccountMenu userName={account.userName} locations={account.locations} locked />
+              <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} locked />
               <ThemeToggle className="pv-theme-btn" />
             </div>
           </aside>
@@ -197,7 +197,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
               <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
               <div className="pv-mobilebar__actions">
                 <ThemeToggle className="pv-theme-btn" />
-                <AccountMenu userName={account.userName} locations={account.locations} locked />
+                <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} locked />
               </div>
             </header>
             <AccountHeldPanel
@@ -277,7 +277,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           <ShellNav />
           <div className="pv-spacer" />
           <div className="pv-foot">
-            <AccountMenu userName={account.userName} locations={account.locations} />
+            <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} />
             <ThemeToggle className="pv-theme-btn" />
           </div>
         </aside>
@@ -286,7 +286,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
             <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
             <div className="pv-mobilebar__actions">
               <ThemeToggle className="pv-theme-btn" />
-              <AccountMenu userName={account.userName} locations={account.locations} />
+              <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} />
             </div>
           </header>
           {showDunningBanner && <DunningBanner brand={brandNameForGate as "Ticket" | "Neat"} />}

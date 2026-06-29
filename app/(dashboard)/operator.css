@@ -100,14 +100,35 @@
 .pv-acct__btn{ display:flex; align-items:center; gap:11px; width:100%; border:0; background:transparent; cursor:pointer; padding:6px 8px; border-radius:var(--radius); text-align:left; }
 .pv-acct__btn:hover{ background:var(--bond); }
 .pv-acct__chev{ margin-left:auto; color:var(--ash); font-size:13px; }
-.pv-acct__flyout{ position:absolute; bottom:calc(100% + 8px); left:0; right:0; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); box-shadow:var(--shadow-chit); padding:8px; z-index:20; }
+/* Flyout spans the full rail width and sets a comfortable floor so a checkmark/tag can sit
+   on the row without wrapping the location name (ALT-162a). */
+.pv-acct__flyout{ position:absolute; bottom:calc(100% + 8px); left:0; right:0; min-width:248px; background:var(--card); border:1px solid var(--rule); border-radius:var(--radius-card); box-shadow:var(--shadow-chit); padding:8px; z-index:20; }
 .pv-acct__sec{ font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.1em; font-size:10px; color:var(--ash); padding:6px 8px; }
+/* type-to-filter (ALT-162d) — shown only when there are many locations */
+.pv-acct__filter{ display:block; width:100%; margin:2px 0 6px; padding:7px 9px; border:1px solid var(--rule); border-radius:var(--radius); background:var(--paper); color:var(--ink); font-family:var(--font-sans); font-size:13px; outline:none; }
+.pv-acct__filter:focus{ border-color:var(--rust); box-shadow:0 0 0 2px color-mix(in srgb, var(--rust) 18%, transparent); }
+.pv-acct__filter::placeholder{ color:var(--ash); }
+.pv-acct__loclist{ max-height:280px; overflow-y:auto; margin:0 -2px; padding:0 2px; }
+.pv-acct__empty{ padding:10px 8px; font-size:12.5px; color:var(--ash); }
 .pv-acct__loc{ display:flex; align-items:center; gap:10px; width:100%; border:0; background:transparent; cursor:pointer; padding:8px; border-radius:var(--radius); text-align:left; }
 .pv-acct__loc:hover{ background:var(--bond); }
-.pv-acct__loc.is-current{ background:var(--bond); }
+.pv-acct__loc:disabled{ cursor:default; }
+/* Current row: full-row outline + tint (replaces the wrapping checkmark, ALT-162a/c) */
+.pv-acct__loc.is-current{ background:var(--bond); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--rust) 35%, transparent); }
 .pv-acct__mark{ width:28px; height:28px; flex:0 0 auto; border-radius:5px; display:grid; place-items:center; font-family:var(--font-cond); font-weight:700; font-size:11px; color:#fff; background:var(--slate); }
-.pv-acct__loc-name{ font-size:13.5px; font-weight:500; color:var(--ink); line-height:1.2; }
-.pv-acct__loc-name span{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); font-weight:400; }
+.pv-acct__loc-name{ min-width:0; flex:1 1 auto; font-size:13.5px; font-weight:500; color:var(--ink); line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pv-acct__loc-name span{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* "Current" tag — fixed-size, never pushes/wraps the name */
+.pv-acct__current-tag{ flex:0 0 auto; margin-left:auto; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:9px; font-weight:700; color:var(--rust); }
+/* Inline spinner shown the moment a location is clicked (ALT-162b) */
+.pv-acct__spin{ flex:0 0 auto; margin-left:auto; width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--rust) 30%, transparent); border-top-color:var(--rust); animation:pv-acct-spin .6s linear infinite; }
+@keyframes pv-acct-spin{ to{ transform:rotate(360deg); } }
+/* Admin-panel link (ALT-163) — platform admins only */
+.pv-acct__admin{ display:flex; align-items:center; gap:10px; width:100%; padding:8px; margin-bottom:4px; border-radius:var(--radius); font-size:13.5px; font-weight:500; color:var(--slate-deep); background:var(--slate-tint); }
+.pv-acct__admin:hover{ background:color-mix(in srgb, var(--slate) 18%, var(--slate-tint)); }
+.pv-acct__admin-ico{ width:16px; height:16px; flex:0 0 auto; color:var(--slate); }
+.pv-acct__admin-ico svg{ width:100%; height:100%; display:block; }
+/* legacy checkmark — still used by the preview/review switcher (app/preview/account-menu) */
 .pv-acct__check{ margin-left:auto; color:var(--clear); }
 .pv-acct__add{ display:block; width:100%; text-align:left; border:0; background:transparent; cursor:pointer; padding:8px; border-radius:var(--radius); font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--slate); }
 .pv-acct__add:hover{ background:var(--bond); }
