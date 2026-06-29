@@ -4,19 +4,19 @@
 // (a roster of rival cards + the add/discover flows). Real names, ratings, and signal
 // counts for the logged-in operator's location — data wiring unchanged.
 
-import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
-import { TkSoftPanel } from "@/components/ticket"
+import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
 import CompetitorRoster from "./competitor-roster"
 import "./competitors.css"
 
 export default async function CompetitorsPage() {
   const ctx = await loadOperatorContext()
+  const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
   return (
     <div className="pv-page tk-comp">
       <div className="pv-page-head">
         <span className="pv-kicker">Your market</span>
-        <h1 className="pv-h1">The Set</h1>
+        <h1 className="pv-h1">Competitors</h1>
         <p className="pv-sub">
           The places we watch for you{ctx.city ? ` around ${ctx.city}` : ""}. We track their pricing,
           reviews, social, and menus, and surface anything that moves into your brief.
@@ -34,29 +34,14 @@ export default async function CompetitorsPage() {
           topSignals: c.topSignals,
         }))}
         tierLabel={tierLabel(ctx.tier)}
+        competitorLimit={competitorLimit}
         locationId={ctx.locationId}
       />
 
-      <TkSoftPanel className="tk-comp-sec" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <svg
-          viewBox="0 0 24 24"
-          width="20"
-          height="20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden="true"
-          style={{ flex: "none", marginTop: 2, color: "var(--ink-3)" }}
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M12 8h.01M11 12h1v4h1" />
-        </svg>
-        <p style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.55, margin: 0 }}>
-          Manage <b>your own</b> social handles on <Link href="/social" style={{ color: "var(--rust-deep)", fontWeight: 600 }}>Social</Link>.
-          To fix or add the accounts we watch for a competitor, open their file and edit{" "}
-          <b>Watched accounts</b> — a wrong handle means we read the wrong account.
-        </p>
-      </TkSoftPanel>
+      {/* ALT-196: the misplaced "manage your own social handles" link was removed —
+          own-social handles are managed in Settings, competitor handles on each
+          competitor detail page. TODO(ALT-196 follow-up): this freed spot may later
+          hold a 30-day "swap a competitor" note; not built here. */}
     </div>
   )
 }

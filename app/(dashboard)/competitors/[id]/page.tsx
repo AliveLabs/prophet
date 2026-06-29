@@ -21,6 +21,8 @@ import {
 import { CompetitorPostsGrid, CompetitorPhotosGrid } from "../competitor-proof"
 import CompetitorHandles from "../competitor-handles"
 import { humanizeRef } from "@/lib/skills/evidence-format"
+import { priceLevelToSymbols } from "@/lib/places/format"
+import type { ManagedHandle } from "../../proof-data"
 import "../competitors.css"
 
 function fmtShortDate(dateKey: string): string {
@@ -28,6 +30,25 @@ function fmtShortDate(dateKey: string): string {
   return Number.isNaN(d.getTime())
     ? dateKey
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+// ALT-187: a one-line summary of which social networks we have for this competitor.
+const PLATFORM_LABELS: Record<ManagedHandle["platform"], string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+}
+function joinNetworks(names: string[]): string {
+  if (names.length <= 1) return names.join("")
+  if (names.length === 2) return `${names[0]} & ${names[1]}`
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`
+}
+function networksSummary(handles: ManagedHandle[]): string | null {
+  const names = Array.from(
+    new Set(handles.map((h) => PLATFORM_LABELS[h.platform]).filter(Boolean))
+  )
+  if (!names.length) return null
+  return `On ${joinNetworks(names)}`
 }
 
 const SOCIAL_ICON = (
@@ -67,13 +88,14 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
     </div>
   ) : undefined
 
-  const meta = [
+  // ALT-188: price level depicted visually ($ / $$ / $$$), category labeled + humanized.
+  const priceSymbols = priceLevelToSymbols(c.priceLevel) // "" when unknown
+  const ratingLabel =
     c.rating != null
-      ? `★ ${c.rating}${c.reviewCount != null ? ` · ${c.reviewCount.toLocaleString()} reviews` : ""}`
-      : null,
-    c.priceLevel,
-    c.cuisine,
-  ].filter(Boolean) as string[]
+      ? `${c.rating}${c.reviewCount != null ? ` · ${c.reviewCount.toLocaleString()} reviews` : ""}`
+      : null
+  // ALT-187: networks summary + address (shown for chains so the location is clear).
+  const networks = networksSummary(handles)
 
   return (
     <div className="pv-page tk-comp">
@@ -81,7 +103,7 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
           <path d="M15 18l-6-6 6-6" />
         </svg>
-        The Set
+        Competitors
       </Link>
 
       {/* ── HERO: the rival's file lead ── */}
@@ -98,25 +120,42 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
             </>
           }
         >
-          {meta.length ? (
+          {ratingLabel || priceSymbols || c.cuisine || networks ? (
             <div className="tk-hero-meta">
-              {meta.map((m, i) => (
-                <span className="tk-hm" key={i}>
-                  {m.startsWith("★") ? (
-                    <>
-                      <span className="tk-star">★</span>
-                      {m.slice(1)}
-                    </>
-                  ) : (
-                    m
-                  )}
+              {ratingLabel ? (
+                <span className="tk-hm">
+                  <span className="tk-star">★</span> {ratingLabel}
                 </span>
-              ))}
+              ) : null}
+              {priceSymbols ? (
+                <span className="tk-hm tk-price" aria-label={`Price level ${priceSymbols.length} of 4`}>
+                  <span className="tk-price-on">{priceSymbols}</span>
+                  <span className="tk-price-off" aria-hidden="true">
+                    {"$$$$".slice(priceSymbols.length)}
+                  </span>
+                </span>
+              ) : null}
+              {networks ? <span className="tk-hm">{networks}</span> : null}
             </div>
+          ) : null}
+          {c.cuisine ? (
+            <p className="tk-meta-line">
+              <span className="tk-meta-lbl">Category</span> {c.cuisine}
+            </p>
           ) : null}
           {c.address ? <p className="tk-addr">{c.address}</p> : null}
         </TkHero>
       </RevealOnView>
+
+      {/* ── WATCHED ACCOUNTS (the manage-handles surface) ──
+          ALT-189: sits directly under the competitor details, above the signals
+          and recent posts. */}
+      <CompetitorHandles
+        competitorId={id}
+        competitorName={c.name}
+        handles={handles}
+        locationId={op.locationId}
+      />
 
       {/* ── WHAT WE'RE SEEING (recent signals) ── */}
       <section className="tk-comp-sec">
@@ -156,18 +195,10 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
           <TkEmptyState
             icon={SOCIAL_ICON}
             title="Their accounts are quiet"
-            description="No current social activity — either they're posting little, or we don't have the right handles yet. Add or fix the accounts we watch below and the next pull picks them up."
+            description="No current social activity — either they're posting little, or we don't have the right handles yet. Add or fix the accounts we watch above and the next pull picks them up."
           />
         )}
       </section>
-
-      {/* ── WATCHED ACCOUNTS (the manage-handles surface) ── */}
-      <CompetitorHandles
-        competitorId={id}
-        competitorName={c.name}
-        handles={handles}
-        locationId={op.locationId}
-      />
 
       {/* ── THEIR PHOTOS ── */}
       {photos.length ? (

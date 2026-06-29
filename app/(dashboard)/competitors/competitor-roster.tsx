@@ -60,17 +60,29 @@ const ADD_ICON = (
 export default function CompetitorRoster({
   initial,
   tierLabel,
+  competitorLimit,
   hrefBase = "/competitors",
   persist = true,
   locationId,
 }: {
   initial: CompetitorRow[]
   tierLabel: string
+  /** Max competitors this org's plan allows (ALT-194). When set and reached, the
+   *  add affordances disable and relabel. Undefined in preview/unscoped use. */
+  competitorLimit?: number
   hrefBase?: string
   persist?: boolean
   locationId?: string
 }) {
   const [rows, setRows] = useState<CompetitorRow[]>(initial)
+  // ALT-194: when the plan's competitor count is full, gray out / disable adding.
+  // No paid add-ons — the cap is simply enforced in the UI (server actions enforce
+  // it too). `competitorLimit` is undefined in unscoped/preview use → never blocks.
+  const atLimit = competitorLimit != null && rows.length >= competitorLimit
+  const limitLabel =
+    competitorLimit != null
+      ? `Watching ${rows.length} of ${competitorLimit}, set by your plan (${tierLabel})`
+      : null
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState("")
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -189,8 +201,8 @@ export default function CompetitorRoster({
   return (
     <section className="tk-comp-sec">
       <TkSectionHead
-        title="The Set"
-        sub={`Watching ${rows.length} · set by your plan (${tierLabel})`}
+        title="Competitors"
+        sub={limitLabel ?? `Watching ${rows.length} · set by your plan (${tierLabel})`}
       />
 
       {rows.length === 0 && !adding ? (
@@ -253,7 +265,7 @@ export default function CompetitorRoster({
                 <div className="tk-rost-foot">
                   {c.added ? null : (
                     <Link className="tk-rost-view" href={`${hrefBase}/${c.id}`}>
-                      Open the file →
+                      Open profile →
                     </Link>
                   )}
                   {persist && !c.added ? (
@@ -281,6 +293,16 @@ export default function CompetitorRoster({
           <div style={{ "--tk-i": rows.length } as CSSProperties}>
             {adding ? (
               <TkCard className="tk-rost-card tk-is-new">{addPanel}</TkCard>
+            ) : atLimit ? (
+              // ALT-194: plan is full — disable adding and relabel with the real numbers.
+              <TkCard className="tk-rost-card tk-is-new tk-is-full" style={{ justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+                <TkButton variant="add" disabled aria-label={limitLabel ?? "Competitor limit reached"}>
+                  {ADD_ICON} {limitLabel}
+                </TkButton>
+                <p className="tk-rost-quiet" style={{ marginTop: 0 }}>
+                  Stop watching one to make room, or upgrade your plan for more.
+                </p>
+              </TkCard>
             ) : (
               <TkCard className="tk-rost-card tk-is-new" style={{ justifyContent: "center", alignItems: "center", textAlign: "center" }}>
                 <TkButton variant="add" onClick={() => setAdding(true)} aria-label="Add a competitor">

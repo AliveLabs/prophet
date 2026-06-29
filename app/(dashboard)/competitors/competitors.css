@@ -169,6 +169,15 @@
 /* the "added by you / pulling data" pending tile */
 .tk-comp .tk-rost-card.tk-is-new { border-style: dashed; }
 
+/* ALT-194: plan-full add tile — no hover lift, label wraps inside the card */
+.tk-comp .tk-rost-card.tk-is-full:hover { transform: none; box-shadow: var(--shadow-sm, none); }
+.tk-comp .tk-rost-card.tk-is-full .tk-btn[disabled] {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.35;
+}
+.tk-comp .tk-rost-card.tk-is-full .tk-btn[disabled]:hover { background: var(--slate-2); }
+
 /* ── Add-a-rival inline panel ─────────────────────────────────────────── */
 .tk-comp .tk-add-wrap { position: relative; }
 .tk-comp .tk-add-input {
@@ -250,6 +259,24 @@
   color: var(--ink-2);
 }
 .tk-comp .tk-comp-hero .tk-hm .tk-star { color: var(--gold-deep); }
+/* ALT-188: Google-Maps-style price level — filled $ in ink, remaining $ dimmed */
+.tk-comp .tk-comp-hero .tk-hm.tk-price { letter-spacing: 0.5px; }
+.tk-comp .tk-comp-hero .tk-price .tk-price-on { color: var(--ink-1); font-weight: 700; }
+.tk-comp .tk-comp-hero .tk-price .tk-price-off { color: var(--ink-4, var(--ink-3)); opacity: 0.5; }
+/* ALT-188: labeled, humanized category line under the meta row */
+.tk-comp .tk-comp-hero .tk-meta-line {
+  font-size: 13px;
+  color: var(--ink-2);
+  margin-top: 8px;
+}
+.tk-comp .tk-comp-hero .tk-meta-line .tk-meta-lbl {
+  font-family: var(--font-cond);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-right: 6px;
+}
 .tk-comp .tk-comp-hero .tk-addr {
   font-size: 13px;
   color: var(--ink-3);

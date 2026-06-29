@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
+import { typeToCuisine } from "@/lib/places/format"
 
 /** Map DB subscription_tier values (entry/mid/top + legacy) to display labels.
  *  'free' is a legacy pre-migration value — those orgs are trials (of Tier 2). */
@@ -164,7 +165,13 @@ export type CompetitorDetail = {
 }
 
 /** One watched competitor + recent signals — scoped to the operator's location, so a
- *  foreign id 404s rather than leaking another org's competitor. */
+ *  foreign id 404s rather than leaking another org's competitor.
+ *  Profile facts (rating, reviews, price, address) resolve from the latest persisted
+ *  snapshot first (the freshest source — same precedence as the insights page), then
+ *  fall back to the stored Places metadata. priceLevel stays the RAW Google enum here
+ *  (e.g. PRICE_LEVEL_EXPENSIVE) — the detail page renders it as $/$$/$$$ (ALT-188).
+ *  cuisine is humanized via typeToCuisine so no raw enum (e.g. fast_food_restaurant)
+ *  ever leaks to the UI (ALT-188). */
 export async function loadOperatorCompetitorDetail(id: string): Promise<CompetitorDetail | null> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
@@ -178,6 +185,17 @@ export async function loadOperatorCompetitorDetail(id: string): Promise<Competit
   const meta = (c.metadata as Record<string, unknown> | null) ?? null
   const pd = (meta?.placeDetails as Record<string, unknown> | null) ?? null
 
+  // Latest snapshot for this competitor — freshest profile facts when present.
+  const { data: snapRow } = await sb
+    .from("snapshots")
+    .select("raw_data")
+    .eq("competitor_id", id)
+    .order("date_key", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const snap = (snapRow?.raw_data as { profile?: Record<string, unknown> } | null) ?? null
+  const sp = snap?.profile ?? null
+
   const { data: rows } = await sb
     .from("insights")
     .select("insight_type, title, summary, date_key")
@@ -185,14 +203,26 @@ export async function loadOperatorCompetitorDetail(id: string): Promise<Competit
     .order("date_key", { ascending: false })
     .limit(8)
 
+  // Cuisine from the place's primary type / types — always humanized.
+  const primaryType = (pd?.primaryType as string | null) ?? null
+  const types = (pd?.types as string[] | undefined) ?? []
+  const cuisine =
+    primaryType || types.length ? typeToCuisine(primaryType, types) : null
+
   return {
     id: c.id,
     name: c.name ?? "Competitor",
-    rating: (pd?.rating as number | null) ?? null,
-    reviewCount: (pd?.reviewCount as number | null) ?? null,
-    priceLevel: (pd?.priceLevel as string | null) ?? null,
-    cuisine: (pd?.cuisine as string | null) ?? ((pd?.types as string[] | undefined)?.[0] ?? null),
-    address: (pd?.formattedAddress as string | null) ?? (pd?.address as string | null) ?? null,
+    rating: (sp?.rating as number | null) ?? (pd?.rating as number | null) ?? (meta?.rating as number | null) ?? null,
+    reviewCount: (sp?.reviewCount as number | null) ?? (pd?.reviewCount as number | null) ?? (meta?.reviewCount as number | null) ?? null,
+    priceLevel: (sp?.priceLevel as string | null) ?? (pd?.priceLevel as string | null) ?? null,
+    cuisine,
+    address:
+      (sp?.address as string | null) ??
+      (pd?.shortFormattedAddress as string | null) ??
+      (pd?.formattedAddress as string | null) ??
+      (meta?.shortFormattedAddress as string | null) ??
+      (meta?.address as string | null) ??
+      null,
     insights: (rows ?? []).map((r) => ({
       type: r.insight_type,
       title: r.title ?? "",
