@@ -537,3 +537,37 @@
   background: rgba(43, 53, 63, 0.2);
   color: var(--foreground);
 }
+
+/* ── ALT-151: global route-transition progress bar ──────────────
+   A subtle top bar driven by components/ui/route-progress.tsx. Mounted once in
+   the root layout so it works on every surface (shell, auth, onboarding, admin).
+   pointer-events:none → never blocks interaction. Themed via --rust (editorial
+   shell) with a --primary fallback for surfaces that don't load editorial tokens. */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 200;
+  pointer-events: none;
+  opacity: 0;
+}
+.route-progress[data-phase="loading"] {
+  opacity: 1;
+}
+.route-progress[data-phase="done"] {
+  opacity: 0;
+  transition: opacity 0.32s ease 0.12s;
+}
+.route-progress__bar {
+  height: 100%;
+  width: 0;
+  background: var(--rust, var(--primary, #c2683f));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--rust, var(--primary, #c2683f)) 60%, transparent);
+  transition: width 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-progress[data-phase="done"] { transition: opacity 0.01ms; }
+  .route-progress__bar { transition: none; box-shadow: none; }
+}

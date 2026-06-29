@@ -13,6 +13,12 @@
 .ticket-app {
   position:relative;
   min-height:100dvh; display:grid; grid-template-columns:248px 1fr;
+  /* ALT-150: clip any horizontal overflow from a grid child so the page never
+     scrolls side-to-side on load. `clip` (not hidden/auto) does NOT create a
+     scroll container, so the sticky sidebar + sticky mobile bar keep working and
+     no vertical-scroll regression is introduced. Fixed-position overlays (drawer,
+     scrim, toast) are not clipped — they're handled at their own selectors. */
+  overflow-x:clip;
   background-color:var(--paper);
   /* atmospheric canvas — the prominent light-depth element (also via .bg-atmos) */
   background-image:
@@ -74,6 +80,12 @@
 /* Held-account state: nav present but inert (see ShellNav `locked`). */
 .pv-nav .is-locked{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ash-2); opacity:.5; cursor:default; }
 .pv-nav .is-locked .pv-nav-ico{ width:18px; height:18px; opacity:.5; }
+/* ALT-149: the Suspense-fallback skeleton renders bare <span> nav items (direct
+   children of .pv-nav, never <a>). Give them the SAME box model as a real nav
+   item so the rail reserves its shape pre-paint and doesn't jump/reflow when the
+   live <ShellNav> (anchors) swaps in. The skeleton .tick is just a sized spacer. */
+.pv-nav > span{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ink-3); }
+.pv-nav > span .tick{ position:static; transform:none; width:18px; height:18px; flex:0 0 auto; background:transparent; }
 .pv-spacer{ flex:1 1 auto; }
 /* Sidebar foot: account flyout (flex-grows) + Pass theme toggle, on one hairline-topped row */
 .pv-foot{ display:flex; align-items:center; gap:9px; padding-top:12px; margin-top:8px; border-top:1px solid var(--rule); }

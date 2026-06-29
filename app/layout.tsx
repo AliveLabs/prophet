@@ -7,8 +7,10 @@ import {
   Instrument_Serif,
   Fraunces,
 } from "next/font/google"
+import { Suspense } from "react"
 import ThemeProvider from "@/components/theme-provider"
 import PostHogIdentify from "@/components/posthog-identify"
+import RouteProgress from "@/components/ui/route-progress"
 import "./globals.css"
 import "./ticket-theme.css"
 import "./neat-theme.css"
@@ -105,7 +107,14 @@ export default function RootLayout({
       <body
         className={`${spaceGrotesk.variable} ${inter.variable} ${spaceMono.variable} ${barlowCondensed.variable} ${instrumentSerif.variable} ${fraunces.variable} antialiased`}
       >
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {/* Suspense isolates RouteProgress's usePathname() (dynamic) so it
+              doesn't block static prerender of pages (Next 16 PPR). */}
+          <Suspense fallback={null}>
+            <RouteProgress />
+          </Suspense>
+          {children}
+        </ThemeProvider>
         <PostHogIdentify />
       </body>
     </html>

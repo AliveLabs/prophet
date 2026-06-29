@@ -59,8 +59,12 @@ function ShellSkeleton() {
     <div className="ticket-app">
       <aside className="pv-sidebar">
         <div className="pv-brand"><TicketMark /> TICKET</div>
+        {/* Skeleton nav: bare <span> items styled by `.pv-nav > span` to hold the
+            same box as the live nav (ALT-149) so the rail reserves its shape and
+            doesn't jump when <ShellNav> swaps in. The .tick here is a sized spacer
+            standing in for the real item's leading icon slot. */}
         <nav className="pv-nav" aria-hidden>
-          {["Today", "Competitors", "Ask"].map((label) => (
+          {["Today", "Competitors", "Ask", "Weather", "Events"].map((label) => (
             <span key={label}><span className="tick" />{label}</span>
           ))}
         </nav>
