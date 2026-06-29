@@ -86,16 +86,20 @@
    ════════════════════════════════════════════════════════════ */
 .ob-split {
   position: relative; z-index: 1;
+  /* capped + centered so the rail and panel relate instead of drifting to
+     opposite edges of a wide viewport (the canvas stays full-bleed) */
+  max-width: 1160px; margin: 0 auto;
   display: grid; grid-template-columns: 1fr 1fr;
   min-height: 100dvh; align-items: stretch;
+  gap: clamp(16px, 3vw, 48px);
 }
 
 /* LEFT — the pearlescent rail */
 .ob-rail {
   position: relative;
-  display: flex; flex-direction: column; gap: 30px;
-  padding: 56px 52px;
-  justify-content: space-between;
+  display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 36px);
+  padding: clamp(40px, 4vw, 56px) clamp(28px, 3.2vw, 52px);
+  justify-content: center;
 }
 .ob-rail-head { display: flex; flex-direction: column; gap: 26px; }
 
@@ -107,7 +111,7 @@
 .ob-h {
   font-family: var(--font-display); font-weight: 600; line-height: 1.06;
   letter-spacing: -.02em; font-size: clamp(30px, 3.4vw, 44px);
-  color: var(--ink); margin: 12px 0 0; text-wrap: balance; max-width: 16ch;
+  color: var(--ink); margin: 12px 0 0; text-wrap: balance; max-width: 22ch;
 }
 .ob-h em { font-family: var(--font-editorial); font-style: italic; font-weight: 400; letter-spacing: -.01em; }
 .ob-sub {

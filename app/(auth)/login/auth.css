@@ -55,23 +55,31 @@
 }
 
 /* ── split grid: canvas/lede left · panel right ────────────── */
+/* Capped + centered so the two columns sit NEAR each other instead of
+   drifting to opposite edges of a wide viewport (the pearlescent canvas
+   itself stays full-bleed on .auth-shell). */
 .auth-split {
   position: relative;
   z-index: 1;
   min-height: 100dvh;
+  max-width: 1040px;
+  margin: 0 auto;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1fr 1fr;
   align-items: stretch;
+  gap: clamp(16px, 2vw, 32px);
 }
 
-/* LEFT — the brand canvas + welcome lede */
+/* LEFT — the brand canvas + welcome lede.
+   Centered as ONE cohesive group (brand → lede → badge) so it reads
+   anchored rather than sagging/stranded across the full height. */
 .auth-canvas {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: clamp(36px, 5vw, 64px) clamp(32px, 5vw, 72px);
-  gap: 40px;
+  justify-content: center;
+  padding: clamp(36px, 4vw, 56px) clamp(28px, 3.2vw, 52px);
+  gap: clamp(22px, 3.4vh, 34px);
 }
 .auth-canvas__brand {
   display: inline-flex;
@@ -95,7 +103,7 @@
 }
 .auth-mark svg { width: 18px; height: 18px; }
 
-.auth-lede { max-width: 19ch; }
+.auth-lede { max-width: 26ch; }
 .auth-kicker {
   font-family: var(--font-cond);
   font-weight: 600;
@@ -107,9 +115,9 @@
 .auth-h {
   font-family: var(--font-display);
   font-weight: 600;
-  line-height: 1.02;
+  line-height: 1.04;
   letter-spacing: -.02em;
-  font-size: clamp(40px, 5.2vw, 64px);
+  font-size: clamp(38px, 4.2vw, 52px);
   color: var(--ink);
   margin: 16px 0 0;
   text-wrap: balance;
@@ -189,8 +197,8 @@
 .auth-panelcol {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: clamp(28px, 4vw, 56px) clamp(24px, 4vw, 56px);
+  justify-content: flex-start;
+  padding: clamp(28px, 4vw, 56px) clamp(24px, 3vw, 44px);
 }
 .auth-panel {
   width: 100%;
