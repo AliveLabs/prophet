@@ -43,8 +43,10 @@ const WRITE_SYSTEM = [
   "  - if the signals do NOT actually connect, narrow to the single strongest one and drop the rest.",
   "",
   "Do NOT touch the recipe, evidence, confidence, or leverage. Keep it plain (Ticket's voice): no em",
-  "dashes, no chef jargon. NEVER invent a number, name, date, or place — state ONLY facts already in",
-  "the input play. Keep the title under ~10 words and the rationale to 1-2 sentences.",
+  "dashes, no chef/kitchen industry jargon — write for an operator who doesn't know the lingo (no",
+  "\"covers\" [say guests/customers], no \"the floor\"/\"front of house\"/\"back of house\", no \"knock-on\",",
+  "no \"kickoff\" for a time window [say start/start time]). NEVER invent a number, name, date, or place",
+  "— state ONLY facts already in the input play. Keep the title under ~10 words and the rationale to 1-2 sentences.",
   "",
   'Return JSON: { "title": string, "rationale": string }.',
 ].join("\n")

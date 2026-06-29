@@ -93,7 +93,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
           audience: "guests deciding what to order this week",
           window: { note: isMenu ? "this week" : "this week, while the weather holds" },
           creativeDirection:
-            "on your phone, take one clear photo of the featured dish as it leaves the kitchen, so the floor and your channels can show what to order",
+            "on your phone, take one clear photo of the featured dish as it leaves the kitchen, so your staff and your channels can show what to order",
           dependencies: ["the item is already on your menu", "the kitchen can fire it at volume"],
         },
       ],

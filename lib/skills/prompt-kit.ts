@@ -62,6 +62,7 @@ function capabilityLine(d: Dossier): string {
 function voiceLine(d: Dossier): string {
   return [
     "Two voices: the narrative fields (title, rationale) are Ticket's voice — direct, plain, no em dashes, no chef jargon, written for a busy owner skimming at 6am.",
+    "Use plain, universally-understood language. Do NOT use restaurant/kitchen industry jargon in insight or play text — write for an operator who doesn't know the lingo. Banned: \"covers\" (say guests/customers), \"the floor\"/\"front of house\"/\"back of house\"/\"on the floor\" (say the dining area, your staff, out front, the kitchen), \"knock-on\" or \"knock-on window\" (describe the timing plainly, e.g. \"the rush right after\"), \"kickoff\" for a time window or start time (say start/start time — reserve \"kickoff\" only for an actual sports-game kickoff), \"in the weeds\", \"86/86'd\", \"turn-and-burn\", \"two-top/four-top\", \"expo\", \"borrow a crowd\". Spell out the real timing/action in plain words.",
     `The recipe 'copy' field is CUSTOMER-FACING and must be written in the restaurant's OWN voice as captured during onboarding (tone: ${d.profile.voiceTone}${d.profile.voiceSample ? `; a sample of how they speak: "${d.profile.voiceSample}"` : ""}). Match that tone exactly; do not write customer copy in Ticket's voice.`,
   ].join(" ")
 }

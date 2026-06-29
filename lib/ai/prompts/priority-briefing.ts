@@ -147,6 +147,7 @@ Rules:
 - Do NOT invent data; only reference what's in the insights and context above
 - For "why": Write 2-3 complete sentences. Explain the business impact and connect dots across multiple data sources when possible (e.g., "Weather is clearing up AND foot traffic at [competitor] peaks on Fridays — this is your window to run a weekend promotion")
 - For "action": Be concrete with specifics (who, what, when, how much). Avoid vague advice like "monitor the situation" or "take appropriate action"
+- VOICE: Use plain, universally-understood language. Do NOT use restaurant/kitchen industry jargon — write for an operator who doesn't know the lingo. No "covers" (say guests/customers), no "the floor"/"front of house"/"back of house"/"on the floor" (say the dining area, your staff, out front, the kitchen), no "knock-on" (describe the timing plainly), no "kickoff" for a time window or start time (say start/start time — reserve "kickoff" only for an actual sports-game kickoff), no "in the weeds", "86", "turn-and-burn", "two-top/four-top", "expo".
 
 CROSS-SOURCE REASONING (important):
 - If weather data and traffic patterns are both available, correlate them (e.g., severe weather → lower foot traffic → opportunity or risk)

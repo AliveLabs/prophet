@@ -159,7 +159,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
         <p className="pv-sub">
           How your accounts and your competitors&apos; show up — followers, engagement, and the posts
           driving it. We frame everything as percentages and &ldquo;you vs them&rdquo;, never guessed
-          dollars or covers.
+          dollars or customer counts.
         </p>
       </div>
       <hr className="pv-rule" />

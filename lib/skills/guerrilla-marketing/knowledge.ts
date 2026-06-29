@@ -45,9 +45,9 @@ THE ARCHETYPES (each fires only with its required anchor; pick the ones the data
    the group's pre-tax food sales — offer 15-20% for a local indie (a higher share than a chain is your
    edge). A typical school/PTA night for a local restaurant raises on the order of $800-1,500 for the group
    off roughly 40-60 participating families; a LARGER enrollment band scales that up, a small team scales it
-   down. Crucially, 75-90% of that night's covers are INCREMENTAL — brand-new or lapsed customers the group
+   down. Crucially, 75-90% of that night's guests are INCREMENTAL — brand-new or lapsed customers the group
    delivered — so the real win is the trial + the repeat, not one night's check. The restaurant's own take
-   scales on ITS check-average × those incremental covers; present that as a range derived from the
+   scales on ITS check-average × those incremental guests; present that as a range derived from the
    restaurant's own numbers, never a flat dollar promise.
    ATTRIBUTION (the OPERATOR runs and tracks this, not the system — see ATTRIBUTION IS THE OPERATOR'S
    below): how the night's group sales get counted varies by restaurant and POS, so don't prescribe one

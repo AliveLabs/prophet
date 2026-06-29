@@ -11,9 +11,11 @@
 export const EM_DASH = /[—–]/
 
 /**
- * Unambiguous professional-kitchen jargon. Kept conservative to avoid false
- * positives on common words (e.g. plain "covers" is intentionally excluded).
- * Matched case-insensitively with word boundaries where sensible.
+ * Restaurant/kitchen/ops industry jargon a general audience wouldn't know (ALT-148:
+ * ~80% of operators don't use the lingo). Kept conservative to avoid false positives
+ * on common words — the plain VERB "covers" ("your plan covers ...") is excluded; only
+ * the guest-count NOUN ("incremental covers") is matched via a lookbehind. Matched
+ * case-insensitively with word boundaries where sensible.
  */
 export const CHEF_LINGO: { term: RegExp; suggest: string }[] = [
   { term: /\bmise en place\b/i, suggest: "prep" },
@@ -25,6 +27,21 @@ export const CHEF_LINGO: { term: RegExp; suggest: string }[] = [
   { term: /\bin the weeds\b/i, suggest: "slammed / overwhelmed" },
   { term: /\bback of house\b/i, suggest: "the kitchen" },
   { term: /\bfront of house\b/i, suggest: "the dining room / your servers" },
+  // ALT-148: ~80% of operators don't use kitchen/ops lingo. Kill it in generated narrative.
+  // "covers" as a guest-count noun — a lookbehind scopes it to count contexts so the plain verb
+  // ("the plan covers ...") is never matched. Only "covers" itself is replaced (the qualifier word
+  // stays), e.g. "incremental covers" -> "incremental guests".
+  { term: /(?<=\b(?:incremental|extra|more|added|weekend|weeknight|lunch|dinner|nightly|daily|those|these|night's|night’s)\s)covers\b/i, suggest: "guests" },
+  { term: /\bturn-?and-?burn\b/i, suggest: "fast turns" },
+  { term: /\bborrow (?:a|the) crowd\b/i, suggest: "tap into their crowd" },
+  // "the floor" / "on the floor" meaning the dining area or staff.
+  { term: /\bon the floor\b/i, suggest: "out front" },
+  { term: /\bthe floor turns\b/i, suggest: "the dining area turns" },
+  { term: /\bget the floor ready\b/i, suggest: "get your team ready" },
+  // "knock-on" window and "kickoff" as a time/start window (sports kickoff stays plain English elsewhere).
+  // Absorb a leading "the " so "the knock-on window" -> "the rush right after" (no doubled article).
+  { term: /\b(?:the\s+)?knock-?on(?:\s+window)?\b/i, suggest: "the rush right after" },
+  { term: /\bkickoff window\b/i, suggest: "start window" },
 ]
 
 export type VoiceViolation = { kind: "em_dash" | "chef_lingo"; detail: string }

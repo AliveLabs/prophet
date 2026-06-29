@@ -179,7 +179,7 @@ export type ExemplarSocialPost = {
 /** A HONEST, %-framed (or ordinal/range) estimate of reach or frequency — NEVER a $ / POS figure.
  *  `isEstimated` is always true so the renderer can flag it as an estimate, not a measured fact. */
 export type PlayEstimate = {
-  /** The pre-formatted, honest estimate ("roughly 1 in 25 visitors", "10-15% of weekend covers"). */
+  /** The pre-formatted, honest estimate ("roughly 1 in 25 visitors", "10-15% of weekend guests"). */
   value: string
   /** The shape of the value, for the renderer. */
   unit: "%" | "range" | "count"

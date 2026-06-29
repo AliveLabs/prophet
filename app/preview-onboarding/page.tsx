@@ -29,7 +29,7 @@ type Competitor = { name: string; meta: string; why: string }
 type Suggestion = { place_id: string; description: string }
 
 const GOALS = [
-  { id: "covers", title: "Fill slow nights", sub: "More covers when you're quiet." },
+  { id: "covers", title: "Fill slow nights", sub: "More customers when you're quiet." },
   { id: "compete", title: "Stay ahead of competitors", sub: "Know their moves before they cost you." },
   { id: "reputation", title: "Protect your reputation", sub: "Catch review and sentiment shifts early." },
   { id: "ops", title: "Run service smoother", sub: "Staffing and prep tuned to demand." },

@@ -37,7 +37,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
   for (const ins of demand) {
     out.push({
       title: "Prepare for the demand this signal points to",
-      rationale: `Grounded in ${ins.title}. Get the floor ready before it lands.`,
+      rationale: `Grounded in ${ins.title}. Get your team ready before it lands.`,
       skillId: "local-demand",
       ownerRole: "gm",
       kind: "prepare",

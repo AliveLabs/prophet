@@ -232,7 +232,7 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
     },
     recommendations: [
       {
-        title: isLobby ? `Staff the counter for a lobby rush` : `Add covers/turn capacity`,
+        title: isLobby ? `Staff the counter for a lobby rush` : `Add seating/turn capacity`,
         rationale: `${venue} brings ${crowd} near ${ctx.locationName} around ${when}. Schedule extra hands and pre-stage high-volume items so the ${surfaceLabel} surge doesn't overwhelm service.`,
       },
       {
