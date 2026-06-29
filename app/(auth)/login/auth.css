@@ -85,7 +85,10 @@
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  font-family: var(--font-display);
+  /* ALT-156: the bespoke display face is disliked for the wordmark; fall back
+     to the app's existing primary sans until the final wordmark type is chosen
+     (ALT-240). Do NOT introduce a new display font here. */
+  font-family: var(--font-sans);
   font-weight: 700;
   letter-spacing: -.01em;
   font-size: 21px;

@@ -2,7 +2,8 @@ import { redirect } from "next/navigation"
 import { sendMagicLinkAction, signInWithGoogleAction } from "./actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { HashTokenHandler } from "@/components/auth/hash-token-handler"
-import { AuthBrandMark, AuthGoogleIcon, AuthMailIcon, AuthErrorIcon, AuthOkIcon } from "./auth-icons"
+import { AuthGoogleIcon, AuthMailIcon, AuthErrorIcon, AuthOkIcon } from "./auth-icons"
+import { TicketLogo } from "@/components/brand/ticket-logo"
 import "@/components/ticket/pass.css"
 import "./auth.css"
 
@@ -36,7 +37,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {/* LEFT — pearlescent canvas + welcome lede (desktop/tablet) */}
         <section className="auth-canvas">
           <span className="auth-canvas__brand">
-            <span className="auth-mark" aria-hidden="true"><AuthBrandMark /></span>
+            <span className="auth-mark" aria-hidden="true"><TicketLogo size={18} className="text-white" /></span>
             Ticket
           </span>
 
@@ -53,7 +54,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <span className="auth-badge__dot" aria-hidden="true" />
             <span className="auth-badge__txt">
               <span className="auth-badge__k">Status</span>
-              <span className="auth-badge__v">Watching your block, live</span>
+              <span className="auth-badge__v">Watching your competitors</span>
             </span>
           </div>
         </section>
