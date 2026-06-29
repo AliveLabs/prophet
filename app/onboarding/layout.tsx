@@ -1,9 +1,25 @@
 import { Suspense, type ReactNode } from "react"
+import "./onboarding.css"
 
+// The onboarding surface carries its own pearlescent token surface (.ob).
+// The Suspense fallback matches it so the first paint never flashes a
+// non-token background.
 function OnboardingSkeleton() {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+    <div className="ob">
+      <div className="ob-canvas" aria-hidden="true" />
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          minHeight: "100dvh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div className="ob-sweep" style={{ width: 180 }} />
+      </div>
     </div>
   )
 }

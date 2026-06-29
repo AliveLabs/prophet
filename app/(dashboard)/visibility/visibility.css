@@ -1,0 +1,215 @@
+/* The Pass — page-scoped styles for /visibility.
+   All classes prefixed viz- to avoid colliding with the kit (.tk-*) or legacy
+   (.pv-*). Token-driven only (no hardcoded light-only colors) so dark works for
+   free. Resolves inside the .ticket-app surface alongside the kit. */
+
+/* ── layout rhythm ── */
+.viz-body { display: flex; flex-direction: column; gap: 8px; }
+.viz-stack { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── control / filter bar ── */
+.viz-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.viz-controls-left,
+.viz-controls-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.viz-controls-fallback { min-height: 60px; }
+
+.viz-select-wrap { display: inline-flex; flex-direction: column; gap: 3px; }
+.viz-select-lbl {
+  font-family: var(--font-cond); font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3);
+}
+.viz-select {
+  appearance: none;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  padding: 9px 12px; min-height: 40px;
+  font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.viz-select:focus-visible { outline: 2px solid var(--rust); outline-offset: 1px; }
+
+.viz-freshness {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em;
+  color: var(--ink-3);
+  border: 1px solid var(--line-2); border-radius: 999px;
+  padding: 6px 12px; min-height: 32px; display: inline-flex; align-items: center;
+}
+
+/* ── pill tabs (channel / metric / movement) ── */
+.viz-pilltabs { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.viz-pill {
+  min-height: 36px; padding: 7px 14px; border-radius: 999px;
+  font-family: var(--font-cond); font-size: 12px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase;
+  background: var(--paper-2); color: var(--ink-3);
+  border: 1px solid transparent; cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.viz-pill:hover { color: var(--ink); }
+.viz-pill:focus-visible { outline: 2px solid var(--rust); outline-offset: 1px; }
+.viz-pill-on {
+  background: var(--ink); color: var(--paper);
+}
+
+/* ── card heads (in-card titles, lighter than TkSectionHead) ── */
+.viz-card-head {
+  font-family: var(--font-display); font-size: 15px; font-weight: 800;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.viz-card-sub { font-size: 12.5px; color: var(--ink-3); margin: 4px 0 14px; line-height: 1.45; }
+
+.viz-muted { font-size: 13px; color: var(--ink-3); }
+
+/* ── chart wrappers ── */
+.viz-chart-wrap { margin-top: 4px; }
+.viz-chart-fallback {
+  height: 280px; border-radius: var(--r-md);
+  background: var(--paper-2); animation: viz-pulse 1.4s ease-in-out infinite;
+}
+@keyframes viz-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+
+/* ── data tables (Pass-styled, replaces bordered prod tables) ── */
+.viz-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; }
+.viz-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.viz-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--card);
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+  padding: 9px 12px; border-bottom: 1px solid var(--line-2); white-space: nowrap;
+}
+.viz-table tbody td {
+  padding: 11px 12px; border-bottom: 1px solid var(--line);
+  color: var(--ink-2); vertical-align: middle;
+}
+.viz-table tbody tr:last-child td { border-bottom: 0; }
+.viz-table tbody tr { transition: background var(--t-fast); }
+.viz-table tbody tr:hover { background: var(--paper-2); }
+.viz-table .viz-num { text-align: right; }
+.viz-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.viz-kw { font-weight: 600; color: var(--ink); max-width: 240px; }
+.viz-table-empty { text-align: center; color: var(--ink-3); padding: 20px 12px; }
+
+/* rank pills */
+.viz-rank {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  padding: 3px 8px; border-radius: 7px; display: inline-block;
+}
+.viz-rank-ok   { color: var(--teal-deep); background: var(--teal-tint); }
+.viz-rank-warn { color: var(--gold-deep); background: var(--gold-tint); }
+.viz-rank-off  { color: var(--ink-3); background: var(--paper-2); }
+
+/* intent chip in table + rows */
+.viz-intent-chip,
+.viz-intent-name { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.viz-intent-chip i,
+.viz-intent-name i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+
+/* intent stacked bar + rows */
+.viz-intent-stack {
+  display: flex; height: 16px; border-radius: 999px; overflow: hidden;
+  border: 1px solid var(--line); margin-bottom: 14px;
+}
+.viz-intent-stack span { height: 100%; cursor: pointer; }
+.viz-intent-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.viz-intent-rows li {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline;
+}
+.viz-intent-pct { font-size: 12px; font-weight: 700; color: var(--ink); }
+
+/* SERP feature chips */
+.viz-serp-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.viz-serp-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: var(--r-sm);
+  background: var(--card-2); border: 1px solid var(--line);
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+}
+.viz-serp-n {
+  font-size: 12px; font-weight: 700; color: var(--ink);
+  background: var(--paper-2); border-radius: 6px; padding: 1px 7px;
+}
+
+/* top pages / subdomains share list (TkRangeBar inside) */
+.viz-share-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.viz-share-list li {
+  display: grid; grid-template-columns: minmax(120px, 1.4fr) 2fr auto;
+  gap: 12px; align-items: center;
+}
+.viz-share-name {
+  font-size: 12.5px; font-weight: 600; color: var(--rust-deep);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.viz-share-name:hover { text-decoration: underline; }
+.viz-share-name-static { color: var(--ink); }
+.viz-share-bar { display: block; }
+/* tighten the range bar inside the share list (its a compact row, not a hero viz) */
+.viz-share-bar .tk-rangebar { height: 20px; border-radius: 7px; }
+.viz-share-val { font-size: 12px; font-weight: 700; color: var(--ink-2); text-align: right; }
+
+/* paid ad creatives */
+.viz-ad-grid { gap: 14px; }
+.viz-ad { display: flex; flex-direction: column; gap: 6px; }
+.viz-ad-headline { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--rust-deep); line-height: 1.25; }
+.viz-ad-desc { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.viz-ad-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: 11px; color: var(--ink-3); }
+.viz-ad-domain { font-weight: 700; color: var(--ink-2); }
+
+/* ── status banners (error / success / vendor / missing-site / domain pill) ── */
+.viz-banner {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: var(--r-md); padding: 12px 16px; font-size: 13px; line-height: 1.45;
+  border: 1px solid var(--line-2);
+}
+.viz-banner a { font-weight: 700; text-decoration: underline; }
+.viz-banner-err  { border-color: color-mix(in srgb, var(--alert) 40%, transparent); background: var(--alert-wash); color: var(--alert-deep); }
+.viz-banner-ok   { border-color: color-mix(in srgb, var(--teal) 40%, transparent);  background: var(--teal-tint);  color: var(--teal-deep); }
+.viz-banner-warn { border-color: color-mix(in srgb, var(--gold) 45%, transparent);  background: var(--gold-tint);  color: var(--gold-deep); }
+
+.viz-domain-pill {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-3);
+  background: var(--card-2); border: 1px solid var(--line);
+  border-radius: var(--r-sm); padding: 8px 12px;
+}
+.viz-domain-pill svg { width: 14px; height: 14px; flex: none; color: var(--slate); }
+.viz-domain-pill b { color: var(--ink); font-weight: 700; }
+.viz-domain-pill a { margin-left: auto; color: var(--rust-deep); font-weight: 700; }
+.viz-domain-pill a:hover { text-decoration: underline; }
+
+.viz-refreshed {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .02em; color: var(--ink-3);
+}
+.viz-refreshed .viz-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--teal);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 60%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .viz-refreshed .viz-dot { animation: viz-ping 2s var(--ease) infinite; }
+  @keyframes viz-ping {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--teal) 55%, transparent); }
+    70%,100% { box-shadow: 0 0 0 7px transparent; }
+  }
+}
+
+/* ── responsive: mobile-first reflow, ≥44px targets, no horizontal page scroll ── */
+@media (max-width: 760px) {
+  .viz-controls { flex-direction: column; align-items: stretch; }
+  .viz-controls-left,
+  .viz-controls-right { width: 100%; justify-content: space-between; }
+  .viz-select { width: 100%; min-height: 44px; }
+  .viz-pill { min-height: 40px; }
+  .viz-share-list li { grid-template-columns: 1fr auto; grid-template-areas: "name val" "bar bar"; row-gap: 7px; }
+  .viz-share-name { grid-area: name; }
+  .viz-share-val { grid-area: val; }
+  .viz-share-bar { grid-area: bar; }
+  .viz-table { font-size: 12.5px; }
+  .viz-kw { max-width: 160px; }
+}

@@ -1,6 +1,4 @@
 import { Suspense } from "react"
-import InsightsDashboard from "@/components/insights/insights-dashboard"
-import InsightFeed, { type FeedInsight } from "@/components/insights/insight-feed"
 import AutoFilterForm from "@/components/filters/auto-filter-form"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
@@ -12,14 +10,14 @@ import {
   type InsightPreference,
 } from "@/lib/insights/scoring"
 import type { InsightForBriefing, BusinessContext } from "@/lib/ai/prompts/priority-briefing"
-import PriorityBriefingSection from "./priority-briefing-section"
-import { BriefingSkeleton } from "@/components/insights/priority-briefing"
-import WeatherBadge from "@/components/insights/weather-badge"
-import PhotoGallery from "@/components/insights/photo-gallery"
-import TrafficChart from "@/components/insights/traffic-chart"
-import SocialDashboard from "@/components/insights/social-dashboard"
 import { fetchSocialDashboardData } from "./social-actions"
 import { fetchInsightsPageData } from "@/lib/insights/cached-data"
+// ── The Pass — kit-rebuilt presentation (page-local; shared components untouched) ──
+import { TkSoftPanel, TkTooltipLayer } from "@/components/ticket"
+import InsightsBriefingSection, { InsightsBriefingSkeleton } from "./insights-briefing-section"
+import InsightsGlance, { type GlanceData } from "./insights-glance"
+import InsightsFeedKit, { type FeedInsight } from "./insights-feed-kit"
+import "./insights.css"
 
 type InsightsPageProps = {
   searchParams?: Promise<{
@@ -144,24 +142,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
       }
     }),
   ]
-
-  const baselineByCompetitor = new Map<string, NormalizedSnapshot>()
-  const baselineDateByCompetitor = new Map<string, string>()
-  for (const snap of snapshotRows) {
-    const cur = baselineDateByCompetitor.get(snap.competitor_id)
-    if (!cur || snap.date_key < cur) {
-      baselineDateByCompetitor.set(snap.competitor_id, snap.date_key)
-      baselineByCompetitor.set(snap.competitor_id, snap.raw_data as NormalizedSnapshot)
-    }
-  }
-
-  const reviewGrowthDelta = competitors.map((c) => {
-    const latest = latestByCompetitor.get(c.id)
-    const baseline = baselineByCompetitor.get(c.id)
-    const delta = typeof latest?.profile?.reviewCount === "number" && typeof baseline?.profile?.reviewCount === "number"
-      ? latest.profile.reviewCount - baseline.profile.reviewCount : null
-    return { name: c.name ?? "Competitor", delta }
-  })
 
   const sentimentCounts = { positive: 0, negative: 0, mixed: 0 }
   const themeInsights = allInsights.filter((i) => i.insight_type === "review_themes")
@@ -336,38 +316,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }))
 
   // -------------------------------------------------------------------------
-  // Extract review excerpts from review_themes insights
-  // -------------------------------------------------------------------------
-
-  const recentReviews: Array<{
-    rating?: number
-    text?: string
-    author?: string
-    date?: string
-    competitorName?: string
-  }> = []
-
-  for (const ins of themeInsights) {
-    const ev = ins.evidence as Record<string, unknown>
-    const samples = ev?.sampleReviews as Array<{ rating?: number; text?: string; author?: string; date?: string }> | undefined
-    const compName = ins.competitor_id ? competitorNameMap.get(ins.competitor_id) : undefined
-    if (samples) {
-      for (const review of samples) {
-        if (review.text) {
-          recentReviews.push({ ...review, competitorName: compName })
-        }
-      }
-    }
-  }
-
-  const baseParams: Record<string, string> = {}
-  if (selectedLocationId) baseParams.location_id = selectedLocationId
-  if (resolvedSearchParams?.range) baseParams.range = resolvedSearchParams.range
-  if (resolvedSearchParams?.confidence) baseParams.confidence = resolvedSearchParams.confidence
-  if (resolvedSearchParams?.severity) baseParams.severity = resolvedSearchParams.severity
-  if (statusFilter) baseParams.status = statusFilter
-
-  // -------------------------------------------------------------------------
   // Fetch social media intelligence data
   // -------------------------------------------------------------------------
   const socialData = selectedLocationId
@@ -411,137 +359,156 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }
 
   // -------------------------------------------------------------------------
-  // Render
+  // At-a-glance data (HONEST: %-share / counts / "you vs competitor" only).
+  // Derived from the same cached data — no invented POS / $ / covers.
+  // -------------------------------------------------------------------------
+
+  const newCount = feedInsights.filter((i) => i.status === "new").length
+
+  const trafficPeak = (() => {
+    if (trafficData.length === 0) return null
+    const allDays = trafficData.flatMap((t) => t.days)
+    if (allDays.length === 0) return null
+    const peak = allDays.reduce((best, d) => (d.peak_score > best.peak_score ? d : best), allDays[0])
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+    return { dayLabel: dayNames[peak.day_of_week] ?? "—", hour: peak.peak_hour }
+  })()
+
+  const glanceData: GlanceData = {
+    insightCount: feedInsights.length,
+    newCount,
+    competitorCount: competitors.length,
+    locationRating,
+    avgCompetitorRating,
+    reviewSharePct: reviewShare,
+    sentiment:
+      sentimentCounts.positive + sentimentCounts.negative + sentimentCounts.mixed > 0
+        ? sentimentCounts
+        : null,
+    weather: weatherForBadge
+      ? {
+          condition: weatherForBadge.weather_condition,
+          hi: weatherForBadge.temp_high_f,
+          lo: weatherForBadge.temp_low_f,
+          severe: weatherForBadge.is_severe,
+        }
+      : null,
+    trafficPeak,
+  }
+
+  // "Still learning" ring: how many live signal streams returned data this sweep,
+  // out of the streams we watch (honest coverage proxy, not a faked day-count).
+  const streamsPresent = [
+    allInsights.length > 0,
+    snapshotRows.length > 0,
+    cachedData.weather.length > 0,
+    photoItems.length > 0,
+    trafficData.length > 0,
+    socialData.profiles.length > 0,
+  ].filter(Boolean).length
+  const streamsTotal = 6
+
+  // -------------------------------------------------------------------------
+  // Render — rebuilt to The Pass: page chrome → controls → priority briefing
+  // (hero) → at-a-glance widgets → the kit insight feed. Social/photo signals
+  // surface as feed insights; the dedicated dashboards retire.
   // -------------------------------------------------------------------------
 
   return (
-    <section className="space-y-5">
-      {/* Filters + Actions Bar */}
-      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <AutoFilterForm
-          filters={[
-            {
-              name: "location_id",
-              defaultValue: selectedLocationId ?? "",
-              options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
-            },
-            {
-              name: "range",
-              defaultValue: resolvedSearchParams?.range ?? "7",
-              options: [
-                { value: "7", label: "7 days" },
-                { value: "30", label: "30 days" },
-              ],
-            },
-            {
-              name: "severity",
-              defaultValue: resolvedSearchParams?.severity ?? "",
-              options: [
-                { value: "", label: "All severity" },
-                { value: "critical", label: "Critical" },
-                { value: "warning", label: "Warning" },
-                { value: "info", label: "Info" },
-              ],
-            },
-            {
-              name: "status",
-              defaultValue: statusFilter,
-              options: [
-                { value: "", label: "All active" },
-                { value: "new", label: "New" },
-                { value: "read", label: "Read" },
-                { value: "todo", label: "To-Do" },
-                { value: "actioned", label: "Done" },
-                { value: "snoozed", label: "Snoozed" },
-                { value: "dismissed", label: "Dismissed" },
-                { value: "inaccurate", label: "Reported inaccurate" },
-              ],
-            },
-          ]}
-        />
-        {selectedLocationId && (
-          <JobRefreshButton
-            type="insights"
-            locationId={selectedLocationId}
-            label="Generate insights"
-            pendingLabel="Generating insights"
+    <div className="ticket-brief tk-kit">
+      <TkTooltipLayer />
+      <div className="pv-page">
+        <div className="pv-page-head">
+          <span className="pv-kicker">{selectedLocation?.name ?? "Your market"}</span>
+          <h1 className="pv-h1">Insights</h1>
+          <p className="pv-sub">
+            Everything we&apos;re seeing across your reviews, competitors, search, social, and foot
+            traffic — ranked by fit and grounded in real signal.
+          </p>
+        </div>
+
+        <div className="ins-page">
+          {/* Controls: filters + generate (data wiring unchanged) */}
+          <TkSoftPanel className="ins-bar">
+            <AutoFilterForm
+              filters={[
+                {
+                  name: "location_id",
+                  defaultValue: selectedLocationId ?? "",
+                  options: (locations ?? []).map((l) => ({ value: l.id, label: l.name ?? "Location" })),
+                },
+                {
+                  name: "range",
+                  defaultValue: resolvedSearchParams?.range ?? "7",
+                  options: [
+                    { value: "7", label: "7 days" },
+                    { value: "30", label: "30 days" },
+                  ],
+                },
+                {
+                  name: "severity",
+                  defaultValue: resolvedSearchParams?.severity ?? "",
+                  options: [
+                    { value: "", label: "All severity" },
+                    { value: "critical", label: "Critical" },
+                    { value: "warning", label: "Warning" },
+                    { value: "info", label: "Info" },
+                  ],
+                },
+                {
+                  name: "status",
+                  defaultValue: statusFilter,
+                  options: [
+                    { value: "", label: "All active" },
+                    { value: "new", label: "New" },
+                    { value: "read", label: "Read" },
+                    { value: "todo", label: "To-Do" },
+                    { value: "actioned", label: "Done" },
+                    { value: "snoozed", label: "Snoozed" },
+                    { value: "dismissed", label: "Dismissed" },
+                    { value: "inaccurate", label: "Reported inaccurate" },
+                  ],
+                },
+              ]}
+            />
+            {selectedLocationId && (
+              <JobRefreshButton
+                type="insights"
+                locationId={selectedLocationId}
+                label="Generate insights"
+                pendingLabel="Generating insights"
+              />
+            )}
+          </TkSoftPanel>
+
+          {/* Error banner */}
+          {error && <div className="ins-error">{decodeURIComponent(error)}</div>}
+
+          {/* Priority Briefing — streamed via Suspense, never blocks the page */}
+          {allInsights.length > 0 && (
+            <Suspense fallback={<InsightsBriefingSkeleton />}>
+              <InsightsBriefingSection
+                insights={insightsForBriefing}
+                preferences={preferences}
+                locationName={selectedLocation?.name ?? "Your location"}
+                cacheKey={briefingCacheKey}
+                context={briefingContext}
+              />
+            </Suspense>
+          )}
+
+          {/* At a glance — weighted widget grid (honest %/counts) */}
+          {selectedLocationId && feedInsights.length > 0 && <InsightsGlance data={glanceData} />}
+
+          {/* The feed — kit play cards, tabs, board, still-learning empty state */}
+          <InsightsFeedKit
+            insights={feedInsights}
+            statusFilter={statusFilter}
+            learningDays={streamsPresent}
+            learningTarget={streamsTotal}
           />
-        )}
+        </div>
       </div>
-
-      {/* Error banner */}
-      {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {decodeURIComponent(error)}
-        </div>
-      )}
-
-      {/* Priority Briefing -- streamed via Suspense, never blocks page */}
-      {allInsights.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
-        <Suspense fallback={<BriefingSkeleton />}>
-          <PriorityBriefingSection
-            insights={insightsForBriefing}
-            preferences={preferences}
-            locationName={selectedLocation?.name ?? "Your location"}
-            cacheKey={briefingCacheKey}
-            context={briefingContext}
-          />
-        </Suspense>
-        </div>
-      )}
-
-      {/* Weather Context Badge */}
-      {weatherForBadge && (
-        <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-          <WeatherBadge weather={weatherForBadge} />
-        </div>
-      )}
-
-      {/* Charts Dashboard (competitor analytics) */}
-      {selectedLocationId && (
-        <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-        <InsightsDashboard
-          ratingComparison={ratingComparison}
-          reviewGrowthDelta={reviewGrowthDelta}
-          sentimentCounts={sentimentCounts}
-          avgCompetitorRating={avgCompetitorRating}
-          locationRating={locationRating}
-          reviewShare={reviewShare}
-          recentReviews={recentReviews}
-        />
-        </div>
-      )}
-
-      {/* Social Media Intelligence Dashboard */}
-      {socialData.profiles.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
-          <SocialDashboard profiles={socialData.profiles} />
-        </div>
-      )}
-
-      {/* Busy Times Traffic Chart */}
-      {trafficData.length > 0 && (
-        <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card p-5" style={{ animationDelay: "200ms" }}>
-          <TrafficChart data={trafficData} />
-        </div>
-      )}
-
-      {/* Client-side tabs + insight feed (instant tab switching) */}
-      <div className="animate-fade-up" style={{ animationDelay: "240ms" }}>
-      <InsightFeed
-        insights={feedInsights}
-        baseParams={baseParams}
-        statusFilter={statusFilter}
-      />
-      </div>
-
-      {/* Photo Gallery */}
-      {photoItems.length > 0 && (
-        <div className="animate-fade-up overflow-hidden rounded-xl border border-border bg-card p-5" style={{ animationDelay: "280ms" }}>
-          <PhotoGallery photos={photoItems} />
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

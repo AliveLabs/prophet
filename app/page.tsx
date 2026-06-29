@@ -1,28 +1,49 @@
-// App root = the door, not a destination. The marketing site (www.getticket.ai) is the
-// real front door; this subdomain is the product. Authenticated sessions go straight to
-// their brief; everyone else gets the login screen. The old throwaway landing funnel
-// (and its duplicate waitlist form) is retired — components/landing/* removed in a later
-// cleanup pass.
+// Marketing landing — the public front door, rebuilt to "The Pass" (Concept A).
 //
-// cacheComponents pattern (canonical for this repo): a SYNC page exporting a <Suspense>
-// with a static fallback; the async child reads the session cookie and issues a streamed
-// redirect — same mechanism the authed shell uses for unauthenticated /home hits.
+// This surface lives OUTSIDE the dashboard shell, so it imports the kit
+// stylesheet (which pulls in the shared token SSOT, app/editorial-tokens.css)
+// and its own landing.css, then wraps everything in a token surface
+// (`.ticket-chrome .tk-kit`) so every --paper/--rust/--card/--shadow-* var
+// resolves and light + warm-dark both work for free. A pearlescent
+// atmospheric canvas (`.lp-atmos`) supplies the premium light-depth.
+//
+// Presentation only — the waitlist form keeps its original business logic
+// (POST /api/waitlist) and the sign-in/request-access CTAs route as before.
 
-import { Suspense } from "react"
-import { redirect } from "next/navigation"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import type { Metadata } from "next"
+import "@/components/ticket/pass.css"
+import "./landing.css"
 
-export default function Root() {
-  return (
-    <Suspense fallback={null}>
-      <SessionGate />
-    </Suspense>
-  )
+import { LandingNav } from "@/components/landing/landing-nav"
+import { PassHero } from "@/components/landing/pass-hero"
+import { PassProblem } from "@/components/landing/pass-problem"
+import { PassFeatures } from "@/components/landing/pass-features"
+import { PassHowItWorks } from "@/components/landing/pass-how-it-works"
+import { PassTrust } from "@/components/landing/pass-trust"
+import { PassPricing } from "@/components/landing/pass-pricing"
+import { PassWaitlist, PassFooter } from "@/components/landing/pass-waitlist"
+
+export const metadata: Metadata = {
+  title: "Ticket — Competitive Intelligence for Restaurants",
+  description:
+    "Read the ticket. Ticket watches competitor menus, pricing, reviews, and social — every shift scored by confidence, so you move first, not last.",
 }
 
-async function SessionGate() {
-  const supabase = await createServerSupabaseClient()
-  const { data } = await supabase.auth.getUser()
-  redirect(data?.user ? "/home" : "/login")
-  return null // unreachable; satisfies the JSX component return type
+export default function LandingPage() {
+  return (
+    <div className="ticket-chrome tk-kit lp-root">
+      <div className="lp-atmos" aria-hidden="true" />
+      <LandingNav />
+      <main className="lp-shell">
+        <PassHero />
+        <PassProblem />
+        <PassFeatures />
+        <PassHowItWorks />
+        <PassTrust />
+        <PassPricing />
+        <PassWaitlist />
+      </main>
+      <PassFooter />
+    </div>
+  )
 }

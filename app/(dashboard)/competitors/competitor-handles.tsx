@@ -1,13 +1,16 @@
-"use client"
+// Per-competitor watched-accounts manager, surfaced ON the competitor detail page —
+// where the absence is felt (the "their accounts are quiet or unverified" empty state).
+// Rebuilt to The Pass: a kit TkCard wrapping the new <CompetitorHandleRoster/> (add /
+// change / remove + per-handle provenance + a discovery trigger). Server component shell;
+// the roster is the client island. Same wired social actions — presentation only.
 
-// Per-competitor social-handle management, surfaced ON the competitor detail page — where
-// the absence is felt (the "their accounts are quiet or unverified" empty states). Pure
-// reuse: the shared <HandleManager /> + the existing social actions. No new data surface.
-import HandleManager from "@/components/social/handle-manager"
+import { TkCard, TkSectionHead } from "@/components/ticket"
+import CompetitorHandleRoster from "./competitor-handle-roster"
 import {
   saveSocialProfileAction,
   deleteSocialProfileAction,
   verifySocialProfileAction,
+  runSocialDiscoveryAction,
 } from "../social/actions"
 import type { ManagedHandle } from "../proof-data"
 
@@ -15,19 +18,22 @@ export default function CompetitorHandles({
   competitorId,
   competitorName,
   handles,
+  locationId,
 }: {
   competitorId: string
   competitorName: string
   handles: ManagedHandle[]
+  /** enables the "find their accounts" discovery sweep (location-scoped) */
+  locationId?: string
 }) {
   return (
-    <div className="pv-section">
-      <div className="pv-section-head">
-        Social handles
-        <span className="pv-section-sub">which accounts we watch for this competitor</span>
-      </div>
-      <div className="pv-card">
-        <HandleManager
+    <section className="tk-comp-sec">
+      <TkSectionHead
+        title="Watched accounts"
+        sub="The social profiles we read for this competitor"
+      />
+      <TkCard>
+        <CompetitorHandleRoster
           entityType="competitor"
           entityId={competitorId}
           entityName={competitorName}
@@ -35,12 +41,15 @@ export default function CompetitorHandles({
           onSave={saveSocialProfileAction}
           onDelete={deleteSocialProfileAction}
           onVerify={verifySocialProfileAction}
+          onDiscover={runSocialDiscoveryAction}
+          locationId={locationId}
         />
-        <p className="pv-handles-note">
-          A wrong or missing handle means we read the wrong account — fix it here and the next
-          pull picks it up. Auto-discovery for every account runs from <a href="/social">Social</a>.
+        <p className="tk-note">
+          A wrong or missing handle means we read the wrong account — fix it here and the next pull
+          picks it up. <span style={{ fontWeight: 600 }}>Verified</span> accounts are confirmed;
+          <span style={{ fontWeight: 600 }}> Discovering</span> ones are our best match until you confirm them.
         </p>
-      </div>
-    </div>
+      </TkCard>
+    </section>
   )
 }

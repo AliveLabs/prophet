@@ -1,0 +1,152 @@
+/* The Pass — page-local chrome for the insight POOL (home/pool).
+   Cards/viz/why come from the kit (token-driven → dark works for free); this file only
+   styles the pool-specific bits: the filter strip, the recency stamp, the grid flow, and
+   the empty-state action. All colors are tokens (no hardcoded light-only values) and every
+   control is ≥44px tall. Scoped under .ticket-app .pool-feed so it cant leak.            */
+
+/* ── header: location name de-emphasized after the title; body top spacing ── */
+.ticket-app .pool-h1-loc { color: var(--ink-3); font-weight: 400; }
+.ticket-app .pool-body { margin-top: 24px; }
+
+/* ── grid flow: the kits .tk-grid gives 2-col→1-col; this only equalizes card height ── */
+.ticket-app .pool-grid { align-items: start; margin-top: 4px; }
+.ticket-app .pool-grid > div { display: flex; }
+.ticket-app .pool-grid > div > * { width: 100%; }
+
+/* ── FILTER STRIP ─────────────────────────────────────────────────────────────────── */
+.ticket-app .pool-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 4px 0 20px;
+}
+.ticket-app .pool-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ticket-app .pool-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast),
+    box-shadow var(--t-fast), transform var(--t-fast);
+}
+.ticket-app .pool-tab:hover { color: var(--ink); border-color: var(--line-1, var(--ink-3)); }
+.ticket-app .pool-tab:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 2px;
+}
+.ticket-app .pool-tab-on {
+  background: linear-gradient(150deg, var(--rust), var(--rust-deep, var(--rust)));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.ticket-app .pool-tab-on:hover { color: #fff; }
+
+.ticket-app .pool-tab-n {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.62;
+}
+.ticket-app .pool-tab-on .pool-tab-n { opacity: 0.82; }
+
+/* the "top only" toggle pushes to the trailing edge on wide rows */
+.ticket-app .pool-topfilter {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.ticket-app .pool-topfilter svg { width: 15px; height: 15px; flex: none; }
+.ticket-app .pool-topfilter:hover { color: var(--ink); border-color: var(--line-1, var(--ink-3)); }
+.ticket-app .pool-topfilter:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+.ticket-app .pool-topfilter-on {
+  border-color: color-mix(in srgb, var(--gold-deep, var(--gold)) 55%, transparent);
+  color: var(--gold-deep, var(--ink));
+  background: color-mix(in srgb, var(--gold) 12%, var(--card));
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── "Top this week" chip (gold; -deep text for AA on small type) ── */
+.ticket-app .pool-top-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--gold-deep, var(--gold)) 40%, transparent);
+  background: color-mix(in srgb, var(--gold) 14%, var(--card));
+  color: var(--gold-deep, var(--ink));
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.ticket-app .pool-top-chip svg { width: 12px; height: 12px; flex: none; }
+
+/* ── recency stamp inside a cards chip row (mono "terminal" micro-label) ── */
+.ticket-app .pool-seen {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  align-self: center;
+}
+
+/* ── empty / filtered-empty states ── */
+.ticket-app .pool-empty-wrap { margin-top: 8px; }
+.ticket-app .pool-clear {
+  margin-top: 14px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-cond);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.ticket-app .pool-clear:hover { border-color: var(--rust); }
+.ticket-app .pool-clear:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+
+/* ── mobile: filter strip wraps; "top only" drops below the tabs full-width-feel ── */
+@media (max-width: 640px) {
+  .ticket-app .pool-filters { gap: 10px; }
+  .ticket-app .pool-topfilter { margin-left: 0; }
+  .ticket-app .pool-seen { font-size: 10px; }
+}

@@ -1,13 +1,21 @@
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { requirePlatformAdminContext } from "@/lib/auth/platform-admin"
+import { RevealOnView } from "@/components/ticket"
 import { KnowledgeReviewTable, type KnowledgeRow } from "./components/knowledge-review-table"
+import "@/components/ticket/pass.css"
+import "./knowledge-review.css"
 
 // Learning Spine L3 (P17a) — the TicketAdmin knowledge-review queue. Lists CANDIDATE + SHADOW
 // skill_knowledge rows (the rows NOT yet serving) so a super_admin can promote/retire/shadow them.
 // This is the §2.3.3 HUMAN gate: the only path a question_demand or any global-scope change reaches
 // `active`. RETIRE is instant + deploy-free (a status flip). FAIL-SOFT: if the table doesn't exist yet
 // (pre-migration) the query errors and we render an empty queue rather than crash.
+//
+// PRESENTATION rebuilt to "The Pass": this admin route is outside the dashboard shell (which carries
+// the token surface + kit stylesheet), so the page self-hosts its own `.ticket-chrome` Pass surface,
+// imports the kit CSS, and mounts the atmospheric canvas. Data wiring + the human-gate logic are
+// unchanged — the review queue is just re-authored from a bordered table into accessible Pass cards.
 export default async function KnowledgeReviewPage() {
   await connection()
   const { role } = await requirePlatformAdminContext()
@@ -47,35 +55,42 @@ export default async function KnowledgeReviewPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Knowledge Review
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {canManage
-            ? "Promote a learned snippet to active (it then informs the relevant skill's prompt), move it to shadow to observe only, or retire it. Operator-question demand is human-only — it never auto-promotes."
-            : "Learned snippets awaiting review. Promotion is restricted to super admins."}
-        </p>
-      </div>
+    <div className="ticket-chrome tk-kit">
+      <div className="bg-atmos" aria-hidden />
+      <div className="kr-surface">
+        <RevealOnView as="header" className="kr-head">
+          <span className="kr-eyebrow">
+            <span className="kr-pulse" aria-hidden />
+            Learning spine · human gate
+          </span>
+          <h1>Knowledge Review</h1>
+          <p className="kr-lede">
+            {canManage
+              ? "Promote a learned snippet to active and it starts informing the relevant skill's prompt. Move it to shadow to observe without serving, or retire it — retiring is instant and deploy-free. Operator-question demand is human-only; it never auto-promotes."
+              : "Learned snippets awaiting review. Promotion is restricted to super admins; you can read the queue but not change what serves."}
+          </p>
+        </RevealOnView>
 
-      <div className="flex flex-wrap gap-3 text-sm">
-        <Stat label="In queue" value={counts.total} />
-        <Stat label="Candidate" value={counts.candidate} />
-        <Stat label="Shadow" value={counts.shadow} />
-        <Stat label="From questions" value={counts.questionDemand} />
-      </div>
+        <RevealOnView className="kr-stats" stagger>
+          <Stat label="In queue" value={counts.total} accent />
+          <Stat label="Candidate" value={counts.candidate} />
+          <Stat label="Shadow" value={counts.shadow} />
+          <Stat label="From questions" value={counts.questionDemand} />
+        </RevealOnView>
 
-      <KnowledgeReviewTable rows={rows} canManage={canManage} />
+        <div className="mt-7">
+          <KnowledgeReviewTable rows={rows} canManage={canManage} />
+        </div>
+      </div>
     </div>
   )
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, accent = false }: { label: string; value: number; accent?: boolean }) {
   return (
-    <div className="rounded-lg border border-border bg-card px-4 py-2.5">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="text-lg font-semibold text-foreground">{value}</div>
+    <div className={`kr-stat${accent ? " kr-stat-accent" : ""}`}>
+      <div className="kr-k">{label}</div>
+      <div className="kr-v">{value}</div>
     </div>
   )
 }

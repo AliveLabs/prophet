@@ -2,6 +2,7 @@ import { connection } from "next/server"
 import { notFound } from "next/navigation"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { OrgDetailClient } from "./org-detail-client"
+import "../orgs.css"
 
 interface Props {
   params: Promise<{ id: string }>

@@ -1,0 +1,524 @@
+/* The Pass — Competitors page-group local styles.
+ * Scoped under .tk-comp so nothing leaks into the legacy .pv-* markup or the
+ * shared kit. Tokens only (no hardcoded light-only colors) so dark works for free.
+ * All motion sits behind prefers-reduced-motion (the kits RevealOnView + these
+ * transitions collapse there). */
+
+.tk-comp {
+  --tk-comp-gap: 22px;
+}
+
+/* ── The Set: roster header strip ─────────────────────────────────────── */
+.tk-comp .tk-set-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.tk-comp .tk-set-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.tk-comp .tk-set-meta b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.tk-comp .tk-set-meta .tk-plan {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  font-size: 10.5px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* ── Competitor roster cards (grid of real rivals) ────────────────────── */
+.tk-comp .tk-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.tk-comp .tk-rost-card {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 18px;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tk-comp .tk-rost-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md, var(--shadow-lg)); }
+}
+.tk-comp .tk-rost-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.tk-comp .tk-rost-mark {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -.01em;
+  color: #fff;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  overflow: hidden;
+}
+.tk-comp .tk-rost-mark[data-photo="1"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(15,20,25,.35), transparent 70%);
+}
+.tk-comp .tk-rost-id { min-width: 0; flex: 1; }
+.tk-comp .tk-rost-name {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tk-comp .tk-rost-rating {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+.tk-comp .tk-rost-rating .tk-star { color: var(--gold-deep); }
+.tk-comp .tk-rost-signals {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.tk-comp .tk-rost-signals .tk-sig-lbl {
+  display: block;
+  font-family: var(--font-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+}
+.tk-comp .tk-rost-quiet {
+  font-size: 12px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+.tk-comp .tk-rost-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 4px;
+}
+.tk-comp .tk-rost-view {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--slate-deep);
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line-2);
+  background: var(--card-2);
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.tk-comp .tk-rost-view:hover { background: var(--paper-2); border-color: var(--slate); }
+.tk-comp .tk-rost-rm {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.tk-comp .tk-rost-rm:hover { background: var(--paper-2); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 40%, transparent); }
+.tk-comp .tk-rost-rm svg { width: 17px; height: 17px; }
+.tk-comp .tk-rost-rm form { display: contents; }
+
+/* the "added by you / pulling data" pending tile */
+.tk-comp .tk-rost-card.tk-is-new { border-style: dashed; }
+
+/* ── Add-a-rival inline panel ─────────────────────────────────────────── */
+.tk-comp .tk-add-wrap { position: relative; }
+.tk-comp .tk-add-input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1.5px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  min-height: 44px;
+}
+.tk-comp .tk-add-input:focus {
+  outline: none;
+  border-color: var(--rust);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 18%, transparent);
+}
+.tk-comp .tk-ac-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  box-shadow: var(--shadow-lg);
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 8;
+}
+.tk-comp .tk-ac-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13px;
+  cursor: pointer;
+  min-height: 44px;
+}
+.tk-comp .tk-ac-item:hover { background: var(--paper-2); color: var(--ink); }
+.tk-comp .tk-add-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.tk-comp .tk-note {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  margin-top: 8px;
+  line-height: 1.5;
+}
+.tk-comp .tk-note.tk-busy { color: var(--gold-deep); }
+.tk-comp .tk-form-err { font-size: 12px; color: var(--alert-deep); margin-top: 8px; }
+
+/* ── Detail head (hero-lite for one rival) ────────────────────────────── */
+.tk-comp .tk-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-bottom: 16px;
+  transition: color var(--t-fast);
+}
+.tk-comp .tk-back:hover { color: var(--rust-deep); }
+.tk-comp .tk-comp-hero { overflow: hidden; }
+.tk-comp .tk-comp-hero .tk-hero-grid { align-items: stretch; }
+.tk-comp .tk-comp-hero .tk-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  margin-top: 4px;
+}
+.tk-comp .tk-comp-hero .tk-hm {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.tk-comp .tk-comp-hero .tk-hm .tk-star { color: var(--gold-deep); }
+.tk-comp .tk-comp-hero .tk-addr {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-top: 8px;
+}
+
+/* signal cards on detail */
+.tk-comp .tk-sig-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.tk-comp .tk-sig-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; }
+.tk-comp .tk-sig-type {
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--rust-deep);
+}
+.tk-comp .tk-sig-title { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.tk-comp .tk-sig-sum { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+/* posts grid */
+.tk-comp .tk-posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+.tk-comp .tk-post-photo {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--slate-2);
+}
+.tk-comp .tk-post-photo.tk-is-text {
+  display: flex;
+  align-items: center;
+  padding: 18px;
+  background: var(--card);
+  min-height: 132px;
+}
+.tk-comp .tk-post-photo.tk-is-text span {
+  font-family: var(--font-editorial, Georgia, serif);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+/* photos grid */
+.tk-comp .tk-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.tk-comp .tk-photo-tile { overflow: hidden; padding: 0; }
+.tk-comp .tk-photo-tile .tk-pt-img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+}
+.tk-comp .tk-photo-tile .tk-pt-cap {
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tk-comp .tk-photo-tile .tk-pt-cat {
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.tk-comp .tk-photo-tile .tk-pt-detail { font-size: 12px; color: var(--ink-2); line-height: 1.45; }
+.tk-comp .tk-photo-tile .tk-pt-promo {
+  font-size: 11.5px;
+  color: var(--gold-deep);
+  font-weight: 600;
+}
+
+/* ── Handle roster (the watched-entities surface) ─────────────────────── */
+.tk-comp .tk-hr-rows { display: flex; flex-direction: column; gap: 10px; }
+.tk-comp .tk-hr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card-2);
+}
+.tk-comp .tk-hr-plat {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+.tk-comp .tk-hr-plat svg { width: 18px; height: 18px; }
+.tk-comp .tk-hr-ig    { color: #C9942A; }
+.tk-comp .tk-hr-fb    { color: var(--slate-deep); }
+.tk-comp .tk-hr-tt    { color: var(--ink); }
+.tk-comp .tk-hr-body { flex: 1; min-width: 0; }
+.tk-comp .tk-hr-handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tk-comp .tk-hr-at {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.tk-comp .tk-hr-url {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ink-3);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* provenance badges */
+.tk-comp .tk-prov {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.tk-comp .tk-prov svg { width: 11px; height: 11px; }
+.tk-comp .tk-prov-verified   { background: var(--teal-tint); color: var(--teal-deep); }
+.tk-comp .tk-prov-discovering { background: var(--gold-tint); color: var(--gold-deep); }
+.tk-comp .tk-prov-notfound   { background: var(--paper-2); color: var(--ink-3); border: 1px dashed var(--line-2); }
+.tk-comp .tk-prov-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tk-comp .tk-prov-discovering .tk-prov-dot { animation: tk-comp-pulse 1.6s ease-in-out infinite; }
+}
+@keyframes tk-comp-pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+.tk-comp .tk-hr-acts { display: flex; align-items: center; gap: 6px; flex: none; }
+.tk-comp .tk-hr-btn {
+  min-height: 36px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.tk-comp .tk-hr-verify {
+  border: 1px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  background: var(--teal-tint);
+  color: var(--teal-deep);
+}
+.tk-comp .tk-hr-verify:hover { background: color-mix(in srgb, var(--teal) 20%, transparent); }
+.tk-comp .tk-hr-rm2 {
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-3);
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.tk-comp .tk-hr-rm2:hover { color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 40%, transparent); }
+.tk-comp .tk-hr-rm2 svg { width: 15px; height: 15px; }
+.tk-comp .tk-hr-btn:disabled { opacity: .5; cursor: default; }
+
+/* add-handle affordances */
+.tk-comp .tk-hr-add-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tk-comp .tk-hr-add-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  border: 1.5px dashed var(--line-2);
+  background: transparent;
+  color: var(--ink-3);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  min-height: 44px;
+  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
+}
+.tk-comp .tk-hr-add-chip:hover { border-color: var(--rust); color: var(--rust-deep); background: var(--rust-tint); }
+.tk-comp .tk-hr-add-chip svg { width: 16px; height: 16px; }
+
+.tk-comp .tk-hr-add-panel {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: var(--r-md);
+  border: 1px solid color-mix(in srgb, var(--rust) 30%, var(--line-2));
+  background: var(--rust-tint);
+}
+.tk-comp .tk-hr-add-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.tk-comp .tk-hr-input-wrap {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1.5px solid var(--line-2);
+  background: var(--card);
+  padding: 0 10px;
+}
+.tk-comp .tk-hr-input-wrap .tk-at { font-family: var(--font-mono); color: var(--ink-3); font-size: 13px; }
+.tk-comp .tk-hr-input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 11px 6px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+  min-height: 44px;
+}
+.tk-comp .tk-hr-input:focus { outline: none; }
+
+.tk-comp .tk-discover-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line-2);
+}
+.tk-comp .tk-discover-msg { font-size: 12px; color: var(--ink-2); }
+.tk-comp .tk-discover-msg.tk-ok { color: var(--teal-deep); font-weight: 600; }
+.tk-comp .tk-discover-msg.tk-err { color: var(--alert-deep); }
+
+/* spacing between the kit sections on these pages */
+.tk-comp .tk-comp-sec { margin-top: 36px; }
+/* on the list page the roster follows the page-title rule — trim its top margin
+   (the detail page leads with the hero, which keeps the full 36px below it). */
+.tk-comp .pv-rule + .tk-comp-sec { margin-top: 18px; }
+
+@media (max-width: 560px) {
+  .tk-comp .tk-roster { grid-template-columns: 1fr; }
+  .tk-comp .tk-hr-row { flex-wrap: wrap; }
+  .tk-comp .tk-hr-acts { width: 100%; justify-content: flex-end; }
+}

@@ -1,6 +1,21 @@
 "use client"
 
+// The Pass — competitor photo gallery, REBUILT to Concept A's structure.
+//
+// Structure rebuild (not a reskin): filter chips + a segmented Grid / By-competitor
+// view → a responsive grid of real-image photo TILES (TkCard, hover-lift, corner
+// badges, hover caption) → a full-detail LIGHTBOX in a TkDrawer (right-slide desktop,
+// bottom-sheet mobile) instead of an inline expand → a TkEmptyState when a filter
+// matches nothing. Same PhotoGridItem data + honest confidence/quality framing.
+
 import { useState } from "react"
+import {
+  TkCard,
+  TkChip,
+  TkDrawer,
+  TkEmptyState,
+  type TkFamily,
+} from "@/components/ticket"
 
 export type PhotoGridItem = {
   id: string
@@ -39,28 +54,51 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  food_dish: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
-  menu_board: "bg-precision-teal/15 text-precision-teal border-precision-teal/30",
-  interior: "bg-primary/15 text-primary border-primary/30",
-  exterior: "bg-precision-teal/15 text-precision-teal border-precision-teal/30",
-  patio_outdoor: "bg-precision-teal/15 text-precision-teal border-precision-teal/30",
-  bar_drinks: "bg-vatic-indigo-soft/15 text-vatic-indigo-soft border-vatic-indigo-soft/30",
-  event_promotion: "bg-destructive/15 text-destructive border-destructive/30",
-  signage: "bg-precision-teal/15 text-precision-teal border-precision-teal/30",
-  renovation: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
-  seasonal_decor: "bg-signal-gold/15 text-signal-gold border-signal-gold/30",
-  customer_atmosphere: "bg-primary/15 text-primary border-primary/30",
-  staff_team: "bg-vatic-indigo-soft/15 text-vatic-indigo-soft border-vatic-indigo-soft/30",
-  other: "bg-secondary text-muted-foreground border-border",
+// Map each category to a Pass family hue (chips reuse the kit family palette).
+const CATEGORY_FAMILY: Record<string, TkFamily> = {
+  food_dish: "menu",
+  menu_board: "menu",
+  bar_drinks: "menu",
+  interior: "reputation",
+  customer_atmosphere: "reputation",
+  exterior: "competitive",
+  patio_outdoor: "competitive",
+  signage: "competitive",
+  renovation: "competitive",
+  seasonal_decor: "social",
+  event_promotion: "social",
+  staff_team: "grassroots",
+  other: "competitive",
+}
+
+// Badge tints for the always-visible corner category badge (frosted over the photo).
+const CATEGORY_BADGE: Record<string, { bg: string; fg: string }> = {
+  menu: { bg: "color-mix(in srgb, var(--teal) 86%, #fff 14%)", fg: "#07140f" },
+  reputation: { bg: "color-mix(in srgb, var(--rust) 86%, #fff 14%)", fg: "#fff" },
+  competitive: { bg: "color-mix(in srgb, var(--slate) 86%, #fff 14%)", fg: "#fff" },
+  social: { bg: "color-mix(in srgb, var(--gold) 86%, #18120a 14%)", fg: "#18120a" },
+  grassroots: { bg: "color-mix(in srgb, var(--slate) 86%, #fff 14%)", fg: "#fff" },
+}
+
+function catLabel(cat: string) {
+  return CATEGORY_LABELS[cat] ?? cat.replace(/_/g, " ")
+}
+function catFamily(cat: string): TkFamily {
+  return CATEGORY_FAMILY[cat] ?? "competitive"
 }
 
 type ViewMode = "grid" | "competitor"
 
+const IMG_PLACEHOLDER = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden="true">
+    <path d="M2.25 15.75l5.16-5.16a2.25 2.25 0 0 1 3.18 0l5.16 5.16m-1.5-1.5l1.41-1.41a2.25 2.25 0 0 1 3.18 0l2.91 2.91M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v13.5a1.5 1.5 0 0 0 1.5 1.5z" />
+  </svg>
+)
+
 export default function PhotoGrid({ photos }: Props) {
   const [selectedCategory, setSelectedCategory] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("grid")
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const categories = [...new Set(photos.map((p) => p.category))]
   const competitors = [...new Set(photos.map((p) => p.competitor_name))]
@@ -68,204 +106,226 @@ export default function PhotoGrid({ photos }: Props) {
     ? photos.filter((p) => p.category === selectedCategory)
     : photos
 
-  const groupedByCompetitor = competitors.reduce<Record<string, PhotoGridItem[]>>((acc, name) => {
+  const active = activeId ? (photos.find((p) => p.id === activeId) ?? null) : null
+
+  const grouped = competitors.reduce<Record<string, PhotoGridItem[]>>((acc, name) => {
     acc[name] = filtered.filter((p) => p.competitor_name === name)
     return acc
   }, {})
 
   return (
-    <div className="space-y-5">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
+    <div className="photos-gallery tk-kit">
+      {/* Controls: category filter chips + segmented view toggle */}
+      <div className="photos-controls">
+        <div className="photos-filter-chips" role="group" aria-label="Filter photos by category">
           <button
+            type="button"
+            className={`photos-fchip${!selectedCategory ? " is-active" : ""}`}
+            aria-pressed={!selectedCategory}
             onClick={() => setSelectedCategory("")}
-            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-              !selectedCategory
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "bg-card text-muted-foreground ring-1 ring-border hover:bg-secondary"
-            }`}
           >
-            All ({photos.length})
+            All · {photos.length}
           </button>
           {categories.map((cat) => (
             <button
               key={cat}
+              type="button"
+              className={`photos-fchip${selectedCategory === cat ? " is-active" : ""}`}
+              aria-pressed={selectedCategory === cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-                selectedCategory === cat
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground ring-1 ring-border hover:bg-secondary"
-              }`}
             >
-              {CATEGORY_LABELS[cat] ?? cat} ({photos.filter((p) => p.category === cat).length})
+              {catLabel(cat)} · {photos.filter((p) => p.category === cat).length}
             </button>
           ))}
         </div>
 
-        <div className="flex gap-1 rounded-lg bg-secondary p-0.5">
+        <div className="photos-seg" role="group" aria-label="View mode">
           <button
+            type="button"
+            className={viewMode === "grid" ? "is-active" : ""}
+            aria-pressed={viewMode === "grid"}
             onClick={() => setViewMode("grid")}
-            className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${
-              viewMode === "grid" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
           >
             Grid
           </button>
           <button
+            type="button"
+            className={viewMode === "competitor" ? "is-active" : ""}
+            aria-pressed={viewMode === "competitor"}
             onClick={() => setViewMode("competitor")}
-            className={`rounded-md px-3 py-1 text-[11px] font-semibold transition ${
-              viewMode === "competitor" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-            }`}
           >
-            By Competitor
+            By competitor
           </button>
         </div>
       </div>
 
-      {/* Grid view */}
-      {viewMode === "grid" && (
-        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {filtered.length === 0 ? (
+        <TkEmptyState
+          icon={IMG_PLACEHOLDER}
+          title="No photos in this view"
+          description="No analyzed photos match the selected category. Clear the filter to see everything we've read."
+        />
+      ) : viewMode === "grid" ? (
+        <div className="photos-tilegrid">
           {filtered.map((photo) => (
-            <PhotoCard
-              key={photo.id}
-              photo={photo}
-              expanded={expandedId === photo.id}
-              onToggle={() => setExpandedId(expandedId === photo.id ? null : photo.id)}
-            />
+            <PhotoTile key={photo.id} photo={photo} onOpen={() => setActiveId(photo.id)} />
           ))}
         </div>
-      )}
-
-      {/* Competitor grouped view */}
-      {viewMode === "competitor" && (
-        <div className="space-y-6">
-          {Object.entries(groupedByCompetitor).map(([name, compPhotos]) =>
-            compPhotos.length > 0 ? (
-              <div key={name}>
-                <div className="mb-3 flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-foreground">{name}</h3>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                    {compPhotos.length} photos
-                  </span>
+      ) : (
+        <div>
+          {competitors.map((name) =>
+            grouped[name]?.length ? (
+              <div className="photos-comp-group" key={name}>
+                <div className="photos-comp-grouphead">
+                  <h5>{name}</h5>
+                  <span className="photos-comp-count">{grouped[name].length} photos</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {compPhotos.map((photo) => (
-                    <PhotoCard
-                      key={photo.id}
-                      photo={photo}
-                      expanded={expandedId === photo.id}
-                      onToggle={() => setExpandedId(expandedId === photo.id ? null : photo.id)}
-                    />
+                <div className="photos-tilegrid">
+                  {grouped[name].map((photo) => (
+                    <PhotoTile key={photo.id} photo={photo} onOpen={() => setActiveId(photo.id)} />
                   ))}
                 </div>
               </div>
-            ) : null
+            ) : null,
           )}
         </div>
       )}
 
-      {filtered.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-border py-12 text-center">
-          <p className="text-sm text-muted-foreground">No photos match the selected filter</p>
-        </div>
-      )}
+      {/* Lightbox detail — TkDrawer (bottom-sheet on mobile) */}
+      <TkDrawer
+        open={active != null}
+        onClose={() => setActiveId(null)}
+        chip={
+          active ? (
+            <TkChip family={catFamily(active.category)}>{catLabel(active.category)}</TkChip>
+          ) : null
+        }
+        title={active ? active.competitor_name : undefined}
+      >
+        {active ? <Lightbox photo={active} /> : null}
+      </TkDrawer>
     </div>
   )
 }
 
-function PhotoCard({
-  photo,
-  expanded,
-  onToggle,
-}: {
-  photo: PhotoGridItem
-  expanded: boolean
-  onToggle: () => void
-}) {
+/* ── A single photo tile ──────────────────────────────────────────────── */
+function PhotoTile({ photo, onOpen }: { photo: PhotoGridItem; onOpen: () => void }) {
+  const fam = catFamily(photo.category)
+  const badge = CATEGORY_BADGE[fam]
+  const isPro = photo.quality_lighting === "professional"
   return (
-    <div
-      className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-card-md ${
-        expanded ? "col-span-2 row-span-2 border-primary/50" : "border-border"
-      }`}
-      onClick={onToggle}
+    <TkCard
+      role="button"
+      tabIndex={0}
+      className="photos-tile"
+      aria-label={`${catLabel(photo.category)} — ${photo.competitor_name}. Open detail.`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          onOpen()
+        }
+      }}
     >
-      {photo.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={photo.image_url}
-          alt={photo.subcategory || photo.category}
-          className={`w-full object-cover ${expanded ? "aspect-[4/3]" : "aspect-square"}`}
-          loading="lazy"
-        />
-      ) : (
-        <div className={`flex items-center justify-center bg-secondary ${expanded ? "aspect-[4/3]" : "aspect-square"}`}>
-          <svg className="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v13.5a1.5 1.5 0 001.5 1.5z" />
-          </svg>
-        </div>
-      )}
-
-      {/* Hover overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
-
-      {/* Bottom info on hover */}
-      <div className="absolute bottom-0 left-0 right-0 space-y-1 p-2.5 opacity-0 transition group-hover:opacity-100">
-        <div className="flex flex-wrap gap-1">
-          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-bold ${CATEGORY_COLORS[photo.category] ?? CATEGORY_COLORS.other}`}>
-            {CATEGORY_LABELS[photo.category] ?? photo.category}
+      <div className="photos-tile-img">
+        {photo.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo.image_url} alt={photo.subcategory || catLabel(photo.category)} loading="lazy" />
+        ) : (
+          <span className="photos-tile-noimg" aria-hidden="true">
+            {IMG_PLACEHOLDER}
           </span>
-          {photo.quality_lighting === "professional" && (
-            <span className="rounded-full border border-precision-teal/30 bg-precision-teal/15 px-2 py-0.5 text-[9px] font-bold text-precision-teal">
-              Pro
-            </span>
-          )}
+        )}
+
+        <span className="photos-tile-veil" aria-hidden="true" />
+
+        {/* Always-visible corner badges */}
+        <div className="photos-tile-badges">
+          <span
+            className="photos-cat-badge"
+            style={{ background: badge.bg, color: badge.fg }}
+          >
+            {catLabel(photo.category)}
+          </span>
+          {photo.promotional_content && <span className="photos-promo-badge">Promo</span>}
         </div>
-        <p className="text-[11px] font-medium text-white">{photo.competitor_name}</p>
-        {photo.subcategory && (
-          <p className="text-[10px] text-white/70">{photo.subcategory}</p>
+
+        {/* Hover caption */}
+        <div className="photos-tile-cap">
+          <div className="photos-tile-cap-chips">
+            {isPro && <span className="photos-tile-cap-chip is-pro">Pro lighting</span>}
+            {photo.quality_staging === "styled" && (
+              <span className="photos-tile-cap-chip">Styled</span>
+            )}
+          </div>
+          <span className="photos-tile-cap-comp">{photo.competitor_name}</span>
+          {photo.subcategory && <span className="photos-tile-cap-sub">{photo.subcategory}</span>}
+        </div>
+      </div>
+    </TkCard>
+  )
+}
+
+/* ── Lightbox body ────────────────────────────────────────────────────── */
+function Lightbox({ photo }: { photo: PhotoGridItem }) {
+  const isPro = photo.quality_lighting === "professional"
+  return (
+    <div className="photos-lb-meta">
+      <div className="photos-lb-img">
+        {photo.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo.image_url} alt={photo.subcategory || catLabel(photo.category)} />
+        ) : (
+          <div className="photos-lb-noimg" aria-hidden="true">
+            {IMG_PLACEHOLDER}
+          </div>
         )}
       </div>
 
-      {/* Promo badge */}
-      {photo.promotional_content && (
-        <div className="absolute right-2 top-2">
-          <span className="rounded-full bg-destructive px-2 py-0.5 text-[9px] font-bold text-white shadow-md">
-            Promo
-          </span>
+      <div className="photos-lb-chips">
+        <TkChip family={catFamily(photo.category)}>{catLabel(photo.category)}</TkChip>
+        {isPro && <TkChip family="menu">Pro lighting</TkChip>}
+        {photo.subcategory && <span className="photos-lb-block-lbl">{photo.subcategory}</span>}
+      </div>
+
+      {photo.promotional_details && (
+        <div className="photos-lb-block is-promo">
+          <span className="photos-lb-block-lbl">Promotion detected</span>
+          <p className="photos-lb-block-body">{photo.promotional_details}</p>
         </div>
       )}
 
-      {/* Expanded detail panel */}
-      {expanded && (
-        <div className="border-t border-border bg-card p-3 text-xs">
-          <div className="space-y-2">
-            <div className="flex flex-wrap gap-1">
-              {photo.tags.map((t) => (
-                <span key={t} className="rounded bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                  {t}
-                </span>
-              ))}
-            </div>
-            {photo.extracted_text && (
-              <div className="rounded-lg bg-secondary p-2">
-                <p className="text-[10px] font-semibold text-muted-foreground">OCR Text</p>
-                <p className="mt-0.5 text-[11px] text-foreground">{photo.extracted_text}</p>
-              </div>
-            )}
-            {photo.promotional_details && (
-              <div className="rounded-lg bg-destructive/15 p-2">
-                <p className="text-[10px] font-semibold text-destructive">Promotion</p>
-                <p className="mt-0.5 text-[11px] text-destructive">{photo.promotional_details}</p>
-              </div>
-            )}
-            <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-              <span>Confidence: {Math.round(photo.confidence * 100)}%</span>
-              <span>Quality: {photo.quality_lighting} / {photo.quality_staging}</span>
-            </div>
+      {photo.extracted_text && (
+        <div className="photos-lb-block">
+          <span className="photos-lb-block-lbl">Text read from the photo</span>
+          <p className="photos-lb-block-body photos-lb-q">“{photo.extracted_text}”</p>
+        </div>
+      )}
+
+      {photo.tags.length > 0 && (
+        <div>
+          <span className="photos-lb-block-lbl">Tags</span>
+          <div className="photos-lb-tags" style={{ marginTop: 7 }}>
+            {photo.tags.map((t) => (
+              <span className="photos-lb-tag" key={t}>
+                {t}
+              </span>
+            ))}
           </div>
         </div>
       )}
+
+      <div className="photos-lb-facts">
+        <span>
+          <b>Match confidence</b> {Math.round(photo.confidence * 100)}%
+        </span>
+        <span>
+          <b>Lighting</b> {photo.quality_lighting}
+        </span>
+        <span>
+          <b>Staging</b> {photo.quality_staging}
+        </span>
+      </div>
     </div>
   )
 }

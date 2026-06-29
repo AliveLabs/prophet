@@ -1,3 +1,9 @@
+// Billing — REBUILT to The Pass. All render-state logic (payment_state × trial clock),
+// the Stripe checkout/portal wiring, the dunning banner, and the tier/price source of
+// truth are UNCHANGED. The presentation is re-authored to the kit: a prominent
+// current-plan soft panel + premium pricing tiles (recommended-tier highlight + cadence
+// toggle) via the page-local islands.
+
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getTrialDaysRemaining } from "@/lib/billing/trial"
@@ -7,21 +13,17 @@ import {
   TIER_PRICING,
 } from "@/lib/billing/tiers"
 import { getVerticalConfig, isValidIndustryType, type IndustryType } from "@/lib/verticals"
-import { UpgradeButtons } from "./upgrade-buttons"
-import { UpgradeSuccessToast } from "./upgrade-success"
 import { DunningBanner } from "@/components/billing/dunning-banner"
-import { ManageBillingButton } from "./manage-billing-button"
-
-// Render states based on (payment_state, trial clock) — there is no free tier:
-//
-//   null payment_state + live trial clock  -> legacy card-less trial: countdown
-//                                             + "no card on file" + plan tiles
-//   null payment_state, no/expired clock   -> "No subscription" + plan tiles
-//   trialing                               -> "Trial" card + countdown + Manage billing
-//   active                                 -> "Active" card + renewal date + Manage billing
-//   past_due                               -> "Past due" card with DunningBanner call-out
-//   canceled | incomplete_expired          -> "Canceled" card + Resubscribe tiles
-//   suspended                              -> Admin-suspended message
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkSoftPanel,
+  TkChip,
+} from "@/components/ticket"
+import { UpgradeSuccessToast } from "./upgrade-success"
+import { UpgradeTilesPass } from "./upgrade-tiles-pass"
+import { ManageBillingPass } from "./manage-billing-pass"
+import "../settings-pass.css"
 
 export default async function BillingPage({
   searchParams,
@@ -66,8 +68,6 @@ export default async function BillingPage({
   const isCanceled =
     paymentState === "canceled" || paymentState === "incomplete_expired"
   const isSuspended = tier === "suspended"
-  // Never been through Stripe checkout: either a legacy card-less trial
-  // (internal clock still running) or no subscription at all.
   const noStripe = !paymentState && !isSuspended
   const isLegacyTrial = noStripe && daysRemaining > 0
   const hasCustomer = Boolean(organization?.stripe_customer_id)
@@ -86,7 +86,7 @@ export default async function BillingPage({
             : isSuspended
               ? "Suspended"
               : "No active subscription"
-  const statusTone = isPastDue || isSuspended ? "var(--alert)" : "var(--ink)"
+  const statusAlert = isPastDue || isSuspended
 
   return (
     <div className="pv-page">
@@ -95,84 +95,77 @@ export default async function BillingPage({
         <span className="pv-kicker">Account</span>
         <h1 className="pv-h1">Billing</h1>
         <p className="pv-sub">
-          Your plan, what it costs, and where it stands. Cancel or change it
-          anytime — no phone calls, no hoops.
+          Your plan, what it costs, and where it stands. Cancel or change it anytime —
+          no phone calls, no hoops.
         </p>
       </div>
-      <hr className="pv-rule" />
 
-      {isPastDue && (
-        <div className="pv-section">
-          <DunningBanner brand={brand as "Ticket" | "Neat"} />
-        </div>
-      )}
+      <div className="tk-kit tk-set">
+        {isPastDue && (
+          <div className="tk-set-block" style={{ marginTop: 22 }}>
+            <DunningBanner brand={brand as "Ticket" | "Neat"} />
+          </div>
+        )}
 
-      <div className="pv-section">
-        <div className="pv-section-head">Current plan</div>
-        <div className="pv-card">
-          <div className="pv-field">
-            <div className="pv-field__label">Plan</div>
-            <div className="pv-field__val">
-              {getTierDisplayName(tier, industry)}
-              {(isTrialing || isLegacyTrial) && (
-                <span className="pv-pill pv-pill--watch" style={{ marginLeft: 10 }}>
-                  Trial
-                </span>
+        {/* ── CURRENT PLAN ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Current plan" sub="Where your subscription stands" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Plan</div>
+                <div className="tk-set-fval">
+                  <div className="tk-set-row-actions">
+                    <span className="tk-set-fval-strong">{getTierDisplayName(tier, industry)}</span>
+                    {(isTrialing || isLegacyTrial) && <TkChip family="social">Trial</TkChip>}
+                    {isLegacyTrial && <TkChip family="reputation">No card on file</TkChip>}
+                  </div>
+                  {tier !== "suspended" && <PriceLabel tier={tier} />}
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Status</div>
+                <div className="tk-set-fval">
+                  <span className={`tk-set-statusline${statusAlert ? " tk-set-alert" : ""}`}>{statusLine}</span>
+                </div>
+              </div>
+              {organization?.billing_email && (
+                <div className="tk-set-field">
+                  <div className="tk-set-flbl">Billed to</div>
+                  <div className="tk-set-fval">
+                    <span className="tk-set-fval-strong">{organization.billing_email}</span>
+                    {!noStripe && !isSuspended && <span className="tk-set-hint">via Stripe</span>}
+                  </div>
+                </div>
               )}
-              {isLegacyTrial && (
-                <span className="pv-pill pv-pill--threat" style={{ marginLeft: 6 }}>
-                  No card on file
-                </span>
-              )}
-              {tier !== "suspended" && (
-                <div className="pv-field__hint">
-                  <PriceLabel tier={tier} />
+              {hasCustomer && !isSuspended && (
+                <div className="tk-set-field">
+                  <div className="tk-set-flbl">Payment</div>
+                  <div className="tk-set-fval">
+                    <div className="tk-set-row-actions">
+                      <ManageBillingPass />
+                    </div>
+                    <p className="tk-set-hint">
+                      Update your card, switch plans, or cancel in the Stripe portal.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
-          <div className="pv-field">
-            <div className="pv-field__label">Status</div>
-            <div className="pv-field__val" style={{ color: statusTone }}>
-              {statusLine}
-            </div>
-          </div>
-          {organization?.billing_email && (
-            <div className="pv-field">
-              <div className="pv-field__label">Billed to</div>
-              <div className="pv-field__val">
-                {organization.billing_email}
-                {!noStripe && !isSuspended && (
-                  <div className="pv-field__hint">via Stripe</div>
-                )}
-              </div>
-            </div>
-          )}
-          {hasCustomer && !isSuspended && (
-            <div className="pv-field">
-              <div className="pv-field__label">Payment</div>
-              <div className="pv-field__val">
-                <ManageBillingButton />
-                <div className="pv-field__hint">
-                  Update your card, switch plans, or cancel in the Stripe portal.
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+          </TkSoftPanel>
+        </RevealOnView>
+
+        {/* ── CHOOSE / RESUBSCRIBE ── */}
+        {(noStripe || isCanceled) && (
+          <RevealOnView className="tk-set-block">
+            <TkSectionHead
+              title={isCanceled ? "Resubscribe" : "Choose your plan"}
+              sub="More competitors, daily intelligence, more locations as you grow."
+            />
+            <UpgradeTilesPass industry={industry} />
+          </RevealOnView>
+        )}
       </div>
-
-      {(noStripe || isCanceled) && (
-        <div className="pv-section">
-          <div className="pv-section-head">
-            {isCanceled ? "Resubscribe" : "Choose your plan"}
-            <span className="pv-section-sub">
-              More competitors, daily intelligence, more locations as you grow.
-            </span>
-          </div>
-          <UpgradeButtons industry={industry} />
-        </div>
-      )}
     </div>
   )
 }
@@ -184,7 +177,7 @@ function PriceLabel({
 }) {
   const pricing = TIER_PRICING[tier]
   return (
-    <span>
+    <span className="tk-set-hint">
       From ${pricing.annualEffectiveMonthly}/mo annual · ${pricing.monthly}/mo monthly
     </span>
   )

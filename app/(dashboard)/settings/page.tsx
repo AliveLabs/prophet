@@ -1,18 +1,31 @@
-// Settings — account, brief tuning, voice, data refresh, and communications (Stage A
-// port). Brief boldness + voice SAVE for real; data refresh is wired to the durable
-// queue; billing/organization/team keep their existing sub-pages.
+// Settings — account, brief tuning, voice, data refresh, social coverage, competitors,
+// and communications. REBUILT to The Pass: the page-title chrome (.pv-page/.pv-page-head)
+// stays on-system, but the BODY is re-authored into the kit — soft panels, section heads,
+// field rows, kit-styled slider/toggle islands. All data fetching, the brand-tolerance +
+// category-priors slider behavior, voice/comms persistence, and the durable refresh queue
+// are UNCHANGED (the page-local islands call the same wired server actions).
 
 import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
 import { requireUser } from "@/lib/auth/server"
-import BriefTuning from "./brief-tuning"
-import CategoryPriorsControls from "./category-priors-controls"
 import type { CategoryPriors } from "@/lib/skills/category-priors"
-import { VoiceSelect, CommsPrefs, OwnNetworkSelect } from "./settings-controls"
-import RefreshControls from "./refresh-controls"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
-
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkSoftPanel,
+} from "@/components/ticket"
+import SettingsBriefTuning from "./settings-brief-tuning"
+import SettingsCategoryPriors from "./settings-category-priors"
+import SettingsRefreshPass from "./settings-refresh-pass"
+import {
+  VoiceSelectPass,
+  OwnNetworkSelectPass,
+  CommsPrefsPass,
+} from "./settings-controls-pass"
+import { ICON_ARROW } from "./settings-icons"
+import "./settings-pass.css"
 
 export default async function SettingsPage() {
   const user = await requireUser()
@@ -47,6 +60,7 @@ export default async function SettingsPage() {
       ),
     ]
   }
+
   return (
     <div className="pv-page">
       <div className="pv-page-head">
@@ -54,103 +68,162 @@ export default async function SettingsPage() {
         <h1 className="pv-h1">Settings</h1>
         <p className="pv-sub">Your account, how your briefs are tuned, and the data behind them.</p>
       </div>
-      <hr className="pv-rule" />
 
-      <div className="pv-section">
-        <div className="pv-section-head">Account</div>
-        <div className="pv-card">
-          <div className="pv-field"><div className="pv-field__label">Restaurant</div><div className="pv-field__val">{ctx.locationName}{ctx.city ? <div className="pv-field__hint">{ctx.city}</div> : null}</div></div>
-          <div className="pv-field"><div className="pv-field__label">Plan</div><div className="pv-field__val">{tierLabel(ctx.tier)} <Link className="pv-link" href="/settings/billing" style={{ marginLeft: 8 }}>Billing →</Link></div></div>
-          <div className="pv-field"><div className="pv-field__label">Operator</div><div className="pv-field__val">{ctx.userName}<div className="pv-field__hint">{email}</div></div></div>
-          <div className="pv-field"><div className="pv-field__label">Workspace</div><div className="pv-field__val"><Link className="pv-link" href="/settings/organization">Organization →</Link> <Link className="pv-link" href="/settings/team" style={{ marginLeft: 12 }}>Team →</Link></div></div>
-        </div>
-      </div>
-
-      <div className="pv-section">
-        <div className="pv-section-head">Your briefs <span className="pv-section-sub">how broad your recommendations are</span></div>
-        <div className="pv-card">
-          <div className="pv-field">
-            <div className="pv-field__label">Idea boldness</div>
-            <div className="pv-field__val">
-              <BriefTuning initial={ctx.brandTolerance} locationId={ctx.locationId} />
-              <div className="pv-field__hint">Sets how broad or narrow your recommendation thresholds are. Your 👍 / 👎 on the brief refine it over time.</div>
-            </div>
-          </div>
-          <div className="pv-field">
-            <div className="pv-field__label">What to prioritize</div>
-            <div className="pv-field__val">
-              <CategoryPriorsControls
-                initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
-                locationId={ctx.locationId}
-              />
-              <div className="pv-field__hint">Boost the kinds of moves you care about most at this location. A modest reweight, not a filter — applies to your next brief.</div>
-            </div>
-          </div>
-          <div className="pv-field">
-            <div className="pv-field__label">Your voice</div>
-            <div className="pv-field__val">
-              <VoiceSelect initial={ctx.voiceTone} locationId={ctx.locationId} />
-              <div className="pv-field__hint">Used when we draft customer-facing copy in your name.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="pv-section">
-        <div className="pv-section-head">Your data <span className="pv-section-sub">refresh on demand</span></div>
-        <RefreshControls locationId={ctx.locationId} />
-      </div>
-
-      <div className="pv-section">
-        <div className="pv-section-head">Social coverage</div>
-        <div className="pv-card">
-          <div className="pv-field">
-            <div className="pv-field__label">Your account</div>
-            <div className="pv-field__val">
-              {singleOwnNetwork ? (
-                <>
-                  <OwnNetworkSelect initial={chosenNetwork} locationId={ctx.locationId} />
-                  <div className="pv-field__hint">
-                    Your plan tracks one of your own networks — your choice. Competitor
-                    accounts are covered on all three networks regardless.
+      <div className="tk-kit tk-set">
+        {/* ── ACCOUNT ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Account" sub="Who you are & where you sit" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Restaurant</div>
+                <div className="tk-set-fval">
+                  <span className="tk-set-fval-strong">{ctx.locationName}</span>
+                  {ctx.city ? <span className="tk-set-hint">{ctx.city}</span> : null}
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Plan</div>
+                <div className="tk-set-fval">
+                  <div className="tk-set-row-actions">
+                    <span className="tk-set-fval-strong">{tierLabel(ctx.tier)}</span>
+                    <Link className="tk-set-link" href="/settings/billing">Billing {ICON_ARROW}</Link>
                   </div>
-                  {otherOwnNetworks.length > 0 ? (
-                    <div className="pv-field__hint">
-                      We also found you on{" "}
-                      {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
-                      {" — tracked on Tier 2 and up. "}
-                      <Link className="pv-link" href="/settings/billing">Upgrade →</Link>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  Instagram, Facebook, and TikTok
-                  <div className="pv-field__hint">
-                    Your plan covers all three networks for your account and your competitors.
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Operator</div>
+                <div className="tk-set-fval">
+                  <span className="tk-set-fval-strong">{ctx.userName}</span>
+                  <span className="tk-set-hint">{email}</span>
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Workspace</div>
+                <div className="tk-set-fval">
+                  <div className="tk-set-row-actions">
+                    <Link className="tk-set-link" href="/settings/organization">Organization {ICON_ARROW}</Link>
+                    <Link className="tk-set-link" href="/settings/team">Team {ICON_ARROW}</Link>
                   </div>
-                </>
-              )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </TkSoftPanel>
+        </RevealOnView>
 
-      <div className="pv-section">
-        <div className="pv-section-head">Competitors</div>
-        <div className="pv-card">
-          <div className="pv-field">
-            <div className="pv-field__label">Watched set</div>
-            <div className="pv-field__val">
-              Watching {ctx.competitors.length} — manage them on the <Link className="pv-link" href="/competitors">Competitors page</Link>.
+        {/* ── YOUR BRIEFS ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Your briefs" sub="How broad your recommendations are" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Idea boldness</div>
+                <div className="tk-set-fval">
+                  <SettingsBriefTuning initial={ctx.brandTolerance} locationId={ctx.locationId} />
+                  <p className="tk-set-hint">
+                    Sets how broad or narrow your recommendation thresholds are. Your 👍 / 👎 on the brief
+                    refine it over time.
+                  </p>
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">What to prioritize</div>
+                <div className="tk-set-fval">
+                  <SettingsCategoryPriors
+                    initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
+                    locationId={ctx.locationId}
+                  />
+                  <p className="tk-set-hint">
+                    Boost the kinds of moves you care about most at this location. A modest reweight, not a
+                    filter — applies to your next brief.
+                  </p>
+                </div>
+              </div>
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Your voice</div>
+                <div className="tk-set-fval">
+                  <VoiceSelectPass initial={ctx.voiceTone} locationId={ctx.locationId} />
+                  <p className="tk-set-hint">Used when we draft customer-facing copy in your name.</p>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          </TkSoftPanel>
+        </RevealOnView>
 
-      <div className="pv-section">
-        <div className="pv-section-head">Communications</div>
-        <CommsPrefs email={email} locationId={ctx.locationId} initial={comms} />
+        {/* ── YOUR DATA ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Your data" sub="Refresh on demand" />
+          <TkSoftPanel>
+            <SettingsRefreshPass locationId={ctx.locationId} />
+          </TkSoftPanel>
+        </RevealOnView>
+
+        {/* ── SOCIAL COVERAGE ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Social coverage" sub="The accounts we read for you" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Your account</div>
+                <div className="tk-set-fval">
+                  {singleOwnNetwork ? (
+                    <>
+                      <OwnNetworkSelectPass initial={chosenNetwork} locationId={ctx.locationId} />
+                      <p className="tk-set-hint">
+                        Your plan tracks one of your own networks — your choice. Competitor accounts are
+                        covered on all three networks regardless.
+                      </p>
+                      {otherOwnNetworks.length > 0 ? (
+                        <p className="tk-set-hint">
+                          We also found you on{" "}
+                          {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
+                          {" — tracked on Tier 2 and up. "}
+                          <Link className="tk-set-link" href="/settings/billing">Upgrade {ICON_ARROW}</Link>
+                        </p>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="tk-set-fval-strong">Instagram, Facebook, and TikTok</span>
+                      <p className="tk-set-hint">
+                        Your plan covers all three networks for your account and your competitors.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </TkSoftPanel>
+        </RevealOnView>
+
+        {/* ── COMPETITORS ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Competitors" sub="Your watched set" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Watched set</div>
+                <div className="tk-set-fval">
+                  <span className="tk-set-fval-strong">
+                    Watching {ctx.competitors.length} {ctx.competitors.length === 1 ? "competitor" : "competitors"}
+                  </span>
+                  <p className="tk-set-hint">
+                    Add, change, or remove who you track on the{" "}
+                    <Link className="tk-set-link" href="/competitors">Competitors page {ICON_ARROW}</Link>
+                  </p>
+                </div>
+              </div>
+            </div>
+          </TkSoftPanel>
+        </RevealOnView>
+
+        {/* ── COMMUNICATIONS ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Communications" sub="What lands in your inbox" />
+          <TkSoftPanel>
+            <CommsPrefsPass email={email} locationId={ctx.locationId} initial={comms} />
+          </TkSoftPanel>
+        </RevealOnView>
       </div>
     </div>
   )

@@ -1,0 +1,189 @@
+/* ============================================================
+   LOCATIONS — page-local styling for "The Pass" rebuild.
+   All colors come from the shared token SSOT (--paper/--rust/
+   --card/--ink/...), so light + warm-dark both resolve for free.
+   Scoped under .loc-board (the client island root) so nothing
+   leaks into other routes. Prefix loc- (kit stays tk-).
+   ============================================================ */
+
+.loc-board { display: flex; flex-direction: column; gap: 8px; }
+
+/* error banner — honest, dot-led */
+.loc-error {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--alert-wash); color: var(--alert-deep);
+  border: 1px solid color-mix(in srgb, var(--alert) 30%, transparent);
+  border-radius: var(--r-md); padding: 12px 16px; font-size: 13.5px; font-weight: 600;
+  margin-bottom: 6px;
+}
+.loc-error .pass-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex: none; }
+
+/* ── hero ── */
+.loc-hero-wrap { margin-top: 4px; }
+.loc-canvas {
+  background:
+    radial-gradient(120% 90% at 22% 0%, color-mix(in srgb, var(--rust) 40%, transparent), transparent 56%),
+    linear-gradient(150deg, var(--slate-2), color-mix(in srgb, var(--slate-2) 68%, #000 32%) 82%);
+}
+.loc-hero-stats { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 2px; }
+.loc-hero-stat { display: flex; flex-direction: column; gap: 2px; }
+.loc-hero-stat-v { font-size: 22px; font-weight: 700; line-height: 1; color: var(--ink); }
+.loc-hero-stat-k {
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+}
+
+/* ── section spacing ── */
+.loc-sec { margin: 30px 0 16px; }
+
+/* grid card extras */
+.loc-grid { align-items: start; }
+.loc-card-addr,
+.loc-detail-addr {
+  display: flex; align-items: flex-start; gap: 7px;
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.45;
+}
+.loc-card-addr svg, .loc-detail-addr svg { width: 15px; height: 15px; flex: none; margin-top: 1px; color: var(--ink-3); }
+
+.loc-inline-stat {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--gold-deep);
+}
+.loc-inline-stat svg { width: 13px; height: 13px; color: var(--gold); }
+.loc-inline-sub { color: var(--ink-3); font-weight: 600; }
+
+/* single-location "add another" card */
+.loc-add-cta-card {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap; margin-top: 24px;
+}
+.loc-add-cta-text h3 { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+.loc-add-cta-text p { font-size: 13px; color: var(--ink-2); margin-top: 3px; }
+
+/* ════════════════════════════════════════════════════════════
+   DRAWER DETAIL CONTENT
+   ════════════════════════════════════════════════════════════ */
+.loc-detail-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.loc-stat-chip svg { width: 13px; height: 13px; }
+.loc-meta-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--card-2); border: 1px solid var(--line);
+  font-size: 11.5px; font-weight: 600; color: var(--ink-2);
+}
+.loc-meta-pill svg { width: 13px; height: 13px; color: var(--ink-3); }
+a.loc-link-pill { color: var(--slate-deep); }
+a.loc-link-pill:hover { border-color: var(--slate); color: var(--ink); }
+
+/* coverage panel */
+.loc-coverage .loc-cov-list {
+  display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 8px 0 0; padding: 0;
+}
+.loc-coverage .loc-cov-list li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 12.5px; color: var(--ink-2);
+}
+.loc-coverage .loc-cov-mark {
+  width: 18px; height: 18px; border-radius: 6px; flex: none;
+  display: grid; place-items: center; font-size: 11px; font-weight: 800;
+}
+.loc-coverage li.loc-on .loc-cov-mark { background: var(--teal-tint); color: var(--teal-deep); }
+.loc-coverage li.loc-off { color: var(--ink-3); }
+.loc-coverage li.loc-off .loc-cov-mark { background: var(--paper-2); color: var(--ink-3); border: 1px dashed var(--line-2); }
+.loc-cov-foot { margin-top: 11px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); }
+
+/* visuals (screenshot + map) */
+.loc-visuals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.loc-shot { border: 1px solid var(--line-2); border-radius: var(--r-md); overflow: hidden; }
+.loc-shot img { width: 100%; height: 130px; object-fit: cover; object-position: top; display: block; }
+.loc-visuals .loc-map { width: 100%; }
+@media (max-width: 540px) { .loc-visuals { grid-template-columns: 1fr; } }
+
+/* weather */
+.loc-weather-row { display: flex; align-items: center; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.loc-weather-row img { width: 34px; height: 34px; }
+.loc-weather-temp { font-size: 22px; font-weight: 700; color: var(--ink); }
+.loc-weather-detail { font-size: 12px; color: var(--ink-2); }
+
+/* hours */
+.loc-cap-ic { display: inline-flex; align-items: center; gap: 7px; }
+.loc-cap-ic svg { width: 14px; height: 14px; }
+.loc-hours-grid { display: grid; gap: 4px; margin-top: 8px; font-size: 12px; color: var(--ink-2); }
+
+/* reviews */
+.loc-review-list { display: flex; flex-direction: column; gap: 11px; margin-top: 8px; }
+.loc-review p { font-size: 12.5px; line-height: 1.5; color: var(--ink); font-style: italic; }
+.loc-review-meta { display: block; margin-top: 5px; font-size: 11px; color: var(--ink-3); }
+
+/* ── edit form (kit-styled inputs) ── */
+.loc-edit { margin-top: 4px; }
+.loc-edit > summary {
+  cursor: pointer; list-style: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--slate-deep);
+  padding: 8px 13px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--card-2);
+}
+.loc-edit > summary::-webkit-details-marker { display: none; }
+.loc-edit > summary:hover { background: var(--paper-2); border-color: var(--slate); }
+.loc-edit-car { transition: transform var(--t); display: inline-block; }
+.loc-edit[open] .loc-edit-car { transform: rotate(90deg); }
+.loc-edit-form { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+.loc-field { display: flex; flex-direction: column; gap: 6px; }
+.loc-field-lbl {
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3);
+}
+.loc-input {
+  min-height: 44px; border-radius: 10px; border: 1.5px solid var(--line-2);
+  background: var(--card); padding: 0 13px; font-size: 14px; color: var(--ink);
+  font-family: var(--font-sans); transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.loc-input::placeholder { color: var(--ink-3); }
+.loc-input:focus-visible {
+  outline: none; border-color: var(--rust);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rust) 18%, transparent);
+}
+.loc-field-hint { font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+.loc-field-hint b { color: var(--ink-2); font-weight: 700; }
+
+/* ── remove (two-step) ── */
+.loc-remove { margin-top: 6px; padding-top: 16px; border-top: 1px dashed var(--line-2); }
+.loc-remove-confirm { display: flex; flex-direction: column; gap: 11px; }
+.loc-remove-q { font-size: 13px; font-weight: 600; color: var(--ink); }
+.loc-remove-actions { display: flex; gap: 9px; flex-wrap: wrap; }
+.loc-remove .tk-btn-dismiss {
+  border: 1.5px solid color-mix(in srgb, var(--alert) 40%, transparent);
+  color: var(--alert-deep); padding: 11px 16px; border-radius: 11px;
+}
+.loc-remove .tk-btn-dismiss:hover { background: var(--alert-wash); }
+
+/* ── add drawer ── */
+.loc-add-chip { color: var(--rust); }
+.loc-add-lede { font-size: 13.5px; line-height: 1.55; }
+.loc-add-panel { padding: 18px; }
+
+/* ════════════════════════════════════════════════════════════
+   NEW-LOCATION PAGE (two-path decision + add form)
+   ════════════════════════════════════════════════════════════ */
+.loc-paths { display: grid; gap: 16px; margin-top: 22px; }
+.loc-path-card { display: flex; flex-direction: column; gap: 10px; }
+.loc-path-card h2 { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.01em; color: var(--ink); }
+.loc-path-card p { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.loc-path-link {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 2px;
+  font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--rust-deep);
+}
+.loc-path-link svg { transition: transform var(--t-fast); }
+.loc-path-link:hover { color: var(--rust); }
+.loc-path-link:hover svg { transform: translateX(3px); }
+@media (min-width: 720px) {
+  .loc-paths:has(.loc-path-card + .loc-path-card) { grid-template-columns: 1fr 1fr; }
+}
+
+.loc-newform { margin-top: 22px; max-width: 640px; }
+
+/* ── responsive ── */
+@media (max-width: 760px) {
+  .loc-hero-stats { gap: 16px; }
+  .loc-hero-stat-v { font-size: 19px; }
+}

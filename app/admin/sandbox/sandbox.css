@@ -1,0 +1,109 @@
+/* ============================================================
+   Admin · Demo & Test (sandbox) — page-scoped Pass styling.
+   Re-authored from a bordered <table> into a Pass card grid
+   (inherently mobile-native, no horizontal scroll). Token-driven
+   so light + warm-dark work for free. sb-* = admin-specific.
+   ============================================================ */
+
+.sb-surface {
+  position: relative;
+  min-height: 100%;
+  margin: -24px;
+  padding: 28px 24px 56px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 18px;
+}
+@media (max-width: 760px) { .sb-surface { margin: -16px; padding: 22px 16px 48px; } }
+
+/* ── header (title + lede on the left, primary action on the right) ── */
+.sb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.sb-head .sb-head-text { display: flex; flex-direction: column; gap: 12px; max-width: 60ch; }
+.sb-head .sb-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--slate-deep);
+}
+.sb-head .sb-eyebrow svg { width: 14px; height: 14px; }
+.sb-head h1 {
+  font-family: var(--font-display); font-size: clamp(24px, 3.4vw, 32px);
+  font-weight: 800; letter-spacing: -.025em; line-height: 1.08; color: var(--ink);
+}
+.sb-head .sb-lede { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+
+/* primary CTA (kit act-button shape, used as a Link) */
+.sb-new {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  flex: none; min-height: 44px; padding: 11px 18px; border-radius: 11px;
+  font-family: var(--font-display); font-weight: 700; font-size: 13.5px; line-height: 1;
+  color: #fff; background: linear-gradient(145deg, var(--rust), var(--rust-2));
+  box-shadow: var(--shadow-sm); white-space: nowrap;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.sb-new:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
+.sb-new svg { width: 16px; height: 16px; }
+@media (max-width: 560px) { .sb-new { width: 100%; } }
+
+/* ── stat strip ──────────────────────────────────────────── */
+.sb-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.sb-stat {
+  flex: 1 1 150px; min-width: 130px;
+  background: var(--card); border: 1px solid var(--line-2);
+  border-radius: var(--r-md); padding: 14px 16px; box-shadow: var(--shadow-sm);
+}
+.sb-stat .sb-k {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+}
+.sb-stat .sb-k .sb-swatch { width: 8px; height: 8px; border-radius: 3px; }
+.sb-stat .sb-k .sb-swatch-demo { background: var(--slate); }
+.sb-stat .sb-k .sb-swatch-test { background: var(--gold); }
+.sb-stat .sb-v {
+  margin-top: 6px; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -.02em; color: var(--ink);
+}
+
+/* ── org card grid ───────────────────────────────────────── */
+.sb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+@media (max-width: 460px) { .sb-grid { grid-template-columns: 1fr; } }
+
+.sb-org {
+  position: relative; background: var(--card); border: 1px solid var(--line-2);
+  border-radius: var(--r-lg); padding: 18px; box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 14px;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.sb-org:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.sb-org-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.sb-org-name { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.015em; line-height: 1.25; color: var(--ink); text-wrap: balance; }
+.sb-org-slug { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); margin-top: 3px; }
+
+.sb-kind {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  font-family: var(--font-cond); font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 4px 9px; border-radius: 999px;
+}
+.sb-kind .sb-dot { width: 6px; height: 6px; border-radius: 50%; }
+.sb-kind-demo { background: var(--slate-tint); color: var(--slate-deep); } .sb-kind-demo .sb-dot { background: var(--slate); }
+.sb-kind-test { background: var(--gold-tint); color: var(--gold-deep); } .sb-kind-test .sb-dot { background: var(--gold); }
+
+/* attribute rows */
+.sb-attrs { display: flex; flex-direction: column; gap: 8px; }
+.sb-attr { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12.5px; }
+.sb-attr .sb-ak { color: var(--ink-3); display: inline-flex; align-items: center; gap: 7px; }
+.sb-attr .sb-ak svg { width: 14px; height: 14px; color: var(--ink-3); }
+.sb-attr .sb-av { color: var(--ink); font-weight: 600; text-align: right; }
+.sb-attr .sb-av.sb-mono { font-family: var(--font-mono); font-weight: 700; }
+
+/* view action */
+.sb-view {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  margin-top: auto; min-height: 40px; padding: 9px 14px; border-radius: 11px;
+  font-family: var(--font-display); font-weight: 700; font-size: 13px; color: var(--ink);
+  background: var(--card-2); border: 1.5px solid var(--line-2);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.sb-view:hover { background: var(--paper-2); border-color: var(--slate); color: var(--rust-deep); }
+.sb-view svg { width: 14px; height: 14px; }

@@ -1,0 +1,369 @@
+/* The Pass — page-local styling for the rebuilt /insights surface.
+   All colors flow from the shared editorial tokens (so light + dark are both
+   intentional and the kits dark mode comes for free). No light-only hardcodes.
+   Scoped under .ticket-app so it never leaks past the operator surface. */
+
+.ticket-app .ins-page {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* ── Controls bar (filters + generate) — on-system soft panel ── */
+.ticket-app .ins-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.ticket-app .ins-bar > * {
+  min-height: 44px;
+}
+
+.ticket-app .ins-error {
+  border: 1px solid var(--alert);
+  background: var(--alert-wash);
+  color: var(--alert-deep);
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+/* ── shared urgency tag (briefing + cards) ── */
+.ticket-app .ins-urg {
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ticket-app .ins-urg-critical { color: var(--alert-deep); background: var(--alert-wash); border-color: color-mix(in srgb, var(--alert) 32%, transparent); }
+.ticket-app .ins-urg-warning { color: var(--gold-deep); background: var(--gold-tint); border-color: color-mix(in srgb, var(--gold) 32%, transparent); }
+.ticket-app .ins-urg-info { color: var(--teal-deep); background: var(--teal-tint); border-color: color-mix(in srgb, var(--teal) 30%, transparent); }
+
+.ticket-app .ins-subject {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ── Priority briefing ── */
+.ticket-app .ins-brief { display: flex; flex-direction: column; gap: 18px; }
+.ticket-app .ins-brief-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--thermal);
+  border: 1px solid color-mix(in srgb, var(--rust) 18%, transparent);
+}
+.ticket-app .ins-brief-action svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--rust-deep);
+}
+.ticket-app .ins-brief-action span {
+  font-size: 13.5px;
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--ink);
+}
+.ticket-app .ins-brief-grid { margin-top: 2px; }
+
+/* briefing skeleton */
+.ticket-app .ins-brief-skel { gap: 16px; }
+.ticket-app .ins-skel-head { height: 26px; width: 260px; border-radius: 8px; background: var(--line); }
+.ticket-app .ins-skel-hero { height: 220px; border-radius: var(--r-xl); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+.ticket-app .ins-skel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.ticket-app .ins-skel-card { height: 150px; border-radius: var(--r-lg); background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow-sm); }
+@media (max-width: 700px) { .ticket-app .ins-skel-grid { grid-template-columns: 1fr; } }
+
+/* ── At-a-glance widget extras ── */
+.ticket-app .ins-glance-foot {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* ── Feed ── */
+.ticket-app .ins-feed { display: flex; flex-direction: column; gap: 26px; }
+
+.ticket-app .ins-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ticket-app .ins-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.ticket-app .ins-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  font-family: var(--font-cond);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+.ticket-app .ins-tab:hover { color: var(--ink); border-color: var(--ink-3); }
+.ticket-app .ins-tab-on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.ticket-app .ins-tab-n {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-3) 16%, transparent);
+  color: inherit;
+}
+.ticket-app .ins-tab-on .ins-tab-n { background: color-mix(in srgb, var(--paper) 24%, transparent); }
+
+.ticket-app .ins-view-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card);
+}
+.ticket-app .ins-vt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  color: var(--ink-3);
+  font-family: var(--font-cond);
+  font-size: 12px;
+  font-weight: 600;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.ticket-app .ins-vt svg { width: 15px; height: 15px; }
+.ticket-app .ins-vt:hover { color: var(--ink); }
+.ticket-app .ins-vt-on { background: var(--ink); color: var(--paper); }
+
+.ticket-app .ins-cats { display: flex; flex-direction: column; gap: 28px; }
+.ticket-app .ins-cat { display: flex; flex-direction: column; gap: 14px; }
+.ticket-app .ins-cat-head { display: inline-flex; align-items: center; }
+.ticket-app .ins-grid { align-items: start; }
+.ticket-app .ins-grid > div { display: flex; }
+.ticket-app .ins-grid > div > * { width: 100%; }
+
+.ticket-app .ins-more {
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  color: var(--ink-2);
+  font-family: var(--font-cond);
+  font-size: 12.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.ticket-app .ins-more:hover { background: var(--paper-2, var(--thermal)); color: var(--ink); }
+.ticket-app .ins-more-col { align-self: stretch; width: 100%; justify-content: center; box-shadow: none; border-style: dashed; }
+
+/* ── Card internals (inside the kit TkPlayCard) ── */
+.ticket-app .ins-conf-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 2px;
+}
+.ticket-app .ins-rel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+
+.ticket-app .ins-metrics { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.ticket-app .ins-metric {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--slate-tint);
+  color: var(--slate-deep);
+}
+
+.ticket-app .ins-recs { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.ticket-app .ins-rec {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: var(--r-md);
+  background: var(--gold-tint);
+  border: 1px solid color-mix(in srgb, var(--gold) 22%, transparent);
+}
+.ticket-app .ins-rec svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; color: var(--gold-deep); }
+.ticket-app .ins-rec-t { font-size: 12.5px; font-weight: 600; line-height: 1.35; color: var(--ink); }
+.ticket-app .ins-rec-r { margin-top: 3px; font-size: 11.5px; line-height: 1.4; color: var(--ink-2); }
+
+.ticket-app .ins-sent { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+.ticket-app .ins-sent span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+.ticket-app .ins-sent span::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.ticket-app .ins-sent-p { color: var(--teal-deep); background: var(--teal-tint); }
+.ticket-app .ins-sent-m { color: var(--gold-deep); background: var(--gold-tint); }
+.ticket-app .ins-sent-n { color: var(--alert-deep); background: var(--alert-wash); }
+
+.ticket-app .ins-quotes { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+
+.ticket-app .ins-suppressed {
+  margin-top: 10px;
+  font-size: 11px;
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+/* cleared state tags on the chip row */
+.ticket-app .ins-cleared-tag {
+  font-family: var(--font-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent);
+  color: var(--ink-3);
+}
+.ticket-app .ins-cleared-tag.ins-done { color: var(--teal-deep); background: var(--teal-tint); }
+.ticket-app .ins-cleared-tag.ins-todo { color: var(--gold-deep); background: var(--gold-tint); }
+.ticket-app .ins-card-cleared { opacity: 0.62; }
+.ticket-app .ins-card-cleared:hover { opacity: 1; }
+
+/* the Track status menu (kebab-equivalent) */
+.ticket-app .ins-menu-wrap { position: relative; }
+.ticket-app .ins-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  min-width: 168px;
+  padding: 5px;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+.ticket-app .ins-menu button {
+  text-align: left;
+  padding: 9px 11px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  min-height: 40px;
+  transition: background 0.14s var(--ease);
+}
+.ticket-app .ins-menu button:hover { background: var(--thermal); }
+
+/* ── Board (kanban) ── */
+.ticket-app .ins-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.ticket-app .ins-col {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 60%, var(--paper));
+  overflow: hidden;
+}
+.ticket-app .ins-col-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 15px;
+  border-bottom: 1px solid var(--line);
+}
+.ticket-app .ins-col-head h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ticket-app .ins-col-dot { width: 9px; height: 9px; border-radius: 999px; }
+.ticket-app .ins-col-inbox .ins-col-dot { background: var(--rust); }
+.ticket-app .ins-col-todo .ins-col-dot { background: var(--gold); }
+.ticket-app .ins-col-done .ins-col-dot { background: var(--teal); }
+.ticket-app .ins-col-n {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent);
+  color: var(--ink-2);
+}
+.ticket-app .ins-col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 980px) {
+  .ticket-app .ins-board { grid-template-columns: 1fr; }
+  .ticket-app .ins-brief-skel .ins-skel-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .ticket-app .ins-page { gap: 24px; }
+  .ticket-app .ins-controls { gap: 10px; }
+  .ticket-app .ins-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .ticket-app .ins-tab { flex: 0 0 auto; }
+  .ticket-app .ins-view-toggle { margin-left: auto; }
+  /* full-width tap targets on the status menu for thumbs */
+  .ticket-app .ins-menu { left: auto; right: 0; }
+}

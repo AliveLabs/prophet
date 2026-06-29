@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import Link from "next/link"
+import { TkEmptyState } from "@/components/ticket"
 
 interface OrgRow {
   id: string
@@ -57,24 +58,29 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search by name or slug..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 w-72 rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
-        />
+    <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="ao-toolbar">
+        <div className="ao-search">
+          <SearchIcon />
+          <input
+            type="text"
+            placeholder="Search by name or slug…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="ao-input"
+            aria-label="Search organizations"
+          />
+        </div>
 
         <select
           value={tierFilter}
           onChange={(e) => setTierFilter(e.target.value)}
-          className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          className="ao-select"
+          aria-label="Filter by tier"
         >
-          <option value="all">All</option>
-          <option value="trial_active">Active Trials</option>
-          <option value="trial_expired">Expired Trials</option>
+          <option value="all">All tiers</option>
+          <option value="trial_active">Active trials</option>
+          <option value="trial_expired">Expired trials</option>
           <option value="entry">Entry</option>
           <option value="mid">Mid</option>
           <option value="top">Top</option>
@@ -84,137 +90,111 @@ export function OrgsTable({ orgs }: { orgs: OrgRow[] }) {
         <select
           value={industryFilter}
           onChange={(e) => setIndustryFilter(e.target.value)}
-          className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          className="ao-select"
+          aria-label="Filter by industry"
         >
-          <option value="all">All Industries</option>
+          <option value="all">All industries</option>
           <option value="restaurant">Restaurant</option>
-          <option value="liquor_store">Liquor Store</option>
+          <option value="liquor_store">Liquor store</option>
         </select>
 
-        <a
-          href="/api/admin/export/organizations"
-          className="ml-auto h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors inline-flex items-center"
-        >
-          Export CSV
-        </a>
+        <div className="ao-spacer">
+          <a href="/api/admin/export/organizations" className="tk-btn tk-btn-keep">
+            <DownloadIcon />
+            Export CSV
+          </a>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-card text-left">
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Name
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Industry
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Tier
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Trial Status
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Members
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Locations
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Created
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((org) => (
-              <tr key={org.id} className="hover:bg-secondary/30 transition-colors">
-                <td className="px-4 py-3">
-                  <div>
-                    <span className="font-medium text-foreground">{org.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {org.slug}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <IndustryBadge industryType={org.industryType} />
-                </td>
-                <td className="px-4 py-3">
-                  <TierBadge tier={org.tier} />
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  <TrialStatus
-                    tier={org.tier}
-                    trialEndsAt={org.trialEndsAt}
-                    paymentState={org.paymentState}
-                  />
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {org.memberCount}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {org.locationCount}
-                </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {new Date(org.createdAt).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/admin/organizations/${org.id}`}
-                    className="text-xs font-medium text-vatic-indigo hover:underline"
-                  >
-                    View
-                  </Link>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                  No organizations found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {filtered.length === 0 ? (
+        <TkEmptyState
+          icon={<SearchIcon />}
+          title="No organizations found"
+          description="Nothing matches the current search and filters. Try clearing them."
+        />
+      ) : (
+        <div className="ao-tablewrap">
+          <div className="ao-tablescroll">
+            <table className="ao-table">
+              <thead>
+                <tr>
+                  <th>Organization</th>
+                  <th>Industry</th>
+                  <th>Tier</th>
+                  <th>Status</th>
+                  <th>Members</th>
+                  <th>Locations</th>
+                  <th>Created</th>
+                  <th aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((org) => (
+                  <tr key={org.id}>
+                    <td>
+                      <span className="ao-row-name">
+                        <span className="ao-nm">{org.name}</span>
+                        <span className="ao-slug">/{org.slug}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <IndustryBadge industryType={org.industryType} />
+                    </td>
+                    <td>
+                      <TierBadge tier={org.tier} />
+                    </td>
+                    <td>
+                      <TrialStatus
+                        tier={org.tier}
+                        trialEndsAt={org.trialEndsAt}
+                        paymentState={org.paymentState}
+                      />
+                    </td>
+                    <td className="ao-cell-num">{org.memberCount}</td>
+                    <td className="ao-cell-num">{org.locationCount}</td>
+                    <td className="ao-cell-num">
+                      {new Date(org.createdAt).toLocaleDateString()}
+                    </td>
+                    <td>
+                      <Link
+                        href={`/admin/organizations/${org.id}`}
+                        className="ao-link"
+                      >
+                        View
+                        <ArrowIcon />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function IndustryBadge({ industryType }: { industryType: string }) {
-  const label = industryType === "liquor_store" ? "Liquor Store" : "Restaurant"
-  const color =
-    industryType === "liquor_store"
-      ? "bg-signal-gold/10 text-signal-gold"
-      : "bg-vatic-indigo/10 text-vatic-indigo"
-
+  const isLiquor = industryType === "liquor_store"
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
-    >
-      {label}
+    <span className={`ao-badge ${isLiquor ? "ao-badge-gold" : "ao-badge-slate"}`}>
+      {isLiquor ? "Liquor store" : "Restaurant"}
     </span>
   )
 }
 
 function TierBadge({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    entry: "bg-vatic-indigo/10 text-vatic-indigo",
-    mid: "bg-precision-teal/10 text-precision-teal",
-    top: "bg-signal-gold/10 text-signal-gold",
-    suspended: "bg-destructive/10 text-destructive",
+  const tone: Record<string, string> = {
+    entry: "ao-badge-slate",
+    mid: "ao-badge-teal",
+    top: "ao-badge-gold",
+    suspended: "ao-badge-alert",
   }
-
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${colors[tier] ?? "bg-secondary text-foreground"}`}
-    >
-      {tier}
+    <span className={`ao-badge ${tone[tier] ?? "ao-badge-ink"}`}>
+      <span className="ao-led" aria-hidden="true" />
+      <span style={{ textTransform: "capitalize" }}>{tier}</span>
     </span>
   )
 }
@@ -230,25 +210,59 @@ function TrialStatus({
 }) {
   const now = useMemo(() => new Date(), [])
 
-  if (tier === "suspended") return <span className="text-destructive">Suspended</span>
-  if (paymentState === "active") return <span className="text-precision-teal">Paid</span>
-  if (paymentState === "past_due") return <span className="text-destructive">Past due</span>
-  if (paymentState === "canceled" || paymentState === "incomplete_expired" || paymentState === "unpaid") {
-    return <span className="text-muted-foreground">Canceled</span>
+  if (tier === "suspended")
+    return <span className="ao-badge ao-badge-alert"><span className="ao-led" />Suspended</span>
+  if (paymentState === "active")
+    return <span className="ao-badge ao-badge-teal"><span className="ao-led" />Paid</span>
+  if (paymentState === "past_due")
+    return <span className="ao-badge ao-badge-alert"><span className="ao-led" />Past due</span>
+  if (
+    paymentState === "canceled" ||
+    paymentState === "incomplete_expired" ||
+    paymentState === "unpaid"
+  ) {
+    return <span className="ao-badge ao-badge-ink"><span className="ao-led" />Canceled</span>
   }
-  if (!trialEndsAt) return <span>No trial</span>
+  if (!trialEndsAt) return <span className="ao-badge ao-badge-ink">No trial</span>
 
   const endsAt = new Date(trialEndsAt)
   if (endsAt <= now) {
-    return <span className="text-destructive">Expired</span>
+    return <span className="ao-badge ao-badge-alert"><span className="ao-led" />Expired</span>
   }
 
   const daysLeft = Math.ceil(
     (endsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
   )
+  const tone = daysLeft <= 2 ? "ao-badge-alert" : daysLeft <= 5 ? "ao-badge-gold" : "ao-badge-teal"
   return (
-    <span className="text-precision-teal">
-      {daysLeft}d remaining{paymentState === "trialing" ? "" : " · no card"}
+    <span className={`ao-badge ${tone}`}>
+      <span className="ao-led" />
+      {daysLeft}d left{paymentState === "trialing" ? "" : " · no card"}
     </span>
+  )
+}
+
+/* ── icons ──────────────────────────────────────────────── */
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <circle cx="7" cy="7" r="5" />
+      <path d="M11 11l3.5 3.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+function DownloadIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <path d="M8 2v8M5 7l3 3 3-3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 13h10" strokeLinecap="round" />
+    </svg>
+  )
+}
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <path d="M3 8h9M8 4l4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }

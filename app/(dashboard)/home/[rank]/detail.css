@@ -1,0 +1,503 @@
+/* ============================================================
+   THE PASS — play DETAIL page (home/[rank]) scoped styles.
+   Everything is scoped under .pd-page and draws COLOR/RADII/
+   SHADOW/MOTION exclusively from the shared token SSOT (paper/
+   rust/card/line/ink/shadow-*r-*t-*), so light + warm-dark
+   both work for free. No light-only hardcoded colors.
+   Mobile-first: reflows to a single column, ≥44px targets,
+   no horizontal scroll. Motion no-ops under reduced-motion
+   (RevealOnView + kit viz handle that).
+   ============================================================ */
+
+/* The page sits inside .pv-page (operator chrome) — widen the rhythm a touch
+   and stack the rebuilt body sections. */
+.pd-page {
+  display: flex;
+  flex-direction: column;
+}
+
+/* page-title chrome: tighten the editorial h1 to the kit display scale so it
+   reads as the same product, not the big newsprint serif. */
+.pd-page .pv-h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.08;
+  text-wrap: balance;
+  max-width: 22ch;
+}
+.pd-head {
+  margin-bottom: 26px;
+}
+
+/* ── HERO ───────────────────────────────────────────────── */
+.pd-hero-wrap {
+  margin-bottom: 8px;
+}
+
+/* the at-a-glance read strip inside the hero body */
+.pd-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  padding: 14px 0 2px;
+  border-top: 1px solid var(--line);
+}
+.pd-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pd-meta-k {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pd-meta-v {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pd-meta-reach {
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* %-framed honest estimate panel */
+.pd-estimate {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+.pd-estimate-tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.pd-estimate-v {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.pd-estimate-basis {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+
+/* the hero canvas family glyph badge */
+.pd-hero-canvas {
+  background: radial-gradient(
+      120% 90% at 20% 0%,
+      color-mix(in srgb, var(--rust) 50%, transparent),
+      transparent 55%
+    ),
+    linear-gradient(150deg, var(--slate-2), color-mix(in srgb, var(--slate-2) 70%, #000 30%) 80%);
+}
+.pd-hero-fam {
+  position: absolute;
+  z-index: 2;
+  left: 22px;
+  bottom: 20px;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.pd-hero-fam svg {
+  width: 22px;
+  height: 22px;
+  color: #fff;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pd-hero-mark circle {
+    animation: pd-twinkle 4.5s var(--ease, ease) infinite;
+  }
+  .pd-hero-mark circle:nth-child(2) { animation-delay: 0.6s; }
+  .pd-hero-mark circle:nth-child(3) { animation-delay: 1.2s; }
+  .pd-hero-mark circle:nth-child(4) { animation-delay: 1.8s; }
+}
+@keyframes pd-twinkle {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+/* ── SECTIONS ───────────────────────────────────────────── */
+.pd-section {
+  margin-top: 30px;
+}
+.pd-card {
+  /* a kit card that hosts a single viz block — kit defaults apply */
+  overflow: hidden;
+}
+
+/* ── PLAN STEPS ─────────────────────────────────────────── */
+.pd-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pd-step {
+  padding: 18px 20px;
+}
+.pd-pb {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pd-pb h5 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.pd-step-when {
+  font-size: 13.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.pd-step-meta {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.pd-step-meta-k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 4px;
+}
+.pd-step-deps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  list-style: none;
+}
+.pd-step-deps li {
+  position: relative;
+  padding-left: 16px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.pd-step-deps li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--rust);
+}
+.pd-copy {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--rust);
+}
+.pd-copy-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--rust-deep);
+  margin-bottom: 5px;
+}
+.pd-copy-body {
+  font-size: 13.5px;
+  color: var(--ink);
+  line-height: 1.55;
+}
+
+/* ── EVIDENCE ───────────────────────────────────────────── */
+.pd-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pd-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+.pd-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid var(--teal);
+}
+.pd-fact-stat {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.pd-fact-sowhat {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.pd-fact-rate {
+  font-size: 14px;
+  color: var(--ink);
+}
+.pd-fact-rate b {
+  font-weight: 700;
+}
+.pd-fact-src {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pd-fact-src a {
+  color: var(--rust-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pd-signals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 13px;
+}
+.pd-signal {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pd-signal-type {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slate-deep);
+}
+.pd-signal-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.pd-signal-sum {
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.pd-refs {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.pd-refs-lbl {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pd-refs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.pd-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: var(--slate-tint);
+  color: var(--slate-deep);
+  font-family: var(--font-cond);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.pd-why-wrap {
+  margin-top: 14px;
+}
+
+/* ── RIVAL PROOF GRID (page-local social cards) ─────────── */
+.pd-proof-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.pd-proof {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pd-proof:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+}
+.pd-proof-media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--paper-2);
+}
+.pd-proof-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pd-proof-img-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  min-height: 0;
+}
+.pd-proof-img-text span {
+  font-family: var(--font-editorial, var(--font-display));
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+}
+.pd-proof-net {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  z-index: 2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 26, 32, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  padding: 4px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.pd-proof-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 14px 16px 16px;
+}
+.pd-proof-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pd-proof-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pd-proof-handle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+.pd-proof-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pd-proof-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: var(--card-2);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.pd-proof-stat-ic {
+  display: inline-flex;
+  color: var(--rust);
+}
+.pd-proof-stat-ic svg {
+  width: 13px;
+  height: 13px;
+}
+.pd-proof-stat-k {
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.pd-proof-why {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.pd-proof-why-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal-deep);
+  margin-bottom: 3px;
+}
+
+/* ── RESPONSIVE / MOBILE ────────────────────────────────── */
+@media (max-width: 760px) {
+  .pd-meta-strip {
+    gap: 12px 20px;
+  }
+  .pd-facts,
+  .pd-signals {
+    grid-template-columns: 1fr;
+  }
+  .pd-proof-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* the editorial back link gets a ≥44px tap target on touch widths */
+@media (max-width: 760px) {
+  .pd-page .pv-back {
+    min-height: 44px;
+    align-items: center;
+  }
+}

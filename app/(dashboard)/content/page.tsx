@@ -3,11 +3,10 @@ import { requireUser } from "@/lib/auth/server"
 import { getScreenshotUrl } from "@/lib/content/storage"
 import LocationFilter from "@/components/ui/location-filter"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
-import MenuViewer from "@/components/content/menu-viewer"
-import MenuCompare from "@/components/content/menu-compare"
-import { Card, CardHeader, CardTitle } from "@/components/ui/card"
 import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
+import ContentBoard, { type CompetitorMenuDisplay } from "./content-board"
+import "./content.css"
 
 type PageProps = {
   searchParams?: Promise<{
@@ -15,47 +14,6 @@ type PageProps = {
     error?: string
     success?: string
   }>
-}
-
-// ---------------------------------------------------------------------------
-// Feature badge component
-// ---------------------------------------------------------------------------
-
-function FeatureBadge({
-  label,
-  active,
-}: {
-  label: string
-  active: boolean
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
-        active
-          ? "bg-precision-teal/15 text-precision-teal"
-          : "bg-secondary text-muted-foreground"
-      }`}
-    >
-      {active ? (
-        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-            clipRule="evenodd"
-          />
-        </svg>
-      ) : (
-        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fillRule="evenodd"
-            d="M4 10a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 10z"
-            clipRule="evenodd"
-          />
-        </svg>
-      )}
-      {label}
-    </span>
-  )
 }
 
 export default async function ContentPage({ searchParams }: PageProps) {
@@ -109,12 +67,6 @@ export default async function ContentPage({ searchParams }: PageProps) {
     }
   }
 
-  type CompetitorMenuDisplay = {
-    competitorName: string
-    categories: MenuSnapshot["categories"]
-    avgPrice: number | null
-    itemCount: number
-  }
   const competitorMenus: CompetitorMenuDisplay[] = []
 
   for (const cms of cached.competitorMenuSnaps) {
@@ -163,192 +115,63 @@ export default async function ContentPage({ searchParams }: PageProps) {
     : null
 
   return (
-    <section className="space-y-5">
-      {/* Filter + Actions Bar */}
-      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        {locations && locations.length > 0 && selectedLocationId && (
-          <LocationFilter
-            locations={locations.map((l) => ({ id: l.id, name: l.name }))}
-            selectedLocationId={selectedLocationId}
+    <div className="pv-page">
+      <div className="pv-page-head">
+        <span className="pv-kicker">Your storefront</span>
+        <h1 className="pv-h1">Content &amp; menu</h1>
+        <p className="pv-sub">
+          What customers see on your site — the menu, prices, and features we read from it — lined up
+          honestly against your competitors&apos; own published menus.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      {/* control bar — location filter + refresh, on-system */}
+      <div className="tk-kit">
+        <div className="content-controls">
+          {locations && locations.length > 0 && selectedLocationId && (
+            <LocationFilter
+              locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+              selectedLocationId={selectedLocationId}
+            />
+          )}
+          <JobRefreshButton
+            type="content"
+            locationId={selectedLocationId ?? ""}
+            label="Refresh content"
+            pendingLabel="Reading your website"
+            disabled={!selectedLocationId}
           />
+          {lastRefreshDate && (
+            <span className="content-refreshed">
+              <span className="content-dot" aria-hidden="true" />
+              Read {lastRefreshDate}
+            </span>
+          )}
+        </div>
+
+        {error && (
+          <div className="content-banner content-banner-err" role="alert">
+            {decodeURIComponent(error.replace(/\+/g, " "))}
+          </div>
         )}
-        <JobRefreshButton
-          type="content"
-          locationId={selectedLocationId ?? ""}
-          label="Refresh Content"
-          pendingLabel="Scraping website content"
-          disabled={!selectedLocationId}
-        />
-        {lastRefreshDate && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="live-dot" aria-hidden="true" />
-            Last refresh: {lastRefreshDate}
-          </span>
+        {success && (
+          <div className="content-banner content-banner-ok" role="status">
+            {decodeURIComponent(success.replace(/\+/g, " "))}
+          </div>
         )}
       </div>
 
-      {selectedLocation?.website && (
-        <div className="animate-fade-up flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground" style={{ animationDelay: "40ms" }}>
-          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-          </svg>
-          <span>
-            Tracking:{" "}
-            <span className="font-medium text-foreground">{selectedLocation.website}</span>
-          </span>
-          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
-            Change URL
-          </a>
-        </div>
-      )}
-
-      {/* Error / Success banners */}
-      {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {decodeURIComponent(error.replace(/\+/g, " "))}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
-          {decodeURIComponent(success.replace(/\+/g, " "))}
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!siteContentSnap && !menuSnap && (
-        <Card className="animate-fade-up py-12 text-center" style={{ animationDelay: "80ms" }}>
-          <div className="mx-auto max-w-sm space-y-3">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--rust-tint,#F4E2D7)]">
-              <svg className="h-7 w-7 text-[var(--rust,#B85C38)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-foreground">No content scraped yet</p>
-            <p className="text-xs text-muted-foreground">
-              Click &quot;Refresh Content&quot; to scrape your website for menu items, pricing, screenshots, and site feature detection.
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {/* Hero Screenshot */}
-      {screenshotUrl && (
-        <div className="animate-fade-up overflow-hidden rounded-2xl border border-border shadow-sm" style={{ animationDelay: "80ms" }}>
-          <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={screenshotUrl}
-              alt={`Screenshot of ${selectedLocation?.name ?? "website"}`}
-              className="w-full object-cover"
-              style={{ maxHeight: "400px" }}
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-5">
-              <h2 className="text-lg font-bold text-white">
-                {selectedLocation?.name}
-              </h2>
-              {selectedLocation?.website && (
-                <a
-                  href={selectedLocation.website.startsWith("http") ? selectedLocation.website : `https://${selectedLocation.website}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-white/80 underline hover:text-white"
-                >
-                  {selectedLocation.website}
-                </a>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Site Features */}
-      {siteContentSnap && (
-        <Card className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-          <CardHeader>
-            <CardTitle className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Website Features Detected</CardTitle>
-          </CardHeader>
-          <div className="flex flex-wrap gap-2 px-6 pb-5">
-            <FeatureBadge label="Online Reservations" active={siteContentSnap.detected.reservation} />
-            <FeatureBadge label="Online Ordering" active={siteContentSnap.detected.onlineOrdering} />
-            <FeatureBadge label="Private Dining" active={siteContentSnap.detected.privateDining} />
-            <FeatureBadge label="Catering" active={siteContentSnap.detected.catering} />
-            <FeatureBadge label="Happy Hour" active={siteContentSnap.detected.happyHour} />
-            {siteContentSnap.detected.deliveryPlatforms.length > 0 && (
-              <FeatureBadge
-                label={`Delivery: ${siteContentSnap.detected.deliveryPlatforms.join(", ")}`}
-                active
-              />
-            )}
-            {siteContentSnap.detected.deliveryPlatforms.length === 0 && (
-              <FeatureBadge label="Delivery Platforms" active={false} />
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* Menu Viewer + Menu Screenshot */}
-      {menuSnap && menuSnap.categories.length > 0 && (
-        <div className="animate-fade-up grid gap-6 xl:grid-cols-3" style={{ animationDelay: "160ms" }}>
-          <div className="xl:col-span-2">
-            <MenuViewer
-              categories={menuSnap.categories}
-              currency={menuSnap.currency}
-              itemsTotal={menuSnap.parseMeta.itemsTotal}
-              confidence={menuSnap.parseMeta.confidence}
-              sources={menuSnap.parseMeta.sources}
-            />
-          </div>
-          <div className="space-y-4">
-            {menuScreenshotUrl && (
-              <div className="overflow-hidden rounded-2xl border border-border">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={menuScreenshotUrl}
-                  alt="Menu page screenshot"
-                  className="w-full object-cover"
-                  style={{ maxHeight: "300px" }}
-                />
-                <div className="bg-secondary px-3 py-2">
-                  <p className="text-[10px] text-muted-foreground">Menu page screenshot</p>
-                </div>
-              </div>
-            )}
-            {menuSnap.parseMeta.notes.length > 0 && (
-              <div className="rounded-xl border border-border bg-secondary p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Parse Notes
-                </p>
-                {menuSnap.parseMeta.notes.map((note, i) => (
-                  <p key={i} className="mt-1 text-xs text-muted-foreground">{note}</p>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Menu says no items */}
-      {menuSnap && menuSnap.categories.length === 0 && (
-        <Card className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">No menu items could be extracted from the website.</p>
-          {menuSnap.parseMeta.notes.length > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">{menuSnap.parseMeta.notes.join(". ")}</p>
-          )}
-        </Card>
-      )}
-
-      {/* Competitor Menu Compare */}
-      {menuSnap && menuSnap.categories.length > 0 && competitorMenus.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-          <MenuCompare
-            locationName={selectedLocation?.name ?? "Your Location"}
-            locationCategories={menuSnap.categories}
-            locationAvgPrice={locAvgPrice}
-            competitors={competitorMenus}
-          />
-        </div>
-      )}
-    </section>
+      <ContentBoard
+        locationName={selectedLocation?.name ?? "Your location"}
+        website={selectedLocation?.website ?? null}
+        screenshotUrl={screenshotUrl}
+        menuScreenshotUrl={menuScreenshotUrl}
+        siteContent={siteContentSnap}
+        menu={menuSnap}
+        locAvgPrice={locAvgPrice}
+        competitorMenus={competitorMenus}
+      />
+    </div>
   )
 }

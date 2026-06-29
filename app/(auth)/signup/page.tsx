@@ -3,7 +3,15 @@ import { redirect } from "next/navigation"
 import { sendMagicLinkAction, signInWithGoogleAction } from "../login/actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { HashTokenHandler } from "@/components/auth/hash-token-handler"
-import "../../chrome.css"
+import {
+  AuthBrandMark,
+  AuthGoogleIcon,
+  AuthMailIcon,
+  AuthErrorIcon,
+  AuthOkIcon,
+} from "../login/auth-icons"
+import "@/components/ticket/pass.css"
+import "../login/auth.css"
 
 type SignupPageProps = {
   searchParams?: Promise<{ error?: string; sent?: string }>
@@ -28,31 +36,93 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   const sent = resolvedSearchParams?.sent
 
   return (
-    <main className="ticket-chrome">
+    <main className="ticket-chrome auth-shell">
       <HashTokenHandler />
-      <div className="chrome-card auth-card">
-        <div className="auth-brand">TICKET</div>
-        <span className="chrome-kicker">Get started</span>
-        <h1 className="chrome-h">Set up in <em>minutes</em>.</h1>
-        <p className="chrome-sub">Name your competitors and Ticket starts watching menus, pricing, reviews, and social from day one.</p>
 
-        {error ? <p className="chrome-msg chrome-msg--error">{decodeURIComponent(error)}</p> : null}
-        {sent ? <p className="chrome-msg chrome-msg--ok">Magic link sent. Check your email to continue.</p> : null}
+      <div className="auth-split">
+        {/* LEFT — pearlescent canvas + welcome lede (desktop/tablet) */}
+        <section className="auth-canvas">
+          <span className="auth-canvas__brand">
+            <span className="auth-mark" aria-hidden="true"><AuthBrandMark /></span>
+            Ticket
+          </span>
 
-        <form action={sendMagicLinkAction} className="auth-form">
-          <input type="hidden" name="redirect_to" value="/signup" />
-          <label className="chrome-label" htmlFor="email">Email</label>
-          <input id="email" className="chrome-input" name="email" type="email" required placeholder="you@restaurant.com" />
-          <button type="submit" className="chrome-btn auth-submit">Send magic link</button>
-        </form>
+          <div className="auth-lede">
+            <span className="auth-kicker">Get started</span>
+            <h1 className="auth-h">Create your <em>account</em>.</h1>
+            <p className="auth-lede__sub">
+              Name your competitors and Ticket starts watching menus, pricing,
+              reviews, and social from day one.
+            </p>
+          </div>
 
-        <div className="chrome-or"><span>or</span></div>
+          <div className="auth-badge">
+            <span className="auth-badge__dot" aria-hidden="true" />
+            <span className="auth-badge__txt">
+              <span className="auth-badge__k">Setup</span>
+              <span className="auth-badge__v">Live in minutes</span>
+            </span>
+          </div>
+        </section>
 
-        <form action={signInWithGoogleAction}>
-          <button type="submit" className="chrome-btn chrome-btn--ghost auth-google">Continue with Google</button>
-        </form>
+        {/* RIGHT — floating form panel */}
+        <section className="auth-panelcol">
+          <div className="auth-panel">
+            {/* welcome message repeats inside the panel on mobile (canvas lede hides) */}
+            <div className="auth-panel__lede">
+              <span className="auth-kicker">Get started</span>
+              <h2 className="auth-panel__h">Create your <em>account</em>.</h2>
+              <p className="auth-panel__sub">
+                Passwordless. We&apos;ll email you a secure magic link to finish setup.
+              </p>
+            </div>
 
-        <p className="auth-alt">Already have an account? <Link className="chrome-link" href="/login">Sign in</Link>.</p>
+            {error ? (
+              <p className="auth-msg auth-msg--error" role="alert">
+                <AuthErrorIcon />
+                <span>{decodeURIComponent(error)}</span>
+              </p>
+            ) : null}
+            {sent ? (
+              <p className="auth-msg auth-msg--ok" role="status">
+                <AuthOkIcon />
+                <span>Magic link sent. Check your email to continue.</span>
+              </p>
+            ) : null}
+
+            <form action={sendMagicLinkAction} className="auth-form">
+              <input type="hidden" name="redirect_to" value="/signup" />
+              <label className="auth-label" htmlFor="email">Email</label>
+              <input
+                id="email"
+                className="auth-input"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                placeholder="you@restaurant.com"
+              />
+              <button type="submit" className="auth-submit">
+                <AuthMailIcon />
+                Send magic link
+              </button>
+            </form>
+
+            <div className="auth-or"><span>or</span></div>
+
+            <form action={signInWithGoogleAction}>
+              <button type="submit" className="auth-social">
+                <AuthGoogleIcon />
+                Continue with Google
+              </button>
+            </form>
+
+            <p className="auth-alt">
+              Already have an account?{" "}
+              <Link className="auth-link" href="/login">Sign in</Link>.
+            </p>
+          </div>
+        </section>
       </div>
     </main>
   )

@@ -1,0 +1,131 @@
+/* The Pass — Weather page-local styles.
+ * Page-scoped only (new file inside the weather route folder). Reuses the shared
+ * design tokens (--ink/--rust/--gold/--card/--line/--r-*--shadow-*--t-* etc.) so
+ * BOTH themes flow from tokens — no hardcoded light-only colors. Mirrors the kit's
+ * own conventions; everything sits under .tk-kit so the kit reset applies.
+ * All transitions/animations no-op under reduced-motion (see foot of file). */
+
+/* ── page rhythm ── */
+.tk-weather-body { display: flex; flex-direction: column; gap: 26px; }
+
+/* ── toolbar (location filter + refresh) ── */
+.tk-weather-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: var(--r-lg);
+  border: 1px solid var(--line); background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+.tk-weather-toolbar .tk-tb-spacer { flex: 1 1 auto; }
+
+/* ── lead / hero card ── */
+.tk-weather-lead { padding: 22px 22px 20px; border-radius: var(--r-xl); box-shadow: var(--shadow-md, var(--shadow-sm)); }
+@media (max-width: 460px) { .tk-weather-lead { padding: 18px 16px 16px; } }
+
+/* ── hero "now + next 7" extras ── */
+.tk-weather-now {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: 4px 0 16px;
+}
+.tk-weather-now-temp {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(40px, 9vw, 54px); font-weight: 700; line-height: 1; color: var(--ink);
+}
+.tk-weather-now-meta { display: flex; flex-direction: column; gap: 3px; }
+.tk-weather-now-cond { font-size: 15px; font-weight: 600; color: var(--ink); text-transform: capitalize; }
+.tk-weather-now-sub { font-size: 12.5px; color: var(--ink-2); }
+.tk-weather-now-ic { width: 46px; height: 46px; }
+.tk-weather-now-ic.tk-sun-ic { color: var(--gold); }
+.tk-weather-now-ic.tk-cloud-ic { color: var(--slate); }
+.tk-weather-now-ic.tk-rain-ic { color: #4E7AA8; }
+.tk-weather-now-ic.tk-storm-ic { color: var(--alert); }
+
+/* ── trend card ── */
+.tk-trend-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.tk-trend-sub { font-size: 12.5px; color: var(--ink-2); margin-top: 3px; }
+.tk-trend-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 10.5px; color: var(--ink-2); }
+.tk-trend-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tk-trend-legend i { width: 16px; height: 9px; border-radius: 3px; display: inline-block; }
+.tk-trend-leg-dash { border: 1px dashed var(--line-2); background: color-mix(in srgb, var(--slate) 10%, transparent); }
+.tk-trend-plot { height: 320px; width: 100%; }
+.tk-trend-skel {
+  height: 100%; width: 100%; border-radius: var(--r-md);
+  background: linear-gradient(100deg, var(--card-2) 30%, var(--line) 50%, var(--card-2) 70%);
+  background-size: 220% 100%; animation: tk-skel 1.4s ease-in-out infinite;
+}
+@keyframes tk-skel { to { background-position: -120% 0; } }
+.tk-trend-src { text-align: right; font-size: 10px; color: var(--ink-3); margin-top: 10px; }
+
+/* ── correlation evidence ── */
+.tk-corr-head { margin-bottom: 14px; }
+.tk-corr-sub { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin-top: 4px; max-width: 60ch; }
+.tk-corr-foot { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin-top: 14px; }
+
+/* ── weather action plays: checklist inside the kit play cards ── */
+.tk-weather-plays { gap: 16px; }
+.tk-weather-checklist { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.tk-weather-checklist li { display: flex; align-items: flex-start; gap: 8px; font-size: 12.5px; line-height: 1.45; color: var(--ink); }
+.tk-weather-checklist li svg { width: 14px; height: 14px; flex: none; margin-top: 2px; color: var(--rust); }
+
+/* ── per-location tiles ── */
+.tk-loc-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px;
+}
+.tk-loc-tile {
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 15px;
+  background: var(--card); transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.tk-loc-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.tk-loc-severe { border-color: color-mix(in srgb, var(--alert) 36%, var(--line)); background: var(--alert-wash); }
+.tk-loc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tk-loc-meta { min-width: 0; }
+.tk-loc-name { font-size: 13.5px; font-weight: 700; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-loc-date { font-size: 10.5px; color: var(--ink-3); margin-top: 2px; }
+.tk-loc-ic { width: 34px; height: 34px; flex: none; }
+.tk-loc-ic.tk-sun-ic { color: var(--gold); }
+.tk-loc-ic.tk-cloud-ic { color: var(--slate); }
+.tk-loc-ic.tk-rain-ic { color: #4E7AA8; }
+.tk-loc-ic.tk-storm-ic { color: var(--alert); }
+.tk-loc-temps { display: flex; align-items: baseline; gap: 6px; margin-top: 12px; }
+.tk-loc-hi { font-size: 26px; font-weight: 700; color: var(--ink); }
+.tk-loc-lo { font-size: 14px; color: var(--ink-2); }
+.tk-loc-cond { font-size: 12px; color: var(--ink-2); text-transform: capitalize; margin-top: 2px; }
+.tk-loc-meter { height: 5px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 10px 0 9px; }
+.tk-loc-meter i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--slate), var(--gold)); transition: width .9s var(--ease); }
+.tk-loc-stats { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10.5px; color: var(--ink-3); }
+.tk-loc-precip { color: #4E7AA8; font-weight: 700; }
+.tk-loc-alert {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+  font-size: 11px; font-weight: 700; color: var(--alert-deep);
+}
+.tk-loc-alert svg { width: 14px; height: 14px; }
+
+/* ── engine weather-related insights ── */
+.tk-wins-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.tk-wins-row {
+  border: 1px solid var(--line); border-radius: var(--r-md); padding: 13px 15px; background: var(--card);
+}
+.tk-wins-row.tk-wins-warn { border-color: color-mix(in srgb, var(--gold) 32%, var(--line)); background: color-mix(in srgb, var(--gold) 8%, var(--card)); }
+.tk-wins-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.tk-wins-sum { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); margin-top: 3px; }
+.tk-wins-date { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); margin-top: 6px; }
+
+/* ── mobile (everything reflows; ≥44px targets handled by kit) ── */
+@media (max-width: 760px) {
+  .tk-weather-body { gap: 20px; }
+  .tk-trend-plot { height: 280px; }
+  .tk-loc-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 460px) {
+  .tk-loc-grid { grid-template-columns: 1fr; }
+  .tk-trend-plot { height: 250px; }
+}
+
+/* reduced-motion: kill the page-local meter + skeleton motion */
+@media (prefers-reduced-motion: reduce) {
+  .tk-loc-meter i { transition: none; }
+  .tk-loc-tile:hover { transform: none; }
+  .tk-trend-skel { animation: none; }
+}

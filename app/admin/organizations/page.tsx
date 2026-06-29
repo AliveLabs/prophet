@@ -1,8 +1,11 @@
 import { connection } from "next/server"
+import type { CSSProperties } from "react"
 import Link from "next/link"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isTrialing, isPaidActive } from "@/lib/billing/trial"
+import { RevealOnView } from "@/components/ticket"
 import { OrgsTable } from "./components/orgs-table"
+import "./orgs.css"
 
 interface OrgRow {
   id: string
@@ -110,80 +113,68 @@ export default async function AdminOrgsPage() {
   const { orgs, deleted, stats } = await fetchOrgs()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Organizations
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage all organizations, adjust tiers, and reset trials.
+    <div className="ticket-chrome tk-kit ao-page">
+      <RevealOnView as="header" className="ao-page-head">
+        <span className="tk-eyebrow">Platform · Accounts</span>
+        <h1>Organizations</h1>
+        <p>
+          Every organization on the platform — adjust tiers, manage trials,
+          view as the customer, and run the destructive operations.
         </p>
-      </div>
+      </RevealOnView>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Total Orgs" value={stats.total} />
-        <StatCard
-          label="Active Trials"
-          value={stats.activeTrials}
-          color="text-precision-teal"
-        />
-        <StatCard
-          label="Expired Trials"
-          value={stats.expiredTrials}
-          color="text-signal-gold"
-        />
-        <StatCard
-          label="Paid"
-          value={stats.paid}
-          color="text-vatic-indigo"
-        />
-      </div>
+      <RevealOnView className="ao-stats" stagger>
+        <StatTile i={0} label="Total" value={stats.total} tone="ink" />
+        <StatTile i={1} label="Active Trials" value={stats.activeTrials} tone="teal" />
+        <StatTile i={2} label="Expired Trials" value={stats.expiredTrials} tone="gold" />
+        <StatTile i={3} label="Paid" value={stats.paid} tone="rust" />
+      </RevealOnView>
 
-      <OrgsTable orgs={orgs} />
+      <RevealOnView>
+        <OrgsTable orgs={orgs} />
+      </RevealOnView>
 
       {deleted.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
-            Deleted ({deleted.length})
-          </h2>
-          <ul className="divide-y divide-border text-sm">
+        <RevealOnView className="tk-card">
+          <div className="ao-cardlbl">
+            Deleted <span className="ao-count">{deleted.length}</span>
+          </div>
+          <div className="ao-deleted-list">
             {deleted.map((o) => (
-              <li key={o.id} className="flex items-center justify-between py-2">
-                <Link
-                  href={`/admin/organizations/${o.id}`}
-                  className="text-vatic-indigo hover:underline"
-                >
-                  {o.name} <span className="text-muted-foreground">/{o.slug}</span>
+              <div key={o.id} className="ao-deleted-row">
+                <Link href={`/admin/organizations/${o.id}`}>
+                  {o.name} <span className="ao-slug">/{o.slug}</span>
                 </Link>
-                <span className="text-xs text-muted-foreground">
+                <span className="ao-when">
                   deleted {new Date(o.deletedAt).toLocaleDateString()}
                 </span>
-              </li>
+              </div>
             ))}
-          </ul>
-        </div>
+          </div>
+        </RevealOnView>
       )}
     </div>
   )
 }
 
-function StatCard({
+function StatTile({
+  i,
   label,
   value,
-  color,
+  tone,
 }: {
+  i: number
   label: string
   value: number
-  color?: string
+  tone: "ink" | "teal" | "gold" | "rust"
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className={`mt-2 text-3xl font-bold ${color ?? "text-foreground"}`}>
-        {value}
-      </p>
+    <div className={`ao-stat ao-tone-${tone}`} style={{ "--tk-i": i } as CSSProperties}>
+      <span className="ao-stat-lbl">{label}</span>
+      <span className="ao-stat-val">{value}</span>
+      <span className="ao-stat-bar" aria-hidden="true">
+        <i />
+      </span>
     </div>
   )
 }

@@ -8,48 +8,27 @@ interface StatsCardsProps {
 }
 
 export function WaitlistStatsCards({ stats }: StatsCardsProps) {
-  const cards = [
-    {
-      label: "Total Signups",
-      value: stats.total,
-      color: "text-foreground",
-      bg: "bg-secondary/50",
-    },
-    {
-      label: "Pending Review",
-      value: stats.pending,
-      color: "text-signal-gold",
-      bg: "bg-signal-gold/10",
-    },
-    {
-      label: "Approved",
-      value: stats.approved,
-      color: "text-precision-teal",
-      bg: "bg-precision-teal/10",
-    },
-    {
-      label: "Declined",
-      value: stats.declined,
-      color: "text-destructive",
-      bg: "bg-destructive/10",
-    },
-  ]
-
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className={`rounded-xl border border-border ${card.bg} p-5`}
-        >
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {card.label}
-          </p>
-          <p className={`mt-2 text-3xl font-bold ${card.color}`}>
-            {card.value}
-          </p>
-        </div>
-      ))}
+    <div className="ap-stats">
+      {/* Pending is the actionable count → the lead gradient tile */}
+      <div className="ap-stat ap-stat-lead">
+        <span className="ap-stat-lbl">Pending review</span>
+        <span className="ap-stat-val">{stats.pending}</span>
+      </div>
+      <div className="ap-stat">
+        <span className="ap-stat-lbl">Total signups</span>
+        <span className="ap-stat-val">{stats.total}</span>
+      </div>
+      <div className="ap-stat ap-stat-teal">
+        <span className="ap-stat-rail" aria-hidden="true" />
+        <span className="ap-stat-lbl">Approved</span>
+        <span className="ap-stat-val">{stats.approved}</span>
+      </div>
+      <div className="ap-stat ap-stat-alert">
+        <span className="ap-stat-rail" aria-hidden="true" />
+        <span className="ap-stat-lbl">Declined</span>
+        <span className="ap-stat-val">{stats.declined}</span>
+      </div>
     </div>
   )
 }

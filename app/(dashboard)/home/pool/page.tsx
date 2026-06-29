@@ -3,7 +3,9 @@ import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { loadPoolEntries } from "@/lib/insights/insight-pool"
-import PoolFeed from "@/components/insights/pool-feed"
+import { RevealOnView } from "@/components/ticket"
+import PoolFeedPass from "./pool-feed-pass"
+import "./pool.css"
 
 type LocRow = { id: string; name: string | null }
 
@@ -46,22 +48,48 @@ export default async function InsightPoolPage() {
   // admin client like getBrief — the page-level auth above already scopes this to the user's own org.
   const entries = await loadPoolEntries(locRow.id)
 
+  const topCount = entries.filter((e) => e.is_top).length
+
   return (
-    <section className="mx-auto max-w-3xl px-6 py-8">
-      <div className="mb-8 animate-fade-up">
-        <Link href="/home" className="text-xs text-muted-foreground hover:text-foreground">
-          ← Back to your brief
-        </Link>
-        <h1 className="mt-3 flex items-center gap-2 font-display text-2xl font-semibold text-foreground">
-          All insights
-          <span className="live-dot" aria-hidden="true" />
+    <div className="pv-page tk-kit">
+      {/* ── PAGE-TITLE CHROME (on-system .pv-* header) ── */}
+      <Link href="/home" className="pv-back">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+        Back to your brief
+      </Link>
+      <RevealOnView as="header" className="pv-page-head">
+        <div className="pv-kicker">Insight pool</div>
+        <h1 className="pv-h1">
+          All your insights{locRow.name ? <span className="pool-h1-loc"> · {locRow.name}</span> : null}
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Every insight from your recent briefs{locRow.name ? ` for ${locRow.name}` : ""}. The top few
-          surface on your brief each day; the rest stay here, filterable by type.
+        <p className="pv-sub">
+          Every insight from your recent briefs accumulates here. The top few surface on your brief
+          each morning; the rest stay in the pool, filterable by type
+          {entries.length ? (
+            <>
+              {" "}
+              — <b>{entries.length}</b> insight{entries.length === 1 ? "" : "s"} tracked
+              {topCount ? (
+                <>
+                  , <b>{topCount}</b> on this week&apos;s brief
+                </>
+              ) : null}
+              .
+            </>
+          ) : (
+            "."
+          )}
         </p>
+      </RevealOnView>
+
+      <hr className="pv-rule" />
+
+      {/* ── POOL BODY (kit grid + filters; client island, same data) ── */}
+      <div className="pool-body">
+        <PoolFeedPass entries={entries} />
       </div>
-      <PoolFeed entries={entries} />
-    </section>
+    </div>
   )
 }

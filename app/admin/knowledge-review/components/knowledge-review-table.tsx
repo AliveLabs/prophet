@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react"
 import { reviewKnowledgeRow } from "@/app/actions/knowledge-review"
 import type { KnowledgeAction } from "@/lib/skills/knowledge-admin"
+import { RevealOnView, TkButton, TkEmptyState } from "@/components/ticket"
 
 export interface KnowledgeRow {
   id: string
@@ -27,40 +28,82 @@ const KIND_LABEL: Record<KnowledgeRow["learningKind"], string> = {
   question_demand: "Question demand",
   editorial: "Framing",
 }
+const KIND_CLASS: Record<KnowledgeRow["learningKind"], string> = {
+  external_trend: "kr-badge-trend",
+  feedback_pattern: "kr-badge-feedback",
+  question_demand: "kr-badge-demand",
+  editorial: "kr-badge-editorial",
+}
 
 function KindBadge({ kind }: { kind: KnowledgeRow["learningKind"] }) {
-  const styles: Record<KnowledgeRow["learningKind"], string> = {
-    external_trend: "bg-vatic-indigo/15 text-vatic-indigo",
-    feedback_pattern: "bg-precision-teal/15 text-precision-teal",
-    question_demand: "bg-signal-gold/15 text-signal-gold",
-    editorial: "bg-signal-gold/15 text-signal-gold",
-  }
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${styles[kind]}`}>
-      {KIND_LABEL[kind]}
-    </span>
-  )
+  return <span className={`kr-badge ${KIND_CLASS[kind]}`}>{KIND_LABEL[kind]}</span>
 }
 
 function StatusBadge({ status }: { status: KnowledgeRow["status"] }) {
-  const styles: Record<string, string> = {
-    candidate: "bg-signal-gold/15 text-signal-gold",
-    shadow: "bg-secondary text-muted-foreground",
-    active: "bg-precision-teal/15 text-precision-teal",
-    retired: "bg-destructive/15 text-destructive",
-  }
+  // only candidate + shadow ever reach this queue, but stay defensive
+  const cls = status === "shadow" ? "kr-status-shadow" : "kr-status-candidate"
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${styles[status] ?? "bg-secondary text-muted-foreground"}`}>
+    <span className={`kr-status ${cls}`}>
+      <span className="kr-dot" aria-hidden="true" />
       {status}
     </span>
   )
 }
+
+/* a small animated 0→value meter (clamped to 0..1). Reveals on mount; under
+   reduced-motion CSS collapses the transition so it lands instantly. */
+function Meter({
+  kind,
+  label,
+  value,
+  pct,
+}: {
+  kind: "conf" | "supp"
+  label: string
+  value: string
+  pct: number
+}) {
+  const [w, setW] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setW(Math.max(0, Math.min(100, pct))))
+    return () => cancelAnimationFrame(id)
+  }, [pct])
+  return (
+    <div className={`kr-meter kr-meter-${kind}`}>
+      <div className="kr-ml">
+        <span className="kr-mk">{label}</span>
+        <span className="kr-mv">{value}</span>
+      </div>
+      <div className="kr-track" role="img" aria-label={`${label} ${value}`}>
+        <i style={{ width: `${w}%` }} />
+      </div>
+    </div>
+  )
+}
+
+const checkIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 13l4 4L19 7" />
+  </svg>
+)
+const errIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v6M12 16.5v.5" />
+  </svg>
+)
+const inboxIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 13l3-8h12l3 8M3 13v6h18v-6M3 13h5l1.5 2.5h5L16 13h5" />
+  </svg>
+)
 
 export function KnowledgeReviewTable({ rows, canManage }: { rows: KnowledgeRow[]; canManage: boolean }) {
   const [kindFilter, setKindFilter] = useState<string>("all")
   const [isPending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<{ ok: boolean; message: string } | null>(null)
   const [acting, setActing] = useState<string | null>(null)
+  const liveRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(
     () => rows.filter((r) => kindFilter === "all" || r.learningKind === kindFilter),
@@ -78,24 +121,26 @@ export function KnowledgeReviewTable({ rows, canManage }: { rows: KnowledgeRow[]
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* polite live region for action results (screen readers) */}
+      <div ref={liveRef} aria-live="polite" className="sr-only">
+        {feedback?.message ?? ""}
+      </div>
+
       {feedback && (
-        <div
-          className={`rounded-lg border px-4 py-2.5 text-sm ${
-            feedback.ok
-              ? "border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
-              : "border-destructive/30 bg-destructive/10 text-destructive"
-          }`}
-        >
+        <div className={`kr-banner ${feedback.ok ? "kr-ok" : "kr-err"}`} role="status">
+          {feedback.ok ? checkIcon : errIcon}
           {feedback.message}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="kr-toolbar">
+        <label className="sr-only" htmlFor="kr-kind">Filter by kind</label>
         <select
+          id="kr-kind"
+          className="kr-select"
           value={kindFilter}
           onChange={(e) => setKindFilter(e.target.value)}
-          className="rounded-lg border border-input bg-background px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="all">All kinds</option>
           <option value="external_trend">External trend</option>
@@ -103,98 +148,108 @@ export function KnowledgeReviewTable({ rows, canManage }: { rows: KnowledgeRow[]
           <option value="question_demand">Question demand</option>
           <option value="editorial">Framing</option>
         </select>
-        <span className="text-sm text-muted-foreground">
-          {filtered.length} in queue
+        <span className="kr-count">
+          {filtered.length} {filtered.length === 1 ? "snippet" : "snippets"} in queue
         </span>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Skill / scope</th>
-                <th className="px-4 py-3">Kind</th>
-                <th className="px-4 py-3">Snippet</th>
-                <th className="px-4 py-3">Conf</th>
-                <th className="px-4 py-3">Support</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
-                    Nothing awaiting review. Learnings appear here as the pipelines distill them.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((row) => (
-                  <tr key={row.id} className="align-top transition-colors hover:bg-secondary/40">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-foreground">{row.skillId}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {row.scope}
-                        {row.scopeId ? ` · ${row.scopeId.slice(0, 8)}` : ""}
-                      </div>
-                      <div className="mt-1 font-mono text-[10px] text-muted-foreground">{row.knowledgeVersion}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <KindBadge kind={row.learningKind} />
-                      {row.demandType && (
-                        <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          {row.demandType.replace("_", " ")}
-                        </div>
-                      )}
-                    </td>
-                    <td className="max-w-md px-4 py-3">
-                      <div className="font-medium text-foreground">{row.title}</div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{row.snippet}</p>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.confidence}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{row.supportN}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={row.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {canManage ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => act(row.id, "promote")}
-                            disabled={isPending}
-                            className="rounded-md bg-precision-teal/15 px-2.5 py-1 text-xs font-semibold text-precision-teal hover:bg-precision-teal/25 disabled:opacity-50"
-                          >
-                            {acting === `${row.id}:promote` ? "…" : "Promote"}
-                          </button>
-                          {row.status !== "shadow" && (
-                            <button
-                              onClick={() => act(row.id, "shadow")}
-                              disabled={isPending}
-                              className="rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-secondary/70 disabled:opacity-50"
-                            >
-                              {acting === `${row.id}:shadow` ? "…" : "Shadow"}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => act(row.id, "retire")}
-                            disabled={isPending}
-                            className="rounded-md bg-destructive/15 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/25 disabled:opacity-50"
-                          >
-                            {acting === `${row.id}:retire` ? "…" : "Retire"}
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">Read-only</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {filtered.length === 0 ? (
+        <TkEmptyState
+          icon={inboxIcon}
+          title="Nothing awaiting review"
+          description="Learnings surface here as the pipelines distill them — external trends, feedback patterns, and operator-question demand. Nothing reaches a customer until you promote it."
+        />
+      ) : (
+        <RevealOnView className="kr-queue" stagger>
+          {filtered.map((row, i) => {
+            const confPct = Math.round(Math.max(0, Math.min(1, row.confidence)) * 100)
+            return (
+              <article
+                key={row.id}
+                className="kr-row"
+                style={{ ["--tk-i"]: i } as CSSProperties}
+              >
+                <div className="kr-row-top">
+                  <div className="kr-badges">
+                    <KindBadge kind={row.learningKind} />
+                    {row.demandType && (
+                      <span className="kr-badge kr-badge-demand">{row.demandType.replace(/_/g, " ")}</span>
+                    )}
+                  </div>
+                  <StatusBadge status={row.status} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <h3>{row.title || "Untitled snippet"}</h3>
+                  {row.snippet && <p className="kr-snippet">{row.snippet}</p>}
+                </div>
+
+                <div className="kr-meta">
+                  <span className="kr-m">
+                    skill <b>{row.skillId || "—"}</b>
+                  </span>
+                  <span className="kr-m">
+                    {row.scope}
+                    {row.scopeId ? ` · ${row.scopeId.slice(0, 8)}` : ""}
+                  </span>
+                  {row.knowledgeVersion && <span className="kr-ver">{row.knowledgeVersion}</span>}
+                </div>
+
+                <div className="kr-meters">
+                  <Meter
+                    kind="conf"
+                    label="Confidence"
+                    value={row.confidence <= 1 ? `${confPct}%` : String(row.confidence)}
+                    pct={row.confidence <= 1 ? confPct : 100}
+                  />
+                  <Meter
+                    kind="supp"
+                    label="Support"
+                    value={`n=${row.supportN}`}
+                    // support has no natural ceiling; show a soft log-ish fill
+                    pct={Math.min(100, row.supportN * 12)}
+                  />
+                </div>
+
+                {canManage ? (
+                  <div className="kr-acts">
+                    <TkButton
+                      variant="act"
+                      onClick={() => act(row.id, "promote")}
+                      disabled={isPending}
+                      aria-label={`Promote ${row.title} to active`}
+                    >
+                      {acting === `${row.id}:promote` ? "Promoting…" : "Promote to active"}
+                    </TkButton>
+                    {row.status !== "shadow" && (
+                      <TkButton
+                        variant="keep"
+                        className="kr-btn kr-btn-shadow"
+                        onClick={() => act(row.id, "shadow")}
+                        disabled={isPending}
+                        aria-label={`Move ${row.title} to shadow`}
+                      >
+                        {acting === `${row.id}:shadow` ? "…" : "Shadow"}
+                      </TkButton>
+                    )}
+                    <TkButton
+                      variant="keep"
+                      className="kr-btn kr-btn-retire"
+                      onClick={() => act(row.id, "retire")}
+                      disabled={isPending}
+                      aria-label={`Retire ${row.title}`}
+                    >
+                      {acting === `${row.id}:retire` ? "…" : "Retire"}
+                    </TkButton>
+                  </div>
+                ) : (
+                  <p className="kr-readonly">Read-only · promotion is restricted to super admins.</p>
+                )}
+              </article>
+            )
+          })}
+        </RevealOnView>
+      )}
     </div>
   )
 }

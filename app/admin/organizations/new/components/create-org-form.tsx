@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import { createDemoOrg, createTestOrg } from "@/app/actions/org-management"
+import { TkButton } from "@/components/ticket"
 
 type Kind = "demo" | "test"
 type Industry = "restaurant" | "liquor_store"
@@ -31,93 +32,84 @@ export function CreateOrgForm({ adminEmail }: { adminEmail: string }) {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-xl space-y-6 rounded-xl border border-border bg-card p-6"
-    >
-      {error && (
-        <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-          {error}
+    <form onSubmit={handleSubmit} className="tk-card ao-formcard">
+      <div className="ao-form">
+        {error && (
+          <div className="ao-banner ao-banner-alert" role="alert">
+            <div className="ao-bt">
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
+        <div className="ao-field">
+          <span className="ao-flabel">Kind</span>
+          <div className="ao-segs">
+            {(
+              [
+                { value: "demo", label: "Demo", hint: "Polished — for showing prospects." },
+                { value: "test", label: "Test", hint: "Throwaway — safe to bulk-clear." },
+              ] as const
+            ).map((opt) => (
+              <button
+                type="button"
+                key={opt.value}
+                onClick={() => setKind(opt.value)}
+                aria-pressed={kind === opt.value}
+                className={`ao-seg ${kind === opt.value ? "ao-seg-on" : ""}`}
+              >
+                <span className="ao-seg-t">{opt.label}</span>
+                <span className="ao-seg-h">{opt.hint}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      <div>
-        <span className="mb-2 block text-sm font-medium text-foreground">Kind</span>
-        <div className="grid grid-cols-2 gap-3">
-          {(
-            [
-              { value: "demo", label: "Demo", hint: "Polished — for showing prospects." },
-              { value: "test", label: "Test", hint: "Throwaway — safe to bulk-clear." },
-            ] as const
-          ).map((opt) => (
-            <button
-              type="button"
-              key={opt.value}
-              onClick={() => setKind(opt.value)}
-              className={`rounded-lg border px-4 py-3 text-left transition-colors ${
-                kind === opt.value
-                  ? "border-vatic-indigo bg-vatic-indigo/10"
-                  : "border-input hover:bg-secondary"
-              }`}
-            >
-              <span className="block text-sm font-semibold text-foreground">{opt.label}</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">{opt.hint}</span>
-            </button>
-          ))}
+        <div className="ao-field">
+          <label htmlFor="org-name">Organization name</label>
+          <input
+            id="org-name"
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Acme Demo Diner"
+            className="ao-input"
+          />
         </div>
-      </div>
 
-      <div>
-        <label htmlFor="org-name" className="mb-2 block text-sm font-medium text-foreground">
-          Organization name
-        </label>
-        <input
-          id="org-name"
-          type="text"
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Acme Demo Diner"
-          className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
+        <div className="ao-field">
+          <label htmlFor="org-industry">Industry</label>
+          <select
+            id="org-industry"
+            value={industry}
+            onChange={(e) => setIndustry(e.target.value as Industry)}
+            className="ao-select"
+            style={{ width: "100%" }}
+          >
+            <option value="restaurant">Restaurant</option>
+            <option value="liquor_store">Liquor store</option>
+          </select>
+        </div>
 
-      <div>
-        <label htmlFor="org-industry" className="mb-2 block text-sm font-medium text-foreground">
-          Industry
-        </label>
-        <select
-          id="org-industry"
-          value={industry}
-          onChange={(e) => setIndustry(e.target.value as Industry)}
-          className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="restaurant">Restaurant</option>
-          <option value="liquor_store">Liquor store</option>
-        </select>
-      </div>
+        <p className="ao-hint">
+          Owned by you (<b>{adminEmail}</b>) · non-expiring (1-year trial) · no
+          billing · excluded from real metrics. Next, hit{" "}
+          <b>Set up demo</b> on its page to pick the restaurant, choose
+          competitors, and pull live data.
+        </p>
 
-      <p className="rounded-lg bg-secondary/50 px-3.5 py-2.5 text-xs text-muted-foreground">
-        Owned by you ({adminEmail}) · non-expiring (1-year trial) · no billing ·
-        excluded from real metrics. Next, hit <strong className="text-foreground">Set up demo</strong>{" "}
-        on its page to pick the restaurant, choose competitors, and pull live data.
-      </p>
-
-      <div className="flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => router.push("/admin/sandbox")}
-          className="rounded-lg border border-input px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="rounded-lg bg-vatic-indigo px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {isPending ? "Creating…" : "Create Org"}
-        </button>
+        <div className="ao-form-foot">
+          <TkButton
+            variant="ghost"
+            onClick={() => router.push("/admin/sandbox")}
+          >
+            Cancel
+          </TkButton>
+          <TkButton type="submit" variant="act" disabled={isPending}>
+            {isPending ? "Creating…" : "Create org"}
+          </TkButton>
+        </div>
       </div>
     </form>
   )

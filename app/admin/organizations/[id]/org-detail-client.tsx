@@ -21,6 +21,7 @@ import {
 import { impersonateUser } from "@/app/actions/user-management"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
 import { unstable_rethrow, useRouter } from "next/navigation"
+import { RevealOnView, TkButton } from "@/components/ticket"
 
 interface OrgDetail {
   id: string
@@ -150,18 +151,21 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
     })
   }
 
+  const initial = (org.name.trim()[0] ?? "?").toUpperCase()
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Link href="/admin/organizations" className="hover:text-foreground">
-          Organizations
-        </Link>
-        <span>/</span>
-        <span className="text-foreground">{org.name}</span>
-      </div>
+    <div className="ticket-chrome tk-kit ao-page">
+      <nav className="ao-crumbs" aria-label="Breadcrumb">
+        <Link href="/admin/organizations">Organizations</Link>
+        <span className="ao-sep" aria-hidden="true">/</span>
+        <span className="ao-here">{org.name}</span>
+      </nav>
 
       {feedback && (
-        <div className="rounded-lg border border-border bg-card px-4 py-2 text-sm text-foreground">
+        <div className="ao-feedback" role="status">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d="M3 8.5l3 3 7-7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           {feedback}
         </div>
       )}
@@ -177,21 +181,22 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
         />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  {org.name}
-                </h2>
-                <p className="text-sm text-muted-foreground">/{org.slug}</p>
+      <div className="ao-detail">
+        <div className="ao-detail-main">
+          <RevealOnView className="tk-card">
+            <div className="ao-orghead">
+              <div style={{ display: "flex", gap: 14, minWidth: 0 }}>
+                <span className="ao-mark" aria-hidden="true">{initial}</span>
+                <div style={{ minWidth: 0 }}>
+                  <h2>{org.name}</h2>
+                  <p className="ao-slug">/{org.slug}</p>
+                </div>
               </div>
               <TierBadge tier={org.tier} />
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <InfoItem label="Billing Email" value={org.billingEmail ?? "—"} />
+            <div className="ao-infogrid">
+              <InfoItem label="Billing email" value={org.billingEmail ?? "—"} />
               <InfoItem
                 label="Trial"
                 value={
@@ -206,11 +211,11 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               />
               <InfoItem label="Created" value={new Date(org.createdAt).toLocaleDateString()} />
               <InfoItem
-                label="Stripe Customer"
+                label="Stripe"
                 value={org.stripeCustomerId ? "Connected" : "None"}
               />
             </div>
-          </div>
+          </RevealOnView>
 
           <TrialBanner
             isSuspended={isSuspended}
@@ -225,81 +230,54 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             <DemoSetupBanner org={org} onFeedback={setFeedback} />
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="ao-actions">
             {org.orgKind === "real" && !org.deletedAt && (
-              <button
+              <TkButton
+                variant="keep"
                 onClick={handleImpersonate}
                 disabled={isPending}
-                className="h-9 rounded-lg border border-precision-teal/40 bg-precision-teal/5 px-4 text-sm font-medium text-precision-teal hover:bg-precision-teal/15 transition-colors disabled:opacity-50"
               >
                 View as customer
-              </button>
+              </TkButton>
             )}
-            <button
-              onClick={() => setShowTierChange(!showTierChange)}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-            >
-              Change Tier
-            </button>
-            <button
-              onClick={() => handleExtendTrial(7)}
-              disabled={isPending}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              +7 Days
-            </button>
-            <button
-              onClick={() => handleExtendTrial(14)}
-              disabled={isPending}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              +14 Days
-            </button>
-            <button
-              onClick={() => handleExtendTrial(30)}
-              disabled={isPending}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              +30 Days
-            </button>
-            <button
-              onClick={handleResetTrial}
-              disabled={isPending}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-signal-gold hover:bg-secondary transition-colors disabled:opacity-50"
-            >
-              Reset Trial
-            </button>
-            <button
-              onClick={() => setShowSetDate(!showSetDate)}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-            >
-              Set Trial Date
-            </button>
+            <TkButton variant="keep" onClick={() => setShowTierChange(!showTierChange)}>
+              Change tier
+            </TkButton>
+            <TkButton variant="keep" onClick={() => handleExtendTrial(7)} disabled={isPending}>
+              +7 days
+            </TkButton>
+            <TkButton variant="keep" onClick={() => handleExtendTrial(14)} disabled={isPending}>
+              +14 days
+            </TkButton>
+            <TkButton variant="keep" onClick={() => handleExtendTrial(30)} disabled={isPending}>
+              +30 days
+            </TkButton>
+            <TkButton variant="keep" onClick={handleResetTrial} disabled={isPending}>
+              Reset trial
+            </TkButton>
+            <TkButton variant="keep" onClick={() => setShowSetDate(!showSetDate)}>
+              Set trial date
+            </TkButton>
             {org.orgKind === "real" && (
-              <button
-                onClick={() => setShowConvert(!showConvert)}
-                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-precision-teal hover:bg-secondary transition-colors"
-              >
-                Convert to Paid
-              </button>
+              <TkButton variant="keep" onClick={() => setShowConvert(!showConvert)}>
+                Convert to paid
+              </TkButton>
             )}
-            <button
-              onClick={() => setShowEdit(!showEdit)}
-              className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-            >
-              Edit Info
-            </button>
-            <button
+            <TkButton variant="keep" onClick={() => setShowEdit(!showEdit)}>
+              Edit info
+            </TkButton>
+            <TkButton
+              variant={isSuspended ? "add" : "dismiss"}
               onClick={handleToggleSuspend}
               disabled={isPending}
-              className={`h-9 rounded-lg px-4 text-sm font-medium transition-colors disabled:opacity-50 ${
+              style={
                 isSuspended
-                  ? "bg-precision-teal/10 text-precision-teal hover:bg-precision-teal/20"
-                  : "bg-destructive/10 text-destructive hover:bg-destructive/20"
-              }`}
+                  ? undefined
+                  : { color: "var(--alert-deep)", border: "1.5px solid color-mix(in srgb, var(--alert) 36%, transparent)" }
+              }
             >
               {isSuspended ? "Activate" : "Suspend"}
-            </button>
+            </TkButton>
           </div>
 
           {showTierChange && (
@@ -340,37 +318,39 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             />
           )}
 
-          <div className="rounded-xl border border-destructive/30 bg-card p-5">
-            <h3 className="mb-3 text-sm font-semibold text-destructive">Danger Zone</h3>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setShowSetKind(!showSetKind)}
-                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-              >
-                Set Kind
-              </button>
-              <button
-                onClick={() => setShowTransfer(!showTransfer)}
-                className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-              >
-                Transfer Owner
-              </button>
-              <button
+          <div className="ao-danger">
+            <h3>
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <path d="M8 2L1.5 13.5h13L8 2Z" strokeLinejoin="round" />
+                <path d="M8 6.5v3.5M8 11.8v.01" strokeLinecap="round" />
+              </svg>
+              Danger zone
+            </h3>
+            <div className="ao-actions">
+              <TkButton variant="keep" onClick={() => setShowSetKind(!showSetKind)}>
+                Set kind
+              </TkButton>
+              <TkButton variant="keep" onClick={() => setShowTransfer(!showTransfer)}>
+                Transfer owner
+              </TkButton>
+              <TkButton
+                variant="keep"
                 onClick={() => setShowClearData(!showClearData)}
-                className="h-9 rounded-lg bg-signal-gold/10 px-4 text-sm font-medium text-signal-gold hover:bg-signal-gold/20 transition-colors"
+                style={{ color: "var(--gold-deep)", borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)" }}
               >
-                Clear Data
-              </button>
+                Clear data
+              </TkButton>
               {!org.deletedAt && (
-                <button
+                <TkButton
+                  variant="keep"
                   onClick={() => setShowDeleteOrg(!showDeleteOrg)}
-                  className="h-9 rounded-lg bg-destructive/10 px-4 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
+                  style={{ color: "var(--alert-deep)", borderColor: "color-mix(in srgb, var(--alert) 40%, transparent)" }}
                 >
-                  Delete Org
-                </button>
+                  Delete org
+                </TkButton>
               )}
             </div>
-            <div className="mt-3 space-y-3">
+            <div className="ao-danger-panels">
               {showSetKind && (
                 <SetKindPanel
                   orgId={org.id}
@@ -407,37 +387,36 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">
-              Members ({org.members.length})
-            </h3>
+          <RevealOnView className="tk-card">
+            <div className="ao-cardlbl">
+              Members <span className="ao-count">{org.members.length}</span>
+            </div>
             {org.members.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No members.</p>
+              <p className="ao-hint">No members.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="ao-tablescroll">
+                <table className="ao-table" style={{ border: 0 }}>
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 pr-4 font-medium text-muted-foreground">Email</th>
-                      <th className="pb-2 pr-4 font-medium text-muted-foreground">Role</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Joined</th>
+                    <tr>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Joined</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody>
                     {org.members.map((m) => (
                       <tr key={m.id}>
-                        <td className="py-2 pr-4">
-                          <Link
-                            href={`/admin/users/${m.userId}`}
-                            className="text-sm text-vatic-indigo hover:underline"
-                          >
+                        <td>
+                          <Link href={`/admin/users/${m.userId}`} className="ao-link">
                             {m.email}
                           </Link>
                         </td>
-                        <td className="py-2 pr-4 text-muted-foreground capitalize">
-                          {m.role}
+                        <td>
+                          <span className="ao-badge ao-badge-ink" style={{ textTransform: "capitalize" }}>
+                            {m.role}
+                          </span>
                         </td>
-                        <td className="py-2 text-muted-foreground">
+                        <td className="ao-cell-num">
                           {new Date(m.joinedAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -446,38 +425,34 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                 </table>
               </div>
             )}
-          </div>
+          </RevealOnView>
 
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">
-              Locations ({org.locations.length})
-            </h3>
+          <RevealOnView className="tk-card">
+            <div className="ao-cardlbl">
+              Locations <span className="ao-count">{org.locations.length}</span>
+            </div>
             {org.locations.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No locations.</p>
+              <p className="ao-hint">No locations.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="ao-tablescroll">
+                <table className="ao-table" style={{ border: 0 }}>
                   <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="pb-2 pr-4 font-medium text-muted-foreground">Name</th>
-                      <th className="pb-2 pr-4 font-medium text-muted-foreground">City</th>
-                      <th className="pb-2 pr-4 font-medium text-muted-foreground">Competitors</th>
-                      <th className="pb-2 font-medium text-muted-foreground">Created</th>
+                    <tr>
+                      <th>Name</th>
+                      <th>City</th>
+                      <th>Competitors</th>
+                      <th>Created</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody>
                     {org.locations.map((l) => (
                       <tr key={l.id}>
-                        <td className="py-2 pr-4 font-medium text-foreground">
-                          {l.name}
+                        <td>
+                          <span className="ao-nm">{l.name}</span>
                         </td>
-                        <td className="py-2 pr-4 text-muted-foreground">
-                          {l.city ?? "—"}
-                        </td>
-                        <td className="py-2 pr-4 text-muted-foreground">
-                          {l.competitorCount}
-                        </td>
-                        <td className="py-2 text-muted-foreground">
+                        <td>{l.city ?? "—"}</td>
+                        <td className="ao-cell-num">{l.competitorCount}</td>
+                        <td className="ao-cell-num">
                           {new Date(l.createdAt).toLocaleDateString()}
                         </td>
                       </tr>
@@ -486,29 +461,25 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                 </table>
               </div>
             )}
-          </div>
+          </RevealOnView>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">
-              Admin Activity
-            </h3>
+        <div className="ao-detail-side">
+          <RevealOnView className="tk-card">
+            <div className="ao-cardlbl">Admin activity</div>
             {org.activityLog.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No activity logged yet.</p>
+              <p className="ao-hint">No activity logged yet.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="ao-feed">
                 {org.activityLog.map((log) => (
-                  <div key={log.id} className="border-l-2 border-border pl-3 py-1">
-                    <p className="text-xs font-medium text-foreground">
-                      {log.action.replace(/\./g, " → ")}
-                    </p>
-                    {log.reason && (
-                      <p className="text-[11px] italic text-muted-foreground">
-                        &ldquo;{log.reason}&rdquo;
-                      </p>
-                    )}
-                    <p className="text-[11px] text-muted-foreground">
+                  <div
+                    key={log.id}
+                    className={`ao-feed-item ${log.actorType === "system" ? "ao-sys" : ""}`}
+                  >
+                    <span className="ao-dot" aria-hidden="true" />
+                    <p className="ao-act">{log.action.replace(/\./g, " → ")}</p>
+                    {log.reason && <p className="ao-reason">&ldquo;{log.reason}&rdquo;</p>}
+                    <p className="ao-meta">
                       by {log.actorType === "system" ? "system" : log.adminEmail} ·{" "}
                       {new Date(log.createdAt).toLocaleString()}
                     </p>
@@ -516,7 +487,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                 ))}
               </div>
             )}
-          </div>
+          </RevealOnView>
         </div>
       </div>
     </div>
@@ -569,57 +540,60 @@ function DemoSetupBanner({
         : "Open it to review the brief and set up social. Clear & re-run setup anytime from the Danger Zone."
 
   return (
-    <div className="rounded-xl border border-vatic-indigo/30 bg-vatic-indigo/5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-foreground">{title}</p>
-          <p className="text-xs text-muted-foreground">{blurb}</p>
-        </div>
-        {state === "ready" ? (
-          <button
-            onClick={handleOpen}
-            disabled={isPending}
-            className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-semibold text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
-          >
-            {isPending ? "Opening…" : "Open demo →"}
-          </button>
-        ) : (
-          <Link
-            href={`/onboarding?org=${org.id}`}
-            className="inline-flex h-9 items-center rounded-lg bg-vatic-indigo px-4 text-sm font-semibold text-white hover:bg-vatic-indigo/90 transition-colors"
-          >
-            {state === "fresh" ? "Set up demo →" : "Resume setup →"}
-          </Link>
-        )}
+    <div className="ao-banner ao-banner-rust">
+      <div className="ao-bt">
+        <strong>{title}</strong>
+        <span>{blurb}</span>
       </div>
+      {state === "ready" ? (
+        <TkButton variant="act" onClick={handleOpen} disabled={isPending}>
+          {isPending ? "Opening…" : "Open demo →"}
+        </TkButton>
+      ) : (
+        <Link
+          href={`/onboarding?org=${org.id}`}
+          className="tk-btn tk-btn-act"
+        >
+          {state === "fresh" ? "Set up demo →" : "Resume setup →"}
+        </Link>
+      )}
     </div>
   )
 }
 
 function InfoItem({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-0.5 text-sm font-medium text-foreground">{value}</p>
+    <div className="ao-info">
+      <p className="ao-il">{label}</p>
+      <p className="ao-iv">{value}</p>
     </div>
   )
 }
 
 function TierBadge({ tier }: { tier: string }) {
-  const colors: Record<string, string> = {
-    free: "bg-secondary text-foreground",
-    entry: "bg-vatic-indigo/10 text-vatic-indigo",
-    mid: "bg-precision-teal/10 text-precision-teal",
-    top: "bg-signal-gold/10 text-signal-gold",
-    suspended: "bg-destructive/10 text-destructive",
+  const tone: Record<string, string> = {
+    free: "ao-badge-ink",
+    entry: "ao-badge-slate",
+    mid: "ao-badge-teal",
+    top: "ao-badge-gold",
+    suspended: "ao-badge-alert",
   }
-
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium capitalize ${colors[tier] ?? "bg-secondary text-foreground"}`}
-    >
-      {tier}
+    <span className={`ao-badge ${tone[tier] ?? "ao-badge-ink"}`}>
+      <span className="ao-led" aria-hidden="true" />
+      <span style={{ textTransform: "capitalize" }}>{tier}</span>
     </span>
+  )
+}
+
+function PanelHead({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="ao-panel-head">
+      <h3>{title}</h3>
+      <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "6px 10px", fontSize: 12 }}>
+        Cancel
+      </TkButton>
+    </div>
   )
 }
 
@@ -651,20 +625,15 @@ function TierChangePanel({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Change Tier</h3>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Cancel
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">New Tier</label>
+    <div className="ao-panel">
+      <PanelHead title="Change tier" onClose={onClose} />
+      <form onSubmit={handleSubmit} className="ao-panel-row">
+        <div className="ao-field">
+          <label>New tier</label>
           <select
             value={selectedTier}
             onChange={(e) => setSelectedTier(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
           >
             <option value="entry">Entry</option>
             <option value="mid">Mid</option>
@@ -672,13 +641,9 @@ function TierChangePanel({
             <option value="suspended">Suspended</option>
           </select>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? "Saving..." : "Update Tier"}
-        </button>
+        <TkButton type="submit" variant="act" disabled={isPending}>
+          {isPending ? "Saving…" : "Update tier"}
+        </TkButton>
       </form>
     </div>
   )
@@ -735,61 +700,55 @@ function EditOrgPanel({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Edit Organization</h3>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Cancel
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+    <div className="ao-panel">
+      <PanelHead title="Edit organization" onClose={onClose} />
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="ao-panel-grid">
+          <div className="ao-field">
+            <label>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+              className="ao-input"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Billing Email</label>
+          <div className="ao-field">
+            <label>Billing email</label>
             <input
               type="email"
               value={billingEmail}
               onChange={(e) => setBillingEmail(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+              className="ao-input"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Slug</label>
+          <div className="ao-field">
+            <label>Slug</label>
             <input
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+              className="ao-input"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Industry</label>
+          <div className="ao-field">
+            <label>Industry</label>
             <select
               value={industry}
               onChange={(e) => setIndustry(e.target.value as Industry)}
-              className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+              className="ao-select"
+              style={{ width: "100%" }}
             >
               <option value="restaurant">Restaurant</option>
               <option value="liquor_store">Liquor store</option>
             </select>
           </div>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? "Saving..." : "Save Changes"}
-        </button>
+        <div>
+          <TkButton type="submit" variant="act" disabled={isPending}>
+            {isPending ? "Saving…" : "Save changes"}
+          </TkButton>
+        </div>
       </form>
     </div>
   )
@@ -818,26 +777,22 @@ function TrialBanner({
       })
     : null
 
-  let tone = "border-border bg-card text-foreground"
+  let tone = ""
   let text: string
   if (isSuspended) {
-    tone = "border-destructive/30 bg-destructive/10 text-destructive"
+    tone = "ao-banner-alert"
     text = "Suspended — members have no access."
   } else if (paymentState === "active" || paymentState === "past_due") {
-    tone = "border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
+    tone = "ao-banner-teal"
     text = "Paid — subscription active."
   } else if (trialActive) {
     tone =
-      trialDaysLeft <= 2
-        ? "border-destructive/30 bg-destructive/10 text-destructive"
-        : trialDaysLeft <= 5
-          ? "border-signal-gold/30 bg-signal-gold/10 text-signal-gold"
-          : "border-border bg-card text-foreground"
+      trialDaysLeft <= 2 ? "ao-banner-alert" : trialDaysLeft <= 5 ? "ao-banner-gold" : ""
     text = `Trial — ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left${
       endStr ? `, expires ${endStr}` : ""
     }${paymentState === "trialing" ? "" : " (no card)"}`
   } else if (trialEndsAt) {
-    tone = "border-destructive/30 bg-destructive/10 text-destructive"
+    tone = "ao-banner-alert"
     text = `Trial expired${endStr ? ` ${endStr}` : ""}.`
   } else {
     text = "No active trial or subscription."
@@ -846,9 +801,13 @@ function TrialBanner({
   const kindNote = orgKind !== "real" ? ` · ${orgKind.toUpperCase()} org (non-billable)` : ""
 
   return (
-    <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${tone}`}>
-      {text}
-      {kindNote}
+    <div className={`ao-banner ${tone}`}>
+      <div className="ao-bt">
+        <strong>
+          {text}
+          {kindNote}
+        </strong>
+      </div>
     </div>
   )
 }
@@ -891,32 +850,23 @@ function SetTrialDatePanel({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Set Trial End Date</h3>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Cancel
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">Trial ends</label>
+    <div className="ao-panel">
+      <PanelHead title="Set trial end date" onClose={onClose} />
+      <form onSubmit={handleSubmit} className="ao-panel-row">
+        <div className="ao-field">
+          <label>Trial ends</label>
           <input
             type="datetime-local"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-input"
           />
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? "Saving..." : "Set Date"}
-        </button>
+        <TkButton type="submit" variant="act" disabled={isPending}>
+          {isPending ? "Saving…" : "Set date"}
+        </TkButton>
       </form>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className="ao-hint" style={{ marginTop: 10 }}>
         For a card-backed Stripe trial this updates Stripe; otherwise it sets the clock directly.
       </p>
     </div>
@@ -951,56 +901,45 @@ function ConvertToPaidPanel({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Convert to Paid</h3>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Cancel
-        </button>
-      </div>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">Tier</label>
+    <div className="ao-panel">
+      <PanelHead title="Convert to paid" onClose={onClose} />
+      <form onSubmit={handleSubmit} className="ao-panel-row">
+        <div className="ao-field">
+          <label>Tier</label>
           <select
             value={tier}
             onChange={(e) => setTier(e.target.value as "entry" | "mid" | "top")}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
           >
             <option value="entry">Entry</option>
             <option value="mid">Mid</option>
             <option value="top">Top</option>
           </select>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">Cadence</label>
+        <div className="ao-field">
+          <label>Cadence</label>
           <select
             value={cadence}
             onChange={(e) => setCadence(e.target.value as "monthly" | "annual")}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
           >
             <option value="monthly">Monthly</option>
             <option value="annual">Annual</option>
           </select>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-precision-teal px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? "Creating..." : "Generate Checkout Link"}
-        </button>
+        <TkButton type="submit" variant="add" disabled={isPending}>
+          {isPending ? "Creating…" : "Generate checkout link"}
+        </TkButton>
       </form>
       {url && (
-        <div className="mt-3">
-          <label className="mb-1 block text-xs text-muted-foreground">
-            Send this link to the customer:
-          </label>
+        <div className="ao-field" style={{ marginTop: 14 }}>
+          <label>Send this link to the customer</label>
           <input
             type="text"
             readOnly
             value={url}
             onFocus={(e) => e.currentTarget.select()}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-copyfield"
           />
         </div>
       )}
@@ -1034,32 +973,28 @@ function SetKindPanel({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
-      <form onSubmit={handleSubmit} className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">Classification</label>
+    <div className="ao-panel">
+      <form onSubmit={handleSubmit} className="ao-panel-row">
+        <div className="ao-field">
+          <label>Classification</label>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as "real" | "demo" | "test")}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
           >
             <option value="real">Customer</option>
             <option value="demo">Demo</option>
             <option value="test">Test</option>
           </select>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50"
-        >
-          {isPending ? "Saving..." : "Apply"}
-        </button>
-        <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+        <TkButton type="submit" variant="act" disabled={isPending}>
+          {isPending ? "Saving…" : "Apply"}
+        </TkButton>
+        <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
           Cancel
-        </button>
+        </TkButton>
       </form>
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p className="ao-hint" style={{ marginTop: 10 }}>
         Demo/Test are excluded from real metrics &amp; billing. Setting to Customer is restricted.
       </p>
     </div>
@@ -1097,24 +1032,26 @@ function TransferOwnerPanel({
 
   if (candidates.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">
-        No other members to transfer ownership to. Add a member first.
-        <button onClick={onClose} className="ml-2 text-xs text-vatic-indigo hover:underline">
-          Close
-        </button>
+      <div className="ao-panel">
+        <p className="ao-hint">
+          No other members to transfer ownership to. Add a member first.{" "}
+          <button onClick={onClose} className="ao-link" style={{ background: "none" }}>
+            Close
+          </button>
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-lg border border-border bg-background p-4">
-      <form onSubmit={handleSubmit} className="flex items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">New owner</label>
+    <div className="ao-panel">
+      <form onSubmit={handleSubmit} className="ao-panel-row">
+        <div className="ao-field">
+          <label>New owner</label>
           <select
             value={toUserId}
             onChange={(e) => setToUserId(e.target.value)}
-            className="h-9 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
           >
             {candidates.map((m) => (
               <option key={m.userId} value={m.userId}>
@@ -1123,16 +1060,12 @@ function TransferOwnerPanel({
             ))}
           </select>
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50"
-        >
-          {isPending ? "Transferring..." : "Transfer"}
-        </button>
-        <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+        <TkButton type="submit" variant="act" disabled={isPending}>
+          {isPending ? "Transferring…" : "Transfer"}
+        </TkButton>
+        <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
           Cancel
-        </button>
+        </TkButton>
       </form>
     </div>
   )
@@ -1168,14 +1101,15 @@ function ClearDataPanel({
   }
 
   return (
-    <div className="rounded-lg border border-signal-gold/30 bg-background p-4">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">Mode</label>
+    <div className="ao-panel">
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="ao-field">
+          <label>Mode</label>
           <select
             value={mode}
             onChange={(e) => setMode(e.target.value as "all" | "refresh")}
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-select"
+            style={{ width: "100%" }}
           >
             <option value="refresh">Refresh — wipe intelligence, keep locations</option>
             <option value="all">Clear all — also drop locations (pre-onboarding)</option>
@@ -1187,30 +1121,32 @@ function ClearDataPanel({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (required, recorded in the audit log)"
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-input"
           />
         )}
-        <p className="text-xs text-muted-foreground">
-          Keeps the org, members, and billing. Type <strong className="text-foreground">{orgName}</strong> to confirm.
+        <p className="ao-hint">
+          Keeps the org, members, and billing. Type <b>{orgName}</b> to confirm.
         </p>
-        <div className="flex items-center gap-3">
+        <div className="ao-panel-row">
           <input
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={orgName}
-            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+            className="ao-input"
+            style={{ flex: 1 }}
           />
-          <button
+          <TkButton
             type="submit"
+            variant="add"
             disabled={!ready || isPending}
-            className="h-9 rounded-lg bg-signal-gold px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--gold-2)" }}
           >
-            {isPending ? "Clearing..." : "Clear Data"}
-          </button>
-          <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+            {isPending ? "Clearing…" : "Clear data"}
+          </TkButton>
+          <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
             Cancel
-          </button>
+          </TkButton>
         </div>
       </form>
     </div>
@@ -1250,40 +1186,42 @@ function DeleteOrgPanel({
   }
 
   return (
-    <div className="rounded-lg border border-destructive/30 bg-background p-4">
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <p className="text-xs font-semibold text-destructive">
+    <div className="ao-panel" style={{ borderColor: "color-mix(in srgb, var(--alert) 34%, transparent)" }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="ao-hint" style={{ color: "var(--alert-deep)", fontWeight: 600 }}>
           Permanently deletes {orgName} and all its data (locations, competitors, insights,
           memberships). This cannot be undone.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Type <strong className="text-foreground">{orgName}</strong> and give a reason to confirm.
+        <p className="ao-hint">
+          Type <b>{orgName}</b> and give a reason to confirm.
         </p>
         <input
           type="text"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Reason (required, recorded in the audit log)"
-          className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+          className="ao-input"
         />
-        <div className="flex items-center gap-3">
+        <div className="ao-panel-row">
           <input
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={orgName}
-            className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+            className="ao-input"
+            style={{ flex: 1 }}
           />
-          <button
+          <TkButton
             type="submit"
+            variant="add"
             disabled={!ready || isPending}
-            className="h-9 rounded-lg bg-destructive px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            style={{ background: "var(--alert-2)" }}
           >
-            {isPending ? "Deleting..." : "Delete Permanently"}
-          </button>
-          <button type="button" onClick={onClose} className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground">
+            {isPending ? "Deleting…" : "Delete permanently"}
+          </TkButton>
+          <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
             Cancel
-          </button>
+          </TkButton>
         </div>
       </form>
     </div>
@@ -1336,67 +1274,72 @@ function DeletedBanner({
   }
 
   return (
-    <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-destructive">This organization is deleted</p>
-          <p className="text-xs text-muted-foreground">
+    <div className="ao-banner ao-banner-alert" style={{ flexDirection: "column", alignItems: "stretch" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div className="ao-bt">
+          <strong>This organization is deleted</strong>
+          <span>
             Deleted {new Date(deletedAt).toLocaleString()} · hidden from all admin lists, counts,
             and crons. Restore it, or permanently purge it (super admin).
-          </p>
+          </span>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleRestore}
-            disabled={isPending}
-            className="h-9 rounded-lg bg-precision-teal/15 px-4 text-sm font-semibold text-precision-teal hover:bg-precision-teal/25 disabled:opacity-50"
-          >
-            {isPending ? "..." : "Restore"}
-          </button>
-          <button
+        <div className="ao-actions">
+          <TkButton variant="keep" onClick={handleRestore} disabled={isPending} kept>
+            {isPending ? "…" : "Restore"}
+          </TkButton>
+          <TkButton
+            variant="keep"
             onClick={() => setShowPurge((s) => !s)}
-            className="h-9 rounded-lg bg-destructive/15 px-4 text-sm font-semibold text-destructive hover:bg-destructive/25"
+            style={{ color: "var(--alert-deep)", borderColor: "color-mix(in srgb, var(--alert) 40%, transparent)" }}
           >
-            Purge Permanently
-          </button>
+            Purge permanently
+          </TkButton>
         </div>
       </div>
 
       {showPurge && (
-        <form onSubmit={handlePurge} className="mt-4 space-y-3 border-t border-destructive/20 pt-4">
-          <p className="text-xs font-semibold text-destructive">
+        <form
+          onSubmit={handlePurge}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+            marginTop: 14,
+            paddingTop: 14,
+            borderTop: "1px solid color-mix(in srgb, var(--alert) 24%, transparent)",
+          }}
+        >
+          <p className="ao-hint" style={{ color: "var(--alert-deep)", fontWeight: 600 }}>
             Permanently deletes {orgName} and all its data — irreversible. Type{" "}
-            <strong className="text-foreground">{orgName}</strong> and give a reason.
+            <b>{orgName}</b> and give a reason.
           </p>
           <input
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Reason (required, recorded in the audit log)"
-            className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+            className="ao-input"
           />
-          <div className="flex items-center gap-3">
+          <div className="ao-panel-row">
             <input
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder={orgName}
-              className="h-9 flex-1 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-destructive"
+              className="ao-input"
+              style={{ flex: 1 }}
             />
-            <button
+            <TkButton
               type="submit"
+              variant="add"
               disabled={!purgeReady || isPending}
-              className="h-9 rounded-lg bg-destructive px-4 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              style={{ background: "var(--alert-2)" }}
             >
-              {isPending ? "Purging..." : "Purge"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPurge(false)}
-              className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground"
-            >
+              {isPending ? "Purging…" : "Purge"}
+            </TkButton>
+            <TkButton variant="ghost" onClick={() => setShowPurge(false)} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
               Cancel
-            </button>
+            </TkButton>
           </div>
         </form>
       )}

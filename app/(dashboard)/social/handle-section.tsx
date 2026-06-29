@@ -1,7 +1,16 @@
 "use client"
 
+// The Pass — the "watched accounts" manager, restyled to the kit.
+//
+// Keeps the wired server actions (save / delete / verify / discover) and the
+// shared <HandleManager/> editor (semantic-token styled → both themes work).
+// Only the surrounding chrome is rebuilt: a TkCard with a TkSectionHead-style
+// header, a Pass discovery TkButton, and a pointer to the Competitors roster
+// (UX gap §7: managing watched entities is homed here + on Competitors).
+
 import { useTransition, useState } from "react"
 import HandleManager from "@/components/social/handle-manager"
+import { TkButton } from "@/components/ticket"
 import {
   saveSocialProfileAction,
   deleteSocialProfileAction,
@@ -35,65 +44,62 @@ export default function SocialHandleSection({
   competitorHandleGroups,
 }: Props) {
   const [isDiscovering, startDiscovery] = useTransition()
-  const [discoveryResult, setDiscoveryResult] = useState<string | null>(null)
+  const [discoveryResult, setDiscoveryResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
   function handleDiscover() {
     setDiscoveryResult(null)
     startDiscovery(async () => {
       const result = await runSocialDiscoveryAction(locationId)
       if (result.error) {
-        setDiscoveryResult(`Error: ${result.error}`)
+        setDiscoveryResult({ ok: false, msg: result.error })
       } else {
-        setDiscoveryResult(`Discovered ${result.discovered} social profile${result.discovered !== 1 ? "s" : ""}`)
+        setDiscoveryResult({
+          ok: true,
+          msg: `Found ${result.discovered} profile${result.discovered !== 1 ? "s" : ""}.`,
+        })
       }
     })
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="sp-handles tk-card">
+      <div className="sp-handles-head">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Social Profiles</h2>
-          <p className="text-[11px] text-muted-foreground">
-            Manage social media handles for your location and competitors
+          <h3 className="sp-handles-title">Watched accounts</h3>
+          <p className="sp-handles-sub">
+            The handles we read for you and the competitors we track. A wrong handle means we read
+            the wrong account — fix one here or on{" "}
+            <a href="/competitors">Competitors</a>.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleDiscover}
-          disabled={isDiscovering}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition hover:bg-primary/90 disabled:opacity-50"
-        >
+        <TkButton variant="add" onClick={handleDiscover} disabled={isDiscovering}>
           {isDiscovering ? (
             <>
-              <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              <svg className="sp-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
+                <path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
               </svg>
-              Discovering...
+              Discovering…
             </>
           ) : (
             <>
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
               </svg>
-              Discover Handles
+              Discover handles
             </>
           )}
-        </button>
+        </TkButton>
       </div>
 
       {discoveryResult && (
-        <div className={`mb-4 rounded-lg px-3 py-2 text-xs font-medium ${
-          discoveryResult.startsWith("Error")
-            ? "border border-destructive/30 bg-destructive/10 text-destructive"
-            : "border border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
-        }`}>
-          {discoveryResult}
+        <div className={`sp-disc-note${discoveryResult.ok ? " sp-disc-ok" : " sp-disc-err"}`} role="status">
+          {discoveryResult.msg}
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="sp-handle-groups">
         <HandleManager
           entityType="location"
           entityId={locationId}

@@ -1,6 +1,9 @@
+import type { CSSProperties } from "react"
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { RevealOnView } from "@/components/ticket"
 import { UsersTable } from "./components/users-table"
+import "./admin-pass.css"
 
 interface UserRow {
   id: string
@@ -82,57 +85,50 @@ export default async function AdminUsersPage() {
   const { users, stats } = await fetchUsers()
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Users
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage all platform users, invite new users, and export data.
-        </p>
-      </div>
+    <div className="ticket-chrome tk-kit ap-page">
+      <RevealOnView as="header" className="ap-head">
+        <div className="ap-head-text">
+          <span className="tk-eyebrow">Platform · People</span>
+          <h1 className="ap-title">Users</h1>
+          <p className="ap-sub">
+            Every account on the platform — invite, deactivate, impersonate, and export.
+          </p>
+        </div>
+      </RevealOnView>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatCard label="Total Users" value={stats.total} />
-        <StatCard
-          label="Active (7d)"
-          value={stats.active7d}
-          color="text-precision-teal"
-        />
-        <StatCard
-          label="Deactivated"
-          value={stats.deactivated}
-          color="text-destructive"
-        />
-        <StatCard
-          label="Never Onboarded"
-          value={stats.neverOnboarded}
-          color="text-signal-gold"
-        />
-      </div>
+      <RevealOnView className="ap-stats" stagger>
+        <StatTile i={0} lead label="Total users" value={stats.total} />
+        <StatTile i={1} tone="teal" label="Active · 7d" value={stats.active7d} />
+        <StatTile i={2} tone="alert" label="Deactivated" value={stats.deactivated} />
+        <StatTile i={3} tone="gold" label="Never onboarded" value={stats.neverOnboarded} />
+      </RevealOnView>
 
-      <UsersTable users={users} />
+      <RevealOnView>
+        <UsersTable users={users} />
+      </RevealOnView>
     </div>
   )
 }
 
-function StatCard({
+function StatTile({
   label,
   value,
-  color,
+  tone,
+  lead = false,
+  i = 0,
 }: {
   label: string
   value: number
-  color?: string
+  tone?: "teal" | "gold" | "alert"
+  lead?: boolean
+  i?: number
 }) {
+  const cls = lead ? "ap-stat ap-stat-lead" : `ap-stat ${tone ? `ap-stat-${tone}` : ""}`
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <p className={`mt-2 text-3xl font-bold ${color ?? "text-foreground"}`}>
-        {value}
-      </p>
+    <div className={cls} style={{ "--tk-i": i } as CSSProperties}>
+      {tone ? <span className="ap-stat-rail" aria-hidden="true" /> : null}
+      <span className="ap-stat-lbl">{label}</span>
+      <span className="ap-stat-val">{value}</span>
     </div>
   )
 }

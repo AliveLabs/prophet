@@ -1,87 +1,85 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
 import ThemeToggle from "@/components/ui/theme-toggle"
 import { TicketLogo } from "@/components/brand/ticket-logo"
 
 const NAV_LINKS = [
-  { label: "What We Watch", href: "#features" },
-  { label: "How It Works", href: "#how-it-works" },
+  { label: "What we watch", href: "#features" },
+  { label: "How it works", href: "#how-it-works" },
   { label: "Pricing", href: "#pricing" },
 ]
 
 export function LandingNav() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // Lock body scroll while the mobile sheet is open.
+  useEffect(() => {
+    if (!mobileOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [mobileOpen])
+
   return (
-    <header className="landing-nav-blur fixed inset-x-0 top-0 z-50 border-b border-border/30">
-      <nav className="mx-auto flex h-20 max-w-7xl items-center justify-between px-8">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="Ticket home">
-          <TicketLogo size={26} className="text-foreground" />
-          <span className="text-wordmark text-xl font-semibold tracking-tight text-foreground">
-            Ticket
+    <header className="lp-nav">
+      <div className="lp-wrap lp-nav-row">
+        <Link href="/" className="lp-brand" aria-label="Ticket home">
+          <span className="lp-brand-mark" aria-hidden="true">
+            <TicketLogo size={17} className="text-white" />
           </span>
+          <span className="lp-brand-word">Ticket</span>
         </Link>
 
-        <div className="hidden items-center gap-10 md:flex">
+        <nav className="lp-nav-links" aria-label="Primary">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm font-medium tracking-tight text-muted-foreground transition-colors hover:text-foreground"
-            >
+            <a key={link.href} href={link.href} className="lp-nav-link">
               {link.label}
             </a>
           ))}
-          <Link
-            href="/login"
-            className="text-sm font-medium tracking-tight text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Sign In
+          <Link href="/login" className="lp-nav-link">
+            Sign in
           </Link>
-          <ThemeToggle />
-          <a
-            href="#waitlist"
-            className="vatic-gradient rounded-md px-6 py-2.5 text-sm font-bold tracking-tight text-white transition-transform hover:scale-[0.97] active:opacity-80"
-          >
-            Request Access
-          </a>
-        </div>
+        </nav>
 
-        <button
-          className="flex flex-col gap-1.5 md:hidden"
-          onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle menu"
-        >
-          <span
-            className={`block h-0.5 w-5 bg-foreground transition-transform duration-200 ${mobileOpen ? "translate-y-2 rotate-45" : ""}`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-foreground transition-opacity duration-200 ${mobileOpen ? "opacity-0" : ""}`}
-          />
-          <span
-            className={`block h-0.5 w-5 bg-foreground transition-transform duration-200 ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`}
-          />
-        </button>
-      </nav>
+        <div className="lp-nav-right">
+          <ThemeToggle className="lp-theme-btn" />
+          <a href="#waitlist" className="lp-cta lp-cta-primary lp-nav-cta">
+            Request access
+          </a>
+          <button
+            type="button"
+            className="lp-burger"
+            aria-expanded={mobileOpen}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMobileOpen((v) => !v)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+      </div>
 
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="overflow-hidden border-t border-border/30 bg-background md:hidden"
+            className="lp-mobile-menu"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 0.61, 0.36, 1] }}
           >
-            <div className="flex flex-col gap-4 px-8 py-6">
+            <div className="lp-mobile-inner">
               {NAV_LINKS.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className="text-sm font-medium text-muted-foreground"
+                  className="lp-mobile-link"
                   onClick={() => setMobileOpen(false)}
                 >
                   {link.label}
@@ -89,21 +87,18 @@ export function LandingNav() {
               ))}
               <Link
                 href="/login"
-                className="text-sm font-medium text-muted-foreground"
+                className="lp-mobile-link"
                 onClick={() => setMobileOpen(false)}
               >
-                Sign In
+                Sign in
               </Link>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Theme</span>
-                <ThemeToggle />
-              </div>
               <a
                 href="#waitlist"
-                className="vatic-gradient inline-block rounded-md px-6 py-2.5 text-center text-sm font-bold text-white"
+                className="lp-cta lp-cta-primary"
+                style={{ marginTop: 8 }}
                 onClick={() => setMobileOpen(false)}
               >
-                Request Access
+                Request access
               </a>
             </div>
           </motion.div>

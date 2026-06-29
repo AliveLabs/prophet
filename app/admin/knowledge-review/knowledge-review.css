@@ -1,0 +1,158 @@
+/* ============================================================
+   Admin · Knowledge Review — page-scoped Pass styling.
+   The admin shell is NOT (yet) a Pass token surface, so this page
+   hosts its own .ticket-chrome surface + imports the kit. These
+   kr-* rules are the few ADMIN-specific structural pieces (page
+   shell, stat strip, the review queue as accessible cards) that
+   arent generic enough to live in the kit. Everything visual is
+   driven by the shared tokens so light + warm-dark work for free.
+   ============================================================ */
+
+/* the page hosts its own ground so it reads as Pass even inside the
+   un-rebuilt admin <main> (which paints the shadcn bg-background). */
+.kr-surface {
+  position: relative;
+  min-height: 100%;
+  margin: -24px;            /* bleed over the admin <main> px-6 py-6 padding */
+  padding: 28px 24px 56px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 18px;
+}
+@media (max-width: 760px) {
+  .kr-surface { margin: -16px; padding: 22px 16px 48px; }
+}
+
+/* ── page header ─────────────────────────────────────────── */
+.kr-head { display: flex; flex-direction: column; gap: 12px; max-width: 70ch; }
+.kr-head .kr-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--rust-deep);
+}
+.kr-head .kr-eyebrow .kr-pulse {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--rust);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--rust) 50%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .kr-head .kr-eyebrow .kr-pulse { animation: kr-pulse 2.4s var(--ease) infinite; }
+  @keyframes kr-pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--rust) 50%, transparent); }
+    70% { box-shadow: 0 0 0 7px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+}
+.kr-head h1 {
+  font-family: var(--font-display); font-size: clamp(24px, 3.4vw, 32px);
+  font-weight: 800; letter-spacing: -.025em; line-height: 1.08; color: var(--ink);
+}
+.kr-head .kr-lede { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+
+/* ── stat strip (mono pips) ──────────────────────────────── */
+.kr-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+.kr-stat {
+  flex: 1 1 140px; min-width: 130px;
+  background: var(--card); border: 1px solid var(--line-2);
+  border-radius: var(--r-md); padding: 14px 16px; box-shadow: var(--shadow-sm);
+}
+.kr-stat .kr-k {
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3);
+}
+.kr-stat .kr-v {
+  margin-top: 6px; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: 28px; font-weight: 700; line-height: 1; letter-spacing: -.02em; color: var(--ink);
+}
+.kr-stat.kr-stat-accent .kr-v { color: var(--rust-deep); }
+
+/* ── toolbar (filter + count) ────────────────────────────── */
+.kr-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.kr-select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  color: var(--ink); background: var(--card); border: 1.5px solid var(--line-2);
+  border-radius: 11px; padding: 10px 36px 10px 14px; min-height: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23756A5D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.kr-select:hover { border-color: var(--ink-3); }
+.kr-toolbar .kr-count {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+}
+
+/* ── feedback banner ─────────────────────────────────────── */
+.kr-banner {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: var(--r-md); padding: 12px 16px; font-size: 13.5px; font-weight: 600;
+  border: 1px solid; line-height: 1.4;
+}
+.kr-banner svg { width: 16px; height: 16px; flex: none; }
+.kr-banner.kr-ok { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 35%, transparent); }
+.kr-banner.kr-err { background: var(--alert-wash); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 35%, transparent); }
+
+/* ── review queue: cards (accessible; reflow native on mobile) ── */
+.kr-queue { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .kr-queue { grid-template-columns: 1fr; } }
+
+.kr-row {
+  position: relative; background: var(--card); border: 1px solid var(--line-2);
+  border-radius: var(--r-lg); padding: 18px 18px 16px; box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 12px;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.kr-row:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.kr-row-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.kr-badges { display: flex; flex-wrap: wrap; gap: 7px; }
+
+/* kind / status badges (token-driven, AA-safe deep text on tints) */
+.kr-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+}
+.kr-badge-trend { background: var(--slate-tint); color: var(--slate-deep); }
+.kr-badge-feedback { background: var(--teal-tint); color: var(--teal-deep); }
+.kr-badge-demand { background: var(--gold-tint); color: var(--gold-deep); }
+.kr-badge-editorial { background: var(--rust-tint); color: var(--rust-deep); }
+/* status */
+.kr-status { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; }
+.kr-status .kr-dot { width: 7px; height: 7px; border-radius: 50%; }
+.kr-status-candidate { background: var(--gold-tint); color: var(--gold-deep); } .kr-status-candidate .kr-dot { background: var(--gold); }
+.kr-status-shadow { background: var(--slate-tint); color: var(--slate-deep); } .kr-status-shadow .kr-dot { background: var(--slate); }
+
+.kr-row h3 {
+  font-family: var(--font-display); font-size: 16px; font-weight: 800;
+  letter-spacing: -.015em; line-height: 1.25; color: var(--ink); text-wrap: balance;
+}
+.kr-row .kr-snippet { font-size: 13px; line-height: 1.55; color: var(--ink-2); }
+
+/* meta line (skill · scope · version) */
+.kr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.kr-meta .kr-m { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ink-3); }
+.kr-meta .kr-m b { font-family: var(--font-mono); font-weight: 700; color: var(--ink-2); }
+.kr-meta .kr-ver { font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); background: var(--paper-2); border: 1px solid var(--line); padding: 2px 7px; border-radius: 6px; }
+
+/* support/confidence micro-meters */
+.kr-meters { display: flex; gap: 14px; flex-wrap: wrap; padding-top: 2px; }
+.kr-meter { flex: 1 1 120px; min-width: 110px; }
+.kr-meter .kr-ml { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+.kr-meter .kr-ml .kr-mk { font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.kr-meter .kr-ml .kr-mv { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+.kr-meter .kr-track { height: 7px; border-radius: 5px; background: var(--paper-2); border: 1px solid var(--line); overflow: hidden; }
+.kr-meter .kr-track i { display: block; height: 100%; border-radius: 5px; width: 0; transition: width 1s var(--ease); }
+.kr-meter.kr-meter-conf .kr-track i { background: linear-gradient(90deg, color-mix(in srgb, var(--teal) 35%, transparent), var(--teal)); }
+.kr-meter.kr-meter-supp .kr-track i { background: linear-gradient(90deg, color-mix(in srgb, var(--slate) 35%, transparent), var(--slate)); }
+
+/* actions row */
+.kr-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 6px; }
+.kr-readonly { font-size: 12px; color: var(--ink-3); font-style: italic; padding-top: 4px; }
+
+/* secondary action buttons sit beside the kits gradient act-button */
+.kr-btn-shadow { background: var(--card); color: var(--slate-deep); border: 1.5px solid var(--line-2); }
+.kr-btn-shadow:hover { background: var(--slate-tint); border-color: var(--slate); }
+.kr-btn-retire { background: var(--card); color: var(--alert-deep); border: 1.5px solid color-mix(in srgb, var(--alert) 30%, var(--line-2)); }
+.kr-btn-retire:hover { background: var(--alert-wash); border-color: var(--alert); }
+.kr-btn[disabled] { opacity: .5; cursor: not-allowed; }

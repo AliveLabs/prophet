@@ -1,13 +1,25 @@
+// TICKET ADMIN — Platform Overview, rebuilt to "The Pass".
+//
+// STRUCTURE rebuild (not a reskin): the old flat stack of bordered "CardGrid"
+// boxes is replaced with weighted WIDGET tiles (gradient = headline weight,
+// --card = data) + kit TkCard sections holding token-driven, animate-in viz
+// (ranked bars, funnel meters, sparkbars, pill stats, an activity feed). The
+// data layer is IDENTICAL — fetchPlatformMetrics is unchanged; only presentation
+// moved to the kit + admin.css chrome.
+
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isTrialing, isPaidActive } from "@/lib/billing/trial"
-
-interface MetricCard {
-  label: string
-  value: string | number
-  sub?: string
-  color?: string
-}
+import {
+  RevealOnView,
+  TkCard,
+  TkSectionHead,
+  TkWidgetGrid,
+  TkWidget,
+  TkNumBig,
+  TkEmptyState,
+} from "@/components/ticket"
+import { AdminBars, AdminFunnel, AdminSparkbars } from "./admin-metrics"
 
 async function fetchPlatformMetrics() {
   await connection()
@@ -202,359 +214,255 @@ async function fetchPlatformMetrics() {
 export default async function AdminOverviewPage() {
   const m = await fetchPlatformMetrics()
 
+  const jobSuccessRate =
+    m.jobs.total > 0 ? Math.round((m.jobs.successful / m.jobs.total) * 100) : 0
+  const approvedPct =
+    m.waitlist.total > 0 ? Math.round((m.waitlist.approved / m.waitlist.total) * 100) : 0
+  const pendingPct =
+    m.waitlist.total > 0 ? Math.round((m.waitlist.pending / m.waitlist.total) * 100) : 0
+  const declinedPct =
+    m.waitlist.total > 0 ? Math.round((m.waitlist.declined / m.waitlist.total) * 100) : 0
+
+  const topMax = m.insights.topTypes[0]?.[1] ?? 1
+  const insightBars = m.insights.topTypes.map(([type, count]) => ({
+    label: type.replace(/_/g, " "),
+    value: count,
+    pct: Math.round((count / topMax) * 100),
+  }))
+
+  const weekEntries = Object.entries(m.waitlist.signupsByWeek)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-12)
+  const weekMax = Math.max(1, ...weekEntries.map(([, c]) => c))
+  const sparkbars = weekEntries.map(([week, count]) => ({
+    label: week.slice(5),
+    value: count,
+    pct: Math.round((count / weekMax) * 100),
+  }))
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Platform Overview
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Real-time analytics across users, organizations, trials, and platform
-          usage.
+    <div className="adm-stack" style={{ display: "flex", flexDirection: "column" }}>
+      {/* ── PAGE HEADER ── */}
+      <RevealOnView as="header" className="adm-pagehead">
+        <div className="adm-pagehead__kicker">Platform</div>
+        <h1>Overview</h1>
+        <p>
+          Real-time analytics across users, organizations, trials, and platform usage —
+          refreshed on load.
         </p>
-      </div>
+      </RevealOnView>
 
-      <Section title="Platform at a Glance">
-        <CardGrid
-          cards={[
-            { label: "Auth Users", value: m.overview.authUserCount },
-            { label: "Organizations", value: m.overview.orgCount },
-            { label: "Locations", value: m.overview.locationCount },
-            {
-              label: "Active Competitors",
-              value: m.overview.competitorCount,
-            },
-          ]}
-        />
-      </Section>
+      {/* ── PLATFORM AT A GLANCE — weighted widget grid ── */}
+      <TkSectionHead title="Platform at a glance" sub="Live totals" />
+      <RevealOnView>
+        <TkWidgetGrid>
+          <TkWidget
+            tone="rust"
+            size="wide"
+            label="Auth users"
+            value={m.overview.authUserCount.toLocaleString()}
+            sub={`${m.users.recentlyActive.toLocaleString()} active in the last 7 days`}
+          />
+          <TkWidget
+            tone="teal"
+            label="Organizations"
+            value={m.overview.orgCount.toLocaleString()}
+          />
+          <TkWidget
+            tone="gold"
+            label="Paid subs"
+            value={m.trials.paid.toLocaleString()}
+            sub={`${m.trials.active} on trial`}
+          />
+          <TkWidget
+            tone="slate"
+            label="Locations"
+            value={m.overview.locationCount.toLocaleString()}
+          />
+          <TkWidget
+            tone="slate"
+            label="Active competitors"
+            value={m.overview.competitorCount.toLocaleString()}
+          />
+          <TkWidget
+            tone="slate"
+            size="wide"
+            label="Job success rate"
+            value={`${jobSuccessRate}%`}
+            sub={`${m.jobs.successful.toLocaleString()} of ${m.jobs.total.toLocaleString()} runs · ${m.jobs.failed} failed`}
+          />
+        </TkWidgetGrid>
+      </RevealOnView>
 
-      <Section title="Waitlist Funnel">
-        <CardGrid
-          cards={[
-            { label: "Total Signups", value: m.waitlist.total },
-            {
-              label: "Pending",
-              value: m.waitlist.pending,
-              color: "text-signal-gold",
-            },
-            {
-              label: "Approved",
-              value: m.waitlist.approved,
-              color: "text-precision-teal",
-            },
-            {
-              label: "Declined",
-              value: m.waitlist.declined,
-              color: "text-destructive",
-            },
-          ]}
-        />
-        {m.waitlist.total > 0 && (
-          <div className="mt-4 rounded-xl border border-border bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Conversion Rate
-            </p>
-            <div className="flex items-center gap-6">
-              <FunnelBar
-                label="Approved"
-                pct={
-                  m.waitlist.total > 0
-                    ? Math.round(
-                        (m.waitlist.approved / m.waitlist.total) * 100
-                      )
-                    : 0
-                }
-                color="bg-precision-teal"
-              />
-              <FunnelBar
-                label="Pending"
-                pct={
-                  m.waitlist.total > 0
-                    ? Math.round(
-                        (m.waitlist.pending / m.waitlist.total) * 100
-                      )
-                    : 0
-                }
-                color="bg-signal-gold"
-              />
-              <FunnelBar
-                label="Declined"
-                pct={
-                  m.waitlist.total > 0
-                    ? Math.round(
-                        (m.waitlist.declined / m.waitlist.total) * 100
-                      )
-                    : 0
-                }
-                color="bg-destructive"
+      {/* ── WAITLIST FUNNEL ── */}
+      <TkSectionHead title="Waitlist funnel" sub={`${m.waitlist.total.toLocaleString()} signups`} />
+      <RevealOnView className="tk-grid">
+        <TkCard>
+          <TkNumBig
+            value={m.waitlist.total}
+            caption="Total signups"
+            captionRight={`${m.waitlist.pending} awaiting review`}
+            sub={
+              <>
+                <b>{m.waitlist.approved.toLocaleString()}</b> approved ·{" "}
+                <b>{m.waitlist.declined.toLocaleString()}</b> declined
+              </>
+            }
+          />
+          {m.waitlist.total > 0 && (
+            <div style={{ marginTop: 18 }}>
+              <AdminFunnel
+                items={[
+                  { label: "Approved", pct: approvedPct, tone: "teal" },
+                  { label: "Pending", pct: pendingPct, tone: "gold" },
+                  { label: "Declined", pct: declinedPct, tone: "alert" },
+                ]}
               />
             </div>
-          </div>
-        )}
-
-        {Object.keys(m.waitlist.signupsByWeek).length > 0 && (
-          <div className="mt-4 rounded-xl border border-border bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Signups by Week
-            </p>
-            <div className="flex items-end gap-2" style={{ height: 80 }}>
-              {Object.entries(m.waitlist.signupsByWeek)
-                .sort(([a], [b]) => a.localeCompare(b))
-                .slice(-12)
-                .map(([week, count]) => {
-                  const maxCount = Math.max(
-                    ...Object.values(m.waitlist.signupsByWeek)
-                  )
-                  const h = maxCount > 0 ? (count / maxCount) * 64 : 4
-                  return (
-                    <div key={week} className="flex flex-1 flex-col items-center gap-1">
-                      <div
-                        className="w-full rounded-sm bg-vatic-indigo/70"
-                        style={{ height: Math.max(4, h) }}
-                        title={`${week}: ${count}`}
-                      />
-                      <span className="text-[9px] text-muted-foreground">
-                        {week.slice(5)}
-                      </span>
-                    </div>
-                  )
-                })}
+          )}
+        </TkCard>
+        <TkCard>
+          <span className="tk-eyebrow">Signups by week</span>
+          {sparkbars.length > 0 ? (
+            <div style={{ marginTop: 14 }}>
+              <AdminSparkbars bars={sparkbars} />
             </div>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Trials & Billing">
-        <CardGrid
-          cards={[
-            {
-              label: "Active Trials",
-              value: m.trials.active,
-              color: "text-precision-teal",
-            },
-            {
-              label: "Expired Trials",
-              value: m.trials.expired,
-              color: "text-signal-gold",
-            },
-            {
-              label: "Paid Subscriptions",
-              value: m.trials.paid,
-              color: "text-vatic-indigo",
-            },
-          ]}
-        />
-        {Object.keys(m.trials.tierCounts).length > 0 && (
-          <div className="mt-4 rounded-xl border border-border bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Paid Tier Breakdown
+          ) : (
+            <p className="tk-muted" style={{ fontSize: 13, marginTop: 12 }}>
+              No signups recorded yet.
             </p>
-            <div className="flex flex-wrap gap-4">
+          )}
+        </TkCard>
+      </RevealOnView>
+
+      {/* ── TRIALS & BILLING ── */}
+      <TkSectionHead title="Trials & billing" sub="Conversion state" />
+      <RevealOnView>
+        <TkWidgetGrid>
+          <TkWidget tone="teal" label="Active trials" value={m.trials.active.toLocaleString()} />
+          <TkWidget tone="gold" label="Expired trials" value={m.trials.expired.toLocaleString()} />
+          <TkWidget tone="rust" label="Paid subscriptions" value={m.trials.paid.toLocaleString()} />
+          <TkWidget
+            tone="slate"
+            label="Conversion"
+            value={
+              m.trials.active + m.trials.paid > 0
+                ? `${Math.round((m.trials.paid / (m.trials.active + m.trials.paid)) * 100)}%`
+                : "—"
+            }
+            sub="paid of paid+trialing"
+          />
+        </TkWidgetGrid>
+      </RevealOnView>
+      {Object.keys(m.trials.tierCounts).length > 0 && (
+        <RevealOnView>
+          <TkCard style={{ marginTop: 14 }}>
+            <span className="tk-eyebrow">Paid tier breakdown</span>
+            <div className="adm-pills" style={{ marginTop: 12 }}>
               {Object.entries(m.trials.tierCounts).map(([tier, count]) => (
-                <div key={tier} className="flex items-center gap-2">
-                  <span className="inline-block h-3 w-3 rounded-full bg-vatic-indigo" />
-                  <span className="text-sm capitalize text-foreground">
-                    {tier}
+                <span className="adm-pillstat" key={tier}>
+                  <span className="adm-pillstat__dot" aria-hidden="true" />
+                  <span className="adm-pillstat__name">{tier}</span>
+                  <span className="adm-pillstat__n">{count.toLocaleString()}</span>
+                </span>
+              ))}
+            </div>
+          </TkCard>
+        </RevealOnView>
+      )}
+
+      {/* ── USAGE METRICS ── */}
+      <TkSectionHead title="Usage metrics" sub="Insights generated" />
+      <RevealOnView className="tk-grid">
+        <TkCard>
+          <TkNumBig
+            value={m.insights.total}
+            format={(n) => n.toLocaleString()}
+            caption="Total insights"
+            captionRight="all time"
+            sub={
+              <>
+                <b>{m.insights.last7.toLocaleString()}</b> in the last 7 days ·{" "}
+                <b>{m.insights.last30.toLocaleString()}</b> in 30
+              </>
+            }
+          />
+        </TkCard>
+        <TkCard>
+          <span className="tk-eyebrow">Top insight types · 30 days</span>
+          {insightBars.length > 0 ? (
+            <div style={{ marginTop: 14 }}>
+              <AdminBars rows={insightBars} />
+            </div>
+          ) : (
+            <p className="tk-muted" style={{ fontSize: 13, marginTop: 12 }}>
+              No insights in the last 30 days.
+            </p>
+          )}
+        </TkCard>
+      </RevealOnView>
+
+      {/* ── USER ACTIVITY ── */}
+      <TkSectionHead title="User activity" sub="Engagement signals" />
+      <RevealOnView>
+        <TkWidgetGrid>
+          <TkWidget
+            tone="teal"
+            size="wide"
+            label="Active in last 7 days"
+            value={m.users.recentlyActive.toLocaleString()}
+            sub="signed in within the week"
+          />
+          <TkWidget
+            tone="gold"
+            size="wide"
+            label="Never onboarded"
+            value={m.users.neverOnboarded.toLocaleString()}
+            sub="signed up, no organization yet"
+          />
+        </TkWidgetGrid>
+      </RevealOnView>
+
+      {/* ── RECENT ADMIN ACTIVITY ── */}
+      <TkSectionHead title="Recent admin activity" sub="Last 20 actions" />
+      <RevealOnView>
+        {m.recentActivity.length === 0 ? (
+          <TkEmptyState
+            icon={
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M12 8v4l3 2" strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx="12" cy="12" r="9" />
+              </svg>
+            }
+            title="No activity logged yet"
+            description="Admin actions across the platform will appear here as they happen."
+          />
+        ) : (
+          <TkCard>
+            <div className="adm-feed">
+              {m.recentActivity.map((a) => (
+                <div className="adm-feed__row" key={a.id}>
+                  <span className="adm-feed__avatar" aria-hidden="true">
+                    {a.adminEmail[0]?.toUpperCase() ?? "?"}
                   </span>
-                  <span className="text-sm font-bold text-foreground">
-                    {count}
+                  <div className="adm-feed__body">
+                    <div className="adm-feed__action">
+                      {a.action.replace(/\./g, " → ")}
+                    </div>
+                    <div className="adm-feed__meta">
+                      by {a.adminEmail || "system"} · {a.targetType}
+                      {a.targetId ? ` · ${a.targetId.slice(0, 8)}…` : ""}
+                    </div>
+                  </div>
+                  <span className="adm-feed__time">
+                    {a.createdAt ? new Date(a.createdAt).toLocaleString() : "—"}
                   </span>
                 </div>
               ))}
             </div>
-          </div>
+          </TkCard>
         )}
-      </Section>
-
-      <Section title="Usage Metrics">
-        <CardGrid
-          cards={[
-            { label: "Total Insights", value: m.insights.total },
-            {
-              label: "Last 7 Days",
-              value: m.insights.last7,
-              sub: "insights",
-            },
-            {
-              label: "Last 30 Days",
-              value: m.insights.last30,
-              sub: "insights",
-            },
-          ]}
-        />
-        {m.insights.topTypes.length > 0 && (
-          <div className="mt-4 rounded-xl border border-border bg-card p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Top Insight Types (Last 30d)
-            </p>
-            <div className="space-y-2">
-              {m.insights.topTypes.map(([type, count]) => {
-                const maxCount = m.insights.topTypes[0]?.[1] ?? 1
-                const pct = Math.round((count / maxCount) * 100)
-                return (
-                  <div key={type} className="flex items-center gap-3">
-                    <span className="w-48 truncate text-xs text-muted-foreground">
-                      {type.replace(/_/g, " ")}
-                    </span>
-                    <div className="flex-1">
-                      <div className="h-2 rounded-full bg-secondary">
-                        <div
-                          className="h-2 rounded-full bg-vatic-indigo/70"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className="w-10 text-right text-xs font-medium text-foreground">
-                      {count}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </Section>
-
-      <Section title="Job Runs">
-        <CardGrid
-          cards={[
-            { label: "Total Runs", value: m.jobs.total },
-            {
-              label: "Successful",
-              value: m.jobs.successful,
-              color: "text-precision-teal",
-            },
-            {
-              label: "Failed",
-              value: m.jobs.failed,
-              color: "text-destructive",
-            },
-            {
-              label: "Success Rate",
-              value:
-                m.jobs.total > 0
-                  ? `${Math.round((m.jobs.successful / m.jobs.total) * 100)}%`
-                  : "N/A",
-            },
-          ]}
-        />
-      </Section>
-
-      <Section title="User Activity">
-        <CardGrid
-          cards={[
-            {
-              label: "Active (7d)",
-              value: m.users.recentlyActive,
-              sub: "signed in last week",
-              color: "text-precision-teal",
-            },
-            {
-              label: "Never Onboarded",
-              value: m.users.neverOnboarded,
-              sub: "signed up but no org",
-              color: "text-signal-gold",
-            },
-          ]}
-        />
-      </Section>
-
-      <Section title="Recent Admin Activity">
-        {m.recentActivity.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No activity logged yet.</p>
-        ) : (
-          <div className="rounded-xl border border-border bg-card divide-y divide-border">
-            {m.recentActivity.map((a) => (
-              <div key={a.id} className="flex items-center justify-between px-5 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-vatic-indigo/10 text-xs font-bold text-vatic-indigo">
-                    {a.adminEmail[0]?.toUpperCase() ?? "?"}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {a.action.replace(/\./g, " → ")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      by {a.adminEmail} · {a.targetType}
-                      {a.targetId ? ` · ${a.targetId.slice(0, 8)}…` : ""}
-                    </p>
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {new Date(a.createdAt).toLocaleString()}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-    </div>
-  )
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <section>
-      <h2 className="mb-4 text-base font-semibold text-foreground">{title}</h2>
-      {children}
-    </section>
-  )
-}
-
-function CardGrid({ cards }: { cards: MetricCard[] }) {
-  return (
-    <div
-      className={`grid gap-4 ${cards.length <= 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2 md:grid-cols-4"}`}
-    >
-      {cards.map((card) => (
-        <div
-          key={card.label}
-          className="rounded-xl border border-border bg-card p-5"
-        >
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {card.label}
-          </p>
-          <p
-            className={`mt-2 text-3xl font-bold ${card.color ?? "text-foreground"}`}
-          >
-            {card.value}
-          </p>
-          {card.sub && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{card.sub}</p>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function FunnelBar({
-  label,
-  pct,
-  color,
-}: {
-  label: string
-  pct: number
-  color: string
-}) {
-  return (
-    <div className="flex-1">
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <span className="text-xs font-semibold text-foreground">{pct}%</span>
-      </div>
-      <div className="h-2.5 rounded-full bg-secondary">
-        <div
-          className={`h-2.5 rounded-full ${color}`}
-          style={{ width: `${Math.max(2, pct)}%` }}
-        />
-      </div>
+      </RevealOnView>
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { connection } from "next/server"
 import { notFound } from "next/navigation"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { UserDetailClient } from "./user-detail-client"
+import "../admin-pass.css"
 
 interface Props {
   params: Promise<{ id: string }>

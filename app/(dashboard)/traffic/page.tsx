@@ -1,29 +1,46 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { AnimatedNumber } from "@/components/ui/animated-number"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
-import LocationFilter from "@/components/ui/location-filter"
-import TrafficHeatmap, { type HeatmapData } from "@/components/traffic/traffic-heatmap"
-import PeakComparison from "@/components/traffic/peak-comparison"
-import TrafficInsightsSection from "@/components/traffic/traffic-insights"
+import {
+  RevealOnView,
+  TkChip,
+  TkConfidence,
+  TkHero,
+  TkSectionHead,
+  TkWidgetGrid,
+  TkWidget,
+  TkWindowViz,
+  TkWhy,
+  TkEmptyState,
+  TkStillLearning,
+  TkTooltipLayer,
+} from "@/components/ticket"
 import { buildPeakData } from "@/lib/traffic/peak-data"
-import TrafficChart from "@/components/insights/traffic-chart"
-import { Card } from "@/components/ui/card"
 import { fetchTrafficPageData } from "@/lib/cache/traffic"
+import type { TrafficData } from "./traffic-types"
+import TrafficControls from "./traffic-controls"
+import TrafficBars from "./traffic-bars"
+import TrafficHeatmapGrid from "./traffic-heatmap-grid"
+import TrafficRanks from "./traffic-ranks"
+import TrafficIntel, { generateTrafficInsights } from "./traffic-intel"
+import { TrafficHeroCanvas } from "./traffic-hero-canvas"
+import "./traffic.css"
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 function formatHour(h: number): string {
   if (h === 0) return "12am"
   if (h === 12) return "12pm"
   return h < 12 ? `${h}am` : `${h - 12}pm`
 }
+function hourShort(h: number): string {
+  if (h === 0) return "12a"
+  if (h === 12) return "12p"
+  return h < 12 ? `${h}a` : `${h - 12}p`
+}
 
 type TrafficPageProps = {
-  searchParams?: Promise<{
-    location_id?: string
-    error?: string
-  }>
+  searchParams?: Promise<{ location_id?: string; error?: string }>
 }
 
 export default async function TrafficPage({ searchParams }: TrafficPageProps) {
@@ -67,14 +84,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const busyTimesRaw = cached.busyTimes
 
   // Group by competitor
-  const byCompetitor = new Map<string, Array<{
-    day_of_week: number
-    hourly_scores: number[]
-    peak_hour: number
-    peak_score: number
-    typical_time_spent: string | null
-  }>>()
-
+  const byCompetitor = new Map<string, TrafficData["days"]>()
   const currentPopMap = new Map<string, number | null>()
 
   for (const bt of busyTimesRaw) {
@@ -92,7 +102,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
     }
   }
 
-  const trafficData: HeatmapData[] = [...byCompetitor.entries()].map(([compId, days]) => ({
+  const trafficData: TrafficData[] = [...byCompetitor.entries()].map(([compId, days]) => ({
     competitor_id: compId,
     competitor_name: competitorNameMap.get(compId) ?? "Competitor",
     days,
@@ -111,7 +121,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const allPeaks = trafficData.flatMap((d) => d.days.map((day) => day.peak_score))
   const avgPeak = allPeaks.length > 0 ? Math.round(allPeaks.reduce((s, v) => s + v, 0) / allPeaks.length) : 0
 
-  // Find most popular day across all competitors
+  // Most popular day across all competitors
   const dayTotals = Array(7).fill(0) as number[]
   for (const comp of trafficData) {
     for (const day of comp.days) {
@@ -120,7 +130,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   }
   const mostPopularDow = dayTotals.indexOf(Math.max(...dayTotals))
 
-  // Find best time to compete (lowest combined traffic during business hours)
+  // Best time to compete (lowest combined traffic during business hours)
   let bestCompeteDay = 0
   let bestCompeteHour = 12
   let lowestCombined = Infinity
@@ -139,105 +149,282 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
     }
   }
 
+  const hasData = trackedCount > 0
+  const trafficInsights = generateTrafficInsights(trafficData)
+
+  // ── Build the hero "open window" viz from the best-compete day ──
+  // Axis spans business hours (10a–9p). The lead window is the contiguous
+  // low-competition block (combined set traffic in the bottom third) that
+  // contains the single best-compete hour; the competitor surge is the hour the
+  // set peaks that same day. Honest framing: this is *competitor* traffic.
+  const AX_START = 10
+  const AX_END = 21
+  const AX_SPAN = AX_END - AX_START
+  const pos = (h: number) => `${Math.round(((h - AX_START) / AX_SPAN) * 100)}%`
+
+  let windowStart = bestCompeteHour
+  let windowEnd = bestCompeteHour + 1
+  let surgeHour = 18
+  if (hasData) {
+    const combinedByHour: number[] = []
+    for (let h = AX_START; h < AX_END; h++) {
+      let c = 0
+      for (const comp of trafficData) {
+        const d = comp.days.find((x) => x.day_of_week === bestCompeteDay)
+        c += d?.hourly_scores[h] ?? 0
+      }
+      combinedByHour[h] = c
+    }
+    const vals = combinedByHour.slice(AX_START, AX_END).filter((v) => v > 0)
+    const lowBand = vals.length ? Math.max(...vals) * 0.45 : Infinity
+    // expand around the best-compete hour while combined stays in the low band
+    windowStart = bestCompeteHour
+    windowEnd = bestCompeteHour + 1
+    while (windowStart - 1 >= AX_START && combinedByHour[windowStart - 1] <= lowBand) windowStart--
+    while (windowEnd < AX_END && combinedByHour[windowEnd] <= lowBand) windowEnd++
+    // surge = the set's busiest hour that day
+    let maxC = -1
+    for (let h = AX_START; h < AX_END; h++) {
+      if (combinedByHour[h] > maxC) {
+        maxC = combinedByHour[h]
+        surgeHour = h
+      }
+    }
+  }
+
+  const axisLabels = [formatHour(AX_START), formatHour(13), formatHour(17), formatHour(AX_END - 1)]
+  const heroConfidence = trackedCount >= 3 ? "high" : trackedCount === 2 ? "medium" : "directional"
+
   return (
-    <section className="space-y-6">
-      {/* Filter + Actions Bar */}
-      <div
-        className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 animate-fade-up"
-        style={{ animationDelay: "0ms" }}
-      >
-        {locations && locations.length > 1 && selectedLocationId && (
-          <LocationFilter
-            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-            selectedLocationId={selectedLocationId}
-          />
-        )}
+    <div className="pv-page">
+      <div className="pv-page-head">
+        <span className="pv-kicker">Foot traffic</span>
+        <h1 className="pv-h1">When the block fills up</h1>
+        <p className="pv-sub">
+          How busy your competitors get, hour by hour — pulled from Google Maps popular times. Scores
+          are <b>% of each spot&apos;s own typical peak</b>, so you can read the rhythm of the
+          neighborhood and find the openings.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="tk-kit" style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+        <TkTooltipLayer />
+
         {selectedLocationId && (
-          <div className="flex items-center gap-2">
-            <span className="live-dot" aria-hidden="true" />
-            <JobRefreshButton
-              type="busy_times"
-              locationId={selectedLocationId}
-              label="Fetch Busy Times"
-              pendingLabel="Fetching busy times data"
+          <RevealOnView>
+            <TrafficControls
+              locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+              selectedLocationId={selectedLocationId}
+              trackedCount={trackedCount}
             />
-          </div>
+          </RevealOnView>
+        )}
+
+        {!hasData ? (
+          /* ── EMPTY / FIRST-RUN STATE ── */
+          <RevealOnView style={{ marginTop: 22 }}>
+            {selectedLocationId ? (
+              <TkStillLearning
+                days={1}
+                target={7}
+                title="Still reading the neighborhood's rhythm"
+                description="Hit “Fetch busy times” to pull popular hours from Google Maps. Once a few competitors land, you'll see when the block fills up and where your openings are."
+              />
+            ) : (
+              <TkEmptyState
+                icon={
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.1c0-.6.5-1.1 1.1-1.1h2.3c.6 0 1.1.5 1.1 1.1v6.8c0 .6-.5 1.1-1.1 1.1H4.1A1.1 1.1 0 013 19.9v-6.8zM9.8 8.6c0-.6.5-1.1 1.1-1.1h2.3c.6 0 1.1.5 1.1 1.1v11.3c0 .6-.5 1.1-1.1 1.1h-2.3a1.1 1.1 0 01-1.1-1.1V8.6zM16.5 4.1c0-.6.5-1.1 1.1-1.1h2.3c.6 0 1.1.5 1.1 1.1v15.8c0 .6-.5 1.1-1.1 1.1h-2.3a1.1 1.1 0 01-1.1-1.1V4.1z" />
+                  </svg>
+                }
+                title="No location to read yet"
+                description="Add a location to start pulling competitor busy times for your block."
+              />
+            )}
+          </RevealOnView>
+        ) : (
+          <>
+            {/* ── HERO: the lead read — your best window to compete ── */}
+            <RevealOnView style={{ marginTop: 22 }}>
+              <TkHero
+                titleId="trf-hero-title"
+                photo={<TrafficHeroCanvas label="Daily rhythm" />}
+                venueChip={
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M12 21s-7-4.5-9-9a9 9 0 1118 0c-2 4.5-9 9-9 9z" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                    Your block
+                  </>
+                }
+                chips={
+                  <>
+                    <TkChip family="competitive">Competitive read</TkChip>
+                    <TkConfidence level={heroConfidence} />
+                  </>
+                }
+                title="Your clearest window to compete"
+                lede={
+                  <>
+                    Across the set, <b>{DAY_NAMES[bestCompeteDay]}</b> around{" "}
+                    <b>{formatHour(bestCompeteHour)}</b> is when competitors are quietest — the
+                    moment your block has the least pull elsewhere.
+                  </>
+                }
+              >
+                <TkWindowViz
+                  headLabel={`${DAY_SHORT[bestCompeteDay]} · competitor traffic`}
+                  headValue={`Open window ${hourShort(windowStart)}–${hourShort(windowEnd)}`}
+                  axisLabels={axisLabels}
+                  segments={[
+                    {
+                      kind: "you-open",
+                      left: pos(windowStart),
+                      width: `${Math.round(((windowEnd - windowStart) / AX_SPAN) * 100)}%`,
+                      tip: "Competitors are quietest here — your room to draw the crowd",
+                      tipValue: `${hourShort(windowStart)}–${hourShort(windowEnd)}`,
+                    },
+                    {
+                      kind: "surge",
+                      left: pos(surgeHour),
+                      width: `${Math.round((1 / AX_SPAN) * 100)}%`,
+                      tip: "The set's busiest hour — diners are likely facing waits",
+                      tipValue: `${hourShort(surgeHour)} peak`,
+                    },
+                  ]}
+                  legend={
+                    <>
+                      <span>
+                        <i style={{ background: "color-mix(in srgb, var(--teal) 38%, transparent)" }} /> Your open window
+                      </span>
+                      <span>
+                        <i style={{ background: "color-mix(in srgb, var(--rust) 40%, transparent)" }} /> Competitor surge
+                      </span>
+                    </>
+                  }
+                />
+                <TkWhy
+                  label="Why this window"
+                  points={[
+                    <>
+                      We summed every tracked competitor&apos;s busy score for each hour of{" "}
+                      <b>{DAY_NAMES[bestCompeteDay]}</b> and took the lowest contiguous stretch.
+                    </>,
+                    <>
+                      Scores are <b>% of each spot&apos;s typical peak</b> from Google Maps popular
+                      times — a relative read of the block&apos;s rhythm, not headcount or sales.
+                    </>,
+                    <>
+                      The surge band marks <b>{hourShort(surgeHour)}</b>, when the set is busiest and
+                      diners are most likely choosing between waits.
+                    </>,
+                  ]}
+                  source={
+                    <>
+                      <b>Sources:</b> Google Maps popular times · {trackedCount} tracked competitor
+                      {trackedCount === 1 ? "" : "s"}
+                    </>
+                  }
+                />
+              </TkHero>
+            </RevealOnView>
+
+            {/* ── KPI WIDGETS ── */}
+            <TkSectionHead title="At a glance" sub="Across your tracked competitors" />
+            <RevealOnView>
+              <TkWidgetGrid>
+                <TkWidget
+                  tone="rust"
+                  size="wide"
+                  label="Competitors read"
+                  value={String(trackedCount)}
+                  sub={`with busy-times data · ${avgPeak}% avg peak across the set`}
+                  data-tip="Competitors with Google Maps popular-times data pulled"
+                  data-tipv={`${trackedCount} tracked`}
+                  spark={
+                    <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
+                      <path
+                        d="M0 52 L20 48 L38 30 L52 40 L70 14 L88 26 L120 10"
+                        fill="none"
+                        stroke="rgba(255,255,255,.7)"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                  }
+                />
+                <TkWidget
+                  tone="gold"
+                  label="Busiest day"
+                  value={DAY_SHORT[mostPopularDow]}
+                  sub={`${avgPeak}% avg peak`}
+                  data-tip="The day the set runs busiest, by combined peak score"
+                  data-tipv={DAY_NAMES[mostPopularDow]}
+                />
+                <TkWidget
+                  tone="teal"
+                  label="Best to compete"
+                  value={hourShort(bestCompeteHour)}
+                  sub={`${DAY_SHORT[bestCompeteDay]} · quietest set`}
+                  data-tip="Lowest combined competitor traffic during business hours"
+                  data-tipv={`${DAY_NAMES[bestCompeteDay]} ${formatHour(bestCompeteHour)}`}
+                />
+                <TkWidget
+                  tone="slate"
+                  label="Busiest competitor"
+                  value={busiestComp?.competitor_name ?? "—"}
+                  sub={busiestComp ? `peaks ${busiestComp.peak_score}% on ${busiestComp.busiest_day}` : "no peak yet"}
+                  data-tip="Highest single-day peak across the set"
+                  data-tipv={busiestComp ? `${busiestComp.peak_score}% peak` : "—"}
+                />
+              </TkWidgetGrid>
+            </RevealOnView>
+
+            {/* ── BUSY TIMES BY DAY ── */}
+            <TkSectionHead title="Busy times by day" sub="Hour-by-hour, pick a day" />
+            <RevealOnView>
+              <div className="tk-trf-panel">
+                <p className="tk-trf-panel-sub">
+                  Each bar is how busy that competitor runs at that hour — % of their own typical peak.
+                  Taller stacks mean the whole block is full at once.
+                </p>
+                <TrafficBars data={trafficData} />
+              </div>
+            </RevealOnView>
+
+            {/* ── AVERAGE BUSY SCORE (ranks) ── */}
+            <TkSectionHead title="How busy, on average" sub="Week-long average peak vs the set" />
+            <RevealOnView>
+              <div className="tk-trf-panel">
+                <p className="tk-trf-panel-sub">
+                  Average peak across all seven days — not just the single busiest hour. The marker on
+                  each bar shows where the spot sits against the set average.
+                </p>
+                <TrafficRanks competitors={peakData} />
+              </div>
+            </RevealOnView>
+
+            {/* ── WEEKLY HEATMAP ── */}
+            <TkSectionHead title="The week, at a glance" sub="Pick a competitor's heatmap" />
+            <RevealOnView>
+              <div className="tk-trf-panel">
+                <TrafficHeatmapGrid data={trafficData} />
+              </div>
+            </RevealOnView>
+
+            {/* ── TRAFFIC INTELLIGENCE ── */}
+            {trafficInsights.length > 0 ? (
+              <>
+                <TkSectionHead title="What to do with it" sub="Patterns worth acting on" />
+                <RevealOnView>
+                  <TrafficIntel insights={trafficInsights} />
+                </RevealOnView>
+              </>
+            ) : null}
+          </>
         )}
       </div>
-
-      {trackedCount > 0 ? (
-        <>
-          {/* KPI Cards */}
-          <div
-            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-fade-up"
-            style={{ animationDelay: "40ms" }}
-          >
-            {/* Rust gradient hero tile — single most important scalar KPI */}
-            <Card className="bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white border-0 shadow-md">
-              <p className="text-xs font-medium uppercase tracking-wide opacity-80">Competitors Tracked</p>
-              <p className="mt-2 text-4xl font-bold tabular-nums"><AnimatedNumber value={trackedCount} /></p>
-              <p className="mt-1 text-[11px] opacity-70">with busy times data</p>
-            </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Busiest Competitor</p>
-              <p className="mt-2 text-lg font-bold text-foreground">{busiestComp?.competitor_name ?? "N/A"}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Peak: {busiestComp?.peak_score ?? 0}% on {busiestComp?.busiest_day ?? "N/A"}</p>
-            </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Most Popular Day</p>
-              <p className="mt-2 text-lg font-bold text-signal-gold">{DAY_NAMES[mostPopularDow]}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">avg peak: {avgPeak}% across all competitors</p>
-            </Card>
-            <Card className="bg-card">
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Best Time to Compete</p>
-              <p className="mt-2 text-lg font-bold text-precision-teal">
-                {DAY_NAMES[bestCompeteDay]} {formatHour(bestCompeteHour)}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">lowest combined competitor traffic</p>
-            </Card>
-          </div>
-
-          {/* Bar Chart */}
-          <div
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
-            style={{ animationDelay: "80ms" }}
-          >
-            <TrafficChart data={trafficData} />
-          </div>
-
-          {/* Heatmap */}
-          <div
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
-            style={{ animationDelay: "120ms" }}
-          >
-            <TrafficHeatmap data={trafficData} />
-          </div>
-
-          {/* Peak Comparison */}
-          <div
-            className="rounded-2xl border border-border bg-card p-5 shadow-sm animate-fade-up"
-            style={{ animationDelay: "160ms" }}
-          >
-            <PeakComparison competitors={peakData} />
-          </div>
-
-          {/* Traffic Insights */}
-          <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-            <TrafficInsightsSection data={trafficData} />
-          </div>
-        </>
-      ) : (
-        <div
-          className="rounded-2xl border border-dashed border-border bg-card py-16 text-center animate-fade-up"
-          style={{ animationDelay: "40ms" }}
-        >
-          <svg className="mx-auto h-12 w-12 text-signal-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75z" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-muted-foreground">No busy times data yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Click &quot;Fetch Busy Times&quot; to pull popular hours from Google Maps via Outscraper</p>
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

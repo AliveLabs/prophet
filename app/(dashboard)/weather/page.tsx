@@ -1,19 +1,81 @@
+// The Pass — Weather, REBUILT to Concept A's structure.
+//
+// STRUCTURE rebuild (not a reskin): the page now LEADS with a forecast hero
+// (now + next-7 TkWeatherStrip with honest demand chips), then weighted at-a-glance
+// widgets, the weather→foot-traffic correlation EVIDENCE block, the recharts trend
+// in a kit card, weather action plays as TkPlayCards, per-location tiles, and the
+// engine's weather-related insights. Empty / first-run uses the kit states.
+//
+// Server component: ALL data fetching, types, and the OpenWeatherMap forecast/cache
+// logic are unchanged from the prior page. Only the PRESENTATION is rebuilt onto the
+// shared components/ticket kit. Interactivity / animated viz live in page-local
+// client islands (weather-client.tsx). Honest framing: demand is estimated/typical,
+// channels are walk-in / foot-traffic — no POS / $ / covers.
+
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
-import WeatherHistory, { type WeatherDay } from "@/components/weather/weather-history"
-import LocationWeatherCards, { type LocationWeather } from "@/components/weather/location-weather-cards"
-import WeatherActionableInsights from "@/components/weather/weather-actionable-insights"
-import { Card } from "@/components/ui/card"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { fetchWeatherPageData } from "@/lib/cache/weather"
+import {
+  RevealOnView,
+  TkCard,
+  TkSectionHead,
+  TkSoftPanel,
+  TkWeatherStrip,
+  TkWidgetGrid,
+  TkWidget,
+  TkEmptyState,
+  TkTooltipLayer,
+} from "@/components/ticket"
+import {
+  WeatherTrend,
+  WeatherDemandCorrelation,
+  WeatherActionPlays,
+  LocationWeatherTiles,
+  toTkWeatherIcon,
+  estimateDemand,
+  type WeatherDay,
+  type LocationWeather,
+} from "./weather-client"
+import "./weather.css"
 
 type WeatherPageProps = {
   searchParams?: Promise<{
     location_id?: string
     error?: string
   }>
+}
+
+const NOW_ICON_GLYPH = {
+  sun: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M19 5l-1.4 1.4M6.4 17.6L5 19" />
+    </svg>
+  ),
+  cloud: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M17 18a4 4 0 0 0 0-8 6 6 0 0 0-11.3 2A3.5 3.5 0 0 0 6 18z" />
+    </svg>
+  ),
+  rain: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M17 14a4 4 0 0 0 0-8 6 6 0 0 0-11.3 2A3.5 3.5 0 0 0 6 14z" />
+      <path d="M8 18v2M12 18v3M16 18v2" />
+    </svg>
+  ),
+  storm: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M17 16a4 4 0 0 0 0-8 6 6 0 0 0-11.3 2A3.5 3.5 0 0 0 6 16z" />
+      <path d="M11 14l-2 4h3l-2 4" />
+    </svg>
+  ),
+} as const
+
+function dow(dateStr: string): string {
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "short" })
 }
 
 export default async function WeatherPage({ searchParams }: WeatherPageProps) {
@@ -133,129 +195,207 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
     ? `${historicalDays.length} days history + ${forecastDays.length} day forecast`
     : `${kpiDays.length} ${kpiDays.length === 1 ? "day" : "days"}`
 
-  return (
-    <section className="space-y-5">
-      {/* Filter + Actions Bar */}
-      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        {locations && locations.length > 1 && selectedLocationId && (
-          <LocationFilter
-            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-            selectedLocationId={selectedLocationId}
-          />
-        )}
-        {selectedLocationId && (
-          <JobRefreshButton
-            type="weather"
-            locationId={selectedLocationId}
-            label="Update Weather"
-            pendingLabel="Fetching weather data"
-          />
-        )}
-      </div>
+  // ── Next-7 strip: forecast first, top up with the most recent history if the
+  // forecast is short (so the lead always shows a full week when we have it). ──
+  const upcoming = [...forecastDays].sort((a, b) => a.date.localeCompare(b.date))
+  const recentHistory = [...historicalDays].sort((a, b) => b.date.localeCompare(a.date))
+  const stripDays = (upcoming.length >= 5
+    ? upcoming
+    : [...recentHistory.slice(0, Math.max(0, 7 - upcoming.length)).reverse(), ...upcoming]
+  ).slice(0, 7)
 
-      {weatherDays.length > 0 ? (
-        <>
-          {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Hero stat — rust gradient tile */}
-            <Card
-              className="animate-fade-up bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white border-0 shadow-md"
-              style={{ animationDelay: "40ms" }}
-            >
-              <p className="text-xs font-medium text-white/70 uppercase tracking-wide">
-                Current Conditions
-              </p>
-              <div className="mt-2 flex items-center gap-2">
-                {latestWeather && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={`https://openweathermap.org/img/wn/${latestWeather.weather_icon}@2x.png`}
-                    alt={latestWeather.weather_condition}
-                    className="h-10 w-10"
+  const nowIcon = latestWeather ? toTkWeatherIcon(latestWeather.weather_condition, latestWeather.is_severe) : "sun"
+  const locationName = selectedLocation?.name ?? "Location"
+
+  const hasData = weatherDays.length > 0
+
+  return (
+    <div className="pv-page">
+      <div className="pv-page-head">
+        <span className="pv-kicker">Your market</span>
+        <h1 className="pv-h1">Weather</h1>
+        <p className="pv-sub">
+          The forecast for {locationName}, read for what it does to your foot traffic — so your brief and
+          traffic insights already account for it. All-weather, honest, and estimated.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="tk-kit tk-weather-body">
+        <TkTooltipLayer />
+
+        {/* ── Toolbar: location filter + refresh ── */}
+        {selectedLocationId ? (
+          <div className="tk-weather-toolbar">
+            {locations && locations.length > 1 && selectedLocationId && (
+              <LocationFilter
+                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+                selectedLocationId={selectedLocationId}
+              />
+            )}
+            <span className="tk-tb-spacer" />
+            {selectedLocationId && (
+              <JobRefreshButton
+                type="weather"
+                locationId={selectedLocationId}
+                label="Update weather"
+                pendingLabel="Fetching weather data"
+              />
+            )}
+          </div>
+        ) : null}
+
+        {hasData ? (
+          <>
+            {/* ── LEAD: now + next-7 forecast strip ── */}
+            <RevealOnView className="tk-hero-wrap">
+              <TkCard className="tk-weather-lead">
+                <div className="tk-eyebrow">Right now · {locationName}</div>
+                <div className="tk-weather-now">
+                  <span className={`tk-weather-now-ic tk-${nowIcon}-ic`} aria-hidden="true">
+                    {NOW_ICON_GLYPH[nowIcon]}
+                  </span>
+                  <span className="tk-weather-now-temp">
+                    {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°` : "—"}
+                  </span>
+                  <span className="tk-weather-now-meta">
+                    <span className="tk-weather-now-cond">
+                      {latestWeather?.weather_condition.toLowerCase() ?? "No reading yet"}
+                    </span>
+                    <span className="tk-weather-now-sub">
+                      {latestWeather && latestWeather.temp_low_f != null
+                        ? `Low ${Math.round(latestWeather.temp_low_f)}° · `
+                        : ""}
+                      {severeCount > 0 ? "Severe days flagged — traffic insights adjusted" : "No disruptions in view"}
+                    </span>
+                  </span>
+                </div>
+                {stripDays.length > 0 && (
+                  <TkWeatherStrip
+                    caption="Next 7 · estimated walk-in demand"
+                    captionRight="vs a normal day"
+                    days={stripDays.map((d) => {
+                      const demand = estimateDemand(d)
+                      return {
+                        dow: dow(d.date),
+                        icon: toTkWeatherIcon(d.weather_condition, d.is_severe),
+                        hi: `${Math.round(d.temp_high_f)}°`,
+                        lo: `${Math.round(d.temp_low_f)}°`,
+                        demand,
+                        event: d.is_severe ? "Severe" : undefined,
+                        tip: `${d.weather_condition} · est. walk-in ${demand === "up" ? "above" : demand === "down" ? "below" : "around"} normal`,
+                        tipValue: `${Math.round(d.temp_high_f)}° / ${Math.round(d.temp_low_f)}°`,
+                      }
+                    })}
                   />
                 )}
-                <div>
-                  <p className="text-2xl font-bold text-white">
-                    {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°F` : "N/A"}
-                  </p>
-                  <p className="text-[11px] capitalize text-white/70">
-                    {latestWeather?.weather_condition.toLowerCase() ?? ""}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card className="animate-fade-up bg-card" style={{ animationDelay: "80ms" }}>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Avg High Temp</p>
-              <p className="mt-2 text-3xl font-bold text-signal-gold">{avgTemp}°F</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
-            </Card>
-            <Card className="animate-fade-up bg-card" style={{ animationDelay: "120ms" }}>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Precipitation</p>
-              <p className="mt-2 text-3xl font-bold text-primary">{totalPrecip.toFixed(2)}&quot;</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">over {kpiDaysLabel}</p>
-            </Card>
-            <Card className="animate-fade-up bg-card" style={{ animationDelay: "160ms" }}>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Severe Weather Days</p>
-              <p className={`mt-2 text-3xl font-bold ${severeCount > 0 ? "text-destructive" : "text-precision-teal"}`}>
-                {severeCount}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">{severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}</p>
-            </Card>
-          </div>
+              </TkCard>
+            </RevealOnView>
 
-          {/* Weather History + Forecast Chart */}
-          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "80ms" }}>
-            <WeatherHistory
-              days={weatherDays}
-              locationName={selectedLocation?.name ?? "Location"}
-              todayDate={todayStr}
-            />
-          </div>
-
-          {/* Actionable Weather Insights */}
-          <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-            <WeatherActionableInsights days={weatherDays} todayStr={todayStr} />
-          </div>
-
-          {/* All Locations Cards */}
-          {allLocationWeather.length > 1 && (
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
-              <LocationWeatherCards locations={allLocationWeather} />
+            {/* ── At-a-glance widgets (honest, no $/covers) ── */}
+            <div>
+              <TkSectionHead title="At a glance" sub={`Across ${kpiDaysLabel}`} />
+              <RevealOnView>
+                <TkWidgetGrid>
+                  <TkWidget
+                    tone="gold"
+                    size="wide"
+                    label="Avg high"
+                    value={`${avgTemp}°F`}
+                    sub="mean daily high in view"
+                    data-tip="Average daily high across history + forecast"
+                    data-tipv={`${avgTemp}°F avg high`}
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Total precip"
+                    value={`${totalPrecip.toFixed(2)}"`}
+                    sub="rain + snow in view"
+                    data-tip="Total precipitation across the window"
+                    data-tipv={`${totalPrecip.toFixed(2)} inches`}
+                  />
+                  <TkWidget
+                    tone={severeCount > 0 ? "rust" : "teal"}
+                    label="Severe days"
+                    value={String(severeCount)}
+                    sub={severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}
+                    data-tip="Days flagged severe — we down-weight expected walk-in on these"
+                    data-tipv={severeCount > 0 ? `${severeCount} severe day${severeCount === 1 ? "" : "s"}` : "none flagged"}
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Locations"
+                    value={String(Math.max(1, allLocationWeather.length))}
+                    sub="tracked in your set"
+                    data-tip="Locations with a current weather reading"
+                    data-tipv={`${Math.max(1, allLocationWeather.length)} tracked`}
+                  />
+                </TkWidgetGrid>
+              </RevealOnView>
             </div>
-          )}
 
-          {/* Weather-Related Insights */}
-          {(weatherInsights ?? []).length > 0 && (
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
-              <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Weather-Related Insights</h3>
-              <div className="mt-3 space-y-2">
-                {(weatherInsights ?? []).map((ins) => (
-                  <div
-                    key={ins.id}
-                    className={`rounded-xl border px-4 py-3 ${
-                      ins.severity === "warning"
-                        ? "border-signal-gold/30 bg-signal-gold/10"
-                        : "border-border bg-secondary"
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-foreground">{ins.title}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{ins.summary}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">{ins.date_key}</p>
+            {/* ── Correlation evidence: weather → foot traffic ── */}
+            <RevealOnView>
+              <WeatherDemandCorrelation days={weatherDays} />
+            </RevealOnView>
+
+            {/* ── Trend chart ── */}
+            <RevealOnView>
+              <WeatherTrend days={weatherDays} locationName={locationName} todayDate={todayStr} />
+            </RevealOnView>
+
+            {/* ── What this means: action plays (header self-hides when none) ── */}
+            <RevealOnView>
+              <WeatherActionPlays days={weatherDays} />
+            </RevealOnView>
+
+            {/* ── All locations ── */}
+            {allLocationWeather.length > 1 && (
+              <RevealOnView>
+                <LocationWeatherTiles locations={allLocationWeather} />
+              </RevealOnView>
+            )}
+
+            {/* ── Engine weather-related insights ── */}
+            {(weatherInsights ?? []).length > 0 && (
+              <RevealOnView>
+                <TkSoftPanel>
+                  <div className="tk-eyebrow">Weather-related insights</div>
+                  <div className="tk-wins-list">
+                    {(weatherInsights ?? []).map((ins) => (
+                      <div
+                        key={ins.id}
+                        className={`tk-wins-row${ins.severity === "warning" ? " tk-wins-warn" : ""}`}
+                      >
+                        <p className="tk-wins-title">{ins.title}</p>
+                        <p className="tk-wins-sum">{ins.summary}</p>
+                        <p className="tk-wins-date">{ins.date_key}</p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="animate-fade-up rounded-2xl border border-dashed border-border bg-card py-16 text-center">
-          <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-muted-foreground">No weather data yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Click &quot;Update Weather&quot; to fetch historical weather from OpenWeatherMap</p>
-        </div>
-      )}
-    </section>
+                </TkSoftPanel>
+              </RevealOnView>
+            )}
+          </>
+        ) : (
+          /* ── EMPTY / FIRST-RUN ── */
+          <RevealOnView>
+            <TkEmptyState
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                  <path d="M2.5 15a4.5 4.5 0 0 0 4.5 4.5H18a3.75 3.75 0 0 0 1.3-7.3 3 3 0 0 0-3.75-3.85A5.25 5.25 0 0 0 5.3 10.7 4.5 4.5 0 0 0 2.5 15z" />
+                </svg>
+              }
+              title="No weather data yet"
+              description={
+                selectedLocationId
+                  ? "Hit “Update weather” to pull historical conditions and an 8-day forecast from OpenWeatherMap. Once it lands, we’ll read it for what it does to your foot traffic."
+                  : "Add a location to start tracking the forecast and how it moves your foot traffic."
+              }
+            />
+          </RevealOnView>
+        )}
+      </div>
+    </div>
   )
 }

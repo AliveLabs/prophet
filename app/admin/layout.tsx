@@ -1,7 +1,19 @@
+// TICKET ADMIN — shell rebuilt to "The Pass".
+//
+// Admin lives OUTSIDE the dashboard, so this layout carries its OWN token surface
+// (.ticket-admin root → defines --paper/--rust/... via editorial-tokens.css, which
+// admin.css @imports through the kit's pass.css) and the .tk-kit scope on content.
+// Structure (NOT a reskin of the old border-list rail): a frosted floating-glass
+// left rail with a rust-gradient brand mark + active-tick nav + identity foot, a
+// glass desktop topbar, and a native mobile chrome (glass top bar + fixed bottom
+// tab dock). Auth gate (requirePlatformAdminContext), ThemeToggle, and the sync
+// layout / async shell + Suspense pattern are all preserved.
+
 import { Suspense } from "react"
-import Link from "next/link"
 import { requirePlatformAdminContext } from "@/lib/auth/platform-admin"
 import ThemeToggle from "@/components/ui/theme-toggle"
+import { AdminRailNav, AdminTabBar } from "./admin-nav"
+import "./admin.css"
 
 const ROLE_LABEL: Record<string, string> = {
   super_admin: "Super Admin",
@@ -9,188 +21,120 @@ const ROLE_LABEL: Record<string, string> = {
   read_only: "Read-only",
 }
 
+// The rust-gradient brand-mark glyph (a clock-radar nod to the platform's "sweep").
+function AdminMark() {
+  return (
+    <svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <circle cx="14" cy="14" r="11" stroke="currentColor" strokeWidth="2.2" />
+      <path
+        d="M14 6 L14 14 L19.5 17.5"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function AdminSkeleton() {
   return (
-    <div className="flex h-dvh animate-pulse bg-background">
-      <div className="w-56 border-r border-border bg-card" />
-      <div className="flex-1 p-8">
-        <div className="h-8 w-48 rounded bg-secondary" />
-      </div>
+    <div className="ticket-admin tk-kit">
+      <div className="bg-atmos" aria-hidden />
+      <aside className="adm-sidebar">
+        <div className="adm-brand">
+          <span className="adm-brand__mark"><AdminMark /></span>
+          <span className="adm-brand__wm">
+            <b>Ticket</b>
+            <span>Admin</span>
+          </span>
+        </div>
+      </aside>
+      <main className="adm-main" />
     </div>
   )
 }
 
 async function AdminShell({ children }: { children: React.ReactNode }) {
   const { user, role } = await requirePlatformAdminContext()
+  const roleLabel = ROLE_LABEL[role] ?? role
+  const initial = (user.email?.[0] ?? "?").toUpperCase()
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-background text-foreground">
-      <aside className="flex w-56 min-w-56 flex-col border-r border-border bg-card">
-        <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-          <svg
-            viewBox="0 0 28 28"
-            fill="none"
-            className="h-6 w-6 text-vatic-indigo"
-          >
-            <circle cx="14" cy="14" r="12" stroke="currentColor" strokeWidth="2" />
-            <path
-              d="M14 6 L14 14 L20 18"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-          <span className="text-base font-semibold tracking-tight text-foreground">
-            Ticket Admin
+    <div className="ticket-admin tk-kit">
+      <div className="bg-atmos" aria-hidden />
+
+      {/* ── Desktop frosted rail ── */}
+      <aside className="adm-sidebar">
+        <div className="adm-brand">
+          <span className="adm-brand__mark"><AdminMark /></span>
+          <span className="adm-brand__wm">
+            <b>Ticket</b>
+            <span>Admin</span>
           </span>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          <AdminNavItem href="/admin" label="Overview" icon={overviewIcon} />
-          <AdminNavItem
-            href="/admin/waitlist"
-            label="Waitlist"
-            icon={waitlistIcon}
-          />
-          <AdminNavItem
-            href="/admin/users"
-            label="Users"
-            icon={usersIcon}
-          />
-          <AdminNavItem
-            href="/admin/organizations"
-            label="Organizations"
-            icon={orgsIcon}
-          />
-          <AdminNavItem
-            href="/admin/knowledge-review"
-            label="Knowledge"
-            icon={knowledgeIcon}
-          />
-          <AdminNavItem
-            href="/admin/sandbox"
-            label="Demo & Test"
-            icon={sandboxIcon}
-          />
-          <AdminNavItem
-            href="/admin/maintenance"
-            label="Maintenance"
-            icon={maintenanceIcon}
-          />
-          <AdminNavItem
-            href="/admin/settings"
-            label="Settings"
-            icon={settingsIcon}
-          />
-        </nav>
+        <AdminRailNav />
 
-        <div className="border-t border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-xs text-muted-foreground">{user.email}</p>
-            <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              {ROLE_LABEL[role] ?? role}
+        <div className="adm-spacer" />
+
+        <div className="adm-foot">
+          <div className="adm-id">
+            <span className="adm-id__avatar" aria-hidden="true">{initial}</span>
+            <span className="adm-id__who">
+              <b title={user.email ?? undefined}>{user.email}</b>
+              <span>{roleLabel}</span>
             </span>
           </div>
-          <Link
-            href="/home"
-            className="mt-1 block text-xs text-vatic-indigo hover:underline"
-          >
-            Back to Dashboard
-          </Link>
+          <div className="adm-foot__row">
+            <a className="adm-back" href="/home">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M9.5 3.5 5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Dashboard
+            </a>
+            <ThemeToggle className="adm-theme-btn" />
+          </div>
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center justify-between border-b border-border px-6">
-          <span className="text-sm font-medium text-muted-foreground">
+      {/* ── Main ── */}
+      <main className="adm-main">
+        {/* desktop topbar */}
+        <header className="adm-topbar">
+          <span className="adm-topbar__label">
+            <span className="adm-livedot" aria-hidden="true" />
             Platform Administration
           </span>
-          <ThemeToggle />
+          <span className="adm-rolepill">{roleLabel}</span>
         </header>
-        <main className="flex-1 overflow-y-auto px-6 py-6">
-          <div className="mx-auto max-w-[1400px]">{children}</div>
-        </main>
-      </div>
+
+        {/* mobile glass top bar */}
+        <header className="adm-mobilebar">
+          <span className="adm-mobilebar__brand">
+            <span className="adm-brand__mark"><AdminMark /></span>
+            <b>Ticket<small>Admin</small></b>
+          </span>
+          <div className="adm-mobilebar__actions">
+            <ThemeToggle className="adm-theme-btn" />
+            <a className="adm-back" href="/home" aria-label="Back to dashboard">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                <path d="M9.5 3.5 5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          </div>
+        </header>
+
+        <div className="adm-content">
+          <div className="adm-content__inner">{children}</div>
+        </div>
+      </main>
+
+      {/* ── Mobile bottom tab dock ── */}
+      <AdminTabBar />
     </div>
   )
 }
-
-function AdminNavItem({
-  href,
-  label,
-  icon,
-}: {
-  href: string
-  label: string
-  icon: React.ReactNode
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-    >
-      <span className="h-4 w-4">{icon}</span>
-      {label}
-    </Link>
-  )
-}
-
-const overviewIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <rect x="1" y="1" width="6" height="6" rx="1" />
-    <rect x="9" y="1" width="6" height="6" rx="1" />
-    <rect x="1" y="9" width="6" height="6" rx="1" />
-    <rect x="9" y="9" width="6" height="6" rx="1" />
-  </svg>
-)
-
-const waitlistIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <path d="M2 4h12M2 8h12M2 12h8" strokeLinecap="round" />
-  </svg>
-)
-
-const usersIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <circle cx="8" cy="5" r="2.5" />
-    <path d="M2.5 14c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" strokeLinecap="round" />
-  </svg>
-)
-
-const orgsIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <rect x="3" y="2" width="10" height="12" rx="1" />
-    <path d="M6 5h4M6 8h4M6 11h2" strokeLinecap="round" />
-  </svg>
-)
-
-const knowledgeIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <path d="M3 2h7l3 3v9H3z" strokeLinejoin="round" />
-    <path d="M10 2v3h3M5.5 8h5M5.5 11h5" strokeLinecap="round" />
-  </svg>
-)
-
-const sandboxIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <path d="M2 13 L8 3 L14 13 Z" strokeLinejoin="round" />
-    <path d="M5 13h6" strokeLinecap="round" />
-  </svg>
-)
-
-const maintenanceIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <path d="M10.5 2.5a3 3 0 0 0-4 4l-4 4a1.5 1.5 0 0 0 2 2l4-4a3 3 0 0 0 4-4l-2 2-2-1-1-2 2-2Z" strokeLinejoin="round" />
-  </svg>
-)
-
-const settingsIcon = (
-  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4">
-    <circle cx="8" cy="8" r="2.5" />
-    <path d="M8 1v2M8 13v2M1 8h2M13 8h2M2.9 2.9l1.4 1.4M11.7 11.7l1.4 1.4M13.1 2.9l-1.4 1.4M4.3 11.7l-1.4 1.4" />
-  </svg>
-)
 
 export default function AdminLayout({
   children,

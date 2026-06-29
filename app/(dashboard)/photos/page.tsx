@@ -1,11 +1,30 @@
+// The Pass — Photos, REBUILT to Concept A's structure.
+//
+// Structure rebuild (not a reskin): the .pv-page title chrome → a glass toolbar
+// (location filter + scan action) → a weighted at-a-glance WIDGET grid (the KPI
+// aggregates) → kit intel PANELS (visual mix / quality benchmark / promo / changes)
+// → the gallery in a soft card → honest empty / still-learning states. All data
+// fetching, aggregation, and the server-action wiring are UNCHANGED — only the
+// presentation moves to the kit. Honest framing: %/estimated, "you vs competitor",
+// no fabricated $ or covers.
+
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import PhotoGrid, { type PhotoGridItem } from "@/components/photos/photo-grid"
-import VisualInsightsCards from "@/components/photos/visual-insights-cards"
-import { Card } from "@/components/ui/card"
+import PhotoIntel from "./photo-intel"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkSoftPanel,
+  TkWidgetGrid,
+  TkWidget,
+  TkEmptyState,
+  TkStillLearning,
+} from "@/components/ticket"
+import "./photos.css"
 
 type PhotosPageProps = {
   searchParams?: Promise<{
@@ -13,6 +32,29 @@ type PhotosPageProps = {
     error?: string
   }>
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  food_dish: "Food & Dishes",
+  menu_board: "Menu Board",
+  interior: "Interior",
+  exterior: "Exterior",
+  patio_outdoor: "Patio & Outdoor",
+  bar_drinks: "Bar & Drinks",
+  staff_team: "Staff & Team",
+  event_promotion: "Event / Promo",
+  signage: "Signage",
+  renovation: "Renovation",
+  seasonal_decor: "Seasonal",
+  customer_atmosphere: "Atmosphere",
+  other: "Other",
+}
+
+const CAMERA_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+    <path d="M6.83 6.18a2.31 2.31 0 0 1-1.64 1.05c-.38.05-.76.11-1.13.18C2.99 7.58 2.25 8.5 2.25 9.57V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.57c0-1.07-.75-1.99-1.8-2.17a47.9 47.9 0 0 0-1.14-.17 2.31 2.31 0 0 1-1.64-1.06l-.82-1.31a2.19 2.19 0 0 0-1.74-1.04 48.8 48.8 0 0 0-5.23 0 2.19 2.19 0 0 0-1.74 1.04l-.82 1.31z" />
+    <path d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0z" />
+  </svg>
+)
 
 export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const user = await requireUser()
@@ -154,85 +196,146 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
     if (p.quality_lighting === "professional") professionalCount++
   }
   const topCategory = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a)[0]
+  const topCategoryLabel = topCategory
+    ? CATEGORY_LABELS[topCategory[0]] ?? topCategory[0].replace(/_/g, " ")
+    : "—"
   const proRatio = totalPhotos > 0 ? Math.round((professionalCount / totalPhotos) * 100) : 0
 
+  const showFilter = !!(locations && locations.length > 1 && selectedLocationId)
+
   return (
-    <section className="space-y-6">
-      {/* Filter + Actions Bar */}
-      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        {locations && locations.length > 1 && selectedLocationId && (
-          <LocationFilter
-            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-            selectedLocationId={selectedLocationId}
-          />
-        )}
-        {selectedLocationId && (
-          <JobRefreshButton
-            type="photos"
-            locationId={selectedLocationId}
-            label="Scan Photos"
-            pendingLabel="Scanning competitor photos"
-          />
+    <div className="pv-page">
+      <div className="pv-page-head">
+        <span className="pv-kicker">Visual intelligence</span>
+        <h1 className="pv-h1">Photos</h1>
+        <p className="pv-sub">
+          Every competitor photo we can see, read by vision AI — what they shoot, how well they shoot
+          it, and the promotions they&apos;re running. We surface anything that moves into your brief.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
+        {/* ── Toolbar ── */}
+        <RevealOnView className="photos-toolbar">
+          <span className="photos-toolbar-lead">
+            <span className="photos-live-dot" aria-hidden="true" />
+            {totalPhotos > 0
+              ? `${totalPhotos} photo${totalPhotos === 1 ? "" : "s"} analyzed`
+              : "Watching for photos"}
+          </span>
+          <div className="photos-toolbar-actions">
+            {showFilter && (
+              <LocationFilter
+                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+                selectedLocationId={selectedLocationId!}
+              />
+            )}
+            {selectedLocationId && (
+              <JobRefreshButton
+                type="photos"
+                locationId={selectedLocationId}
+                label="Scan photos"
+                pendingLabel="Scanning competitor photos"
+              />
+            )}
+          </div>
+        </RevealOnView>
+
+        {totalPhotos > 0 ? (
+          <>
+            {/* ── At-a-glance widgets ── */}
+            <RevealOnView>
+              <TkWidgetGrid>
+                <TkWidget
+                  tone="rust"
+                  size="wide"
+                  label="Photos read"
+                  value={String(totalPhotos)}
+                  sub={`across ${competitorIds.length} competitor${competitorIds.length === 1 ? "" : "s"} we watch`}
+                  data-tip="Competitor photos analyzed by vision AI"
+                  data-tipv={`${totalPhotos} analyzed`}
+                  spark={
+                    <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
+                      <path
+                        d="M0 48 L28 44 L52 38 L74 22 L98 14 L120 20"
+                        fill="none"
+                        stroke="rgba(255,255,255,.7)"
+                        strokeWidth="3"
+                      />
+                    </svg>
+                  }
+                />
+                <TkWidget
+                  tone="teal"
+                  label="Top subject"
+                  value={topCategory ? String(topCategory[1]) : "—"}
+                  sub={topCategory ? `${topCategoryLabel} — most-shot` : "no photos yet"}
+                  data-tip="Most-photographed subject across the set"
+                  data-tipv={topCategory ? `${topCategoryLabel} · ${topCategory[1]} photos` : "no photos yet"}
+                />
+                <TkWidget
+                  tone="slate"
+                  label="Promotions"
+                  value={String(promoCount)}
+                  sub={promoCount > 0 ? "detected in competitor photos" : "none detected yet"}
+                  data-tip="Photos flagged as promotional content"
+                  data-tipv={`${promoCount} promo${promoCount === 1 ? "" : "s"}`}
+                />
+                <TkWidget
+                  tone="gold"
+                  label="Pro quality"
+                  value={`${proRatio}%`}
+                  sub={`${professionalCount} of ${totalPhotos} shot professionally`}
+                  data-tip="Share of photos with professional lighting"
+                  data-tipv={`${proRatio}% pro lighting`}
+                />
+              </TkWidgetGrid>
+            </RevealOnView>
+
+            {/* ── Intel panels ── */}
+            <RevealOnView>
+              <TkSectionHead
+                title="What the photos tell us"
+                sub="Mix · quality · promotions · recent changes"
+              />
+              <PhotoIntel
+                insights={photoInsights}
+                categoryDistributions={categoryDistributions}
+                qualityBenchmarks={qualityBenchmarks}
+                promoActivity={promoActivity}
+              />
+            </RevealOnView>
+
+            {/* ── Gallery ── */}
+            <RevealOnView>
+              <TkSectionHead title="The gallery" sub="Filter, or browse by competitor" />
+              <TkSoftPanel style={{ padding: 18 }}>
+                <PhotoGrid photos={photos} />
+              </TkSoftPanel>
+            </RevealOnView>
+          </>
+        ) : selectedLocationId ? (
+          /* ── First-run / still-learning ── */
+          <RevealOnView>
+            <TkStillLearning
+              days={1}
+              target={7}
+              title="No photos analyzed yet"
+              description="Run a scan and we'll fetch your competitors' photos and read each one with vision AI — what they shoot, how well, and any promotions. Findings surface here and in your brief."
+            />
+          </RevealOnView>
+        ) : (
+          /* ── No location at all ── */
+          <RevealOnView>
+            <TkEmptyState
+              icon={CAMERA_ICON}
+              title="Add a location to start"
+              description="Once a location is set up, we begin reading your competitors' photos and surface what changes."
+            />
+          </RevealOnView>
         )}
       </div>
-
-      {/* KPI Cards */}
-      {totalPhotos > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {/* Weighted hero tile — rust gradient for the primary aggregate stat */}
-          <Card
-            className="animate-fade-up bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] text-white"
-            style={{ animationDelay: "40ms" }}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-white/70">Total Photos</p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-white">{totalPhotos}</p>
-            <p className="mt-1 text-[11px] text-white/60">{competitorIds.length} competitors tracked</p>
-          </Card>
-          <Card className="animate-fade-up bg-card" style={{ animationDelay: "80ms" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Top Category</p>
-            <p className="mt-2 text-xl font-bold text-foreground capitalize">{topCategory?.[0]?.replace(/_/g, " ") ?? "N/A"}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{topCategory?.[1] ?? 0} photos</p>
-          </Card>
-          <Card className="animate-fade-up bg-card" style={{ animationDelay: "120ms" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Promotions Detected</p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-destructive">{promoCount}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">across all competitors</p>
-          </Card>
-          <Card className="animate-fade-up bg-card" style={{ animationDelay: "160ms" }}>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Professional Quality</p>
-            <p className="mt-2 font-mono text-3xl font-bold tabular-nums text-precision-teal">{proRatio}%</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{professionalCount} of {totalPhotos} photos</p>
-          </Card>
-        </div>
-      )}
-
-      {/* Visual Intelligence Insight Cards */}
-      {totalPhotos > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "200ms" }}>
-          <VisualInsightsCards
-            insights={photoInsights}
-            categoryDistributions={categoryDistributions}
-            qualityBenchmarks={qualityBenchmarks}
-            promoActivity={promoActivity}
-          />
-        </div>
-      )}
-
-      {/* Photo Grid */}
-      {totalPhotos > 0 ? (
-        <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
-          <PhotoGrid photos={photos} />
-        </div>
-      ) : (
-        <div className="animate-fade-up rounded-2xl border border-dashed border-border bg-card py-16 text-center" style={{ animationDelay: "80ms" }}>
-          <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-muted-foreground">No photos analyzed yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">Click &quot;Scan Photos&quot; to fetch and analyze competitor photos with Vision AI</p>
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

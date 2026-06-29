@@ -1,15 +1,26 @@
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { AnimatedNumber } from "@/components/ui/animated-number"
 import LocationFilter from "@/components/ui/location-filter"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
-import SocialDashboard from "@/components/insights/social-dashboard"
-import SocialPostsGrid from "@/components/insights/social-posts-grid"
-import InsightFeed, { type FeedInsight } from "@/components/insights/insight-feed"
+import { type FeedInsight } from "@/components/insights/insight-feed"
 import { scoreInsights, type InsightPreference } from "@/lib/insights/scoring"
 import { fetchSocialPageData } from "@/lib/cache/social"
 import { fetchSocialDashboardData } from "./actions"
 import SocialHandleSection from "./handle-section"
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkSoftPanel,
+  TkWidgetGrid,
+  TkWidget,
+  TkEmptyState,
+  TkButton,
+  TkTooltipLayer,
+} from "@/components/ticket"
+import SocialStandingPass from "./social-standing-pass"
+import SocialPostsPass from "./social-posts-pass"
+import SocialInsightsPass from "./social-insights-pass"
+import "./social.css"
 
 type SocialPageProps = {
   searchParams?: Promise<{
@@ -105,7 +116,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   })
 
   // -------------------------------------------------------------------------
-  // KPI calculations
+  // KPI calculations (honest: %/counts only — no invented $/covers)
   // -------------------------------------------------------------------------
 
   const locProfiles = socialData.profiles.filter((p) => p.entityType === "location")
@@ -116,11 +127,8 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
     : 0
   const platformCount = new Set(socialData.profiles.map((p) => p.platform)).size
 
-  const baseParams: Record<string, string> = {}
-  if (selectedLocationId) baseParams.location_id = selectedLocationId
-
   // -------------------------------------------------------------------------
-  // Group handles by entity for HandleManager
+  // Group handles by entity for the handle manager
   // -------------------------------------------------------------------------
 
   const handlesByEntity = new Map<string, typeof socialData.handles>()
@@ -136,126 +144,193 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
     .filter(([key]) => key.startsWith("competitor:"))
     .map(([, handles]) => handles)
 
+  const hasProfiles = socialData.profiles.length > 0
+  const visibleInsights = feedInsights.filter(
+    (i) => !["dismissed", "snoozed", "inaccurate"].includes(i.status),
+  )
+  const hasInsights = visibleInsights.length > 0
+  const hasPosts = (socialData.topPosts?.length ?? 0) > 0
+
   return (
-    <section className="space-y-5">
-      {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 animate-fade-up" style={{ animationDelay: "0ms" }}>
-        {locations && locations.length > 1 && selectedLocationId && (
-          <LocationFilter
-            locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-            selectedLocationId={selectedLocationId}
-          />
-        )}
+    <div className="pv-page">
+      <div className="pv-page-head">
+        <span className="pv-kicker">Your market</span>
+        <h1 className="pv-h1">Social</h1>
+        <p className="pv-sub">
+          How your accounts and your competitors&apos; show up — followers, engagement, and the posts
+          driving it. We frame everything as percentages and &ldquo;you vs them&rdquo;, never guessed
+          dollars or covers.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="sp-body tk-kit">
+        <TkTooltipLayer />
+
+        {/* ── Controls ── */}
         {selectedLocationId && (
-          <JobRefreshButton
-            type="social"
-            locationId={selectedLocationId}
-            label="Fetch Social Data"
-            pendingLabel="Fetching social data"
-          />
+          <RevealOnView>
+            <TkSoftPanel className="sp-controls">
+              <div className="sp-controls-left">
+                {locations && locations.length > 1 && (
+                  <LocationFilter
+                    locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+                    selectedLocationId={selectedLocationId}
+                  />
+                )}
+              </div>
+              <JobRefreshButton
+                type="social"
+                locationId={selectedLocationId}
+                label="Fetch social data"
+                pendingLabel="Fetching social data"
+              />
+            </TkSoftPanel>
+          </RevealOnView>
+        )}
+
+        {/* ── At a glance (honest widgets) ── */}
+        {hasProfiles && (
+          <>
+            <TkSectionHead
+              title="At a glance"
+              sub="Your footprint · this week"
+              className="sp-sec"
+            />
+            <RevealOnView>
+              <TkWidgetGrid>
+                <TkWidget
+                  tone="rust"
+                  size="wide"
+                  label="Your followers"
+                  value={formatNumber(totalFollowers)}
+                  sub={`across ${locProfiles.length} of your profile${locProfiles.length === 1 ? "" : "s"}`}
+                  data-tip="Total followers across the social profiles we track for you"
+                  data-tipv={`${formatNumber(totalFollowers)} followers`}
+                />
+                <TkWidget
+                  tone="teal"
+                  label="Engagement / post"
+                  value={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}%` : "—"}
+                  sub={avgEngagement > 0 ? "when you post, on average" : "no posts read yet"}
+                  data-tip="Average interactions per post ÷ followers, when you post — not how often you post"
+                  data-tipv={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}% engagement` : "not enough data"}
+                />
+                <TkWidget
+                  tone="gold"
+                  label="Platforms"
+                  value={String(platformCount)}
+                  sub="tracked across the set"
+                  data-tip="Distinct platforms we read for you and your competitors"
+                  data-tipv={`${platformCount} platform${platformCount === 1 ? "" : "s"}`}
+                />
+                <TkWidget
+                  tone="slate"
+                  label="Competitors"
+                  value={String(compProfiles.length)}
+                  sub={compProfiles.length > 0 ? "profiles being watched" : "none watched yet"}
+                  data-tip="Competitor social profiles in your watched set"
+                  data-tipv={`${compProfiles.length} watched`}
+                />
+              </TkWidgetGrid>
+            </RevealOnView>
+          </>
+        )}
+
+        {/* ── Standing: platform presence + you vs the set ── */}
+        {hasProfiles && (
+          <>
+            <TkSectionHead
+              title="Where you stand"
+              sub="Platform presence · you vs your set"
+              className="sp-sec"
+            />
+            <SocialStandingPass profiles={socialData.profiles} />
+          </>
+        )}
+
+        {/* ── Recent posts (the centerpiece — TkSocialEmbed grid) ── */}
+        {hasPosts && (
+          <>
+            <TkSectionHead
+              title="Recent posts"
+              sub="Yours and competitors' · engagement as a share of peak"
+              className="sp-sec"
+            />
+            <SocialPostsPass posts={socialData.topPosts ?? []} />
+          </>
+        )}
+
+        {/* ── Social intelligence (kit cards, learning loop preserved) ── */}
+        {hasProfiles && (
+          <>
+            <TkSectionHead
+              title="What it means"
+              sub="AI reads of your social presence vs competitors"
+              className="sp-sec"
+            />
+            {hasInsights ? (
+              <SocialInsightsPass insights={feedInsights} />
+            ) : (
+              <TkEmptyState
+                icon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                    <path d="M12 18v-5.25M12 12.75a6 6 0 0 0 1.5-.19m-1.5.19a6 6 0 0 1-1.5-.19m3.75 7.48a12 12 0 0 1-4.5 0m3.75 2.38a14.4 14.4 0 0 1-3 0M14.25 18v-.19c0-.98.66-1.82 1.51-2.32a7.5 7.5 0 1 0-7.52 0c.85.49 1.51 1.33 1.51 2.32V18" />
+                  </svg>
+                }
+                title="No reads yet"
+                description="Insights land automatically after a social-data fetch — we line your posts and engagement up against competitors and surface what's worth acting on."
+              />
+            )}
+          </>
+        )}
+
+        {/* ── Watched accounts (handle manager) ── */}
+        {selectedLocationId && (
+          <>
+            <TkSectionHead
+              id="watched-accounts"
+              title="Watched accounts"
+              sub="The handles we read for you and your competitors"
+              className="sp-sec"
+            />
+            <RevealOnView>
+              <SocialHandleSection
+                locationId={selectedLocationId}
+                locationName={selectedLocation?.name ?? "Your location"}
+                locationHandles={locationHandles}
+                competitorHandleGroups={competitorHandleGroups}
+              />
+            </RevealOnView>
+          </>
+        )}
+
+        {/* ── First-run: nothing connected yet ── */}
+        {selectedLocationId && !hasProfiles && (
+          <RevealOnView>
+            <TkEmptyState
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path d="M7.22 10.91a2.25 2.25 0 1 0 0 2.18m0-2.18c.18.32.28.7.28 1.09s-.1.77-.28 1.09m0-2.18l9.56-5.31m-9.56 7.5l9.56 5.31m0 0a2.25 2.25 0 1 0 3.94 2.19 2.25 2.25 0 0 0-3.94-2.19zm0-12.81a2.25 2.25 0 1 0 3.93-2.19 2.25 2.25 0 0 0-3.93 2.19z" />
+                </svg>
+              }
+              title="No social accounts connected yet"
+              description="Add the handles you want us to read — your own accounts and the competitors you measure against. Then run a fetch to pull posts and engagement."
+              action={
+                <div className="sp-cta">
+                  <a href="#watched-accounts">
+                    <TkButton variant="add">Add handles below</TkButton>
+                  </a>
+                  <a href="/competitors">
+                    <TkButton variant="keep">Manage competitors</TkButton>
+                  </a>
+                </div>
+              }
+            />
+          </RevealOnView>
         )}
       </div>
-
-      {/* KPI Cards */}
-      {socialData.profiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* Hero stat — Total Followers gets the rust gradient tile */}
-          <div className="rounded-lg border border-transparent bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] px-5 py-4 text-white animate-fade-up" style={{ animationDelay: "40ms" }}>
-            <p className="text-[11.5px] font-medium text-white/70">Total Followers</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-white"><AnimatedNumber value={totalFollowers} format={formatNumber} /></p>
-            <p className="mt-1 text-[11px] text-white/60">{locProfiles.length} profile{locProfiles.length !== 1 ? "s" : ""}</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "80ms" }}>
-            <p className="text-[11.5px] font-medium text-muted-foreground">Avg Engagement Rate</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-primary">{avgEngagement.toFixed(1)}%</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">across your profiles</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "120ms" }}>
-            <p className="text-[11.5px] font-medium text-muted-foreground">Platforms Tracked</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{platformCount}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Instagram, Facebook, TikTok</p>
-          </div>
-          <div className="rounded-lg border border-border bg-card px-5 py-4 animate-fade-up" style={{ animationDelay: "160ms" }}>
-            <p className="text-[11.5px] font-medium text-muted-foreground">Competitor Profiles</p>
-            <p className="mt-2 font-display text-[34px] font-semibold leading-none tracking-tight text-foreground">{compProfiles.length}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">being monitored</p>
-          </div>
-        </div>
-      )}
-
-      {/* Handle Management Section */}
-      {selectedLocationId && (
-        <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-          <SocialHandleSection
-            locationId={selectedLocationId}
-            locationName={selectedLocation?.name ?? "Your location"}
-            locationHandles={locationHandles}
-            competitorHandleGroups={competitorHandleGroups}
-          />
-        </div>
-      )}
-
-      {/* Social Dashboard Charts */}
-      {socialData.profiles.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-          <SocialDashboard profiles={socialData.profiles} />
-        </div>
-      )}
-
-      {/* Top Recent Posts */}
-      {socialData.topPosts && socialData.topPosts.length > 0 && (
-        <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
-          <SocialPostsGrid posts={socialData.topPosts} />
-        </div>
-      )}
-
-      {/* Social Intelligence Insights */}
-      <div className="space-y-4 animate-fade-up" style={{ animationDelay: "200ms" }}>
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-signal-gold/20 to-signal-gold/10 text-signal-gold">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-            </svg>
-          </div>
-          <div>
-            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
-              Social Intelligence Insights
-              <span className="live-dot" aria-label="live" />
-            </h2>
-            <p className="text-xs text-muted-foreground">AI-powered analysis of your social presence vs competitors</p>
-          </div>
-        </div>
-
-        {feedInsights.length > 0 ? (
-          <InsightFeed
-            insights={feedInsights}
-            baseParams={baseParams}
-            statusFilter=""
-          />
-        ) : socialData.profiles.length > 0 ? (
-          <div className="rounded-2xl border border-dashed border-signal-gold/30 bg-gradient-to-br from-signal-gold/10 to-signal-gold/5 py-12 text-center">
-            <svg className="mx-auto h-10 w-10 text-signal-gold" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
-            </svg>
-            <p className="mt-3 text-sm font-medium text-foreground">No insights generated yet</p>
-            <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
-              Insights are generated automatically when you run &quot;Fetch Social Data&quot;.
-              The AI analyzes your posts, engagement, and visual content against competitors to surface actionable recommendations.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-border bg-card py-16 text-center">
-            <svg className="mx-auto h-12 w-12 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
-            </svg>
-            <p className="mt-3 text-sm font-medium text-muted-foreground">No social profiles connected yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Add your social media handles above or click &quot;Discover Handles&quot; to automatically find profiles
-            </p>
-          </div>
-        )}
-      </div>
-    </section>
+    </div>
   )
 }
 

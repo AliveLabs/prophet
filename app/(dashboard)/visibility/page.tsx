@@ -1,16 +1,31 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
+import { asSubscriptionTier } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
-import VisibilityFilters from "@/components/visibility/visibility-filters"
-import TrafficChart from "@/components/visibility/traffic-chart"
-import RankingDistribution from "@/components/visibility/ranking-distribution"
-import KeywordTabs from "@/components/visibility/keyword-tabs"
-import IntentSerpPanels from "@/components/visibility/intent-serp-panels"
 import { fetchVisibilityPageData } from "@/lib/cache/visibility"
 import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
 import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
+import {
+  RevealOnView,
+  TkWidgetGrid,
+  TkWidget,
+  TkSectionHead,
+  TkEmptyState,
+} from "@/components/ticket"
+import {
+  VisibilityControlBar,
+  VisibilityTrend,
+  VisibilityH2H,
+  VisibilityDistribution,
+  VisibilityKeywords,
+  VisibilityIntentSerp,
+  VisibilityPages,
+  VisibilityGaps,
+  VisibilityPaidOverlap,
+  VisibilityAds,
+  VisibilityTooltips,
+} from "./visibility-client"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
@@ -22,6 +37,7 @@ import type {
   NormalizedSubdomain,
   HistoricalTrafficPoint,
 } from "@/lib/seo/types"
+import "./visibility.css"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -235,551 +251,339 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
     tier === "entry" ? "Weekly refresh" : "Daily refresh"
 
   // -----------------------------------------------------------------------
-  // Render
+  // Presentation mapping (The Pass) — derived, serializable views of the data.
+  // Business logic above is untouched; this only shapes it for the kit.
+  // -----------------------------------------------------------------------
+
+  // Honest history estimate for the 30-day trend gate: each historical point is
+  // one monthly snapshot, so ~30 days of history per point we hold. With <2
+  // points there's no line we can honestly draw.
+  const historyDays = historicalData.length * 30
+
+  const trendData = historicalData.map((p) => ({
+    date: new Date(`${p.date}-01T12:00:00`).toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+    organicEtv: p.organicEtv,
+    paidEtv: p.paidEtv,
+    organicKeywords: p.organicKeywords,
+  }))
+
+  const distribution =
+    rankHasData && rankData?.organic?.distribution
+      ? rankData.organic.distribution
+      : rankedKeywords.length > 0
+        ? {
+            pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,
+            pos_2_3: rankedKeywords.filter((kw) => kw.rank >= 2 && kw.rank <= 3).length,
+            pos_4_10: rankedKeywords.filter((kw) => kw.rank >= 4 && kw.rank <= 10).length,
+            pos_11_20: rankedKeywords.filter((kw) => kw.rank >= 11 && kw.rank <= 20).length,
+            pos_21_50: rankedKeywords.filter((kw) => kw.rank >= 21 && kw.rank <= 50).length,
+            pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
+          }
+        : null
+
+  const keywordViews = rankedKeywords.map((kw) => ({
+    keyword: kw.keyword,
+    rank: kw.rank,
+    searchVolume: kw.searchVolume,
+    cpc: kw.cpc,
+    competition: kw.competition,
+    intent: kw.intent,
+  }))
+
+  const competitorViews = organicCompetitors.map((c) => ({
+    domain: c.domain,
+    intersections: c.intersections,
+    organicKeywords: c.organicKeywords,
+    organicEtv: c.organicEtv,
+  }))
+
+  const pageViews = relevantPages.map((p) => ({
+    url: p.url,
+    organicEtv: p.organicEtv,
+    trafficShare: p.trafficShare,
+  }))
+
+  const subdomainViews = subdomains.map((s) => ({
+    subdomain: s.subdomain,
+    organicEtv: s.organicEtv,
+    trafficShare: s.trafficShare,
+  }))
+
+  const gapViews = gapOpportunities.map((g) => ({
+    keyword: g.keyword,
+    domain2Rank: g.domain2Rank,
+    searchVolume: g.searchVolume,
+    cpc: g.cpc,
+  }))
+
+  const adViews = adCreatives.map((ad) => ({
+    headline: ad.headline,
+    description: ad.description,
+    displayUrl: ad.displayUrl,
+    domain: ad.domain,
+    keyword: ad.keyword,
+    position: ad.position,
+  }))
+
+  const paidOverlapViews = paidOverlap.map((r) => ({
+    keyword: r.keyword,
+    domain1Rank: r.domain1Rank,
+    domain2Rank: r.domain2Rank,
+    searchVolume: r.searchVolume,
+    cpc: r.cpc,
+  }))
+
+  const refreshedLabel = lastRefreshed
+    ? new Date(`${lastRefreshed}T12:00:00Z`).toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      })
+    : null
+
+  const organicEmpty = kpiSource === "none" && serpEntries.length === 0
+  const paidEmpty = paidEtv === 0 && adCreatives.length === 0 && paidOverlap.length === 0
+
+  // -----------------------------------------------------------------------
+  // Render — The Pass
   // -----------------------------------------------------------------------
 
   return (
-    <section className="space-y-5">
-      {/* Filter + Actions Bar */}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 min-h-11 py-3">
-        <VisibilityFilters
+    <div className="pv-page tk-kit">
+      <VisibilityTooltips />
+
+      <div className="pv-page-head">
+        <span className="pv-kicker">Local visibility</span>
+        <h1 className="pv-h1">Where you show up</h1>
+        <p className="pv-sub">
+          How findable {locationDomain ? <b>{locationDomain}</b> : "your location"} is in local search —
+          the keywords you win, where rivals out-rank you, and which searches you&apos;re missing.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="viz-body">
+        {/* ── Control bar (location + organic/paid + refresh + freshness) ── */}
+        <VisibilityControlBar
           locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
           selectedLocationId={selectedLocationId ?? ""}
           activeTab={activeTab}
+          freshnessLabel={freshnessLabel}
+          refreshSlot={
+            selectedLocationId ? (
+              <JobRefreshButton
+                type="visibility"
+                locationId={selectedLocationId}
+                label="Refresh SEO"
+                pendingLabel="Refreshing SEO data"
+              />
+            ) : undefined
+          }
         />
-        {selectedLocationId && (
-          <JobRefreshButton
-            type="visibility"
-            locationId={selectedLocationId}
-            label="Refresh SEO"
-            pendingLabel="Refreshing SEO data"
-          />
+
+        {/* ── Status / notices ── */}
+        {error && (
+          <div className="viz-banner viz-banner-err" role="alert">
+            {decodeURIComponent(error)}
+          </div>
         )}
-        <span className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-          {freshnessLabel}
-        </span>
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {decodeURIComponent(error)}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
-          {decodeURIComponent(success)}
-        </div>
-      )}
-      {coverageHealth.visibility.unavailable && (
-        <VendorUnavailableBanner source="Search visibility data" asOf={lastRefreshed} />
-      )}
-
-      {locationDomain && (
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-xs text-muted-foreground">
-          <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
-          </svg>
-          <span>
-            Tracking domain:{" "}
-            <span className="font-medium text-foreground">{locationDomain}</span>
-          </span>
-          <a href="/locations" className="ml-auto font-medium text-primary hover:text-primary/80">
-            Change URL
-          </a>
-        </div>
-      )}
-
-      {/* Missing website warning */}
-      {selectedLocation && !selectedLocation.website && (
-        <div className="rounded-xl border border-signal-gold/30 bg-signal-gold/10 px-4 py-3 text-sm text-signal-gold">
-          <strong>No website configured.</strong> Click &quot;Refresh SEO&quot; to auto-resolve from Google Places, or add a website URL in{" "}
-          <a href="/locations" className="underline hover:text-signal-gold">Locations</a>.
-        </div>
-      )}
-
-      {/* Last refreshed */}
-      {lastRefreshed && (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="live-dot" />
-          Last refreshed: {new Date(lastRefreshed + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-          {locationDomain && (
-            <span className="ml-2 text-muted-foreground">
-              Domain: <strong className="text-muted-foreground">{locationDomain}</strong>
+        {success && (
+          <div className="viz-banner viz-banner-ok" role="status">
+            {decodeURIComponent(success)}
+          </div>
+        )}
+        {coverageHealth.visibility.unavailable && (
+          <VendorUnavailableBanner source="Search visibility data" asOf={lastRefreshed} />
+        )}
+        {selectedLocation && !selectedLocation.website && (
+          <div className="viz-banner viz-banner-warn" role="status">
+            <span>
+              <strong>No website yet.</strong> Hit “Refresh SEO” to auto-resolve it from Google Places, or add a URL
+              in <a href="/locations">Locations</a>.
             </span>
-          )}
-        </div>
-      )}
-
-      {/* ================================================================= */}
-      {/* ORGANIC TAB */}
-      {/* ================================================================= */}
-      {activeTab === "organic" && (
-        <div className="space-y-6">
-
-          {/* ROW 1: Overview KPI Strip */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="animate-fade-up" style={{ animationDelay: "0ms" }}>
-              <KpiCard
-                label="Organic Traffic"
-                value={organicEtv.toLocaleString()}
-                sub="est. clicks/mo"
-                accent="hero"
-                badge={kpiSource === "ranked_keywords" ? "est." : undefined}
-              />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
-              <KpiCard
-                label="Paid Traffic"
-                value={paidEtv.toLocaleString()}
-                sub="est. clicks/mo"
-                accent="violet"
-              />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-              <KpiCard
-                label="Traffic Cost"
-                value={trafficCost > 0 ? `$${Math.round(trafficCost).toLocaleString()}` : "—"}
-                sub={trafficCost > 0 ? "organic equiv." : undefined}
-                accent="amber"
-              />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-              <KpiCard
-                label="Keywords"
-                value={organicKeywords.toLocaleString()}
-                sub={`${trackedKwCount ?? 0} tracked`}
-                accent="indigo"
-                badges={[
-                  { label: `+${newKw}`, color: "emerald" },
-                  { label: `-${lostKw}`, color: "rose" },
-                ]}
-              />
-            </div>
           </div>
-
-          {/* ROW 2: Historical Traffic Chart */}
-          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "80ms" }}>
-            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Traffic Trends</h2>
-            <p className="mb-3 text-xs text-muted-foreground">Organic and paid traffic over the past 12 months.</p>
-            <TrafficChart data={historicalData} />
+        )}
+        {locationDomain && (
+          <div className="viz-domain-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18" />
+            </svg>
+            <span>
+              Tracking <b>{locationDomain}</b>
+            </span>
+            <a href="/locations">Change URL</a>
           </div>
+        )}
+        {refreshedLabel && (
+          <div className="viz-refreshed">
+            <span className="viz-dot" aria-hidden="true" />
+            Last refreshed {refreshedLabel}
+          </div>
+        )}
 
-          {/* ROW 3: Keywords + Organic Competitors */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Organic Keywords with tabs */}
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "120ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Organic Keywords <span className="font-mono normal-case">({organicKeywords.toLocaleString()})</span>
-              </h2>
-              <KeywordTabs
-                keywords={rankedKeywords}
+        {/* ================================================================= */}
+        {/* ORGANIC                                                            */}
+        {/* ================================================================= */}
+        {activeTab === "organic" &&
+          (organicEmpty ? (
+            <TkEmptyState
+              title="No search data yet"
+              description="Hit “Refresh SEO” above and we'll read how your location ranks across local search — keywords, rivals, and the searches you're missing."
+            />
+          ) : (
+            <>
+              {/* At-a-glance weighted widgets (honest, %-/est.-framed) */}
+              <RevealOnView>
+                <TkWidgetGrid>
+                  <TkWidget
+                    tone="rust"
+                    size="wide"
+                    label="Estimated organic reach"
+                    value={organicEtv.toLocaleString()}
+                    sub={kpiSource === "ranked_keywords" ? "est. clicks/mo · modeled from rank" : "est. clicks/mo"}
+                    data-tip="Estimated monthly clicks from organic search, modeled from rank position and search volume"
+                    data-tipv={`${organicEtv.toLocaleString()} est. clicks/mo`}
+                    spark={
+                      <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
+                        <path
+                          d="M0 50 L30 46 L55 40 L75 18 L95 10 L120 22"
+                          fill="none"
+                          stroke="rgba(255,255,255,.7)"
+                          strokeWidth="3"
+                        />
+                      </svg>
+                    }
+                  />
+                  <TkWidget
+                    tone="teal"
+                    label="Keywords you win"
+                    value={organicKeywords.toLocaleString()}
+                    sub={`${(trackedKwCount ?? 0).toLocaleString()} tracked`}
+                    data-tip="Search terms your domain currently ranks for"
+                    data-tipv={`${organicKeywords.toLocaleString()} ranked`}
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Moving up / down"
+                    value={`+${newKw} / -${lostKw}`}
+                    sub={`${upKw} improved · ${downKw} slipped`}
+                    data-tip="New vs lost keywords since the last read"
+                    data-tipv={`+${newKw} new · -${lostKw} lost`}
+                  />
+                  <TkWidget
+                    tone="gold"
+                    label="Featured / local pack"
+                    value={`${featuredSnippets} / ${localPackCount}`}
+                    sub="rich-result placements"
+                    data-tip="Featured snippets and local-pack placements you appear in"
+                    data-tipv={`${featuredSnippets} featured · ${localPackCount} local pack`}
+                  />
+                  {trafficCost > 0 && (
+                    <TkWidget
+                      tone="slate"
+                      label="Ad-equivalent value"
+                      value={`$${trafficCost.toLocaleString()}`}
+                      sub="what this reach would cost in ads · est."
+                      data-tip="Estimated cost to buy your current organic search traffic via paid ads — not your revenue"
+                      data-tipv={`~$${trafficCost.toLocaleString()}/mo in ad spend`}
+                    />
+                  )}
+                </TkWidgetGrid>
+              </RevealOnView>
+
+              {/* Trend over time — gated <30 days with TkStillLearning */}
+              <VisibilityTrend data={trendData} historyDays={historyDays} />
+
+              {/* You vs your market (TkH2HBars) */}
+              <VisibilityH2H
+                yourEtv={organicEtv}
+                yourKeywords={organicKeywords}
+                competitors={competitorViews}
+              />
+
+              {/* Ranked keywords */}
+              <VisibilityKeywords
+                keywords={keywordViews}
                 newCount={newKw}
                 upCount={upKw}
                 downCount={downKw}
-                lostCount={lostKw}
               />
-            </div>
 
-            {/* Organic Competitors */}
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Organic Competitors <span className="font-mono normal-case">({organicCompetitors.length})</span>
-              </h2>
-              {organicCompetitors.length > 0 ? (
-                <div className="max-h-[400px] overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-card">
-                      <tr className="border-b border-border text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">Domain</th>
-                        <th className="py-2 pr-3 font-medium">Overlap</th>
-                        <th className="py-2 pr-3 font-medium">Keywords</th>
-                        <th className="py-2 font-medium">Traffic</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {organicCompetitors.slice(0, 15).map((comp) => {
-                        const maxOverlap = Math.max(...organicCompetitors.map((c) => c.intersections), 1)
-                        const overlapPct = Math.round((comp.intersections / maxOverlap) * 100)
-                        return (
-                          <tr key={comp.domain} className="border-b border-border hover:bg-secondary/50">
-                            <td className="max-w-[140px] truncate py-2 pr-3 font-medium text-primary">
-                              {comp.domain}
-                            </td>
-                            <td className="py-2 pr-3">
-                              <div className="flex items-center gap-1.5">
-                                <div className="h-2 w-16 overflow-hidden rounded-full bg-secondary">
-                                  <div
-                                    className="h-full rounded-full bg-gradient-to-r from-destructive via-signal-gold to-precision-teal"
-                                    style={{ width: `${overlapPct}%` }}
-                                  />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground">{comp.intersections}</span>
-                              </div>
-                            </td>
-                            <td className="py-2 pr-3 text-muted-foreground">{comp.organicKeywords.toLocaleString()}</td>
-                            <td className="py-2 text-muted-foreground">{comp.organicEtv.toLocaleString()}</td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No organic competitor data yet.</p>
-              )}
-            </div>
-          </div>
+              {/* Intent + SERP features */}
+              <RevealOnView>
+                <TkSectionHead title="What you rank for" sub="Intent mix & rich-result placements" />
+              </RevealOnView>
+              <VisibilityIntentSerp intentData={intentData} serpFeatures={serpFeatures} />
 
-          {/* ROW 4: Keywords by Intent + SERP Features */}
-          <div className="animate-fade-up" style={{ animationDelay: "160ms" }}>
-            <IntentSerpPanels intentData={intentData} serpFeatures={serpFeatures} />
-          </div>
+              {/* Ranking distribution */}
+              <VisibilityDistribution distribution={distribution} />
 
-          {/* ROW 5: Ranking Distribution */}
-          <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keyword Ranking Distribution</h2>
-            {rankHasData && rankData?.organic?.distribution ? (
-              <RankingDistribution distribution={rankData.organic.distribution} />
-            ) : rankedKeywords.length > 0 ? (
-              <RankingDistribution distribution={{
-                pos_1: rankedKeywords.filter((kw) => kw.rank === 1).length,
-                pos_2_3: rankedKeywords.filter((kw) => kw.rank >= 2 && kw.rank <= 3).length,
-                pos_4_10: rankedKeywords.filter((kw) => kw.rank >= 4 && kw.rank <= 10).length,
-                pos_11_20: rankedKeywords.filter((kw) => kw.rank >= 11 && kw.rank <= 20).length,
-                pos_21_50: rankedKeywords.filter((kw) => kw.rank >= 21 && kw.rank <= 50).length,
-                pos_51_100: rankedKeywords.filter((kw) => kw.rank >= 51 && kw.rank <= 100).length,
-              }} />
-            ) : (
-              <p className="text-sm text-muted-foreground">No distribution data available.</p>
-            )}
-          </div>
+              {/* Top pages + subdomains */}
+              <RevealOnView>
+                <TkSectionHead title="What's pulling the traffic" sub="Your top pages & subdomains" />
+              </RevealOnView>
+              <VisibilityPages pages={pageViews} subdomains={subdomainViews} />
 
-          {/* ROW 6: Top Pages + Subdomains */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Top Pages */}
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "200ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Top Pages <span className="font-mono normal-case">({relevantPages.length})</span>
-              </h2>
-              {relevantPages.length > 0 ? (
-                <div className="max-h-[300px] overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-card">
-                      <tr className="border-b border-border text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">URL</th>
-                        <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
-                        <th className="py-2 font-medium text-right">Total Traffic</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {relevantPages.slice(0, 15).map((page) => (
-                        <tr key={page.url} className="border-b border-border">
-                          <td className="max-w-[220px] truncate py-2 pr-3">
-                            <a
-                              href={page.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline"
-                            >
-                              {page.url.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
-                            </a>
-                          </td>
-                          <td className="py-2 pr-3 text-right text-muted-foreground">{page.trafficShare}%</td>
-                          <td className="py-2 text-right text-muted-foreground">{page.organicEtv.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No top pages data yet.</p>
-              )}
-            </div>
-
-            {/* Subdomains */}
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Top Subdomains <span className="font-mono normal-case">({subdomains.length})</span>
-              </h2>
-              {subdomains.length > 0 ? (
-                <div className="max-h-[300px] overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="sticky top-0 bg-card">
-                      <tr className="border-b border-border text-muted-foreground">
-                        <th className="py-2 pr-3 font-medium">URL</th>
-                        <th className="py-2 pr-3 font-medium text-right">Traffic Share</th>
-                        <th className="py-2 font-medium text-right">Total Traffic</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {subdomains.slice(0, 10).map((sub) => (
-                        <tr key={sub.subdomain} className="border-b border-border">
-                          <td className="max-w-[220px] truncate py-2 pr-3 font-medium text-foreground">
-                            {sub.subdomain}
-                          </td>
-                          <td className="py-2 pr-3 text-right text-muted-foreground">{sub.trafficShare}%</td>
-                          <td className="py-2 text-right text-muted-foreground">{sub.organicEtv.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">No subdomain data yet.</p>
-              )}
-            </div>
-          </div>
-
-          {/* ROW 7: Keyword Gap Opportunities */}
-          {gapOpportunities.length > 0 && (
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "240ms" }}>
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Keyword Gap Opportunities</h2>
-              <p className="mb-3 text-xs text-muted-foreground">Keywords competitors rank for that you don&apos;t appear for.</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="py-2 pr-4 font-medium">Keyword</th>
-                      <th className="py-2 pr-4 font-medium">Comp. Rank</th>
-                      <th className="py-2 pr-4 font-medium">Volume</th>
-                      <th className="py-2 font-medium">CPC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gapOpportunities.map((g) => (
-                      <tr key={g.keyword} className="border-b border-border">
-                        <td className="py-2 pr-4 font-medium text-foreground">{g.keyword}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">#{g.domain2Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{g.searchVolume?.toLocaleString() ?? "—"}</td>
-                        <td className="py-2 text-muted-foreground">{g.cpc ? `$${g.cpc.toFixed(2)}` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* SERP Features metrics */}
-          {(featuredSnippets > 0 || localPackCount > 0) && (
-            <div className="flex flex-wrap gap-3">
-              {featuredSnippets > 0 && (
-                <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-                  <span className="text-xs text-muted-foreground">Featured Snippets</span>
-                  <p className="text-lg font-bold text-foreground">{featuredSnippets}</p>
-                </div>
-              )}
-              {localPackCount > 0 && (
-                <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-                  <span className="text-xs text-muted-foreground">Local Pack</span>
-                  <p className="text-lg font-bold text-foreground">{localPackCount}</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {kpiSource === "none" && serpEntries.length === 0 && (
-            <div className="rounded-xl border border-border bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">
-                No SEO data yet. Click &quot;Refresh SEO&quot; to fetch search visibility data.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ================================================================= */}
-      {/* PAID TAB */}
-      {/* ================================================================= */}
-      {activeTab === "paid" && (
-        <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="animate-fade-up" style={{ animationDelay: "0ms" }}>
-              <KpiCard label="Est. Paid Traffic" value={paidEtv.toLocaleString()} sub="monthly visits" accent="amber" />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "40ms" }}>
-              <KpiCard label="Paid Keywords" value={paidKeywords.toLocaleString()} accent="orange" />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "80ms" }}>
-              <KpiCard label="Ad Creatives" value={String(adCreatives.length)} sub="detected" accent="rose" />
-            </div>
-            <div className="animate-fade-up" style={{ animationDelay: "120ms" }}>
-              <KpiCard label="Paid Overlap" value={String(paidOverlap.length)} sub="shared keywords" accent="violet" />
-            </div>
-          </div>
-
-          {/* Paid Keyword Overlap table */}
-          {paidOverlap.length > 0 && (
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "120ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Paid Keyword Overlap</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="py-2 pr-4 font-medium">Keyword</th>
-                      <th className="py-2 pr-4 font-medium">Your Rank</th>
-                      <th className="py-2 pr-4 font-medium">Comp. Rank</th>
-                      <th className="py-2 pr-4 font-medium">Volume</th>
-                      <th className="py-2 font-medium">CPC</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paidOverlap.map((r) => (
-                      <tr key={r.keyword} className="border-b border-border">
-                        <td className="py-2 pr-4 font-medium text-foreground">{r.keyword}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">#{r.domain1Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">#{r.domain2Rank ?? "—"}</td>
-                        <td className="py-2 pr-4 text-muted-foreground">{r.searchVolume?.toLocaleString() ?? "—"}</td>
-                        <td className="py-2 text-muted-foreground">{r.cpc ? `$${r.cpc.toFixed(2)}` : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Ad Creatives feed */}
-          {adCreatives.length > 0 && (
-            <div className="animate-fade-up rounded-2xl border border-border bg-card p-5 shadow-sm" style={{ animationDelay: "160ms" }}>
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Competitor Ad Creatives</h2>
-              <div className="space-y-3">
-                {adCreatives.slice(0, 20).map((ad, i) => (
-                  <div key={i} className="rounded-xl border border-border bg-secondary/50 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-primary">{ad.headline ?? "Ad creative"}</p>
-                        {ad.description && <p className="mt-0.5 text-xs text-muted-foreground">{ad.description}</p>}
-                        <div className="mt-1 flex flex-wrap gap-2 text-[10px] text-muted-foreground">
-                          {ad.displayUrl && <span>{ad.displayUrl}</span>}
-                          {ad.domain && <span className="font-medium text-muted-foreground">{ad.domain}</span>}
-                          {ad.keyword && <span>kw: {ad.keyword}</span>}
-                          {ad.position && <span>pos: #{ad.position}</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty paid state */}
-          {paidEtv === 0 && adCreatives.length === 0 && paidOverlap.length === 0 && (
-            <div className="rounded-xl border border-border bg-card p-8 text-center">
-              <p className="text-sm font-medium text-muted-foreground">
-                No paid advertising detected
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                No Google Ads data found for this domain or its competitors.
-                This is common for local businesses that rely on organic search.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// KPI Card component
-// ---------------------------------------------------------------------------
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  accent,
-  badge,
-  badges,
-}: {
-  label: string
-  value: string
-  sub?: string
-  accent: "hero" | "indigo" | "violet" | "emerald" | "sky" | "amber" | "orange" | "rose" | "blue" | "slate"
-  badge?: string
-  badges?: Array<{ label: string; color: string }>
-}) {
-  const isHero = accent === "hero"
-
-  const colorMap: Record<string, string> = {
-    indigo: "border-l-primary bg-primary/10",
-    violet: "border-l-vatic-indigo-soft bg-vatic-indigo-soft/10",
-    emerald: "border-l-precision-teal bg-precision-teal/10",
-    sky: "border-l-primary bg-primary/10",
-    amber: "border-l-signal-gold bg-signal-gold/10",
-    orange: "border-l-signal-gold bg-signal-gold/10",
-    rose: "border-l-destructive bg-destructive/10",
-    blue: "border-l-primary bg-primary/10",
-    slate: "border-l-muted-foreground bg-secondary",
-  }
-  const cls = colorMap[accent] ?? colorMap.indigo
-
-  const badgeColorMap: Record<string, string> = {
-    emerald: "bg-precision-teal/15 text-precision-teal",
-    rose: "bg-destructive/15 text-destructive",
-    amber: "bg-signal-gold/15 text-signal-gold",
-  }
-
-  if (isHero) {
-    return (
-      <div
-        className="rounded-xl p-3 shadow-sm"
-        style={{
-          background: "linear-gradient(135deg, var(--ticket-rust), var(--ember-deep))",
-        }}
-      >
-        <p className="text-[10px] font-medium uppercase tracking-wider text-white/70">{label}</p>
-        <div className="mt-1 flex items-baseline gap-1">
-          <span className="text-xl font-bold text-white">{value}</span>
-          {sub && <span className="text-[10px] text-white/60">{sub}</span>}
-          {badge && (
-            <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white">
-              {badge}
-            </span>
-          )}
-        </div>
-        {badges && badges.length > 0 && (
-          <div className="mt-1 flex gap-1">
-            {badges.map((b) => (
-              <span key={b.label} className="rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-medium text-white">
-                {b.label}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className={`rounded-xl border border-border border-l-4 ${cls} p-3 shadow-sm`}>
-      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="mt-1 flex items-baseline gap-1">
-        <span className="text-xl font-bold text-foreground">{value}</span>
-        {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
-        {badge && (
-          <span className="ml-1 rounded-full bg-signal-gold/15 px-1.5 py-0.5 text-[9px] font-medium text-signal-gold">
-            {badge}
-          </span>
-        )}
-      </div>
-      {badges && badges.length > 0 && (
-        <div className="mt-1 flex gap-1">
-          {badges.map((b) => (
-            <span
-              key={b.label}
-              className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${badgeColorMap[b.color] ?? "bg-secondary text-muted-foreground"}`}
-            >
-              {b.label}
-            </span>
+              {/* Keyword gap opportunities */}
+              <VisibilityGaps gaps={gapViews} />
+            </>
           ))}
-        </div>
-      )}
+
+        {/* ================================================================= */}
+        {/* PAID                                                               */}
+        {/* ================================================================= */}
+        {activeTab === "paid" &&
+          (paidEmpty ? (
+            <TkEmptyState
+              title="No paid advertising detected"
+              description="No Google Ads activity found for this domain or its rivals — common for local businesses that lean on organic search."
+            />
+          ) : (
+            <>
+              <RevealOnView>
+                <TkWidgetGrid>
+                  <TkWidget
+                    tone="rust"
+                    size="wide"
+                    label="Estimated paid reach"
+                    value={paidEtv.toLocaleString()}
+                    sub="est. visits/mo"
+                    data-tip="Estimated monthly visits from paid search"
+                    data-tipv={`${paidEtv.toLocaleString()} est. visits/mo`}
+                  />
+                  <TkWidget
+                    tone="gold"
+                    label="Paid keywords"
+                    value={paidKeywords.toLocaleString()}
+                    sub="terms bid on"
+                    data-tip="Keywords this domain runs paid ads against"
+                    data-tipv={`${paidKeywords.toLocaleString()} paid terms`}
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Ad creatives seen"
+                    value={String(adCreatives.length)}
+                    sub="detected"
+                    data-tip="Distinct competitor ad creatives we captured"
+                    data-tipv={`${adCreatives.length} creatives`}
+                  />
+                  <TkWidget
+                    tone="teal"
+                    label="Shared paid terms"
+                    value={String(paidOverlap.length)}
+                    sub="you & a rival both bid"
+                    data-tip="Keywords where you and a rival both run paid ads"
+                    data-tipv={`${paidOverlap.length} overlapping`}
+                  />
+                </TkWidgetGrid>
+              </RevealOnView>
+
+              <VisibilityPaidOverlap rows={paidOverlapViews} />
+              <VisibilityAds ads={adViews} />
+            </>
+          ))}
+      </div>
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { clearTestData, type ClearTestTarget } from "@/app/actions/admin-maintenance"
+import { RevealOnView, TkButton } from "@/components/ticket"
 
 export function ClearTestData() {
   const [includeDemo, setIncludeDemo] = useState(false)
@@ -54,101 +55,150 @@ export function ClearTestData() {
     reason.trim().length > 0
 
   return (
-    <div className="max-w-2xl space-y-5 rounded-xl border border-border bg-card p-6">
-      <p className="text-sm text-muted-foreground">
-        Permanently deletes all <strong className="text-foreground">test</strong>
-        {includeDemo ? " and demo" : ""} orgs and every bit of their data. Customer
-        orgs and any org with a live subscription are never touched. Always preview
-        first.
-      </p>
+    <RevealOnView className="mt-card">
+      <div className="mt-card-body">
+        <p className="mt-intro">
+          Permanently deletes all <b>test</b>
+          {includeDemo ? " and demo" : ""} orgs and every bit of their data. Always preview first.
+          <br />
+          <span className="mt-safe">
+            {shieldIcon}
+            Customer orgs and any org with a live subscription are never touched.
+          </span>
+        </p>
 
-      {feedback && (
-        <div
-          className={`rounded-lg border px-4 py-2 text-sm ${
-            feedback.ok
-              ? "border-precision-teal/30 bg-precision-teal/10 text-precision-teal"
-              : "border-destructive/30 bg-destructive/10 text-destructive"
-          }`}
-        >
-          {feedback.message}
+        {feedback && (
+          <div className={`mt-banner ${feedback.ok ? "mt-ok" : "mt-err"}`} role="status">
+            {feedback.ok ? checkIcon : errIcon}
+            {feedback.message}
+          </div>
+        )}
+
+        <label className="mt-toggle">
+          <input
+            type="checkbox"
+            checked={includeDemo}
+            onChange={(e) => {
+              setIncludeDemo(e.target.checked)
+              setPreview(null)
+              setTyped("")
+            }}
+          />
+          <span className="mt-box" aria-hidden>
+            {tickIcon}
+          </span>
+          <span className="mt-tl">
+            <span className="mt-tt">Include demo orgs</span>
+            <span className="mt-ts">Default clears test orgs only.</span>
+          </span>
+        </label>
+
+        <div>
+          <TkButton
+            variant="add"
+            onClick={runPreview}
+            disabled={isPending}
+          >
+            {isPending && !preview ? "Previewing…" : "Preview what will be cleared"}
+          </TkButton>
         </div>
-      )}
 
-      <label className="flex items-center gap-2 text-sm text-foreground">
-        <input
-          type="checkbox"
-          checked={includeDemo}
-          onChange={(e) => {
-            setIncludeDemo(e.target.checked)
-            setPreview(null)
-            setTyped("")
-          }}
-          className="h-4 w-4 rounded border-input"
-        />
-        Include demo orgs (default: test only)
-      </label>
+        {preview && (
+          <div className="mt-confirm">
+            {preview.count === 0 ? (
+              <p className="mt-confirm-empty">Nothing matches — nothing to clear.</p>
+            ) : (
+              <>
+                <h4>
+                  Will delete {preview.count} org{preview.count === 1 ? "" : "s"}
+                </h4>
+                <ul className="mt-targets">
+                  {preview.targets.map((t) => (
+                    <li key={t.id} className="mt-target">
+                      <span className="mt-tn">{t.name}</span>
+                      <span className="mt-tk">{t.orgKind}</span>
+                    </li>
+                  ))}
+                </ul>
 
-      <button
-        type="button"
-        onClick={runPreview}
-        disabled={isPending}
-        className="rounded-lg border border-input px-5 py-2.5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50"
-      >
-        {isPending && !preview ? "Previewing…" : "Preview"}
-      </button>
+                <div className="mt-danger">
+                  <p className="mt-warn">
+                    {warnIcon}
+                    <span>
+                      This cannot be undone. Type{" "}
+                      <span className="mt-num">{preview.count}</span> and give a reason to confirm.
+                    </span>
+                  </p>
 
-      {preview && (
-        <div className="space-y-4 border-t border-border pt-5">
-          {preview.count === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Nothing matches — nothing to clear.
-            </p>
-          ) : (
-            <>
-              <p className="text-sm font-medium text-foreground">
-                Will delete {preview.count} org(s):
-              </p>
-              <ul className="max-h-60 space-y-1 overflow-y-auto text-sm text-muted-foreground">
-                {preview.targets.map((t) => (
-                  <li key={t.id}>
-                    — {t.name}{" "}
-                    <span className="uppercase opacity-70">({t.orgKind})</span>
-                  </li>
-                ))}
-              </ul>
-              <p className="text-sm font-semibold text-destructive">
-                This cannot be undone. Type{" "}
-                <span className="font-mono">{preview.count}</span> and give a reason to confirm.
-              </p>
-              <input
-                type="text"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Reason (recorded in the audit log)"
-                className="w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={typed}
-                  onChange={(e) => setTyped(e.target.value)}
-                  placeholder={String(preview.count)}
-                  className="w-28 rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <button
-                  type="button"
-                  onClick={runClear}
-                  disabled={!confirmReady || isPending}
-                  className="rounded-lg bg-destructive px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {isPending ? "Clearing…" : `Clear ${preview.count} org(s)`}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+                  <div className="mt-field">
+                    <label htmlFor="mt-reason">Reason (recorded in the audit log)</label>
+                    <input
+                      id="mt-reason"
+                      type="text"
+                      className="mt-input"
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder="Why are you clearing these?"
+                    />
+                  </div>
+
+                  <div className="mt-confirm-row">
+                    <div className="mt-field">
+                      <label htmlFor="mt-count">Confirm count</label>
+                      <input
+                        id="mt-count"
+                        type="text"
+                        inputMode="numeric"
+                        className="mt-input mt-num-input"
+                        value={typed}
+                        onChange={(e) => setTyped(e.target.value)}
+                        placeholder={String(preview.count)}
+                        aria-label={`Type ${preview.count} to confirm`}
+                      />
+                    </div>
+                    <TkButton
+                      className="mt-btn-danger"
+                      onClick={runClear}
+                      disabled={!confirmReady || isPending}
+                    >
+                      {isPending ? "Clearing…" : `Clear ${preview.count} org${preview.count === 1 ? "" : "s"}`}
+                    </TkButton>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </RevealOnView>
   )
 }
+
+const shieldIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+)
+const tickIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 13l4 4L19 7" />
+  </svg>
+)
+const checkIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M5 13l4 4L19 7" />
+  </svg>
+)
+const errIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v6M12 16.5v.5" />
+  </svg>
+)
+const warnIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M12 3l9 16H3l9-16z" />
+    <path d="M12 9v4M12 16.5v.5" />
+  </svg>
+)

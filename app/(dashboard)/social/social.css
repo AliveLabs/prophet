@@ -1,0 +1,143 @@
+/* ============================================================
+   SOCIAL — page-local styles for The Pass rebuild.
+   All classes prefixed sp- (social-pass) to avoid colliding
+   with the kit (tk-*) and legacy (.pv-*) markup.
+
+   Colors/shadows/radii/motion come from the shared token SSOT
+   (var(--rust/--paper/--card/--line/--ink-*--teal/--gold/...))
+   so light + warm-dark both work for free. Nothing hardcodes a
+   light-only color. AA: -deep tokens for small text.
+   ============================================================ */
+
+.sp-body { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── controls strip ─────────────────────────────────────────── */
+.sp-controls {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  justify-content: space-between;
+}
+.sp-controls-left { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+
+/* ── widgets: tighten the section-head top margin under the head ─ */
+.sp-sec { margin-top: 38px; }
+.sp-sec:first-child { margin-top: 28px; }
+
+/* ── platform presence ──────────────────────────────────────── */
+.sp-standing { display: flex; flex-direction: column; gap: 18px; }
+.sp-presence {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.sp-plat { display: flex; flex-direction: column; gap: 8px; }
+.sp-plat-top { display: flex; align-items: center; gap: 8px; }
+.sp-plat-ic { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--paper-2); color: var(--ink-2); flex: none; }
+.sp-plat-ic svg { width: 15px; height: 15px; }
+.sp-plat-name { font-family: var(--font-display); font-weight: 700; font-size: 14px; letter-spacing: -.01em; }
+.sp-plat-state { font-size: 12px; line-height: 1.4; }
+.sp-plat-good { color: var(--teal-deep, var(--teal)); font-weight: 600; }
+.sp-plat-warn { color: var(--gold-deep); font-weight: 600; }
+.sp-plat-muted { color: var(--ink-3); }
+.sp-plat-you { border-color: color-mix(in srgb, var(--teal) 40%, var(--line)); background: color-mix(in srgb, var(--teal) 7%, var(--card-2)); }
+.sp-plat-gap { border-color: color-mix(in srgb, var(--gold) 40%, var(--line)); background: color-mix(in srgb, var(--gold) 8%, var(--card-2)); }
+.sp-plat-ic svg { color: inherit; }
+.sp-plat-you .sp-plat-ic { background: color-mix(in srgb, var(--teal) 16%, transparent); color: var(--teal-deep, var(--teal)); }
+.sp-plat-gap .sp-plat-ic { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-deep); }
+
+.sp-h2h-conf { margin-left: 8px; vertical-align: middle; }
+.sp-h2h-empty p, .sp-h2h-empty { font-size: 13px; color: var(--ink-2); }
+.sp-h2h-empty p { margin-top: 8px; line-height: 1.5; }
+.sp-h2h-empty a, .sp-handles-sub a, .sp-noposts a, .sp-cta a { color: var(--rust-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ── recent posts grid (TkSocialEmbed centerpiece) ──────────── */
+.sp-posts { display: flex; flex-direction: column; gap: 16px; }
+.sp-postbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.sp-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+.sp-pill {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px;
+  padding: 7px 13px; border-radius: 999px; font-family: var(--font-display);
+  font-weight: 600; font-size: 12.5px; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line-2);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.sp-pill:hover { border-color: color-mix(in srgb, var(--rust) 35%, var(--line-2)); }
+.sp-pill-on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.sp-pill-ic { display: inline-flex; }
+.sp-pill-ic svg { width: 13px; height: 13px; }
+.sp-pill-n { font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 14%, transparent); }
+.sp-entsel select {
+  min-height: 36px; padding: 6px 30px 6px 12px; border-radius: 10px;
+  font-family: var(--font-sans); font-size: 12.5px; font-weight: 500; color: var(--ink);
+  background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 13px;
+  border: 1px solid var(--line-2); appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.sp-entsel select:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; }
+
+.sp-grid { gap: 16px; }
+/* let the embeds fill their grid cell */
+.sp-grid > div { display: flex; }
+.sp-grid > div > * { width: 100%; }
+/* real post image inside the embed photo slot */
+.sp-photo-img { display: block; }
+.sp-photo-img img { width: 100%; height: 100%; object-fit: cover; min-height: 172px; }
+
+.sp-noposts { text-align: center; padding: 28px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: var(--card-2); }
+.sp-noposts p { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+
+/* ── insight cards (kit-styled, learning loop preserved) ────── */
+.sp-insights { display: flex; flex-direction: column; gap: 14px; }
+.sp-ins-grid { gap: 16px; align-items: start; }
+.sp-ins-grid > div { display: flex; }
+.sp-ins-grid > div > * { width: 100%; }
+.sp-ins { display: flex; flex-direction: column; gap: 10px; }
+.sp-ins-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.sp-ins-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.sp-ins-actions { display: flex; align-items: center; gap: 8px; flex: none; }
+.sp-ins-urg { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+.sp-ins-urg-critical { color: var(--alert-deep); background: color-mix(in srgb, var(--alert) 14%, transparent); }
+.sp-ins-urg-warning { color: var(--gold-deep); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+.sp-ins-urg-info { color: var(--ink-3); background: var(--paper-2); }
+.sp-ins-status { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: var(--teal-deep, var(--teal)); background: color-mix(in srgb, var(--teal) 14%, transparent); }
+.sp-ins-title { font-family: var(--font-display); font-size: 15.5px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
+.sp-ins-sum { margin-top: 0; }
+.sp-ins-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-ins-pill { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--ink-2); padding: 3px 9px; border-radius: 8px; background: var(--paper-2); border: 1px solid var(--line); }
+.sp-ins-quotes { margin-top: 2px; }
+/* a left accent rule tied to urgency */
+.sp-ins-critical { box-shadow: inset 3px 0 0 var(--alert), var(--shadow-sm); }
+.sp-ins-warning { box-shadow: inset 3px 0 0 var(--gold), var(--shadow-sm); }
+
+.sp-showmore {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 7px;
+  min-height: 40px; padding: 9px 16px; border-radius: 11px;
+  font-family: var(--font-display); font-weight: 600; font-size: 13px; color: var(--ink-2);
+  background: var(--card); border: 1px solid var(--line-2);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+.sp-showmore:hover { background: var(--card-2); border-color: color-mix(in srgb, var(--rust) 30%, var(--line-2)); }
+
+/* ── watched accounts (handle manager wrapper) ──────────────── */
+.sp-handles { display: flex; flex-direction: column; gap: 14px; }
+.sp-handles-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.sp-handles-title { font-family: var(--font-display); font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+.sp-handles-sub { margin-top: 4px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); max-width: 56ch; }
+.sp-handle-groups { display: flex; flex-direction: column; gap: 16px; }
+.sp-disc-note { font-size: 12.5px; font-weight: 600; padding: 9px 13px; border-radius: 10px; }
+.sp-disc-ok { color: var(--teal-deep, var(--teal)); background: color-mix(in srgb, var(--teal) 12%, transparent); border: 1px solid color-mix(in srgb, var(--teal) 32%, transparent); }
+.sp-disc-err { color: var(--alert-deep); background: color-mix(in srgb, var(--alert) 12%, transparent); border: 1px solid color-mix(in srgb, var(--alert) 32%, transparent); }
+.sp-spin { width: 15px; height: 15px; animation: sp-rot .8s linear infinite; }
+@keyframes sp-rot { to { transform: rotate(360deg); } }
+
+/* ── empty-state CTA buttons (point to Competitors roster) ──── */
+.sp-cta { display: inline-flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 4px; }
+.sp-cta a { text-decoration: none; }
+
+/* ── responsive ─────────────────────────────────────────────── */
+@media (max-width: 760px) {
+  .sp-presence { grid-template-columns: 1fr; }
+  .sp-sec { margin-top: 30px; }
+  .sp-postbar { gap: 10px; }
+  .sp-entsel, .sp-entsel select { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sp-spin { animation: none; }
+}

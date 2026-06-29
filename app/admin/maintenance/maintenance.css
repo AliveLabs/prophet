@@ -1,0 +1,127 @@
+/* ============================================================
+   Admin · Maintenance — page-scoped Pass styling.
+   A deliberately CALM Pass surface for a destructive flow: it
+   stays quiet while previewing, then escalates to alert tones
+   only at the typed-count confirmation. Token-driven (light +
+   warm-dark for free). mt-* = the few admin-specific pieces.
+   ============================================================ */
+
+.mt-surface {
+  position: relative;
+  min-height: 100%;
+  margin: -24px;
+  padding: 28px 24px 56px;
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 18px;
+}
+@media (max-width: 760px) { .mt-surface { margin: -16px; padding: 22px 16px 48px; } }
+
+/* ── header ──────────────────────────────────────────────── */
+.mt-head { display: flex; flex-direction: column; gap: 12px; max-width: 66ch; }
+.mt-head .mt-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--alert-deep);
+}
+.mt-head .mt-eyebrow svg { width: 14px; height: 14px; }
+.mt-head h1 {
+  font-family: var(--font-display); font-size: clamp(24px, 3.4vw, 32px);
+  font-weight: 800; letter-spacing: -.025em; line-height: 1.08; color: var(--ink);
+}
+.mt-head .mt-lede { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+
+/* ── the tool card ───────────────────────────────────────── */
+.mt-card {
+  max-width: 640px; background: var(--card); border: 1px solid var(--line-2);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.mt-card-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+
+.mt-intro { font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
+.mt-intro b { color: var(--ink); font-weight: 700; }
+.mt-intro .mt-safe {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  font-size: 12px; color: var(--teal-deep); font-weight: 600;
+}
+.mt-intro .mt-safe svg { width: 13px; height: 13px; }
+
+/* feedback banner (shared treatment with the rest of admin-ops) */
+.mt-banner {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: var(--r-md); padding: 12px 16px; font-size: 13.5px; font-weight: 600;
+  border: 1px solid; line-height: 1.4;
+}
+.mt-banner svg { width: 16px; height: 16px; flex: none; }
+.mt-banner.mt-ok { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 35%, transparent); }
+.mt-banner.mt-err { background: var(--alert-wash); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 35%, transparent); }
+
+/* scope toggle (custom checkbox) */
+.mt-toggle { display: flex; align-items: flex-start; gap: 11px; cursor: pointer; }
+.mt-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.mt-toggle .mt-box {
+  width: 22px; height: 22px; flex: none; border-radius: 7px; margin-top: 1px;
+  border: 1.5px solid var(--line-2); background: var(--card-2);
+  display: grid; place-items: center; transition: background var(--t-fast), border-color var(--t-fast);
+}
+.mt-toggle .mt-box svg { width: 13px; height: 13px; color: #fff; opacity: 0; transition: opacity var(--t-fast); }
+.mt-toggle input:checked + .mt-box { background: var(--slate-2); border-color: var(--slate-2); }
+.mt-toggle input:checked + .mt-box svg { opacity: 1; }
+.mt-toggle input:focus-visible + .mt-box { outline: 2.5px solid var(--focus); outline-offset: 2px; }
+.mt-toggle .mt-tl { display: flex; flex-direction: column; gap: 2px; }
+.mt-toggle .mt-tl .mt-tt { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.mt-toggle .mt-tl .mt-ts { font-size: 12px; color: var(--ink-3); }
+
+/* ── preview / confirm region ────────────────────────────── */
+.mt-confirm { border-top: 1px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 14px; }
+.mt-confirm-empty { font-size: 13.5px; color: var(--ink-2); }
+.mt-confirm h4 { font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--ink); }
+
+.mt-targets {
+  max-height: 240px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+  padding: 4px; margin: -4px; /* keep focus rings from clipping */
+}
+.mt-target {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 12px; border-radius: var(--r-sm); background: var(--card-2);
+  border: 1px solid var(--line); font-size: 13px;
+}
+.mt-target .mt-tn { color: var(--ink); font-weight: 600; }
+.mt-target .mt-tk {
+  font-family: var(--font-cond); font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  background: var(--slate-tint); color: var(--slate-deep);
+}
+
+/* the danger panel — the only place alert tone escalates */
+.mt-danger {
+  border: 1px solid color-mix(in srgb, var(--alert) 40%, transparent);
+  background: var(--alert-wash); border-radius: var(--r-md); padding: 16px;
+  display: flex; flex-direction: column; gap: 13px;
+}
+.mt-danger .mt-warn {
+  display: flex; gap: 9px; font-size: 13px; line-height: 1.5; color: var(--alert-deep); font-weight: 600;
+}
+.mt-danger .mt-warn svg { width: 16px; height: 16px; flex: none; margin-top: 1px; }
+.mt-danger .mt-warn .mt-num { font-family: var(--font-mono); font-weight: 700; }
+
+.mt-field { display: flex; flex-direction: column; gap: 6px; }
+.mt-field label { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3); }
+.mt-input {
+  width: 100%; font-family: var(--font-sans); font-size: 13.5px; color: var(--ink);
+  background: var(--card); border: 1.5px solid var(--line-2); border-radius: 11px;
+  padding: 11px 14px; min-height: 44px; transition: border-color var(--t-fast);
+}
+.mt-input::placeholder { color: var(--ink-3); }
+.mt-input:hover { border-color: var(--ink-3); }
+.mt-input.mt-num-input { width: 120px; text-align: center; font-family: var(--font-mono); font-weight: 700; font-size: 16px; letter-spacing: .1em; }
+
+.mt-confirm-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+
+/* the destructive confirm button (kit btn shape + alert fill) */
+.mt-btn-danger {
+  background: linear-gradient(145deg, var(--alert), var(--alert-2)); color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.mt-btn-danger:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
+.mt-btn-danger[disabled] { opacity: .45; cursor: not-allowed; transform: none; box-shadow: var(--shadow-sm); }

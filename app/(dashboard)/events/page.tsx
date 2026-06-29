@@ -1,13 +1,53 @@
+// The Pass — Local Events Intelligence, REBUILT to Concept A's structure.
+//
+// STRUCTURE rebuild (not a reskin): a page header → a kit toolbar (filters +
+// refresh) → weighted "at a glance" widgets → a HERO for the lead event (with an
+// honest "open window" demand timeline) → a "what these events mean for you"
+// insight card grid → a date-grouped grid of event PLAY CARDS (proximity meter,
+// matched-competitor chips, links). Honest mapping only: distance is geocoded,
+// draw is a heuristic magnitude, the demand window is labeled "estimated" — no
+// fabricated covers/$/POS.
+//
+// Server component: all data fetching / vendor-health / filtering stays EXACTLY
+// as before. The only interactive bits remain the existing shared client
+// components (EventsFilters, JobRefreshButton) and the kit's own viz islands
+// (RevealOnView / TkRangeBar / TkWindowViz), which are safe to render here.
+
+import type { CSSProperties, ReactNode } from "react"
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { AnimatedNumber } from "@/components/ui/animated-number"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
 import { fetchEventsPageData } from "@/lib/cache/events"
 import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
 import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
+import {
+  RevealOnView,
+  TkSectionHead,
+  TkSoftPanel,
+  TkCard,
+  TkPlayCard,
+  TkHero,
+  TkChip,
+  TkConfidence,
+  TkWidgetGrid,
+  TkWidget,
+  TkRangeBar,
+  TkWindowViz,
+  TkStillLearning,
+  TkEmptyState,
+} from "@/components/ticket"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
+import {
+  eventFamily,
+  eventChipLabel,
+  eventConfidence,
+  proximityFill,
+  distanceLabel,
+  pickLeadEvent,
+  severityToConfidence,
+} from "./events-map"
 
 type EventsPageProps = {
   searchParams: Promise<{
@@ -21,7 +61,7 @@ type EventsPageProps = {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (formatting only — unchanged behavior)
 // ---------------------------------------------------------------------------
 
 function formatDate(iso: string | null | undefined): string {
@@ -94,6 +134,45 @@ function groupEventsByDate(events: NormalizedEvent[]): Map<string, NormalizedEve
   return groups
 }
 
+// ── small server-safe glyphs (kit cards take an <svg/> icon) ──
+const CAL_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+  </svg>
+)
+const PIN_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+  </svg>
+)
+// Inline pin glyph reused in chips/labels (sized small).
+const PIN_ICON_INLINE = (
+  <svg
+    width="11"
+    height="11"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    aria-hidden="true"
+    style={{ display: "inline-block", flex: "none" }}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+  </svg>
+)
+const LINK_ICON = (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+  </svg>
+)
+const TIX_ICON = (
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+  </svg>
+)
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -123,6 +202,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const selectedLocationId = (requestedLocationId && locationList.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locationList[0]?.id ?? null
+
+  const selectedLocation = locationList.find((l: { id: string }) => l.id === selectedLocationId) ?? null
+  const locationName = selectedLocation?.name ?? "your location"
 
   const activeTab = params.tab === "week" ? "week" : "weekend"
   const venueFilter = params.venue?.toLowerCase() ?? ""
@@ -188,10 +270,14 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
 
-  const groupedEvents = groupEventsByDate(events)
+  // ── lead event for the hero (nearest / highest-draw / resolved) ──
+  const lead = pickLeadEvent(events)
+  const leadUid = lead?.uid ?? null
+  const feedEvents = leadUid ? events.filter((e) => e.uid !== leadUid) : events
+  const groupedEvents = groupEventsByDate(feedEvents)
 
   // Event-only insights (events.* types), most-recent per type — the "what these events MEAN for
-  // your restaurant" layer. Computed by the events pipeline but never surfaced here until now.
+  // your restaurant" layer. Computed by the events pipeline.
   const eventInsights = (() => {
     const byType = new Map<string, (typeof cached.insights)[number]>()
     for (const ins of cached.insights ?? []) {
@@ -200,413 +286,483 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     return [...byType.values()].slice(0, 6)
   })()
 
+  const tabLabel = activeTab === "weekend" ? "this weekend" : "this week"
+
+  // ── HERO viz: an honest "demand window" derived from the lead event's start
+  // time. We don't claim covers/$ — we frame a watch-window (event kickoff →
+  // your likely surge → wind-down) and label it "estimated". Segments are
+  // positioned across a fixed 4pm→midnight evening axis when we have a start
+  // time; otherwise the hero just shows context without the timeline.          */
+  const leadWindow = (() => {
+    if (!lead?.startDatetime) return null
+    const start = new Date(lead.startDatetime)
+    if (Number.isNaN(start.getTime())) return null
+    const hour = start.getHours() + start.getMinutes() / 60
+    // axis: 4pm (16) → midnight (24), 8h wide
+    const AX_MIN = 16
+    const AX_MAX = 24
+    const span = AX_MAX - AX_MIN
+    const pct = (h: number) => Math.max(0, Math.min(100, ((h - AX_MIN) / span) * 100))
+    // surge band: ~45min pre-event through event start (people fueling up before)
+    const preStart = pct(hour - 0.75)
+    const eventStart = pct(hour)
+    // your open-window: from now through ~1h after the event lets out (we don't
+    // know the end, so model a 2.5h event then a 1h tail)
+    const tail = pct(hour + 2.5 + 1)
+    return {
+      startLabel: formatTime(lead.startDatetime),
+      surgeLeft: `${preStart}%`,
+      surgeWidth: `${Math.max(4, eventStart - preStart)}%`,
+      youLeft: `${eventStart}%`,
+      youWidth: `${Math.max(6, tail - eventStart)}%`,
+    }
+  })()
+
+  const leadMatched = leadUid ? matchedUids.has(leadUid) : false
+  const leadFamily = lead ? eventFamily(lead, leadMatched) : "social"
+
   return (
-    <section className="space-y-5">
-      {/* Filter + Actions Bar */}
-      <div className="animate-fade-up flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-        <EventsFilters
-          locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
-          selectedLocationId={selectedLocationId}
-          activeTab={activeTab}
-          venueFilter={venueFilter}
-          matchedOnly={matchedOnly}
-        />
-        {selectedLocationId && (
-          <JobRefreshButton
-            type="events"
-            locationId={selectedLocationId}
-            label="Fetch Events"
-            pendingLabel="Fetching local events"
+    <div className="pv-page tk-kit">
+      {/* ── PAGE HEADER (on-system chrome) ── */}
+      <div className="pv-page-head">
+        <span className="pv-kicker">In your area</span>
+        <h1 className="pv-h1">Events</h1>
+        <p className="pv-sub">
+          What&rsquo;s drawing a crowd near {locationName} {tabLabel}, ranked by how close it is and how
+          big it draws — so you can prep for the surge and spot anything your competitors are tied to.
+        </p>
+      </div>
+      <hr className="pv-rule" />
+
+      <div className="space-y-5" style={{ marginTop: 22 }}>
+        {/* ── TOOLBAR: filters + refresh (existing client components, kit-framed) ── */}
+        <TkSoftPanel className="flex flex-wrap items-center gap-3">
+          <EventsFilters
+            locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
+            selectedLocationId={selectedLocationId}
+            activeTab={activeTab}
+            venueFilter={venueFilter}
+            matchedOnly={matchedOnly}
+          />
+          {selectedLocationId && (
+            <JobRefreshButton
+              type="events"
+              locationId={selectedLocationId}
+              label="Fetch Events"
+              pendingLabel="Fetching local events"
+            />
+          )}
+          {snapshotDate && (
+            <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--ink-3)]">
+              <span className="live-dot" />
+              Last fetched {snapshotDate}
+            </span>
+          )}
+        </TkSoftPanel>
+
+        {/* ── BANNERS (unchanged logic) ── */}
+        {coverageHealth.events.unavailable && (
+          <VendorUnavailableBanner source="Local event data" asOf={snapshotDate} />
+        )}
+        {params.error && (
+          <TkSoftPanel
+            role="alert"
+            style={{ borderColor: "var(--alert)", background: "var(--alert-wash)", color: "var(--alert-deep)" }}
+          >
+            <p className="text-sm font-medium">{decodeURIComponent(params.error)}</p>
+          </TkSoftPanel>
+        )}
+        {params.success && (
+          <TkSoftPanel
+            role="status"
+            style={{ borderColor: "var(--teal)", background: "var(--teal-tint)", color: "var(--teal-deep)" }}
+          >
+            <p className="text-sm font-medium">{decodeURIComponent(params.success)}</p>
+          </TkSoftPanel>
+        )}
+
+        {/* ── AT A GLANCE — weighted widgets (honest counts) ── */}
+        {snapshot && (
+          <RevealOnView>
+            <TkSectionHead title="At a glance" sub={`Local events ${tabLabel}`} />
+            <TkWidgetGrid>
+              <TkWidget
+                tone="rust"
+                size="wide"
+                label="Events nearby"
+                value={String(totalEvents)}
+                sub={`tracked around ${locationName} ${tabLabel}`}
+                data-tip="Distinct local events found in this sweep"
+                data-tipv={`${totalEvents} events`}
+                spark={
+                  <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
+                    <path
+                      d="M0 50 L26 44 L50 46 L74 22 L96 14 L120 26"
+                      fill="none"
+                      stroke="rgba(255,255,255,.7)"
+                      strokeWidth="3"
+                    />
+                  </svg>
+                }
+              />
+              <TkWidget
+                tone="teal"
+                label="Competitor tie-ins"
+                value={totalMatched > 0 ? String(totalMatched) : "—"}
+                sub={totalMatched > 0 ? "events a rival is attached to" : "none matched yet"}
+                data-tip="Events matched to a venue/handle in your competitor set"
+                data-tipv={`${totalMatched} matched`}
+              />
+              <TkWidget
+                tone="gold"
+                label="Unique venues"
+                value={String(uniqueVenues)}
+                sub="hosting events near you"
+                data-tip="Distinct venues hosting events in this sweep"
+                data-tipv={`${uniqueVenues} venues`}
+              />
+              <TkWidget
+                tone="slate"
+                label="Active days"
+                value={String(activeDays)}
+                sub={`days with events ${tabLabel}`}
+                data-tip="Days in the window that have at least one event"
+                data-tipv={`${activeDays} days`}
+              />
+            </TkWidgetGrid>
+          </RevealOnView>
+        )}
+
+        {/* ── HOT VENUES ── */}
+        {topVenues.length > 0 && (
+          <RevealOnView>
+            <TkCard className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+                Hot venues
+              </span>
+              {topVenues.map(([name, count]) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--paper-2)] px-3 py-1 text-xs font-medium text-[var(--ink)] ring-1 ring-[var(--line)]"
+                >
+                  <span className="text-[var(--rust-deep)]">{PIN_ICON_INLINE}</span>
+                  {name}
+                  <span className="rounded-full bg-[var(--rust-tint)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--rust-deep)]">
+                    {count}
+                  </span>
+                </span>
+              ))}
+            </TkCard>
+          </RevealOnView>
+        )}
+
+        {/* ── HERO — the lead event (nearest / highest-draw) ── */}
+        {lead && (
+          <RevealOnView>
+            <TkHero
+              titleId="events-lead"
+              title={lead.title ?? "A draw worth prepping for"}
+              chips={
+                <>
+                  <TkChip family={leadFamily}>{eventChipLabel(lead, leadMatched)}</TkChip>
+                  <TkConfidence level={eventConfidence(lead)} />
+                </>
+              }
+              lede={
+                <>
+                  {lead.venue?.name ? <b>{lead.venue.name}</b> : "Nearby"}
+                  {" · "}
+                  {distanceLabel(lead.distanceMiles)}
+                  {lead.startDatetime ? <> · {formatDate(lead.startDatetime)}</> : null}
+                  {leadMatched ? " · a competitor is tied to this one" : ""}
+                  {". "}
+                  This is the closest, biggest draw in your window — expect knock-on foot traffic around it.
+                </>
+              }
+              photo={
+                <div
+                  className="tk-photo"
+                  data-label={lead.venue?.name ?? locationName}
+                  style={
+                    lead.imageUrl
+                      ? ({ backgroundImage: `url("${lead.imageUrl}")` } as CSSProperties)
+                      : undefined
+                  }
+                >
+                  <div className="tk-veil" />
+                </div>
+              }
+              venueChip={
+                lead.startDatetime ? (
+                  <>
+                    {PIN_ICON_INLINE}
+                    {formatTime(lead.startDatetime)}
+                  </>
+                ) : undefined
+              }
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
+                  {lead.url && (
+                    <a href={lead.url} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-act">
+                      {LINK_ICON} Event details
+                    </a>
+                  )}
+                  {lead.venue?.mapsUrl && (
+                    <a href={lead.venue.mapsUrl} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-keep">
+                      {PIN_ICON_INLINE} Map it
+                    </a>
+                  )}
+                </div>
+              }
+            >
+              {/* honest proximity meter */}
+              <TkRangeBar
+                value={proximityFill(lead.distanceMiles)}
+                scale={["Across town", "Few blocks", "Next door"]}
+                caption="How close it is to you"
+                captionRight={distanceLabel(lead.distanceMiles)}
+                tip="Straight-line distance from your location to the geocoded venue"
+                tipValue={distanceLabel(lead.distanceMiles)}
+              />
+
+              {/* honest demand-window timeline (estimated) */}
+              {leadWindow && (
+                <TkWindowViz
+                  headLabel="Your watch window — estimated"
+                  headValue={`Kickoff ${leadWindow.startLabel}`}
+                  axisLabels={["4 PM", "7 PM", "9 PM", "Midnight"]}
+                  segments={[
+                    {
+                      kind: "surge",
+                      left: leadWindow.surgeLeft,
+                      width: leadWindow.surgeWidth,
+                      tip: "Pre-event window — people fuel up before heading over",
+                      tipValue: "Before kickoff",
+                    },
+                    {
+                      kind: "you-open",
+                      left: leadWindow.youLeft,
+                      width: leadWindow.youWidth,
+                      tip: "Estimated knock-on traffic during and just after the event",
+                      tipValue: "During & after",
+                    },
+                  ]}
+                  legend={
+                    <>
+                      <span><i style={{ background: "var(--rust)" }} /> Pre-event rush</span>
+                      <span><i style={{ background: "var(--teal)" }} /> Your knock-on window</span>
+                      <span className="tk-muted">Estimated from kickoff time — not measured covers.</span>
+                    </>
+                  }
+                />
+              )}
+            </TkHero>
+          </RevealOnView>
+        )}
+
+        {/* ── WHAT THESE EVENTS MEAN FOR YOU (event-only insights) ── */}
+        {eventInsights.length > 0 && (
+          <div>
+            <TkSectionHead title="What these events mean for you" sub="Read from the events above" />
+            <RevealOnView className="tk-grid" stagger>
+              {eventInsights.map((ins, i) => {
+                const recs = (Array.isArray(ins.recommendations) ? ins.recommendations : []) as Array<{
+                  title?: string
+                  rationale?: string
+                }>
+                const rec = recs[0]
+                return (
+                  <div key={ins.id} style={{ "--tk-i": i } as CSSProperties}>
+                    <TkCard>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <TkChip family="competitive">Events insight</TkChip>
+                        <TkConfidence level={severityToConfidence(ins.severity)} showLabel={false} />
+                      </div>
+                      <h4 className="font-display text-[15px] font-bold leading-snug tracking-[-0.01em] text-[var(--ink)]">
+                        {ins.title}
+                      </h4>
+                      <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--ink-2)]">{ins.summary}</p>
+                      {rec?.title && (
+                        <div className="mt-3 rounded-[var(--r-md)] bg-[var(--paper-2)] px-3 py-2.5">
+                          <p className="text-[12px] font-semibold text-[var(--ink)]">{rec.title}</p>
+                          {rec.rationale && (
+                            <p className="mt-1 text-[11px] leading-relaxed text-[var(--ink-2)]">{rec.rationale}</p>
+                          )}
+                        </div>
+                      )}
+                    </TkCard>
+                  </div>
+                )
+              })}
+            </RevealOnView>
+          </div>
+        )}
+
+        {/* ── EMPTY / FIRST-RUN STATES ── */}
+        {!snapshot && selectedLocationId && (
+          <RevealOnView>
+            <TkStillLearning
+              days={1}
+              target={7}
+              title="Scanning your area for events"
+              description="Tap Fetch Events to pull what's happening near your location. Once a sweep lands, the closest, highest-draw event leads here with a watch-window read."
+            />
+          </RevealOnView>
+        )}
+
+        {snapshot && !lead && feedEvents.length === 0 && (
+          <TkEmptyState
+            icon={CAL_ICON}
+            title="No events match your filters"
+            description={`Nothing for ${tabLabel} with these filters. Try the other window, clear the venue search, or turn off "Matched only".`}
           />
         )}
-        {snapshotDate && (
-          <span className="ml-auto flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="live-dot" />
-            Last fetched: {snapshotDate}
-          </span>
+
+        {/* ── EVENT FEED — date-grouped grid of play cards ── */}
+        {feedEvents.length > 0 && (
+          <div className="space-y-8">
+            {Array.from(groupedEvents.entries()).map(([dateLabel, dayEvents]) => (
+              <RevealOnView key={dateLabel}>
+                {/* date separator */}
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-display text-sm font-bold text-[var(--ink)]">{dateLabel}</span>
+                    {dayEvents[0]?.startDatetime && getRelativeDay(dayEvents[0].startDatetime) && (
+                      <span className="rounded-full bg-[var(--rust-tint)] px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-[var(--rust-deep)]">
+                        {getRelativeDay(dayEvents[0].startDatetime)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="h-px flex-1 bg-gradient-to-r from-[var(--line-2)] to-transparent" />
+                  <span className="font-mono text-[11px] text-[var(--ink-3)]">
+                    {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {/* event cards */}
+                <RevealOnView className="tk-grid" stagger>
+                  {dayEvents.map((ev, i) => {
+                    const isMatched = matchedUids.has(ev.uid)
+                    const matchedNames = matchedCompetitorNames.get(ev.uid) ?? []
+                    const domain = extractDomain(ev.url)
+                    const time = formatTime(ev.startDatetime)
+                    const family = eventFamily(ev, isMatched)
+                    const links: ReactNode[] = []
+                    if (ev.url) {
+                      links.push(
+                        <a
+                          key="ev"
+                          href={ev.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-[var(--rust-tint)] px-2 py-1 text-[10px] font-medium text-[var(--rust-deep)] transition hover:opacity-80"
+                        >
+                          {LINK_ICON} {domain ?? "Event"}
+                        </a>
+                      )
+                    }
+                    ev.ticketsAndInfo?.slice(0, 1).forEach((t, ti) => {
+                      links.push(
+                        <a
+                          key={`t${ti}`}
+                          href={t.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-[var(--gold-tint)] px-2 py-1 text-[10px] font-medium text-[var(--gold-deep)] transition hover:opacity-80"
+                        >
+                          {TIX_ICON} {t.title ?? t.domain ?? "Tickets"}
+                        </a>
+                      )
+                    })
+                    if (ev.venue?.mapsUrl) {
+                      links.push(
+                        <a
+                          key="map"
+                          href={ev.venue.mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-[var(--rust-deep)] transition hover:opacity-80"
+                        >
+                          {PIN_ICON_INLINE} Map
+                        </a>
+                      )
+                    }
+
+                    return (
+                      <div key={ev.uid} style={{ "--tk-i": i } as CSSProperties}>
+                        <TkPlayCard
+                          family={family}
+                          icon={CAL_ICON}
+                          title={ev.title ?? "Untitled event"}
+                          confidence={<TkConfidence level={eventConfidence(ev)} showLabel={false} />}
+                          chips={
+                            <>
+                              <TkChip family={family}>{eventChipLabel(ev, isMatched)}</TkChip>
+                              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--paper-2)] px-2 py-0.5 font-mono text-[10px] font-medium text-[var(--ink-2)] ring-1 ring-[var(--line)]">
+                                {PIN_ICON_INLINE}
+                                {distanceLabel(ev.distanceMiles)}
+                              </span>
+                            </>
+                          }
+                          summary={
+                            <>
+                              {ev.venue?.name ? <b>{ev.venue.name}</b> : null}
+                              {ev.venue?.name && (time || ev.startDatetime) ? " · " : null}
+                              {time || (ev.startDatetime ? formatDate(ev.startDatetime) : ev.displayedDates ?? "Date TBD")}
+                              {ev.description ? <> — {ev.description}</> : null}
+                            </>
+                          }
+                        >
+                          {/* proximity / draw meter */}
+                          <TkRangeBar
+                            value={proximityFill(ev.distanceMiles)}
+                            scale={["Across town", "Few blocks", "Next door"]}
+                            caption="Proximity"
+                            captionRight={distanceLabel(ev.distanceMiles)}
+                            tip="Straight-line distance to the geocoded venue"
+                            tipValue={distanceLabel(ev.distanceMiles)}
+                          />
+
+                          {/* matched competitors */}
+                          {matchedNames.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {matchedNames.map((name) => (
+                                <span
+                                  key={name}
+                                  className="inline-flex items-center gap-1 rounded-md bg-[var(--teal-tint)] px-2 py-0.5 text-[10px] font-medium text-[var(--teal-deep)] ring-1 ring-[color:var(--teal)]"
+                                >
+                                  <span className="h-1 w-1 rounded-full bg-[var(--teal)]" />
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* links footer */}
+                          {links.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-2.5">
+                              {links}
+                            </div>
+                          )}
+                        </TkPlayCard>
+                      </div>
+                    )
+                  })}
+                </RevealOnView>
+              </RevealOnView>
+            ))}
+          </div>
+        )}
+
+        {/* ── NO LOCATION ── */}
+        {!selectedLocationId && (
+          <TkEmptyState
+            icon={PIN_ICON}
+            title="No location added"
+            description="Add a location first and we'll start watching for events that draw a crowd near you."
+          />
         )}
       </div>
-
-      {/* Banners */}
-      {coverageHealth.events.unavailable && (
-        <VendorUnavailableBanner source="Local event data" asOf={snapshotDate} />
-      )}
-      {params.error && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {decodeURIComponent(params.error)}
-        </div>
-      )}
-      {params.success && (
-        <div className="rounded-xl border border-precision-teal/30 bg-precision-teal/10 px-4 py-3 text-sm text-precision-teal">
-          {decodeURIComponent(params.success)}
-        </div>
-      )}
-
-      {/* ----------------------------------------------------------------- */}
-      {/* KPI Stats                                                         */}
-      {/* ----------------------------------------------------------------- */}
-      {snapshot && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 animate-fade-up" style={{ animationDelay: "40ms" }}>
-          {/* Hero stat — rust gradient tile */}
-          <div className="group rounded-2xl border border-transparent bg-gradient-to-br from-[var(--rust)] to-[var(--rust-2)] p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 text-white">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12V12z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-white"><AnimatedNumber value={totalEvents} /></p>
-                <p className="text-[11px] font-medium text-white/75">Total Events</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-precision-teal/30 hover:shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-precision-teal/10 text-precision-teal transition group-hover:bg-precision-teal/15">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{totalMatched}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">Competitor Matches</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-signal-gold/30 hover:shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-signal-gold/10 text-signal-gold transition group-hover:bg-signal-gold/15">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{uniqueVenues}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">Unique Venues</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition hover:border-primary/30 hover:shadow-md">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition group-hover:bg-primary/15">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">{activeDays}</p>
-                <p className="text-[11px] font-medium text-muted-foreground">Active Days</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Top Venues Bar                                                    */}
-      {/* ----------------------------------------------------------------- */}
-      {topVenues.length > 0 && (
-        <div className="animate-fade-up flex flex-wrap items-center gap-2 rounded-xl border border-border bg-secondary/50 px-4 py-3" style={{ animationDelay: "80ms" }}>
-          <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Hot Venues
-          </span>
-          {topVenues.map(([name, count]) => (
-            <span
-              key={name}
-              className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1 text-xs font-medium text-foreground shadow-sm ring-1 ring-border/60"
-            >
-              <svg className="h-3 w-3 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-              </svg>
-              {name}
-              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                {count}
-              </span>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ----------------------------------------------------------------- */}
-      {/* What these events MEAN for you (event-only insights)              */}
-      {/* ----------------------------------------------------------------- */}
-      {eventInsights.length > 0 && (
-        <div className="animate-fade-up space-y-3" style={{ animationDelay: "120ms" }}>
-          <h2 className="font-display text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-            What these events mean for you
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {eventInsights.map((ins) => {
-              const recs = (Array.isArray(ins.recommendations) ? ins.recommendations : []) as Array<{
-                title?: string
-                rationale?: string
-              }>
-              const rec = recs[0]
-              const warn = ins.severity === "warning" || ins.severity === "critical"
-              return (
-                <div
-                  key={ins.id}
-                  className={`rounded-2xl border bg-card p-4 ${warn ? "border-signal-gold/40" : "border-border"}`}
-                >
-                  <h3 className="text-sm font-semibold leading-snug text-foreground">{ins.title}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{ins.summary}</p>
-                  {rec?.title && (
-                    <div className="mt-3 rounded-lg bg-secondary px-3 py-2">
-                      <p className="text-[11px] font-semibold text-foreground">{rec.title}</p>
-                      {rec.rationale && (
-                        <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{rec.rationale}</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Empty States                                                      */}
-      {/* ----------------------------------------------------------------- */}
-      {!snapshot && selectedLocationId && (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
-            <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-            </svg>
-          </div>
-          <h3 className="text-base font-semibold text-foreground">No events data yet</h3>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-            Click <strong>Fetch Events</strong> to discover what&rsquo;s happening near your location.
-          </p>
-        </div>
-      )}
-
-      {snapshot && events.length === 0 && (
-        <div className="rounded-2xl border border-border bg-card p-12 text-center">
-          <p className="text-sm text-muted-foreground">No events match your current filters.</p>
-        </div>
-      )}
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Events Feed (grouped by date)                                     */}
-      {/* ----------------------------------------------------------------- */}
-      {events.length > 0 && (
-        <div className="animate-fade-up space-y-8" style={{ animationDelay: "160ms" }}>
-          {Array.from(groupedEvents.entries()).map(([dateLabel, dayEvents], groupIdx) => (
-            <div key={dateLabel} className="animate-fade-up" style={{ animationDelay: `${160 + groupIdx * 40}ms` }}>
-              {/* Date separator */}
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-foreground">{dateLabel}</span>
-                  {dayEvents[0]?.startDatetime && getRelativeDay(dayEvents[0].startDatetime) && (
-                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                      {getRelativeDay(dayEvents[0].startDatetime)}
-                    </span>
-                  )}
-                </div>
-                <div className="h-px flex-1 bg-gradient-to-r from-border to-transparent" />
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  {dayEvents.length} event{dayEvents.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {/* Event cards */}
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {dayEvents.map((ev) => {
-                  const isMatched = matchedUids.has(ev.uid)
-                  const matchedNames = matchedCompetitorNames.get(ev.uid) ?? []
-                  const domain = extractDomain(ev.url)
-                  const time = formatTime(ev.startDatetime)
-
-                  return (
-                    <div
-                      key={ev.uid}
-                      className={`group relative overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:shadow-lg hover:-translate-y-0.5 ${
-                        isMatched
-                          ? "border-precision-teal/30 ring-1 ring-precision-teal/20"
-                          : "border-border"
-                      }`}
-                    >
-                      {/* Image */}
-                      {ev.imageUrl ? (
-                        <div className="relative h-40 overflow-hidden bg-secondary">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={ev.imageUrl}
-                            alt={ev.title ?? "Event"}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-                          {time && (
-                            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-lg bg-black/50 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {time}
-                            </div>
-                          )}
-                          {isMatched && (
-                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-precision-teal px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                              </svg>
-                              Match
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-secondary to-secondary">
-                          <svg className="h-10 w-10 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                          {time && (
-                            <div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-lg bg-card px-2 py-1 text-[11px] font-medium text-muted-foreground shadow-sm">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              {time}
-                            </div>
-                          )}
-                          {isMatched && (
-                            <div className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-lg bg-precision-teal px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-lg">
-                              Match
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Content */}
-                      <div className="space-y-3 p-4">
-                        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-                          {ev.title ?? "Untitled Event"}
-                        </h3>
-
-                        {/* Date */}
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <svg className="h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                          </svg>
-                          <span>
-                            {ev.startDatetime
-                              ? formatDate(ev.startDatetime)
-                              : ev.displayedDates ?? "Date TBD"}
-                          </span>
-                        </div>
-
-                        {/* Venue */}
-                        {ev.venue?.name && (
-                          <div className="flex items-start gap-1.5 text-xs">
-                            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                            </svg>
-                            <div>
-                              <span className="font-medium text-foreground">{ev.venue.name}</span>
-                              {ev.venue.address && (
-                                <span className="block text-muted-foreground">{ev.venue.address}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Description */}
-                        {ev.description && (
-                          <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {ev.description}
-                          </p>
-                        )}
-
-                        {/* Matched competitors */}
-                        {matchedNames.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {matchedNames.map((name) => (
-                              <span
-                                key={name}
-                                className="inline-flex items-center gap-1 rounded-md bg-precision-teal/10 px-2 py-0.5 text-[10px] font-medium text-precision-teal ring-1 ring-precision-teal/30"
-                              >
-                                <span className="h-1 w-1 rounded-full bg-precision-teal" />
-                                {name}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Footer links */}
-                      <div className="flex items-center gap-1.5 border-t border-border px-4 py-2.5">
-                        {ev.url && (
-                          <a
-                            href={ev.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition hover:bg-primary/15"
-                          >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                            </svg>
-                            {domain ?? "Event"}
-                          </a>
-                        )}
-                        {ev.ticketsAndInfo?.slice(0, 2).map((t, i) => (
-                          <a
-                            key={i}
-                            href={t.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded-md bg-signal-gold/10 px-2 py-1 text-[10px] font-medium text-signal-gold transition hover:bg-signal-gold/15"
-                          >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                            </svg>
-                            {t.title ?? t.domain ?? "Tickets"}
-                          </a>
-                        ))}
-                        {ev.venue?.mapsUrl && (
-                          <a
-                            href={ev.venue.mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-primary transition hover:text-primary/80"
-                          >
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                            </svg>
-                            Map
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* No location selected */}
-      {!selectedLocationId && (
-        <div className="rounded-2xl border border-dashed border-border bg-card p-12 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary">
-            <svg className="h-8 w-8 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-            </svg>
-          </div>
-          <h3 className="text-base font-semibold text-foreground">No location added</h3>
-          <p className="mx-auto mt-1 max-w-xs text-sm text-muted-foreground">
-            Add a location first to discover nearby events.
-          </p>
-        </div>
-      )}
-    </section>
+    </div>
   )
 }

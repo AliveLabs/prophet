@@ -7,6 +7,7 @@ import {
   activateUser,
   inviteNewUser,
 } from "@/app/actions/user-management"
+import { TkButton } from "@/components/ticket"
 
 interface UserRow {
   id: string
@@ -19,6 +20,13 @@ interface UserRow {
   hasOnboarded: boolean
   isAdmin: boolean
 }
+
+const searchIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="7" cy="7" r="5" />
+    <path d="m11 11 3.5 3.5" strokeLinecap="round" />
+  </svg>
+)
 
 export function UsersTable({ users }: { users: UserRow[] }) {
   const [search, setSearch] = useState("")
@@ -41,63 +49,62 @@ export function UsersTable({ users }: { users: UserRow[] }) {
   })
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 border-b border-border">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* segmented tabs */}
+      <div className="ap-tabs" role="tablist" aria-label="User scope">
         <button
+          role="tab"
+          aria-selected={tab === "users"}
           onClick={() => setTab("users")}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-            tab === "users"
-              ? "border-vatic-indigo text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          className={`ap-tab${tab === "users" ? " ap-tab-on" : ""}`}
         >
-          Users ({users.length})
+          Users <span className="ap-tab-n">{users.length}</span>
         </button>
         <button
+          role="tab"
+          aria-selected={tab === "admins"}
           onClick={() => setTab("admins")}
-          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
-            tab === "admins"
-              ? "border-vatic-indigo text-foreground"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
+          className={`ap-tab${tab === "admins" ? " ap-tab-on" : ""}`}
         >
-          Platform Admins ({adminCount})
+          Platform admins <span className="ap-tab-n">{adminCount}</span>
         </button>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search by email or name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="h-9 w-72 rounded-lg border border-border bg-card px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
-        />
+      {/* toolbar */}
+      <div className="ap-toolbar">
+        <div className="ap-search ap-grow">
+          <span className="ap-search-ic" aria-hidden="true">{searchIcon}</span>
+          <input
+            type="text"
+            placeholder="Search by email or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="ap-field"
+            aria-label="Search users"
+          />
+        </div>
 
         <select
           value={filter}
           onChange={(e) =>
             setFilter(e.target.value as "all" | "active" | "deactivated")
           }
-          className="h-9 rounded-lg border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
+          className="ap-select"
+          style={{ width: "auto", minWidth: 150 }}
+          aria-label="Filter by status"
         >
-          <option value="all">All Users</option>
+          <option value="all">All users</option>
           <option value="active">Active</option>
           <option value="deactivated">Deactivated</option>
         </select>
 
-        <button
-          onClick={() => setShowInvite(true)}
-          className="ml-auto h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 transition-colors"
-        >
-          Invite User
-        </button>
+        <span className="ap-spacer" />
 
-        <a
-          href="/api/admin/export/users"
-          className="h-9 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-secondary transition-colors inline-flex items-center"
-        >
-          Export CSV
+        <TkButton variant="add" onClick={() => setShowInvite(true)}>
+          Invite user
+        </TkButton>
+        <a href="/api/admin/export/users" className="tk-btn tk-btn-keep">
+          <ExportGlyph /> Export CSV
         </a>
       </div>
 
@@ -109,60 +116,80 @@ export function UsersTable({ users }: { users: UserRow[] }) {
         />
       )}
 
-      <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-card text-left">
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Email
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Name
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Status
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Last Sign In
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Orgs
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Created
-              </th>
-              <th className="px-4 py-3 font-medium text-muted-foreground">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((user) => (
-              <UserTableRow
-                key={user.id}
-                user={user}
-                isPending={isPending}
-                startTransition={startTransition}
-              />
-            ))}
-            {filtered.length === 0 && (
+      {/* DESKTOP/TABLET: table */}
+      <div className="ap-panel">
+        <div className="ap-panel-head">
+          <span>
+            {filtered.length} {tab === "admins" ? "admin" : "user"}
+            {filtered.length === 1 ? "" : "s"}
+          </span>
+        </div>
+        <div className="ap-tablewrap">
+          <table className="ap-table">
+            <thead>
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-8 text-center text-muted-foreground"
-                >
-                  No users found.
-                </td>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Last sign in</th>
+                <th>Orgs</th>
+                <th>Created</th>
+                <th>Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((user) => (
+                <UserTableRow
+                  key={user.id}
+                  user={user}
+                  isPending={isPending}
+                  startTransition={startTransition}
+                />
+              ))}
+              {filtered.length === 0 && (
+                <tr className="ap-empty-row">
+                  <td colSpan={7}>No users found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* MOBILE: stacked cards */}
+      <div className="ap-cards">
+        {filtered.length === 0 ? (
+          <div className="ap-rowcard" style={{ textAlign: "center", color: "var(--ink-3)" }}>
+            No users found.
+          </div>
+        ) : (
+          filtered.map((user) => (
+            <UserCard
+              key={user.id}
+              user={user}
+              isPending={isPending}
+              startTransition={startTransition}
+            />
+          ))
+        )}
       </div>
     </div>
   )
 }
 
-function UserTableRow({
+function StatusPill({ banned }: { banned: boolean }) {
+  return banned ? (
+    <span className="ap-pill ap-pill-bad">
+      <span className="ap-dot" aria-hidden="true" /> Deactivated
+    </span>
+  ) : (
+    <span className="ap-pill ap-pill-ok">
+      <span className="ap-dot" aria-hidden="true" /> Active
+    </span>
+  )
+}
+
+function RowActions({
   user,
   isPending,
   startTransition,
@@ -190,56 +217,82 @@ function UserTableRow({
   }
 
   return (
-    <tr className="hover:bg-secondary/30 transition-colors">
-      <td className="px-4 py-3 font-medium text-foreground">
-        {user.email}
-        {user.isAdmin && (
-          <span className="ml-2 rounded-full bg-vatic-indigo/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-vatic-indigo">
-            Admin
-          </span>
-        )}
+    <div className="ap-rowactions">
+      <Link href={`/admin/users/${user.id}`} className="ap-link">
+        View
+      </Link>
+      <button
+        onClick={handleToggle}
+        disabled={isPending}
+        className={`ap-link ${user.isBanned ? "ap-link-teal" : "ap-link-alert"}`}
+      >
+        {user.isBanned ? "Activate" : "Deactivate"}
+      </button>
+    </div>
+  )
+}
+
+function UserTableRow({
+  user,
+  isPending,
+  startTransition,
+}: {
+  user: UserRow
+  isPending: boolean
+  startTransition: (fn: () => void) => void
+}) {
+  return (
+    <tr>
+      <td>
+        <span className="ap-cell-strong">{user.email}</span>
+        {user.isAdmin && <span className="ap-tag" style={{ marginLeft: 8 }}>Admin</span>}
       </td>
-      <td className="px-4 py-3 text-muted-foreground">
-        {user.fullName || "—"}
+      <td className="ap-cell-muted">{user.fullName || "—"}</td>
+      <td>
+        <StatusPill banned={user.isBanned} />
       </td>
-      <td className="px-4 py-3">
-        {user.isBanned ? (
-          <span className="inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
-            Deactivated
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full bg-precision-teal/10 px-2 py-0.5 text-xs font-medium text-precision-teal">
-            Active
-          </span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-muted-foreground">
+      <td className="ap-cell-mono">
         {user.lastSignInAt ? timeAgo(user.lastSignInAt) : "Never"}
       </td>
-      <td className="px-4 py-3 text-muted-foreground">{user.orgCount}</td>
-      <td className="px-4 py-3 text-muted-foreground">
-        {new Date(user.createdAt).toLocaleDateString()}
-      </td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/admin/users/${user.id}`}
-            className="text-xs font-medium text-vatic-indigo hover:underline"
-          >
-            View
-          </Link>
-          <button
-            onClick={handleToggle}
-            disabled={isPending}
-            className={`text-xs font-medium hover:underline disabled:opacity-50 ${
-              user.isBanned ? "text-precision-teal" : "text-destructive"
-            }`}
-          >
-            {user.isBanned ? "Activate" : "Deactivate"}
-          </button>
-        </div>
+      <td className="ap-cell-mono">{user.orgCount}</td>
+      <td className="ap-cell-mono">{new Date(user.createdAt).toLocaleDateString()}</td>
+      <td>
+        <RowActions user={user} isPending={isPending} startTransition={startTransition} />
       </td>
     </tr>
+  )
+}
+
+function UserCard({
+  user,
+  isPending,
+  startTransition,
+}: {
+  user: UserRow
+  isPending: boolean
+  startTransition: (fn: () => void) => void
+}) {
+  return (
+    <div className="ap-rowcard">
+      <div className="ap-rowcard-top">
+        <div style={{ minWidth: 0 }}>
+          <div className="ap-rowcard-title">
+            {user.email}
+            {user.isAdmin && <span className="ap-tag" style={{ marginLeft: 8 }}>Admin</span>}
+          </div>
+          {user.fullName ? (
+            <div className="ap-cell-muted" style={{ fontSize: 13 }}>{user.fullName}</div>
+          ) : null}
+        </div>
+        <StatusPill banned={user.isBanned} />
+      </div>
+      <div className="ap-rowcard-meta">
+        <span>Last <b>{user.lastSignInAt ? timeAgo(user.lastSignInAt) : "never"}</b></span>
+        <span>Orgs <b>{user.orgCount}</b></span>
+        <span>Joined <b>{new Date(user.createdAt).toLocaleDateString()}</b></span>
+      </div>
+      <RowActions user={user} isPending={isPending} startTransition={startTransition} />
+    </div>
   )
 }
 
@@ -272,54 +325,54 @@ function InviteUserPanel({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">
-          Invite New User
-        </h3>
-        <button
-          onClick={onClose}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
+    <div className="ap-inline-form">
+      <div className="ap-inline-form-head">
+        <h3>Invite new user</h3>
+        <button onClick={onClose} className="ap-link" style={{ color: "var(--ink-3)" }}>
           Cancel
         </button>
       </div>
-      <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="h-9 w-60 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
-          />
+      <form onSubmit={handleSubmit} className="ap-fieldset">
+        <div className="ap-frow ap-2">
+          <div>
+            <label className="ap-flabel">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="ap-field"
+            />
+          </div>
+          <div>
+            <label className="ap-flabel">Full name (optional)</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="ap-field"
+            />
+          </div>
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted-foreground">
-            Full Name (optional)
-          </label>
-          <input
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="h-9 w-48 rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-vatic-indigo"
-          />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <TkButton type="submit" variant="act" disabled={isPending}>
+            {isPending ? "Sending…" : "Send invite"}
+          </TkButton>
+          {feedback && (
+            <span style={{ fontSize: 13, color: "var(--ink-2)" }}>{feedback}</span>
+          )}
         </div>
-        <button
-          type="submit"
-          disabled={isPending}
-          className="h-9 rounded-lg bg-vatic-indigo px-4 text-sm font-medium text-white hover:bg-vatic-indigo/90 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? "Sending..." : "Send Invite"}
-        </button>
-        {feedback && (
-          <span className="text-xs text-muted-foreground">{feedback}</span>
-        )}
       </form>
     </div>
+  )
+}
+
+function ExportGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 15, height: 15 }} aria-hidden="true">
+      <path d="M8 2v8M8 10 5 7M8 10l3-3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.5 11v2A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" strokeLinecap="round" />
+    </svg>
   )
 }
 

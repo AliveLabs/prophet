@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
-import OnboardingWizard from "./onboarding-wizard"
+import OnboardingWizard from "./onboarding-wizard-pass"
 import { getVerticalConfig } from "@/lib/verticals"
 import { BrandProvider } from "@/components/brand-provider"
 
@@ -115,16 +115,14 @@ export default async function OnboardingPage({
 
     return (
       <BrandProvider brand={dataBrand}>
-        <div className="min-h-dvh bg-background text-foreground">
-          <OnboardingWizard
-            existingOrgId={setupOrgId}
-            existingLocationId={locationId}
-            existingCompetitors={competitors}
-            verticalConfig={verticalConfig}
-            mode="setup"
-            setupOrgName={org.name}
-          />
-        </div>
+        <OnboardingWizard
+          existingOrgId={setupOrgId}
+          existingLocationId={locationId}
+          existingCompetitors={competitors}
+          verticalConfig={verticalConfig}
+          mode="setup"
+          setupOrgName={org.name}
+        />
       </BrandProvider>
     )
   }
@@ -137,9 +135,7 @@ export default async function OnboardingPage({
   if (params.new === "1") {
     return (
       <BrandProvider brand={dataBrand}>
-        <div className="min-h-dvh bg-background text-foreground">
-          <OnboardingWizard verticalConfig={verticalConfig} />
-        </div>
+        <OnboardingWizard verticalConfig={verticalConfig} />
       </BrandProvider>
     )
   }
@@ -178,14 +174,12 @@ export default async function OnboardingPage({
 
   return (
     <BrandProvider brand={dataBrand}>
-      <div className="min-h-dvh bg-background text-foreground">
-        <OnboardingWizard
-          existingOrgId={existingOrgId}
-          existingLocationId={existingLocationId}
-          existingCompetitors={existingCompetitors}
-          verticalConfig={verticalConfig}
-        />
-      </div>
+      <OnboardingWizard
+        existingOrgId={existingOrgId}
+        existingLocationId={existingLocationId}
+        existingCompetitors={existingCompetitors}
+        verticalConfig={verticalConfig}
+      />
     </BrandProvider>
   )
 }

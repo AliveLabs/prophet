@@ -9,6 +9,7 @@ import {
   resendWaitlistInvite,
   unapproveWaitlistSignup,
 } from "@/app/actions/waitlist"
+import { TkButton } from "@/components/ticket"
 
 interface WaitlistSignup {
   id: string
@@ -23,6 +24,13 @@ interface WaitlistSignup {
   created_at: string
 }
 
+const searchIcon = (
+  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <circle cx="7" cy="7" r="5" />
+    <path d="m11 11 3.5 3.5" strokeLinecap="round" />
+  </svg>
+)
+
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
@@ -35,16 +43,15 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString()
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: "bg-signal-gold/15 text-signal-gold",
-    approved: "bg-precision-teal/15 text-precision-teal",
-    declined: "bg-destructive/15 text-destructive",
+function StatusPill({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    pending: "ap-pill-warn",
+    approved: "ap-pill-ok",
+    declined: "ap-pill-bad",
   }
   return (
-    <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${styles[status] ?? "bg-secondary text-muted-foreground"}`}
-    >
+    <span className={`ap-pill ${map[status] ?? "ap-pill-neutral"}`}>
+      <span className="ap-dot" aria-hidden="true" />
       {status}
     </span>
   )
@@ -165,184 +172,140 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
     })
   }
 
+  function fullName(s: WaitlistSignup) {
+    return [s.first_name, s.last_name].filter(Boolean).join(" ") || "—"
+  }
+
   return (
-    <div className="space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {feedback && (
-        <div className="rounded-lg border border-precision-teal/30 bg-precision-teal/10 px-4 py-2.5 text-sm text-precision-teal">
+        <div className="ap-note ap-note-ok" role="status">
+          <span className="ap-dot" aria-hidden="true" />
           {feedback}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="text"
-          placeholder="Search by email or name..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded-lg border border-input bg-background px-3.5 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-        />
+      {/* toolbar */}
+      <div className="ap-toolbar">
+        <div className="ap-search ap-grow">
+          <span className="ap-search-ic" aria-hidden="true">{searchIcon}</span>
+          <input
+            type="text"
+            placeholder="Search by email or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="ap-field"
+            aria-label="Search signups"
+          />
+        </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-input bg-background px-3.5 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="ap-select"
+          style={{ width: "auto", minWidth: 150 }}
+          aria-label="Filter by status"
         >
           <option value="all">All statuses</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="declined">Declined</option>
         </select>
+        <span className="ap-spacer" />
         <a
           href="/api/admin/export/waitlist"
-          className="inline-flex items-center rounded-lg border border-input bg-background px-3.5 py-2 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+          className="tk-btn tk-btn-keep"
         >
-          Export CSV
+          <ExportGlyph /> Export CSV
         </a>
       </div>
 
+      {/* selection / batch bar */}
       {selected.size > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2.5">
-          <span className="text-sm text-muted-foreground">
-            {selected.size} selected
-          </span>
+        <div className="ap-selbar">
+          <span className="ap-sel-n">{selected.size} selected</span>
           <button
             onClick={() => setShowBatchConfirm("approve")}
             disabled={isPending}
-            className="rounded-md bg-precision-teal/15 px-3 py-1.5 text-xs font-semibold text-precision-teal hover:bg-precision-teal/25 disabled:opacity-50"
+            className="ap-mini ap-mini-ok"
           >
-            Approve All
+            Approve all
           </button>
           <button
             onClick={() => setShowBatchConfirm("decline")}
             disabled={isPending}
-            className="rounded-md bg-destructive/15 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/25 disabled:opacity-50"
+            className="ap-mini ap-mini-bad"
           >
-            Decline All
+            Decline all
           </button>
-          <button
-            onClick={clearSelection}
-            className="ml-auto text-xs text-muted-foreground hover:text-foreground"
-          >
+          <span className="ap-spacer" />
+          <button onClick={clearSelection} className="ap-link" style={{ color: "var(--ink-3)" }}>
             Clear
           </button>
         </div>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <span className="text-xs font-semibold text-foreground">
+      {/* DESKTOP/TABLET: table */}
+      <div className="ap-panel">
+        <div className="ap-panel-head">
+          <span>
             {filtered.length} signup{filtered.length !== 1 ? "s" : ""}
           </span>
           {pendingFiltered.length > 0 && (
-            <button
-              onClick={selectAllPending}
-              className="text-xs text-vatic-indigo hover:underline"
-            >
+            <button onClick={selectAllPending} className="ap-ph-link">
               Select all pending ({pendingFiltered.length})
             </button>
           )}
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-secondary text-xs uppercase tracking-wide text-muted-foreground">
+        <div className="ap-tablewrap">
+          <table className="ap-table">
+            <thead>
               <tr>
-                <th className="w-10 px-4 py-3" />
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Signed Up</th>
-                <th className="px-4 py-3">Reviewed</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th style={{ width: 40 }} aria-label="Select" />
+                <th>Email</th>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Signed up</th>
+                <th>Reviewed</th>
+                <th>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-12 text-center text-muted-foreground"
-                  >
-                    No signups found.
-                  </td>
+                <tr className="ap-empty-row">
+                  <td colSpan={7}>No signups found.</td>
                 </tr>
               ) : (
                 filtered.map((signup) => (
-                  <tr
-                    key={signup.id}
-                    className="transition-colors hover:bg-secondary/40"
-                  >
-                    <td className="px-4 py-3">
+                  <tr key={signup.id}>
+                    <td>
                       {signup.status === "pending" && (
                         <input
                           type="checkbox"
                           checked={selected.has(signup.id)}
                           onChange={() => toggleSelect(signup.id)}
-                          className="h-4 w-4 rounded border-border accent-vatic-indigo"
+                          className="ap-check"
+                          aria-label={`Select ${signup.email}`}
                         />
                       )}
                     </td>
-                    <td className="px-4 py-3 font-medium text-foreground">
-                      {signup.email}
+                    <td className="ap-cell-strong">{signup.email}</td>
+                    <td className="ap-cell-muted">{fullName(signup)}</td>
+                    <td>
+                      <StatusPill status={signup.status} />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {[signup.first_name, signup.last_name]
-                        .filter(Boolean)
-                        .join(" ") || "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={signup.status} />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {timeAgo(signup.created_at)}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="ap-cell-mono">{timeAgo(signup.created_at)}</td>
+                    <td className="ap-cell-mono">
                       {signup.reviewed_at ? timeAgo(signup.reviewed_at) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {signup.status === "pending" && (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleApprove(signup.id)}
-                            disabled={isPending}
-                            className="rounded-md bg-precision-teal/15 px-2.5 py-1 text-xs font-semibold text-precision-teal hover:bg-precision-teal/25 disabled:opacity-50"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => setShowDeclineDialog(signup.id)}
-                            disabled={isPending}
-                            className="rounded-md bg-destructive/15 px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/25 disabled:opacity-50"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      )}
-                      {signup.status === "approved" && (
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleResendInvite(signup.id)}
-                            disabled={isPending}
-                            className="rounded-md bg-vatic-indigo/15 px-2.5 py-1 text-xs font-semibold text-vatic-indigo hover:bg-vatic-indigo/25 disabled:opacity-50"
-                          >
-                            Resend Invite
-                          </button>
-                          <button
-                            onClick={() => setShowUnapprove(signup.id)}
-                            disabled={isPending}
-                            className="rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-secondary/70 disabled:opacity-50"
-                          >
-                            Un-approve
-                          </button>
-                        </div>
-                      )}
-                      {signup.status !== "pending" && signup.admin_notes && (
-                        <span
-                          className="ml-2 text-xs text-muted-foreground"
-                          title={signup.admin_notes}
-                        >
-                          Has notes
-                        </span>
-                      )}
+                    <td>
+                      <RowActions
+                        signup={signup}
+                        isPending={isPending}
+                        onApprove={() => handleApprove(signup.id)}
+                        onDecline={() => setShowDeclineDialog(signup.id)}
+                        onResend={() => handleResendInvite(signup.id)}
+                        onUnapprove={() => setShowUnapprove(signup.id)}
+                      />
                     </td>
                   </tr>
                 ))
@@ -352,9 +315,56 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
         </div>
       </div>
 
+      {/* MOBILE: stacked cards */}
+      <div className="ap-cards">
+        {filtered.length === 0 ? (
+          <div className="ap-rowcard" style={{ textAlign: "center", color: "var(--ink-3)" }}>
+            No signups found.
+          </div>
+        ) : (
+          filtered.map((signup) => (
+            <div key={signup.id} className="ap-rowcard">
+              <div className="ap-rowcard-top">
+                <div style={{ minWidth: 0, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  {signup.status === "pending" && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(signup.id)}
+                      onChange={() => toggleSelect(signup.id)}
+                      className="ap-check"
+                      style={{ marginTop: 2 }}
+                      aria-label={`Select ${signup.email}`}
+                    />
+                  )}
+                  <div style={{ minWidth: 0 }}>
+                    <div className="ap-rowcard-title">{signup.email}</div>
+                    {fullName(signup) !== "—" ? (
+                      <div className="ap-cell-muted" style={{ fontSize: 13 }}>{fullName(signup)}</div>
+                    ) : null}
+                  </div>
+                </div>
+                <StatusPill status={signup.status} />
+              </div>
+              <div className="ap-rowcard-meta">
+                <span>Signed up <b>{timeAgo(signup.created_at)}</b></span>
+                <span>Reviewed <b>{signup.reviewed_at ? timeAgo(signup.reviewed_at) : "—"}</b></span>
+              </div>
+              <RowActions
+                signup={signup}
+                isPending={isPending}
+                onApprove={() => handleApprove(signup.id)}
+                onDecline={() => setShowDeclineDialog(signup.id)}
+                onResend={() => handleResendInvite(signup.id)}
+                onUnapprove={() => setShowUnapprove(signup.id)}
+              />
+            </div>
+          ))
+        )}
+      </div>
+
       {showDeclineDialog && (
         <Dialog
-          title="Decline Signup"
+          title="Decline signup"
           onCancel={() => {
             setShowDeclineDialog(null)
             setDeclineNotes("")
@@ -362,18 +372,17 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
           onConfirm={() => handleDecline(showDeclineDialog)}
           isPending={isPending}
           confirmLabel="Decline"
-          confirmClass="bg-destructive text-white hover:bg-destructive/90"
+          tone="alert"
         >
-          <p className="mb-3 text-sm text-muted-foreground">
-            This will send a polite notification email. The user can reapply
-            later.
+          <p>
+            This will send a polite notification email. The user can reapply later.
           </p>
           <textarea
             value={declineNotes}
             onChange={(e) => setDeclineNotes(e.target.value)}
-            placeholder="Internal notes (optional, not sent to user)..."
+            placeholder="Internal notes (optional, not sent to user)…"
             rows={3}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="ap-textarea"
           />
         </Dialog>
       )}
@@ -384,12 +393,12 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
           onCancel={() => setShowBatchConfirm(null)}
           onConfirm={handleBatchApprove}
           isPending={isPending}
-          confirmLabel="Approve All"
-          confirmClass="bg-precision-teal text-white hover:bg-precision-teal/90"
+          confirmLabel="Approve all"
+          tone="teal"
         >
-          <p className="text-sm text-muted-foreground">
-            This will create auth accounts, organizations with 14-day trials,
-            and send invitation emails to all selected signups.
+          <p>
+            This will create auth accounts, organizations with 14-day trials, and send
+            invitation emails to all selected signups.
           </p>
         </Dialog>
       )}
@@ -403,18 +412,16 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
           }}
           onConfirm={handleBatchDecline}
           isPending={isPending}
-          confirmLabel="Decline All"
-          confirmClass="bg-destructive text-white hover:bg-destructive/90"
+          confirmLabel="Decline all"
+          tone="alert"
         >
-          <p className="mb-3 text-sm text-muted-foreground">
-            Decline emails will be sent. Users can reapply later.
-          </p>
+          <p>Decline emails will be sent. Users can reapply later.</p>
           <textarea
             value={declineNotes}
             onChange={(e) => setDeclineNotes(e.target.value)}
-            placeholder="Internal notes (optional)..."
+            placeholder="Internal notes (optional)…"
             rows={2}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="ap-textarea"
           />
         </Dialog>
       )}
@@ -430,24 +437,78 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
           isPending={isPending}
           confirmDisabled={!unapproveReason.trim()}
           confirmLabel="Un-approve"
-          confirmClass="bg-destructive text-white hover:bg-destructive/90"
+          tone="alert"
         >
-          <p className="text-sm text-muted-foreground">
-            Reverts the signup to <strong className="text-foreground">pending</strong>, deletes the
-            organization created on approval (and its data), and removes the auto-created account if it
-            owns no other orgs. The original invite email can&rsquo;t be unsent, but its link will lead nowhere.
+          <p>
+            Reverts the signup to <b>pending</b>, deletes the organization created on
+            approval (and its data), and removes the auto-created account if it owns no
+            other orgs. The original invite email can&rsquo;t be unsent, but its link will
+            lead nowhere.
           </p>
           <input
             type="text"
             value={unapproveReason}
             onChange={(e) => setUnapproveReason(e.target.value)}
             placeholder="Reason (required, recorded in the audit log)"
-            className="mt-3 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="ap-field"
           />
         </Dialog>
       )}
     </div>
   )
+}
+
+function RowActions({
+  signup,
+  isPending,
+  onApprove,
+  onDecline,
+  onResend,
+  onUnapprove,
+}: {
+  signup: WaitlistSignup
+  isPending: boolean
+  onApprove: () => void
+  onDecline: () => void
+  onResend: () => void
+  onUnapprove: () => void
+}) {
+  if (signup.status === "pending") {
+    return (
+      <div className="ap-rowactions">
+        <button onClick={onApprove} disabled={isPending} className="ap-mini ap-mini-ok">
+          Approve
+        </button>
+        <button onClick={onDecline} disabled={isPending} className="ap-mini ap-mini-bad">
+          Decline
+        </button>
+      </div>
+    )
+  }
+  if (signup.status === "approved") {
+    return (
+      <div className="ap-rowactions">
+        <button onClick={onResend} disabled={isPending} className="ap-mini ap-mini-slate">
+          Resend invite
+        </button>
+        <button onClick={onUnapprove} disabled={isPending} className="ap-mini ap-mini-slate">
+          Un-approve
+        </button>
+      </div>
+    )
+  }
+  if (signup.admin_notes) {
+    return (
+      <span
+        className="ap-cell-muted"
+        style={{ fontSize: 12 }}
+        title={signup.admin_notes}
+      >
+        Has notes
+      </span>
+    )
+  }
+  return null
 }
 
 function Dialog({
@@ -457,7 +518,7 @@ function Dialog({
   onConfirm,
   isPending,
   confirmLabel,
-  confirmClass,
+  tone,
   confirmDisabled = false,
 }: {
   title: string
@@ -466,31 +527,46 @@ function Dialog({
   onConfirm: () => void
   isPending: boolean
   confirmLabel: string
-  confirmClass: string
+  tone: "teal" | "alert"
   confirmDisabled?: boolean
 }) {
+  const grad =
+    tone === "teal"
+      ? "linear-gradient(145deg, var(--teal), var(--teal-2))"
+      : "linear-gradient(145deg, var(--alert), var(--alert-2))"
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-foreground">{title}</h3>
+    <div className="ap-modal-scrim" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="ap-modal">
+        <h3>{title}</h3>
         {children}
-        <div className="mt-5 flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            disabled={isPending}
-            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary disabled:opacity-50"
-          >
+        <div className="ap-modal-foot">
+          <TkButton variant="ghost" onClick={onCancel} disabled={isPending}>
             Cancel
-          </button>
+          </TkButton>
           <button
+            type="button"
             onClick={onConfirm}
             disabled={isPending || confirmDisabled}
-            className={`rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-50 ${confirmClass}`}
+            className="tk-btn"
+            style={{
+              background: grad,
+              color: "#fff",
+              opacity: isPending || confirmDisabled ? 0.5 : 1,
+            }}
           >
-            {isPending ? "Processing..." : confirmLabel}
+            {isPending ? "Processing…" : confirmLabel}
           </button>
         </div>
       </div>
     </div>
+  )
+}
+
+function ExportGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 15, height: 15 }} aria-hidden="true">
+      <path d="M8 2v8M8 10 5 7M8 10l3-3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.5 11v2A1.5 1.5 0 0 0 4 14.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" strokeLinecap="round" />
+    </svg>
   )
 }

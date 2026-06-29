@@ -1,7 +1,9 @@
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { RevealOnView } from "@/components/ticket"
 import { WaitlistStatsCards } from "./components/stats-cards"
 import { WaitlistTable } from "./components/waitlist-table"
+import "./admin-pass.css"
 
 export default async function AdminWaitlistPage() {
   await connection()
@@ -22,18 +24,24 @@ export default async function AdminWaitlistPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Waitlist Management
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review, approve, or decline waitlist signups.
-        </p>
-      </div>
+    <div className="ticket-chrome tk-kit ap-page">
+      <RevealOnView as="header" className="ap-head">
+        <div className="ap-head-text">
+          <span className="tk-eyebrow">Platform · Pipeline</span>
+          <h1 className="ap-title">Waitlist</h1>
+          <p className="ap-sub">
+            Review, approve, or decline signups. Approving provisions a trial org and sends the invite.
+          </p>
+        </div>
+      </RevealOnView>
 
-      <WaitlistStatsCards stats={stats} />
-      <WaitlistTable signups={allSignups} />
+      <RevealOnView>
+        <WaitlistStatsCards stats={stats} />
+      </RevealOnView>
+
+      <RevealOnView>
+        <WaitlistTable signups={allSignups} />
+      </RevealOnView>
     </div>
   )
 }

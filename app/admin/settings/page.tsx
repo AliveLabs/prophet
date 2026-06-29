@@ -1,6 +1,14 @@
+// TICKET ADMIN — Settings, rebuilt to "The Pass".
+//
+// STRUCTURE rebuild: a kicker + display H1 page head, then kit TkCard sections
+// for the admin roster (kit-styled table) and the invite form. Auth gate
+// (requirePlatformAdminContext), the super_admin canManage capability check, and
+// the data fetch are all preserved untouched — only presentation moved to the kit.
+
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { requirePlatformAdminContext } from "@/lib/auth/platform-admin"
+import { RevealOnView, TkCard, TkSectionHead } from "@/components/ticket"
 import { AdminList } from "./components/admin-list"
 import { InviteAdmin } from "./components/invite-admin"
 
@@ -19,35 +27,38 @@ export default async function AdminSettingsPage() {
     .order("created_at", { ascending: true })
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Admin Settings
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {/* ── PAGE HEADER ── */}
+      <RevealOnView as="header" className="adm-pagehead">
+        <div className="adm-pagehead__kicker">Platform</div>
+        <h1>Admin settings</h1>
+        <p>
           {canManage
-            ? "Manage platform administrators who can access the admin dashboard."
-            : "Platform administrators who can access the admin dashboard."}
+            ? "Manage the platform administrators who can access this dashboard."
+            : "Platform administrators who can access this dashboard."}
         </p>
-      </div>
+      </RevealOnView>
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section>
-          <h2 className="mb-4 text-base font-semibold text-foreground">
-            Current Admins
-          </h2>
-          <AdminList admins={admins ?? []} canManage={canManage} />
-        </section>
+      {/* ── ROSTER ── */}
+      <TkSectionHead
+        title="Current admins"
+        sub={`${(admins ?? []).length} ${(admins ?? []).length === 1 ? "person" : "people"}`}
+      />
+      <RevealOnView>
+        <AdminList admins={admins ?? []} canManage={canManage} />
+      </RevealOnView>
 
-        {canManage && (
-          <section>
-            <h2 className="mb-4 text-base font-semibold text-foreground">
-              Invite Admin
-            </h2>
-            <InviteAdmin />
-          </section>
-        )}
-      </div>
+      {/* ── INVITE (super_admin only) ── */}
+      {canManage && (
+        <>
+          <TkSectionHead title="Invite an admin" sub="Grants dashboard access" />
+          <RevealOnView>
+            <TkCard>
+              <InviteAdmin />
+            </TkCard>
+          </RevealOnView>
+        </>
+      )}
     </div>
   )
 }
