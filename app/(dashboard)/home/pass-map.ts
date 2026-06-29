@@ -11,8 +11,9 @@ import type {
   ConfidenceBasisItem,
 } from "@/lib/skills/types"
 import type { TkFamily } from "@/components/ticket"
-import type { TkConfidenceLevel, TkSentimentTone } from "@/components/ticket"
+import type { TkConfidenceLevel, TkImpactLevel, TkSentimentTone } from "@/components/ticket"
 import { distinctDomains, humanizeRef } from "@/lib/skills/evidence-format"
+import { calibratedImpact, IMPACT_DEFAULT, IMPACT_SCORE, calibrationOf } from "@/lib/skills/scoring-config"
 
 /* ── Confidence: the engine's union IS the kit's union ─────────────────── */
 export function confLevel(c: Confidence): TkConfidenceLevel {
@@ -26,6 +27,36 @@ const CONF_LABEL: Record<Confidence, string> = {
 }
 export function confLabel(c: Confidence): string {
   return CONF_LABEL[c]
+}
+
+/* ── Impact: the SECOND score, shown separately from confidence (ALT-167) ──
+ * Impact and confidence are DISTINCT axes — a play can be high-impact yet only
+ * directional, or rock-solid yet low-impact — so the card/detail surface both,
+ * never one in place of the other. We read the play's CALIBRATED impact (the same
+ * value the ranker scores on: a `maintain` play with no failure signal is capped at
+ * low, so the displayed impact can't overstate a best-practice habit). leverage is
+ * OPTIONAL on a play (model-parsed plays + old persisted briefs omit it) — when it's
+ * absent we fall back to the engine's IMPACT_DEFAULT (medium) exactly as scoring does,
+ * so an Impact score ALWAYS renders and never silently disappears. */
+export function impactLevel(play: EnrichedRecommendation): TkImpactLevel {
+  const calibrated = calibratedImpact({
+    confidence: play.confidence,
+    impact: play.leverage?.label,
+    category: play.category ?? "marketing",
+    ...calibrationOf(play),
+  })
+  if (calibrated) return calibrated
+  // No declared leverage → mirror scoring's IMPACT_DEFAULT (medium) rather than burying at low.
+  return (Object.keys(IMPACT_SCORE) as TkImpactLevel[]).find((k) => IMPACT_SCORE[k] === IMPACT_DEFAULT) ?? "medium"
+}
+
+const IMPACT_LABEL: Record<TkImpactLevel, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+}
+export function impactLabel(play: EnrichedRecommendation): string {
+  return IMPACT_LABEL[impactLevel(play)]
 }
 
 /* ── Category / kind → the 5 visual families the kit themes ────────────── */

@@ -27,6 +27,7 @@ import {
   TkHero,
   TkChip,
   TkConfidence,
+  TkImpactTag,
   TkWinFlag,
   TkQuote,
   TkWhy,
@@ -40,6 +41,8 @@ import {
   playChipLabel,
   confLevel,
   confLabel,
+  impactLevel,
+  impactLabel,
   isAdvantage,
   playQuotes,
   playSentiment,
@@ -122,6 +125,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             <>
               <TkChip family={family}>{playChipLabel(play)}</TkChip>
               <TkConfidence level={confLevel(play.confidence)} />
+              <TkImpactTag level={impactLevel(play)} />
               {advantage ? <TkWinFlag /> : null}
             </>
           }
@@ -137,21 +141,23 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             </>
           }
         >
-          {/* the at-a-glance read strip: confidence · impact · signals */}
+          {/* the at-a-glance read strip: confidence · impact · signals (ALT-167).
+              Confidence + Impact are two SEPARATE scores and BOTH always render — Impact
+              no longer hides when a play carries no sized leverage (the prior bug); it
+              falls back to the engine's default tier via impactLabel(). `reach` is an
+              optional extra shown only when the play actually carries it. */}
           <div className="pd-meta-strip">
             <div className="pd-meta">
               <span className="pd-meta-k">Confidence</span>
               <span className="pd-meta-v">{confLabel(play.confidence)}</span>
             </div>
-            {lev ? (
-              <div className="pd-meta">
-                <span className="pd-meta-k">Impact</span>
-                <span className="pd-meta-v">
-                  {lev.label}
-                  {lev.reach ? <span className="pd-meta-reach"> · {lev.reach}</span> : null}
-                </span>
-              </div>
-            ) : null}
+            <div className="pd-meta">
+              <span className="pd-meta-k">Impact</span>
+              <span className="pd-meta-v">
+                {impactLabel(play)}
+                {lev?.reach ? <span className="pd-meta-reach"> · {lev.reach}</span> : null}
+              </span>
+            </div>
             <div className="pd-meta">
               <span className="pd-meta-k">Grounded in</span>
               <span className="pd-meta-v">

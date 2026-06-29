@@ -48,9 +48,13 @@
 //     would suppress good recommendations). Visibility only; zero learning weight.
 //   - REMOVE, WITH A REASON (`dismissed:<code>`) → the captured reason DISAMBIGUATES the otherwise-
 //     ambiguous Remove, so a reasoned dismissal CAN carry a directional signal — but still SECONDARY
-//     (below thumbs; it's a directional action, not an explicit verdict). The reason is the difference
-//     between "this is wrong" (a real negative) and "already doing it" (NOT a quality complaint —
-//     stays neutral, because reading it negative would suppress a GOOD rec). See the map entries.
+//     (below thumbs; it's a directional action, not an explicit verdict). The reason decides WHETHER it
+//     reweights the MODEL at all: "not relevant to me" is a (weak) targeting-miss negative; "already
+//     doing it" stays NEUTRAL (reading it negative would suppress a GOOD rec); and "this looks wrong"
+//     (ALT-172) is a DATA-QUALITY complaint about third-party source data, so it is ALSO NEUTRAL on the
+//     model — its signal is the captured note + reason code, routed to a source-quality review queue,
+//     never into the model rollup (punishing the model for a data provider's error is the wrong loop).
+//     See the map entries.
 //   - SNOOZE (`snoozed`)              → RETIRED. Replaced by Keep (which covers "do it later"). The UI
 //     no longer emits it; this entry is neutralized (weight 0) so any legacy rows contribute nothing.
 //
@@ -111,8 +115,12 @@ export const FEEDBACK_SIGNAL_MAP: Record<FeedbackAction, FeedbackSignal> = {
 
   // ── REMOVE, WITH A REASON (`dismissed:<code>`): the reason disambiguates the Remove. All SECONDARY
   //    (below thumbs' 1.0/0.95 — a directional action, not an explicit verdict). Tunable here only.
-  //    "looks wrong" → the operator explicitly flags the rec as off; closest to a thumbs-down.
-  "dismissed:looks_wrong": { polarity: -1, weight: 0.6, confidence: 0.6 },
+  //    "looks wrong" → DATA-QUALITY complaint, NOT a model fault (ALT-172). The operator is almost
+  //    always flagging bad THIRD-PARTY source data (a wrong Google hours/price/listing), so reading it
+  //    as a model-negative would punish a GOOD recommendation for a data provider's error. NEUTRAL on
+  //    the model (zero learning weight) — its signal is the captured note + reason code, routed to a
+  //    DATA-QUALITY review queue (the consumption side; see ALT-172 flag), never into this rollup.
+  "dismissed:looks_wrong": { polarity: 0, weight: 0, confidence: 0 },
   //    "not relevant to me" → a WEAKER negative: partly a targeting miss, not purely a quality fault.
   //    Confidence sits AT the rollup's confidence gate (PLAY_TYPE_MIN_CONFIDENCE) so a sustained stream
   //    can gently down-rank, but its lower WEIGHT (0.4) keeps its per-event mass below looks_wrong/saved.

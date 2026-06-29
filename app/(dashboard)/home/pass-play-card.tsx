@@ -18,6 +18,7 @@ import {
   TkButton,
   TkChip,
   TkConfidence,
+  TkImpactTag,
   TkWinFlag,
   TkWhy,
   TkQuote,
@@ -39,6 +40,8 @@ import {
   playChipLabel,
   confLevel,
   confLabel,
+  impactLevel,
+  impactLabel,
   isAdvantage,
   playQuotes,
   playSentiment,
@@ -158,7 +161,7 @@ export function PassPlayCard({
       }
     })
   }
-  function dismissWithReason(reason: string) {
+  function dismissWithReason(reason: string, note?: string) {
     setReasonOpen(false)
     if (readOnly) return
     startTransition(async () => {
@@ -166,15 +169,23 @@ export function PassPlayCard({
       // unchanged), but the chosen reason now rides along as a stable CODE: the server persists it and
       // the rollup composes feedback-signals `dismissed:<code>`, so the reason — not the bare Remove —
       // is what the engine learns from. Unknown label → undefined → a bare, no-signal dismissal.
+      // ALT-172: "this looks wrong" carries an optional note captured as DATA-QUALITY feedback (it does
+      // NOT reweight the model — that reason is neutral in the band) so we phrase its toast accordingly.
+      const code = dismissReasonCode(reason)
       const res = await setPlayAction({
         locationId,
         dateKey,
         playKey,
         action: "dismissed",
-        reason: dismissReasonCode(reason),
+        reason: code,
+        note,
       })
       if (res.ok) {
-        toast(`Dismissed · “${reason}” — we’ll learn from it.`)
+        toast(
+          code === "looks_wrong"
+            ? "Thanks — we’ll check the source data behind this."
+            : `Dismissed · “${reason}” — we’ll learn from it.`,
+        )
         router.refresh()
       }
     })
@@ -196,18 +207,25 @@ export function PassPlayCard({
   // own title + family chip, so the button only needs to name the action: open the play.
   const actVerb = "See the play"
 
-  // ── the confidence / win-flag status shown top-right ──
-  const status = advantage ? (
-    <TkWinFlag />
-  ) : (
-    <TkConfidence level={confLevel(play.confidence)} />
+  // ── the two scores shown top-right (ALT-167) ──
+  // Confidence and impact are SEPARATE axes and BOTH always render. The win-flag is
+  // ADDITIVE framing ("you're winning") — it must never REPLACE the confidence score
+  // (the prior bug: an advantage play showed only the flag, so its confidence + impact
+  // vanished from the card entirely). Order: confidence · impact · (win-flag when ahead).
+  const status = (
+    <>
+      <TkConfidence level={confLevel(play.confidence)} />
+      <TkImpactTag level={impactLevel(play)} />
+      {advantage ? <TkWinFlag /> : null}
+    </>
   )
 
-  // Hero toprow: family chip + confidence pips (+ win-flag when we're ahead).
+  // Hero toprow mirrors the same two-score read (+ win-flag when we're ahead).
   const chips = (
     <>
       <TkChip family={family}>{playChipLabel(play)}</TkChip>
       <TkConfidence level={confLevel(play.confidence)} />
+      <TkImpactTag level={impactLevel(play)} />
       {advantage ? <TkWinFlag /> : null}
     </>
   )
@@ -333,7 +351,7 @@ export function PassPlayCard({
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
       wide
-      chip={<TkChip family={family}>{playChipLabel(play)} · {confLabel(play.confidence)}</TkChip>}
+      chip={<TkChip family={family}>{playChipLabel(play)} · {confLabel(play.confidence)} confidence · {impactLabel(play)} impact</TkChip>}
       title={play.title}
     >
       <p className="tk-muted">{play.rationale}</p>

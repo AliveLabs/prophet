@@ -93,27 +93,29 @@ describe("feedback-signals BAND", () => {
     expect(signalFor("totally_new_action")).toEqual({ polarity: 0, weight: 0, confidence: 0 })
   })
 
-  it("a REASONED Remove disambiguates the bare dismissal into a directional signal (all BELOW thumbs)", () => {
-    // The reason is what turns an ambiguous Remove into something the engine can learn from.
+  it("a REASONED Remove decides whether it reweights the MODEL (ALT-172: 'looks wrong' is data-quality, not model-negative)", () => {
+    // The reason is what decides whether a Remove becomes a MODEL signal at all.
     const lw = FEEDBACK_SIGNAL_MAP["dismissed:looks_wrong"]
     const nr = FEEDBACK_SIGNAL_MAP["dismissed:not_relevant"]
     const ad = FEEDBACK_SIGNAL_MAP["dismissed:already_doing"]
-    // "looks wrong" → the strongest reasoned negative, but still below thumbs (it's directional).
-    expect(lw.polarity).toBe(-1)
-    expect(lw.weight).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.weight)
-    expect(lw.confidence).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.confidence)
-    // "not relevant" → a WEAKER negative than "looks wrong" (lower effective mass = weight × confidence).
+    // ALT-172: "looks wrong" → a DATA-QUALITY complaint about third-party source data, NOT a model
+    // fault. It must NOT negatively reweight our own recommendation model, so it is NEUTRAL on the band
+    // (zero learning weight) — its signal is the captured note, routed to a source-quality review queue.
+    expect(lw).toEqual({ polarity: 0, weight: 0, confidence: 0 })
+    // "not relevant" → the one reasoned NEGATIVE: a (weak) targeting-miss against the model.
     expect(nr.polarity).toBe(-1)
-    expect(nr.weight * nr.confidence).toBeLessThan(lw.weight * lw.confidence)
+    expect(nr.weight).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.weight) // below thumbs (directional)
+    expect(nr.confidence).toBeLessThan(FEEDBACK_SIGNAL_MAP.thumbs_down.confidence)
     // "already doing it" → NEUTRAL on purpose (not a quality complaint; never a false negative).
     expect(ad).toEqual({ polarity: 0, weight: 0, confidence: 0 })
   })
 
-  it("BOTH negative reasons clear the rollup confidence gate; the neutral one does not even try", () => {
-    // looks_wrong (0.6) and not_relevant (0.5) sit AT/above PLAY_TYPE_MIN_CONFIDENCE so they can move
-    // ranking on their own; already_doing carries no confidence at all (observe-nothing).
-    expect(FEEDBACK_SIGNAL_MAP["dismissed:looks_wrong"].confidence).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_CONFIDENCE)
+  it("the model-negative reason clears the rollup confidence gate; the neutral/data-quality ones do not move the model", () => {
+    // not_relevant (0.5) sits AT/above PLAY_TYPE_MIN_CONFIDENCE so it can move ranking on its own.
     expect(FEEDBACK_SIGNAL_MAP["dismissed:not_relevant"].confidence).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_CONFIDENCE)
+    // looks_wrong (data-quality) + already_doing carry no confidence at all — they never nudge the model.
+    expect(FEEDBACK_SIGNAL_MAP["dismissed:looks_wrong"].confidence).toBe(0)
+    expect(FEEDBACK_SIGNAL_MAP["dismissed:already_doing"].confidence).toBe(0)
   })
 
   it("dismissActionFor composes the band key from a reason code (bare/unknown → no-signal dismissed)", () => {
@@ -124,7 +126,9 @@ describe("feedback-signals BAND", () => {
     expect(dismissActionFor(null)).toBe("dismissed")
     expect(dismissActionFor("garbage")).toBe("dismissed") // unknown → bare, never a fabricated band key
     // and the composed key always resolves to a real band signal (no unknown leaks to signalFor).
-    expect(signalFor(dismissActionFor("looks_wrong")).polarity).toBe(-1)
+    // ALT-172: looks_wrong is now data-quality → NEUTRAL on the model band; not_relevant is the negative.
+    expect(signalFor(dismissActionFor("not_relevant")).polarity).toBe(-1)
+    expect(signalFor(dismissActionFor("looks_wrong"))).toEqual({ polarity: 0, weight: 0, confidence: 0 })
     expect(signalFor(dismissActionFor("garbage"))).toEqual({ polarity: 0, weight: 0, confidence: 0 })
   })
 
@@ -262,18 +266,27 @@ describe("aggregateSignals — guards + smoothing", () => {
   })
 
   it("a sustained REASONED dismissal DOES move ranking — the reason is the difference", () => {
-    // The whole point of capturing WHY: "this looks wrong" sustained above support is a real negative
-    // and down-ranks the play-type, whereas the SAME count of bare Removes (or "already doing it") does
-    // nothing. This is the disambiguation working end to end through the band → aggregate.
-    const looksWrong = aggregateSignals(many("dismissed:looks_wrong", 20))
-    expect(looksWrong.supportN).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_SUPPORT_N)
-    expect(looksWrong.multiplier).toBeLessThan(PLAY_TYPE_MULTIPLIER_NEUTRAL)
-    expect(looksWrong.multiplier).toBeGreaterThanOrEqual(PLAY_TYPE_MULTIPLIER_MIN)
+    // The whole point of capturing WHY: "not relevant to me" sustained above support is a real (weak)
+    // targeting-miss negative and down-ranks the play-type, whereas the SAME count of bare Removes (or
+    // "already doing it") does nothing. The disambiguation working end to end through the band → aggregate.
+    const notRelevant = aggregateSignals(many("dismissed:not_relevant", 20))
+    expect(notRelevant.supportN).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_SUPPORT_N)
+    expect(notRelevant.multiplier).toBeLessThan(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(notRelevant.multiplier).toBeGreaterThanOrEqual(PLAY_TYPE_MULTIPLIER_MIN)
     // "already doing it" is NEUTRAL by design — reading it negative would suppress a GOOD rec.
     expect(aggregateSignals(many("dismissed:already_doing", 20)).multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
-    // and "looks wrong" must NOT out-pull an explicit thumbs-down of equal count (stays SECONDARY).
+    // and "not relevant" must NOT out-pull an explicit thumbs-down of equal count (stays SECONDARY).
     const thumbsDown = aggregateSignals(many("thumbs_down", 20))
-    expect(thumbsDown.multiplier).toBeLessThan(looksWrong.multiplier)
+    expect(thumbsDown.multiplier).toBeLessThan(notRelevant.multiplier)
+  })
+
+  it("ALT-172: a sustained 'this looks wrong' does NOT move the model (data-quality, not model-negative)", () => {
+    // "this looks wrong" is almost always a complaint about bad third-party source data, not our model.
+    // Even a strong, sustained stream must leave the model multiplier NEUTRAL — punishing the model for a
+    // data provider's error is the wrong loop. (Its signal is the captured note → a data-quality queue.)
+    const looksWrong = aggregateSignals(many("dismissed:looks_wrong", 30))
+    expect(looksWrong.multiplier).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(looksWrong.supportN).toBe(0) // zero-weight signals never even count toward support
   })
 })
 
@@ -635,14 +648,23 @@ function reasonedDismissStore(reason: string | null, opts: { count?: number } = 
 }
 
 describe("runFeedbackRollup — reasoned dismissals (reads play_actions.reason → band signal)", () => {
-  it("'this looks wrong' sustained above support DOWN-RANKS the play-type (a real negative)", async () => {
-    const { store, captured } = reasonedDismissStore("looks_wrong")
+  it("'not relevant to me' sustained above support DOWN-RANKS the play-type (a real model negative)", async () => {
+    const { store, captured } = reasonedDismissStore("not_relevant")
     const result = await runFeedbackRollup({ store })
     expect(result.resolved).toBeGreaterThanOrEqual(PLAY_TYPE_MIN_SUPPORT_N) // events grounded to the play
     expect(captured.payload).not.toBeNull()
     // the reason flowed: rollup read reason → dismissActionFor → signalFor(-1) → below-neutral multiplier.
     expect(captured.payload!.some((r) => (r.multiplier as number) < PLAY_TYPE_MULTIPLIER_NEUTRAL)).toBe(true)
     expect(captured.payload!.some((r) => (r.support_n as number) >= PLAY_TYPE_MIN_SUPPORT_N)).toBe(true)
+  })
+
+  it("ALT-172: 'this looks wrong' resolves the plays but does NOT move the model (data-quality, not model-negative)", async () => {
+    const { store, captured } = reasonedDismissStore("looks_wrong")
+    const result = await runFeedbackRollup({ store })
+    expect(result.resolved).toBeGreaterThan(0) // the events DID resolve to a play...
+    // ...but looks_wrong is data-quality (neutral on the band), so every served multiplier stays neutral.
+    expect(captured.payload!.every((r) => (r.multiplier as number) === PLAY_TYPE_MULTIPLIER_NEUTRAL)).toBe(true)
+    expect(captured.payload!.every((r) => (r.support_n as number) === 0)).toBe(true)
   })
 
   it("'already doing it' resolves the SAME plays but contributes NO signal (no false negative)", async () => {

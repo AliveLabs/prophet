@@ -110,6 +110,10 @@ export async function setPlayAction(input: {
    *  with action="dismissed"; it disambiguates the Remove into a directional learning signal. Optional +
    *  validated server-side (unknown/absent → stored NULL = a bare, no-signal dismissal). */
   reason?: string
+  /** ALT-172: an optional free-text NOTE the operator types when they pick "this looks wrong". Captured
+   *  as DATA-QUALITY feedback (about bad third-party source data) — it does NOT reweight the model (the
+   *  band routes `dismissed:looks_wrong` as neutral). Bounded + trimmed server-side; blank/absent → NULL. */
+  note?: string
 }): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
   const raw = await createServerSupabaseClient()
@@ -177,17 +181,37 @@ export async function setPlayAction(input: {
         // column doesn't exist → this update errors → we ignore it (the reason is simply dark until the
         // migration lands). Mirrors the cooldown/evergreen best-effort posture. Only RECOGNIZED codes
         // are written; an absent/unknown reason leaves the row a bare, no-signal dismissal.
+        //
+        // ALT-172: a "this looks wrong" dismissal may carry an optional free-text NOTE — captured as
+        // DATA-QUALITY feedback (about bad third-party source data). The note rides on the SAME row as
+        // the reason code. It does NOT reweight the model: the band routes `dismissed:looks_wrong` as
+        // neutral, so the note's only consumer is a source-quality review (the ALT-172 flag). Bound it
+        // to a sane length + only keep a note when there's a recognized reason to attach it to.
         if (isDismissReasonCode(input.reason)) {
+          const note = typeof input.note === "string" ? input.note.trim().slice(0, 1000) : ""
+          const patch: Record<string, unknown> = { reason: input.reason }
+          if (note) patch.note = note
           try {
-            const { error: reasonErr } = await supabase
+            let { error: reasonErr } = await supabase
               .from("play_actions")
-              .update({ reason: input.reason })
+              .update(patch)
               .eq("location_id", input.locationId)
               .eq("date_key", input.dateKey)
               .eq("play_key", input.playKey)
-            if (reasonErr) console.warn("[play_actions] persist dismiss reason failed:", reasonErr.message)
+            // FAIL-SOFT: if `note` doesn't exist yet (pre-migration) but `reason` does, retry with just
+            // the reason so the directional/data-quality code STILL lands while the note stays dark.
+            if (reasonErr && note) {
+              const retry = await supabase
+                .from("play_actions")
+                .update({ reason: input.reason })
+                .eq("location_id", input.locationId)
+                .eq("date_key", input.dateKey)
+                .eq("play_key", input.playKey)
+              reasonErr = retry.error
+            }
+            if (reasonErr) console.warn("[play_actions] persist dismiss reason/note failed:", reasonErr.message)
           } catch (e) {
-            console.warn("[play_actions] persist dismiss reason threw:", e instanceof Error ? e.message : e)
+            console.warn("[play_actions] persist dismiss reason/note threw:", e instanceof Error ? e.message : e)
           }
         }
         try {

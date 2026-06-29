@@ -283,6 +283,10 @@ export function InsightCardKit({
         <TkDismissReason
           open={reasonOpen}
           reasons={DISMISS_REASONS}
+          // The insights feed already routes "This looks wrong" → the data-quality `inaccurate` status
+          // (reasonToStatus). The optional note box (ALT-172) is wired on the Daily Brief surface only,
+          // so we keep this feed's flow unchanged (no note step) until its action carries a note too.
+          noteReasons={[]}
           onSelect={dismissWithReason}
           onCancel={() => setReasonOpen(false)}
         />
