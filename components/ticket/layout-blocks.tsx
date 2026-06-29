@@ -20,6 +20,32 @@ export function TkActions({
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   TkImpactTag — a small labeled pill that ALWAYS accompanies an impact
+   bar/meter, so a filled bar is never shown without its plain-language
+   read (e.g. "High impact"). Colored by level (teal/gold/ink), matching
+   the confidence-pip palette. Server-safe.
+   ════════════════════════════════════════════════════════════════════ */
+export type TkImpactLevel = "high" | "medium" | "low"
+
+export function TkImpactTag({
+  level,
+  label,
+  className,
+  ...props
+}: {
+  level: TkImpactLevel
+  /** override the default label text */
+  label?: ReactNode
+} & HTMLAttributes<HTMLSpanElement>) {
+  return (
+    <span className={cx("tk-impact", `tk-impact-${level}`, className)} {...props}>
+      <span className="tk-impact-dot" aria-hidden="true" />
+      {label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}
+    </span>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
    TkHero — 2-col photo/gradient-canvas (left) + body (right).
    Stacks photo-FIRST at ≤980 (handled in pass.css via order:-1).
    ════════════════════════════════════════════════════════════════════ */

@@ -76,8 +76,8 @@ function EventsFiltersInner({
         onChange={(e) => navigate({ tab: e.target.value })}
         className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground transition hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
       >
-        <option value="weekend" className="text-foreground">This Weekend</option>
         <option value="week" className="text-foreground">This Week</option>
+        <option value="weekend" className="text-foreground">This Weekend</option>
       </select>
 
       <div className="relative">

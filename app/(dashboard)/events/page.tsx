@@ -19,6 +19,7 @@ import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
+import MiniMap from "@/components/places/mini-map"
 import { fetchEventsPageData } from "@/lib/cache/events"
 import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
 import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
@@ -37,6 +38,7 @@ import {
   TkWindowViz,
   TkStillLearning,
   TkEmptyState,
+  TkImpactTag,
 } from "@/components/ticket"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
 import {
@@ -47,6 +49,13 @@ import {
   distanceLabel,
   pickLeadEvent,
   severityToConfidence,
+  isInTradeArea,
+  pickEventDeepLink,
+  impactLabel,
+  eventImpact,
+  eventTimeLabel,
+  eventLocalHour,
+  TRADE_AREA_MAX_MILES,
 } from "./events-map"
 
 type EventsPageProps = {
@@ -77,16 +86,22 @@ function formatDate(iso: string | null | undefined): string {
   }
 }
 
+// ALT-212: render the event's LOCAL wall-clock, not a server-TZ re-projection.
+// `eventTimeLabel` reads the hour/minute straight off the source string so the
+// card label and the timeline bar both speak the same (correct) local time.
 function formatTime(iso: string | null | undefined): string {
-  if (!iso) return ""
-  try {
-    return new Date(iso).toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-    })
-  } catch {
-    return ""
-  }
+  return eventTimeLabel(iso)
+}
+
+// Short hour tick label for the adaptive watch-window axis, e.g. "11 AM" / "Noon".
+function hourLabel(h: number): string {
+  const hr = Math.round(h) % 24
+  if (hr === 0) return "Midnight"
+  if (hr === 12) return "Noon"
+  const period = hr >= 12 ? "PM" : "AM"
+  let h12 = hr % 12
+  if (h12 === 0) h12 = 12
+  return `${h12} ${period}`
 }
 
 function extractDomain(url: string | undefined): string | null {
@@ -206,7 +221,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const selectedLocation = locationList.find((l: { id: string }) => l.id === selectedLocationId) ?? null
   const locationName = selectedLocation?.name ?? "your location"
 
-  const activeTab = params.tab === "week" ? "week" : "weekend"
+  // ALT-208: default the window to "this week" so the widest set of events shows
+  // on landing (the weekend-only default routinely rendered "no events match").
+  const activeTab = params.tab === "weekend" ? "weekend" : "week"
   const venueFilter = params.venue?.toLowerCase() ?? ""
   const matchedOnly = params.matched === "true"
 
@@ -252,6 +269,12 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     return e.dateRange === "week" || e.dateRange === "all"
   })
 
+  // ALT-215: enforce the largest distance bubble (~5mi). The snapshot stores every
+  // event the sweep returned — including metro-wide marquees and distant noise. Gate
+  // to the in-trade-area roles so out-of-area venues (e.g. Clyde Warren Park, Bedford
+  // Boys Ranch) never appear. This is the single gate the rest of the page counts from.
+  events = events.filter(isInTradeArea)
+
   if (venueFilter) {
     events = events.filter((e) =>
       (e.venue?.name ?? "").toLowerCase().includes(venueFilter)
@@ -262,13 +285,25 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
     events = events.filter((e) => matchedUids.has(e.uid))
   }
 
-  const totalEvents = snapshot?.summary.totalEvents ?? 0
-  const totalMatched = matchedUids.size
-  const uniqueVenues = Object.keys(snapshot?.summary.byVenueName ?? {}).length
-  const activeDays = Object.keys(snapshot?.summary.byDate ?? {}).length
-  const topVenues = Object.entries(snapshot?.summary.byVenueName ?? {})
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5)
+  // ALT-209: derive ALL "at a glance" counts from the SAME in-trade-area set the page
+  // renders, so "13 events nearby" can't disagree with the ~2 cards actually shown.
+  // (Previously these read snapshot.summary, which counted every scraped event.)
+  const totalEvents = events.length
+  const totalMatched = events.filter((e) => matchedUids.has(e.uid)).length
+  const uniqueVenues = new Set(
+    events.map((e) => e.venue?.name).filter((n): n is string => Boolean(n)),
+  ).size
+  const activeDays = new Set(
+    events
+      .map((e) => (e.startDatetime ? e.startDatetime.slice(0, 10) : null))
+      .filter((d): d is string => Boolean(d)),
+  ).size
+  const venueCounts = new Map<string, number>()
+  for (const e of events) {
+    const name = e.venue?.name
+    if (name) venueCounts.set(name, (venueCounts.get(name) ?? 0) + 1)
+  }
+  const topVenues = [...venueCounts.entries()].sort(([, a], [, b]) => b - a).slice(0, 5)
 
   // ── lead event for the hero (nearest / highest-draw / resolved) ──
   const lead = pickLeadEvent(events)
@@ -288,29 +323,35 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   const tabLabel = activeTab === "weekend" ? "this weekend" : "this week"
 
-  // ── HERO viz: an honest "demand window" derived from the lead event's start
-  // time. We don't claim covers/$ — we frame a watch-window (event kickoff →
-  // your likely surge → wind-down) and label it "estimated". Segments are
-  // positioned across a fixed 4pm→midnight evening axis when we have a start
-  // time; otherwise the hero just shows context without the timeline.          */
+  // ── HERO viz: an honest "demand window" derived from the lead event's local
+  // start time. We don't claim covers/$ — we frame a watch-window (event kickoff
+  // → your likely surge → wind-down) and label it "estimated".
+  //
+  // ALT-212: the axis ADAPTS to the actual local kickoff so the bar always lines
+  // up with the stated time. (The old fixed 4 PM→midnight axis pinned any daytime
+  // event to the far-left "4 PM" edge, so an 11 AM kickoff visually read as 4 PM.)
+  // The hour comes from `eventLocalHour`, the same wall-clock parse the card label
+  // uses, so the graphic and the text can't diverge.
   const leadWindow = (() => {
-    if (!lead?.startDatetime) return null
-    const start = new Date(lead.startDatetime)
-    if (Number.isNaN(start.getTime())) return null
-    const hour = start.getHours() + start.getMinutes() / 60
-    // axis: 4pm (16) → midnight (24), 8h wide
-    const AX_MIN = 16
-    const AX_MAX = 24
-    const span = AX_MAX - AX_MIN
+    if (!lead) return null
+    const hour = eventLocalHour(lead)
+    if (hour == null) return null
+    // window we model: ~1h before kickoff → ~3.5h after (2.5h event + 1h tail)
+    const PRE = 0.75
+    const EVENT_TAIL = 2.5 + 1
+    // axis frames the modeled window with a little padding on each side.
+    const AX_MIN = Math.max(0, Math.floor(hour - PRE - 1))
+    const AX_MAX = Math.min(24, Math.ceil(hour + EVENT_TAIL + 1))
+    const span = Math.max(1, AX_MAX - AX_MIN)
     const pct = (h: number) => Math.max(0, Math.min(100, ((h - AX_MIN) / span) * 100))
-    // surge band: ~45min pre-event through event start (people fueling up before)
-    const preStart = pct(hour - 0.75)
+    const preStart = pct(hour - PRE)
     const eventStart = pct(hour)
-    // your open-window: from now through ~1h after the event lets out (we don't
-    // know the end, so model a 2.5h event then a 1h tail)
-    const tail = pct(hour + 2.5 + 1)
+    const tail = pct(hour + EVENT_TAIL)
+    // 4 evenly-spaced axis ticks across the adaptive window.
+    const axisLabels = [0, 1, 2, 3].map((i) => hourLabel(AX_MIN + (span * i) / 3))
     return {
       startLabel: formatTime(lead.startDatetime),
+      axisLabels,
       surgeLeft: `${preStart}%`,
       surgeWidth: `${Math.max(4, eventStart - preStart)}%`,
       youLeft: `${eventStart}%`,
@@ -320,6 +361,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   const leadMatched = leadUid ? matchedUids.has(leadUid) : false
   const leadFamily = lead ? eventFamily(lead, leadMatched) : "social"
+  // ALT-210: the most specific real destination for the hero's "Event details".
+  const leadDeepLink = lead ? pickEventDeepLink(lead) : null
 
   return (
     <div className="pv-page tk-kit">
@@ -381,6 +424,141 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </TkSoftPanel>
         )}
 
+        {/* ── HERO — the lead event (nearest / highest-draw) ──
+            ALT-213: the major-draw hero leads, directly under the summary. */}
+        {lead && (
+          <RevealOnView>
+            <TkHero
+              titleId="events-lead"
+              title={lead.title ?? "A draw worth prepping for"}
+              chips={
+                <>
+                  <TkChip family={leadFamily}>{eventChipLabel(lead, leadMatched)}</TkChip>
+                  {/* ALT-214: keep the confidence label visible next to the pips */}
+                  <TkConfidence level={eventConfidence(lead)} />
+                  {/* ALT-214: always show the plain-language impact label */}
+                  <TkImpactTag level={eventImpact(lead)} label={impactLabel(lead)} />
+                </>
+              }
+              lede={
+                <>
+                  {lead.venue?.name ? <b>{lead.venue.name}</b> : "Nearby"}
+                  {" · "}
+                  {distanceLabel(lead.distanceMiles)}
+                  {lead.startDatetime ? <> · {formatDate(lead.startDatetime)}</> : null}
+                  {leadMatched ? " · a competitor is tied to this one" : ""}
+                  {". "}
+                  This is the closest, biggest draw in your window — expect extra foot traffic
+                  in and around it.
+                </>
+              }
+              photo={
+                // ALT-216(d): give the hero the same map treatment the small cards
+                // use — a live venue map when we have coordinates, else the gradient
+                // canvas (or the event's own image) as a graceful fallback.
+                lead.venue?.lat != null && lead.venue?.lng != null ? (
+                  <MiniMap
+                    lat={lead.venue.lat}
+                    lng={lead.venue.lng}
+                    title={lead.venue?.name ?? locationName}
+                    mapsUri={lead.venue?.mapsUrl ?? null}
+                    address={lead.venue?.address ?? null}
+                    className="tk-hero-map"
+                  />
+                ) : (
+                  <div
+                    className="tk-photo"
+                    data-label={lead.venue?.name ?? locationName}
+                    style={
+                      lead.imageUrl
+                        ? ({ backgroundImage: `url("${lead.imageUrl}")` } as CSSProperties)
+                        : undefined
+                    }
+                  >
+                    <div className="tk-veil" />
+                  </div>
+                )
+              }
+              venueChip={
+                lead.startDatetime ? (
+                  <>
+                    {PIN_ICON_INLINE}
+                    {formatTime(lead.startDatetime)}
+                  </>
+                ) : undefined
+              }
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* ALT-210: land on the most specific real destination we have */}
+                  {leadDeepLink && (
+                    <a href={leadDeepLink} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-act">
+                      {LINK_ICON} Event details
+                    </a>
+                  )}
+                  {/* ALT-216(b): "Map it" is a small text-only link, off to the side */}
+                  {lead.venue?.mapsUrl && (
+                    <a
+                      href={lead.venue.mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="tk-maplink"
+                    >
+                      {PIN_ICON_INLINE} Map it
+                    </a>
+                  )}
+                </div>
+              }
+            >
+              {/* honest proximity meter — ALT-214: paired with an impact label */}
+              <TkRangeBar
+                value={proximityFill(lead.distanceMiles)}
+                scale={["Across town", "Few blocks", "Next door"]}
+                caption={
+                  <span className="inline-flex items-center gap-2">
+                    How close it is to you
+                    <TkImpactTag level={eventImpact(lead)} label={impactLabel(lead)} />
+                  </span>
+                }
+                captionRight={distanceLabel(lead.distanceMiles)}
+                tip="Straight-line distance from your location to the geocoded venue"
+                tipValue={distanceLabel(lead.distanceMiles)}
+              />
+
+              {/* honest demand-window timeline (estimated) */}
+              {leadWindow && (
+                <TkWindowViz
+                  headLabel="Your watch window — estimated"
+                  headValue={`Starts ${leadWindow.startLabel}`}
+                  axisLabels={leadWindow.axisLabels}
+                  segments={[
+                    {
+                      kind: "surge",
+                      left: leadWindow.surgeLeft,
+                      width: leadWindow.surgeWidth,
+                      tip: "Before the event — people grab a bite before heading over",
+                      tipValue: "Before start",
+                    },
+                    {
+                      kind: "you-open",
+                      left: leadWindow.youLeft,
+                      width: leadWindow.youWidth,
+                      tip: "Estimated extra traffic during and just after the event",
+                      tipValue: "During & after",
+                    },
+                  ]}
+                  legend={
+                    <>
+                      <span><i style={{ background: "var(--rust)" }} /> Pre-event rush</span>
+                      <span><i style={{ background: "var(--teal)" }} /> Your busy window</span>
+                      <span className="tk-muted">Estimated from the start time — not a measured count.</span>
+                    </>
+                  }
+                />
+              )}
+            </TkHero>
+          </RevealOnView>
+        )}
+
         {/* ── AT A GLANCE — weighted widgets (honest counts) ── */}
         {snapshot && (
           <RevealOnView>
@@ -391,8 +569,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 size="wide"
                 label="Events nearby"
                 value={String(totalEvents)}
-                sub={`tracked around ${locationName} ${tabLabel}`}
-                data-tip="Distinct local events found in this sweep"
+                sub={`within ${TRADE_AREA_MAX_MILES} mi of ${locationName} ${tabLabel}`}
+                data-tip={`Local events within ~${TRADE_AREA_MAX_MILES} mi of your location`}
                 data-tipv={`${totalEvents} events`}
                 spark={
                   <svg viewBox="0 0 120 60" preserveAspectRatio="none" aria-hidden="true">
@@ -418,7 +596,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 label="Unique venues"
                 value={String(uniqueVenues)}
                 sub="hosting events near you"
-                data-tip="Distinct venues hosting events in this sweep"
+                data-tip="Distinct venues hosting events near you"
                 data-tipv={`${uniqueVenues} venues`}
               />
               <TkWidget
@@ -433,130 +611,28 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           </RevealOnView>
         )}
 
-        {/* ── HOT VENUES ── */}
+        {/* ── HOT VENUES ── ALT-216(a): a quiet, scannable list, not button/chips. */}
         {topVenues.length > 0 && (
           <RevealOnView>
-            <TkCard className="flex flex-wrap items-center gap-2">
-              <span className="mr-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
+            <TkCard>
+              <span className="mb-2.5 block font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--ink-3)]">
                 Hot venues
               </span>
-              {topVenues.map(([name, count]) => (
-                <span
-                  key={name}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[var(--paper-2)] px-3 py-1 text-xs font-medium text-[var(--ink)] ring-1 ring-[var(--line)]"
-                >
-                  <span className="text-[var(--rust-deep)]">{PIN_ICON_INLINE}</span>
-                  {name}
-                  <span className="rounded-full bg-[var(--rust-tint)] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[var(--rust-deep)]">
-                    {count}
-                  </span>
-                </span>
-              ))}
+              <ul className="flex flex-col divide-y divide-[var(--line)]">
+                {topVenues.map(([name, count]) => (
+                  <li
+                    key={name}
+                    className="flex items-center gap-2 py-2 text-sm text-[var(--ink)] first:pt-0 last:pb-0"
+                  >
+                    <span className="text-[var(--rust-deep)]">{PIN_ICON_INLINE}</span>
+                    <span className="font-medium">{name}</span>
+                    <span className="ml-auto font-mono text-[11px] text-[var(--ink-3)]">
+                      {count} event{count !== 1 ? "s" : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </TkCard>
-          </RevealOnView>
-        )}
-
-        {/* ── HERO — the lead event (nearest / highest-draw) ── */}
-        {lead && (
-          <RevealOnView>
-            <TkHero
-              titleId="events-lead"
-              title={lead.title ?? "A draw worth prepping for"}
-              chips={
-                <>
-                  <TkChip family={leadFamily}>{eventChipLabel(lead, leadMatched)}</TkChip>
-                  <TkConfidence level={eventConfidence(lead)} />
-                </>
-              }
-              lede={
-                <>
-                  {lead.venue?.name ? <b>{lead.venue.name}</b> : "Nearby"}
-                  {" · "}
-                  {distanceLabel(lead.distanceMiles)}
-                  {lead.startDatetime ? <> · {formatDate(lead.startDatetime)}</> : null}
-                  {leadMatched ? " · a competitor is tied to this one" : ""}
-                  {". "}
-                  This is the closest, biggest draw in your window — expect knock-on foot traffic around it.
-                </>
-              }
-              photo={
-                <div
-                  className="tk-photo"
-                  data-label={lead.venue?.name ?? locationName}
-                  style={
-                    lead.imageUrl
-                      ? ({ backgroundImage: `url("${lead.imageUrl}")` } as CSSProperties)
-                      : undefined
-                  }
-                >
-                  <div className="tk-veil" />
-                </div>
-              }
-              venueChip={
-                lead.startDatetime ? (
-                  <>
-                    {PIN_ICON_INLINE}
-                    {formatTime(lead.startDatetime)}
-                  </>
-                ) : undefined
-              }
-              actions={
-                <div className="flex flex-wrap items-center gap-2">
-                  {lead.url && (
-                    <a href={lead.url} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-act">
-                      {LINK_ICON} Event details
-                    </a>
-                  )}
-                  {lead.venue?.mapsUrl && (
-                    <a href={lead.venue.mapsUrl} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-keep">
-                      {PIN_ICON_INLINE} Map it
-                    </a>
-                  )}
-                </div>
-              }
-            >
-              {/* honest proximity meter */}
-              <TkRangeBar
-                value={proximityFill(lead.distanceMiles)}
-                scale={["Across town", "Few blocks", "Next door"]}
-                caption="How close it is to you"
-                captionRight={distanceLabel(lead.distanceMiles)}
-                tip="Straight-line distance from your location to the geocoded venue"
-                tipValue={distanceLabel(lead.distanceMiles)}
-              />
-
-              {/* honest demand-window timeline (estimated) */}
-              {leadWindow && (
-                <TkWindowViz
-                  headLabel="Your watch window — estimated"
-                  headValue={`Kickoff ${leadWindow.startLabel}`}
-                  axisLabels={["4 PM", "7 PM", "9 PM", "Midnight"]}
-                  segments={[
-                    {
-                      kind: "surge",
-                      left: leadWindow.surgeLeft,
-                      width: leadWindow.surgeWidth,
-                      tip: "Pre-event window — people fuel up before heading over",
-                      tipValue: "Before kickoff",
-                    },
-                    {
-                      kind: "you-open",
-                      left: leadWindow.youLeft,
-                      width: leadWindow.youWidth,
-                      tip: "Estimated knock-on traffic during and just after the event",
-                      tipValue: "During & after",
-                    },
-                  ]}
-                  legend={
-                    <>
-                      <span><i style={{ background: "var(--rust)" }} /> Pre-event rush</span>
-                      <span><i style={{ background: "var(--teal)" }} /> Your knock-on window</span>
-                      <span className="tk-muted">Estimated from kickoff time — not measured covers.</span>
-                    </>
-                  }
-                />
-              )}
-            </TkHero>
           </RevealOnView>
         )}
 
@@ -576,7 +652,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     <TkCard>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <TkChip family="competitive">Events insight</TkChip>
-                        <TkConfidence level={severityToConfidence(ins.severity)} showLabel={false} />
+                        {/* ALT-214: show the impact/confidence label, not bare pips */}
+                        <TkConfidence level={severityToConfidence(ins.severity)} />
                       </div>
                       <h4 className="font-display text-[15px] font-bold leading-snug tracking-[-0.01em] text-[var(--ink)]">
                         {ins.title}
@@ -644,20 +721,37 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   {dayEvents.map((ev, i) => {
                     const isMatched = matchedUids.has(ev.uid)
                     const matchedNames = matchedCompetitorNames.get(ev.uid) ?? []
-                    const domain = extractDomain(ev.url)
+                    // ALT-210: deepest real destination; keep the source domain as the call-out.
+                    const deepLink = pickEventDeepLink(ev)
+                    const domain = extractDomain(deepLink ?? ev.url ?? undefined)
                     const time = formatTime(ev.startDatetime)
                     const family = eventFamily(ev, isMatched)
                     const links: ReactNode[] = []
-                    if (ev.url) {
+                    // ALT-216(c): primary "Event details" in the brand copper treatment.
+                    if (deepLink) {
                       links.push(
                         <a
                           key="ev"
-                          href={ev.url}
+                          href={deepLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md bg-[var(--rust-tint)] px-2 py-1 text-[10px] font-medium text-[var(--rust-deep)] transition hover:opacity-80"
+                          className="tk-btn tk-btn-act tk-btn-sm"
                         >
-                          {LINK_ICON} {domain ?? "Event"}
+                          {LINK_ICON} Event details
+                        </a>
+                      )
+                    }
+                    // Keep the clickable data-source call-out (which site this came from).
+                    if (domain) {
+                      links.push(
+                        <a
+                          key="src"
+                          href={deepLink ?? ev.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--ink-3)] underline decoration-dotted underline-offset-2 transition hover:text-[var(--ink)]"
+                        >
+                          {domain}
                         </a>
                       )
                     }
@@ -674,6 +768,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                         </a>
                       )
                     })
+                    // ALT-216(b): "Map it" is a small text-only link off to the side.
                     if (ev.venue?.mapsUrl) {
                       links.push(
                         <a
@@ -681,9 +776,9 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                           href={ev.venue.mapsUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-[var(--rust-deep)] transition hover:opacity-80"
+                          className="tk-maplink ml-auto"
                         >
-                          {PIN_ICON_INLINE} Map
+                          {PIN_ICON_INLINE} Map it
                         </a>
                       )
                     }
@@ -694,7 +789,8 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                           family={family}
                           icon={CAL_ICON}
                           title={ev.title ?? "Untitled event"}
-                          confidence={<TkConfidence level={eventConfidence(ev)} showLabel={false} />}
+                          // ALT-214: show the confidence label, not bare pips
+                          confidence={<TkConfidence level={eventConfidence(ev)} />}
                           chips={
                             <>
                               <TkChip family={family}>{eventChipLabel(ev, isMatched)}</TkChip>
@@ -713,11 +809,16 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             </>
                           }
                         >
-                          {/* proximity / draw meter */}
+                          {/* proximity / draw meter — ALT-214: paired with an impact label */}
                           <TkRangeBar
                             value={proximityFill(ev.distanceMiles)}
                             scale={["Across town", "Few blocks", "Next door"]}
-                            caption="Proximity"
+                            caption={
+                              <span className="inline-flex items-center gap-2">
+                                Proximity
+                                <TkImpactTag level={eventImpact(ev)} label={impactLabel(ev)} />
+                              </span>
+                            }
                             captionRight={distanceLabel(ev.distanceMiles)}
                             tip="Straight-line distance to the geocoded venue"
                             tipValue={distanceLabel(ev.distanceMiles)}

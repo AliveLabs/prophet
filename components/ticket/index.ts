@@ -27,13 +27,14 @@ export type {
 // layout blocks (server-safe)
 export {
   TkActions,
+  TkImpactTag,
   TkHero,
   TkPlayCard,
   TkWidgetGrid,
   TkWidget,
   TkWidgetRow,
 } from "./layout-blocks"
-export type { TkWidgetTone, TkWidgetSize } from "./layout-blocks"
+export type { TkWidgetTone, TkWidgetSize, TkImpactLevel } from "./layout-blocks"
 
 // interactive viz islands (client)
 export {

@@ -6,7 +6,9 @@ import { useInView } from "./use-in-view"
 import { TkVizCap, tkcx as cx } from "./primitives"
 
 /* ════════════════════════════════════════════════════════════════════
-   TkRangeBar — single fill 0→value with a point marker.
+   TkRangeBar — single fill 0→value. A static read-only meter: the fill
+   color sweeps across the bar to show magnitude, but there's no marker,
+   no drag handle, and no clickable affordance (this bar isn't interactive).
    ════════════════════════════════════════════════════════════════════ */
 export function TkRangeBar({
   value,
@@ -36,10 +38,6 @@ export function TkRangeBar({
         data-tipv={tipValue}
       >
         <div className="tk-fill" style={{ width: inView ? `${value}%` : 0 }} />
-        <div
-          className={cx("tk-pt", inView && "tk-show")}
-          style={{ left: `${value}%` }}
-        />
       </div>
       {scale && (
         <div className="tk-range-scale">
