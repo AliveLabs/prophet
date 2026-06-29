@@ -27,6 +27,7 @@ import {
   TkTooltipLayer,
 } from "@/components/ticket"
 import { PassPlayCard } from "./pass-play-card"
+import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
 import { playFamily, confLabel } from "./pass-map"
@@ -245,6 +246,12 @@ export default function BriefView({
               </div>
             ) : null}
 
+            {/* ── See-all-insights link (ALT-184a) — at the END of the brief's insights, near
+                "Cleared today", not orphaned at the bottom of the whole page. ── */}
+            <a className="pass-pool-link" href="/home/pool">
+              See all insights in your pool &rarr;
+            </a>
+
             {/* ── AT-A-GLANCE WIDGETS ── */}
             <TkSectionHead title="At a glance" sub="Weighted widgets · your week" className="pass-sec" />
             <RevealOnView>
@@ -343,37 +350,26 @@ export default function BriefView({
                     Your standing question · re-ran with this morning&apos;s brief
                   </span>
                 </div>
-              ) : (
+              ) : readOnly ? (
+                /* Preview surface: non-interactive, no navigation (ALT-183 wiring is live-only). */
                 <>
-                  {readOnly ? (
-                    <div className="pass-ask-field" aria-hidden="true">
-                      <span>Ask about your market…</span>
-                    </div>
-                  ) : (
-                    <a className="pass-ask-field" href="/ask" aria-label="Ask Ticket">
-                      <span>Ask about your market…</span>
-                    </a>
-                  )}
+                  <div className="pass-ask-field" aria-hidden="true">
+                    <span>Ask about your market…</span>
+                  </div>
                   <div className="pass-ask-chips">
-                    {readOnly ? (
-                      <>
-                        <span className="pass-ask-chip">Who&apos;s undercutting me?</span>
-                        <span className="pass-ask-chip">What changed this week?</span>
-                        <span className="pass-ask-chip">Before the weekend?</span>
-                      </>
-                    ) : (
-                      <>
-                        <a className="pass-ask-chip" href="/ask">Who&apos;s undercutting me?</a>
-                        <a className="pass-ask-chip" href="/ask">What changed this week?</a>
-                        <a className="pass-ask-chip" href="/ask">Before the weekend?</a>
-                      </>
-                    )}
+                    <span className="pass-ask-chip">Who&apos;s undercutting me?</span>
+                    <span className="pass-ask-chip">What changed this week?</span>
+                    <span className="pass-ask-chip">Before the weekend?</span>
                   </div>
                   <p className="pass-ask-foot">
                     Domain-locked. Answers come only from your market and competitor data, never the open web.
-                    {readOnly ? " Coming soon." : ""}
+                    {" Coming soon."}
                   </p>
                 </>
+              ) : (
+                /* Live: a REAL input — type + Enter (or a chip) navigates to /ask?q= which
+                   prefills and auto-runs the answer (client island). */
+                <PassAskWidget />
               )}
             </TkCard>
 
@@ -446,12 +442,6 @@ export default function BriefView({
           </RevealOnView>
         </div>
 
-        {/* ── See-all-insights link ── */}
-        {!lowData ? (
-          <a className="pass-pool-link" href="/home/pool">
-            See all insights in your pool &rarr;
-          </a>
-        ) : null}
       </div>
     </TkToastProvider>
   )

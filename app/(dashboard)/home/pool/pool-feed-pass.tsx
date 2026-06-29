@@ -117,7 +117,8 @@ export default function PoolFeedPass({ entries }: { entries: PoolEntry[] }) {
 
   return (
     <div className="pool-feed">
-      {/* ── FILTER STRIP ── */}
+      {/* ── FILTER STRIP (ALT-184c: the "top only" chip flows INLINE with the category
+          tabs in one wrapping group, instead of being pushed onto its own row). ── */}
       <RevealOnView className="pool-filters" as="div">
         <div className="pool-tabs" role="group" aria-label="Filter insights by type">
           {tabs.map((t) => (
@@ -132,21 +133,21 @@ export default function PoolFeedPass({ entries }: { entries: PoolEntry[] }) {
               <span className="pool-tab-n">{t.count}</span>
             </button>
           ))}
+          {topCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => setTopOnly((v) => !v)}
+              aria-pressed={topOnly}
+              className={tkcx("pool-topfilter", topOnly && "pool-topfilter-on")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M6 9h12l-1.5 9h-9z" />
+                <path d="M9 9V6a3 3 0 0 1 6 0v3" />
+              </svg>
+              This week&apos;s top only
+            </button>
+          ) : null}
         </div>
-        {topCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => setTopOnly((v) => !v)}
-            aria-pressed={topOnly}
-            className={tkcx("pool-topfilter", topOnly && "pool-topfilter-on")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M6 9h12l-1.5 9h-9z" />
-              <path d="M9 9V6a3 3 0 0 1 6 0v3" />
-            </svg>
-            This week&apos;s top only
-          </button>
-        ) : null}
       </RevealOnView>
 
       {/* ── INSIGHT GRID ── */}
@@ -158,11 +159,16 @@ export default function PoolFeedPass({ entries }: { entries: PoolEntry[] }) {
             const level = confLevel(resolveConfidence(e))
             const whyPoints = playWhyPoints(play)
             const whySource = playWhySource(play)
+            // ALT-184d: the 5 family glyphs each cover several categories (e.g. Demand,
+            // Marketing, Positioning, Operations all share the "competitive" chart icon),
+            // so the icon alone is ambiguous. Label it with the precise category on hover —
+            // the text chip below still carries the category in plain view.
+            const catLabel = playChipLabel(play)
             return (
               <div key={e.id} style={{ "--tk-i": Math.min(i, 12) } as CSSProperties}>
                 <TkPlayCard
                   family={family}
-                  icon={FAMILY_ICON[family]}
+                  icon={<span className="pool-card-icon" title={catLabel}>{FAMILY_ICON[family]}</span>}
                   title={play?.title ?? "Insight"}
                   summary={play?.rationale}
                   // ONE product-wide confidence encoding (segmented pips) top-right — consistent

@@ -8,7 +8,7 @@
 // product-wide TkConfidence pips + sources, the honest "not in your data yet" state,
 // and a "Pin this" action that makes the question re-run every morning (ALT-205).
 
-import { useState, useTransition } from "react"
+import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { TkCard, TkConfidence, RevealOnView, type TkConfidenceLevel } from "@/components/ticket"
 import { setStandingQuestion } from "./actions"
@@ -36,22 +36,38 @@ export default function PassAskBox({
   locationId,
   locationName,
   standingQuestion = null,
+  initialQuestion,
   endpoint = "/api/ask",
 }: {
   locationId: string
   locationName: string
   /** the currently pinned standing question, if any (to reflect "Pinned" state) */
   standingQuestion?: string | null
+  /** ALT-183: a question carried in from the dashboard Ask widget (via ?q=). When present we
+   *  prefill the input and auto-run the answer once on arrival so the page lands already answering. */
+  initialQuestion?: string
   endpoint?: string
 }) {
   const router = useRouter()
-  const [q, setQ] = useState("")
+  const [q, setQ] = useState(initialQuestion ?? "")
   const [asked, setAsked] = useState("")
   const [loading, setLoading] = useState(false)
   const [answer, setAnswer] = useState<AskAnswer | null>(null)
   const [pinning, startPin] = useTransition()
   const [pinnedThis, setPinnedThis] = useState(false)
   const [pinError, setPinError] = useState<string | null>(null)
+
+  // ALT-183: auto-run the carried-in question exactly once on mount. Guarded by a ref so a
+  // re-render (e.g. from router.refresh on pin) never re-fires it.
+  const autoRan = useRef(false)
+  useEffect(() => {
+    if (autoRan.current) return
+    const seed = initialQuestion?.trim()
+    if (!seed) return
+    autoRan.current = true
+    void ask(seed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function ask(question: string) {
     const qq = question.trim()

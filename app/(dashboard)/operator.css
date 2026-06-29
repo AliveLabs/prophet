@@ -243,7 +243,11 @@
 .pv-h1{ font-family:var(--font-display); font-weight:400; line-height:1.04; letter-spacing:-.01em; font-size:46px; color:var(--ink); margin:8px 0 0; }
 .pv-sub{ font-size:16px; line-height:1.5; color:var(--print); margin:14px 0 0; max-width:60ch; }
 .pv-rule{ border:0; border-top:2px solid var(--ink); margin:18px 0 0; }
-.pv-back{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--slate); margin-top:6px; }
+/* ALT-184e: the back link is the first element on secondary views (pool / play detail),
+   sitting directly under the trial/dunning banner — give it real top breathing room so it
+   isn't cramped against the banner. Only affects pages that have a back link. */
+.pv-back{ display:inline-flex; align-items:center; gap:7px; font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.08em; font-size:12px; color:var(--slate); margin-top:22px; }
+@media (max-width:900px){ .pv-back{ margin-top:16px; } }
 .pv-back:hover{ color:var(--ink); }
 
 .pv-section{ margin-top:34px; }

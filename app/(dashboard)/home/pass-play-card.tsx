@@ -189,15 +189,12 @@ export function PassPlayCard({
 
   const kept = current === "saved"
 
-  // ── the ACT verb adapts to the family (Concept A's verbs) ──
-  const ACT_VERB: Record<string, string> = {
-    social: "Draft a post",
-    menu: "Make it the hero",
-    grassroots: "Draft the outreach",
-    reputation: "See the fix",
-    competitive: "See the play",
-  }
-  const actVerb = ACT_VERB[family] ?? "See the play"
+  // ── the primary CTA label (ALT-166) ──
+  // ONE consistent label across every play card, regardless of family. The old
+  // family-specific verbs ("Draft a post" / "Make it the hero" / "Draft the outreach")
+  // read inconsistently and didn't scale; the drawer header already carries the play's
+  // own title + family chip, so the button only needs to name the action: open the play.
+  const actVerb = "See the play"
 
   // ── the confidence / win-flag status shown top-right ──
   const status = advantage ? (
@@ -335,6 +332,7 @@ export function PassPlayCard({
     <TkDrawer
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
+      wide
       chip={<TkChip family={family}>{playChipLabel(play)} · {confLabel(play.confidence)}</TkChip>}
       title={play.title}
     >

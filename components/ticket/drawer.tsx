@@ -17,6 +17,7 @@ export function TkDrawer({
   titleId: titleIdProp,
   children,
   className,
+  wide = false,
 }: {
   open: boolean
   onClose: () => void
@@ -27,6 +28,11 @@ export function TkDrawer({
   titleId?: string
   children: ReactNode
   className?: string
+  /** ALT-169: the wide PARTIAL-drawer variant (~78% of viewport on desktop, scrim over the
+   *  still-visible page). The body copy is constrained to a readable max-width via `.tk-drawer-wide`
+   *  so a widescreen drawer doesn't stretch text edge-to-edge. Default stays the narrow 560px form
+   *  used by the form/detail drawers (locations, content screenshot, photo lightbox). */
+  wide?: boolean
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -93,7 +99,7 @@ export function TkDrawer({
       />
       <aside
         ref={panelRef}
-        className={cx("tk-drawer", open && "tk-open", className)}
+        className={cx("tk-drawer", wide && "tk-drawer-wide", open && "tk-open", className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

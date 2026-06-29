@@ -454,6 +454,50 @@
 }
 .ticket-brief .pass-ask-field span { color: var(--ink-3); font-size: 13.5px; }
 .ticket-brief a.pass-ask-field:hover { border-color: var(--rust); }
+
+/* ALT-183 — the live, typeable ask field (input + inline submit arrow). Matches the
+   .pass-ask-field shell; only Enter / the arrow navigates to /ask?q=. */
+.ticket-brief .pass-ask-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card-2);
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.ticket-brief .pass-ask-form:focus-within { border-color: var(--rust); box-shadow: 0 0 0 3px var(--rust-tint); }
+.ticket-brief .pass-ask-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-family: inherit;
+  padding: 6px 0;
+}
+.ticket-brief .pass-ask-input::placeholder { color: var(--ink-3); }
+.ticket-brief .pass-ask-input:focus { outline: none; }
+.ticket-brief .pass-ask-go {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  border: 0;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(145deg, var(--rust), var(--rust-2, var(--rust)));
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.ticket-brief .pass-ask-go svg { width: 16px; height: 16px; }
+.ticket-brief .pass-ask-go:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.ticket-brief .pass-ask-go:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
+
 .ticket-brief .pass-ask-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
 .ticket-brief .pass-ask-chip {
   font-size: 11.5px;
@@ -468,7 +512,11 @@
   display: inline-flex;
   align-items: center;
 }
-.ticket-brief a.pass-ask-chip:hover { border-color: var(--rust); color: var(--ink); }
+/* chip is a <button> when live, an <a>/<span> in preview — style both, hover only on actionable */
+.ticket-brief button.pass-ask-chip { cursor: pointer; font-family: inherit; }
+.ticket-brief a.pass-ask-chip:hover,
+.ticket-brief button.pass-ask-chip:hover { border-color: var(--rust); color: var(--ink); }
+.ticket-brief button.pass-ask-chip:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }
 .ticket-brief .pass-ask-foot {
   margin-top: 12px;
   font-family: var(--font-mono);
@@ -616,10 +664,11 @@
   padding: 4px 11px;
 }
 
-/* ── See-all-insights link ────────────────────────────────────── */
+/* ── See-all-insights link (ALT-184a: now at the end of the brief's insights, before
+   "At a glance") ──────────────────────────────────────────────── */
 .ticket-brief .pass-pool-link {
   display: inline-block;
-  margin-top: 30px;
+  margin-top: 22px;
   font-family: var(--font-cond, var(--font-display));
   font-size: 12.5px;
   letter-spacing: 0.12em;

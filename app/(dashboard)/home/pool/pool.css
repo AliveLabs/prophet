@@ -8,8 +8,11 @@
 .ticket-app .pool-h1-loc { color: var(--ink-3); font-weight: 400; }
 .ticket-app .pool-body { margin-top: 24px; }
 
-/* ── grid flow: the kits .tk-grid gives 2-col→1-col; this only equalizes card height ── */
-.ticket-app .pool-grid { align-items: start; margin-top: 4px; }
+/* ── grid flow (ALT-184b): the kit's .tk-grid gives 2-col→1-col. We let the grid rows
+   STRETCH (no `align-items: start`) so the two cards in a row are equal-height — no ragged
+   gap below the shorter card. Each cell + its card fill the row height so the card frames
+   line up cleanly instead of leaving broken-looking random gaps. ── */
+.ticket-app .pool-grid { align-items: stretch; margin-top: 4px; }
 .ticket-app .pool-grid > div { display: flex; }
 .ticket-app .pool-grid > div > * { width: 100%; }
 
@@ -67,9 +70,10 @@
 }
 .ticket-app .pool-tab-on .pool-tab-n { opacity: 0.82; }
 
-/* the "top only" toggle pushes to the trailing edge on wide rows */
+/* the "top only" toggle flows INLINE with the category tabs (ALT-184c) — a small left
+   margin sets it apart as a distinct filter without dropping it onto its own row. */
 .ticket-app .pool-topfilter {
-  margin-left: auto;
+  margin-left: 4px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -95,6 +99,11 @@
   background: color-mix(in srgb, var(--gold) 12%, var(--card));
   box-shadow: var(--shadow-sm);
 }
+
+/* ALT-184d: the category-labelled icon wrapper — inherit the kit icon box's centering
+   so the title-tooltip span doesn't disturb the 38px glyph slot. */
+.ticket-app .pool-card-icon { display: grid; place-items: center; width: 100%; height: 100%; }
+.ticket-app .pool-card-icon svg { width: 20px; height: 20px; }
 
 /* ── "Top this week" chip (gold; -deep text for AA on small type) ── */
 .ticket-app .pool-top-chip {

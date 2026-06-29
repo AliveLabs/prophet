@@ -447,6 +447,15 @@
 .tk-drawer-body { padding: 22px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
 .tk-drawer-body h2 { font-family: var(--font-display); font-size: 22px; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; text-wrap: balance; }
 
+/* ALT-169 — the WIDE partial-drawer variant (play opens). The panel takes ~78% of the
+   viewport (capped) with the scrim leaving the page visible behind it, but the BODY copy
+   is constrained to a readable column so text never stretches edge-to-edge on widescreen.
+   The header keeps its own padding; only the body content is width-limited + centered. */
+.tk-drawer-wide { width: min(78vw, 980px); }
+.tk-drawer-wide .tk-drawer-body { padding: 26px clamp(22px, 6vw, 64px) 40px; }
+.tk-drawer-wide .tk-drawer-body > * { width: 100%; max-width: 680px; margin-inline: auto; }
+.tk-drawer-wide .tk-drawer-body h2 { font-size: 26px; }
+
 /* plan steps + draft box used inside the drawer */
 .tk-plan-step { display: flex; gap: 13px; }
 .tk-plan-step .tk-pn { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 13px; background: var(--rust-tint); color: var(--rust-deep); }
@@ -460,11 +469,22 @@
 .tk-copy-btn:hover { background: var(--rust-tint); }
 .tk-copy-btn.tk-copied { color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 40%, transparent); background: var(--teal-tint); }
 
+/* tablet: the WIDE drawer stays a right-side panel but goes nearly full-width so the
+   readable body column still has room (ALT-169: tablet should remain full-ish width). */
+@media (min-width: 761px) and (max-width: 1024px) {
+  .tk-drawer-wide { width: min(92vw, 760px); }
+  .tk-drawer-wide .tk-drawer-body { padding: 24px clamp(22px, 5vw, 44px) 36px; }
+}
+
 @media (max-width: 760px) {
-  /* bottom sheet on mobile */
+  /* bottom sheet on mobile — wide + narrow drawers alike go full-width here */
   .tk-drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100%; max-height: 90vh; border-left: 0; border-top: 1px solid var(--line-2); border-radius: var(--r-xl) var(--r-xl) 0 0; transform: translateY(100%); padding-bottom: env(safe-area-inset-bottom, 0px); }
   .tk-drawer.tk-open { transform: translateY(0); }
   .tk-drawer-head { border-radius: var(--r-xl) var(--r-xl) 0 0; }
+  /* on phone the readable-column cap is moot (panel is already narrow) — let it fill */
+  .tk-drawer-wide { width: 100%; }
+  .tk-drawer-wide .tk-drawer-body { padding: 22px; }
+  .tk-drawer-wide .tk-drawer-body > * { max-width: none; margin-inline: 0; }
 }
 
 /* ════════════════════════════════════════════════════════════

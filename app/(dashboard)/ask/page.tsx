@@ -43,7 +43,18 @@ function toLevel(c: AskRecord["confidence"]): TkConfidenceLevel {
   return c === "high" ? "high" : c === "medium" ? "medium" : "directional"
 }
 
-export default async function AskPage() {
+export default async function AskPage({
+  searchParams,
+}: {
+  // ALT-183: the dashboard Ask widget (and its preloaded question chips) navigate here with
+  // ?q=<question>; we read it server-side and hand it to the box as the initial question so it
+  // prefills the input and auto-runs the answer on arrival.
+  searchParams?: Promise<{ q?: string | string[] }>
+}) {
+  const sp = (await searchParams) ?? {}
+  const qParam = Array.isArray(sp.q) ? sp.q[0] : sp.q
+  const initialQuestion = qParam?.trim() ? qParam.trim() : undefined
+
   const op = await resolveOperator()
   const [recent, standingQuestion, standingAnswer] = await Promise.all([
     loadRecentAsks(op.locationId, 10),
@@ -71,6 +82,7 @@ export default async function AskPage() {
             locationId={op.locationId}
             locationName={op.locationName}
             standingQuestion={standingQuestion}
+            initialQuestion={initialQuestion}
           />
         </div>
 
