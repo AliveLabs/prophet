@@ -409,6 +409,75 @@
   border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
+/* ALT-175: video badge — bottom-left glass chip over the cover frame. */
+.pd-proof-vid {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 26, 32, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.pd-proof-vid-ic {
+  display: inline-flex;
+}
+.pd-proof-vid-ic svg {
+  width: 11px;
+  height: 11px;
+  /* the PLAY glyph is a stroked triangle; fill it so it reads as a play button */
+  fill: #fff;
+  stroke: #fff;
+}
+
+/* ALT-174: "open original post" — top-right glass button over the media. */
+.pd-proof-open {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: #fff;
+  background: rgba(20, 26, 32, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+.pd-proof-open svg {
+  width: 15px;
+  height: 15px;
+}
+.pd-proof-open:hover {
+  background: var(--teal-deep, rgba(20, 26, 32, 0.85));
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pd-proof-open:hover {
+    transform: translateY(-1px);
+  }
+}
+.pd-proof-open:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
 .pd-proof-meta {
   display: flex;
   flex-direction: column;
@@ -478,6 +547,16 @@
   text-transform: uppercase;
   color: var(--teal-deep);
   margin-bottom: 3px;
+}
+/* ALT-173: honest "no read yet" — muted + italic so it reads as an absence of data,
+   not a claim about the post. The label loses the confident teal accent. */
+.pd-proof-why-none {
+  color: var(--ink-3);
+  font-style: italic;
+}
+.pd-proof-why-none .pd-proof-why-label {
+  color: var(--ink-3);
+  font-style: normal;
 }
 
 /* ── RESPONSIVE / MOBILE ────────────────────────────────── */

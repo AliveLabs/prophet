@@ -50,6 +50,12 @@ const PLAY = (
     <path d="M5 3l14 9-14 9z" />
   </svg>
 )
+const EXTERNAL = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <path d="M15 3h6v6M10 14L21 3" />
+  </svg>
+)
 
 function ProofCard({ p }: { p: ProofPost }) {
   const stats: Array<{ icon: typeof HEART; value: string; label: string }> = []
@@ -76,7 +82,28 @@ function ProofCard({ p }: { p: ProofPost }) {
             </span>
           </div>
         )}
+        {/* ALT-175: flag video/reel posts (the frame shown is the cover; frame SELECTION
+            is a pipeline concern — see FLAG in the report). */}
+        {p.isVideo ? (
+          <span className="pd-proof-vid" aria-label="Video post">
+            <span className="pd-proof-vid-ic" aria-hidden="true">{PLAY}</span>
+            Video
+          </span>
+        ) : null}
         <span className="pd-proof-net">{PLATFORM_LABEL[p.platform] ?? p.platform}</span>
+        {/* ALT-174: open the original post in a new tab; hidden when no URL is derivable. */}
+        {p.postUrl ? (
+          <a
+            className="pd-proof-open"
+            href={p.postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open ${p.entityName}'s original post on ${PLATFORM_LABEL[p.platform] ?? p.platform} (opens in a new tab)`}
+            title="Open original post"
+          >
+            {EXTERNAL}
+          </a>
+        ) : null}
       </div>
       <figcaption className="pd-proof-meta">
         <div className="pd-proof-who">
@@ -107,7 +134,14 @@ function ProofCard({ p }: { p: ProofPost }) {
             <span className="pd-proof-why-label">Content</span>
             {p.category}
           </p>
-        ) : null}
+        ) : (
+          /* ALT-173: no usable read — say so honestly rather than leaving a blank label
+             or crediting the post with an aesthetic we can't verify. */
+          <p className="pd-proof-why pd-proof-why-none">
+            <span className="pd-proof-why-label">Why it landed</span>
+            We don&apos;t have a confident read on this one yet.
+          </p>
+        )}
       </figcaption>
     </figure>
   )

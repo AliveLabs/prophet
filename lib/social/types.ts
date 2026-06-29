@@ -107,6 +107,11 @@ export type NormalizedSocialPost = {
   text: string | null
   mediaUrl: string | null
   mediaType: SocialMediaType
+  /** Permalink to the ORIGINAL post on the platform, when derivable from the raw payload
+   *  (ALT-174). Built in the normalizer from the platform's stable id/shortcode/username.
+   *  Absent on legacy snapshots captured before this field existed — they self-heal on the
+   *  next daily pull. Renderers must hide the "open original" affordance when this is null. */
+  postUrl?: string | null
   likesCount: number
   commentsCount: number
   sharesCount: number

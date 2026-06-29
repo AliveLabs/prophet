@@ -74,7 +74,19 @@ export function CompetitorPostsGrid({ posts }: { posts: ProofPost[] }) {
                 </>
               }
               photo={photo}
-              caption={p.why ? <><b>Why it worked:</b> {p.why}</> : p.category ? <><b>Content:</b> {p.category}</> : undefined}
+              postUrl={p.postUrl}
+              postUrlLabel={`Open ${p.entityName}'s post on ${PLATFORM_LABEL[p.platform] ?? p.platform}`}
+              video={p.isVideo}
+              caption={
+                p.why ? (
+                  <><b>Why it worked:</b> {p.why}</>
+                ) : p.category ? (
+                  <><b>Content:</b> {p.category}</>
+                ) : (
+                  // ALT-173: honest absence, never a fabricated read.
+                  <span className="tk-muted">No confident read on this post yet.</span>
+                )
+              }
               stats={stats}
             />
           </div>

@@ -212,3 +212,20 @@ export function playWhySource(play: EnrichedRecommendation): string | undefined 
 export function whyLabel(play: EnrichedRecommendation): string {
   return play.confidence === "directional" ? "Why this is directional" : "Why we're confident"
 }
+
+/* ── ALT-176: gate "What the rivals are running" (rivals' social posts) ───
+ * The rival-post grid is only EVIDENCE when the play is about social/competitive
+ * content — seeing what rivals post directly informs a social or head-to-head play.
+ * On a menu-listing, reputation/review, or grassroots play it's an unrelated tack-on,
+ * so we suppress it there. Relevance is read from the play's family + whether it's
+ * actually grounded in a social signal (so a competitive play with no social evidence
+ * still qualifies on family, but a pure menu/review play never does).
+ *
+ * FLAG: relevance isn't modeled on the play itself; this is a family/ref heuristic.
+ * If the engine later stamps a per-play "evidence surfaces" set, gate on that instead. */
+export function playShowsRivalPosts(play: EnrichedRecommendation): boolean {
+  const family = playFamily(play)
+  if (family === "social" || family === "competitive") return true
+  // Otherwise only when the play is explicitly grounded in a social signal.
+  return (play.evidenceRefs ?? []).some((r) => r.startsWith("social"))
+}

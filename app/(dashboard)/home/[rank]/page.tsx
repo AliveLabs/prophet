@@ -46,6 +46,7 @@ import {
   playWhyPoints,
   playWhySource,
   whyLabel,
+  playShowsRivalPosts,
 } from "../pass-map"
 import { playHeadToHead, leverageLabel, kindLabel } from "./detail-map"
 import "./detail.css"
@@ -56,7 +57,10 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
   const idx = Number.parseInt(rank, 10) - 1
   const play = ctx.brief?.plays[idx]
   if (!play) notFound()
-  const proof = await loadMarketProof(6)
+  // ALT-176: only load + show rivals' posts when they're evidence for THIS play
+  // (social/competitive plays), not as a blanket tack-on under every insight.
+  const showRivalPosts = playShowsRivalPosts(play)
+  const proof = showRivalPosts ? await loadMarketProof(6) : []
 
   // resolve evidenceRefs -> the real grounded insights behind this play (user-scoped, RLS)
   const types = Array.from(new Set(play.evidenceRefs.map((r) => r.split(":")[0])))

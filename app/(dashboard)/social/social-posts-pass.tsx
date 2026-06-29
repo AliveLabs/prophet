@@ -178,6 +178,9 @@ export default function SocialPostsPass({ posts }: { posts: PostWithMeta[] }) {
                   }
                   photo={photo}
                   photoLabel={PLATFORM_LABEL[post.platform]}
+                  postUrl={post.postUrl}
+                  postUrlLabel={`Open this ${PLATFORM_LABEL[post.platform]} post`}
+                  video={post.mediaType === "video" || post.mediaType === "reel"}
                   caption={caption}
                   tags={
                     post.hashtags.length

@@ -1,9 +1,24 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useInView } from "./use-in-view"
 import { TkVizCap, tkcx as cx } from "./primitives"
+
+/* Reveal-on-mount: flips to `true` on the first client commit, so a 0→value bar
+   fill always reaches its final width — even when the element is born inside a
+   collapsed <details> or an opacity:0 RevealOnView subtree (where a nested
+   IntersectionObserver would never fire, leaving bars stuck blank — ALT-177).
+   SSR renders the final value (no flash for no-JS); the brief flip 0→value on
+   hydration drives the CSS width transition. */
+function useReveal(): boolean {
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+  return shown
+}
 
 /* ════════════════════════════════════════════════════════════════════
    TkRangeBar — single fill 0→value. A static read-only meter: the fill
@@ -73,18 +88,22 @@ export function TkSentimentRows({
   caption?: ReactNode
   captionRight?: ReactNode
 }) {
-  const { ref, inView } = useInView<HTMLDivElement>()
+  // Reveal on mount, not on intersection: this viz is frequently rendered inside a
+  // collapsed <details> ("See the evidence") or an opacity:0 RevealOnView wrapper,
+  // where a nested IntersectionObserver never fires and the bars would stay blank
+  // at width:0 (ALT-177). Mount-reveal always reaches the final width.
+  const shown = useReveal()
   return (
     <div className="tk-viz">
       {caption && <TkVizCap left={caption} right={captionRight} />}
-      <div className="tk-sentcat" ref={ref}>
+      <div className="tk-sentcat">
         {rows.map((r, i) => (
           <div className="tk-scrow" key={i}>
             <span className="tk-cn">{r.label}</span>
             <div className="tk-sctrack" data-tip={r.tip} data-tipv={r.tipValue}>
               <i
                 className={cx("tk-scf", `tk-${r.tone}`)}
-                style={{ width: inView ? `${r.width}%` : 0 }}
+                style={{ width: shown ? `${r.width}%` : 0 }}
               />
             </div>
             <span className={cx("tk-pv", `tk-pv-${r.tone}`)}>{r.value}</span>
@@ -365,6 +384,9 @@ export function TkSocialEmbed({
   stats,
   photo,
   photoLabel,
+  postUrl,
+  postUrlLabel = "Open original post",
+  video = false,
 }: {
   handle: ReactNode
   verified?: boolean
@@ -376,6 +398,13 @@ export function TkSocialEmbed({
   stats?: Array<{ value: ReactNode; label: ReactNode; highlight?: boolean; tip?: string; tipValue?: string }>
   photo?: ReactNode
   photoLabel?: string
+  /** ALT-174: permalink to the original post. When set, an "open original" button overlays
+   *  the media (new tab, noopener). Hidden entirely when null/undefined — never a dead link. */
+  postUrl?: string | null
+  /** Accessible label for the open-original button. */
+  postUrlLabel?: string
+  /** ALT-175: render a "Video" badge over the media when the post is a video/reel. */
+  video?: boolean
 }) {
   return (
     <div className="tk-social-embed">
@@ -396,6 +425,27 @@ export function TkSocialEmbed({
       </div>
       <div className="tk-se-photo">
         {photo ?? <div className="tk-photo" data-label={photoLabel} />}
+        {video && (
+          <span className="tk-se-vid" aria-label="Video post">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 3l14 9-14 9z" /></svg>
+            Video
+          </span>
+        )}
+        {postUrl && (
+          <a
+            className="tk-se-open"
+            href={postUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${postUrlLabel} (opens in a new tab)`}
+            title={postUrlLabel}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <path d="M15 3h6v6M10 14L21 3" />
+            </svg>
+          </a>
+        )}
       </div>
       <div className="tk-se-actions" aria-hidden="true">
         <svg className="tk-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C.9 8.6 2.5 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.5 0 5.1 3.6 3.5 7-2.5 4.5-9.5 9-9.5 9z" /></svg>

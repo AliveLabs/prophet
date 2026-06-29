@@ -26,6 +26,10 @@ export type ProofPost = {
   views: number | null
   category: string | null
   why: string | null
+  /** ALT-174: permalink to the original post, when derivable. Null ⇒ hide the "open original" link. */
+  postUrl: string | null
+  /** ALT-175: true when the post is a video/reel — drives the "Video" badge on the card. */
+  isVideo: boolean
 }
 
 export type CompetitorPhoto = {
@@ -37,19 +41,37 @@ export type CompetitorPhoto = {
   lastSeenAt: string | null
 }
 
-/** One readable line on why a post landed, from the Gemini vision analysis. */
+// ALT-173: a post's vision analysis must clear this confidence floor before we surface
+// any AESTHETIC claim about the image ("good natural light", "strong plating", …). Below
+// it — or when the analysis is the deterministic fallback (confidence 0.3, emitted when the
+// image couldn't be read) — the claims aren't actually tied to the post, so we suppress them
+// rather than credit a poorly-lit photo with "good natural light". 0.55 sits above the parsed
+// default (0.5) and the fallback (0.3), so only a genuinely confident read produces a "why".
+const WHY_CONFIDENCE_FLOOR = 0.55
+
+/** One readable line on why a post landed, from the Gemini vision analysis. Returns null when
+ *  there's no analysis OR when the analysis is too low-confidence to make verifiable claims —
+ *  the caller surfaces an honest "no read yet" line instead of fabricating aesthetics (ALT-173). */
 function whyItWorked(a: SocialPostAnalysis | undefined): string | null {
   if (!a) return null
+  // Promotional detail is OCR'd on-image text, not an aesthetic judgement — keep it even at
+  // lower confidence (it's quoted from the post, so it's verifiable).
+  const promo = a.promotionalContent && a.promotionalDetails ? `promo: ${a.promotionalDetails}` : null
+
+  // Aesthetic/visual claims are only honest above the confidence floor.
+  const confident = typeof a.confidence === "number" && a.confidence >= WHY_CONFIDENCE_FLOOR
   const bits: string[] = []
-  if (a.foodPresentation?.platingQuality === "high") bits.push("strong plating")
-  if (a.foodPresentation?.colorVibrancy === "vibrant") bits.push("vibrant color")
-  if (a.visualQuality?.lighting === "professional" || a.visualQuality?.composition === "professional")
-    bits.push("professional shot")
-  else if (a.visualQuality?.lighting === "natural_good") bits.push("good natural light")
-  if (a.atmosphereSignals?.crowdLevel === "packed" || a.atmosphereSignals?.crowdLevel === "busy")
-    bits.push("visibly busy room")
-  if (a.brandSignals?.visualStyleConsistency === "on_brand") bits.push("on-brand look")
-  if (a.promotionalContent && a.promotionalDetails) bits.push(`promo: ${a.promotionalDetails}`)
+  if (confident) {
+    if (a.foodPresentation?.platingQuality === "high") bits.push("strong plating")
+    if (a.foodPresentation?.colorVibrancy === "vibrant") bits.push("vibrant color")
+    if (a.visualQuality?.lighting === "professional" || a.visualQuality?.composition === "professional")
+      bits.push("professional shot")
+    else if (a.visualQuality?.lighting === "natural_good") bits.push("good natural light")
+    if (a.atmosphereSignals?.crowdLevel === "packed" || a.atmosphereSignals?.crowdLevel === "busy")
+      bits.push("visibly busy room")
+    if (a.brandSignals?.visualStyleConsistency === "on_brand") bits.push("on-brand look")
+  }
+  if (promo) bits.push(promo)
   if (bits.length === 0) return null
   return bits.join(" · ")
 }
@@ -118,6 +140,7 @@ async function loadProofForEntities(
       .sort((a, b) => engagement(b) - engagement(a))
       .slice(0, opts.perEntity)
     for (const p of posts) {
+      const why = whyItWorked(p.visualAnalysis)
       all.push({
         id: `${profile.id}:${p.platformPostId}`,
         entityId: profile.entity_id,
@@ -132,7 +155,9 @@ async function loadProofForEntities(
         shares: p.sharesCount ?? 0,
         views: p.viewsCount ?? null,
         category: categoryLabel(p.visualAnalysis),
-        why: whyItWorked(p.visualAnalysis),
+        why,
+        postUrl: p.postUrl ?? null,
+        isVideo: p.mediaType === "video" || p.mediaType === "reel",
       })
     }
   }

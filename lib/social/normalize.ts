@@ -43,12 +43,17 @@ export function normalizeInstagramPost(raw: InstagramRawPost): NormalizedSocialP
   if (raw.product_type === "clips" || raw.is_video) mediaType = "reel"
   else if (raw.product_type === "carousel_container" || raw.attached_carousel_media_urls?.length) mediaType = "carousel"
 
+  // ALT-174: permalink to the original post. Instagram's shortcode is the stable public
+  // slug (/p/{shortcode}/ resolves reels too); null when the payload omits it.
+  const postUrl = raw.shortcode ? `https://www.instagram.com/p/${raw.shortcode}/` : null
+
   return {
     platformPostId: raw.id ?? raw.shortcode ?? "",
     platform: "instagram",
     text: raw.text ?? null,
     mediaUrl: raw.attached_media_display_url ?? null,
     mediaType,
+    postUrl,
     likesCount: raw.likes_count ?? 0,
     commentsCount: raw.comments_count ?? 0,
     sharesCount: 0,
@@ -106,12 +111,24 @@ export function normalizeFacebookPost(raw: FacebookRawPost): NormalizedSocialPos
   const text = raw.message ?? raw.text ?? null
   const mediaUrl = raw.attached_image_url ?? raw.attached_media_display_url ?? null
 
+  // ALT-174: permalink to the original post. Facebook post ids are of the form
+  // "{pageId}_{postId}"; facebook.com/{pageId}/posts/{postId} resolves the public post.
+  // A bare numeric id (no underscore) isn't reliably linkable, so we leave it null
+  // rather than emit a dead link.
+  const fbId = raw.id ?? ""
+  const fbParts = fbId.split("_")
+  const postUrl =
+    fbParts.length === 2 && fbParts[0] && fbParts[1]
+      ? `https://www.facebook.com/${fbParts[0]}/posts/${fbParts[1]}`
+      : null
+
   return {
     platformPostId: raw.id ?? "",
     platform: "facebook",
     text,
     mediaUrl,
     mediaType,
+    postUrl,
     likesCount: raw.reactions_total_count ?? totalReactions ?? raw.likes_count ?? 0,
     commentsCount: raw.comments_count ?? 0,
     sharesCount: raw.shares_count ?? 0,
@@ -163,12 +180,20 @@ export function normalizeTikTokPost(raw: TikTokRawPost): NormalizedSocialPost {
     typeof h === "string" ? h : (h.name ?? "")
   ).filter(Boolean)
 
+  // ALT-174: permalink to the original post. TikTok video URLs are
+  // tiktok.com/@{username}/video/{id}; null when either part is missing.
+  const postUrl =
+    raw.author_username && raw.id
+      ? `https://www.tiktok.com/@${raw.author_username}/video/${raw.id}`
+      : null
+
   return {
     platformPostId: raw.id ?? "",
     platform: "tiktok",
     text: raw.text ?? null,
     mediaUrl: coverUrl,
     mediaType: "video",
+    postUrl,
     likesCount: raw.digg_count ?? 0,
     commentsCount: raw.comment_count ?? 0,
     sharesCount: raw.share_count ?? 0,

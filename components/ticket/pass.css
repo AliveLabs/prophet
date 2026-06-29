@@ -258,7 +258,17 @@
 .tk-se-meta .tk-s { font-size: 11px; color: var(--ink-3); }
 .tk-se-net { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--ink-2); padding: 4px 8px; border-radius: 7px; background: var(--paper-2); border: 1px solid var(--line); }
 .tk-se-net svg { width: 12px; height: 12px; }
+.tk-se-photo { position: relative; }
 .tk-se-photo .tk-photo { min-height: 172px; background: radial-gradient(120% 100% at 80% 0%, color-mix(in srgb, var(--gold) 40%, transparent), transparent 55%), linear-gradient(150deg, var(--rust-2), color-mix(in srgb, var(--rust-2) 60%, #000 40%)); }
+/* ALT-175: video badge over the embed media (bottom-left glass chip). */
+.tk-se-vid { position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); }
+.tk-se-vid svg { width: 11px; height: 11px; }
+/* ALT-174: open-original-post button over the embed media (top-right glass button). */
+.tk-se-open { position: absolute; right: 10px; top: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; border: 1px solid rgba(255,255,255,.16); transition: background var(--t-fast), transform var(--t-fast); }
+.tk-se-open svg { width: 15px; height: 15px; }
+.tk-se-open:hover { background: rgba(20,26,32,.85); }
+.tk-se-open:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .tk-se-open:hover { transform: translateY(-1px); } }
 .tk-se-actions { display: flex; align-items: center; gap: 16px; padding: 11px 13px 4px; }
 .tk-se-actions svg { width: 20px; height: 20px; color: var(--ink-2); }
 .tk-se-actions .tk-heart { color: var(--alert); }
