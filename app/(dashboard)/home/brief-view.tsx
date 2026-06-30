@@ -14,6 +14,7 @@ import type { CSSProperties } from "react"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 import type { PipelineCheck } from "../proof-data"
 import type { PlayAction } from "@/lib/insights/momentum"
+import Link from "next/link"
 import { playKey } from "@/lib/skills/preferences"
 import { dedupeRefs, distinctDomains } from "@/lib/skills/evidence-format"
 import {
@@ -248,9 +249,9 @@ export default function BriefView({
 
             {/* ── See-all-insights link (ALT-184a) — at the END of the brief's insights, near
                 "Cleared today", not orphaned at the bottom of the whole page. ── */}
-            <a className="pass-pool-link" href="/home/pool">
+            <Link className="pass-pool-link" href="/home/pool">
               See all insights in your pool &rarr;
-            </a>
+            </Link>
 
             {/* ── AT-A-GLANCE WIDGETS ── */}
             <TkSectionHead title="At a glance" sub="Weighted widgets · your week" className="pass-sec" />
