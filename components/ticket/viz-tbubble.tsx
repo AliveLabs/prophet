@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
-import { TicketLogo } from "@/components/brand/ticket-logo"
+import { TicketChatMark } from "@/components/brand/ticket-chat-mark"
 import { tkcx as cx } from "./primitives"
 
 // The token surfaces that define --rust/--card/… (and carry `.dark`). We portal the
@@ -225,7 +225,7 @@ export function VizTBubble({
         aria-label={aria}
         onClick={toggle}
       >
-        <TicketLogo size={12} simplified />
+        <TicketChatMark size={20} shape="square" />
       </button>
 
       {open && host
