@@ -605,3 +605,148 @@
   content: ""; width: 6px; height: 6px; border-radius: 50%;
   background: currentColor; flex: none;
 }
+
+/* ── ALT-231: "Who's open when" — open-hours + busy bar, one day at a time ─
+ * A 24-hour track per spot: a seamless diagonal "closed" hatch base, open
+ * windows as a calm tint band, and the busy curve painted per-hour on top
+ * (quiet → busy, same gold ramp as the weekly heatmap). Tokens only, so dark
+ * works for free; all motion collapses under prefers-reduced-motion. */
+.tk-comp .tk-hrs {
+  --tk-hrs-open: color-mix(in srgb, var(--teal) 14%, var(--card));
+  --tk-hrs-hatch: color-mix(in srgb, var(--ink-3) 15%, transparent);
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+/* Day controller + legend */
+.tk-comp .tk-hrs-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px 16px; flex-wrap: wrap; padding-right: 30px;
+}
+.tk-comp .tk-hrs-days {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--paper-2); border: 1px solid var(--line);
+  border-radius: 999px; padding: 4px;
+}
+.tk-comp .tk-hrs-step {
+  width: 30px; height: 30px; border-radius: 999px; display: grid; place-items: center;
+  color: var(--ink-3); transition: background var(--t-fast), color var(--t-fast);
+}
+.tk-comp .tk-hrs-step svg { width: 15px; height: 15px; }
+.tk-comp .tk-hrs-step:hover { background: var(--card); color: var(--ink); }
+.tk-comp .tk-hrs-day {
+  position: relative; min-width: 42px; height: 30px; padding: 0 11px; border-radius: 999px;
+  font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--ink-2);
+  transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
+}
+.tk-comp .tk-hrs-day:hover { color: var(--ink); }
+.tk-comp .tk-hrs-day-on { background: var(--card); color: var(--rust-deep); box-shadow: var(--shadow-sm); }
+.tk-comp .tk-hrs-day:focus-visible,
+.tk-comp .tk-hrs-step:focus-visible,
+.tk-comp .tk-hrs-expand:focus-visible {
+  outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px;
+}
+.tk-comp .tk-hrs-today-dot {
+  position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%);
+  width: 3px; height: 3px; border-radius: 50%; background: var(--teal);
+}
+.tk-comp .tk-hrs-day-on .tk-hrs-today-dot { background: var(--rust); }
+
+.tk-comp .tk-hrs-legend {
+  display: inline-flex; align-items: center; gap: 9px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3);
+}
+.tk-comp .tk-hrs-leg-ramp { display: inline-flex; gap: 2px; }
+.tk-comp .tk-hrs-leg-ramp i { width: 11px; height: 11px; border-radius: 2px; }
+.tk-comp .tk-hrs-leg-ramp i:nth-child(1) { background: color-mix(in srgb, var(--gold) 22%, var(--card)); }
+.tk-comp .tk-hrs-leg-ramp i:nth-child(2) { background: color-mix(in srgb, var(--gold) 44%, var(--card)); }
+.tk-comp .tk-hrs-leg-ramp i:nth-child(3) { background: color-mix(in srgb, var(--gold) 66%, var(--card)); }
+.tk-comp .tk-hrs-leg-ramp i:nth-child(4) { background: color-mix(in srgb, var(--gold) 88%, var(--card)); }
+.tk-comp .tk-hrs-leg-x { display: inline-flex; align-items: center; gap: 5px; }
+.tk-comp .tk-hrs-leg-closed {
+  width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--line);
+  background-image: repeating-linear-gradient(45deg, var(--tk-hrs-hatch) 0, var(--tk-hrs-hatch) 3px, transparent 3px, transparent 6px);
+}
+
+/* Rows */
+.tk-comp .tk-hrs-rows { display: flex; flex-direction: column; gap: 13px; }
+.tk-comp .tk-hrs-row { display: flex; flex-direction: column; gap: 6px; }
+.tk-comp .tk-hrs-rowhead { display: flex; align-items: center; gap: 8px; }
+.tk-comp .tk-hrs-expand {
+  width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; flex: none;
+  color: var(--ink-3); transition: background var(--t-fast), color var(--t-fast);
+}
+.tk-comp .tk-hrs-expand svg { width: 14px; height: 14px; transition: transform var(--t-fast); }
+.tk-comp .tk-hrs-expand:hover { background: var(--paper-2); color: var(--ink); }
+.tk-comp .tk-hrs-expand-on svg { transform: rotate(90deg); }
+.tk-comp .tk-hrs-name {
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--ink);
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.tk-comp .tk-hrs-you {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--teal-2); background: var(--teal-tint);
+  border-radius: 999px; padding: 2px 7px;
+}
+.tk-comp .tk-hrs-open-lbl {
+  margin-left: auto; font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--ink-3); white-space: nowrap;
+}
+
+/* The 24-hour track */
+.tk-comp .tk-hrs-track {
+  position: relative; height: 28px; border-radius: 9px; overflow: hidden;
+  border: 1px solid var(--line); background-color: var(--paper-2);
+  background-image: repeating-linear-gradient(45deg, var(--tk-hrs-hatch) 0, var(--tk-hrs-hatch) 4px, transparent 4px, transparent 9px);
+}
+.tk-comp .tk-hrs-track-sm { height: 16px; border-radius: 6px; }
+.tk-comp .tk-hrs-row-you .tk-hrs-track { box-shadow: inset 3px 0 0 var(--teal); }
+.tk-comp .tk-hrs-band {
+  position: absolute; top: 0; bottom: 0; background: var(--tk-hrs-open);
+}
+/* Heat cells are statically visible — the card's RevealOnView handles the entrance.
+   (A per-cell opacity transition proved fragile inside the reveal subtree.) */
+.tk-comp .tk-hrs-heat { position: absolute; top: 0; bottom: 0; }
+.tk-comp .tk-hrs-peak::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2.5px; background: var(--rust);
+}
+.tk-comp .tk-hrs-flat, .tk-comp .tk-hrs-track[aria-label="Closed"] { display: grid; place-items: center; }
+.tk-comp .tk-hrs-flat { background-image: none; background-color: var(--paper-2); }
+.tk-comp .tk-hrs-flat-lbl {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3);
+  letter-spacing: .03em; position: relative; z-index: 1;
+}
+.tk-comp .tk-hrs-closed-lbl { color: color-mix(in srgb, var(--ink-3) 80%, transparent); }
+
+/* Accordion: one spot's full week */
+.tk-comp .tk-hrs-week {
+  display: flex; flex-direction: column; gap: 5px;
+  margin: 4px 0 2px 30px; padding: 11px 13px;
+  background: var(--card-2); border: 1px solid var(--line); border-radius: var(--r-md);
+}
+.tk-comp .tk-hrs-wrow { display: grid; grid-template-columns: 34px 1fr 30px; align-items: center; gap: 9px; }
+.tk-comp .tk-hrs-wrow-on .tk-hrs-wlbl { color: var(--rust-deep); }
+.tk-comp .tk-hrs-wlbl { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink-3); }
+.tk-comp .tk-hrs-wval { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); text-align: right; }
+
+/* Axis + footnote */
+.tk-comp .tk-hrs-axis {
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); margin-top: -4px;
+}
+.tk-comp .tk-hrs-foot { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin: 2px 0 0; max-width: 72ch; }
+
+@media (max-width: 560px) {
+  .tk-comp .tk-hrs-open-lbl { font-size: 10.5px; }
+  /* The 7 day-pills + steppers can exceed a phone-width card — let the pill bar
+     scroll inside itself (steppers still page day-by-day) instead of overflowing. */
+  .tk-comp .tk-hrs-days { overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .tk-comp .tk-hrs-days::-webkit-scrollbar { display: none; }
+  .tk-comp .tk-hrs-day { min-width: 38px; padding: 0 9px; }
+  .tk-comp .tk-hrs-step { flex: none; }
+  .tk-comp .tk-hrs-name { min-width: 0; }
+  .tk-comp .tk-hrs-week { margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tk-comp .tk-hrs-expand svg { transition: none !important; }
+}
