@@ -153,6 +153,185 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ALT-235 — head-to-head + busy-times comparison for the Competitors overview.
+//
+// Reuses the busy-times the Traffic page already ingests (Google Maps popular
+// times via Outscraper). Competitor curves live in `busy_times` (keyed by
+// competitor_id); the operator's OWN curve lives in `location_busy_times` (keyed
+// by location_id). Both tables carry org-member SELECT policies, so this loads
+// through the USER-SCOPED server client — RLS enforces org membership, the
+// competitor query is additionally narrowed to this location's competitor ids,
+// and a foreign location can never leak. NO new pipeline and NO paid Places call:
+// we render whatever is already cached, and the page flags an empty state when a
+// side has not been pulled yet.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One entity (own location or a competitor) shaped for the kit busy-times viz.
+ *  Matches app/(dashboard)/traffic/traffic-types.ts so the Traffic heatmap island
+ *  renders it unchanged. `isYou` marks the operator's own row for labeling. */
+export type ComparisonEntity = {
+  competitor_id: string
+  competitor_name: string
+  isYou: boolean
+  days: Array<{
+    day_of_week: number
+    hourly_scores: number[]
+    peak_hour: number
+    peak_score: number
+    typical_time_spent: string | null
+  }>
+}
+
+/** A single you-vs-them row for the kit TkH2HBars (serializable — no fns). */
+export type ComparisonH2HRow = {
+  metric: string
+  side: "you" | "them"
+  width: number
+  verdict: string
+  tip: string
+  tipValue: string
+}
+
+export type CompetitorComparison = {
+  /** Own location + each competitor that has busy-times data, own row first. */
+  entities: ComparisonEntity[]
+  /** You-vs-each-competitor on crowd pull (busy-times peak). Empty when the
+   *  operator's own curve has not been pulled yet (we never fake a "you" value). */
+  h2h: ComparisonH2HRow[]
+  /** True when at least one competitor has busy-times data (heatmap is worth showing). */
+  hasCompetitorData: boolean
+  /** True when the operator's own busy-times curve is available (enables the H2H). */
+  hasOwnData: boolean
+}
+
+type BusyRow = {
+  day_of_week: number
+  hourly_scores: number[] | null
+  peak_hour: number | null
+  peak_score: number | null
+  typical_time_spent: string | null
+}
+
+function rowsToDays(rows: BusyRow[]): ComparisonEntity["days"] {
+  return rows
+    .filter((r) => Array.isArray(r.hourly_scores) && r.hourly_scores.length > 0)
+    .map((r) => ({
+      day_of_week: r.day_of_week,
+      hourly_scores: r.hourly_scores as number[],
+      peak_hour: r.peak_hour ?? 0,
+      peak_score: r.peak_score ?? 0,
+      typical_time_spent: r.typical_time_spent ?? null,
+    }))
+}
+
+function avgPeak(days: ComparisonEntity["days"]): number {
+  if (days.length === 0) return 0
+  return Math.round(days.reduce((s, d) => s + d.peak_score, 0) / days.length)
+}
+
+/** Busy-times + head-to-head for the operator's competitor set. Own curve from
+ *  `location_busy_times`, competitor curves from `busy_times` (scoped to THIS
+ *  location's competitors). User-scoped client → RLS enforced. */
+export async function loadCompetitorComparison(): Promise<CompetitorComparison> {
+  const op = await resolveOperator()
+  const sb = await createServerSupabaseClient()
+
+  // Approved + active competitors for this location (same gate as the roster), so
+  // the busy_times query is narrowed to ids this operator is allowed to read.
+  const { data: comps } = await sb
+    .from("competitors")
+    .select("id, name, metadata")
+    .eq("location_id", op.locationId)
+    .eq("is_active", true)
+  const approved = (comps ?? []).filter(
+    (c) => (c.metadata as Record<string, unknown> | null)?.status === "approved"
+  )
+  const nameById = new Map(approved.map((c) => [c.id, c.name ?? "Competitor"]))
+  const competitorIds = approved.map((c) => c.id)
+
+  // Competitor curves (RLS: org members read their own competitors' rows). Newest
+  // first so the first row per (competitor, day) wins when several pulls are stored.
+  const { data: busyRaw } = competitorIds.length
+    ? await sb
+        .from("busy_times")
+        .select("competitor_id, day_of_week, hourly_scores, peak_hour, peak_score, typical_time_spent, created_at")
+        .in("competitor_id", competitorIds)
+        .order("created_at", { ascending: false })
+    : { data: [] }
+
+  // Own location curve (RLS: org members read their location's rows).
+  const { data: ownRaw } = await sb
+    .from("location_busy_times")
+    .select("day_of_week, hourly_scores, peak_hour, peak_score")
+    .eq("location_id", op.locationId)
+
+  // Group competitor rows, keeping ONE row per (competitor, day) — the newest.
+  const byComp = new Map<string, Map<number, BusyRow>>()
+  for (const r of (busyRaw ?? []) as Array<BusyRow & { competitor_id: string }>) {
+    const days = byComp.get(r.competitor_id) ?? new Map<number, BusyRow>()
+    if (!days.has(r.day_of_week)) days.set(r.day_of_week, r)
+    byComp.set(r.competitor_id, days)
+  }
+
+  const competitorEntities: ComparisonEntity[] = [...byComp.entries()]
+    .map(([cid, days]) => ({
+      competitor_id: cid,
+      competitor_name: nameById.get(cid) ?? "Competitor",
+      isYou: false,
+      days: rowsToDays([...days.values()]),
+    }))
+    .filter((e) => e.days.length > 0)
+
+  const ownDays = rowsToDays(
+    ((ownRaw ?? []) as BusyRow[]).map((r) => ({ ...r, typical_time_spent: null })),
+  )
+  const ownEntity: ComparisonEntity = {
+    competitor_id: "__you__",
+    competitor_name: op.locationName,
+    isYou: true,
+    days: ownDays,
+  }
+
+  const hasOwnData = ownDays.length > 0
+  const hasCompetitorData = competitorEntities.length > 0
+
+  // Own row leads the heatmap selector when we have it.
+  const entities = hasOwnData ? [ownEntity, ...competitorEntities] : competitorEntities
+
+  // ── Head-to-head on crowd pull (busy-times peak). Only when we have BOTH a real
+  //    own curve and at least one competitor curve — otherwise no honest "you" value
+  //    exists and we leave h2h empty (the page renders the gap, never a fake bar).
+  //    Magnitude mirrors VisibilityH2H: a bigger gap → a longer bar (20–100). ──
+  let h2h: ComparisonH2HRow[] = []
+  if (hasOwnData && hasCompetitorData) {
+    const ownAvg = avgPeak(ownDays)
+    h2h = competitorEntities
+      .map((c) => ({ name: c.competitor_name, peak: avgPeak(c.days) }))
+      .sort((a, b) => b.peak - a.peak)
+      .slice(0, 6)
+      .map(({ name, peak }) => {
+        const youAhead = ownAvg >= peak
+        const hi = Math.max(ownAvg, peak, 1)
+        const lo = Math.min(ownAvg, peak)
+        const ratio = Math.min(1, lo / Math.max(hi, 0.0001))
+        const width = Math.round((1 - ratio) * 80) + 20
+        return {
+          metric: name,
+          side: (youAhead ? "you" : "them") as "you" | "them",
+          width,
+          verdict: youAhead ? "You draw more" : "They draw more",
+          tip: youAhead
+            ? `Your block runs busier at peak (${ownAvg}% vs ${peak}% of own typical peak)`
+            : `${name} runs busier at peak (${peak}% vs your ${ownAvg}% of own typical peak)`,
+          tipValue: `You ${ownAvg}% · them ${peak}%`,
+        }
+      })
+  }
+
+  return { entities, h2h, hasCompetitorData, hasOwnData }
+}
+
 export type CompetitorInsight = { type: string; title: string; summary: string | null; dateKey: string }
 export type CompetitorDetail = {
   id: string
