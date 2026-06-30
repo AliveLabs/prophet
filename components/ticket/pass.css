@@ -383,10 +383,15 @@
 .tk-widget .tk-wsub { font-size: 11.5px; opacity: .82; }
 .tk-w-wide { grid-column: span 2; }
 .tk-w-tall { grid-row: span 2; }
-/* weight tiles = gradient fill; data tile = --card */
-.tk-w-rust  { background: linear-gradient(150deg, var(--rust), var(--rust-2)); color: #fff; }
-.tk-w-teal  { background: linear-gradient(150deg, var(--teal), var(--teal-2)); color: #fff; }
-.tk-w-gold  { background: linear-gradient(150deg, var(--gold), var(--gold-2)); color: #3a2a08; }
+/* weight tiles = subtle tint wash; data tile = --card.
+   ALT-154: the weighted tiles were saturated solid fills (a copper/teal/gold block with white text)
+   that read as alarms and collided with the red/green success-fail convention. Softened to a quiet
+   gradient WASH in the SAME hue family per tone — a faint --hue-tint surface with a hair more hue at
+   the corner, hue-matched ink (--hue-deep), and a low-intensity hue border — so the tile reads as
+   QUIET WEIGHT, not a signal. Same hues, lower intensity; dark mode follows via the token redefs. */
+.tk-w-rust  { background: linear-gradient(150deg, color-mix(in srgb, var(--rust) 16%, var(--card)), var(--rust-tint)); color: var(--rust-deep); border-color: color-mix(in srgb, var(--rust) 28%, var(--line-2)); }
+.tk-w-teal  { background: linear-gradient(150deg, color-mix(in srgb, var(--teal) 16%, var(--card)), var(--teal-tint)); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 28%, var(--line-2)); }
+.tk-w-gold  { background: linear-gradient(150deg, color-mix(in srgb, var(--gold) 16%, var(--card)), var(--gold-tint)); color: var(--gold-deep); border-color: color-mix(in srgb, var(--gold) 28%, var(--line-2)); }
 .tk-w-slate { background: var(--card); color: var(--ink); border-color: var(--line-2); }
 /* ALT-155: neutral "none matched yet / not enough data yet" tile. A calm in-palette gray on the
    recessed surface — NOT an accent (no rust/teal/gold) and NOT a disabled look. Use for an
@@ -394,8 +399,10 @@
 .tk-w-muted { background: var(--paper-2); color: var(--ink-3); border-color: var(--line-2); }
 .tk-w-muted .tk-wval { color: var(--ink-3); font-size: 24px; }
 .tk-w-rust .tk-wval, .tk-w-teal .tk-wval { font-size: 30px; }
+.tk-w-rust .tk-wval { color: var(--rust-deep); }
+.tk-w-teal .tk-wval { color: var(--teal-deep); }
 .tk-w-slate .tk-wval { font-size: 24px; color: var(--slate-deep); }
-.tk-w-gold .tk-wval { font-size: 24px; }
+.tk-w-gold .tk-wval { font-size: 24px; color: var(--gold-deep); }
 .tk-widget .tk-spark { position: absolute; right: 0; bottom: 0; width: 60%; height: 50%; opacity: .5; }
 .tk-widget.tk-w-tall .tk-wbody { display: flex; flex-direction: column; gap: 11px; margin-top: 6px; }
 
@@ -406,12 +413,14 @@
 .tk-widget.tk-w-expandable[open] { grid-row: auto; height: auto; z-index: 2; }
 .tk-w-summary { list-style: none; display: flex; flex-direction: column; justify-content: space-between; height: 100%; gap: 6px; }
 .tk-w-summary::-webkit-details-marker { display: none; }
-.tk-w-summary:focus-visible { outline: 2.5px solid #fff; outline-offset: -3px; border-radius: 10px; }
+/* ALT-154: the tiles are now light tint washes, so the focus ring rides the ink line (was #fff for
+   the old dark fills — invisible on a light wash). */
+.tk-w-summary:focus-visible { outline: 2.5px solid var(--rule-strong); outline-offset: -3px; border-radius: 10px; }
 .tk-w-caret { position: absolute; top: 14px; right: 14px; font-size: 15px; line-height: 1; opacity: .85; transition: transform var(--t); }
 .tk-widget.tk-w-expandable[open] .tk-w-caret { transform: rotate(90deg); }
-.tk-w-expand { margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, #fff 26%, transparent); }
-/* on the light (slate=--card) tiles the divider rides the ink line instead of white */
-.tk-w-slate .tk-w-expand { border-top-color: var(--line-2); }
+/* ALT-154: all weighted tiles are now light tint washes, so the expand divider rides the ink line
+   (was a white hairline for the old dark fills — invisible on a light wash). */
+.tk-w-expand { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-2); }
 .tk-wbody .tk-wrow { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
 .tk-wbody .tk-wrow .tk-nm { display: flex; align-items: center; gap: 7px; }
 .tk-wbody .tk-wrow .tk-thumb { width: 20px; height: 20px; border-radius: 5px; background: var(--slate-2); background-image: linear-gradient(135deg, color-mix(in srgb, var(--slate) 80%, #fff 8%), var(--slate-2)); }

@@ -449,7 +449,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                         <path
                           d="M0 50 L30 46 L55 40 L75 18 L95 10 L120 22"
                           fill="none"
-                          stroke="rgba(255,255,255,.7)"
+                          stroke="currentColor"
                           strokeWidth="3"
                         />
                       </svg>

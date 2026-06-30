@@ -43,6 +43,7 @@ const CREATIVE_AND_CHANNEL = [
   "Assume NO special equipment or skills. Do not use photography jargon ('golden hour', 'side light', 'tight crop', 'no text overlay', 'plating') or assume a camera, lighting, or an editor.",
   "If a more produced shot would genuinely help, add it as an explicitly OPTIONAL extra (\"optional: if you have someone who shoots video, ...\"), never as the baseline ask.",
   "When a play is social, give guidance for the operator's live platforms BY NAME and tailor it to each (e.g. Instagram and TikTok favor a short vertical video or Reel; the feed favors one strong photo). Never just say 'post it'.",
+  "When a play is social AND you write a customer-facing 'copy' draft for the operator to post, end that draft with a few (about 2-4) RELEVANT hashtags about the content itself and/or the tied event, on their own line. Keep them tasteful and specific (e.g. the dish, the moment, the city/neighborhood, the event) — never a wall of generic tags, never spam. Do NOT invent a brand, business, or competitor name as a hashtag. Add hashtags ONLY to social 'copy' drafts — not to non-social copy, offers, or any other field.",
 ].join(" ")
 
 function capabilityLine(d: Dossier): string {

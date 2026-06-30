@@ -260,7 +260,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
                       <path
                         d="M0 48 L28 44 L52 38 L74 22 L98 14 L120 20"
                         fill="none"
-                        stroke="rgba(255,255,255,.7)"
+                        stroke="currentColor"
                         strokeWidth="3"
                       />
                     </svg>

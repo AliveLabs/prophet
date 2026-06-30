@@ -50,6 +50,12 @@ describe("phase 7 — shared skill prompt rules", () => {
   it("gives multi-channel guidance by platform name", () => {
     expect(system).toMatch(/Instagram and TikTok/i)
   })
+  it("instructs relevant hashtags on social copy drafts only", () => {
+    expect(system).toMatch(/hashtags/i)
+    // scoped to social copy drafts, never spam, never a fabricated brand
+    expect(system).toMatch(/social/i)
+    expect(system).toMatch(/never spam/i)
+  })
   it("ties customer copy to the onboarding brand voice", () => {
     expect(system).toMatch(/onboarding/i)
     expect(system).toMatch(/customer copy in Ticket's voice/i)

@@ -70,7 +70,7 @@ export default function InsightsGlance({ data }: { data: GlanceData }) {
               <path
                 d="M0 50 L28 44 L52 38 L74 22 L96 14 L120 20"
                 fill="none"
-                stroke="rgba(255,255,255,.7)"
+                stroke="currentColor"
                 strokeWidth="3"
               />
             </svg>

@@ -577,7 +577,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     <path
                       d="M0 50 L26 44 L50 46 L74 22 L96 14 L120 26"
                       fill="none"
-                      stroke="rgba(255,255,255,.7)"
+                      stroke="currentColor"
                       strokeWidth="3"
                     />
                   </svg>

@@ -348,7 +348,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                       <path
                         d="M0 52 L20 48 L38 30 L52 40 L70 14 L88 26 L120 10"
                         fill="none"
-                        stroke="rgba(255,255,255,.7)"
+                        stroke="currentColor"
                         strokeWidth="3"
                       />
                     </svg>
