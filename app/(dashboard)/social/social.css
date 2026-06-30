@@ -107,9 +107,9 @@
 /* let the embeds fill their grid cell */
 .sp-grid > div { display: flex; }
 .sp-grid > div > * { width: 100%; }
-/* real post image inside the embed photo slot */
-.sp-photo-img { display: block; }
-.sp-photo-img img { width: 100%; height: 100%; object-fit: cover; min-height: 172px; }
+/* real post image inside the embed photo slot — fills the box (ALT-152b);
+   sizing/cover is inherited from the kit's `.tk-photo > img` rule. */
+.sp-photo-img { display: block; min-height: 172px; }
 
 .sp-noposts { text-align: center; padding: 28px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: var(--card-2); }
 .sp-noposts p { margin-top: 8px; font-size: 13px; color: var(--ink-2); }

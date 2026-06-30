@@ -142,8 +142,32 @@
 
 /* a reusable image/gradient surface (replaces Concept A's .tphoto) */
 .tk-photo { position: relative; width: 100%; height: 100%; min-height: 200px; background: linear-gradient(135deg, color-mix(in srgb, var(--slate) 70%, #000 4%), var(--slate-2)); background-size: cover; background-position: center; display: flex; align-items: flex-end; }
-.tk-photo[data-label]::after { content: attr(data-label); position: absolute; left: 12px; bottom: 11px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: rgba(255,255,255,.62); background: rgba(0,0,0,.32); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+/* a real photo dropped into a tk-photo slot (img child) always fills the box (ALT-152b) */
+.tk-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tk-photo[data-label]::after { content: attr(data-label); position: absolute; left: 12px; bottom: 11px; z-index: 2; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: rgba(255,255,255,.82); background: rgba(0,0,0,.42); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .tk-stadium { position: absolute; inset: 0; z-index: 1; opacity: .9; }
+
+/* ALT-152a — the ONE neutral placeholder for a card image slot with no real
+   photo. A calm muted panel (in-palette, light + dark) with a quiet centered
+   glyph or initial — never the old abstract gradient blob. */
+.tk-photo-empty {
+  background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  justify-content: center;
+}
+.tk-photo-empty .tk-photo-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  color: var(--ink-3);
+  font-family: var(--font-display); font-weight: 800; font-size: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.tk-photo-empty .tk-photo-mark svg { width: 22px; height: 22px; }
+/* keep the data-label chip readable over the lighter neutral panel */
+.tk-photo-empty[data-label]::after { color: var(--ink-3); background: var(--card); border: 1px solid var(--line); backdrop-filter: none; -webkit-backdrop-filter: none; }
 
 /* ════════════════════════════════════════════════════════════
    SECTION HEADERS
@@ -259,7 +283,14 @@
 .tk-se-net { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--ink-2); padding: 4px 8px; border-radius: 7px; background: var(--paper-2); border: 1px solid var(--line); }
 .tk-se-net svg { width: 12px; height: 12px; }
 .tk-se-photo { position: relative; }
-.tk-se-photo .tk-photo { min-height: 172px; background: radial-gradient(120% 100% at 80% 0%, color-mix(in srgb, var(--gold) 40%, transparent), transparent 55%), linear-gradient(150deg, var(--rust-2), color-mix(in srgb, var(--rust-2) 60%, #000 40%)); }
+.tk-se-photo .tk-photo { min-height: 172px; }
+/* ALT-152c — a subtle top+bottom scrim over the post media so the over-image
+   chips (video / open-original badges) stay legible on light AND dark photos.
+   Only on real-image slots — the neutral placeholder needs no scrim. */
+.tk-se-photo .tk-photo:not(.tk-photo-empty)::before {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,.34), transparent 26%, transparent 74%, rgba(0,0,0,.30));
+}
 /* ALT-175: video badge over the embed media (bottom-left glass chip). */
 .tk-se-vid { position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); }
 .tk-se-vid svg { width: 11px; height: 11px; }

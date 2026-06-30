@@ -189,6 +189,42 @@ export function TkSectionHead({
 }
 
 /* ════════════════════════════════════════════════════════════════════
+   TkPhotoFallback — the ONE clean, neutral placeholder for an image slot
+   that has no real photo (ALT-152). Replaces the old abstract rust/gold
+   gradient blob. A calm muted panel with a small image glyph and, when a
+   label is given, the subject's initial — never a fabricated graphic.
+   Server-safe (presentational only); reads in light + dark via tokens.
+   ════════════════════════════════════════════════════════════════════ */
+export function TkPhotoFallback({
+  label,
+  className,
+  ...props
+}: {
+  /** subject (e.g. a handle / venue name). Its first letter shows as a quiet monogram. */
+  label?: string
+} & HTMLAttributes<HTMLDivElement>) {
+  const initial = label?.trim()?.replace(/^@/, "")?.[0]?.toUpperCase() ?? null
+  return (
+    <div
+      className={cx("tk-photo tk-photo-empty", className)}
+      role="img"
+      aria-label={label ? `No image for ${label}` : "No image available"}
+      {...props}
+    >
+      <span className="tk-photo-mark" aria-hidden="true">
+        {initial ?? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <rect x="3" y="4" width="18" height="16" rx="2.5" />
+            <circle cx="8.5" cy="9.5" r="1.6" />
+            <path d="M21 16l-5-5L7 20" />
+          </svg>
+        )}
+      </span>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
    TkViz caption — shared little header used above each viz
    ════════════════════════════════════════════════════════════════════ */
 export function TkVizCap({

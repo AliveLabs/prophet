@@ -10,7 +10,7 @@
 
 import { useState, useMemo, type ReactNode } from "react"
 import type { NormalizedSocialPost, SocialPlatform } from "@/lib/social/types"
-import { TkSocialEmbed, TkChip, RevealOnView } from "@/components/ticket"
+import { TkSocialEmbed, TkChip, TkPhotoFallback, RevealOnView } from "@/components/ticket"
 
 type PostWithMeta = NormalizedSocialPost & {
   entityName: string
@@ -168,7 +168,9 @@ export default function SocialPostsPass({
             const isOwn = post.entityType === "location"
             const caption = post.text ? post.text.slice(0, 140) : null
             const photo =
-              post.mediaUrl ? <PostPhoto url={post.mediaUrl} alt={caption ?? "Social post"} /> : undefined
+              post.mediaUrl ? (
+                <PostPhoto url={post.mediaUrl} alt={caption ?? "Social post"} label={post.entityName} />
+              ) : undefined
             return (
               <div key={`${post.entityName}-${post.platform}-${post.platformPostId}-${i}`}>
                 <TkSocialEmbed
@@ -187,7 +189,7 @@ export default function SocialPostsPass({
                     </>
                   }
                   photo={photo}
-                  photoLabel={PLATFORM_LABEL[post.platform]}
+                  photoLabel={post.entityName}
                   postUrl={post.postUrl}
                   postUrlLabel={`Open this ${PLATFORM_LABEL[post.platform]} post`}
                   video={post.mediaType === "video" || post.mediaType === "reel"}
@@ -227,9 +229,12 @@ export default function SocialPostsPass({
 
 /* Render a real post image into the embed's photo slot, falling back to the
    kit's gradient placeholder if it fails to load. */
-function PostPhoto({ url, alt }: { url: string; alt: string }) {
+function PostPhoto({ url, alt, label }: { url: string; alt: string; label?: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed) return <div className="tk-photo" data-label="image unavailable" />
+  // (1) real image; (3) clean neutral fallback if it fails to load. The Google
+  // Places photo fallback (2) is not wired — the post data carries no place_id
+  // (see ALT-152 report).
+  if (failed) return <TkPhotoFallback label={label} />
   return (
     <div className="tk-photo sp-photo-img">
       {/* eslint-disable-next-line @next/next/no-img-element */}

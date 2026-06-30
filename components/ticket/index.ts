@@ -16,6 +16,7 @@ export {
   TkSoftPanel,
   TkSectionHead,
   TkVizCap,
+  TkPhotoFallback,
   tkcx,
 } from "./primitives"
 export type {

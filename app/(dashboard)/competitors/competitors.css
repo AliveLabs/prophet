@@ -315,6 +315,12 @@
   background-position: center;
   background-color: var(--slate-2);
 }
+/* ALT-152c — scrim over the rival's post image so over-media chips (video /
+   open-original) stay legible on light AND dark photos. Real-image slot only. */
+.tk-comp .tk-post-photo:not(.tk-is-text)::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(0,0,0,.34), transparent 26%, transparent 74%, rgba(0,0,0,.30));
+}
 .tk-comp .tk-post-photo.tk-is-text {
   display: flex;
   align-items: center;

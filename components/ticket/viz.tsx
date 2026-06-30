@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { AnimatedNumber } from "@/components/ui/animated-number"
 import { useInView } from "./use-in-view"
-import { TkVizCap, tkcx as cx } from "./primitives"
+import { TkVizCap, TkPhotoFallback, tkcx as cx } from "./primitives"
 
 /* Reveal-on-mount: flips to `true` on the first client commit, so a 0→value bar
    fill always reaches its final width — even when the element is born inside a
@@ -424,7 +424,7 @@ export function TkSocialEmbed({
         {network && <span className="tk-se-net">{network}</span>}
       </div>
       <div className="tk-se-photo">
-        {photo ?? <div className="tk-photo" data-label={photoLabel} />}
+        {photo ?? <TkPhotoFallback label={photoLabel} />}
         {video && (
           <span className="tk-se-vid" aria-label="Video post">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 3l14 9-14 9z" /></svg>
