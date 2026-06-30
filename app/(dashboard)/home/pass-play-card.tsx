@@ -287,7 +287,7 @@ export function PassPlayCard({
       <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
         {ACT_ICON} {actVerb}
       </TkButton>
-      <span className="pass-kept-state">{kept ? "Kept" : "Removed"}</span>
+      <span className="pass-kept-state">{kept ? "Kept" : "Dismissed"}</span>
       <TkButton variant="ghost" disabled={pending} onClick={undo}>
         {UNDO_ICON} Undo
       </TkButton>
@@ -304,10 +304,10 @@ export function PassPlayCard({
         variant="dismiss"
         disabled={pending}
         onClick={() => setReasonOpen(true)}
-        aria-label="Remove this play"
+        aria-label="Dismiss this play"
         aria-expanded={reasonOpen}
       >
-        {DISMISS_ICON} <span className="kw">Remove</span>
+        {DISMISS_ICON} <span className="kw">Dismiss</span>
       </TkButton>
     </>
   )
