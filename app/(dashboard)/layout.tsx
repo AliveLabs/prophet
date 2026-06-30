@@ -90,7 +90,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id, deleted_at")
+    .select("name, display_name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id, deleted_at")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -99,7 +99,8 @@ async function OperatorShell({ children }: { children: ReactNode }) {
   const dataBrand = isVerticalActive ? verticalConfig.brand.dataBrand : "ticket"
   const industryForGate = isValidIndustryType(orgRow?.industry_type) ? orgRow.industry_type : "restaurant"
   const brandNameForGate = industryForGate === "liquor_store" ? "Neat" : "Ticket"
-  const orgName = orgRow?.name ?? (isVerticalActive ? verticalConfig.brand.displayName : "Ticket")
+  // ALT-226: prefer the operator's editable Display name, fall back to the legal name.
+  const orgName = orgRow?.display_name ?? orgRow?.name ?? (isVerticalActive ? verticalConfig.brand.displayName : "Ticket")
 
   // ── Billing gate ──
   // Held accounts now render the SAME shell (sidebar + AccountMenu intact, so

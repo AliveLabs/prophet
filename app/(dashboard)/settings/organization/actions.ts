@@ -14,11 +14,13 @@ export async function updateOrganizationAction(formData: FormData) {
   const supabase = await createServerSupabaseClient()
 
   const orgId = String(formData.get("org_id") ?? "").trim()
-  const name = String(formData.get("name") ?? "").trim()
+  // ALT-226: the legal `name` is IMMUTABLE here — the operator edits an optional, friendlier
+  // Display name (blank ⇒ NULL ⇒ fall back to the legal name everywhere it's shown).
+  const displayName = String(formData.get("display_name") ?? "").trim() || null
   const billingEmail = String(formData.get("billing_email") ?? "").trim() || null
 
-  if (!orgId || !name) {
-    redirect("/settings/organization?error=Name is required")
+  if (!orgId) {
+    redirect("/settings/organization?error=Missing organization")
   }
 
   const { data: membership } = await supabase
@@ -34,7 +36,7 @@ export async function updateOrganizationAction(formData: FormData) {
 
   const { error } = await supabase
     .from("organizations")
-    .update({ name, billing_email: billingEmail })
+    .update({ display_name: displayName, billing_email: billingEmail })
     .eq("id", orgId)
 
   if (error) {

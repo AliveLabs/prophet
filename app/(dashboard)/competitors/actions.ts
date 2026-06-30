@@ -815,3 +815,56 @@ export async function addCompetitorAction(input: {
   revalidatePath("/competitors")
   return { ok: true, id: competitorId, name: competitorName }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALT-225 — operator-set DISPLAY LABEL for a watched competitor (display-only).
+// Shown INSTEAD of the canonical Google name wherever the competitor renders; the
+// raw `name` is never touched, so matching/de-dup + the Places link stay intact.
+// Blank ⇒ NULL ⇒ fall back to the canonical name. Managed on the competitor detail
+// page (where the operator is already looking at that rival).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function updateCompetitorDisplayLabelAction(formData: FormData) {
+  const user = await requireUser()
+  const supabase = await createServerSupabaseClient()
+
+  const competitorId = String(formData.get("competitor_id") ?? "").trim()
+  const displayLabel = String(formData.get("display_label") ?? "").trim() || null
+  if (!competitorId) redirect("/competitors?error=Missing%20competitor")
+
+  // RLS-scoped read: a foreign competitor returns null (never leaks another org's row).
+  const { data: competitor } = await supabase
+    .from("competitors")
+    .select("id, location_id")
+    .eq("id", competitorId)
+    .maybeSingle()
+  if (!competitor) redirect("/competitors?error=Competitor%20not%20found")
+
+  const { data: location } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", competitor.location_id)
+    .maybeSingle()
+  if (!location) redirect("/competitors?error=Competitor%20not%20found")
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", location.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    redirect(`/competitors/${competitorId}?error=Unauthorized`)
+  }
+
+  const { error } = await supabase
+    .from("competitors")
+    .update({ display_label: displayLabel })
+    .eq("id", competitorId)
+  if (error) {
+    redirect(`/competitors/${competitorId}?error=${encodeURIComponent(error.message)}`)
+  }
+
+  revalidatePath("/competitors")
+  revalidatePath(`/competitors/${competitorId}`)
+  redirect(`/competitors/${competitorId}?success=Display%20label%20updated`)
+}

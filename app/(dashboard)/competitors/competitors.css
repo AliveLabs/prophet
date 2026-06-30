@@ -583,3 +583,25 @@
   .tk-comp .tk-hr-row { flex-wrap: wrap; }
   .tk-comp .tk-hr-acts { width: 100%; justify-content: flex-end; }
 }
+
+/* ── ALT-225: display-label editor + page status seam ─────────────────── */
+.tk-comp .tk-comp-labelform { display: flex; flex-direction: column; gap: 8px; }
+.tk-comp .tk-comp-label-lbl {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--ink-2);
+}
+.tk-comp .tk-comp-label-hint {
+  font-size: 12.5px; line-height: 1.5; color: var(--ink-2);
+  margin: 2px 0 0; max-width: 60ch; overflow-wrap: anywhere;
+}
+.tk-comp .tk-comp-label-actions { margin-top: 4px; }
+
+.tk-comp .tk-comp-status {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--success); margin: 4px 0 0;
+}
+.tk-comp .tk-comp-status.tk-comp-status-err { color: var(--alert-deep); }
+.tk-comp .tk-comp-status::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex: none;
+}

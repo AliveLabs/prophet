@@ -35,7 +35,7 @@ export default async function OrganizationSettingsPage({
 
   const { data: org } = await supabase
     .from("organizations")
-    .select("id, name, slug, billing_email, subscription_tier, created_at")
+    .select("id, name, display_name, slug, billing_email, subscription_tier, created_at")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -80,6 +80,7 @@ export default async function OrganizationSettingsPage({
             <OrgFormPass
               orgId={org.id}
               name={org.name}
+              displayName={org.display_name}
               billingEmail={org.billing_email}
             />
           </TkSoftPanel>

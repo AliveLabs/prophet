@@ -25,6 +25,7 @@ export type CachedInsightsResult = {
   competitors: Array<{
     id: string
     name: string
+    display_label: string | null
     category: string
     metadata: unknown
   }>
@@ -104,7 +105,7 @@ export async function fetchInsightsPageData(
       .select("insight_type, weight, useful_count, dismissed_count")
       .eq("organization_id", organizationId),
     locationId
-      ? supabase.from("competitors").select("id, name, category, metadata").eq("location_id", locationId).eq("is_active", true)
+      ? supabase.from("competitors").select("id, name, display_label, category, metadata").eq("location_id", locationId).eq("is_active", true)
       : Promise.resolve({ data: [] as Array<{ id: string; name: string; category: string; metadata: unknown }> }),
   ])
 

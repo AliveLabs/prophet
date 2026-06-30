@@ -15,6 +15,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react"
 import LocationAddForm from "@/components/places/location-add-form"
+import LocationAddressForm from "./location-address-form"
 import MiniMap from "@/components/places/mini-map"
 import {
   TkHero,
@@ -141,9 +142,11 @@ function coverageOf(loc: LocationCard): { fresh: number; total: number; level: T
 function LocationDetail({
   loc,
   updateAction,
+  updateAddressAction,
 }: {
   loc: LocationCard
   updateAction: (formData: FormData) => void
+  updateAddressAction: (formData: FormData) => void
 }) {
   const cov = coverageOf(loc)
   return (
@@ -282,12 +285,12 @@ function LocationDetail({
         <form action={updateAction} className="loc-edit-form">
           <input type="hidden" name="location_id" value={loc.id} />
           <label className="loc-field">
-            <span className="loc-field-lbl">Name</span>
+            <span className="loc-field-lbl">Display name</span>
             <input name="name" defaultValue={loc.editName} className="loc-input" />
-          </label>
-          <label className="loc-field">
-            <span className="loc-field-lbl">Address line 1</span>
-            <input name="address_line1" defaultValue={loc.editAddress} className="loc-input" />
+            <span className="loc-field-hint">
+              Shown across your dashboard (e.g. &ldquo;Cane&rsquo;s 141&rdquo;). Doesn&rsquo;t change
+              your Google listing.
+            </span>
           </label>
           <label className="loc-field">
             <span className="loc-field-lbl">Website URL</span>
@@ -311,6 +314,13 @@ function LocationDetail({
             <IconCheck /> Save changes
           </TkButton>
         </form>
+
+        {/* ALT-224 — address is edited separately, map-verified (its own form). */}
+        <LocationAddressForm
+          locationId={loc.id}
+          currentAddress={loc.editAddress || loc.address}
+          action={updateAddressAction}
+        />
       </details>
     </>
   )
@@ -323,6 +333,7 @@ export function LocationsBoard({
   error,
   createAction,
   updateAction,
+  updateAddressAction,
   deleteAction,
 }: {
   locations: LocationCard[]
@@ -330,6 +341,7 @@ export function LocationsBoard({
   error?: string
   createAction: (formData: FormData) => void
   updateAction: (formData: FormData) => void
+  updateAddressAction: (formData: FormData) => void
   deleteAction: (formData: FormData) => void
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
@@ -520,7 +532,7 @@ export function LocationsBoard({
       >
         {open ? (
           <>
-            <LocationDetail loc={open} updateAction={updateAction} />
+            <LocationDetail loc={open} updateAction={updateAction} updateAddressAction={updateAddressAction} />
             {/* remove — two-step confirm so it isn't a one-tap mistake */}
             <div className="loc-remove">
               {confirmId === open.id ? (

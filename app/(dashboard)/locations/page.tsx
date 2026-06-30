@@ -12,7 +12,7 @@
 
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { createLocationFromPlaceAction, deleteLocationAction, updateLocationAction } from "./actions"
+import { createLocationFromPlaceAction, deleteLocationAction, updateLocationAction, updateLocationAddressFromPlaceAction } from "./actions"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchCurrentConditions, type WeatherSnapshot } from "@/lib/weather/google"
 import { getScreenshotUrl } from "@/lib/content/storage"
@@ -173,7 +173,9 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
     const longitude = placeDetails?.location?.longitude ?? location.geo_lng ?? null
     const address = placeDetails?.formattedAddress ?? location.address_line1 ?? null
     const website = placeDetails?.websiteUri ?? null
-    const displayName = placeDetails?.displayName?.text ?? location.name ?? "Location"
+    // ALT-225 — the operator's chosen name wins over Google's listing name everywhere,
+    // including this management view + the edit-form default (editName below).
+    const displayName = location.name?.trim() || placeDetails?.displayName?.text || "Location"
     const cityLine = [location.city, location.region].filter(Boolean).join(", ") || "Location"
 
     const reviews = (placeDetails?.reviews ?? []).slice(0, 2).map((review) => ({
@@ -230,6 +232,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           error={error}
           createAction={createLocationFromPlaceAction}
           updateAction={updateLocationAction}
+          updateAddressAction={updateLocationAddressFromPlaceAction}
           deleteAction={deleteLocationAction}
         />
       </div>

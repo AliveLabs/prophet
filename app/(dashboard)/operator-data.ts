@@ -20,6 +20,20 @@ export function tierLabel(t: string): string {
   return m[t] ?? t
 }
 
+/** Resolve the name to SHOW for an entity carrying an optional operator-set display label
+ *  over a canonical source name (ALT-225). The raw source `name` stays the source of truth
+ *  for matching / de-dup; this is display-only and never leaks an empty string. */
+export function resolveDisplayName(
+  label: string | null | undefined,
+  name: string | null | undefined,
+  fallback: string,
+): string {
+  const l = label?.trim()
+  if (l) return l
+  const n = name?.trim()
+  return n || fallback
+}
+
 export type Operator = {
   userId: string
   userName: string
@@ -103,7 +117,7 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
 
   const { data: comps } = await sb
     .from("competitors")
-    .select("id, name, metadata")
+    .select("id, name, display_label, metadata")
     .eq("location_id", op.locationId)
     .eq("is_active", true)
   const approved = (comps ?? []).filter(
@@ -158,7 +172,8 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     const agg = byComp.get(c.id)
     return {
       id: c.id,
-      name: c.name ?? "Competitor",
+      // ALT-225 — operator's display label wins over the canonical Google name (display-only).
+      name: resolveDisplayName(c.display_label as string | null, c.name, "Competitor"),
       // Snapshot (freshest) → placeDetails → top-level metadata. The metadata fallback
       // is what unblocks discover→approve competitors whose rating lives at metadata.rating.
       rating:
@@ -309,13 +324,16 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
   // the busy_times query is narrowed to ids this operator is allowed to read.
   const { data: comps } = await sb
     .from("competitors")
-    .select("id, name, metadata")
+    .select("id, name, display_label, metadata")
     .eq("location_id", op.locationId)
     .eq("is_active", true)
   const approved = (comps ?? []).filter(
     (c) => (c.metadata as Record<string, unknown> | null)?.status === "approved"
   )
-  const nameById = new Map(approved.map((c) => [c.id, c.name ?? "Competitor"]))
+  // ALT-225 — show the operator's display label (falls back to the canonical name).
+  const nameById = new Map(
+    approved.map((c) => [c.id, resolveDisplayName(c.display_label as string | null, c.name, "Competitor")]),
+  )
   const competitorIds = approved.map((c) => c.id)
 
   // Competitor curves (RLS: org members read their own competitors' rows). Newest
@@ -403,7 +421,12 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
 export type CompetitorInsight = { type: string; title: string; summary: string | null; dateKey: string }
 export type CompetitorDetail = {
   id: string
+  /** Name to SHOW — the operator's display label when set, else the canonical name (ALT-225). */
   name: string
+  /** The raw operator-set label (null when none) — for prefilling the label editor. */
+  displayLabel: string | null
+  /** The canonical Google Places name — shown as the editor placeholder/reference (ALT-225). */
+  sourceName: string
   rating: number | null
   reviewCount: number | null
   priceLevel: string | null
@@ -425,7 +448,7 @@ export async function loadOperatorCompetitorDetail(id: string): Promise<Competit
   const sb = await createServerSupabaseClient()
   const { data: c } = await sb
     .from("competitors")
-    .select("id, name, metadata")
+    .select("id, name, display_label, metadata")
     .eq("id", id)
     .eq("location_id", op.locationId)
     .maybeSingle()
@@ -459,7 +482,9 @@ export async function loadOperatorCompetitorDetail(id: string): Promise<Competit
 
   return {
     id: c.id,
-    name: c.name ?? "Competitor",
+    name: resolveDisplayName(c.display_label as string | null, c.name, "Competitor"),
+    displayLabel: (c.display_label as string | null) ?? null,
+    sourceName: c.name ?? "Competitor",
     rating: (sp?.rating as number | null) ?? (pd?.rating as number | null) ?? (meta?.rating as number | null) ?? null,
     reviewCount: (sp?.reviewCount as number | null) ?? (pd?.reviewCount as number | null) ?? (meta?.reviewCount as number | null) ?? null,
     priceLevel: (sp?.priceLevel as string | null) ?? (pd?.priceLevel as string | null) ?? null,

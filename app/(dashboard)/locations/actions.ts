@@ -104,8 +104,10 @@ export async function updateLocationAction(formData: FormData) {
   const supabase = await createServerSupabaseClient()
 
   const locationId = String(formData.get("location_id") ?? "").trim()
+  // ALT-225 — `name` is the operator's DISPLAY name (shown across the dashboard). It does NOT
+  // touch the Google link (primary_place_id), so editing it is safe. Address is handled
+  // separately, map-verified (ALT-224 → updateLocationAddressFromPlaceAction).
   const name = String(formData.get("name") ?? "").trim()
-  const addressLine1 = String(formData.get("address_line1") ?? "").trim()
   const website = String(formData.get("website") ?? "").trim() || null
 
   if (!locationId || !name) {
@@ -135,10 +137,69 @@ export async function updateLocationAction(formData: FormData) {
 
   const { error } = await supabase
     .from("locations")
+    .update({ name, website })
+    .eq("id", locationId)
+
+  if (error) {
+    redirect(`/locations?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect("/locations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALT-224 — edit your OWN location's address, MAP-VERIFIED. The operator picks the new
+// place from Google Places autocomplete; we write the verified address + coordinates AND
+// re-link `primary_place_id` to that place. Re-linking is the point: when a restaurant
+// moves, its Google place changes too, so pointing at the verified place keeps the data
+// link CORRECT rather than breaking it. `name` (the display name) and `website` are left
+// untouched. Competitor addresses are intentionally NOT editable (we wait for Google).
+// ─────────────────────────────────────────────────────────────────────────────
+export async function updateLocationAddressFromPlaceAction(formData: FormData) {
+  const user = await requireUser()
+  const supabase = await createServerSupabaseClient()
+
+  const locationId = String(formData.get("location_id") ?? "").trim()
+  const primaryPlaceId = String(formData.get("primary_place_id") ?? "").trim()
+  if (!locationId || !primaryPlaceId) {
+    redirect("/locations?error=Pick%20a%20verified%20address%20from%20the%20suggestions")
+  }
+
+  const { data: location } = await supabase
+    .from("locations")
+    .select("organization_id")
+    .eq("id", locationId)
+    .maybeSingle()
+  if (!location) {
+    redirect("/locations?error=Location%20not%20found")
+  }
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", location.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    redirect("/locations?error=Unauthorized")
+  }
+
+  const geoLatRaw = String(formData.get("geo_lat") ?? "").trim()
+  const geoLngRaw = String(formData.get("geo_lng") ?? "").trim()
+  const geoLat = geoLatRaw ? Number.parseFloat(geoLatRaw) : null
+  const geoLng = geoLngRaw ? Number.parseFloat(geoLngRaw) : null
+
+  const { error } = await supabase
+    .from("locations")
     .update({
-      name,
-      address_line1: addressLine1 || null,
-      website,
+      primary_place_id: primaryPlaceId,
+      address_line1: String(formData.get("address_line1") ?? "").trim() || null,
+      city: String(formData.get("city") ?? "").trim() || null,
+      region: String(formData.get("region") ?? "").trim() || null,
+      postal_code: String(formData.get("postal_code") ?? "").trim() || null,
+      country: String(formData.get("country") ?? "").trim() || "US",
+      geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
+      geo_lng: Number.isFinite(geoLng ?? NaN) ? geoLng : null,
     })
     .eq("id", locationId)
 

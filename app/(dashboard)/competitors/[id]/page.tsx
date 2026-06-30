@@ -20,6 +20,7 @@ import {
 } from "@/components/ticket"
 import { CompetitorPostsGrid, CompetitorPhotosGrid } from "../competitor-proof"
 import CompetitorHandles from "../competitor-handles"
+import CompetitorLabelForm from "../competitor-label-form"
 import { humanizeRef } from "@/lib/skills/evidence-format"
 import { priceLevelToSymbols } from "@/lib/places/format"
 import type { ManagedHandle } from "../../proof-data"
@@ -64,8 +65,15 @@ const SIGNAL_ICON = (
   </svg>
 )
 
-export default async function CompetitorDetail({ params }: { params: Promise<{ id: string }> }) {
+export default async function CompetitorDetail({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string; success?: string }>
+}) {
   const { id } = await params
+  const sp = await searchParams
   const c = await loadOperatorCompetitorDetail(id)
   if (!c) notFound()
   const [{ posts, photos }, handles] = await Promise.all([
@@ -105,6 +113,9 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
         </svg>
         Competitors
       </Link>
+
+      {sp.error ? <p className="tk-comp-status tk-comp-status-err">{sp.error}</p> : null}
+      {sp.success ? <p className="tk-comp-status">{sp.success}</p> : null}
 
       {/* ── HERO: the rival's file lead ── */}
       <RevealOnView>
@@ -146,6 +157,21 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
           {c.address ? <p className="tk-addr">{c.address}</p> : null}
         </TkHero>
       </RevealOnView>
+
+      {/* ── DISPLAY LABEL (ALT-225): what we call this competitor in your dashboard ── */}
+      <section className="tk-comp-sec">
+        <TkSectionHead
+          title="Display label"
+          sub="What we call this competitor in your dashboard"
+        />
+        <TkCard>
+          <CompetitorLabelForm
+            competitorId={id}
+            displayLabel={c.displayLabel}
+            sourceName={c.sourceName}
+          />
+        </TkCard>
+      </section>
 
       {/* ── WATCHED ACCOUNTS (the manage-handles surface) ──
           ALT-189: sits directly under the competitor details, above the signals

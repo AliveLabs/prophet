@@ -21,26 +21,50 @@ function SubmitButton() {
 export function OrgFormPass({
   orgId,
   name,
+  displayName,
   billingEmail,
 }: {
   orgId: string
+  /** Legal/account name — immutable here (ALT-226). */
   name: string
+  /** Optional editable display name; blank ⇒ falls back to the legal name. */
+  displayName: string | null
   billingEmail: string | null
 }) {
   return (
     <form action={updateOrganizationAction} className="tk-set-form">
       <input type="hidden" name="org_id" value={orgId} />
 
+      {/* ALT-226: legal name is immutable — shown locked, not editable here. */}
       <div className="tk-set-ifield">
         <label htmlFor="org-name" className="tk-set-ilabel">Organization name</label>
         <input
           id="org-name"
-          name="name"
           type="text"
-          defaultValue={name}
-          required
+          value={name}
+          disabled
+          aria-describedby="org-name-hint"
           className="tk-set-input"
         />
+        <span id="org-name-hint" className="tk-set-hint">
+          Your legal account name. Contact support to change it.
+        </span>
+      </div>
+
+      <div className="tk-set-ifield">
+        <label htmlFor="org-display-name" className="tk-set-ilabel">Display name</label>
+        <input
+          id="org-display-name"
+          name="display_name"
+          type="text"
+          defaultValue={displayName ?? ""}
+          placeholder={name}
+          aria-describedby="org-display-hint"
+          className="tk-set-input"
+        />
+        <span id="org-display-hint" className="tk-set-hint">
+          Shown across your dashboard. Leave blank to use your legal name.
+        </span>
       </div>
 
       <div className="tk-set-ifield">

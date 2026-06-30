@@ -12,6 +12,7 @@ import {
 import type { InsightForBriefing, BusinessContext } from "@/lib/ai/prompts/priority-briefing"
 import { fetchSocialDashboardData } from "./social-actions"
 import { fetchInsightsPageData } from "@/lib/insights/cached-data"
+import { resolveDisplayName } from "../operator-data"
 // ── The Pass — kit-rebuilt presentation (page-local; shared components untouched) ──
 import { TkSoftPanel, TkTooltipLayer } from "@/components/ticket"
 import InsightsBriefingSection, { InsightsBriefingSkeleton } from "./insights-briefing-section"
@@ -133,7 +134,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
       const meta = c.metadata as Record<string, unknown> | null
       const pd = meta?.placeDetails as Record<string, unknown> | null
       return {
-        name: c.name ?? "Competitor",
+        name: resolveDisplayName(c.display_label, c.name, "Competitor"),
         rating: snap?.profile?.rating ?? (pd?.rating as number | null) ?? (meta?.rating as number | null) ?? null,
         reviewCount: snap?.profile?.reviewCount ?? (pd?.reviewCount as number | null) ?? (meta?.reviewCount as number | null) ?? null,
         priceLevel: snap?.profile?.priceLevel ?? (pd?.priceLevel as string | null) ?? null,
@@ -175,7 +176,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   const competitorNameMap = new Map<string, string>()
   for (const c of competitors) {
-    competitorNameMap.set(c.id, c.name ?? "Competitor")
+    competitorNameMap.set(c.id, resolveDisplayName(c.display_label, c.name, "Competitor"))
   }
 
   // -------------------------------------------------------------------------
