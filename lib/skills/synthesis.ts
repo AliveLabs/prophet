@@ -13,7 +13,7 @@ import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provide
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
-import { rankPlays, computeCombinedScore, calibrationOf, type ScoreInput } from "@/lib/skills/scoring-config"
+import { rankPlays, computeCombinedScore, calibrationOf, calibratedImpact, type ScoreInput } from "@/lib/skills/scoring-config"
 import { resolveCategoryPriors } from "@/lib/skills/category-priors"
 import { fuseNearDuplicates } from "@/lib/skills/fusion"
 import { playKey, computePlayTypeKey } from "@/lib/skills/preferences"
@@ -269,9 +269,15 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // a weak one. (Every pooled play is already grounded — named anchor + real signal + not generic.)
   const chosenFinal = applyGrassrootsFloor(chosen, rankedPlays, max, scoreByPlay, d)
 
+  // ALT-167: enforce the served-order rules as a PURE, deterministic pass — AFTER the model's order AND
+  // the grassroots floor — because neither the score nor the model selection guarantees them. (1) a
+  // directional play never ranks #1; (2) a high-confidence/low-impact play never outranks a high-impact
+  // play. Minimal + stable: where the rules already hold, the model's order is preserved untouched.
+  const guarded = enforceOrderingGuard(chosenFinal, scoreByPlay)
+
   // P3: stamp each chosen play with its combined score + operator-facing category, for the
   // ranked display + category drill-down. Optional fields — old persisted briefs simply lack them.
-  const plays = chosenFinal.map((p) => ({ ...p, combinedScore: scoreByPlay.get(p), category: CATEGORY_BY_SKILL[p.skillId] }))
+  const plays = guarded.map((p) => ({ ...p, combinedScore: scoreByPlay.get(p), category: CATEGORY_BY_SKILL[p.skillId] }))
 
   return {
     locationId: d.locationId,
@@ -366,4 +372,74 @@ function applyGrassrootsFloor(
     `[synthesis] grassroots floor: surfaced "${bestGrass.title}" (natural rank #${naturalRank}, score ${score}) (${d.locationId} ${d.dateKey})`,
   )
   return chosenFinal
+}
+
+/**
+ * ALT-167 — POST-SELECTION ORDERING GUARD. The served brief order is NOT the pure score: the
+ * deterministic rankPlays output is only a "merit prior" the Opus selector may reorder freely, and
+ * applyGrassrootsFloor then appends a play. This pure, deterministic pass runs LAST (after the model's
+ * order AND the floor) to guarantee two rules on what actually ships, WITHOUT re-scoring anything:
+ *   1. A directional (lowest-confidence) play must NEVER rank #1.
+ *   2. A high-confidence / low-impact play must NOT outrank a high-impact play.
+ *
+ * Tiers reuse the scoring core — "directional" is the confidence tier, and high/low impact is the
+ * CALIBRATED impact (calibratedImpact), so the P11 maintain cap is honored exactly as the scorer sees it
+ * (a maintain habit with no failure signal counts as low-impact here too). The reorder is MINIMAL +
+ * STABLE: wherever the rules already hold, the model's order is preserved.
+ *
+ * Rule 2 is applied first (a stable partition of ONLY the constrained plays), then rule 1 LAST so it is
+ * the authoritative guarantee. The two rules can conflict in exactly one shape — the only non-directional
+ * play is itself high-conf/low-impact while the high-impact play is directional — and then rule 1 wins
+ * (no directional #1) and rule 2 yields. `scoreByPlay` (combined merit) is used ONLY to choose which
+ * non-directional play to promote, never to re-rank.
+ */
+export function enforceOrderingGuard(
+  plays: EnrichedRecommendation[],
+  scoreByPlay: Map<EnrichedRecommendation, number>,
+): EnrichedRecommendation[] {
+  if (plays.length < 2) return plays
+
+  // Effective impact = the SAME calibrated impact the scorer uses (maintain cap respected). category is
+  // irrelevant to calibratedImpact but required by ScoreInput; pass the play's real one for honesty.
+  const effImpact = (p: EnrichedRecommendation) =>
+    calibratedImpact({
+      confidence: p.confidence,
+      impact: p.leverage?.label,
+      category: CATEGORY_BY_SKILL[p.skillId] ?? "marketing",
+      ...calibrationOf(p),
+    })
+  const isDirectional = (p: EnrichedRecommendation) => p.confidence === "directional"
+  const isHighImpact = (p: EnrichedRecommendation) => effImpact(p) === "high"
+  const isHighConfLowImpact = (p: EnrichedRecommendation) => p.confidence === "high" && effImpact(p) === "low"
+  const merit = (p: EnrichedRecommendation) => scoreByPlay.get(p) ?? 0
+
+  const order = [...plays]
+
+  // RULE 2 — stable partition over ONLY the constrained subsequence (high-impact ∪ high-conf/low-impact;
+  // disjoint, since impact can't be both high and low). Move every high-impact play ahead of every
+  // high-conf/low-impact play, preserving each group's relative order; every other play keeps its slot.
+  const constrainedSlots = order.map((_p, i) => i).filter((i) => isHighImpact(order[i]) || isHighConfLowImpact(order[i]))
+  const constrained = constrainedSlots.map((i) => order[i])
+  const repartitioned = [...constrained.filter(isHighImpact), ...constrained.filter(isHighConfLowImpact)]
+  constrainedSlots.forEach((slot, k) => {
+    order[slot] = repartitioned[k]
+  })
+
+  // RULE 1 (LAST, authoritative) — if #1 is directional, promote a non-directional play to the front.
+  // Prefer one that does NOT re-break rule 2 (i.e. not high-conf/low-impact while any high-impact play
+  // exists); among the eligible, pick the highest merit. Sliding the rest down preserves their (now
+  // rule-2-compliant) relative order. No non-directional play ⇒ nothing to promote, leave as-is.
+  if (isDirectional(order[0])) {
+    const nonDirectional = order.filter((p) => !isDirectional(p))
+    if (nonDirectional.length) {
+      const anyHighImpact = order.some(isHighImpact)
+      const safe = nonDirectional.filter((p) => !(isHighConfLowImpact(p) && anyHighImpact))
+      const pool = safe.length ? safe : nonDirectional
+      const promote = pool.reduce((best, p) => (merit(p) > merit(best) ? p : best))
+      order.splice(order.indexOf(promote), 1)
+      order.unshift(promote)
+    }
+  }
+
+  return order
 }
