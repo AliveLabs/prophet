@@ -51,6 +51,22 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    // ALT-160: the Social page was built but never wired into the nav. It joins
+    // Weather + Events as the third "outside-influence" category (your own + your
+    // competitors' social presence), so it leads that trio here.
+    href: "/social",
+    label: "Social",
+    // Share/network glyph: three connected nodes (mirrors the social empty-state icon).
+    icon: (
+      <svg viewBox="0 0 20 20" {...sw}>
+        <circle cx="5" cy="10" r="2.2" />
+        <circle cx="14.5" cy="4.8" r="2.2" />
+        <circle cx="14.5" cy="15.2" r="2.2" />
+        <path d="M6.9 8.9l5.7-3.1M6.9 11.1l5.7 3.1" />
+      </svg>
+    ),
+  },
+  {
     href: "/weather",
     label: "Weather",
     icon: (

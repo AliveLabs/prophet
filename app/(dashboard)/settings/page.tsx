@@ -25,8 +25,22 @@ import {
   OwnNetworkSelectPass,
   CommsPrefsPass,
 } from "./settings-controls-pass"
+import SettingsSocialHandles from "./settings-social-handles-pass"
 import { ICON_ARROW } from "./settings-icons"
 import "./settings-pass.css"
+// ALT-234 — the own-handle editor (sp-hm-/sp-handles-/sp-disc- families) now lives
+// here in Settings; reuse its styles from the Social page's stylesheet (no .sp-* class
+// collisions with Settings' own .tk-set-/.pv- chrome).
+import "../social/social.css"
+
+type OwnHandle = {
+  id: string
+  platform: "instagram" | "facebook" | "tiktok"
+  handle: string
+  profileUrl: string | null
+  discoveryMethod: "auto_scrape" | "data365_search" | "manual"
+  isVerified: boolean
+}
 
 export default async function SettingsPage() {
   const user = await requireUser()
@@ -48,20 +62,30 @@ export default async function SettingsPage() {
   const singleOwnNetwork = TIER_LIMITS[orgTier].ownSocialNetworkLimit === 1
   const chosenNetwork =
     typeof locSettings.ownSocialNetwork === "string" ? locSettings.ownSocialNetwork : "instagram"
-  let otherOwnNetworks: string[] = []
-  if (singleOwnNetwork) {
-    const { data: ownProfiles } = await sb
-      .from("social_profiles")
-      .select("platform, is_verified")
-      .eq("entity_id", ctx.locationId)
-    otherOwnNetworks = [
-      ...new Set(
-        (ownProfiles ?? [])
-          .filter((p) => p.platform !== chosenNetwork)
-          .map((p) => p.platform as string)
-      ),
-    ]
-  }
+  // ALT-234 — own social handles (add/remove now lives canonically in Settings).
+  // Fetch the full rows so the editor renders provenance + verify state honestly.
+  const { data: ownProfileRows } = await sb
+    .from("social_profiles")
+    .select("id, platform, handle, profile_url, discovery_method, is_verified")
+    .eq("entity_type", "location")
+    .eq("entity_id", ctx.locationId)
+  const ownHandles: OwnHandle[] = (ownProfileRows ?? []).map((p) => ({
+    id: p.id as string,
+    platform: p.platform as OwnHandle["platform"],
+    handle: p.handle as string,
+    profileUrl: (p.profile_url as string | null) ?? null,
+    discoveryMethod: (p.discovery_method as OwnHandle["discoveryMethod"]) ?? "manual",
+    isVerified: !!p.is_verified,
+  }))
+  const otherOwnNetworks: string[] = singleOwnNetwork
+    ? [
+        ...new Set(
+          ownHandles
+            .filter((p) => p.platform !== chosenNetwork)
+            .map((p) => p.platform as string)
+        ),
+      ]
+    : []
 
   return (
     <div className="pv-page">
@@ -165,7 +189,8 @@ export default async function SettingsPage() {
         </RevealOnView>
 
         {/* ── SOCIAL COVERAGE ── */}
-        <RevealOnView className="tk-set-block">
+        {/* id anchor: Manage buttons elsewhere (Social page) deep-link to #social-coverage */}
+        <RevealOnView className="tk-set-block" id="social-coverage">
           <TkSectionHead title="Social coverage" sub="The accounts we read for you" />
           <TkSoftPanel>
             <div className="tk-set-fields">
@@ -203,6 +228,15 @@ export default async function SettingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* ALT-234 — own-handle add/remove (the canonical home). The shared
+                editor + a location-level discovery trigger. */}
+            <div className="tk-set-divide" />
+            <SettingsSocialHandles
+              locationId={ctx.locationId}
+              locationName={ctx.locationName}
+              handles={ownHandles}
+            />
           </TkSoftPanel>
         </RevealOnView>
 

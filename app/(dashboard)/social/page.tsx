@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import Link from "next/link"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import LocationFilter from "@/components/ui/location-filter"
@@ -7,7 +8,7 @@ import { type FeedInsight } from "@/components/insights/insight-feed"
 import { scoreInsights, type InsightPreference } from "@/lib/insights/scoring"
 import { fetchSocialPageData } from "@/lib/cache/social"
 import { fetchSocialDashboardData } from "./actions"
-import SocialHandleSection from "./handle-section"
+import SocialWatchedAccounts from "./watched-accounts"
 import {
   RevealOnView,
   TkSectionHead,
@@ -358,19 +359,17 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
           </>
         )}
 
-        {/* ── Watched accounts (handle manager) ── */}
+        {/* ── Watched accounts (DISPLAY-ONLY · ALT-234) ── */}
         {selectedLocationId && (
           <>
             <TkSectionHead
               id="watched-accounts"
               title="Watched accounts"
-              sub="The handles we read for you and your competitors"
+              sub="The handles we read — manage your own in Settings, a competitor's on its page"
               className="sp-sec"
             />
             <RevealOnView>
-              <SocialHandleSection
-                locationId={selectedLocationId}
-                locationName={selectedLocation?.name ?? "Your location"}
+              <SocialWatchedAccounts
                 locationHandles={locationHandles}
                 competitorHandleGroups={competitorHandleGroups}
               />
@@ -391,12 +390,12 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
               description="Add the handles you want us to read — your own accounts and the competitors you measure against. Then run a fetch to pull posts and engagement."
               action={
                 <div className="sp-cta">
-                  <a href="#watched-accounts">
-                    <TkButton variant="add">Add handles below</TkButton>
-                  </a>
-                  <a href="/competitors">
+                  <Link href="/settings#social-coverage">
+                    <TkButton variant="add">Add your accounts</TkButton>
+                  </Link>
+                  <Link href="/competitors">
                     <TkButton variant="keep">Manage competitors</TkButton>
-                  </a>
+                  </Link>
                 </div>
               }
             />
