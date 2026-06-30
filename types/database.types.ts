@@ -1973,18 +1973,21 @@ export type Database = {
           lng: number
           query_key: string
           resolved_at: string
+          website: string | null
         }
         Insert: {
           lat: number
           lng: number
           query_key: string
           resolved_at?: string
+          website?: string | null
         }
         Update: {
           lat?: number
           lng?: number
           query_key?: string
           resolved_at?: string
+          website?: string | null
         }
         Relationships: []
       }

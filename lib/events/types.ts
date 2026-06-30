@@ -47,6 +47,12 @@ export type NormalizedEvent = {
    *  route_corridor = a street-closing route event (marathon/parade/race) near the restaurant. */
   role?: "local_foot" | "local_traffic" | "metro_hook" | "route_corridor" | "out_of_area" | "ungeocoded"
 
+  /** Venue's OFFICIAL website, resolved by the events pipeline from the geocoded venue's Google
+   *  Place `websiteUri` (ALT-210 data-layer follow-up). A real venue URL we can deep-link to when
+   *  the scraped event only carried a generic bureau/convention-center landing page. Never
+   *  fabricated — only ever a validated http(s) URL that Google returned for the venue. */
+  venueWebsite?: string
+
   // ── Catalog match (set by annotateEventsGeo when the event's geocoded venue lands on a known
   //    marquee venue) — grounds magnitude + feeds the impact model's attendance estimate. ──
   /** Name of the cataloged venue this event matched (rebrand-proof; coordinate match). */
