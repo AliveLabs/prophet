@@ -121,7 +121,6 @@ export function TkNumBig({
   value,
   suffix = "",
   prefix = "",
-  format,
   localize = false,
   trend,
   trendLabel,
@@ -135,9 +134,10 @@ export function TkNumBig({
   value: number
   suffix?: string
   prefix?: string
-  format?: (n: number) => string
-  // Serializable alternative to `format` so Server Components can request
-  // thousands separators without passing a function across the boundary.
+  // Formatting is SERIALIZABLE only (no `format` function) — TkNumBig is rendered by
+  // Server Components, and a function prop would throw at request time. `localize`
+  // renders thousands separators; richer needs should add another serializable knob,
+  // never a function.
   localize?: boolean
   /** show an up/down arrow pill */
   trend?: "up" | "down"
@@ -158,7 +158,6 @@ export function TkNumBig({
           value={value}
           prefix={prefix}
           suffix={suffix}
-          format={format}
           localize={localize}
         />
         {trend && (

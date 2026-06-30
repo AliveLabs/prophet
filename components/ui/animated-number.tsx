@@ -6,10 +6,15 @@ import { useEffect, useRef, useState } from "react"
 // Signals "live/working" without being noisy. Honors prefers-reduced-motion (jumps to
 // final). Renders tabular-nums so the width doesn't jitter while counting.
 //
-// Usage: <AnimatedNumber value={1240} format={(n) => n.toLocaleString()} />
+// Formatting is intentionally SERIALIZABLE only (the `localize` boolean) — never a
+// `format` function. A function prop cannot cross the server→client boundary, and
+// this primitive is rendered by Server Components; a function would throw at request
+// time ("Functions cannot be passed directly to Client Components"). Keep all knobs
+// here serializable so misuse is a compile error, not a runtime crash.
+//
+// Usage: <AnimatedNumber value={1240} localize />
 export function AnimatedNumber({
   value,
-  format,
   localize = false,
   durationMs = 900,
   className,
@@ -17,10 +22,7 @@ export function AnimatedNumber({
   suffix = "",
 }: {
   value: number
-  format?: (n: number) => string
-  // Serializable alternative to `format` for Server Components: pass `localize`
-  // (a boolean) to render with thousands separators (n.toLocaleString()) instead
-  // of a `format` function, which cannot cross the server→client boundary.
+  // Render with thousands separators (n.toLocaleString()) instead of a raw number.
   localize?: boolean
   durationMs?: number
   className?: string
@@ -72,7 +74,7 @@ export function AnimatedNumber({
   }, [value, durationMs])
 
   const n = Math.round(display)
-  const rendered = format ? format(n) : localize ? n.toLocaleString() : String(n)
+  const rendered = localize ? n.toLocaleString() : String(n)
   return (
     <span ref={ref} className={className} style={{ fontVariantNumeric: "tabular-nums" }}>
       {prefix}

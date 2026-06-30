@@ -41,5 +41,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # RSC server/client boundary guard — catches the bug class tsc + next build can't see
+      # (build-clean, throws at request time). See scripts/audit/rsc-boundary.mjs.
+      - name: RSC boundary guard
+        run: npm run lint:rsc-boundary
+
       - name: Unit tests
         run: npm run test:unit
