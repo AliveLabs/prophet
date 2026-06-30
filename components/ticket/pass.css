@@ -591,8 +591,11 @@
    + dark mode resolve. z-index sits above cards/drawer, below tooltip/toast.
    ════════════════════════════════════════════════════════════ */
 /* The icon is the Ticket T inside a chat bubble (TicketChatMark) in copper — the
-   chat bubble IS the container, so the button itself carries no square chrome. */
-.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: none; border: 0; color: var(--rust); box-shadow: none; transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), opacity var(--t-fast); }
+   chat bubble IS the container, so the button itself carries no square chrome.
+   Selector is `button.tk-tbub` (not bare `.tk-tbub`) on purpose: the kit reset
+   `.tk-kit button { color: inherit }` (specificity 0,1,1) would otherwise outrank
+   `.tk-tbub` (0,1,0) and drop the copper back to inherited ink at rest. */
+button.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: none; border: 0; color: var(--rust); box-shadow: none; transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), opacity var(--t-fast); }
 .tk-tbub svg { width: 20px; height: auto; }
 /* hover/open: deepen the copper + a soft copper halo for tap feedback + a small lift */
 .tk-tbub:hover, .tk-tbub.tk-tbub-open { background: var(--rust-tint); color: var(--rust-deep); transform: translateY(-1px); }
