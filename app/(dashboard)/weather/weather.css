@@ -21,6 +21,9 @@
 .tk-weather-lead { padding: 22px 22px 20px; border-radius: var(--r-xl); box-shadow: var(--shadow-md, var(--shadow-sm)); }
 @media (max-width: 460px) { .tk-weather-lead { padding: 18px 16px 16px; } }
 
+/* honest footnote under the composite strip (events + demand framing) */
+.tk-weather-lead-foot { margin-top: 14px; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
+
 /* ── hero "now + next 7" extras ── */
 .tk-weather-now {
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;

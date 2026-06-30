@@ -18,6 +18,14 @@ import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { fetchWeatherPageData } from "@/lib/cache/weather"
+import { fetchEventsPageData } from "@/lib/cache/events"
+import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
+import {
+  isInTradeArea,
+  eventLocalDate,
+  eventStripLabel,
+  distanceLabel,
+} from "../events/events-map"
 import {
   RevealOnView,
   TkCard,
@@ -37,7 +45,7 @@ import {
 } from "./weather-client"
 import {
   toTkWeatherIcon,
-  estimateDemand,
+  estimateDemandWithEvent,
   type WeatherDay,
   type LocationWeather,
 } from "./weather-shared"
@@ -177,6 +185,47 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
 
   const weatherInsights = cached.weatherInsights
 
+  // ── ALT-207: pull the SAME in-trade-area events the Events page shows, and line
+  // them up onto the composite's day strip. We reuse the events cache loader +
+  // the `isInTradeArea` gate verbatim so the weather composite and the Events page
+  // can't disagree about what's "nearby". Events are grouped by their LOCAL
+  // calendar date (`eventLocalDate`, wall-clock-safe) so a Sat game badges Sat. ──
+  let eventsByDate = new Map<string, NormalizedEvent[]>()
+  if (selectedLocationId) {
+    try {
+      const eventsCache = await fetchEventsPageData(selectedLocationId)
+      const snapshot = eventsCache.snapshot
+        ? (eventsCache.snapshot.raw_data as unknown as NormalizedEventsSnapshotV1)
+        : null
+      const inArea = (snapshot?.events ?? []).filter(isInTradeArea)
+      const grouped = new Map<string, NormalizedEvent[]>()
+      for (const ev of inArea) {
+        const day = eventLocalDate(ev)
+        if (!day) continue
+        const arr = grouped.get(day) ?? []
+        arr.push(ev)
+        grouped.set(day, arr)
+      }
+      eventsByDate = grouped
+    } catch (err) {
+      // Events are additive to the composite — a miss degrades to weather+demand only.
+      console.warn("[Weather] Events fetch failed:", err)
+    }
+  }
+
+  // Per-day: the most notable event (nearest, then highest draw) for the strip badge.
+  const topEventForDay = (date: string): NormalizedEvent | null => {
+    const list = eventsByDate.get(date)
+    if (!list || list.length === 0) return null
+    const rank = { major: 3, moderate: 2, minor: 1 } as const
+    return [...list].sort((a, b) => {
+      const da = typeof a.distanceMiles === "number" ? a.distanceMiles : 99
+      const db = typeof b.distanceMiles === "number" ? b.distanceMiles : 99
+      if (da !== db) return da - db
+      return (b.magnitude ? rank[b.magnitude] : 0) - (a.magnitude ? rank[a.magnitude] : 0)
+    })[0]
+  }
+
   // Ensure KPI strip and chart share the same source of truth. Previously the
   // cards read only from cached historical rows while the chart merged in
   // OpenWeatherMap forecasts, so the cards displayed "N/A" / "0" whenever the
@@ -205,6 +254,10 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
     ? upcoming
     : [...recentHistory.slice(0, Math.max(0, 7 - upcoming.length)).reverse(), ...upcoming]
   ).slice(0, 7)
+
+  // How many days in the visible strip carry a notable event — drives the
+  // composite's "events factored in" sub-line (honest: only shown when > 0).
+  const eventDaysInView = stripDays.filter((d) => topEventForDay(d.date) != null).length
 
   const nowIcon = latestWeather ? toTkWeatherIcon(latestWeather.weather_condition, latestWeather.is_severe) : "sun"
   const locationName = selectedLocation?.name ?? "Location"
@@ -249,50 +302,77 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
 
         {hasData ? (
           <>
-            {/* ── LEAD: now + next-7 forecast strip ── */}
-            <RevealOnView className="tk-hero-wrap">
-              <TkCard className="tk-weather-lead">
-                <div className="tk-eyebrow">Right now · {locationName}</div>
-                <div className="tk-weather-now">
-                  <span className={`tk-weather-now-ic tk-${nowIcon}-ic`} aria-hidden="true">
-                    {NOW_ICON_GLYPH[nowIcon]}
-                  </span>
-                  <span className="tk-weather-now-temp">
-                    {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°` : "—"}
-                  </span>
-                  <span className="tk-weather-now-meta">
-                    <span className="tk-weather-now-cond">
-                      {latestWeather?.weather_condition.toLowerCase() ?? "No reading yet"}
+            {/* ── LEAD: the Concept A "Weather, events & demand" composite —
+                now + a next-7 strip that unifies weather (icon/temp), the notable
+                nearby events that move demand (rust badge), and the honest
+                estimated walk-in read (demand chip). ── */}
+            <div>
+              <TkSectionHead
+                title="Weather, events & demand"
+                sub={`All-weather outlook · ${locationName}`}
+              />
+              <RevealOnView className="tk-hero-wrap">
+                <TkCard className="tk-weather-lead">
+                  <div className="tk-eyebrow">Right now · {locationName}</div>
+                  <div className="tk-weather-now">
+                    <span className={`tk-weather-now-ic tk-${nowIcon}-ic`} aria-hidden="true">
+                      {NOW_ICON_GLYPH[nowIcon]}
                     </span>
-                    <span className="tk-weather-now-sub">
-                      {latestWeather && latestWeather.temp_low_f != null
-                        ? `Low ${Math.round(latestWeather.temp_low_f)}° · `
-                        : ""}
-                      {severeCount > 0 ? "Severe days flagged — traffic insights adjusted" : "No disruptions in view"}
+                    <span className="tk-weather-now-temp">
+                      {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°` : "—"}
                     </span>
-                  </span>
-                </div>
-                {stripDays.length > 0 && (
-                  <TkWeatherStrip
-                    caption="Next 7 · estimated walk-in demand"
-                    captionRight="vs a normal day"
-                    days={stripDays.map((d) => {
-                      const demand = estimateDemand(d)
-                      return {
-                        dow: dow(d.date),
-                        icon: toTkWeatherIcon(d.weather_condition, d.is_severe),
-                        hi: `${Math.round(d.temp_high_f)}°`,
-                        lo: `${Math.round(d.temp_low_f)}°`,
-                        demand,
-                        event: d.is_severe ? "Severe" : undefined,
-                        tip: `${d.weather_condition} · est. walk-in ${demand === "up" ? "above" : demand === "down" ? "below" : "around"} normal`,
-                        tipValue: `${Math.round(d.temp_high_f)}° / ${Math.round(d.temp_low_f)}°`,
-                      }
-                    })}
-                  />
-                )}
-              </TkCard>
-            </RevealOnView>
+                    <span className="tk-weather-now-meta">
+                      <span className="tk-weather-now-cond">
+                        {latestWeather?.weather_condition.toLowerCase() ?? "No reading yet"}
+                      </span>
+                      <span className="tk-weather-now-sub">
+                        {latestWeather && latestWeather.temp_low_f != null
+                          ? `Low ${Math.round(latestWeather.temp_low_f)}° · `
+                          : ""}
+                        {severeCount > 0 ? "Severe days flagged — traffic insights adjusted" : "No disruptions in view"}
+                      </span>
+                    </span>
+                  </div>
+                  {stripDays.length > 0 && (
+                    <TkWeatherStrip
+                      caption="Next 7 · forecast & estimated walk-in demand"
+                      captionRight="vs a normal day"
+                      days={stripDays.map((d) => {
+                        const topEvent = topEventForDay(d.date)
+                        const demand = estimateDemandWithEvent(d, topEvent != null)
+                        // Event badge wins the slot (it's the demand driver); severe
+                        // weather falls back to the badge only when no event lands.
+                        const eventLabel = topEvent
+                          ? eventStripLabel(topEvent)
+                          : d.is_severe
+                            ? "Severe"
+                            : undefined
+                        const demandWord = demand === "up" ? "above" : demand === "down" ? "below" : "around"
+                        const tip = topEvent
+                          ? `${topEvent.title ?? "Nearby event"} · ${distanceLabel(topEvent.distanceMiles)} — est. walk-in ${demandWord} normal`
+                          : `${d.weather_condition} · est. walk-in ${demandWord} normal`
+                        return {
+                          dow: dow(d.date),
+                          icon: toTkWeatherIcon(d.weather_condition, d.is_severe),
+                          hi: `${Math.round(d.temp_high_f)}°`,
+                          lo: `${Math.round(d.temp_low_f)}°`,
+                          demand,
+                          event: eventLabel,
+                          tip,
+                          tipValue: `${Math.round(d.temp_high_f)}° / ${Math.round(d.temp_low_f)}°`,
+                        }
+                      })}
+                    />
+                  )}
+                  <p className="tk-weather-lead-foot">
+                    {eventDaysInView > 0
+                      ? `${eventDaysInView} day${eventDaysInView === 1 ? "" : "s"} in view carr${eventDaysInView === 1 ? "ies" : "y"} a notable nearby event — folded into the estimated walk-in read below. `
+                      : ""}
+                    Demand is estimated from conditions and what&rsquo;s happening nearby — directional, not a measured count.
+                  </p>
+                </TkCard>
+              </RevealOnView>
+            </div>
 
             {/* ── At-a-glance widgets (honest, no $/covers) ── */}
             <div>

@@ -63,3 +63,16 @@ export function estimateDemand(d: WeatherDay): TkDemand {
   }
   return "flat"
 }
+
+// Composite (weather + events) demand — the honest read Concept A shows on the
+// strip: a notable nearby event is a walk-in tailwind, so it can lift a "flat"
+// weather day to "up". It does NOT rescue a day weather is actively suppressing
+// (severe / wet / extreme): we don't claim an event beats a thunderstorm. Still
+// directional/estimated — no covers/$/POS. `hasEvent` = a notable in-trade-area
+// event lands on this day.
+export function estimateDemandWithEvent(d: WeatherDay, hasEvent: boolean): TkDemand {
+  const base = estimateDemand(d)
+  if (!hasEvent) return base
+  if (base === "down") return base // weather is suppressing; an event won't flip it
+  return "up" // flat or up → an event night reads as a lift
+}

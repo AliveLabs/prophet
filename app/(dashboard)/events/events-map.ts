@@ -24,6 +24,19 @@ export function eventLocalHour(ev: NormalizedEvent): number | null {
   return parsed ? parsed.hour + parsed.minute / 60 : null
 }
 
+/** The event's LOCAL calendar date as "YYYY-MM-DD", read straight off the
+ *  wall-clock string so it matches the forecast day keys regardless of server
+ *  timezone (same reason as `eventLocalHour` — never re-project through Date()).
+ *  Returns null when there's no parseable date. Used to line events up onto the
+ *  weather composite's day strip. */
+export function eventLocalDate(ev: NormalizedEvent): string | null {
+  const raw = ev.authoritativeLocalStart ?? ev.startDatetime
+  if (!raw) return null
+  const m = LOCAL_DATE_RE.exec(raw)
+  return m ? m[1] : null
+}
+
+const LOCAL_DATE_RE = /^(\d{4}-\d{2}-\d{2})/
 const WALL_CLOCK_RE = /[T ](\d{1,2}):(\d{2})/
 
 /** Pull {hour, minute} from a wall-clock datetime string, ignoring any timezone
@@ -74,6 +87,28 @@ export function eventChipLabel(ev: NormalizedEvent, isMatched: boolean): string 
   if (ev.magnitude === "major") return "Major draw"
   if (ev.magnitude === "moderate") return "Moderate draw"
   return "Nearby"
+}
+
+/* ── Short badge label for the weather composite's day strip ──────────────────
+   Concept A floats a tiny rust badge over an event day ("Game · AT&T"). We keep
+   it copy-safe: prefer a VALIDATED / catalog venue name (never the raw scraped
+   string once a validated name exists), trimmed short; otherwise a draw-class
+   word. Distance/covers are never claimed here — it's just a "something's on"
+   flag the operator can tap through to the Events page for. */
+export function eventStripLabel(ev: NormalizedEvent): string {
+  const venue =
+    ev.validatedVenueName ??
+    ev.catalogVenueName ??
+    (ev.venueConfidence === "matched_place_id" ? ev.venue?.name : null) ??
+    null
+  if (venue) {
+    const trimmed = venue.length > 16 ? `${venue.slice(0, 15).trimEnd()}…` : venue
+    return trimmed
+  }
+  if (ev.isRouteEvent || ev.role === "route_corridor") return "Street event"
+  if (ev.magnitude === "major") return "Major draw"
+  if (ev.magnitude === "moderate") return "Event"
+  return "Event"
 }
 
 /* ── Confidence: how sure are we this event matters to THIS restaurant? ───────
