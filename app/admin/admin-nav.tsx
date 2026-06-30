@@ -20,6 +20,7 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "Users", icon: <UsersIcon /> },
   { href: "/admin/organizations", label: "Organizations", short: "Orgs", icon: <OrgsIcon /> },
   { href: "/admin/knowledge-review", label: "Knowledge", icon: <KnowledgeIcon /> },
+  { href: "/admin/source-quality", label: "Source Quality", short: "Sources", icon: <SourceQualityIcon /> },
   { href: "/admin/sandbox", label: "Demo & Test", short: "Demo", icon: <SandboxIcon /> },
   { href: "/admin/maintenance", label: "Maintenance", short: "Maint.", icon: <MaintenanceIcon /> },
   { href: "/admin/settings", label: "Settings", icon: <SettingsIcon /> },
@@ -117,6 +118,17 @@ function KnowledgeIcon() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
       <path d="M3 2h7l3 3v9H3z" strokeLinejoin="round" />
       <path d="M10 2v3h3M5.5 8h5M5.5 11h5" strokeLinecap="round" />
+    </svg>
+  )
+}
+function SourceQualityIcon() {
+  // a magnifier over a document — "go check the source"
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M3 2h6l3 3v3" strokeLinejoin="round" />
+      <path d="M9 2v3h3" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="7" cy="10.5" r="2.6" />
+      <path d="M9 12.5 11 14.5" strokeLinecap="round" />
     </svg>
   )
 }
