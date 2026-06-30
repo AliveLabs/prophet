@@ -8,19 +8,22 @@
    driven by the shared tokens so light + warm-dark work for free.
    ============================================================ */
 
-/* the page hosts its own ground so it reads as Pass even inside the
-   un-rebuilt admin <main> (which paints the shadcn bg-background). */
+/* A CONTAINED paper panel inside the admin content area. (.adm-content has asymmetric
+   padding + a max-width:1320px centered inner, so a negative-margin "bleed" no longer
+   lines up with the content edges.) This sits on the admin atmospheric ground as an
+   intentional panel — matching the Overview page's contained-card pattern and the
+   sibling source-quality queue's .sq-surface. */
 .kr-surface {
   position: relative;
-  min-height: 100%;
-  margin: -24px;            /* bleed over the admin <main> px-6 py-6 padding */
-  padding: 28px 24px 56px;
+  padding: 28px 28px 40px;
   background: var(--paper);
   color: var(--ink);
+  border: 1px solid var(--line-2);
   border-radius: 18px;
+  box-shadow: var(--shadow-sm);
 }
 @media (max-width: 760px) {
-  .kr-surface { margin: -16px; padding: 22px 16px 48px; }
+  .kr-surface { padding: 22px 18px 32px; border-radius: 14px; }
 }
 
 /* ── page header ─────────────────────────────────────────── */
