@@ -36,6 +36,7 @@ import {
   TkWidget,
   TkEmptyState,
   TkTooltipLayer,
+  VizTBubble,
 } from "@/components/ticket"
 import {
   WeatherTrend,
@@ -312,7 +313,21 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                 sub={`All-weather outlook · ${locationName}`}
               />
               <RevealOnView className="tk-hero-wrap">
-                <TkCard className="tk-weather-lead">
+                <TkCard
+                  className="tk-weather-lead"
+                  tBubble={
+                    <VizTBubble
+                      viz={{
+                        domain: "weather",
+                        metric: "This week's outlook",
+                        value: `${avgTemp}°`,
+                        timeframe: kpiDaysLabel,
+                        source: "OpenWeatherMap",
+                        locationId: selectedLocationId ?? undefined,
+                      }}
+                    />
+                  }
+                >
                   <div className="tk-eyebrow">Right now · {locationName}</div>
                   <div className="tk-weather-now">
                     <span className={`tk-weather-now-ic tk-${nowIcon}-ic`} aria-hidden="true">
@@ -387,6 +402,19 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                     sub="mean daily high in view"
                     data-tip="Average daily high across history + forecast"
                     data-tipv={`${avgTemp}°F avg high`}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Avg high",
+                          value: avgTemp,
+                          unit: "°F",
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
                   />
                   <TkWidget
                     tone="slate"
@@ -395,6 +423,19 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                     sub="rain + snow in view"
                     data-tip="Total precipitation across the window"
                     data-tipv={`${totalPrecip.toFixed(2)} inches`}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Total precip",
+                          value: totalPrecip.toFixed(2),
+                          unit: '"',
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
                   />
                   <TkWidget
                     tone={severeCount > 0 ? "rust" : "teal"}
@@ -403,6 +444,18 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                     sub={severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}
                     data-tip="Days flagged severe — we down-weight expected walk-in on these"
                     data-tipv={severeCount > 0 ? `${severeCount} severe day${severeCount === 1 ? "" : "s"}` : "none flagged"}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Severe days",
+                          value: severeCount,
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
                   />
                   <TkWidget
                     tone="slate"

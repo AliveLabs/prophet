@@ -169,7 +169,9 @@ async function OperatorShell({ children }: { children: ReactNode }) {
       ).data?.map((l) => l.id) ?? []
 
     const [{ count: insightCount }, { count: competitorCount }] = await Promise.all([
-      supabase.from("insights").select("id", { count: "exact", head: true }).in("location_id", locIds),
+      // ALT-230: don't count user-generated viz insights in the "we generated N
+      // insights" figure shown to gated accounts — they're a pool-only concern.
+      supabase.from("insights").select("id", { count: "exact", head: true }).in("location_id", locIds).not("insight_type", "like", "user_viz%"),
       supabase
         .from("competitors")
         .select("id", { count: "exact", head: true })

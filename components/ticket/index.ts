@@ -60,6 +60,10 @@ export { TkDrawer } from "./drawer"
 // dismiss-reason popover (client)
 export { TkDismissReason, TK_DEFAULT_DISMISS_REASONS } from "./dismiss-reason"
 
+// "Ask Ticket about this" T-bubble on viz cards (client) — ALT-230
+export { VizTBubble, buildAskQuestion } from "./viz-tbubble"
+export type { VizContext, VizDomain } from "./viz-tbubble"
+
 // toast (client)
 export { TkToast, TkToastProvider, useTkToast } from "./toast"
 

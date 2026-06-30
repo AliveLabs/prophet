@@ -28,6 +28,10 @@ type InsightsPageProps = {
     error?: string
     location_id?: string
     status?: string
+    // ALT-230: opaque JSON viz context carried from a viz-card T-bubble's "Generate
+    // insight". Forwarded as a raw string to the client feed; NEVER parsed into the
+    // server briefing, so a generated insight can't reach the home/insights hero.
+    generate?: string
   }>
 }
 
@@ -211,7 +215,13 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     return parts.join(", ").slice(0, 200)
   }
 
-  const insightsForBriefing: InsightForBriefing[] = allInsights.slice(0, 30).map((i) => ({
+  // ALT-230: the Priority Briefing is a hero-equivalent surface, so user-generated
+  // viz insights (`user_viz.*`) must NOT feed it (same rule as the home hero/dossier).
+  // They still appear in the feed pool below — this only guards the briefing input.
+  const insightsForBriefing: InsightForBriefing[] = allInsights
+    .filter((i) => !(i.insight_type as string).startsWith("user_viz"))
+    .slice(0, 30)
+    .map((i) => ({
     insight_type: i.insight_type as string,
     title: i.title,
     summary: i.summary,
@@ -507,6 +517,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             statusFilter={statusFilter}
             learningDays={streamsPresent}
             learningTarget={streamsTotal}
+            generateRequest={resolvedSearchParams?.generate ?? null}
           />
         </div>
       </div>

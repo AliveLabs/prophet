@@ -16,8 +16,10 @@ function dedash(s: string): string {
   return s.replace(/[—–]/g, ", ").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim()
 }
 
-/** Ticket-voice scrub: drop em dashes AND de-jargon. */
-function scrubTicket(s: string): string {
+/** Ticket-voice scrub: drop em dashes AND de-jargon. Exported so on-demand LLM
+ *  surfaces (e.g. ALT-230 generated insights) can guarantee the same compliance
+ *  the brief pipeline gets, without routing through the full skills pipeline. */
+export function scrubTicket(s: string): string {
   let t = dedash(s)
   for (const { term, suggest } of CHEF_LINGO) {
     // Single GLOBAL replace — never a `while (term.test) replace` loop: that hangs forever if a
