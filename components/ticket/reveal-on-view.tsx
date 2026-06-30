@@ -8,6 +8,7 @@ import {
   type ElementType,
   type HTMLAttributes,
 } from "react"
+import { shouldRevealStartHidden } from "./reveal-logic"
 
 // IntersectionObserver wrapper that adds `tk-in-view` to its element when it
 // scrolls into view, driving the entrance fade-up and any data-reveal inside.
@@ -58,9 +59,20 @@ export function RevealOnView({
       return
     }
 
-    // Arm the animation: hide, then reveal on intersection.
+    // Arm the animation, then hide-before-reveal ONLY for content that's still
+    // off-screen. Content already in the viewport on first paint stays visible —
+    // hiding it after SSR painted it in place causes the above-the-fold flash
+    // this ticket is about (ALT-149: "cards render then re-wrap"). Off-screen
+    // content starts hidden (the hide is never seen) and fades up on scroll-in.
+    // We still observe either way so below-fold reveal and once=false re-hide work.
     setArmed(true)
-    setInView(false)
+    const startHidden = shouldRevealStartHidden({
+      reduceMotion: !!reduce,
+      hasIntersectionObserver: hasIO,
+      rect: el.getBoundingClientRect(),
+      viewportHeight: window.innerHeight,
+    })
+    if (startHidden) setInView(false)
 
     const io = new IntersectionObserver(
       (entries) => {
