@@ -7,11 +7,12 @@ import { loadPipelineChecks } from "../proof-data"
 import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
 import BriefView from "./brief-view"
+import { fetchPhotosPageData } from "@/lib/cache/photos"
 import "./brief.css"
 
 // Loose read for the location row — `brand_tolerance` lands with the engine-rewrite
 // migration and isn't in the generated DB types yet (same pattern as the lib layer).
-type LocRow = { id: string; name: string | null; brand_tolerance: number | null }
+type LocRow = { id: string; name: string | null; brand_tolerance: number | null; primary_place_id: string | null }
 type LocQuery = {
   from: (t: string) => {
     select: (c: string) => {
@@ -43,7 +44,7 @@ export default async function HomePage() {
   // Settings page (explicit refresh), not the brief rail.
   const { data: locRow } = await (supabase as unknown as LocQuery)
     .from("locations")
-    .select("id, name, brand_tolerance")
+    .select("id, name, brand_tolerance, primary_place_id")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -55,16 +56,17 @@ export default async function HomePage() {
 
   const brief = await getBrief(locRow.id)
 
-  // Watched competitors (approved + active) for the brief's synth count line.
+  // Watched competitors (approved + active) for the brief's synth count line and
+  // the listing-imagery Shelf comparison (ALT-160 — needs ids to pull their photos).
   const { data: comps } = await supabase
     .from("competitors")
-    .select("name, metadata")
+    .select("id, name, metadata")
     .eq("location_id", locRow.id)
     .eq("is_active", true)
-  const competitors = (comps ?? [])
+  const approvedComps = (comps ?? [])
     .filter((c) => (c.metadata as Record<string, unknown> | null)?.status === "approved")
-    .map((c) => (c.name as string) ?? "Competitor")
-    .slice(0, 6)
+    .map((c) => ({ id: (c as { id: string }).id, name: (c.name as string) ?? "Competitor" }))
+  const competitors = approvedComps.map((c) => c.name).slice(0, 6)
 
   if (!brief) {
     // FAILSAFE (2026-06-12 Raising Cane's hang): a location with data but no
@@ -87,12 +89,34 @@ export default async function HomePage() {
     )
   }
 
-  const [checks, standingAsk, playActions, weeklyMomentum] = await Promise.all([
+  const competitorIds = approvedComps.map((c) => c.id)
+  const [checks, standingAsk, playActions, weeklyMomentum, photosData] = await Promise.all([
     loadPipelineChecks(),
     loadStandingAnswer(locRow.id),
     loadPlayActions(locRow.id, brief.dateKey),
     loadWeeklyMomentum(locRow.id),
+    fetchPhotosPageData(locRow.id, competitorIds),
   ])
+
+  // Listing-imagery modules (ALT-160): own-listing photo rows + per-competitor
+  // groups for the you-vs-set Shelf. Plain serializable rows (no functions cross
+  // the server→client boundary — the modules compute the audit from these).
+  const ownPhotos = photosData.ownPhotos.map((p) => ({
+    analysis_result: p.analysis_result,
+    author_attribution: p.author_attribution,
+  }))
+  const compNameById = new Map(approvedComps.map((c) => [c.id, c.name]))
+  const compRowsById = new Map<string, Array<{ analysis_result: unknown }>>()
+  for (const p of photosData.photos) {
+    const arr = compRowsById.get(p.competitor_id) ?? []
+    arr.push({ analysis_result: p.analysis_result })
+    compRowsById.set(p.competitor_id, arr)
+  }
+  const shelfCompetitors = Array.from(compRowsById.entries()).map(([id, rows]) => ({
+    id,
+    name: compNameById.get(id) ?? "Competitor",
+    rows,
+  }))
 
   return (
     <BriefView
@@ -105,6 +129,9 @@ export default async function HomePage() {
       standingAsk={standingAsk ? { question: standingAsk.question, answer: standingAsk.answer } : null}
       playActions={playActions}
       weeklyMomentum={weeklyMomentum}
+      ownPhotos={ownPhotos}
+      hasListing={!!locRow.primary_place_id}
+      shelfCompetitors={shelfCompetitors}
     />
   )
 }

@@ -380,6 +380,7 @@ export function TkSocialEmbed({
   network,
   caption,
   tags,
+  grade,
   stats,
   photo,
   photoLabel,
@@ -394,6 +395,10 @@ export function TkSocialEmbed({
   network?: ReactNode
   caption?: ReactNode
   tags?: ReactNode
+  /** ALT-160: the per-post visual read (image-quality + standout cues) rendered
+   *  between the caption and the engagement stats. A plain ReactNode slot — the
+   *  caller derives the honest, descriptive chips from the post's visualAnalysis. */
+  grade?: ReactNode
   stats?: Array<{ value: ReactNode; label: ReactNode; highlight?: boolean; tip?: string; tipValue?: string }>
   photo?: ReactNode
   photoLabel?: string
@@ -454,6 +459,7 @@ export function TkSocialEmbed({
           {caption} {tags && <span className="tk-tag">{tags}</span>}
         </div>
       )}
+      {grade && <div className="tk-se-grade">{grade}</div>}
       {stats && stats.length > 0 && (
         <div className="tk-se-stats">
           {stats.map((s, i) => (

@@ -32,6 +32,9 @@ import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
 import { playFamily, confLabel } from "./pass-map"
+import ListingCheck from "@/components/imagery/listing-check"
+import TheShelf from "@/components/imagery/the-shelf"
+import type { PhotoRow, CompetitorPhotoGroup } from "@/lib/places/listing-audit"
 
 const CONF_RANK = { high: 3, medium: 2, directional: 1 } as const
 
@@ -59,6 +62,9 @@ export default function BriefView({
   standingAsk,
   playActions,
   weeklyMomentum = 0,
+  ownPhotos = [],
+  hasListing = false,
+  shelfCompetitors = [],
 }: {
   brief: Brief
   locationId: string
@@ -70,6 +76,10 @@ export default function BriefView({
   standingAsk?: { question: string; answer: string } | null
   playActions?: Record<string, PlayAction>
   weeklyMomentum?: number
+  /** ALT-160 listing-imagery modules — own-listing photo rows + per-competitor groups. */
+  ownPhotos?: PhotoRow[]
+  hasListing?: boolean
+  shelfCompetitors?: CompetitorPhotoGroup[]
 }) {
   const allRefs = brief.plays.flatMap((p) => p.evidenceRefs)
   const signalCount = dedupeRefs(allRefs).length
@@ -325,6 +335,17 @@ export default function BriefView({
                 />
               </TkWidgetGrid>
             </RevealOnView>
+          </>
+        )}
+
+        {/* ── LISTING IMAGERY (ALT-160) — your Google-listing photos: a storefront
+            check + a you-vs-set Shelf. Sits below the at-a-glance widgets and above
+            the credibility rail. Both modules self-hide when there's nothing honest
+            to show, so they never clutter a brief without listing data. ── */}
+        {!readOnly && (
+          <>
+            <ListingCheck photos={ownPhotos} hasPlaceId={hasListing} />
+            <TheShelf ownPhotos={ownPhotos} competitors={shelfCompetitors} />
           </>
         )}
 
