@@ -8,7 +8,7 @@
 import type { CSSProperties } from "react"
 import { notFound } from "next/navigation"
 import Link from "next/link"
-import { loadOperatorCompetitorDetail, resolveOperator } from "../../operator-data"
+import { loadOperatorCompetitorDetail } from "../../operator-data"
 import { loadCompetitorProof, loadCompetitorHandles } from "../../proof-data"
 import {
   RevealOnView,
@@ -66,7 +66,7 @@ const SIGNAL_ICON = (
 
 export default async function CompetitorDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [c, op] = await Promise.all([loadOperatorCompetitorDetail(id), resolveOperator()])
+  const c = await loadOperatorCompetitorDetail(id)
   if (!c) notFound()
   const [{ posts, photos }, handles] = await Promise.all([
     loadCompetitorProof(id),
@@ -154,7 +154,6 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
         competitorId={id}
         competitorName={c.name}
         handles={handles}
-        locationId={op.locationId}
       />
 
       {/* ── WHAT WE'RE SEEING (recent signals) ── */}
@@ -179,7 +178,11 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
           <TkEmptyState
             icon={SIGNAL_ICON}
             title="Nothing has moved yet"
-            description="No signals tracked for this competitor so far. As their pricing, reviews, social, or menu shift, the change shows up here and in your brief."
+            description={
+              c.reviewCount != null && c.reviewCount < 5
+                ? "Not enough reviews yet to read what guests are saying, and nothing else has shifted. As their reviews build up — and their pricing, social, or menu change — the signals show up here and in your brief."
+                : "No signals tracked for this competitor so far. As their pricing, reviews, social, or menu shift, the change shows up here and in your brief."
+            }
           />
         )}
       </section>

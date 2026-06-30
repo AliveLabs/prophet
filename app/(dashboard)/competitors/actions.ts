@@ -28,7 +28,7 @@ function haversineMeters(input: {
   return Math.round(earthRadiusMeters * c)
 }
 import { scoreCompetitor } from "@/lib/providers/scoring"
-import { ensureCompetitorLimit } from "@/lib/billing/limits"
+import { ensureCompetitorLimit, computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
 import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
@@ -225,6 +225,12 @@ export async function discoverCompetitorsAction(formData: FormData) {
             types: placeDetails.types ?? null,
             primaryType: placeDetails.primaryType ?? null,
             placeId: placeDetails.id ?? null,
+            // ALT-186: carry the AUTHORITATIVE Places rating into placeDetails so the
+            // overview (which reads placeDetails.rating) shows it instead of "pending".
+            // Previously only the unreliable provider/LLM `candidate.rating` landed at
+            // metadata.rating and placeDetails never carried a rating at all.
+            rating: placeDetails.rating ?? null,
+            reviewCount: placeDetails.userRatingCount ?? null,
           }
           const mapped = mapPlaceToLocation(placeDetails)
           enrichedName = mapped.name || enrichedName
@@ -590,6 +596,30 @@ export async function ignoreCompetitorAction(formData: FormData) {
 
   if (!membership || !["owner", "admin"].includes(membership.role)) {
     redirect("/competitors?error=Only%20admins%20can%20ignore%20competitors")
+  }
+
+  // ALT-195 — one competitor swap per 30 days. A swap begins with a removal, so we
+  // gate the remove step: if another competitor at this location was removed inside
+  // the cooldown window, this removal is locked. Bypass-proof (the UI also disables
+  // the remove button + shows the rule). Derived from existing timestamps — no migration.
+  const { data: priorRemovals } = await supabase
+    .from("competitors")
+    .select("updated_at, metadata")
+    .eq("location_id", competitor.location_id)
+    .eq("is_active", false)
+  let lastRemovalAt: string | null = null
+  for (const r of priorRemovals ?? []) {
+    if ((r.metadata as Record<string, unknown> | null)?.status !== "ignored") continue
+    const ts = r.updated_at as string | null
+    if (ts && (!lastRemovalAt || ts > lastRemovalAt)) lastRemovalAt = ts
+  }
+  const cooldown = computeSwapCooldown(lastRemovalAt)
+  if (cooldown.locked) {
+    redirect(
+      `/competitors?error=${encodeURIComponent(
+        `You can swap a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. Locked for ${cooldown.daysRemaining} more day${cooldown.daysRemaining === 1 ? "" : "s"}.`
+      )}`
+    )
   }
 
   const metadata = {

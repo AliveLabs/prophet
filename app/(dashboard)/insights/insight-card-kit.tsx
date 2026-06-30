@@ -24,6 +24,7 @@ import {
   TkQuote,
   TkActions,
   TkDismissReason,
+  TkCompetitorLink,
   useTkToast,
 } from "@/components/ticket"
 import { updateInsightStatusAction } from "./actions"
@@ -125,7 +126,12 @@ export function InsightCardKit({
   const chips = (
     <>
       <TkChip family={family}>{insightChipLabel(insight)}</TkChip>
-      {insight.subjectLabel ? <span className="ins-subject">{insight.subjectLabel}</span> : null}
+      {insight.subjectLabel ? (
+        <span className="ins-subject">
+          {/* ALT-192: when the subject is a watched competitor, link the name to its detail page. */}
+          <TkCompetitorLink id={insight.competitorId} name={insight.subjectLabel} />
+        </span>
+      ) : null}
       <span className={`ins-urg ins-urg-${insight.urgencyLevel}`}>
         {URGENCY_LABEL[insight.urgencyLevel]}
       </span>

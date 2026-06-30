@@ -8,6 +8,15 @@
 
 const ACRONYMS = new Set(["SEO", "POS", "GBP", "UGC", "SERP", "FAQ", "ROI", "AOV"])
 
+// ALT-193: human-readable overrides for refs whose tokenized label reads like an
+// instruction the operator must act on. "Review themes" sounds like a to-do ("go
+// review the themes"); these are read-only summaries of what reviewers already say,
+// so we relabel them. Keyed by the ref base (the part before any ":" field suffix).
+const REF_LABEL_OVERRIDES: Record<string, string> = {
+  review_themes: "What reviewers say",
+  review_velocity: "Review activity",
+}
+
 function cleanToken(t: string, lower = false): string {
   if (!t) return t
   if (ACRONYMS.has(t.toUpperCase())) return t.toUpperCase()
@@ -28,6 +37,8 @@ export function domainLabel(ref: string): string {
 
 /** Readable phrase for a ref: "SEO · competitor growth trend", "Events · new high signal event". */
 export function humanizeRef(ref: string): string {
+  const override = REF_LABEL_OVERRIDES[ref.split(":")[0]]
+  if (override) return override
   const tokens = refTokens(ref)
   if (!tokens.length) return ref
   const domain = cleanToken(tokens[0])

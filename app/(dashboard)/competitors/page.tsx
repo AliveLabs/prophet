@@ -4,8 +4,9 @@
 // (a roster of rival cards + the add/discover flows). Real names, ratings, and signal
 // counts for the logged-in operator's location — data wiring unchanged.
 
-import { loadOperatorContext, loadCompetitorComparison, tierLabel } from "../operator-data"
+import { loadOperatorContext, loadCompetitorComparison, loadCompetitorSwapState, tierLabel } from "../operator-data"
 import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
+import { computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
 import { TkTooltipLayer } from "@/components/ticket"
 import CompetitorRoster from "./competitor-roster"
 import CompetitorComparison from "./competitor-comparison"
@@ -15,11 +16,14 @@ import "../traffic/traffic.css"
 
 export default async function CompetitorsPage() {
   // Independent reads — run them together (each resolves the operator on its own).
-  const [ctx, comparison] = await Promise.all([
+  const [ctx, comparison, swapState] = await Promise.all([
     loadOperatorContext(),
     loadCompetitorComparison(),
+    loadCompetitorSwapState(),
   ])
   const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
+  // ALT-195 — swap cooldown (1 / 30 days), derived from the last removal timestamp.
+  const swapCooldown = computeSwapCooldown(swapState.lastRemovalAt)
   return (
     <div className="pv-page tk-comp">
       <div className="pv-page-head">
@@ -44,6 +48,8 @@ export default async function CompetitorsPage() {
         tierLabel={tierLabel(ctx.tier)}
         competitorLimit={competitorLimit}
         locationId={ctx.locationId}
+        swapCooldown={swapCooldown}
+        swapCooldownDays={COMPETITOR_SWAP_COOLDOWN_DAYS}
       />
 
       {/* ALT-235 — head-to-head + busy-times for the watched set, below the roster.
@@ -59,10 +65,25 @@ export default async function CompetitorsPage() {
         ownName={ctx.locationName}
       />
 
-      {/* ALT-196: the misplaced "manage your own social handles" link was removed —
-          own-social handles are managed in Settings, competitor handles on each
-          competitor detail page. TODO(ALT-196 follow-up): this freed spot may later
-          hold a 30-day "swap a competitor" note; not built here. */}
+      {/* ALT-196 freed this spot (the misplaced own-social link); ALT-195 now fills it
+          with the swap rule so the operator knows the cadence before they remove one. */}
+      <p className="tk-swap-rule">
+        {swapCooldown.locked ? (
+          <>
+            <span className="tk-swap-lock" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="4" y="11" width="16" height="9" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+            </span>
+            Your set is locked for {swapCooldown.daysRemaining} more day
+            {swapCooldown.daysRemaining === 1 ? "" : "s"} — you can swap a competitor once every{" "}
+            {COMPETITOR_SWAP_COOLDOWN_DAYS} days.
+          </>
+        ) : (
+          <>You can swap a competitor once every {COMPETITOR_SWAP_COOLDOWN_DAYS} days. After you remove one, the set locks for {COMPETITOR_SWAP_COOLDOWN_DAYS} days.</>
+        )}
+      </p>
     </div>
   )
 }

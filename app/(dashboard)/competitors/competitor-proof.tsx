@@ -6,7 +6,7 @@
 // real data (ProofPost / CompetitorPhoto from proof-data) — presentation only.
 
 import type { CSSProperties } from "react"
-import { TkSocialEmbed } from "@/components/ticket"
+import { TkSocialEmbed, TkCompetitorLink } from "@/components/ticket"
 import type { ProofPost, CompetitorPhoto } from "../proof-data"
 
 function fmtCount(n: number | null): string | null {
@@ -65,7 +65,7 @@ export function CompetitorPostsGrid({ posts }: { posts: ProofPost[] }) {
           <div key={p.id} style={{ "--tk-i": i } as CSSProperties}>
             <TkSocialEmbed
               handle={`@${p.handle}`}
-              subline={p.entityName}
+              subline={<TkCompetitorLink id={p.entityId} name={p.entityName} />}
               network={
                 <>
                   {NET_ICON}

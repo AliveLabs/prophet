@@ -57,6 +57,9 @@ const ADD_ICON = (
   </svg>
 )
 
+/** ALT-195 — serializable swap-cooldown state from the server (computeSwapCooldown). */
+type SwapCooldown = { locked: boolean; unlocksAt: string | null; daysRemaining: number }
+
 export default function CompetitorRoster({
   initial,
   tierLabel,
@@ -64,6 +67,8 @@ export default function CompetitorRoster({
   hrefBase = "/competitors",
   persist = true,
   locationId,
+  swapCooldown,
+  swapCooldownDays = 30,
 }: {
   initial: CompetitorRow[]
   tierLabel: string
@@ -73,12 +78,17 @@ export default function CompetitorRoster({
   hrefBase?: string
   persist?: boolean
   locationId?: string
+  /** ALT-195 — when locked, removing (and thus swapping) is blocked + warned. */
+  swapCooldown?: SwapCooldown
+  swapCooldownDays?: number
 }) {
   const [rows, setRows] = useState<CompetitorRow[]>(initial)
   // ALT-194: when the plan's competitor count is full, gray out / disable adding.
   // No paid add-ons — the cap is simply enforced in the UI (server actions enforce
   // it too). `competitorLimit` is undefined in unscoped/preview use → never blocks.
   const atLimit = competitorLimit != null && rows.length >= competitorLimit
+  // ALT-195 — persisted removes are disabled while the swap cooldown is active.
+  const swapLocked = persist && !!swapCooldown?.locked
   const limitLabel =
     competitorLimit != null
       ? `Watching ${rows.length} of ${competitorLimit}, set by your plan (${tierLabel})`
@@ -237,7 +247,16 @@ export default function CompetitorRoster({
                     {initials(c.name)}
                   </span>
                   <div className="tk-rost-id">
-                    <div className="tk-rost-name">{c.name}</div>
+                    <div className="tk-rost-name">
+                      {/* ALT-192: the name itself links to the detail page (in addition
+                          to the "Open profile" footer link), unless it's an unsaved
+                          just-added row whose real id doesn't exist yet. */}
+                      {c.added ? c.name : (
+                        <Link href={`${hrefBase}/${c.id}`} className="tk-comp-link">
+                          {c.name}
+                        </Link>
+                      )}
+                    </div>
                     {c.rating != null ? (
                       <div className="tk-rost-rating">
                         <span className="tk-star">★</span> {c.rating}
@@ -269,9 +288,40 @@ export default function CompetitorRoster({
                     </Link>
                   )}
                   {persist && !c.added ? (
-                    <form action={ignoreCompetitorAction}>
+                    <form
+                      action={ignoreCompetitorAction}
+                      onSubmit={(e) => {
+                        // ALT-195: block + warn when the swap cooldown is active; otherwise
+                        // confirm, since removing starts a 30-day swap lock.
+                        if (swapLocked) {
+                          e.preventDefault()
+                          return
+                        }
+                        if (
+                          !window.confirm(
+                            `Stop watching ${c.name}?\n\nYou can swap a competitor once every ${swapCooldownDays} days — removing this one locks your set for ${swapCooldownDays} days.`
+                          )
+                        ) {
+                          e.preventDefault()
+                        }
+                      }}
+                    >
                       <input type="hidden" name="competitor_id" value={c.id} />
-                      <button type="submit" className="tk-rost-rm" aria-label={`Stop watching ${c.name}`}>
+                      <button
+                        type="submit"
+                        className="tk-rost-rm"
+                        disabled={swapLocked}
+                        aria-label={
+                          swapLocked
+                            ? `Swapping is locked for ${swapCooldown?.daysRemaining} more days`
+                            : `Stop watching ${c.name}`
+                        }
+                        title={
+                          swapLocked
+                            ? `Locked for ${swapCooldown?.daysRemaining} more day${swapCooldown?.daysRemaining === 1 ? "" : "s"} — one swap per ${swapCooldownDays} days`
+                            : `Stop watching ${c.name}`
+                        }
+                      >
                         {RM_ICON}
                       </button>
                     </form>

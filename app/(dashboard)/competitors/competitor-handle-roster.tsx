@@ -120,7 +120,6 @@ export default function CompetitorHandleRoster({
   onDelete,
   onVerify,
   onDiscover,
-  locationId,
 }: {
   entityType: "location" | "competitor"
   entityId: string
@@ -129,9 +128,9 @@ export default function CompetitorHandleRoster({
   onSave: SaveFn
   onDelete: (id: string) => Promise<{ error?: string }>
   onVerify: (id: string) => Promise<{ error?: string }>
-  /** location-scoped discovery sweep (covers this entity among the watched set) */
-  onDiscover?: (locationId: string) => Promise<{ discovered: number; error?: string }>
-  locationId?: string
+  /** ALT-190: discovery scoped to THIS entity (the competitor we're on), searched by
+   *  its id — not a whole-set sweep. Omitted ⇒ the discover affordance is hidden. */
+  onDiscover?: (entityId: string) => Promise<{ discovered: number; error?: string }>
 }) {
   const router = useRouter()
   const [adding, setAdding] = useState<Platform | null>(null)
@@ -176,10 +175,11 @@ export default function CompetitorHandleRoster({
     })
   }
   function discover() {
-    if (!onDiscover || !locationId) return
+    if (!onDiscover) return
     setDiscoverMsg(null)
     startDiscovery(async () => {
-      const res = await onDiscover(locationId)
+      // ALT-190: search ONLY this competitor (entityId), not the whole set.
+      const res = await onDiscover(entityId)
       if (res.error) {
         setDiscoverMsg({ tone: "err", text: res.error })
       } else {
@@ -187,8 +187,8 @@ export default function CompetitorHandleRoster({
           tone: "ok",
           text:
             res.discovered > 0
-              ? `Found ${res.discovered} account${res.discovered === 1 ? "" : "s"} across your set — new ones show as “Discovering” until you verify them.`
-              : "Discovery ran — no new accounts surfaced this pass.",
+              ? `Found ${res.discovered} account${res.discovered === 1 ? "" : "s"} for ${entityName} — new ones show as “Discovering” until you verify them.`
+              : `Searched for ${entityName}'s accounts — nothing new surfaced this pass.`,
         })
         router.refresh()
       }
@@ -300,7 +300,7 @@ export default function CompetitorHandleRoster({
       ) : null}
 
       {/* discovery trigger + result */}
-      {onDiscover && locationId ? (
+      {onDiscover ? (
         <div className="tk-discover-bar">
           <span className={`tk-discover-msg${discoverMsg ? ` tk-${discoverMsg.tone}` : ""}`}>
             {discoverMsg

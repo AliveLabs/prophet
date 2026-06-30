@@ -272,15 +272,33 @@
 /* ════════════════════════════════════════════════════════════
    SOCIAL EMBED
    ════════════════════════════════════════════════════════════ */
+/* ALT-192 — a competitor name rendered as a link to its detail page. Inherits the
+   surrounding type (so it sits inline in prose, headings, or labels) with a subtle
+   underline affordance that strengthens on hover/focus. Token-driven → both themes. */
+.tk-comp-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+  transition: text-decoration-color var(--t-fast), color var(--t-fast);
+  cursor: pointer;
+}
+.tk-comp-link:hover { color: var(--rust-deep); text-decoration-color: currentColor; }
+.tk-comp-link:focus-visible { outline: 2px solid var(--focus, var(--rust)); outline-offset: 2px; border-radius: 3px; }
+
 .tk-social-embed { margin-top: 4px; border: 1px solid var(--line-2); border-radius: var(--r-md); overflow: hidden; background: var(--card-2); }
 .tk-se-head { display: flex; align-items: center; gap: 10px; padding: 11px 13px; }
 .tk-se-avatar { width: 34px; height: 34px; border-radius: 50%; flex: none; background: conic-gradient(from 210deg, var(--rust), var(--gold), var(--rust-2)); padding: 2px; }
 .tk-se-avatar i { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--slate-2); background-image: linear-gradient(135deg, color-mix(in srgb, var(--slate) 80%, #fff 10%), var(--slate-2)); }
 .tk-se-meta { flex: 1; min-width: 0; }
-.tk-se-meta .tk-h { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
-.tk-se-meta .tk-h svg { width: 13px; height: 13px; color: var(--slate); }
-.tk-se-meta .tk-s { font-size: 11px; color: var(--ink-3); }
-.tk-se-net { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--ink-2); padding: 4px 8px; border-radius: 7px; background: var(--paper-2); border: 1px solid var(--line); }
+/* ALT-191: the handle + subline truncate, and the network pill never shrinks/wraps,
+   so a long handle can't collide with or shove the network pill in the card head. */
+.tk-se-meta .tk-h { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; min-width: 0; }
+.tk-se-meta .tk-h svg { width: 13px; height: 13px; color: var(--slate); flex: none; }
+.tk-se-meta .tk-h > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tk-se-meta .tk-s { font-size: 11px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-se-net { flex: none; max-width: 50%; display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; color: var(--ink-2); padding: 4px 8px; border-radius: 7px; background: var(--paper-2); border: 1px solid var(--line); white-space: nowrap; overflow: hidden; }
 .tk-se-net svg { width: 12px; height: 12px; }
 .tk-se-photo { position: relative; }
 .tk-se-photo .tk-photo { min-height: 172px; }
@@ -300,12 +318,14 @@
 .tk-se-open:hover { background: rgba(20,26,32,.85); }
 .tk-se-open:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 @media (prefers-reduced-motion: no-preference) { .tk-se-open:hover { transform: translateY(-1px); } }
-.tk-se-actions { display: flex; align-items: center; gap: 16px; padding: 11px 13px 4px; }
-.tk-se-actions svg { width: 20px; height: 20px; color: var(--ink-2); }
-.tk-se-actions .tk-heart { color: var(--alert); }
-.tk-se-caption { padding: 4px 13px 8px; font-size: 12.5px; line-height: 1.5; }
+/* ALT-191: the fake heart/chat/send action row was removed; the caption now follows
+   the media directly, so it owns the top gap the action row used to provide. */
+.tk-se-caption { padding: 11px 13px 8px; font-size: 12.5px; line-height: 1.5; }
 .tk-se-caption b { font-weight: 700; }
 .tk-se-caption .tk-tag { color: var(--slate-deep); }
+/* When there's no caption, the stats row sits straight under the media and needs the
+   same top gap (the :first-child after the photo). */
+.tk-se-photo + .tk-se-stats { padding-top: 11px; }
 .tk-se-stats { display: flex; gap: 8px; padding: 0 13px 13px; flex-wrap: wrap; }
 .tk-se-stat { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 10px; background: var(--card); border: 1px solid var(--line); flex: 1; min-width: 90px; }
 .tk-se-stat .tk-v { font-family: var(--font-mono); font-size: 16px; font-weight: 700; }

@@ -3,9 +3,37 @@
 // in server components. Interactive islands live in their own files.
 
 import type { ButtonHTMLAttributes, ReactNode, HTMLAttributes } from "react"
+import Link from "next/link"
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ")
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TkCompetitorLink (ALT-192)
+   A competitor's name, made a link to its detail page wherever it renders
+   (briefs, insights, proof, traffic, …). Server-safe (next/link works in
+   both). When no id is known we render the plain name — never a dead link —
+   so non-competitor names and unresolved ids pass through untouched.
+   ════════════════════════════════════════════════════════════════════ */
+export function TkCompetitorLink({
+  id,
+  name,
+  className,
+  hrefBase = "/competitors",
+}: {
+  /** Competitor id. Null/undefined ⇒ render plain text (no link). */
+  id?: string | null
+  name: ReactNode
+  className?: string
+  hrefBase?: string
+}) {
+  if (!id) return <>{name}</>
+  return (
+    <Link href={`${hrefBase}/${id}`} className={cx("tk-comp-link", className)}>
+      {name}
+    </Link>
+  )
 }
 
 /* ── families (shared union used across chips / icons) ───────────────── */

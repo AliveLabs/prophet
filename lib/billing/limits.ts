@@ -62,6 +62,61 @@ export function ensureCompetitorLimit(
 }
 
 // ---------------------------------------------------------------------------
+// Competitor swap cooldown (ALT-195)
+// ---------------------------------------------------------------------------
+// One swap (remove + add a competitor) per 30 days, location-wide (NOT per slot).
+// We derive the cooldown from existing competitor timestamps — no new column /
+// migration: the most recent operator add (competitors.created_at) or removal
+// (competitors.updated_at when status flips to "ignored") marks the last swap.
+// If that moment is within 30 days, the next swap is locked until it clears.
+//
+// Adding to fill an EMPTY slot (still under the plan's competitor count) is not a
+// swap and isn't gated here — the caller only consults this when the set is full,
+// so removing-to-make-room then re-adding is what the cooldown governs.
+
+export const COMPETITOR_SWAP_COOLDOWN_DAYS = 30
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export type SwapCooldown = {
+  /** True when a swap happened within the cooldown window and another is blocked. */
+  locked: boolean
+  /** ISO timestamp the cooldown clears (locked only). */
+  unlocksAt: string | null
+  /** Whole days remaining until it clears (locked only; min 1 so we never say "0 days"). */
+  daysRemaining: number
+}
+
+/** Pure: given the most recent swap moment (ISO) and "now", compute lock state.
+ *  `lastSwapAt` null/empty ⇒ never swapped ⇒ unlocked. */
+export function computeSwapCooldown(
+  lastSwapAt: string | null | undefined,
+  now: Date = new Date()
+): SwapCooldown {
+  if (!lastSwapAt) return { locked: false, unlocksAt: null, daysRemaining: 0 }
+  const last = new Date(lastSwapAt).getTime()
+  if (Number.isNaN(last)) return { locked: false, unlocksAt: null, daysRemaining: 0 }
+  const unlocks = last + COMPETITOR_SWAP_COOLDOWN_DAYS * DAY_MS
+  const remainingMs = unlocks - now.getTime()
+  if (remainingMs <= 0) return { locked: false, unlocksAt: null, daysRemaining: 0 }
+  return {
+    locked: true,
+    unlocksAt: new Date(unlocks).toISOString(),
+    daysRemaining: Math.max(1, Math.ceil(remainingMs / DAY_MS)),
+  }
+}
+
+/** Throwing guard for the add-competitor server action so a locked operator can't
+ *  bypass the disabled UI by invoking the action directly. No-op when unlocked. */
+export function ensureSwapAllowed(cooldown: SwapCooldown): void {
+  if (cooldown.locked) {
+    throw new Error(
+      `You can swap a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. ` +
+        `Your set is locked for ${cooldown.daysRemaining} more day${cooldown.daysRemaining === 1 ? "" : "s"}.`
+    )
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Team / multi-user (ALT-218)
 // ---------------------------------------------------------------------------
 // Inviting additional users is a Tier 2+ capability (mid/top). Tier 1 (entry) and

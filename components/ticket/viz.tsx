@@ -447,11 +447,9 @@ export function TkSocialEmbed({
           </a>
         )}
       </div>
-      <div className="tk-se-actions" aria-hidden="true">
-        <svg className="tk-heart" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.5-9.5-9C.9 8.6 2.5 5 6 5c2 0 3.2 1.2 4 2.3C10.8 6.2 12 5 14 5c3.5 0 5.1 3.6 3.5 7-2.5 4.5-9.5 9-9.5 9z" /></svg>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.5L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5z" /></svg>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>
-      </div>
+      {/* ALT-191: the decorative heart/chat/send row was removed — it looked like
+          interactive controls but did nothing (the real engagement numbers live in
+          the stats row below, and "open original post" is the overlay on the media). */}
       {caption && (
         <div className="tk-se-caption">
           {caption} {tags && <span className="tk-tag">{tags}</span>}

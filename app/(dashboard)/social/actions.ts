@@ -5,6 +5,7 @@ import {
   deleteSocialProfileAction as _delete,
   verifySocialProfileAction as _verify,
   runSocialDiscoveryAction as _discover,
+  runCompetitorSocialDiscoveryAction as _discoverCompetitor,
   fetchSocialDashboardData as _fetchDashboard,
   generateSocialInsightsForLocation as _generate,
 } from "@/app/(dashboard)/insights/social-actions"
@@ -28,6 +29,10 @@ export async function verifySocialProfileAction(id: string): Promise<{ error?: s
 
 export async function runSocialDiscoveryAction(locationId: string): Promise<{ discovered: number; error?: string }> {
   return _discover(locationId)
+}
+
+export async function runCompetitorSocialDiscoveryAction(competitorId: string): Promise<{ discovered: number; error?: string }> {
+  return _discoverCompetitor(competitorId)
 }
 
 export async function fetchSocialDashboardData(locationId: string) {

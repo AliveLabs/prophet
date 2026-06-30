@@ -126,15 +126,51 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     byComp.set(cid, e)
   }
 
+  // ALT-186 — freshest rating per competitor from the latest persisted snapshot
+  // (same precedence the detail page uses). The overview previously read ONLY
+  // metadata.placeDetails.rating, which the discover→approve flow never populates
+  // (it stores the rating at metadata.rating + drops it from placeDetails), so most
+  // competitors showed "pending" forever even with the rating present. We read the
+  // newest snapshot profile here, then fall back through placeDetails → metadata.
+  const competitorIds = approved.map((c) => c.id)
+  const ratingByComp = new Map<string, { rating: number | null; reviewCount: number | null }>()
+  if (competitorIds.length) {
+    const { data: snapRows } = await sb
+      .from("snapshots")
+      .select("competitor_id, raw_data, date_key")
+      .in("competitor_id", competitorIds)
+      .order("date_key", { ascending: false })
+    for (const row of snapRows ?? []) {
+      const cid = row.competitor_id as string
+      if (ratingByComp.has(cid)) continue // newest wins (rows are date-desc)
+      const profile = (row.raw_data as { profile?: Record<string, unknown> } | null)?.profile ?? null
+      ratingByComp.set(cid, {
+        rating: (profile?.rating as number | null) ?? null,
+        reviewCount: (profile?.reviewCount as number | null) ?? null,
+      })
+    }
+  }
+
   const competitors: OperatorCompetitor[] = approved.map((c) => {
     const meta = c.metadata as Record<string, unknown> | null
     const pd = (meta?.placeDetails as Record<string, unknown> | null) ?? null
+    const snap = ratingByComp.get(c.id)
     const agg = byComp.get(c.id)
     return {
       id: c.id,
       name: c.name ?? "Competitor",
-      rating: (pd?.rating as number | null) ?? null,
-      reviewCount: (pd?.reviewCount as number | null) ?? null,
+      // Snapshot (freshest) → placeDetails → top-level metadata. The metadata fallback
+      // is what unblocks discover→approve competitors whose rating lives at metadata.rating.
+      rating:
+        (snap?.rating ?? null) ??
+        (pd?.rating as number | null) ??
+        (meta?.rating as number | null) ??
+        null,
+      reviewCount:
+        (snap?.reviewCount ?? null) ??
+        (pd?.reviewCount as number | null) ??
+        (meta?.reviewCount as number | null) ??
+        null,
       signalCount: agg?.count ?? 0,
       topSignals: agg?.titles ?? [],
     }
@@ -151,6 +187,38 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     brief,
     competitors,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALT-195 — competitor swap cooldown (1 swap / 30 days), derived from existing
+// competitor timestamps (no migration). A "swap" begins when the operator REMOVES
+// a competitor, so the clock is keyed off the most recent removal: a deactivated
+// (status: "ignored") competitor's updated_at. Adds are never blocked — the operator
+// can always re-fill the slot they just freed; only a SECOND removal inside the
+// window is the locked action. computeSwapCooldown turns that moment into lock state.
+//
+// CAVEAT (flagged in the report): updated_at is touched by any write to the row, not
+// only the removal. In practice an ignored competitor isn't written again, so its
+// updated_at is the removal time; a dedicated removed_at column (a migration) would
+// make this exact. Good enough for the cooldown without a schema change.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function loadCompetitorSwapState(): Promise<{ lastRemovalAt: string | null }> {
+  const op = await resolveOperator()
+  const sb = await createServerSupabaseClient()
+  const { data: rows } = await sb
+    .from("competitors")
+    .select("updated_at, metadata")
+    .eq("location_id", op.locationId)
+    .eq("is_active", false)
+
+  let lastRemovalAt: string | null = null
+  for (const r of rows ?? []) {
+    const status = (r.metadata as Record<string, unknown> | null)?.status
+    if (status !== "ignored") continue
+    const ts = r.updated_at as string | null
+    if (ts && (!lastRemovalAt || ts > lastRemovalAt)) lastRemovalAt = ts
+  }
+  return { lastRemovalAt }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

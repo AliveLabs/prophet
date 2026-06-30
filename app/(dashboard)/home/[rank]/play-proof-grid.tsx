@@ -8,6 +8,7 @@
 // Honest framing only — real engagement counts the rivals' posts actually carry,
 // no POS/$/covers. Server-safe (presentational only).
 
+import { TkCompetitorLink } from "@/components/ticket"
 import type { ProofPost } from "../../proof-data"
 
 function fmtCount(n: number | null): string | null {
@@ -107,7 +108,9 @@ function ProofCard({ p }: { p: ProofPost }) {
       </div>
       <figcaption className="pd-proof-meta">
         <div className="pd-proof-who">
-          <span className="pd-proof-name">{p.entityName}</span>
+          <span className="pd-proof-name">
+            <TkCompetitorLink id={p.entityId} name={p.entityName} />
+          </span>
           <span className="pd-proof-handle">
             @{p.handle}
             {date ? ` · ${date}` : ""}

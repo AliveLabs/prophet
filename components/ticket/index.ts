@@ -17,6 +17,7 @@ export {
   TkSectionHead,
   TkVizCap,
   TkPhotoFallback,
+  TkCompetitorLink,
   tkcx,
 } from "./primitives"
 export type {

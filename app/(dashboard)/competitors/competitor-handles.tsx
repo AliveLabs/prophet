@@ -10,7 +10,7 @@ import {
   saveSocialProfileAction,
   deleteSocialProfileAction,
   verifySocialProfileAction,
-  runSocialDiscoveryAction,
+  runCompetitorSocialDiscoveryAction,
 } from "../social/actions"
 import type { ManagedHandle } from "../proof-data"
 
@@ -18,13 +18,10 @@ export default function CompetitorHandles({
   competitorId,
   competitorName,
   handles,
-  locationId,
 }: {
   competitorId: string
   competitorName: string
   handles: ManagedHandle[]
-  /** enables the "find their accounts" discovery sweep (location-scoped) */
-  locationId?: string
 }) {
   return (
     <section className="tk-comp-sec">
@@ -41,8 +38,8 @@ export default function CompetitorHandles({
           onSave={saveSocialProfileAction}
           onDelete={deleteSocialProfileAction}
           onVerify={verifySocialProfileAction}
-          onDiscover={runSocialDiscoveryAction}
-          locationId={locationId}
+          // ALT-190: discovery scoped to THIS competitor (not the whole set).
+          onDiscover={runCompetitorSocialDiscoveryAction}
         />
         <p className="tk-note">
           A wrong or missing handle means we read the wrong account — fix it here and the next pull

@@ -165,6 +165,34 @@
 .tk-comp .tk-rost-rm:hover { background: var(--paper-2); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 40%, transparent); }
 .tk-comp .tk-rost-rm svg { width: 17px; height: 17px; }
 .tk-comp .tk-rost-rm form { display: contents; }
+/* ALT-195: a remove button locked by the swap cooldown — dimmed, not interactive */
+.tk-comp .tk-rost-rm:disabled { opacity: .4; cursor: not-allowed; }
+.tk-comp .tk-rost-rm:disabled:hover { background: var(--card); color: var(--ink-3); border-color: var(--line-2); }
+
+/* ALT-195: the swap-cadence rule note (fills the spot the own-social link vacated) */
+.tk-comp .tk-swap-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--card-2);
+  font-size: 12.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+.tk-comp .tk-swap-lock {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--gold-tint);
+  color: var(--gold-deep);
+}
 
 /* the "added by you / pulling data" pending tile */
 .tk-comp .tk-rost-card.tk-is-new { border-style: dashed; }

@@ -235,7 +235,7 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
               c.state.insightsPayload.push({ location_id: c.locationId, competitor_id: competitor.id, date_key: c.dateKey, insight_type: "competitive_summary", title: `Competitive summary: ${competitor.name}`, summary, confidence: "medium", severity: "info", evidence: { field: "summary" }, recommendations: recs.map((r) => ({ title: r.title ?? "Action", rationale: r.rationale ?? "" })), status: "new" })
               if (llm?.reviewThemes?.length) {
                 const counts = llm.reviewThemes.reduce((a, t) => { const s = t.sentiment ?? "mixed"; if (s === "positive") a.positive++; else if (s === "negative") a.negative++; else a.mixed++; return a }, { positive: 0, negative: 0, mixed: 0 })
-                c.state.insightsPayload.push({ location_id: c.locationId, competitor_id: competitor.id, date_key: c.dateKey, insight_type: "review_themes", title: `Review themes: ${competitor.name}`, summary: "Key themes from recent reviews.", confidence: "medium", severity: "info", evidence: { themes: llm.reviewThemes, sentimentCounts: counts }, recommendations: [], status: "new" })
+                c.state.insightsPayload.push({ location_id: c.locationId, competitor_id: competitor.id, date_key: c.dateKey, insight_type: "review_themes", title: `What reviewers say: ${competitor.name}`, summary: "Key themes from recent reviews.", confidence: "medium", severity: "info", evidence: { themes: llm.reviewThemes, sentimentCounts: counts }, recommendations: [], status: "new" })
               }
               generated++
             } catch { /* non-fatal */ }

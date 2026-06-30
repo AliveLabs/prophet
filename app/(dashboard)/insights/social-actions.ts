@@ -167,6 +167,71 @@ export async function runSocialDiscoveryAction(locationId: string): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// ALT-190 — discovery scoped to ONE competitor.
+//
+// The set-wide runSocialDiscoveryAction sweeps the location + EVERY approved
+// competitor, which is slow and surfaces accounts for rivals the operator isn't
+// looking at. On a single competitor's watched-accounts the operator only wants
+// THAT competitor's handles, so this resolves + searches exactly one competitor.
+// Same upsert path / provenance (is_verified:false ⇒ "Discovering"), RLS enforced
+// via the user-scoped client + an org-membership check on the competitor's location.
+// ---------------------------------------------------------------------------
+export async function runCompetitorSocialDiscoveryAction(
+  competitorId: string
+): Promise<{ discovered: number; error?: string }> {
+  const user = await requireUser()
+  const supabase = await createServerSupabaseClient()
+
+  // Resolve the competitor THROUGH the user's org membership so a foreign id can't
+  // be probed (RLS + an explicit membership check on the owning location's org).
+  const { data: competitor } = await supabase
+    .from("competitors")
+    .select("id, name, website, metadata, location_id, locations (organization_id)")
+    .eq("id", competitorId)
+    .maybeSingle()
+  if (!competitor) return { discovered: 0, error: "Competitor not found" }
+
+  const locationRecord = Array.isArray(competitor.locations)
+    ? competitor.locations[0]
+    : competitor.locations
+  const organizationId = (locationRecord as { organization_id?: string } | null)?.organization_id
+  if (!organizationId) return { discovered: 0, error: "Competitor not found" }
+
+  const { data: membership } = await supabase
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", organizationId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (!membership) return { discovered: 0, error: "You don't have access to this competitor" }
+
+  const { discoverSocialHandles } = await import("@/lib/social/enrich")
+  const compMeta = competitor.metadata as Record<string, unknown> | null
+  const website = (competitor.website ?? (compMeta?.website as string | null) ?? null) as string | null
+
+  const handles = await discoverSocialHandles(competitor.name, website)
+  let discovered = 0
+  for (const h of handles) {
+    const { error } = await supabase.from("social_profiles").upsert(
+      {
+        entity_type: "competitor",
+        entity_id: competitor.id,
+        platform: h.platform,
+        handle: h.handle,
+        profile_url: h.profileUrl,
+        discovery_method: h.method,
+        is_verified: false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "entity_type,entity_id,platform" }
+    )
+    if (!error) discovered++
+  }
+
+  return { discovered }
+}
+
+// ---------------------------------------------------------------------------
 // Fetch Social Dashboard Data
 // ---------------------------------------------------------------------------
 
