@@ -64,6 +64,9 @@ export { TkDismissReason, TK_DEFAULT_DISMISS_REASONS } from "./dismiss-reason"
 export { VizTBubble, buildAskQuestion } from "./viz-tbubble"
 export type { VizContext, VizDomain } from "./viz-tbubble"
 
+// competitor "sonar" motif (server-safe SVG) — ALT-241
+export { TkSonar } from "./sonar"
+
 // toast (client)
 export { TkToast, TkToastProvider, useTkToast } from "./toast"
 

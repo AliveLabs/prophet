@@ -153,29 +153,8 @@
   border: 1px solid var(--line);
   box-shadow: var(--shadow-md);
 }
-.auth-badge__dot {
-  position: relative;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--teal);
-  flex: 0 0 auto;
-}
-.auth-badge__dot::after {
-  content: "";
-  position: absolute;
-  inset: -5px;
-  border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--teal) 55%, transparent);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .auth-badge__dot::after { animation: auth-pulse 2.4s var(--ease) infinite; }
-  @keyframes auth-pulse {
-    0%   { transform: scale(.7); opacity: .9; }
-    70%  { transform: scale(1.5); opacity: 0; }
-    100% { transform: scale(1.5); opacity: 0; }
-  }
-}
+/* ALT-241 — the sonar status block replaces the old pulsing dot. */
+.auth-badge__sonar { flex: 0 0 auto; margin: -3px 0; }
 .auth-badge__txt {
   display: flex;
   flex-direction: column;

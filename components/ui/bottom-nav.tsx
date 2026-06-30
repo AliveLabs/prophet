@@ -29,12 +29,14 @@ const ITEMS = [
   {
     href: "/competitors",
     label: "Rivals",
+    // ALT-241 — sonar motif (matches the sidebar + login).
     icon: (
       <svg width="22" height="22" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <circle cx="5" cy="5.5" r="2.8" />
-        <circle cx="10.5" cy="5.5" r="2.8" />
-        <path d="M1 13.5 C1 11 2.5 10 5 10" />
-        <path d="M14 13.5 C14 11 12.5 10 10.5 10" />
+        <circle cx="7.5" cy="7.5" r="6.2" />
+        <line x1="7.5" y1="7.5" x2="11.9" y2="3.1" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="10.4" cy="4.5" r="0.95" fill="currentColor" stroke="none" />
+        <circle cx="4.7" cy="9.2" r="0.95" fill="currentColor" stroke="none" />
+        <circle cx="7.5" cy="7.5" r="1.05" fill="currentColor" stroke="none" />
       </svg>
     ),
   },

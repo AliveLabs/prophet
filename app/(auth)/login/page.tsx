@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { HashTokenHandler } from "@/components/auth/hash-token-handler"
 import { AuthGoogleIcon, AuthMailIcon, AuthErrorIcon, AuthOkIcon } from "./auth-icons"
 import { TicketLogo } from "@/components/brand/ticket-logo"
+import { TkSonar } from "@/components/ticket"
 import "@/components/ticket/pass.css"
 import "./auth.css"
 
@@ -51,7 +52,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </div>
 
           <div className="auth-badge">
-            <span className="auth-badge__dot" aria-hidden="true" />
+            <TkSonar size={46} className="auth-badge__sonar" label="Watching your competitors" />
             <span className="auth-badge__txt">
               <span className="auth-badge__k">Status</span>
               <span className="auth-badge__v">Watching your competitors</span>
