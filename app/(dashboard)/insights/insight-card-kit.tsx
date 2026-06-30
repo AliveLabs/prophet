@@ -125,6 +125,9 @@ export function InsightCardKit({
   // ── chip row: source family + urgency + (when cleared) the cleared state ──
   const chips = (
     <>
+      {insight.justGenerated ? (
+        <span className="ins-cleared-tag ins-justgen">Just generated</span>
+      ) : null}
       <TkChip family={family}>{insightChipLabel(insight)}</TkChip>
       {insight.subjectLabel ? (
         <span className="ins-subject">

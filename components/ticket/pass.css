@@ -569,6 +569,52 @@
 .tk-reason .tk-reason-note::placeholder { color: var(--ink-3); }
 
 /* ════════════════════════════════════════════════════════════
+   "ASK TICKET ABOUT THIS" T-BUBBLE  (ALT-230)
+   A small Ticket-T button in a viz card's top-right corner; opens a
+   floating two-action popover (generate insight · ask). The popover is
+   position:fixed (set off the button rect in JS) so it escapes a widget's
+   overflow:hidden, while staying IN the .ticket-app token surface so colors
+   + dark mode resolve. z-index sits above cards/drawer, below tooltip/toast.
+   ════════════════════════════════════════════════════════════ */
+.tk-tbub { position: absolute; top: 9px; right: 9px; z-index: 4; width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--card) 84%, transparent); border: 1px solid var(--line-2); color: var(--ink-3); box-shadow: var(--shadow-sm); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), border-color var(--t-fast), opacity var(--t-fast); }
+.tk-tbub svg { width: 11px; height: auto; }
+.tk-tbub:hover, .tk-tbub.tk-tbub-open { background: var(--rust-tint); border-color: color-mix(in srgb, var(--rust) 42%, transparent); color: var(--rust-deep); transform: translateY(-1px); }
+.tk-tbub:focus-visible { outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px; }
+/* desktop (hover-capable): rest quietly, surface on card hover / focus / open.
+   touch devices keep it fully visible (no hover to reveal it). */
+@media (hover: hover) {
+  .tk-tbub { opacity: .52; }
+  .tk-widget:hover .tk-tbub, .tk-card:hover .tk-tbub, .tk-hero:hover .tk-tbub,
+  .tk-pcard:hover .tk-tbub, .tk-soft-panel:hover .tk-tbub,
+  .tk-tbub:hover, .tk-tbub:focus-visible, .tk-tbub.tk-tbub-open { opacity: 1; }
+}
+
+.tk-tbub-pop { position: fixed; z-index: 85; width: 272px; max-width: calc(100vw - 16px); background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transform: translateY(6px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity var(--t-fast), transform var(--t-fast); }
+.tk-tbub-pop.tk-open { opacity: 1; transform: none; pointer-events: auto; }
+.tk-tbub-ctx { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px 8px; border-bottom: 1px solid var(--line); }
+.tk-tbub-eyebrow { font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+.tk-tbub-metric { display: flex; align-items: baseline; gap: 8px; font-family: var(--font-display); font-size: 13px; font-weight: 700; color: var(--ink); }
+.tk-tbub-metric > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-tbub-metric b { font-family: var(--font-mono); font-weight: 700; color: var(--rust-deep); white-space: nowrap; }
+.tk-tbub-opt { display: flex; align-items: center; gap: 10px; text-align: left; width: 100%; padding: 9px 11px; border-radius: var(--r-md); transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast), border-color var(--t-fast); }
+.tk-tbub-act { background: linear-gradient(145deg, var(--rust), var(--rust-2)); color: #fff; box-shadow: var(--shadow-sm); }
+.tk-tbub-act:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.tk-tbub-act:disabled { opacity: .72; cursor: default; transform: none; box-shadow: var(--shadow-sm); }
+.tk-tbub-ask { background: var(--card-2); border: 1px solid var(--line-2); color: var(--ink); }
+.tk-tbub-ask:hover { background: var(--paper-2); border-color: var(--ink-3); }
+.tk-tbub-ic { width: 28px; height: 28px; border-radius: 8px; flex: none; display: grid; place-items: center; }
+.tk-tbub-act .tk-tbub-ic { background: rgba(255,255,255,.18); color: #fff; }
+.tk-tbub-ask .tk-tbub-ic { background: var(--rust-tint); color: var(--rust-deep); }
+.tk-tbub-ic svg { width: 15px; height: 15px; }
+.tk-tbub-lbl { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tk-tbub-lbl b { font-family: var(--font-display); font-size: 13px; font-weight: 700; line-height: 1.2; }
+.tk-tbub-lbl > span { font-size: 11px; line-height: 1.3; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-tbub-ask .tk-tbub-lbl > span { color: var(--ink-3); opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .tk-tbub, .tk-tbub-pop { transition: none; }
+}
+
+/* ════════════════════════════════════════════════════════════
    TOOLTIP + TOAST
    ════════════════════════════════════════════════════════════ */
 .tk-tip { position: fixed; z-index: 80; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 11.5px; font-weight: 600; padding: 7px 10px; border-radius: 8px; box-shadow: var(--shadow-md); opacity: 0; transform: translateY(4px); transition: opacity .12s, transform .12s; max-width: 230px; line-height: 1.4; }

@@ -180,6 +180,7 @@ export function TkWidget({
   spark,
   children,
   expand,
+  tBubble,
   className,
   ...props
 }: {
@@ -197,6 +198,10 @@ export function TkWidget({
    *  panel below the value (e.g. the source list behind "Signals read"). Server-safe — uses
    *  the HTML <details> element, so no client handler crosses the boundary (ALT-181). */
   expand?: ReactNode
+  /** ALT-230 — the "Ask Ticket about this" T-bubble. Pass a <VizTBubble/> island here on
+   *  non-insight metric tiles; it absolute-positions itself in the corner. Server-safe: it's
+   *  a client node, not a handler, so it never crosses the RSC boundary. */
+  tBubble?: ReactNode
 } & HTMLAttributes<HTMLDivElement>) {
   const klass = cx(
     "tk-widget",
@@ -229,6 +234,8 @@ export function TkWidget({
           <span className="tk-w-caret" aria-hidden="true">▸</span>
         </summary>
         <div className="tk-w-expand">{expand}</div>
+        {/* outside <summary> so tapping the bubble never toggles the disclosure */}
+        {tBubble}
       </details>
     )
   }
@@ -236,6 +243,7 @@ export function TkWidget({
   return (
     <div className={klass} {...props}>
       {head}
+      {tBubble}
     </div>
   )
 }

@@ -123,6 +123,20 @@ export type SourceCategory = "competitors" | "events" | "seo" | "content" | "pho
 
 export function getSourceCategory(insightType: string, competitorId: string | null): SourceCategory {
   void competitorId
+  // ALT-230: user-generated "Ask Ticket about this" insights carry the type
+  // `user_viz.<domain>.<id>` — route them to the category matching the viz they
+  // came from so the source chip / "why" reads honestly (a weather card's insight
+  // never claims it came from Google Business Profile). The `user_viz` prefix is
+  // also what the home-hero guard keys on (lib/insights/dossier/build.ts).
+  if (insightType.startsWith("user_viz")) {
+    const domain = insightType.split(".")[1] ?? ""
+    if (domain === "social") return "social"
+    if (domain === "events") return "events"
+    if (domain === "traffic" || domain === "weather") return "traffic"
+    if (domain === "content" || domain === "menu") return "content"
+    if (domain === "visibility") return "seo"
+    return "competitors"
+  }
   if (insightType.startsWith("social.")) return "social"
   if (insightType.startsWith("events.")) return "events"
   if (insightType.startsWith("seo_") || insightType.startsWith("cross_")) return "seo"

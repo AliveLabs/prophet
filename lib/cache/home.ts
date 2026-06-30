@@ -84,12 +84,16 @@ export async function fetchHomePageData(
       .select("id, insight_type, title, summary, severity, confidence, created_at, competitor_id, evidence, recommendations, date_key")
       .in("location_id", locationFilter)
       .neq("status", "dismissed")
+      // ALT-230: keep user-generated viz insights (`user_viz.*`) off the home page —
+      // they're a /insights-pool concern and must never lead by freshness.
+      .not("insight_type", "like", "user_viz%")
       .order("created_at", { ascending: false })
       .limit(50),
     supabase
       .from("insights")
       .select("id, insight_type, severity, confidence, status, created_at, date_key")
       .in("location_id", locationFilter)
+      .not("insight_type", "like", "user_viz%")
       .order("created_at", { ascending: false })
       .limit(500),
     supabase

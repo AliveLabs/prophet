@@ -170,12 +170,18 @@ export function TkWinFlag({
    TkCard / TkSoftPanel
    ════════════════════════════════════════════════════════════════════ */
 export function TkCard({
+  tBubble,
   className,
   children,
   ...props
-}: HTMLAttributes<HTMLDivElement>) {
+}: {
+  /** ALT-230 — optional "Ask Ticket about this" T-bubble (a <VizTBubble/> client node).
+   *  It absolute-positions itself in the card corner; passing it stays server-safe. */
+  tBubble?: ReactNode
+} & HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cx("tk-card", className)} {...props}>
+      {tBubble}
       {children}
     </div>
   )

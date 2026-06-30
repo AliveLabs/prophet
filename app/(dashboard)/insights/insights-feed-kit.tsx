@@ -12,7 +12,7 @@
 //
 // The FeedInsight shape + server-action wiring are unchanged from the prior feed.
 
-import { useState, useMemo, useCallback, type CSSProperties } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef, type CSSProperties } from "react"
 import {
   RevealOnView,
   TkSectionHead,
@@ -46,6 +46,10 @@ export type FeedInsight = {
   recommendations: Array<Record<string, unknown>>
   subjectLabel: string
   dateKey: string
+  /** ALT-230: set on a freshly user-generated insight so the feed pins it to the
+   *  top of the pool with a "Just generated" marker (display-only — never affects
+   *  the home hero, which excludes user_viz types). */
+  justGenerated?: boolean
 }
 
 const CATEGORY_ORDER: SourceCategory[] = [
@@ -80,6 +84,10 @@ type Props = {
   learningDays: number
   /** the coverage target (streams checked) */
   learningTarget: number
+  /** ALT-230: the raw `?generate=<json viz ctx>` string. When present we POST it to
+   *  the generate endpoint, show a spinner at the top of the pool, then pin the
+   *  resulting insight there with a "Just generated" marker. */
+  generateRequest?: string | null
 }
 
 export default function InsightsFeedKit({
@@ -87,12 +95,65 @@ export default function InsightsFeedKit({
   statusFilter,
   learningDays,
   learningTarget,
+  generateRequest,
 }: Props) {
   const [activeTab, setActiveTab] = useState("")
   const [viewMode, setViewMode] = useState<"feed" | "board">("feed")
   const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map())
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set())
+
+  // ── ALT-230: live "Generate insight" from a viz card. We POST the carried-in viz
+  //    context once, show a placeholder at the top of the pool, then pin the result. ──
+  const [generating, setGenerating] = useState<boolean>(!!generateRequest)
+  const [generated, setGenerated] = useState<FeedInsight | null>(null)
+  const [genError, setGenError] = useState<string | null>(null)
+  const startedFor = useRef<string | null>(null) // the viz-context string we kicked off
+
+  // The fetch itself. ONLY async-callback setState lives here (no synchronous setState),
+  // so calling it from the effect doesn't trip react-hooks/set-state-in-effect. The
+  // pre-request resets (spinner on, clear prior error/result) are done by the caller:
+  // init state covers the first auto-run; the retry button (an event handler) does them.
+  const runFetch = useCallback((reqStr: string) => {
+    fetch("/api/ai/insights/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vizContext: reqStr }),
+    })
+      .then((r) => r.json())
+      .then((data: { insight: FeedInsight | null }) => {
+        if (data?.insight?.id) setGenerated({ ...data.insight, justGenerated: true })
+        else setGenError("We couldn’t generate that just now.")
+      })
+      .catch(() => setGenError("We couldn’t generate that just now."))
+      .finally(() => setGenerating(false))
+  }, [])
+
+  // Retry from the inline error (event handler — free to setState synchronously).
+  const retryGenerate = useCallback(
+    (reqStr: string) => {
+      setGenerating(true)
+      setGenError(null)
+      setGenerated(null)
+      runFetch(reqStr)
+    },
+    [runFetch],
+  )
+
+  useEffect(() => {
+    // Re-fire only when the REQUESTED viz changes (not a one-shot bool): a different viz
+    // card re-generates, while StrictMode / re-renders with the same request don't. The
+    // spinner is already on via the `generating` init, so no synchronous setState here.
+    if (!generateRequest || startedFor.current === generateRequest) return
+    startedFor.current = generateRequest
+    runFetch(generateRequest)
+    // Strip ?generate= so a manual refresh never re-triggers a paid generation. History
+    // API (NOT router.replace) avoids refetching the server tree — which, post-updateTag,
+    // would render the new row twice (pinned + in its category) and yank the pin away.
+    // The pin persists for THIS session; the row settles into its honest rank on the
+    // user's next deliberate refresh.
+    if (typeof window !== "undefined") window.history.replaceState(null, "", "/insights")
+  }, [generateRequest, runFetch])
 
   const handleStatusChange = useCallback((insightId: string, newStatus: string) => {
     setStatusOverrides((prev) => new Map(prev).set(insightId, newStatus))
@@ -192,6 +253,14 @@ export default function InsightsFeedKit({
 
   const hasAnyInsights = filteredInsights.length > 0
 
+  // Only pin the generated card while it isn't yet in the server feed. Once a refresh
+  // (e.g. a status action's router.refresh, or a later navigation) pulls it in, it shows
+  // in its category at its honest rank instead — never both at once (ALT-230).
+  const pinnedGenerated = useMemo(
+    () => (generated && !insights.some((i) => i.id === generated.id) ? generated : null),
+    [generated, insights],
+  )
+
   return (
     <TkToastProvider>
       <div className="ins-feed">
@@ -242,6 +311,32 @@ export default function InsightsFeedKit({
             </button>
           </div>
         </div>
+
+        {/* ── ALT-230: a live-generated insight, pinned to the very top of the pool.
+            Shows a shimmer placeholder while generating, then the card with a "Just
+            generated" marker. It is display-only here — on a later refresh it settles
+            into its honest, low-scored rank within the feed below. ── */}
+        {generating && !generated ? (
+          <div className="ins-gen-pending" aria-live="polite">
+            <div className="ins-gen-skel tk-sweep" aria-hidden="true" />
+            <span className="ins-gen-note">Generating your insight…</span>
+          </div>
+        ) : null}
+        {pinnedGenerated ? (
+          <div className="ins-gen-landed">
+            <InsightCardKit insight={pinnedGenerated} onStatusChange={handleStatusChange} />
+          </div>
+        ) : null}
+        {genError && !generating ? (
+          <div className="ins-error ins-gen-error" role="alert">
+            <span>{genError}</span>
+            {generateRequest ? (
+              <button type="button" className="ins-gen-retry" onClick={() => retryGenerate(generateRequest)}>
+                Try again
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* ── Feed view ── */}
         {viewMode === "feed" && hasAnyInsights ? (
@@ -344,8 +439,9 @@ export default function InsightsFeedKit({
           </div>
         ) : null}
 
-        {/* ── Empty / still-learning ── */}
-        {!hasAnyInsights ? (
+        {/* ── Empty / still-learning (suppressed while a generation is in flight or
+            has just landed, so the pinned card/placeholder owns the top instead) ── */}
+        {!hasAnyInsights && !generating && !pinnedGenerated ? (
           activeTab || statusFilter ? (
             <TkEmptyState
               title={

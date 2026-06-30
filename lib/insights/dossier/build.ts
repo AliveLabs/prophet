@@ -280,6 +280,11 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     .select("insight_type,title,summary,confidence,severity,evidence,recommendations,date_key,competitor_id")
     .eq("location_id", locationId)
     .gte("date_key", cutoff)
+    // ALT-230: user-generated "Ask Ticket about this" insights (insight_type
+    // `user_viz.*`) never seed the brief/hero — they live only in the /insights
+    // pool. The founder constraint: a freshly generated insight can never seize the
+    // home hero by freshness; only the engine's own ranked plays do.
+    .not("insight_type", "like", "user_viz%")
     .order("date_key", { ascending: false })
     .limit(1000)
   const rows = insightRows ?? []

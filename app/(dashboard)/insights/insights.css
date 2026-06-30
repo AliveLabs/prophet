@@ -274,6 +274,18 @@
 .ticket-app .ins-cleared-tag.ins-done { color: var(--teal-deep); background: var(--teal-tint); }
 .ticket-app .ins-cleared-tag.ins-todo { color: var(--gold-deep); background: var(--gold-tint); }
 .ticket-app .ins-card-cleared { opacity: 0.62; }
+
+/* ── ALT-230: "Generate insight" — placeholder + landed card pinned to pool top ── */
+.ticket-app .ins-cleared-tag.ins-justgen { color: var(--rust-deep); background: var(--rust-tint); }
+.ticket-app .ins-gen-pending { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.ticket-app .ins-gen-skel { height: 150px; border-radius: var(--r-lg); background: var(--card); border: 1px solid var(--line-2); box-shadow: var(--shadow-sm); }
+.ticket-app .ins-gen-note { font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--rust-deep); }
+.ticket-app .ins-gen-landed { margin-bottom: 18px; }
+/* a soft rust ring so the just-generated card reads as "yours, fresh" at the top */
+.ticket-app .ins-gen-landed .ins-card { border-color: color-mix(in srgb, var(--rust) 40%, var(--line-2)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--rust) 22%, transparent), var(--shadow-md); }
+.ticket-app .ins-gen-error { margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.ticket-app .ins-gen-retry { flex: none; font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--rust-deep); padding: 7px 14px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--rust) 40%, transparent); background: var(--card); transition: background var(--t-fast), border-color var(--t-fast); }
+.ticket-app .ins-gen-retry:hover { background: var(--rust-tint); border-color: var(--rust); }
 .ticket-app .ins-card-cleared:hover { opacity: 1; }
 
 /* the Track status menu (kebab-equivalent) */
