@@ -11,6 +11,8 @@
 .tk-set { display: flex; flex-direction: column; gap: 8px; }
 .tk-set-block { margin-top: 30px; }
 .tk-set-block:first-of-type { margin-top: 22px; }
+/* hairline separator inside a panel (e.g. network selector → own-handle editor, ALT-234) */
+.tk-set-divide { height: 1px; background: var(--line); margin: 18px 0; }
 
 /* a field row inside a soft panel: label (left) + value (right) */
 .tk-set-fields { display: flex; flex-direction: column; }

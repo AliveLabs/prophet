@@ -228,6 +228,27 @@
 .sp-hm-input:focus { outline: none; }
 .sp-hm-err { margin-top: 8px; font-size: 12px; color: var(--alert-deep); }
 
+/* ── watched accounts (DISPLAY-ONLY, ALT-234) ─────────────────
+   The Social page only SHOWS what we read + routes to the canonical
+   manage homes (Settings for own, the competitor's page for a competitor).
+   Add/remove/discover styling (sp-hm-/sp-disc-) is reused by those homes. */
+.sp-watch { display: flex; flex-direction: column; }
+.sp-watch-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line-2); }
+.sp-watch-row:first-child { border-top: 0; padding-top: 2px; }
+.sp-watch-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sp-watch-who { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-display); font-size: 14px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.sp-watch-tag { font-family: var(--font-cond); font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.sp-watch-tag-you { color: var(--teal-deep); background: var(--teal-tint); }
+.sp-watch-tag-comp { color: var(--ink-3); background: var(--paper-2); }
+.sp-watch-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.sp-watch-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 8px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--card-2); font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+.sp-watch-chip-unv { border-style: dashed; color: var(--ink-2); }
+.sp-watch-ic { width: 14px; height: 14px; display: inline-flex; color: var(--ink-3); }
+.sp-watch-ic svg { width: 100%; height: 100%; }
+.sp-watch-empty { font-size: 12.5px; color: var(--ink-3); }
+.sp-watch-manage { flex: none; text-decoration: none; }
+@media (max-width: 520px) { .sp-watch-manage { width: 100%; } }
+
 /* ── empty-state CTA buttons (point to Competitors roster) ──── */
 .sp-cta { display: inline-flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 4px; }
 .sp-cta a { text-decoration: none; }
