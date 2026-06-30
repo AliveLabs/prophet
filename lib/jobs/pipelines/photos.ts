@@ -20,6 +20,9 @@ export type PhotosPipelineCtx = {
   locationId: string
   organizationId: string
   dateKey: string
+  /** ALT-160: the operator's OWN listing. Its Google place id drives the own-photo
+   *  pass that mirrors the competitor pass but writes to location_photos. */
+  location: { id: string; name: string | null; placeId: string | null }
   competitors: Array<{
     id: string
     name: string | null
@@ -29,13 +32,111 @@ export type PhotosPipelineCtx = {
     photoRefs: Map<string, PhotoReference[]>
     downloads: Map<string, Array<FetchedPhoto & { competitorId: string }>>
     analyses: Map<string, Array<{ hash: string; analysis: PhotoAnalysis }>>
+    // ALT-160: own-listing pass (single entity → plain arrays, not per-id Maps).
+    ownPhotoRefs: PhotoReference[]
+    ownDownloads: FetchedPhoto[]
     insightsPayload: Array<Record<string, unknown>>
     warnings: string[]
   }
 }
 
 export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
+  // Own-listing photos get a dedicated, modest per-run budget INDEPENDENT of the
+  // competitor cap, and the own pass runs FIRST — the operator's own storefront is
+  // the highest-value surface, so it should never be starved by a large competitor set.
+  const MAX_OWN_DOWNLOADS_PER_RUN = 16
   return [
+    // ── OWN LISTING (ALT-160) — mirror of the competitor pass, keyed on location ──
+    {
+      name: "fetch_own_photo_refs",
+      label: "Fetching your listing photos from Google",
+      run: async (ctx) => {
+        const placeId = ctx.location.placeId
+        if (!placeId) return { own_references: 0, skipped: "no primary_place_id" }
+        try {
+          const refs = await fetchPhotoReferences(placeId)
+          ctx.state.ownPhotoRefs = refs
+          return { own_references: refs.length }
+        } catch (err) {
+          ctx.state.warnings.push(`Own photo refs: ${err instanceof Error ? err.message : "failed"}`)
+          return { own_references: 0 }
+        }
+      },
+    },
+    {
+      name: "download_own_photos",
+      label: "Downloading your listing photos",
+      run: async (ctx) => {
+        const refs = ctx.state.ownPhotoRefs
+        if (!refs.length) return { downloaded: 0 }
+
+        const { data: existing } = await ctx.supabase
+          .from("location_photos")
+          .select("image_hash")
+          .eq("location_id", ctx.location.id)
+        const existingHashes = new Set((existing ?? []).map((r) => r.image_hash))
+
+        let downloaded = 0
+        let skipped = 0
+        let capped = false
+        for (const ref of refs.slice(0, 30)) {
+          if (downloaded >= MAX_OWN_DOWNLOADS_PER_RUN) { capped = true; break }
+          try {
+            await sleep(250)
+            const photo = await downloadPhoto(ref.name)
+            photo.reference = { ...photo.reference, widthPx: ref.widthPx, heightPx: ref.heightPx, authorAttributions: ref.authorAttributions }
+            if (existingHashes.has(photo.hash)) { skipped++; continue }
+            const storagePath = `${ctx.location.id}/${photo.hash}.jpg`
+            await ctx.supabase.storage
+              .from("location-photos")
+              .upload(storagePath, photo.buffer, { contentType: photo.mimeType, upsert: true })
+            ctx.state.ownDownloads.push(photo)
+            downloaded++
+          } catch (err) {
+            ctx.state.warnings.push(`Own download: ${err instanceof Error ? err.message : "failed"}`)
+          }
+        }
+        if (capped) {
+          const msg = `Own-listing photo download capped at ${MAX_OWN_DOWNLOADS_PER_RUN}/run — resumes next run (dedup skips completed)`
+          ctx.state.warnings.push(msg)
+          console.log(`[Photos] ${msg}`)
+        }
+        return { downloaded, skipped, capped }
+      },
+    },
+    {
+      name: "analyze_own_vision",
+      label: "Analyzing your listing photos with Gemini Vision",
+      run: async (ctx) => {
+        let analyzed = 0
+        for (const photo of ctx.state.ownDownloads) {
+          try {
+            await sleep(300)
+            const analysis = await analyzePhoto(photo.buffer, photo.mimeType)
+            const storagePath = `${ctx.location.id}/${photo.hash}.jpg`
+            const { data: urlData } = ctx.supabase.storage
+              .from("location-photos")
+              .getPublicUrl(storagePath)
+
+            await ctx.supabase.from("location_photos").insert({
+              location_id: ctx.location.id,
+              place_photo_name: photo.reference.name,
+              image_hash: photo.hash,
+              image_url: urlData.publicUrl,
+              width_px: photo.reference.widthPx,
+              height_px: photo.reference.heightPx,
+              author_attribution: photo.reference.authorAttributions as unknown as Record<string, unknown>,
+              analysis_result: analysis as unknown as Record<string, unknown>,
+              last_seen_at: new Date().toISOString(),
+            })
+            analyzed++
+          } catch (err) {
+            ctx.state.warnings.push(`Own vision analysis: ${err instanceof Error ? err.message : "failed"}`)
+          }
+        }
+        return { own_analyzed: analyzed }
+      },
+    },
     {
       name: "load_competitors",
       label: "Loading competitors",
@@ -219,7 +320,7 @@ export async function buildPhotosContext(
 ): Promise<PhotosPipelineCtx> {
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name")
+    .select("id, name, primary_place_id")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
@@ -244,11 +345,18 @@ export async function buildPhotosContext(
     locationId,
     organizationId,
     dateKey: new Date().toISOString().slice(0, 10),
+    location: {
+      id: location.id,
+      name: location.name,
+      placeId: (location as { primary_place_id?: string | null }).primary_place_id ?? null,
+    },
     competitors,
     state: {
       photoRefs: new Map(),
       downloads: new Map(),
       analyses: new Map(),
+      ownPhotoRefs: [],
+      ownDownloads: [],
       insightsPayload: [],
       warnings: [],
     },

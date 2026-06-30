@@ -1,0 +1,73 @@
+/* Listing imagery modules (ALT-160) — Listing Check + The Shelf.
+   Editorial light aesthetic; tokens shared with the rest of The Pass
+   (paper, card, ink, line, teal, gold, rust, alert, font families). */
+
+.img-mod { margin-top: 28px; }
+.img-mod + .img-mod { margin-top: 22px; }
+
+/* Lead line — the owner-vs-customer hook. */
+.img-lead {
+  font-family: var(--font-display);
+  font-size: 15px; line-height: 1.45; color: var(--ink-2);
+  margin: 2px 0 14px;
+}
+.img-lead strong { color: var(--rust-deep, var(--rust)); font-weight: 700; }
+
+/* Header stat tiles. */
+.img-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.img-stat {
+  flex: 1 1 120px; min-width: 110px;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 14px; border-radius: var(--r-md, 10px);
+  background: var(--card-2, var(--card)); border: 1px solid var(--line-2, var(--line));
+}
+.img-stat-v { font-family: var(--font-mono); font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
+.img-stat-d { font-size: 14px; color: var(--ink-3); font-weight: 600; }
+.img-stat-k { font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+
+/* Two-up: coverage checklist + fix-next. */
+.img-grid2 { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; }
+@media (max-width: 760px) { .img-grid2 { grid-template-columns: 1fr; } }
+
+.img-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-display); font-weight: 700; font-size: 13.5px;
+  letter-spacing: -.01em; color: var(--ink); margin-bottom: 10px;
+}
+
+/* Coverage checklist rows. */
+.img-cov-list { display: flex; flex-direction: column; gap: 2px; }
+.img-cov {
+  display: grid; grid-template-columns: 78px auto; grid-template-areas: "chip label" "chip why";
+  column-gap: 11px; align-items: center; padding: 8px 4px;
+  border-bottom: 1px solid var(--line, rgba(0,0,0,.06));
+}
+.img-cov:last-child { border-bottom: 0; }
+.img-cov-chip {
+  grid-area: chip; align-self: start; justify-self: start;
+  font-family: var(--font-cond); font-size: 10px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.img-cov-chip-covered { color: var(--teal-deep, var(--teal)); background: color-mix(in srgb, var(--teal) 14%, transparent); }
+.img-cov-chip-thin    { color: var(--gold-deep); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+.img-cov-chip-missing { color: var(--alert-deep, var(--ink-2)); background: color-mix(in srgb, var(--alert) 12%, transparent); }
+.img-cov-label { grid-area: label; font-family: var(--font-display); font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.img-cov-why { grid-area: why; font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
+.img-cov-missing .img-cov-label { color: var(--ink-2); }
+
+/* Fix-next list. */
+.img-fix-list { display: flex; flex-direction: column; gap: 11px; }
+.img-fix-item { display: grid; grid-template-columns: 22px auto; gap: 9px; align-items: start; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.img-fix-n {
+  display: grid; place-items: center; width: 20px; height: 20px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--rust-deep, var(--rust)); background: color-mix(in srgb, var(--rust) 12%, transparent);
+}
+.img-fix-none { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.img-fix-clear .img-card-head span { color: var(--teal-deep, var(--teal)); }
+
+/* First-run note (listing connected, photos not read yet). */
+.img-firstrun p { font-size: 13px; color: var(--ink-2); line-height: 1.5; margin: 0; }
+
+/* The Shelf sits a touch tighter under Listing Check. */
+.img-shelf { margin-top: 20px; }

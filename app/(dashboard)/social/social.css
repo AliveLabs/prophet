@@ -270,3 +270,20 @@
 @media (prefers-reduced-motion: reduce) {
   .sp-spin { animation: none; }
 }
+
+/* ── Per-post visual read (ALT-160) ──────────────────────────────────────────
+   A compact, honest chip row between the caption and the engagement stats: the
+   image-quality tier + content type + the standout cues the vision tagger found.
+   Shares its visual language with the Listing Check / Shelf imagery modules. */
+.tk-se-grade { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 14px 0; }
+.sp-grade { display: flex; flex-wrap: wrap; gap: 5px; }
+.sp-grade-q, .sp-grade-cat, .sp-grade-cue {
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .03em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+}
+/* Quality tier — teal (strong) / gold (casual) / muted-alert (poor). */
+.sp-grade-q-high { color: var(--teal-deep, var(--teal)); background: color-mix(in srgb, var(--teal) 14%, transparent); }
+.sp-grade-q-mid  { color: var(--gold-deep); background: color-mix(in srgb, var(--gold) 16%, transparent); }
+.sp-grade-q-low  { color: var(--alert-deep, var(--ink-2)); background: color-mix(in srgb, var(--alert) 12%, transparent); }
+.sp-grade-cat { color: var(--ink-2); background: var(--paper-2); }
+.sp-grade-cue { color: var(--ink-3); background: color-mix(in srgb, var(--ink) 6%, transparent); }

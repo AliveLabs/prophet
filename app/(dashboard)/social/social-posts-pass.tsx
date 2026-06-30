@@ -9,7 +9,7 @@
 // the visible set (no fake $/covers), with the raw counts as labeled stats.
 
 import { useState, useMemo, type ReactNode } from "react"
-import type { NormalizedSocialPost, SocialPlatform } from "@/lib/social/types"
+import type { NormalizedSocialPost, SocialPlatform, SocialPostAnalysis } from "@/lib/social/types"
 import { TkSocialEmbed, TkChip, TkPhotoFallback, RevealOnView } from "@/components/ticket"
 
 type PostWithMeta = NormalizedSocialPost & {
@@ -64,6 +64,68 @@ function timeAgo(dateStr: string): string {
   if (days < 30) return `${Math.floor(days / 7)}w ago`
   if (days < 365) return `${Math.floor(days / 30)}mo ago`
   return `${Math.floor(days / 365)}y ago`
+}
+
+// ── Per-post visual read (ALT-160) ──────────────────────────────────────────
+// Turn the post's stored visualAnalysis into a compact, HONEST chip row: the
+// image-quality tier the vision tagger read, the content type, and the standout
+// cues it actually found. Strictly descriptive — it sits next to the "% of peak"
+// engagement stat so an operator can SEE what a strong post looked like, but we
+// never claim a cue CAUSED the engagement.
+const CONTENT_LABEL: Partial<Record<SocialPostAnalysis["contentCategory"], string>> = {
+  food_dish: "Dish",
+  drink_cocktail: "Drink",
+  interior_ambiance: "Interior",
+  exterior_facade: "Exterior",
+  patio_outdoor: "Patio",
+  event_live: "Event",
+  staff_team: "Team",
+  behind_the_scenes: "Behind the scenes",
+  customer_ugc: "Customer post",
+  menu_promo: "Menu / promo",
+  seasonal_holiday: "Seasonal",
+  product_merchandise: "Product",
+  community_collab: "Collab",
+}
+
+function qualityRead(a: SocialPostAnalysis): { label: string; tier: "high" | "mid" | "low" } | null {
+  switch (a.visualQuality?.lighting) {
+    case "professional": return { label: "Pro-shot", tier: "high" }
+    case "natural_good": return { label: "Natural light", tier: "high" }
+    case "amateur": return { label: "Casual shot", tier: "mid" }
+    case "poor": return { label: "Low-quality shot", tier: "low" }
+    default: return null
+  }
+}
+
+function gradeCues(a: SocialPostAnalysis): string[] {
+  const out: string[] = []
+  if (a.steamOrMotion) out.push("Steam / motion")
+  if (a.ownerOrStaffPresent) out.push("Owner & staff")
+  else if (a.peoplePresent) out.push("People in frame")
+  if (a.foodPresentation?.platingQuality === "high") out.push("Strong plating")
+  if (a.foodPresentation?.colorVibrancy === "vibrant") out.push("Vibrant color")
+  if (a.trendingSound) out.push("Trending sound")
+  if (a.promotionalContent) out.push("Promo")
+  return out.slice(0, 3)
+}
+
+function PostGrade({ a }: { a: SocialPostAnalysis }) {
+  // Confidence floor: a shaky read is worse than none — hide it.
+  if ((a.confidence ?? 0) < 0.5) return null
+  const q = qualityRead(a)
+  const cat = CONTENT_LABEL[a.contentCategory]
+  const cues = gradeCues(a)
+  if (!q && !cat && cues.length === 0) return null
+  return (
+    <div className="sp-grade" aria-label="What our vision read found in this post">
+      {q && <span className={`sp-grade-q sp-grade-q-${q.tier}`}>{q.label}</span>}
+      {cat && <span className="sp-grade-cat">{cat}</span>}
+      {cues.map((c) => (
+        <span key={c} className="sp-grade-cue">{c}</span>
+      ))}
+    </div>
+  )
 }
 
 export default function SocialPostsPass({
@@ -199,6 +261,7 @@ export default function SocialPostsPass({
                       ? post.hashtags.slice(0, 3).map((t) => `#${t}`).join(" ")
                       : undefined
                   }
+                  grade={post.visualAnalysis ? <PostGrade a={post.visualAnalysis} /> : undefined}
                   stats={[
                     { value: formatNumber(post.likesCount), label: "Likes" },
                     { value: formatNumber(post.commentsCount), label: "Comments" },
