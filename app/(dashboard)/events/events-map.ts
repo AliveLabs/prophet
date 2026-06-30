@@ -213,9 +213,13 @@ export function isInTradeArea(ev: NormalizedEvent): boolean {
         actual event sale/detail page
      2. the event's own url, when it's a deep path (has a path beyond "/"),
         i.e. not a bare homepage
-     3. the event's url as a last resort
-   We never fabricate a URL — if the snapshot only has a homepage, that's a
-   data-source limitation flagged for the pipeline, not patched here.          */
+     3. any ticket/info link at all — still event-specific, beats a homepage
+     4. the venue's OFFICIAL website (`venueWebsite`), resolved at the data layer
+        from the geocoded venue's Google Place. A real venue URL beats landing on
+        a generic bureau homepage when the scrape gave us nothing event-specific.
+     5. the event's url as a last resort (typically the bare bureau homepage)
+   We never fabricate a URL — `venueWebsite` is only ever a validated http(s) URL
+   Google returned for the venue; if we have nothing real, we return what we have. */
 const TICKET_HINT = /(ticket|event|tickets|seats|buy|rsvp|register)/i
 
 export function pickEventDeepLink(ev: NormalizedEvent): string | null {
@@ -232,6 +236,8 @@ export function pickEventDeepLink(ev: NormalizedEvent): string | null {
   const ownIsDeep = ownUrl ? hasDeepPath(ownUrl) : false
   if (ownIsDeep) return ownUrl ?? null
   if (firstTicket) return firstTicket
+  // 4. The venue's official site — a real destination over a bare bureau homepage.
+  if (ev.venueWebsite) return ev.venueWebsite
   return ownUrl ?? null
 }
 
