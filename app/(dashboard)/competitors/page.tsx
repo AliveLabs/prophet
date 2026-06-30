@@ -63,6 +63,9 @@ export default async function CompetitorsPage() {
         hasOwnData={comparison.hasOwnData}
         hasCompetitorData={comparison.hasCompetitorData}
         ownName={ctx.locationName}
+        hoursEntities={comparison.hoursEntities}
+        todayDow={comparison.todayDow}
+        locationId={ctx.locationId}
       />
 
       {/* ALT-196 freed this spot (the misplaced own-social link); ALT-195 now fills it

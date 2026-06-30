@@ -9,6 +9,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
 import { typeToCuisine } from "@/lib/places/format"
+import { parseWeekdayDescriptions } from "@/lib/competitors/open-hours"
+import type { HoursEntity, HoursDay } from "./competitors/competitor-hours-grid"
 
 /** Map DB subscription_tier values (entry/mid/top + legacy) to display labels.
  *  'free' is a legacy pre-migration value — those orgs are trials (of Tier 2). */
@@ -286,6 +288,52 @@ export type CompetitorComparison = {
   hasCompetitorData: boolean
   /** True when the operator's own busy-times curve is available (enables the H2H). */
   hasOwnData: boolean
+  /** ALT-231 — open-hours + busy by day for the "Who's open when" bar. Own row first
+   *  (its hours read as unavailable until cached — we never make a paid Places call
+   *  here), then each approved competitor. Hours come from the cached Google profile
+   *  (competitors.metadata.placeDetails.regularOpeningHours), busy from busy_times. */
+  hoursEntities: HoursEntity[]
+  /** Day-of-week (0=Sun) to open the day selector on — the operator's "today". */
+  todayDow: number
+}
+
+const UNKNOWN_DAY = { known: false, open: false, is24h: false, intervals: [] } as const
+
+/** Pull the cached Google opening-hours lines off a competitor's stored metadata
+ *  (regular hours first, current hours as fallback). No paid call — render what's
+ *  cached, else null ⇒ the row shows an honest "hours unavailable". */
+function cachedWeekdayDescriptions(meta: Record<string, unknown> | null): string[] | null {
+  const pd = (meta?.placeDetails as Record<string, unknown> | null) ?? null
+  const reg = (pd?.regularOpeningHours as { weekdayDescriptions?: string[] } | null) ?? null
+  const cur = (pd?.currentOpeningHours as { weekdayDescriptions?: string[] } | null) ?? null
+  const wd = reg?.weekdayDescriptions ?? cur?.weekdayDescriptions
+  return Array.isArray(wd) && wd.length > 0 ? wd : null
+}
+
+/** Merge parsed open hours (by day-of-week) with the busy curve (by day-of-week)
+ *  into the serializable per-entity shape the open-hours bar renders. A day is kept
+ *  when it has EITHER readable hours or a busy curve; days with neither are dropped. */
+function buildHoursEntity(
+  id: string,
+  name: string,
+  isYou: boolean,
+  weekdayDescriptions: string[] | null,
+  busyDays: Map<number, BusyRow> | undefined,
+): HoursEntity {
+  const byDay = parseWeekdayDescriptions(weekdayDescriptions)
+  const hoursKnown = Object.values(byDay).some((d) => d.known)
+  const days: HoursDay[] = []
+  for (let d = 0; d < 7; d++) {
+    const h = byDay[d]
+    const busy = busyDays?.get(d)
+    const scores =
+      busy && Array.isArray(busy.hourly_scores) && busy.hourly_scores.length > 0
+        ? (busy.hourly_scores as number[])
+        : null
+    if (!h && !scores) continue
+    days.push({ day_of_week: d, hours: h ?? UNKNOWN_DAY, hourly_scores: scores })
+  }
+  return { competitor_id: id, name, isYou, days, hoursKnown }
 }
 
 type BusyRow = {
@@ -415,7 +463,43 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
       })
   }
 
-  return { entities, h2h, hasCompetitorData, hasOwnData }
+  // ── ALT-231 "Who's open when": open hours (cached Google profile) + busy by day.
+  //    Own row leads (its hours read as unavailable until a cached source exists —
+  //    we never make a paid Places call here), then each approved competitor whose
+  //    cached metadata carries opening hours and/or has a busy curve. ──
+  const ownBusyByDay = new Map<number, BusyRow>()
+  for (const r of (ownRaw ?? []) as BusyRow[]) {
+    if (!ownBusyByDay.has(r.day_of_week)) ownBusyByDay.set(r.day_of_week, { ...r, typical_time_spent: null })
+  }
+  // Own open hours from the cached snapshot the insights pipeline persists (provider
+  // "google_hours") — no paid Places call here. Absent ⇒ the own row reads "unavailable".
+  const { data: ownHoursSnap } = await sb
+    .from("location_snapshots")
+    .select("raw_data")
+    .eq("location_id", op.locationId)
+    .eq("provider", "google_hours")
+    .order("date_key", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const ownWeekdayDescriptions =
+    (ownHoursSnap?.raw_data as { weekdayDescriptions?: string[] } | null)?.weekdayDescriptions ?? null
+
+  const hoursEntities: HoursEntity[] = []
+  const ownHours = buildHoursEntity("__you__", op.locationName, true, ownWeekdayDescriptions, ownBusyByDay)
+  if (ownHours.days.length > 0) hoursEntities.push(ownHours)
+  for (const c of approved) {
+    const he = buildHoursEntity(
+      c.id,
+      nameById.get(c.id) ?? "Competitor",
+      false,
+      cachedWeekdayDescriptions((c.metadata as Record<string, unknown> | null) ?? null),
+      byComp.get(c.id),
+    )
+    if (he.days.length > 0) hoursEntities.push(he)
+  }
+  const todayDow = new Date().getDay()
+
+  return { entities, h2h, hasCompetitorData, hasOwnData, hoursEntities, todayDow }
 }
 
 export type CompetitorInsight = { type: string; title: string; summary: string | null; dateKey: string }

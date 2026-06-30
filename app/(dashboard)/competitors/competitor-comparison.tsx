@@ -22,6 +22,7 @@ import {
   TkEmptyState,
 } from "@/components/ticket"
 import TrafficHeatmapGrid from "../traffic/traffic-heatmap-grid"
+import CompetitorHoursGrid, { type HoursEntity } from "./competitor-hours-grid"
 import type { TrafficData } from "../traffic/traffic-types"
 import type { ComparisonEntity, ComparisonH2HRow } from "../operator-data"
 
@@ -38,25 +39,33 @@ export default function CompetitorComparison({
   hasOwnData,
   hasCompetitorData,
   ownName,
+  hoursEntities,
+  todayDow,
+  locationId,
 }: {
   entities: ComparisonEntity[]
   h2h: ComparisonH2HRow[]
   hasOwnData: boolean
   hasCompetitorData: boolean
   ownName: string
+  hoursEntities: HoursEntity[]
+  todayDow: number
+  locationId?: string
 }) {
-  // Nothing pulled on either side yet — one honest empty state, no fake viz.
-  if (!hasCompetitorData && !hasOwnData) {
+  const hasHours = hoursEntities.some((e) => e.hoursKnown)
+
+  // Nothing pulled on any side yet — one honest empty state, no fake viz.
+  if (!hasCompetitorData && !hasOwnData && !hasHours) {
     return (
       <section className="tk-comp-sec">
         <TkSectionHead
           title="You vs the block"
-          sub="Head-to-head and busy times, once we've read the set"
+          sub="Head-to-head, busy times, and open hours, once we've read the set"
         />
         <TkEmptyState
           icon={CHART_ICON}
-          title="No busy-times read yet"
-          description="We pull each rival's popular hours from Google Maps. Once a competitor's data lands — and your own listing is read — you'll see where you're ahead and when the block fills up. Open the Foot traffic page to start a pull."
+          title="No competitor read yet"
+          description="We pull each rival's busy times and open hours from Google Maps. Once a competitor's data lands, and your own listing is read, you'll see where you're ahead, when the block fills up, and who's open when. Open the Foot traffic page to start a pull."
         />
       </section>
     )
@@ -122,6 +131,9 @@ export default function CompetitorComparison({
           </RevealOnView>
         </>
       ) : null}
+
+      {/* ── ALT-231 WHO'S OPEN WHEN (24h open-hours + busy by day, day selector) ── */}
+      <CompetitorHoursGrid entities={hoursEntities} todayDow={todayDow} locationId={locationId} />
     </section>
   )
 }
