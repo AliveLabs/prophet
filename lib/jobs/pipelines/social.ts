@@ -259,7 +259,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
     // ------------------------------------------------------------------
     {
       name: "collect_snapshots",
-      label: "Collecting social media data from Data365",
+      label: "Collecting social media data",
       run: async (c) => {
         const compIds = c.approvedCompetitors.map((comp) => comp.id)
         const entityIds = [c.locationId, ...compIds]

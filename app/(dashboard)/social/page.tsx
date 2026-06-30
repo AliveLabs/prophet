@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import LocationFilter from "@/components/ui/location-filter"
@@ -20,6 +21,7 @@ import {
 import SocialStandingPass from "./social-standing-pass"
 import SocialPostsPass from "./social-posts-pass"
 import SocialInsightsPass from "./social-insights-pass"
+import type { SocialPlatform } from "@/lib/social/types"
 import "./social.css"
 
 type SocialPageProps = {
@@ -125,7 +127,24 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   const avgEngagement = locProfiles.length > 0
     ? locProfiles.reduce((s, p) => s + p.engagementRate, 0) / locProfiles.length
     : 0
-  const platformCount = new Set(socialData.profiles.map((p) => p.platform)).size
+
+  // Per-network follower breakdown for your own profiles (ALT-202a) — shown
+  // beneath the big total. Honest: only networks where we actually read a profile.
+  const PLATFORM_ORDER: SocialPlatform[] = ["instagram", "facebook", "tiktok"]
+  const followersByNetwork = PLATFORM_ORDER
+    .map((platform) => ({
+      platform,
+      followers: locProfiles
+        .filter((p) => p.platform === platform)
+        .reduce((s, p) => s + p.followerCount, 0),
+      present: locProfiles.some((p) => p.platform === platform),
+    }))
+    .filter((n) => n.present)
+
+  // Split posts into yours vs competitors' (ALT-197) so each section is distinct.
+  const allPosts = socialData.topPosts ?? []
+  const ownPosts = allPosts.filter((p) => p.entityType === "location")
+  const competitorPosts = allPosts.filter((p) => p.entityType === "competitor")
 
   // -------------------------------------------------------------------------
   // Group handles by entity for the handle manager
@@ -145,11 +164,14 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
     .map(([, handles]) => handles)
 
   const hasProfiles = socialData.profiles.length > 0
+  const hasOwnProfiles = locProfiles.length > 0
+  const hasCompetitorProfiles = compProfiles.length > 0
   const visibleInsights = feedInsights.filter(
     (i) => !["dismissed", "snoozed", "inaccurate"].includes(i.status),
   )
   const hasInsights = visibleInsights.length > 0
-  const hasPosts = (socialData.topPosts?.length ?? 0) > 0
+  const hasOwnPosts = ownPosts.length > 0
+  const hasCompetitorPosts = competitorPosts.length > 0
 
   return (
     <div className="pv-page">
@@ -184,30 +206,53 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                 locationId={selectedLocationId}
                 label="Fetch social data"
                 pendingLabel="Fetching social data"
+                hideElapsed
               />
             </TkSoftPanel>
           </RevealOnView>
         )}
 
-        {/* ── At a glance (honest widgets) ── */}
+        {/* ════════════════════════════════════════════════════════════════
+            YOUR SOCIAL — lead the page with our own accounts (ALT-197).
+            At-a-glance footprint (with per-network follower breakdown · ALT-202a),
+            network coverage (where you stand · ALT-202c), then your recent posts.
+            ════════════════════════════════════════════════════════════════ */}
         {hasProfiles && (
           <>
             <TkSectionHead
-              title="At a glance"
-              sub="Your footprint · this week"
-              className="sp-sec"
+              title="Your social"
+              sub="Your accounts — footprint, coverage, and recent posts"
+              className="sp-sec sp-sec-own"
             />
+
             <RevealOnView>
               <TkWidgetGrid>
                 <TkWidget
                   tone="rust"
                   size="wide"
+                  className="tk-w-tall sp-w-followers"
                   label="Your followers"
-                  value={formatNumber(totalFollowers)}
-                  sub={`across ${locProfiles.length} of your profile${locProfiles.length === 1 ? "" : "s"}`}
                   data-tip="Total followers across the social profiles we track for you"
                   data-tipv={`${formatNumber(totalFollowers)} followers`}
-                />
+                  data-tip-anchor=""
+                >
+                  <div>
+                    <div className="tk-wval">{formatNumber(totalFollowers)}</div>
+                    <div className="tk-wsub">
+                      across {locProfiles.length} of your profile{locProfiles.length === 1 ? "" : "s"}
+                    </div>
+                  </div>
+                  {followersByNetwork.length > 0 && (
+                    <div className="sp-foll-break" aria-label="Followers by network">
+                      {followersByNetwork.map((n) => (
+                        <span key={n.platform} className="sp-foll-net">
+                          <span className="sp-foll-ic">{NET_ICON[n.platform]}</span>
+                          <span className="sp-foll-n">{formatNumber(n.followers)}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </TkWidget>
                 <TkWidget
                   tone={avgEngagement > 0 ? "teal" : "muted"}
                   label="Engagement / post"
@@ -215,49 +260,77 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                   sub={avgEngagement > 0 ? "when you post, on average" : "no posts read yet"}
                   data-tip="Average interactions per post ÷ followers, when you post — not how often you post"
                   data-tipv={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}% engagement` : "not enough data"}
+                  data-tip-anchor=""
+                />
+                <TkWidget
+                  tone="gold"
+                  label="Your platforms"
+                  value={String(new Set(locProfiles.map((p) => p.platform)).size)}
+                  sub="networks we read for you"
+                  data-tip="Distinct platforms where we read one of your profiles"
+                  data-tipv={`${new Set(locProfiles.map((p) => p.platform)).size} of your platform${new Set(locProfiles.map((p) => p.platform)).size === 1 ? "" : "s"}`}
+                  data-tip-anchor=""
+                />
+              </TkWidgetGrid>
+            </RevealOnView>
+
+            {/* Network coverage — where you stand, per network (ALT-202c) */}
+            <SocialStandingPass profiles={socialData.profiles} section="presence" />
+
+            {/* Your recent posts — fewer columns to give your own posts room (ALT-201) */}
+            {hasOwnPosts ? (
+              <SocialPostsPass posts={ownPosts} variant="own" />
+            ) : hasOwnProfiles ? (
+              <TkEmptyState
+                title="No posts read yet"
+                description="Run a social-data fetch and your recent posts will appear here."
+              />
+            ) : null}
+          </>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════
+            COMPETITORS — a distinct section, clearly separated from your own
+            (ALT-197). You-vs-the-set head-to-head, then their recent posts.
+            ════════════════════════════════════════════════════════════════ */}
+        {hasCompetitorProfiles && (
+          <>
+            <TkSectionHead
+              title="Competitors"
+              sub="The accounts you measure against — you vs them, and their recent posts"
+              className="sp-sec sp-sec-comp"
+            />
+
+            <RevealOnView>
+              <TkWidgetGrid>
+                <TkWidget
+                  tone="slate"
+                  label="Watched competitors"
+                  value={String(compProfiles.length)}
+                  sub={compProfiles.length === 1 ? "profile being watched" : "profiles being watched"}
+                  data-tip="Competitor social profiles in your watched set"
+                  data-tipv={`${compProfiles.length} watched`}
+                  data-tip-anchor=""
                 />
                 <TkWidget
                   tone="gold"
                   label="Platforms"
-                  value={String(platformCount)}
-                  sub="tracked across the set"
-                  data-tip="Distinct platforms we read for you and your competitors"
-                  data-tipv={`${platformCount} platform${platformCount === 1 ? "" : "s"}`}
-                />
-                <TkWidget
-                  tone="slate"
-                  label="Competitors"
-                  value={String(compProfiles.length)}
-                  sub={compProfiles.length > 0 ? "profiles being watched" : "none watched yet"}
-                  data-tip="Competitor social profiles in your watched set"
-                  data-tipv={`${compProfiles.length} watched`}
+                  value={String(new Set(compProfiles.map((p) => p.platform)).size)}
+                  sub="networks they're on"
+                  data-tip="Distinct platforms where we read a competitor profile"
+                  data-tipv={`${new Set(compProfiles.map((p) => p.platform)).size} platform${new Set(compProfiles.map((p) => p.platform)).size === 1 ? "" : "s"}`}
+                  data-tip-anchor=""
                 />
               </TkWidgetGrid>
             </RevealOnView>
-          </>
-        )}
 
-        {/* ── Standing: platform presence + you vs the set ── */}
-        {hasProfiles && (
-          <>
-            <TkSectionHead
-              title="Where you stand"
-              sub="Platform presence · you vs your set"
-              className="sp-sec"
-            />
-            <SocialStandingPass profiles={socialData.profiles} />
-          </>
-        )}
+            {/* You vs the set — head-to-head on the honest signals */}
+            <SocialStandingPass profiles={socialData.profiles} section="h2h" />
 
-        {/* ── Recent posts (the centerpiece — TkSocialEmbed grid) ── */}
-        {hasPosts && (
-          <>
-            <TkSectionHead
-              title="Recent posts"
-              sub="Yours and competitors' · engagement as a share of peak"
-              className="sp-sec"
-            />
-            <SocialPostsPass posts={socialData.topPosts ?? []} />
+            {/* Their recent posts — more columns to scan the set (ALT-201) */}
+            {hasCompetitorPosts && (
+              <SocialPostsPass posts={competitorPosts} variant="competitors" />
+            )}
           </>
         )}
 
@@ -338,4 +411,24 @@ function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return String(n)
+}
+
+// Inline network glyphs (the same filled set the rest of the page uses). Plain
+// JSX in a Server Component — no client boundary crossed.
+const NET_ICON: Record<SocialPlatform, ReactNode> = {
+  instagram: (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.16c3.2 0 3.58.01 4.85.07 3.25.15 4.77 1.69 4.92 4.92.06 1.27.07 1.64.07 4.85 0 3.2-.01 3.58-.07 4.85-.15 3.23-1.66 4.77-4.92 4.92-1.27.06-1.64.07-4.85.07-3.2 0-3.58-.01-4.85-.07-3.26-.15-4.77-1.7-4.92-4.92C2.17 15.58 2.16 15.2 2.16 12c0-3.2.01-3.58.07-4.85.15-3.23 1.66-4.77 4.92-4.92C8.42 2.17 8.8 2.16 12 2.16Zm0 3.68a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32Zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8Zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88Z" />
+    </svg>
+  ),
+  facebook: (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M24 12.07C24 5.44 18.63.07 12 .07S0 5.44 0 12.07c0 5.99 4.39 10.95 10.13 11.85v-8.38H7.08v-3.47h3.05V9.43c0-3.01 1.79-4.67 4.53-4.67 1.31 0 2.69.24 2.69.24v2.95h-1.51c-1.49 0-1.96.93-1.96 1.87v2.25h3.33l-.53 3.47h-2.8v8.38C19.61 23.02 24 18.06 24 12.07Z" />
+    </svg>
+  ),
+  tiktok: (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 1 1-2.1-2.79v-3.5a6.34 6.34 0 1 0 5.55 6.29V8.7a8.26 8.26 0 0 0 5.58 2.17V7.4a4.83 4.83 0 0 1-1.81-.71Z" />
+    </svg>
+  ),
 }

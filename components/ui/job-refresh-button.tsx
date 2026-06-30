@@ -17,6 +17,9 @@ type Props = {
   quickFacts?: AmbientCard[]
   className?: string
   disabled?: boolean
+  /** Hide the elapsed-time counter in the progress UI (keep the percentage).
+   *  Opt-in per surface — see ALT-200 for the Social fetch. */
+  hideElapsed?: boolean
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -38,6 +41,7 @@ export default function JobRefreshButton({
   quickFacts = [],
   className,
   disabled,
+  hideElapsed = false,
 }: Props) {
   const router = useRouter()
   const job = useJobRunner(type)
@@ -246,6 +250,7 @@ export default function JobRefreshButton({
                 progress={job.progress}
                 elapsed={job.elapsed}
                 pendingLabel={pendingLabel}
+                hideElapsed={hideElapsed}
               />
             </div>
 

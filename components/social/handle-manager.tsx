@@ -10,7 +10,8 @@
 // The data shape (SocialHandle) and the wired server actions (onSave / onDelete /
 // onVerify) are UNCHANGED — this is a presentation-only rebuild.
 
-import { useState, useTransition, type ReactNode } from "react"
+import { useOptimistic, useState, useTransition, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import { TkButton } from "@/components/ticket"
 
 type SocialHandle = {
@@ -20,6 +21,9 @@ type SocialHandle = {
   profileUrl: string | null
   discoveryMethod: "auto_scrape" | "data365_search" | "manual"
   isVerified: boolean
+  /** Optimistic-only: this row is mid-save / mid-remove and not yet confirmed
+   *  by the server (ALT-199). Drives a busy indicator + disables its actions. */
+  pending?: boolean
 }
 
 type Props = {
@@ -122,12 +126,30 @@ export default function HandleManager({
   onDelete,
   onVerify,
 }: Props) {
+  const router = useRouter()
   const [adding, setAdding] = useState<string | null>(null)
   const [newHandle, setNewHandle] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  const existingPlatforms = new Set(handles.map((h) => h.platform))
+  // ALT-199 — optimistic handle list. A just-added account shows INLINE
+  // immediately (with a busy indicator) instead of leaving the add button up
+  // until a manual refresh. Each mutation also calls router.refresh() — a
+  // SCOPED soft re-render of the server component, so the real row replaces the
+  // optimistic one without a full browser reload (which had sent the page into
+  // a lazy-load tailspin). useOptimistic resets to `handles` once refresh lands.
+  type OptAction =
+    | { kind: "add"; handle: SocialHandle }
+    | { kind: "remove"; id: string }
+  const [optimisticHandles, applyOptimistic] = useOptimistic(
+    handles,
+    (current: SocialHandle[], action: OptAction): SocialHandle[] => {
+      if (action.kind === "add") return [...current, action.handle]
+      return current.filter((h) => h.id !== action.id)
+    },
+  )
+
+  const existingPlatforms = new Set(optimisticHandles.map((h) => h.platform))
   const missingPlatforms = PLATFORM_ORDER.filter(
     (p) => !existingPlatforms.has(p as SocialHandle["platform"])
   )
@@ -140,33 +162,51 @@ export default function HandleManager({
 
   function handleSave() {
     if (!adding || !newHandle.trim()) return
+    const platform = adding as SocialHandle["platform"]
+    const cleanHandle = newHandle.trim().replace(/^@/, "")
     setError(null)
+    // Show the new row inline right away, and clear the add field.
+    setAdding(null)
+    setNewHandle("")
 
     startTransition(async () => {
-      const result = await onSave({
-        entityType,
-        entityId,
-        platform: adding,
-        handle: newHandle.trim().replace(/^@/, ""),
+      applyOptimistic({
+        kind: "add",
+        handle: {
+          id: `optimistic-${platform}-${cleanHandle}`,
+          platform,
+          handle: cleanHandle,
+          profileUrl: null,
+          discoveryMethod: "manual",
+          isVerified: true,
+          pending: true,
+        },
       })
+      const result = await onSave({ entityType, entityId, platform, handle: cleanHandle })
       if (result.error) {
+        // Re-open the add field with the value + error; the optimistic row
+        // falls away when the transition ends (no router.refresh on failure).
         setError(result.error)
-      } else {
-        setAdding(null)
-        setNewHandle("")
+        setAdding(platform)
+        setNewHandle(cleanHandle)
+        return
       }
+      router.refresh()
     })
   }
 
   function handleDelete(id: string) {
     startTransition(async () => {
-      await onDelete(id)
+      applyOptimistic({ kind: "remove", id })
+      const result = await onDelete(id)
+      if (!result.error) router.refresh()
     })
   }
 
   function handleVerify(id: string) {
     startTransition(async () => {
-      await onVerify(id)
+      const result = await onVerify(id)
+      if (!result.error) router.refresh()
     })
   }
 
@@ -179,20 +219,30 @@ export default function HandleManager({
         </span>
       </div>
 
-      {/* Existing handles */}
-      {handles.length > 0 && (
+      {/* Existing handles (+ any optimistic just-added row, ALT-199) */}
+      {optimisticHandles.length > 0 && (
         <div className="sp-hm-rows">
-          {handles.map((h) => {
+          {optimisticHandles.map((h) => {
             const meta = PLATFORM_META[h.platform]
             return (
-              <div key={h.id} className="sp-hm-row">
+              <div key={h.id} className={`sp-hm-row${h.pending ? " sp-hm-row-pending" : ""}`}>
                 <span className={`sp-hm-plat ${meta?.cls ?? ""}`} aria-hidden="true">
                   {NET_ICON[h.platform]}
                 </span>
                 <div className="sp-hm-body">
                   <div className="sp-hm-handle">
                     <span className="sp-hm-at">@{h.handle}</span>
-                    <ProvenanceBadge handle={h} />
+                    {h.pending ? (
+                      <span className="sp-hm-prov sp-hm-prov-saving" title="Saving…">
+                        <svg className="sp-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="4" />
+                          <path d="M4 12a8 8 0 0 1 8-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                        </svg>
+                        Saving
+                      </span>
+                    ) : (
+                      <ProvenanceBadge handle={h} />
+                    )}
                   </div>
                   <div className="sp-hm-url">
                     {meta?.prefix}
@@ -200,7 +250,7 @@ export default function HandleManager({
                   </div>
                 </div>
                 <div className="sp-hm-acts">
-                  {!h.isVerified && (
+                  {!h.pending && !h.isVerified && (
                     <TkButton
                       variant="keep"
                       onClick={() => handleVerify(h.id)}
@@ -213,7 +263,7 @@ export default function HandleManager({
                     variant="dismiss"
                     className="sp-hm-rm"
                     onClick={() => handleDelete(h.id)}
-                    disabled={isPending}
+                    disabled={isPending || h.pending}
                     aria-label={`Remove @${h.handle}`}
                   >
                     {RM_ICON}

@@ -9,6 +9,7 @@
 // (UX gap §7: managing watched entities is homed here + on Competitors).
 
 import { useTransition, useState } from "react"
+import { useRouter } from "next/navigation"
 import HandleManager from "@/components/social/handle-manager"
 import { TkButton } from "@/components/ticket"
 import {
@@ -43,6 +44,7 @@ export default function SocialHandleSection({
   locationHandles,
   competitorHandleGroups,
 }: Props) {
+  const router = useRouter()
   const [isDiscovering, startDiscovery] = useTransition()
   const [discoveryResult, setDiscoveryResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
@@ -57,6 +59,9 @@ export default function SocialHandleSection({
           ok: true,
           msg: `Found ${result.discovered} profile${result.discovered !== 1 ? "s" : ""}.`,
         })
+        // ALT-199 — newly discovered handles should land inline, not wait for a
+        // manual refresh. Scoped soft re-render of the server component.
+        if (result.discovered > 0) router.refresh()
       }
     })
   }

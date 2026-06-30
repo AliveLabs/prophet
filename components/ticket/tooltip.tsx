@@ -24,6 +24,7 @@ export function TkTooltipLayer() {
     if (!tip) return
     let hideT: number | null = null
 
+    // Float near the cursor (default).
     const move = (x: number, y: number) => {
       const pad = 14
       const w = tip.offsetWidth
@@ -32,6 +33,23 @@ export function TkTooltipLayer() {
       let top = y - h - 10
       if (left + w + pad > window.innerWidth) left = x - w - 14
       if (top < pad) top = y + 18
+      tip.style.left = `${left}px`
+      tip.style.top = `${top}px`
+    }
+    // Anchor centered above the element's box (ALT-202b) — for discrete tiles
+    // (e.g. the "at a glance" widgets) where a cursor-chasing tip reads as
+    // detached/misaligned from the box it describes. The tip is position:fixed,
+    // so element viewport rect (getBoundingClientRect) is the right space.
+    const anchorTo = (el: Element) => {
+      const pad = 14
+      const w = tip.offsetWidth
+      const h = tip.offsetHeight
+      const r = el.getBoundingClientRect()
+      let left = r.left + r.width / 2 - w / 2
+      let top = r.top - h - 10
+      if (left < pad) left = pad
+      if (left + w + pad > window.innerWidth) left = window.innerWidth - w - pad
+      if (top < pad) top = r.bottom + 10 // flip below when no room above
       tip.style.left = `${left}px`
       tip.style.top = `${top}px`
     }
@@ -49,7 +67,8 @@ export function TkTooltipLayer() {
       }
       tip.appendChild(document.createTextNode(t))
       tip.classList.add("tk-show")
-      move(x, y)
+      if (el.hasAttribute("data-tip-anchor")) anchorTo(el)
+      else move(x, y)
     }
     const hide = () => tip.classList.remove("tk-show")
 

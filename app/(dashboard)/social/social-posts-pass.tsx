@@ -66,7 +66,15 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(days / 365)}y ago`
 }
 
-export default function SocialPostsPass({ posts }: { posts: PostWithMeta[] }) {
+export default function SocialPostsPass({
+  posts,
+  variant = "all",
+}: {
+  posts: PostWithMeta[]
+  /** Drives the responsive column count (ALT-201): your own posts get fewer,
+   *  roomier columns; competitors' get more, denser ones for scanning the set. */
+  variant?: "own" | "competitors" | "all"
+}) {
   const [activePlatform, setActivePlatform] = useState<SocialPlatform | "all">("all")
   const [activeEntity, setActiveEntity] = useState<string>("all")
 
@@ -101,7 +109,9 @@ export default function SocialPostsPass({ posts }: { posts: PostWithMeta[] }) {
   // Honest engagement framing: each post's TOTAL engagement as a share of the
   // single most-engaged post in the visible set. No invented $/covers — this is
   // a relative-strength read across what we actually pulled.
-  const visible = filtered.slice(0, 12)
+  // Competitor grids run more columns, so show more cards to fill the rows.
+  const cap = variant === "competitors" ? 15 : 12
+  const visible = filtered.slice(0, cap)
   const peakEngagement = useMemo(
     () => Math.max(1, ...visible.map((p) => p.likesCount + p.commentsCount + p.sharesCount)),
     [visible],
@@ -110,7 +120,7 @@ export default function SocialPostsPass({ posts }: { posts: PostWithMeta[] }) {
   if (posts.length === 0) return null
 
   return (
-    <div className="sp-posts">
+    <div className={`sp-posts sp-posts-${variant}`}>
       {/* Filter bar — platform pills + entity select */}
       <div className="sp-postbar">
         <div className="sp-pills" role="tablist" aria-label="Filter by platform">

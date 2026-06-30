@@ -65,7 +65,16 @@ function formatNumber(n: number): string {
   return String(n)
 }
 
-export default function SocialStandingPass({ profiles }: { profiles: ProfileData[] }) {
+export default function SocialStandingPass({
+  profiles,
+  section = "both",
+}: {
+  profiles: ProfileData[]
+  /** Which half to render. The page splits these across its own/competitors
+   *  sections (ALT-197): "presence" → network coverage under Your social;
+   *  "h2h" → you-vs-the-set under Competitors. "both" keeps legacy behavior. */
+  section?: "presence" | "h2h" | "both"
+}) {
   // Platform presence (you / competitors-only / untracked) — honest matrix.
   const presence = useMemo(() => {
     return (["instagram", "facebook", "tiktok"] as SocialPlatform[]).map((plat) => ({
@@ -135,9 +144,14 @@ export default function SocialStandingPass({ profiles }: { profiles: ProfileData
 
   if (profiles.length === 0) return null
 
+  const showPresence = section !== "h2h"
+  const showH2H = section !== "presence"
+
   return (
     <div className="sp-standing">
-      {/* Platform presence */}
+      {/* Network coverage — where you stand, per network (ALT-202c).
+          Small network glyphs + an honest "you + N competitors" read. */}
+      {showPresence && (
       <RevealOnView className="sp-presence" stagger>
         {presence.map((p, i) => {
           const state = p.you ? "you" : p.competitorCount > 0 ? "gap" : "off"
@@ -155,7 +169,7 @@ export default function SocialStandingPass({ profiles }: { profiles: ProfileData
                     </span>
                   ) : p.competitorCount > 0 ? (
                     <span className="sp-plat-warn">
-                      {p.competitorCount} competitor{p.competitorCount !== 1 ? "s" : ""} · you&apos;re not here
+                      You + 0 · {p.competitorCount} competitor{p.competitorCount !== 1 ? "s" : ""} here
                     </span>
                   ) : (
                     <span className="sp-plat-muted">Not tracked</span>
@@ -166,9 +180,10 @@ export default function SocialStandingPass({ profiles }: { profiles: ProfileData
           )
         })}
       </RevealOnView>
+      )}
 
       {/* You vs the set */}
-      {h2hRows.length > 0 ? (
+      {showH2H && (h2hRows.length > 0 ? (
         <RevealOnView className="sp-h2h-wrap">
           <TkH2HBars
             title={
@@ -190,7 +205,7 @@ export default function SocialStandingPass({ profiles }: { profiles: ProfileData
             side by side once we&apos;re watching their accounts.
           </p>
         </TkSoftPanel>
-      ) : null}
+      ) : null)}
     </div>
   )
 }

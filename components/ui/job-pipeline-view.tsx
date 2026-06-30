@@ -8,6 +8,9 @@ type Props = {
   progress: number
   elapsed: number
   pendingLabel?: string
+  /** Hide the elapsed-time counter (keep the percentage). Opt-in per surface so
+   *  slower pulls don't advertise how long they take (ALT-200). */
+  hideElapsed?: boolean
 }
 
 function formatElapsed(seconds: number): string {
@@ -78,6 +81,7 @@ export default function JobPipelineView({
   progress,
   elapsed,
   pendingLabel,
+  hideElapsed = false,
 }: Props) {
   return (
     <motion.div
@@ -99,7 +103,9 @@ export default function JobPipelineView({
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>{progress}%</span>
-          <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+          {!hideElapsed && (
+            <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+          )}
         </div>
       </div>
 
