@@ -112,8 +112,14 @@ function buildSnapshotFromPlaceDetails(details: Awaited<ReturnType<typeof fetchP
   if (!details) return null
   const phone = details.internationalPhoneNumber ?? details.nationalPhoneNumber ?? undefined
   const hours = details.regularOpeningHours?.weekdayDescriptions?.reduce<Record<string, string>>((acc, line) => {
-    const [day, rest] = line.split(":")
-    if (day && rest) acc[day.trim()] = rest.trim()
+    // Split on the FIRST colon only — the time itself contains colons ("Monday: 10:00 AM
+    // – 11:00 PM"), so a plain split(":") truncated the value to just the hour digit.
+    const idx = line.indexOf(":")
+    if (idx > 0) {
+      const day = line.slice(0, idx).trim()
+      const rest = line.slice(idx + 1).trim()
+      if (day && rest) acc[day] = rest
+    }
     return acc
   }, {}) ?? undefined
   const recentReviews = details.reviews?.map((r, i) => ({
@@ -144,6 +150,30 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         if (c.location.primary_place_id) {
           const details = await fetchPlaceDetails(c.location.primary_place_id)
           c.state.locationSnapshot = buildSnapshotFromPlaceDetails(details)
+
+          // ALT-231 — cache the location's OWN open hours (raw Google weekdayDescriptions)
+          // so the Competitors "Who's open when" own row renders without a paid Places call
+          // (loadCompetitorComparison reads this snapshot). We already have `details` here,
+          // so no extra call. Free-text provider, no migration; best-effort (the widget falls
+          // back to "hours unavailable" when absent).
+          const weekdayDescriptions = details.regularOpeningHours?.weekdayDescriptions ?? null
+          if (weekdayDescriptions && weekdayDescriptions.length > 0) {
+            try {
+              await c.supabase.from("location_snapshots").upsert(
+                {
+                  location_id: c.locationId,
+                  provider: "google_hours",
+                  date_key: c.dateKey,
+                  captured_at: new Date().toISOString(),
+                  raw_data: { weekdayDescriptions } as unknown as Record<string, unknown>,
+                  diff_hash: createHash("sha256").update(JSON.stringify(weekdayDescriptions)).digest("hex"),
+                },
+                { onConflict: "location_id,provider,date_key" },
+              )
+            } catch {
+              /* best-effort; the own row shows "hours unavailable" until this lands */
+            }
+          }
           // Review sentiment for write-time price corroboration (P4.1) — reuses the reviews we
           // just fetched (no extra Places call). analyzeReviews has a graceful empty fallback.
           const raw = (c.state.locationSnapshot?.recentReviews ?? []).map((r) => ({ text: r.text, rating: r.rating, date: r.date }))

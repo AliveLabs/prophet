@@ -471,8 +471,21 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
   for (const r of (ownRaw ?? []) as BusyRow[]) {
     if (!ownBusyByDay.has(r.day_of_week)) ownBusyByDay.set(r.day_of_week, { ...r, typical_time_spent: null })
   }
+  // Own open hours from the cached snapshot the insights pipeline persists (provider
+  // "google_hours") — no paid Places call here. Absent ⇒ the own row reads "unavailable".
+  const { data: ownHoursSnap } = await sb
+    .from("location_snapshots")
+    .select("raw_data")
+    .eq("location_id", op.locationId)
+    .eq("provider", "google_hours")
+    .order("date_key", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const ownWeekdayDescriptions =
+    (ownHoursSnap?.raw_data as { weekdayDescriptions?: string[] } | null)?.weekdayDescriptions ?? null
+
   const hoursEntities: HoursEntity[] = []
-  const ownHours = buildHoursEntity("__you__", op.locationName, true, null, ownBusyByDay)
+  const ownHours = buildHoursEntity("__you__", op.locationName, true, ownWeekdayDescriptions, ownBusyByDay)
   if (ownHours.days.length > 0) hoursEntities.push(ownHours)
   for (const c of approved) {
     const he = buildHoursEntity(
