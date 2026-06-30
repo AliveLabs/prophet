@@ -576,14 +576,17 @@
    overflow:hidden, while staying IN the .ticket-app token surface so colors
    + dark mode resolve. z-index sits above cards/drawer, below tooltip/toast.
    ════════════════════════════════════════════════════════════ */
-.tk-tbub { position: absolute; top: 9px; right: 9px; z-index: 4; width: 27px; height: 27px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--card) 84%, transparent); border: 1px solid var(--line-2); color: var(--ink-3); box-shadow: var(--shadow-sm); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), border-color var(--t-fast), opacity var(--t-fast); }
-.tk-tbub svg { width: 11px; height: auto; }
-.tk-tbub:hover, .tk-tbub.tk-tbub-open { background: var(--rust-tint); border-color: color-mix(in srgb, var(--rust) 42%, transparent); color: var(--rust-deep); transform: translateY(-1px); }
+/* The icon is the Ticket T inside a chat bubble (TicketChatMark) in copper — the
+   chat bubble IS the container, so the button itself carries no square chrome. */
+.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: none; border: 0; color: var(--rust); box-shadow: none; transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), opacity var(--t-fast); }
+.tk-tbub svg { width: 20px; height: auto; }
+/* hover/open: deepen the copper + a soft copper halo for tap feedback + a small lift */
+.tk-tbub:hover, .tk-tbub.tk-tbub-open { background: var(--rust-tint); color: var(--rust-deep); transform: translateY(-1px); }
 .tk-tbub:focus-visible { outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px; }
-/* desktop (hover-capable): rest quietly, surface on card hover / focus / open.
-   touch devices keep it fully visible (no hover to reveal it). */
+/* desktop (hover-capable): copper is clearly present at rest, brightening to full on
+   card hover / focus / open. touch devices keep it fully visible. */
 @media (hover: hover) {
-  .tk-tbub { opacity: .52; }
+  .tk-tbub { opacity: .9; }
   .tk-widget:hover .tk-tbub, .tk-card:hover .tk-tbub, .tk-hero:hover .tk-tbub,
   .tk-pcard:hover .tk-tbub, .tk-soft-panel:hover .tk-tbub,
   .tk-tbub:hover, .tk-tbub:focus-visible, .tk-tbub.tk-tbub-open { opacity: 1; }
