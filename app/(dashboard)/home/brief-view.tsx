@@ -233,11 +233,11 @@ export default function BriefView({
                           locationId={locationId}
                           dateKey={brief.dateKey}
                           playKey={playKey(play)}
-                          state={action === "snoozed" ? "Snoozed" : "Removed"}
+                          state={action === "snoozed" ? "Snoozed" : "Dismissed"}
                         />
                       ) : (
                         <span className="pass-cleared-state">
-                          {action === "snoozed" ? "Snoozed" : "Removed"}
+                          {action === "snoozed" ? "Snoozed" : "Dismissed"}
                         </span>
                       )}
                     </span>

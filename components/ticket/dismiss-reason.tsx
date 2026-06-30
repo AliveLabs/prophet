@@ -89,18 +89,18 @@ export function TkDismissReason({
             autoFocus
             onChange={(e) => setNote(e.target.value)}
           />
-          <div className="tk-opts">
+          <div className="tk-reason-foot">
+            <button type="button" className="tk-cancel" onClick={onCancel}>
+              Cancel
+            </button>
             <button
               type="button"
-              className="tk-ropt"
+              className="tk-reason-submit"
               onClick={() => onSelect(noteFor, note.trim() || undefined)}
             >
-              Dismiss
+              Submit
             </button>
           </div>
-          <button type="button" className="tk-cancel" onClick={onCancel}>
-            Cancel
-          </button>
         </>
       ) : (
         <>

@@ -19,7 +19,7 @@ export function PassClearedUndo({
   locationId: string
   dateKey: string
   playKey: string
-  state: "Removed" | "Snoozed"
+  state: "Dismissed" | "Snoozed"
 }) {
   const router = useRouter()
   const toast = useTkToast()

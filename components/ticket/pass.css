@@ -567,6 +567,14 @@
 .tk-reason .tk-reason-note { width: 100%; resize: vertical; min-height: 64px; padding: 9px 11px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--card-2); color: var(--ink); font-family: inherit; font-size: 12.5px; line-height: 1.45; margin-bottom: 10px; transition: border-color var(--t-fast); }
 .tk-reason .tk-reason-note:focus { outline: none; border-color: var(--slate); }
 .tk-reason .tk-reason-note::placeholder { color: var(--ink-3); }
+/* note-step footer (ALT-172): Cancel (its quiet treatment) + a PRIMARY Submit on one
+   right-aligned line. Submit makes it apparent the note form is being submitted + the
+   action performed; it mirrors the kit's primary act button and is NOT full-width. */
+.tk-reason .tk-reason-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.tk-reason .tk-reason-foot .tk-cancel { width: auto; margin-top: 0; }
+.tk-reason .tk-reason-submit { display: inline-flex; align-items: center; justify-content: center; padding: 9px 18px; min-height: 38px; border-radius: 10px; font-family: var(--font-display); font-weight: 700; font-size: 13px; line-height: 1; color: #fff; background: linear-gradient(145deg, var(--rust), var(--rust-2)); box-shadow: var(--shadow-sm); transition: transform var(--t-fast), box-shadow var(--t-fast); }
+.tk-reason .tk-reason-submit:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
+.tk-reason .tk-reason-submit:active { transform: translateY(0); }
 
 /* ════════════════════════════════════════════════════════════
    "ASK TICKET ABOUT THIS" T-BUBBLE  (ALT-230)
