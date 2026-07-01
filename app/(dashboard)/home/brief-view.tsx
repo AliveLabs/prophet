@@ -344,7 +344,7 @@ export default function BriefView({
             to show, so they never clutter a brief without listing data. ── */}
         {!readOnly && (
           <>
-            <ListingCheck photos={ownPhotos} hasPlaceId={hasListing} />
+            <ListingCheck photos={ownPhotos} hasPlaceId={hasListing} ownerName={locationName} />
             <TheShelf ownPhotos={ownPhotos} competitors={shelfCompetitors} />
           </>
         )}

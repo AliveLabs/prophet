@@ -71,3 +71,29 @@
 
 /* The Shelf sits a touch tighter under Listing Check. */
 .img-shelf { margin-top: 20px; }
+
+/* Segmented photo gallery — your uploads vs what customers posted. */
+.img-gallery { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+@media (max-width: 760px) { .img-gallery { grid-template-columns: 1fr; } }
+.img-gallery-head {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 9px;
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2);
+}
+.img-gallery-n {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 700; color: var(--ink-3);
+  padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+/* A left accent per group — your photos read warm (rust), customers' cool (slate). */
+.img-gallery-own .img-gallery-head { color: var(--rust-deep, var(--rust)); }
+.img-thumbs { display: flex; flex-wrap: wrap; gap: 6px; }
+.img-thumb {
+  width: 52px; height: 52px; border-radius: 8px; overflow: hidden; flex: none;
+  background: var(--paper-2); border: 1px solid var(--line-2);
+}
+.img-gallery-own .img-thumb { border-color: color-mix(in srgb, var(--rust) 30%, var(--line-2)); }
+.img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-thumb-more {
+  display: grid; place-items: center; font-family: var(--font-mono); font-size: 12px;
+  font-weight: 700; color: var(--ink-3); background: var(--card-2);
+}
