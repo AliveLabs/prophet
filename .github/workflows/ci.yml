@@ -6,9 +6,17 @@
 #
 # Deliberately scoped (follow-ups, not blockers — see the audit):
 #   - `npm run lint` is NOT run yet (~8 pre-existing eslint errors; add once cleaned).
-#   - Playwright e2e is NOT run yet (only 2 shallow smoke specs; needs a seeded DB to be meaningful).
 #   - Secret scanning: prefer enabling GitHub native Secret Scanning + Push Protection on this PUBLIC
 #     repo (Settings → Code security) over a CI tool; add gitleaks here if you want PR-time scanning.
+#
+# route-smoke (ALT-244): a Playwright job that logs into a REAL seeded test org/user (via the
+# actual Supabase magic-link auth path, against a CI-ONLY Supabase project -- never prod) and
+# loads every (dashboard) + /admin route, failing the build on a non-2xx/4xx status, an
+# app/error.tsx render, or a hydration console error. Closes the gap left by the Weather/Admin
+# RSC-boundary incidents (046c460): tsc/build/lint:rsc-boundary only catch KNOWN shapes of that
+# bug class; this is the only layer that catches ANY runtime throw. Gated on CI_SUPABASE_URL /
+# CI_SUPABASE_SERVICE_ROLE_KEY being present as repo secrets so it no-ops for forks/contributors
+# who don't have them (see scripts/ci/seed-e2e-user.mts for what needs provisioning).
 
 name: CI
 
@@ -48,3 +56,62 @@ jobs:
 
       - name: Unit tests
         run: npm run test:unit
+
+  route-smoke:
+    name: Playwright route smoke (authed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: typecheck-and-test
+    # Skip entirely when the CI-only Supabase project isn't configured (forks / contributors
+    # without repo secrets access) rather than failing the build for people who can't fix it.
+    # These secrets must point at a DEDICATED test/CI Supabase project -- never prod
+    # (triodvdspdsuudooyura). See scripts/ci/seed-e2e-user.mts for the safety argument.
+    if: ${{ github.repository == 'AliveLabs/prophet' }}
+    env:
+      CI_SUPABASE_URL: ${{ secrets.CI_SUPABASE_URL }}
+      CI_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CI_SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.CI_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.CI_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.CI_SUPABASE_SERVICE_ROLE_KEY }}
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      PLAYWRIGHT_START_SERVER: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check required secrets are present
+        id: secret_check
+        run: |
+          if [ -z "$CI_SUPABASE_URL" ] || [ -z "$CI_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "CI_SUPABASE_URL / CI_SUPABASE_SERVICE_ROLE_KEY not configured -- skipping route-smoke."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Playwright browsers
+        if: steps.secret_check.outputs.skip == 'false'
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        if: steps.secret_check.outputs.skip == 'false'
+        run: npm run build
+
+      - name: Route smoke (authed, seeded CI Supabase project)
+        if: steps.secret_check.outputs.skip == 'false'
+        run: npx playwright test tests/e2e --project=e2e
+
+      - name: Upload Playwright report
+        if: ${{ steps.secret_check.outputs.skip == 'false' && !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
