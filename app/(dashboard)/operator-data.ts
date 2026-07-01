@@ -3,6 +3,7 @@
 // user via the user-scoped server client — RLS enforces org membership on every read.
 
 import { redirect } from "next/navigation"
+import { cacheTag, cacheLife } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { getAdminContext } from "@/lib/auth/platform-admin"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
@@ -11,6 +12,16 @@ import type { Brief } from "@/lib/skills/types"
 import { typeToCuisine } from "@/lib/places/format"
 import { parseWeekdayDescriptions } from "@/lib/competitors/open-hours"
 import type { HoursEntity, HoursDay } from "./competitors/competitor-hours-grid"
+import type { ScorecardMetric, ScorecardPoint } from "./competitors/competitor-scorecard"
+import { fetchPlaceDetails } from "@/lib/places/google"
+import { fetchPhotosPageData } from "@/lib/cache/photos"
+import { fetchVisibilityPageData } from "@/lib/cache/visibility"
+import { buildEntityPhotoProfile, type PhotoRow } from "@/lib/places/listing-audit"
+import type {
+  DomainRankSnapshot,
+  NormalizedRankedKeyword,
+  NormalizedOrganicCompetitor,
+} from "@/lib/seo/types"
 
 /** Map DB subscription_tier values (entry/mid/top + legacy) to display labels.
  *  'free' is a legacy pre-migration value — those orgs are trials (of Tier 2). */
@@ -252,46 +263,13 @@ export async function loadCompetitorSwapState(): Promise<{ lastRemovalAt: string
 // side has not been pulled yet.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** One entity (own location or a competitor) shaped for the kit busy-times viz.
- *  Matches app/(dashboard)/traffic/traffic-types.ts so the Traffic heatmap island
- *  renders it unchanged. `isYou` marks the operator's own row for labeling. */
-export type ComparisonEntity = {
-  competitor_id: string
-  competitor_name: string
-  isYou: boolean
-  days: Array<{
-    day_of_week: number
-    hourly_scores: number[]
-    peak_hour: number
-    peak_score: number
-    typical_time_spent: string | null
-  }>
-}
-
-/** A single you-vs-them row for the kit TkH2HBars (serializable — no fns). */
-export type ComparisonH2HRow = {
-  metric: string
-  side: "you" | "them"
-  width: number
-  verdict: string
-  tip: string
-  tipValue: string
-}
-
 export type CompetitorComparison = {
-  /** Own location + each competitor that has busy-times data, own row first. */
-  entities: ComparisonEntity[]
-  /** You-vs-each-competitor on crowd pull (busy-times peak). Empty when the
-   *  operator's own curve has not been pulled yet (we never fake a "you" value). */
-  h2h: ComparisonH2HRow[]
-  /** True when at least one competitor has busy-times data (heatmap is worth showing). */
-  hasCompetitorData: boolean
-  /** True when the operator's own busy-times curve is available (enables the H2H). */
-  hasOwnData: boolean
-  /** ALT-231 — open-hours + busy by day for the "Who's open when" bar. Own row first
-   *  (its hours read as unavailable until cached — we never make a paid Places call
-   *  here), then each approved competitor. Hours come from the cached Google profile
-   *  (competitors.metadata.placeDetails.regularOpeningHours), busy from busy_times. */
+  /** "Who's busy when" — open hours + busy rhythm by day. Own row first (its hours
+   *  read as unavailable until cached — we never make a paid Places call here), then
+   *  each approved competitor. Hours come from the cached Google profile with the
+   *  Outscraper working-hours fallback (ALT-264); busy from busy_times.
+   *  (The crowd-pull h2h and the weekly heatmap were retired — ALT-262/263: the
+   *  %-of-own-peak score can't honestly compare magnitude across venues.) */
   hoursEntities: HoursEntity[]
   /** Day-of-week (0=Sun) to open the day selector on — the operator's "today". */
   todayDow: number
@@ -348,24 +326,7 @@ type BusyRow = {
   typical_time_spent: string | null
 }
 
-function rowsToDays(rows: BusyRow[]): ComparisonEntity["days"] {
-  return rows
-    .filter((r) => Array.isArray(r.hourly_scores) && r.hourly_scores.length > 0)
-    .map((r) => ({
-      day_of_week: r.day_of_week,
-      hourly_scores: r.hourly_scores as number[],
-      peak_hour: r.peak_hour ?? 0,
-      peak_score: r.peak_score ?? 0,
-      typical_time_spent: r.typical_time_spent ?? null,
-    }))
-}
-
-function avgPeak(days: ComparisonEntity["days"]): number {
-  if (days.length === 0) return 0
-  return Math.round(days.reduce((s, d) => s + d.peak_score, 0) / days.length)
-}
-
-/** Busy-times + head-to-head for the operator's competitor set. Own curve from
+/** Open-hours + busy rhythm for the operator's competitor set. Own curve from
  *  `location_busy_times`, competitor curves from `busy_times` (scoped to THIS
  *  location's competitors). User-scoped client → RLS enforced. */
 export async function loadCompetitorComparison(): Promise<CompetitorComparison> {
@@ -412,62 +373,7 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
     byComp.set(r.competitor_id, days)
   }
 
-  const competitorEntities: ComparisonEntity[] = [...byComp.entries()]
-    .map(([cid, days]) => ({
-      competitor_id: cid,
-      competitor_name: nameById.get(cid) ?? "Competitor",
-      isYou: false,
-      days: rowsToDays([...days.values()]),
-    }))
-    .filter((e) => e.days.length > 0)
-
-  const ownDays = rowsToDays(
-    ((ownRaw ?? []) as BusyRow[]).map((r) => ({ ...r, typical_time_spent: null })),
-  )
-  const ownEntity: ComparisonEntity = {
-    competitor_id: "__you__",
-    competitor_name: op.locationName,
-    isYou: true,
-    days: ownDays,
-  }
-
-  const hasOwnData = ownDays.length > 0
-  const hasCompetitorData = competitorEntities.length > 0
-
-  // Own row leads the heatmap selector when we have it.
-  const entities = hasOwnData ? [ownEntity, ...competitorEntities] : competitorEntities
-
-  // ── Head-to-head on crowd pull (busy-times peak). Only when we have BOTH a real
-  //    own curve and at least one competitor curve — otherwise no honest "you" value
-  //    exists and we leave h2h empty (the page renders the gap, never a fake bar).
-  //    Magnitude mirrors VisibilityH2H: a bigger gap → a longer bar (20–100). ──
-  let h2h: ComparisonH2HRow[] = []
-  if (hasOwnData && hasCompetitorData) {
-    const ownAvg = avgPeak(ownDays)
-    h2h = competitorEntities
-      .map((c) => ({ name: c.competitor_name, peak: avgPeak(c.days) }))
-      .sort((a, b) => b.peak - a.peak)
-      .slice(0, 6)
-      .map(({ name, peak }) => {
-        const youAhead = ownAvg >= peak
-        const hi = Math.max(ownAvg, peak, 1)
-        const lo = Math.min(ownAvg, peak)
-        const ratio = Math.min(1, lo / Math.max(hi, 0.0001))
-        const width = Math.round((1 - ratio) * 80) + 20
-        return {
-          metric: name,
-          side: (youAhead ? "you" : "them") as "you" | "them",
-          width,
-          verdict: youAhead ? "You draw more" : "They draw more",
-          tip: youAhead
-            ? `Your block runs busier at peak (${ownAvg}% vs ${peak}% of own typical peak)`
-            : `${name} runs busier at peak (${peak}% vs your ${ownAvg}% of own typical peak)`,
-          tipValue: `You ${ownAvg}% · them ${peak}%`,
-        }
-      })
-  }
-
-  // ── ALT-231 "Who's open when": open hours (cached Google profile) + busy by day.
+  // ── "Who's busy when": open hours (cached Google profile) + busy by day.
   //    Own row leads (its hours read as unavailable until a cached source exists —
   //    we never make a paid Places call here), then each approved competitor whose
   //    cached metadata carries opening hours and/or has a busy curve. ──
@@ -503,7 +409,426 @@ export async function loadCompetitorComparison(): Promise<CompetitorComparison> 
   }
   const todayDow = new Date().getDay()
 
-  return { entities, h2h, hasCompetitorData, hasOwnData, hoursEntities, todayDow }
+  return { hoursEntities, todayDow }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ALT-262 — "Where you stand": the head-to-head scorecard. Every metric is
+// ABSOLUTE and comparable across venues (stars, counts, shares) — the retired
+// crowd-pull %-of-own-peak read never appears here. Each metric fails soft:
+// a side with no data drops the row (or the point), never a fabricated value.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Own listing profile (rating + review count) via one Places call, cached a day —
+ *  keyed by placeId, so every operator page view doesn't re-bill the API. */
+async function fetchOwnPlaceProfile(
+  placeId: string,
+): Promise<{ rating: number | null; reviewCount: number | null }> {
+  "use cache"
+  cacheTag(`own-place-profile:${placeId}`) // place-scoped tag (params already key the cache; the tag matches for targeted invalidation)
+  cacheLife({ revalidate: 86400 })
+  try {
+    const d = (await fetchPlaceDetails(placeId)) as {
+      rating?: unknown
+      userRatingCount?: unknown
+    } | null
+    return {
+      rating: typeof d?.rating === "number" ? d.rating : null,
+      reviewCount: typeof d?.userRatingCount === "number" ? d.userRatingCount : null,
+    }
+  } catch {
+    return { rating: null, reviewCount: null }
+  }
+}
+
+function hostOf(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    return new URL(url.startsWith("http") ? url : `https://${url}`).hostname
+      .replace(/^www\./, "")
+      .toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** Assemble one scorecard row from a you-value + competitor points. Returns null
+ *  when either side is missing (no honest comparison exists). `closeRel` is the
+ *  relative gap under which the row reads "Close" instead of a win/loss call. */
+function finalizeMetric(input: {
+  key: string
+  label: string
+  you: ScorecardPoint | null
+  points: ScorecardPoint[]
+  closeRel: number
+  confidence: ScorecardMetric["confidence"]
+  evidence: (leader: ScorecardPoint, you: ScorecardPoint) => string[]
+  source: string
+  href: string | null
+}): (ScorecardMetric & { gap: number }) | null {
+  const { you, points } = input
+  if (!you || points.length === 0) return null
+  const leader = points.reduce((best, p) => (p.value > best.value ? p : best), points[0])
+  const youLeads = you.value >= leader.value
+  const rel =
+    Math.abs(leader.value) < 1e-9
+      ? 0
+      : Math.abs(leader.value - you.value) / Math.abs(leader.value)
+  const status: ScorecardMetric["status"] = youLeads
+    ? "lead"
+    : rel <= input.closeRel
+      ? "close"
+      : "behind"
+  const verdict = youLeads
+    ? `You lead · ${you.display} vs ${leader.name}'s ${leader.display}`
+    : `${leader.name} leads · ${leader.display} vs your ${you.display}`
+  return {
+    key: input.key,
+    label: input.label,
+    you,
+    points,
+    status,
+    verdict,
+    confidence: input.confidence,
+    evidence: status === "lead" ? [] : input.evidence(leader, you),
+    source: input.source,
+    href: input.href,
+    gap: youLeads ? -1 : rel,
+  }
+}
+
+export type CompetitorScorecardData = { metrics: ScorecardMetric[] }
+
+/** Load every honestly-comparable metric for the scorecard. Reuses the cached
+ *  page-data loaders (photos / visibility — admin client behind "use cache",
+ *  scoped by the ids WE resolved from the authed operator) plus user-scoped
+ *  queries for social. Everything degrades row-by-row.
+ *  `competitorRatings` comes from loadOperatorContext (ALT-186 snapshot-first
+ *  precedence) so we don't re-run that resolution here. */
+export async function loadCompetitorScorecard(
+  competitorRatings: Array<{ id: string; rating: number | null; reviewCount: number | null }>,
+): Promise<CompetitorScorecardData> {
+  const op = await resolveOperator()
+  const sb = await createServerSupabaseClient()
+
+  // Approved, active competitors (same gate as the roster) + display names.
+  const { data: comps } = await sb
+    .from("competitors")
+    .select("id, name, display_label, website, metadata")
+    .eq("location_id", op.locationId)
+    .eq("is_active", true)
+  const approved = (comps ?? []).filter(
+    (c) => (c.metadata as Record<string, unknown> | null)?.status === "approved",
+  )
+  const nameById = new Map(
+    approved.map((c) => [
+      c.id,
+      resolveDisplayName(c.display_label as string | null, c.name, "Competitor"),
+    ]),
+  )
+  const competitorIds = approved.map((c) => c.id)
+  if (competitorIds.length === 0) return { metrics: [] }
+
+  // Own place id (rating/review source) — no row means those two rows drop.
+  const { data: loc } = await sb
+    .from("locations")
+    .select("primary_place_id")
+    .eq("id", op.locationId)
+    .maybeSingle()
+  const ownPlaceId = (loc?.primary_place_id as string | null) ?? null
+
+  const [ownProfile, photosData, visData, socialProfiles] = await Promise.all([
+    ownPlaceId
+      ? fetchOwnPlaceProfile(ownPlaceId)
+      : Promise.resolve({ rating: null, reviewCount: null }),
+    fetchPhotosPageData(op.locationId, competitorIds).catch(() => null),
+    fetchVisibilityPageData(op.locationId).catch(() => null),
+    // Social: profiles for own location + competitors (user-scoped, RLS enforced).
+    (async () => {
+      const [locP, compP] = await Promise.all([
+        sb
+          .from("social_profiles")
+          .select("id, entity_type, entity_id, platform")
+          .eq("entity_type", "location")
+          .eq("entity_id", op.locationId),
+        sb
+          .from("social_profiles")
+          .select("id, entity_type, entity_id, platform")
+          .eq("entity_type", "competitor")
+          .in("entity_id", competitorIds),
+      ])
+      return [...(locP.data ?? []), ...(compP.data ?? [])]
+    })().catch(() => []),
+  ])
+
+  const rows: Array<(ScorecardMetric & { gap: number }) | null> = []
+
+  // ── Rating + review count (Google) — competitors from the roster snapshots,
+  //    own from the cached Places profile. ──
+  const compRatings = competitorRatings.filter((c) => competitorIds.includes(c.id))
+  rows.push(
+    finalizeMetric({
+      key: "rating",
+      label: "Rating",
+      you:
+        ownProfile.rating != null
+          ? { id: null, name: op.locationName, value: ownProfile.rating, display: `${ownProfile.rating.toFixed(1)}★` }
+          : null,
+      points: compRatings
+        .filter((c) => c.rating != null)
+        .map((c) => ({
+          id: c.id,
+          name: nameById.get(c.id) ?? "Competitor",
+          value: c.rating as number,
+          display: `${(c.rating as number).toFixed(1)}★`,
+        })),
+      closeRel: 0.03, // ≈0.15★ at 4.5+
+      confidence: "high",
+      evidence: (leader, you) => [
+        `${leader.name} holds ${leader.display} — you hold ${you.display}. Star gaps this size move which listing gets the tap in local results.`,
+        `Ratings shift slowly: steady review flow and replies are the honest lever, not a sprint.`,
+      ],
+      source: "Google listing profiles",
+      href: null,
+    }),
+  )
+  rows.push(
+    finalizeMetric({
+      key: "reviews",
+      label: "Review base",
+      you:
+        ownProfile.reviewCount != null
+          ? {
+              id: null,
+              name: op.locationName,
+              value: ownProfile.reviewCount,
+              display: ownProfile.reviewCount.toLocaleString(),
+            }
+          : null,
+      points: compRatings
+        .filter((c) => c.reviewCount != null)
+        .map((c) => ({
+          id: c.id,
+          name: nameById.get(c.id) ?? "Competitor",
+          value: c.reviewCount as number,
+          display: (c.reviewCount as number).toLocaleString(),
+        })),
+      closeRel: 0.1,
+      confidence: "high",
+      evidence: (leader, you) => [
+        `${leader.name} has ${leader.display} reviews to your ${you.display} — roughly ${Math.max(1, Math.round(leader.value / Math.max(1, you.value)))}× your base. Review volume compounds local visibility.`,
+        `A review ask at the register or on receipts is the cheapest way to close a base gap.`,
+      ],
+      source: "Google listing profiles",
+      href: null,
+    }),
+  )
+
+  // ── Listing photo coverage — % of essential photo types present. ──
+  if (photosData) {
+    const ownP = buildEntityPhotoProfile(photosData.ownPhotos as unknown as PhotoRow[])
+    const byComp = new Map<string, PhotoRow[]>()
+    for (const p of photosData.photos) {
+      const list = byComp.get(p.competitor_id) ?? []
+      list.push(p as unknown as PhotoRow)
+      byComp.set(p.competitor_id, list)
+    }
+    const coveragePct = (p: ReturnType<typeof buildEntityPhotoProfile>): number =>
+      p.essentialTotal > 0 ? Math.round((p.essentialCovered / p.essentialTotal) * 100) : 0
+    const points: ScorecardPoint[] = []
+    const profiles = new Map<string, ReturnType<typeof buildEntityPhotoProfile>>()
+    for (const [cid, list] of byComp) {
+      const prof = buildEntityPhotoProfile(list)
+      if (prof.total === 0) continue
+      profiles.set(cid, prof)
+      points.push({
+        id: cid,
+        name: nameById.get(cid) ?? "Competitor",
+        value: coveragePct(prof),
+        display: `${prof.essentialCovered}/${prof.essentialTotal} covered`,
+      })
+    }
+    rows.push(
+      finalizeMetric({
+        key: "photos",
+        label: "Listing photos",
+        you:
+          ownP.total > 0
+            ? {
+                id: null,
+                name: op.locationName,
+                value: coveragePct(ownP),
+                display: `${ownP.essentialCovered}/${ownP.essentialTotal} covered`,
+              }
+            : null,
+        points,
+        closeRel: 0.05,
+        confidence: "medium",
+        evidence: (leader) => {
+          const lp = leader.id ? profiles.get(leader.id) : null
+          const bits = [
+            `${leader.name} covers ${leader.display.replace(" covered", "")} of the photo types diners check first — you cover ${ownP.essentialCovered}/${ownP.essentialTotal}.`,
+          ]
+          if (lp && lp.professionalShare > ownP.professionalShare) {
+            bits.push(
+              `${Math.round(lp.professionalShare * 100)}% of their listing photos read as professionally shot, vs ${Math.round(ownP.professionalShare * 100)}% of yours.`,
+            )
+          }
+          return bits
+        },
+        source: "Google listing photos, vision-analyzed",
+        href: "/photos",
+      }),
+    )
+  }
+
+  // ── Local search visibility — estimated monthly search traffic (ETV), matched
+  //    to watched competitors by website domain. ──
+  if (visData) {
+    const rankData = (visData.snapshots["seo_domain_rank_overview"]?.raw_data ?? null) as DomainRankSnapshot | null
+    const rankedKeywords = (((visData.snapshots["seo_ranked_keywords"]?.raw_data as Record<string, unknown>)?.keywords ??
+      []) as NormalizedRankedKeyword[])
+    let ownEtv = 0
+    const rankHasData =
+      rankData && ((rankData.organic?.etv ?? 0) > 0 || (rankData.organic?.rankedKeywords ?? 0) > 0)
+    if (rankHasData) {
+      ownEtv = Math.round(rankData?.organic?.etv ?? 0)
+    } else if (rankedKeywords.length > 0) {
+      // Same CTR model the Visibility page uses when the domain overview is empty.
+      ownEtv = rankedKeywords.reduce((sum, kw) => {
+        const vol = kw.searchVolume ?? 0
+        const rank = kw.rank
+        const ctr =
+          rank === 1 ? 0.3 : rank === 2 ? 0.15 : rank === 3 ? 0.1 : rank <= 5 ? 0.06 : rank <= 10 ? 0.03 : rank <= 20 ? 0.01 : 0.005
+        return sum + Math.round(vol * ctr)
+      }, 0)
+    }
+    const cdSnap = visData.snapshots["seo_competitors_domain"]
+    const organicCompetitors = (((cdSnap?.raw_data as Record<string, unknown>)?.competitors ??
+      []) as NormalizedOrganicCompetitor[])
+    const hostToWatched = new Map<string, { id: string; name: string }>()
+    for (const c of approved) {
+      const h = hostOf(c.website as string | null)
+      if (h) hostToWatched.set(h, { id: c.id, name: nameById.get(c.id) ?? c.name })
+    }
+    const points: ScorecardPoint[] = []
+    for (const oc of organicCompetitors) {
+      const watched = hostToWatched.get((oc.domain ?? "").replace(/^www\./, "").toLowerCase())
+      if (!watched) continue
+      points.push({
+        id: watched.id,
+        name: watched.name,
+        value: Math.round(oc.organicEtv ?? 0),
+        display: `~${Math.round(oc.organicEtv ?? 0).toLocaleString()}/mo`,
+      })
+    }
+    rows.push(
+      finalizeMetric({
+        key: "visibility",
+        label: "Search visibility",
+        you:
+          ownEtv > 0
+            ? { id: null, name: op.locationName, value: ownEtv, display: `~${ownEtv.toLocaleString()}/mo` }
+            : null,
+        points,
+        closeRel: 0.1,
+        confidence: "medium",
+        evidence: (leader, you) => [
+          `${leader.name}'s site draws an estimated ${leader.display.replace("~", "")} visits from search — yours draws ${you.display.replace("~", "")}.`,
+          `The Visibility page shows which searches they rank for that you don't.`,
+        ],
+        source: "Search ranking data (estimated traffic)",
+        href: "/visibility",
+      }),
+    )
+  }
+
+  // ── Social engagement — best-platform engagement rate per entity. ──
+  if (socialProfiles.length > 0) {
+    const profileIds = socialProfiles.map((p) => p.id as string)
+    const { data: snaps } = await sb
+      .from("social_snapshots")
+      .select("social_profile_id, raw_data, date_key")
+      .in("social_profile_id", profileIds)
+      .order("date_key", { ascending: false })
+    const latest = new Map<string, Record<string, unknown>>()
+    for (const s of snaps ?? []) {
+      if (!latest.has(s.social_profile_id as string)) {
+        latest.set(s.social_profile_id as string, (s.raw_data ?? {}) as Record<string, unknown>)
+      }
+    }
+    type SocialBest = { rate: number; cadence: number; platform: string }
+    const bestByEntity = new Map<string, SocialBest>()
+    for (const p of socialProfiles) {
+      const snap = latest.get(p.id as string)
+      const agg = (snap?.aggregateMetrics ?? null) as {
+        engagementRate?: number
+        postingFrequencyPerWeek?: number
+      } | null
+      if (!agg || typeof agg.engagementRate !== "number") continue
+      const entityKey = `${p.entity_type}:${p.entity_id}`
+      const cur = bestByEntity.get(entityKey)
+      if (!cur || agg.engagementRate > cur.rate) {
+        bestByEntity.set(entityKey, {
+          rate: agg.engagementRate,
+          cadence: agg.postingFrequencyPerWeek ?? 0,
+          platform: p.platform as string,
+        })
+      }
+    }
+    const ownBest = bestByEntity.get(`location:${op.locationId}`) ?? null
+    const points: ScorecardPoint[] = []
+    for (const c of approved) {
+      const b = bestByEntity.get(`competitor:${c.id}`)
+      if (!b) continue
+      points.push({
+        id: c.id,
+        name: nameById.get(c.id) ?? c.name,
+        value: b.rate,
+        display: `${b.rate.toFixed(1)}%`,
+      })
+    }
+    const cadenceOf = (id: string | null): SocialBest | null =>
+      id ? (bestByEntity.get(`competitor:${id}`) ?? null) : ownBest
+    rows.push(
+      finalizeMetric({
+        key: "social",
+        label: "Social engagement",
+        you: ownBest
+          ? { id: null, name: op.locationName, value: ownBest.rate, display: `${ownBest.rate.toFixed(1)}%` }
+          : null,
+        points,
+        closeRel: 0.1,
+        confidence: "medium",
+        evidence: (leader, you) => {
+          const lb = cadenceOf(leader.id)
+          const bits = [
+            `${leader.name} averages ${leader.display} engagement per post — you average ${you.display}.`,
+          ]
+          if (lb && lb.cadence > 0) {
+            bits.push(
+              `They post about ${lb.cadence.toFixed(1)}×/week on ${lb.platform} — consistent cadence is usually what earns that rate.`,
+            )
+          }
+          return bits
+        },
+        source: "Social profiles, latest pull",
+        href: "/social",
+      }),
+    )
+  }
+
+  // Worst gap first (a prioritized worklist), then close calls, then wins.
+  const metrics = rows
+    .filter((m): m is ScorecardMetric & { gap: number } => m != null)
+    .sort((a, b) => b.gap - a.gap)
+    .map((m) => {
+      const { gap, ...rest } = m
+      void gap // sort key only — not part of the serializable metric
+      return rest
+    })
+
+  return { metrics }
 }
 
 export type CompetitorInsight = { type: string; title: string; summary: string | null; dateKey: string }

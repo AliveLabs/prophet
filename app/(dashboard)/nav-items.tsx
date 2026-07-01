@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { TicketChatMark } from "@/components/brand/ticket-chat-mark"
 
 // Shared nav source for the desktop sidebar (ShellNav) and the mobile bottom tab bar
 // (MobileTabBar) so the two never drift. Mirrors the value-driven nav (see shell-nav.tsx):
@@ -40,15 +41,10 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: "/ask",
     label: "Ask",
-    // Speech bubble + question mark, centered within the viewBox with even padding so
-    // the left edge isn't clipped (the old path hugged x=3 and read as cut off).
-    icon: (
-      <svg viewBox="0 0 20 20" {...sw}>
-        <path d="M3.5 6 A2.5 2.5 0 0 1 6 3.5 h8 A2.5 2.5 0 0 1 16.5 6 v5.5 A2.5 2.5 0 0 1 14 14 H8.5 l-3.5 2.8 V14 H6 A2.5 2.5 0 0 1 3.5 11.5 Z" />
-        <path d="M8.4 7.6 a1.8 1.8 0 1 1 2.4 1.7 c-.6 .25-.8 .55-.8 1.1" />
-        <circle cx="10" cy="11.9" r=".55" fill="currentColor" stroke="none" />
-      </svg>
-    ),
+    // The Ticket chat mark — the same T-bubble that triggers "Ask Ticket about
+    // this" on viz cards (ALT-230) and the scorecard's gap ingress, so ONE
+    // recognizable mark carries the ask behavior everywhere it exists.
+    icon: <TicketChatMark size={20} shape="square" />,
   },
   {
     // ALT-160: the Social page was built but never wired into the nav. It joins
