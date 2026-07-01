@@ -144,27 +144,26 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           .select("entity_id, platform, is_verified")
           .in("entity_id", allEntityIds.length > 0 ? allEntityIds : ["__none__"])
 
-        // Re-discover any entity lacking a VERIFIED handle (not merely "has a row"),
-        // so junk/dormant unverified handles stop blocking re-discovery of the real one.
-        const verifiedEntityIds = new Set(
-          (existingProfiles ?? [])
-            .filter((p) => p.is_verified === true)
-            .map((p) => p.entity_id as string)
-        )
-        // Per-(entity, platform) verified rows — never overwritten by new candidates.
+        // Re-discover any entity lacking a VERIFIED handle on some tracked platform
+        // (not merely "has a row"), so junk/dormant unverified handles stop blocking
+        // re-discovery of the real one. Per-(entity, platform) verified rows — never
+        // overwritten by new candidates, and (ALT-198) an entity verified on only
+        // SOME platforms still gets re-scanned for the rest instead of being
+        // excluded entirely once it has any one verified handle.
         const verifiedPlatformKeys = new Set(
           (existingProfiles ?? [])
             .filter((p) => p.is_verified === true)
             .map((p) => `${p.entity_id}:${p.platform}`)
         )
 
-        const needsDiscovery = selectDiscoveryTargets(entities, verifiedEntityIds)
+        const needsDiscovery = selectDiscoveryTargets(entities, verifiedPlatformKeys)
         // Data365 search is slow + historically junk-prone: fallback only, only when a
         // human is waiting on a first pull / explicit refresh, and candidates-only.
         const searchFallbackAllowed = c.mode === "first_run" || c.mode === "adhoc"
 
+        const fullyVerifiedCount = entities.length - needsDiscovery.length
         console.log(
-          `[Social Discovery] ${entities.length} entities total, ${verifiedEntityIds.size} already verified, ${needsDiscovery.length} need (re)discovery (search fallback: ${searchFallbackAllowed})`
+          `[Social Discovery] ${entities.length} entities total, ${fullyVerifiedCount} fully verified (all platforms), ${needsDiscovery.length} need (re)discovery (search fallback: ${searchFallbackAllowed})`
         )
 
         if (needsDiscovery.length === 0) {
