@@ -16,7 +16,7 @@ describe("selectDiscoveryTargets", () => {
   ]
 
   it("re-discovers entities lacking a verified handle when there is anything to search with", () => {
-    const verified = new Set(["comp-verified"])
+    const verified = new Set(["comp-verified:instagram", "comp-verified:facebook", "comp-verified:tiktok"])
     const targets = selectDiscoveryTargets(entities, verified).map((e) => e.id)
     expect(targets).toEqual(["loc", "comp-unverified", "comp-no-site"])
   })
@@ -26,11 +26,22 @@ describe("selectDiscoveryTargets", () => {
     expect(targets.find((e) => e.id === "comp-no-site")).toBeDefined()
   })
 
-  it("excludes verified entities and entities with neither website nor name", () => {
-    const verified = new Set(["comp-verified"])
+  it("excludes entities verified on every platform, keeps entities with neither website nor name excluded", () => {
+    const verified = new Set(["comp-verified:instagram", "comp-verified:facebook", "comp-verified:tiktok"])
     const targets = selectDiscoveryTargets(entities, verified)
     expect(targets.find((e) => e.id === "comp-verified")).toBeUndefined()
     expect(targets.find((e) => e.id === "comp-nothing")).toBeUndefined()
+  })
+
+  // ALT-198 — Raising Cane's had ONE platform (e.g. Instagram) added + verified
+  // manually early on, which silently blocked Facebook/TikTok from EVER being
+  // auto-discovered: the old per-ENTITY verified gate excluded the whole entity
+  // once it had any verified handle, so partially-verified entities never got
+  // re-scanned for their still-missing platforms.
+  it("keeps re-discovering an entity that is verified on only SOME platforms (ALT-198)", () => {
+    const verified = new Set(["loc:instagram"]) // own location: IG verified, FB/TikTok missing
+    const targets = selectDiscoveryTargets(entities, verified).map((e) => e.id)
+    expect(targets).toContain("loc")
   })
 })
 

@@ -248,17 +248,36 @@ export async function discoverSocialHandles(
 
 export type DiscoveryEntity = { id: string; website: string | null; name?: string | null }
 
+/** The full set of platforms discovery tracks — an entity is only "fully verified"
+ *  (and safe to stop re-scanning) once every one of these has a verified row. */
+export const TRACKED_DISCOVERY_PLATFORMS: readonly SocialPlatform[] = ["instagram", "facebook", "tiktok"]
+
 /**
- * Which entities should (re)run discovery. An entity qualifies when it has NO
- * *verified* handle yet and we have SOMETHING to search with — a website to scrape
- * OR a name for SERP discovery. (Old behavior required a website, which silently
- * excluded every competitor whose website was missing — the Bush's Forney gap.)
+ * Which entities should (re)run discovery. An entity qualifies when it's missing a
+ * *verified* handle for at least one tracked platform and we have SOMETHING to
+ * search with — a website to scrape OR a name for SERP discovery.
+ *
+ * `verifiedPlatformKeys` is per-(entity, platform) — `"<entityId>:<platform>"` —
+ * NOT per-entity. (ALT-198 root cause: the old signature took a per-ENTITY
+ * verified-id Set, so ANY one verified platform excluded the entity from
+ * discovery entirely — Raising Cane's had Instagram added + verified manually
+ * early on, which silently blocked Facebook/TikTok from ever being
+ * auto-discovered afterward. An entity must now be verified on EVERY tracked
+ * platform before discovery stops re-scanning it.)
+ *
+ * (Earlier behavior also required a website, which silently excluded every
+ * competitor whose website was missing — the Bush's Forney gap.)
  */
 export function selectDiscoveryTargets<T extends DiscoveryEntity>(
   entities: T[],
-  verifiedEntityIds: ReadonlySet<string>
+  verifiedPlatformKeys: ReadonlySet<string>
 ): T[] {
-  return entities.filter((e) => (!!e.website || !!e.name?.trim()) && !verifiedEntityIds.has(e.id))
+  return entities.filter((e) => {
+    if (!e.website && !e.name?.trim()) return false
+    return TRACKED_DISCOVERY_PLATFORMS.some(
+      (platform) => !verifiedPlatformKeys.has(`${e.id}:${platform}`)
+    )
+  })
 }
 
 // ---------------------------------------------------------------------------
