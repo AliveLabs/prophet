@@ -32,6 +32,7 @@ const EXPECTED_MIN_ROLE: Record<Capability, AdminRole> = {
   "user.delete": "super_admin",
   "admin.manage": "super_admin",
   "knowledge.manage": "super_admin",
+  "source_quality.manage": "admin",
 }
 
 const ALL_CAPABILITIES = Object.keys(CAPABILITY_MIN_ROLE) as Capability[]

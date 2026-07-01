@@ -249,6 +249,7 @@ export type Database = {
           address: string | null
           category: string | null
           created_at: string
+          display_label: string | null
           id: string
           is_active: boolean
           last_seen_at: string | null
@@ -266,6 +267,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           created_at?: string
+          display_label?: string | null
           id?: string
           is_active?: boolean
           last_seen_at?: string | null
@@ -283,6 +285,7 @@ export type Database = {
           address?: string | null
           category?: string | null
           created_at?: string
+          display_label?: string | null
           id?: string
           is_active?: boolean
           last_seen_at?: string | null
@@ -632,6 +635,9 @@ export type Database = {
           insight_type: string
           location_id: string
           recommendations: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_status: string
           severity: string
           status: string
           summary: string
@@ -650,6 +656,9 @@ export type Database = {
           insight_type: string
           location_id: string
           recommendations?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_status?: string
           severity?: string
           status?: string
           summary: string
@@ -668,6 +677,9 @@ export type Database = {
           insight_type?: string
           location_id?: string
           recommendations?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_status?: string
           severity?: string
           status?: string
           summary?: string
@@ -815,6 +827,62 @@ export type Database = {
             foreignKeyName: "location_density_location_id_fkey"
             columns: ["location_id"]
             isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_photos: {
+        Row: {
+          analysis_result: Json | null
+          author_attribution: Json | null
+          created_at: string
+          first_seen_at: string
+          height_px: number | null
+          id: string
+          image_hash: string
+          image_url: string | null
+          last_seen_at: string
+          location_id: string
+          place_photo_name: string
+          snapshot_id: string | null
+          width_px: number | null
+        }
+        Insert: {
+          analysis_result?: Json | null
+          author_attribution?: Json | null
+          created_at?: string
+          first_seen_at?: string
+          height_px?: number | null
+          id?: string
+          image_hash: string
+          image_url?: string | null
+          last_seen_at?: string
+          location_id: string
+          place_photo_name: string
+          snapshot_id?: string | null
+          width_px?: number | null
+        }
+        Update: {
+          analysis_result?: Json | null
+          author_attribution?: Json | null
+          created_at?: string
+          first_seen_at?: string
+          height_px?: number | null
+          id?: string
+          image_hash?: string
+          image_url?: string | null
+          last_seen_at?: string
+          location_id?: string
+          place_photo_name?: string
+          snapshot_id?: string | null
+          width_px?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_photos_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
             referencedRelation: "locations"
             referencedColumns: ["id"]
           },
@@ -1042,6 +1110,7 @@ export type Database = {
           created_at: string
           current_period_end: string | null
           deleted_at: string | null
+          display_name: string | null
           id: string
           industry_type: string
           name: string
@@ -1064,6 +1133,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           deleted_at?: string | null
+          display_name?: string | null
           id?: string
           industry_type?: string
           name: string
@@ -1086,6 +1156,7 @@ export type Database = {
           created_at?: string
           current_period_end?: string | null
           deleted_at?: string | null
+          display_name?: string | null
           id?: string
           industry_type?: string
           name?: string
@@ -1265,7 +1336,12 @@ export type Database = {
           date_key: string
           id: string
           location_id: string
+          note: string | null
           play_key: string
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewed_status: string
           updated_at: string
         }
         Insert: {
@@ -1274,7 +1350,12 @@ export type Database = {
           date_key: string
           id?: string
           location_id: string
+          note?: string | null
           play_key: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_status?: string
           updated_at?: string
         }
         Update: {
@@ -1283,7 +1364,12 @@ export type Database = {
           date_key?: string
           id?: string
           location_id?: string
+          note?: string | null
           play_key?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewed_status?: string
           updated_at?: string
         }
         Relationships: [

@@ -1,24 +1,24 @@
 import { RevealOnView } from "@/components/ticket"
 import type { SourceQualityFlag, SourceAggregate } from "@/lib/skills/source-quality"
+import { FlagQueueList } from "./flag-queue-list"
 
-// Read-only presentation for the Source Quality review queue. No client state — purely renders
-// the normalized flags + the by-source rollup the server page computed. RevealOnView is a client
-// kit component rendered from this server component (RSC-safe: we render it, we don't call it).
-
-const whenFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" })
-function formatWhen(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? "" : whenFmt.format(d)
-}
+// Read-only presentation for the Source Quality review queue. No client state of its own —
+// purely renders the normalized flags + the by-source rollup the server page computed.
+// RevealOnView is a client kit component rendered from this server component (RSC-safe: we
+// render it, we don't call it). The one stateful piece — the open/resolved filter + the
+// per-flag "Mark resolved"/"Reopen" buttons (ALT-246) — lives in the FlagQueueList client
+// island so this file stays the read-only surface the ALT-172 isolation guard checks.
 
 export function SourceQualityQueue({
   flags,
   aggregates,
   windowDays,
+  canManage,
 }: {
   flags: SourceQualityFlag[]
   aggregates: SourceAggregate[]
   windowDays: number
+  canManage: boolean
 }) {
   const total = flags.length
   const briefCount = flags.filter((f) => f.kind === "brief_play").length
@@ -82,55 +82,11 @@ export function SourceQualityQueue({
 
           <RevealOnView as="section" className="sq-section">
             <h2 className="sq-h2">Every flag</h2>
-            <ul className="sq-list">
-              {flags.map((f) => (
-                <FlagCard key={f.id} flag={f} />
-              ))}
-            </ul>
+            <FlagQueueList flags={flags} canManage={canManage} />
           </RevealOnView>
         </>
       )}
     </div>
-  )
-}
-
-function FlagCard({ flag }: { flag: SourceQualityFlag }) {
-  const kindLabel = flag.kind === "brief_play" ? "Brief play" : "Insight"
-  const sourceNoun = flag.kind === "brief_play" ? "play" : "insight"
-  return (
-    <li className="sq-card">
-      <div className="sq-card-top">
-        <span className={`sq-kind sq-kind--${flag.kind}`}>{kindLabel}</span>
-        <span className="sq-fam">{flag.sourceFamily}</span>
-        {flag.flaggedAt && (
-          <time className="sq-when" dateTime={flag.flaggedAt}>
-            {formatWhen(flag.flaggedAt)}
-          </time>
-        )}
-      </div>
-
-      <h3 className="sq-title">{flag.title}</h3>
-      <div className="sq-loc">
-        {flag.locationName}
-        {flag.orgName ? <span className="sq-org"> · {flag.orgName}</span> : null}
-      </div>
-
-      {flag.note ? <blockquote className="sq-note">{flag.note}</blockquote> : null}
-      {flag.summary ? <p className="sq-summary">{flag.summary}</p> : null}
-
-      {flag.sources.length > 0 ? (
-        <div className="sq-sources">
-          <span className="sq-sources-label">Sources in this {sourceNoun}</span>
-          <ul className="sq-chips">
-            {flag.sources.map((s) => (
-              <li key={s} className="sq-chip">
-                {s}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </li>
   )
 }
 

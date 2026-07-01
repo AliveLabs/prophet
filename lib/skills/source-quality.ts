@@ -21,6 +21,10 @@ import { domainLabel, humanizeRef, dedupeRefs } from "@/lib/skills/evidence-form
 import { playKey } from "@/lib/skills/preferences"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
 
+/** ALT-246 triage state persisted alongside a flag row — open (default) or resolved. Read-only
+ *  here; the mutation lives in app/actions/source-quality-review.ts + lib/skills/source-quality-review.ts. */
+export type ReviewStatus = "open" | "resolved"
+
 /** A persisted brief "this looks wrong" dismissal (play_actions row). */
 export type LooksWrongRow = {
   location_id: string
@@ -28,6 +32,8 @@ export type LooksWrongRow = {
   play_key: string
   note?: string | null
   updated_at: string
+  /** ALT-246. Absent (pre-migration) reads as "open" — see resolvePlayFlag. */
+  reviewed_status?: string | null
 }
 
 /** A persisted insight flagged "this looks wrong" (insights row, status='inaccurate'). */
@@ -39,6 +45,8 @@ export type InaccurateInsightRow = {
   summary?: string | null
   created_at: string
   feedback_at?: string | null
+  /** ALT-246. Absent (pre-migration) reads as "open" — see insightFlag. */
+  reviewed_status?: string | null
 }
 
 /** Resolved display info for a location (the page joins locations + organizations). */
@@ -64,6 +72,8 @@ export type SourceQualityFlag = {
   sources: string[]
   /** Coarse source family for the rollup ("Review", "Events", "SEO", "Places", …). */
   sourceFamily: string
+  /** ALT-246 triage state. Defaults to "open" (pre-migration rows / unset). */
+  reviewedStatus: ReviewStatus
 }
 
 /** A by-source rollup row — how many flags trace to one source family. */
@@ -77,6 +87,13 @@ export type SourceAggregate = {
 }
 
 const UNKNOWN_FAMILY = "Unknown source"
+
+/** Normalize a raw reviewed_status value (possibly absent/pre-migration) to a ReviewStatus.
+ *  Anything other than the literal "resolved" reads as "open" — a fail-soft default that
+ *  means an unmigrated DB (or a null/garbage value) never silently hides a flag as resolved. */
+function normalizeReviewedStatus(value: string | null | undefined): ReviewStatus {
+  return value === "resolved" ? "resolved" : "open"
+}
 
 /** Coarse, de-jargoned source family for the lead evidence ref or an insight_type.
  *  Reuses evidence-format's domainLabel so labels never leak internal/API terms and
@@ -120,6 +137,7 @@ export function resolvePlayFlag(row: LooksWrongRow, brief: Brief | null, loc: Lo
     note,
     sources: dedupeRefs(refs).map(humanizeRef),
     sourceFamily: sourceFamilyOf(refs[0]),
+    reviewedStatus: normalizeReviewedStatus(row.reviewed_status),
   }
 }
 
@@ -137,12 +155,23 @@ export function insightFlag(row: InaccurateInsightRow, loc: LocationInfo): Sourc
     summary: typeof row.summary === "string" && row.summary.trim() ? row.summary.trim() : undefined,
     sources: row.insight_type?.trim() ? [humanizeRef(row.insight_type)] : [],
     sourceFamily: sourceFamilyOf(row.insight_type),
+    reviewedStatus: normalizeReviewedStatus(row.reviewed_status),
   }
 }
 
 /** Newest-first by flag time. Stable, pure (does not mutate the input). */
 export function sortFlagsNewestFirst(flags: SourceQualityFlag[]): SourceQualityFlag[] {
   return [...flags].sort((a, b) => b.flaggedAt.localeCompare(a.flaggedAt))
+}
+
+/** ALT-246 — filter the queue by triage state for the open/resolved toggle. "all" is a
+ *  passthrough (no filtering) for an operator who wants the full history. Pure, non-mutating. */
+export function filterByReviewStatus(
+  flags: SourceQualityFlag[],
+  filter: ReviewStatus | "all",
+): SourceQualityFlag[] {
+  if (filter === "all") return flags
+  return flags.filter((f) => f.reviewedStatus === filter)
 }
 
 /** Roll flags up by source family so a repeatedly-flagged source bubbles to the top — the real
