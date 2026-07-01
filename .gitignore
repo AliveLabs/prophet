@@ -52,5 +52,11 @@ scripts/stripe/.e2e-screenshots
 .env.local.live.backup
 .env*.local
 
+# Playwright authed-session storageState (real cookies for the CI-only seeded test user —
+# ALT-244) and HTML report — never commit either.
+/tests/e2e/.auth/
+/playwright-report/
+/test-results/
+
 # track the ops-env TEMPLATE (the real .env.ops.local stays ignored by .env*.local)
 !.env.ops.local.example
