@@ -425,7 +425,7 @@ async function fetchOwnPlaceProfile(
   placeId: string,
 ): Promise<{ rating: number | null; reviewCount: number | null }> {
   "use cache"
-  cacheTag("own-place-profile")
+  cacheTag(`own-place-profile:${placeId}`) // place-scoped tag (params already key the cache; the tag matches for targeted invalidation)
   cacheLife({ revalidate: 86400 })
   try {
     const d = (await fetchPlaceDetails(placeId)) as {

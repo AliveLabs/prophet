@@ -72,7 +72,10 @@ function scaleX(v: number, lo: number, hi: number): number {
 }
 
 function FieldStrip({ m }: { m: ScorecardMetric }) {
+  // Precondition: the parent only renders metrics with you != null && points.length > 0,
+  // so `all` is never empty — the guard keeps Math.min/max honest if that ever changes.
   const all = [...m.points.map((p) => p.value), ...(m.you ? [m.you.value] : [])]
+  if (all.length === 0) return null
   const lo = Math.min(...all)
   const hi = Math.max(...all)
   const leader = m.points.reduce<ScorecardPoint | null>(
