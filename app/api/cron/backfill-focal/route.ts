@@ -5,7 +5,8 @@ import { refreshPhotoFocal, refreshSocialFocal } from "@/lib/jobs/backfill/focal
 // One-time backfill of focal points onto images analyzed before PR #61 (see focal-refresh.ts).
 // Bounded per run + idempotent, so it's safe to call repeatedly until every store drains.
 // Trigger: npx tsx scripts/db/cron.mts backfill-focal --base https://app.getticket.ai [--param limit=60]
-export const dynamic = "force-dynamic"
+// NOTE: no `export const dynamic` — this project runs Next.js Cache Components, which forbids it
+// (see app/api/health/pipeline/route.ts). Reading request.headers already makes this route dynamic.
 export const maxDuration = 300
 
 export async function GET(request: Request) {
