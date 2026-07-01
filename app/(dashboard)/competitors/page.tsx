@@ -4,21 +4,28 @@
 // (a roster of rival cards + the add/discover flows). Real names, ratings, and signal
 // counts for the logged-in operator's location — data wiring unchanged.
 
-import { loadOperatorContext, loadCompetitorComparison, loadCompetitorSwapState, tierLabel } from "../operator-data"
+import { loadOperatorContext, loadCompetitorComparison, loadCompetitorScorecard, loadCompetitorSwapState, tierLabel } from "../operator-data"
 import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
 import { computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
 import { TkTooltipLayer } from "@/components/ticket"
 import CompetitorRoster from "./competitor-roster"
-import CompetitorComparison from "./competitor-comparison"
+import CompetitorScorecard from "./competitor-scorecard"
+import CompetitorHoursGrid from "./competitor-hours-grid"
 import "./competitors.css"
-// ALT-235: the busy-times heatmap reuses the Traffic page's tk-trf-* styles.
-import "../traffic/traffic.css"
 
 export default async function CompetitorsPage() {
   // Independent reads — run them together (each resolves the operator on its own).
-  const [ctx, comparison, swapState] = await Promise.all([
-    loadOperatorContext(),
+  // The scorecard needs the ctx's snapshot-resolved competitor ratings (ALT-186),
+  // so it chains off loadOperatorContext rather than re-running that resolution.
+  const ctxPromise = loadOperatorContext()
+  const [ctx, comparison, scorecard, swapState] = await Promise.all([
+    ctxPromise,
     loadCompetitorComparison(),
+    ctxPromise.then((c) =>
+      loadCompetitorScorecard(
+        c.competitors.map((x) => ({ id: x.id, rating: x.rating, reviewCount: x.reviewCount })),
+      ),
+    ),
     loadCompetitorSwapState(),
   ])
   const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
@@ -52,21 +59,21 @@ export default async function CompetitorsPage() {
         swapCooldownDays={COMPETITOR_SWAP_COOLDOWN_DAYS}
       />
 
-      {/* ALT-235 — head-to-head + busy-times for the watched set, below the roster.
-          Reuses the kit's TkH2HBars and the Traffic page's heatmap island; data is
-          the busy-times the Traffic pipeline already ingests (no new pipeline). The
-          tooltip layer renders the heatmap cells' data-tip hovers. */}
+      {/* ALT-262/263 — the two comparison reads, below the roster: "Where you
+          stand" (absolute head-to-head scorecard) leads, "Who's busy when"
+          (timing/rhythm) follows. The old crowd-pull bars and the weekly busy
+          heatmap are retired — the %-of-own-peak score can't honestly compare
+          magnitude across venues, and the heatmap's day×hour values live inside
+          the busy read now. The tooltip layer renders data-tip hovers. */}
       <TkTooltipLayer />
-      <CompetitorComparison
-        entities={comparison.entities}
-        h2h={comparison.h2h}
-        hasOwnData={comparison.hasOwnData}
-        hasCompetitorData={comparison.hasCompetitorData}
-        ownName={ctx.locationName}
-        hoursEntities={comparison.hoursEntities}
-        todayDow={comparison.todayDow}
-        locationId={ctx.locationId}
-      />
+      <CompetitorScorecard metrics={scorecard.metrics} ownName={ctx.locationName} />
+      <section className="tk-comp-sec">
+        <CompetitorHoursGrid
+          entities={comparison.hoursEntities}
+          todayDow={comparison.todayDow}
+          locationId={ctx.locationId}
+        />
+      </section>
 
       {/* ALT-196 freed this spot (the misplaced own-social link); ALT-195 now fills it
           with the swap rule so the operator knows the cadence before they remove one. */}
