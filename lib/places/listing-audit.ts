@@ -12,7 +12,7 @@
 // returned order is not a reliable stand-in for the live lead order a stranger
 // sees). We lead with the full-set owner-vs-customer split instead.
 
-import type { PhotoAnalysis, PhotoCategory } from "@/lib/providers/photos"
+import { normalizeFocal, type PhotoAnalysis, type PhotoCategory, type FocalPoint } from "@/lib/providers/photos"
 
 // ── Listing slots — the storefront essentials a Google listing should cover ──
 export type ListingSlot =
@@ -163,8 +163,12 @@ const COVER_SLOT_PRIORITY: ListingSlot[] = [
   "food_dish", "exterior", "interior", "signage", "bar_drinks", "patio_outdoor", "menu_board", "staff_team",
 ]
 
-export function pickCoverPhoto(rows: PhotoRow[]): string | null {
-  let best: { url: string; score: number } | null = null
+/** A chosen photo + its focal point (for crop anchoring). Focal defaults to center when the
+ *  photo was analyzed before focal detection existed (pre-backfill), so callers never break. */
+export type PickedPhoto = { url: string; focal: FocalPoint }
+
+export function pickCoverPhotoWithFocal(rows: PhotoRow[]): PickedPhoto | null {
+  let best: { url: string; focal: FocalPoint; score: number } | null = null
   for (const r of rows) {
     if (!r.image_url) continue
     const a = parseAnalysis(r.analysis_result)
@@ -176,9 +180,13 @@ export function pickCoverPhoto(rows: PhotoRow[]): string | null {
       const priority = slot ? COVER_SLOT_PRIORITY.indexOf(slot) : -1
       if (priority >= 0) score += COVER_SLOT_PRIORITY.length - priority
     }
-    if (!best || score > best.score) best = { url: r.image_url, score }
+    if (!best || score > best.score) best = { url: r.image_url, focal: normalizeFocal(a?.focal_point), score }
   }
-  return best?.url ?? null
+  return best ? { url: best.url, focal: best.focal } : null
+}
+
+export function pickCoverPhoto(rows: PhotoRow[]): string | null {
+  return pickCoverPhotoWithFocal(rows)?.url ?? null
 }
 
 // Category-aware variant of the cover picker. Picks the photo whose category best fits the
@@ -188,9 +196,9 @@ export function pickCoverPhoto(rows: PhotoRow[]): string | null {
 // order (not the generic cover priority) is deliberate: it keeps food_dish from winning
 // every family just because it outranks other slots. Quality breaks ties within a category.
 // Falls back to the best overall cover when the entity has nothing in the preferred set.
-export function pickInsightPhoto(rows: PhotoRow[], prefer: PhotoCategory[]): string | null {
+export function pickInsightPhotoWithFocal(rows: PhotoRow[], prefer: PhotoCategory[]): PickedPhoto | null {
   if (prefer.length) {
-    let best: { url: string; rank: number; quality: number } | null = null
+    let best: { url: string; focal: FocalPoint; rank: number; quality: number } | null = null
     for (const r of rows) {
       if (!r.image_url) continue
       const a = parseAnalysis(r.analysis_result)
@@ -200,12 +208,16 @@ export function pickInsightPhoto(rows: PhotoRow[], prefer: PhotoCategory[]): str
       const quality =
         (a.quality_signals.lighting === "professional" ? 3 : 0) + (a.quality_signals.staging === "styled" ? 1 : 0)
       if (!best || rank < best.rank || (rank === best.rank && quality > best.quality)) {
-        best = { url: r.image_url, rank, quality }
+        best = { url: r.image_url, focal: normalizeFocal(a.focal_point), rank, quality }
       }
     }
-    if (best) return best.url
+    if (best) return { url: best.url, focal: best.focal }
   }
-  return pickCoverPhoto(rows)
+  return pickCoverPhotoWithFocal(rows)
+}
+
+export function pickInsightPhoto(rows: PhotoRow[], prefer: PhotoCategory[]): string | null {
+  return pickInsightPhotoWithFocal(rows, prefer)?.url ?? null
 }
 
 // Essentials for an entity = the always-on set + any conditional slot the entity

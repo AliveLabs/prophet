@@ -146,6 +146,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             <HeroImage
               url={heroResolved?.url}
               label={heroResolved?.label ?? ctx.locationName}
+              focal={heroResolved?.focal}
               fallback={<DetailHeroCanvas family={family} label={ctx.locationName} />}
             />
           }

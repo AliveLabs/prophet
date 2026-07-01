@@ -1,4 +1,4 @@
-// The Pass — resolve the best REAL photo for a play's hero slot.
+// The Pass — resolve the best REAL photo for a play's hero slot, WITH its focal point.
 //
 // Honors the operator's chosen cascade (Bryan, 2026-07-01):
 //   1. subject-matched      — social play → the competitor post the play is built on;
@@ -8,14 +8,14 @@
 //                             cards vary + stay relevant instead of all showing one cover
 //   (3. the brand gradient canvas is the caller's fallback when this returns null.)
 //
-// Pure + server-safe (no JSX, no data fetching) so both the server BriefView and the
-// play-detail page share ONE resolution rule. The photo URLs are already-persisted
-// Supabase-storage / platform URLs resolved upstream (the pickers / the presenter).
+// Each resolved photo carries a normalized focal point so the caller can anchor the crop
+// on the subject instead of dead-centering it. Pure + server-safe (no JSX, no fetching) so
+// both the server BriefView and the play-detail page share ONE resolution rule.
 
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import type { TkFamily } from "@/components/ticket"
-import type { PhotoCategory } from "@/lib/providers/photos"
-import { pickInsightPhoto, type PhotoRow } from "@/lib/places/listing-audit"
+import { normalizeFocal, type PhotoCategory, type FocalPoint } from "@/lib/providers/photos"
+import { pickInsightPhotoWithFocal, type PhotoRow, type PickedPhoto } from "@/lib/places/listing-audit"
 import { playFamily } from "./pass-map"
 
 // Case- and punctuation-insensitive name key — mirrors listing-audit#normalizeName so
@@ -52,8 +52,8 @@ export function subjectCompetitorName(play: EnrichedRecommendation): string | nu
 export type HeroPhotoSources = {
   /** the operator's own-listing photo rows — the resolver category-matches within these */
   ownPhotos?: PhotoRow[]
-  /** normalized competitor name → their listing cover url */
-  competitorCovers?: Map<string, string>
+  /** normalized competitor name → their listing cover (url + focal) */
+  competitorCovers?: Map<string, PickedPhoto>
 }
 
 export type ResolvedHeroPhoto = {
@@ -61,6 +61,8 @@ export type ResolvedHeroPhoto = {
   /** honest label for the photo chip — the competitor's name for a matched competitor/
    *  social image, else the operator's own location name. */
   label: string
+  /** normalized focal point for crop anchoring (defaults to center pre-backfill). */
+  focal: FocalPoint
 }
 
 /**
@@ -78,31 +80,31 @@ export function resolvePlayHeroPhoto(
   // A social play carries the actual competitor post image it's built on (the presenter
   // resolved + safe-to-embed gated it). That IS the subject image.
   if (family === "social") {
-    const media = play.presentation?.exemplarSocialPost?.mediaUrl
-    if (media) return { url: media, label: play.presentation?.exemplarSocialPost?.competitor ?? ownLabel }
+    const ex = play.presentation?.exemplarSocialPost
+    if (ex?.mediaUrl) return { url: ex.mediaUrl, label: ex.competitor ?? ownLabel, focal: normalizeFocal(ex.focalPoint) }
   }
 
   // A competitive play → the subject competitor's listing cover, when we can name + match one.
   if (family === "competitive" && sources.competitorCovers?.size) {
     const name = subjectCompetitorName(play)
     if (name) {
-      const url = sources.competitorCovers.get(normalizeName(name))
-      if (url) return { url, label: name }
+      const picked = sources.competitorCovers.get(normalizeName(name))
+      if (picked) return { url: picked.url, label: name, focal: picked.focal }
     }
   }
 
   // Otherwise a category-matched own photo (varies per family) + the universal fallback.
   // Null ⇒ the caller shows the gradient canvas.
-  const own = pickInsightPhoto(sources.ownPhotos ?? [], FAMILY_CATEGORIES[family])
-  return own ? { url: own, label: ownLabel } : null
+  const own = pickInsightPhotoWithFocal(sources.ownPhotos ?? [], FAMILY_CATEGORIES[family])
+  return own ? { url: own.url, label: ownLabel, focal: own.focal } : null
 }
 
 /** Build the normalized name→cover lookup the resolver expects from a plain list
  *  (a competitor's picked cover, one entry each). Keeps normalization in one place. */
-export function buildCompetitorCoverMap(entries: Array<{ name: string; url: string }>): Map<string, string> {
-  const m = new Map<string, string>()
+export function buildCompetitorCoverMap(entries: Array<{ name: string; url: string; focal: FocalPoint }>): Map<string, PickedPhoto> {
+  const m = new Map<string, PickedPhoto>()
   for (const e of entries) {
-    if (e.url) m.set(normalizeName(e.name), e.url)
+    if (e.url) m.set(normalizeName(e.name), { url: e.url, focal: e.focal })
   }
   return m
 }

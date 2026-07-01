@@ -174,6 +174,10 @@ export type ExemplarSocialPost = {
   comments?: number
   /** The dossier ref this post traces to (a social.* ref) — for grounding. */
   source: string
+  /** Normalized 0..1 focal point of the post image (from its visual analysis), for anchoring
+   *  the crop when this post is rendered as a hero. Omitted for posts analyzed before focal
+   *  detection existed — the renderer defaults to center. */
+  focalPoint?: { x: number; y: number }
 }
 
 /** A HONEST, %-framed (or ordinal/range) estimate of reach or frequency — NEVER a $ / POS figure.

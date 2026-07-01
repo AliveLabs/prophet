@@ -16,6 +16,7 @@ export function HeroImage({
   url,
   label,
   fallback,
+  focal,
 }: {
   /** already-resolved public photo URL (own-listing cover / competitor cover / post image) */
   url?: string | null
@@ -23,12 +24,19 @@ export function HeroImage({
   label?: string
   /** the surface's gradient canvas, rendered when there's no real photo */
   fallback: ReactNode
+  /** normalized 0..1 focal point of the subject — anchors the cover-crop so the subject
+   *  stays in frame (e.g. a face at the bottom isn't sliced off). Omitted → CSS centers it. */
+  focal?: { x: number; y: number } | null
 }) {
   if (!url) return <>{fallback}</>
   return (
     <div
       className="tk-photo"
-      style={{ backgroundImage: `url(${url})` } as CSSProperties}
+      style={{
+        backgroundImage: `url(${url})`,
+        // Anchor the crop on the subject. `.tk-photo` defaults to `center` when this is undefined.
+        ...(focal ? { backgroundPosition: `${(focal.x * 100).toFixed(1)}% ${(focal.y * 100).toFixed(1)}%` } : {}),
+      } as CSSProperties}
       data-label={label}
       role="img"
       aria-label={label ? `${label} — Google Business photo` : "Listing photo"}

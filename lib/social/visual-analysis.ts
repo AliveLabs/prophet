@@ -20,6 +20,7 @@ import type {
   NormalizedSocialPost,
   SocialPlatform,
 } from "./types"
+import { normalizeFocal } from "@/lib/providers/photos"
 
 const GEMINI_VISION_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -75,6 +76,7 @@ Analyze this ${platform} post image and return ONLY valid JSON with these fields
 - steamOrMotion: boolean (true if there is visible steam, sizzle, a pour, flame, or other motion-implied freshness, vs a static styled plate)
 - trendingSound: boolean (VIDEO ONLY — true if the clip rides a trending or popular audio track; false for static images or original/no notable audio)
 - firstFrame: short plain-words description of the FIRST FRAME / thumbnail for a video (e.g. "close-up of a cheese pull"); empty string for static images
+- focalPoint: object { x, y } with normalized 0.0-1.0 coordinates of the MAIN SUBJECT's center — the point that must stay visible if the image is cropped to a different shape (x: 0=left, 1=right; y: 0=top, 1=bottom). For a person, their face; for a dish, the plate; for a storefront, the sign. Use { "x": 0.5, "y": 0.5 } only when there is no single clear subject.
 - confidence: number 0.0-1.0 for overall classification confidence
 ${captionContext}`
 }
@@ -429,6 +431,7 @@ export function sanitizeAnalysis(p: Partial<SocialPostAnalysis>): SocialPostAnal
     ...(typeof p.steamOrMotion === "boolean" ? { steamOrMotion: p.steamOrMotion } : {}),
     ...(typeof p.trendingSound === "boolean" ? { trendingSound: p.trendingSound } : {}),
     ...(typeof p.firstFrame === "string" && p.firstFrame.trim() ? { firstFrame: p.firstFrame } : {}),
+    ...(p.focalPoint && typeof p.focalPoint === "object" ? { focalPoint: normalizeFocal(p.focalPoint) } : {}),
     confidence: typeof p.confidence === "number" ? Math.max(0, Math.min(1, p.confidence)) : 0.5,
   }
 }

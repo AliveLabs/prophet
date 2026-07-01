@@ -8,13 +8,14 @@
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
-import { pickCoverPhoto, type PhotoRow } from "@/lib/places/listing-audit"
+import { pickCoverPhotoWithFocal, type PhotoRow } from "@/lib/places/listing-audit"
+import type { FocalPoint } from "@/lib/providers/photos"
 
 export type HeroCovers = {
   /** the operator's own-listing photo rows — the resolver category-matches within these */
   ownPhotos: PhotoRow[]
-  /** one picked cover per competitor that has a usable photo */
-  competitorCovers: Array<{ name: string; url: string }>
+  /** one picked cover per competitor that has a usable photo (url + focal for crop anchoring) */
+  competitorCovers: Array<{ name: string; url: string; focal: FocalPoint }>
 }
 
 export async function loadHeroCovers(locationId: string): Promise<HeroCovers> {
@@ -40,17 +41,17 @@ export async function loadHeroCovers(locationId: string): Promise<HeroCovers> {
 export function competitorCoversFrom(
   photos: Array<{ competitor_id: string; analysis_result: unknown; image_url: string | null }>,
   nameById: Map<string, string>,
-): Array<{ name: string; url: string }> {
+): Array<{ name: string; url: string; focal: FocalPoint }> {
   const rowsById = new Map<string, PhotoRow[]>()
   for (const p of photos) {
     const arr = rowsById.get(p.competitor_id) ?? []
     arr.push({ analysis_result: p.analysis_result, image_url: p.image_url })
     rowsById.set(p.competitor_id, arr)
   }
-  const out: Array<{ name: string; url: string }> = []
+  const out: Array<{ name: string; url: string; focal: FocalPoint }> = []
   for (const [id, rows] of rowsById) {
-    const url = pickCoverPhoto(rows)
-    if (url) out.push({ name: nameById.get(id) ?? "Competitor", url })
+    const picked = pickCoverPhotoWithFocal(rows)
+    if (picked) out.push({ name: nameById.get(id) ?? "Competitor", url: picked.url, focal: picked.focal })
   }
   return out
 }

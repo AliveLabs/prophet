@@ -83,9 +83,9 @@ export default function BriefView({
   ownPhotos?: PhotoRow[]
   hasListing?: boolean
   shelfCompetitors?: CompetitorPhotoGroup[]
-  /** Hero imagery: one picked cover per competitor, so a competitive lead play can show
-   *  that rival's photo. The own-photo tier is category-matched from `ownPhotos` above. */
-  competitorCovers?: Array<{ name: string; url: string }>
+  /** Hero imagery: one picked cover per competitor (url + focal), so a competitive lead play
+   *  can show that rival's photo. The own-photo tier is category-matched from `ownPhotos`. */
+  competitorCovers?: Array<{ name: string; url: string; focal: { x: number; y: number } }>
 }) {
   const competitorCoverMap = buildCompetitorCoverMap(competitorCovers)
   const allRefs = brief.plays.flatMap((p) => p.evidenceRefs)
@@ -130,6 +130,7 @@ export default function BriefView({
       <HeroImage
         url={resolved?.url}
         label={resolved?.label ?? locationName}
+        focal={resolved?.focal}
         fallback={<PassHeroCanvas family={playFamily(play)} label={locationName} />}
       />
     )
