@@ -213,7 +213,9 @@ export function observedWindow(scores: number[] | null | undefined): OpenInterva
   return { start: first, end: Math.min(24, last + 1) }
 }
 
-/** Label for an observed-activity window: "Observed 10 AM - 10 PM". */
+/** Label for an observed-activity window: "Observed 10 AM - 10 PM" (a full-day
+ *  span reads as all-day activity, not a confusing "12 AM - 12 AM"). */
 export function observedLabel(iv: OpenInterval): string {
+  if (iv.start === 0 && iv.end === 24) return "Observed activity all day"
   return `Observed ${H12(iv.start)} - ${H12(iv.end)}`
 }
