@@ -1,12 +1,22 @@
 import { describe, it, expect } from "vitest"
-import { buildListingAudit, buildShelf, type PhotoRow } from "@/lib/places/listing-audit"
+import { buildListingAudit, buildShelf, isOwnerPhoto, type PhotoRow } from "@/lib/places/listing-audit"
 import type { PhotoCategory } from "@/lib/providers/photos"
 
-// Minimal PhotoRow builder — only the fields the audit reads.
+const BIZ = "Testaurant Grill"
+
+// Minimal PhotoRow builder. `owner` → attributed to the business (owner upload);
+// `customer` → attributed to a reviewer; neither → no attribution.
 function row(
   category: PhotoCategory,
-  opts: { lighting?: "professional" | "amateur" | "unknown"; customer?: boolean; confidence?: number } = {},
+  opts: {
+    lighting?: "professional" | "amateur" | "unknown"
+    owner?: boolean
+    customer?: boolean
+    confidence?: number
+    url?: string
+  } = {},
 ): PhotoRow {
+  const displayName = opts.owner ? BIZ : opts.customer ? "A. Reviewer" : null
   return {
     analysis_result: {
       category,
@@ -19,7 +29,8 @@ function row(
       confidence: opts.confidence ?? 0.8,
       notable_changes: "",
     },
-    author_attribution: opts.customer ? [{ displayName: "A. Reviewer" }] : [],
+    author_attribution: displayName ? [{ displayName }] : [],
+    ...(opts.url ? { image_url: opts.url } : {}),
   }
 }
 
@@ -56,18 +67,55 @@ describe("buildListingAudit — coverage states", () => {
   })
 })
 
-describe("buildListingAudit — owner/customer split", () => {
-  it("counts customer (attributed) vs owner (unattributed) photos", () => {
-    const a = buildListingAudit([row("exterior"), row("interior", { customer: true }), row("food_dish", { customer: true })])
-    expect(a.customerCount).toBe(2)
+describe("isOwnerPhoto", () => {
+  it("is true only when attribution matches the business name", () => {
+    expect(isOwnerPhoto([{ displayName: BIZ }], BIZ)).toBe(true)
+    expect(isOwnerPhoto([{ displayName: "Jane D" }], BIZ)).toBe(false)
+    expect(isOwnerPhoto([], BIZ)).toBe(false)
+    expect(isOwnerPhoto([{ displayName: BIZ }], undefined)).toBe(false) // no ownerName → can't tell
+  })
+  it("matches case- and punctuation-insensitively", () => {
+    expect(isOwnerPhoto([{ displayName: BIZ }], "  testaurant   grill!! ")).toBe(true)
+  })
+})
+
+describe("buildListingAudit — owner/customer split (owner = business-attributed)", () => {
+  it("counts owner (business) vs customer (reviewer)", () => {
+    const a = buildListingAudit(
+      [row("exterior", { owner: true }), row("interior", { customer: true }), row("food_dish", { customer: true })],
+      { ownerName: BIZ },
+    )
     expect(a.ownerCount).toBe(1)
+    expect(a.customerCount).toBe(2)
   })
 
-  it("only flags showSplit with enough volume", () => {
-    const few = buildListingAudit([row("exterior", { customer: true }), row("interior")])
-    expect(few.showSplit).toBe(false)
-    const many = buildListingAudit(Array.from({ length: 6 }, (_, i) => row("exterior", { customer: i % 2 === 0 })))
-    expect(many.showSplit).toBe(true)
+  it("without an ownerName, nothing is owner → the split self-suppresses", () => {
+    const a = buildListingAudit([row("exterior", { owner: true }), row("interior", { customer: true })])
+    expect(a.ownerCount).toBe(0)
+    expect(a.showSplit).toBe(false)
+  })
+
+  it("showSplit needs volume AND a genuine mix", () => {
+    // 6 photos but all customer-attributed → no owner → suppressed (the real prod case)
+    const allCustomer = buildListingAudit(Array.from({ length: 6 }, () => row("exterior", { customer: true })), { ownerName: BIZ })
+    expect(allCustomer.showSplit).toBe(false)
+    // 6 photos, a real owner/customer mix → fires
+    const mixed = buildListingAudit(
+      [row("exterior", { owner: true }), row("interior", { owner: true }), ...Array.from({ length: 4 }, () => row("food_dish", { customer: true }))],
+      { ownerName: BIZ },
+    )
+    expect(mixed.showSplit).toBe(true)
+    expect(mixed.ownerCount).toBe(2)
+    expect(mixed.customerCount).toBe(4)
+  })
+
+  it("segments the gallery by owner vs customer (only rows with an image_url)", () => {
+    const a = buildListingAudit(
+      [row("exterior", { owner: true, url: "o1" }), row("interior", { customer: true, url: "c1" }), row("food_dish", { customer: true })],
+      { ownerName: BIZ },
+    )
+    expect(a.ownerPhotos.map((p) => p.url)).toEqual(["o1"])
+    expect(a.customerPhotos.map((p) => p.url)).toEqual(["c1"]) // the url-less customer row is still counted, just not rendered
   })
 })
 

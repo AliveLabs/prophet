@@ -104,6 +104,7 @@ export default async function HomePage() {
   const ownPhotos = photosData.ownPhotos.map((p) => ({
     analysis_result: p.analysis_result,
     author_attribution: p.author_attribution,
+    image_url: p.image_url,
   }))
   const compNameById = new Map(approvedComps.map((c) => [c.id, c.name]))
   const compRowsById = new Map<string, Array<{ analysis_result: unknown }>>()

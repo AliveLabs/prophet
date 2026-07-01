@@ -68,6 +68,8 @@ const SPLIT_MIN_N = 6
 export type PhotoRow = {
   analysis_result: unknown
   author_attribution?: unknown
+  /** Public URL of the stored photo — present for own-listing rows; drives the gallery. */
+  image_url?: string | null
 }
 
 function parseAnalysis(raw: unknown): PhotoAnalysis | null {
@@ -78,19 +80,31 @@ function parseAnalysis(raw: unknown): PhotoAnalysis | null {
   return a as PhotoAnalysis
 }
 
-// "customer" when Google attributes the photo to a named contributor (a reviewer);
-// "owner" when there's no named attribution (a Business-Profile upload). Best-estimate.
-function isCustomerPhoto(author: unknown): boolean {
-  return (
-    Array.isArray(author) &&
-    author.some(
-      (a) =>
-        a &&
-        typeof a === "object" &&
-        typeof (a as { displayName?: string }).displayName === "string" &&
-        (a as { displayName?: string }).displayName!.trim().length > 0,
-    )
-  )
+// Normalize a name for comparison — case- and punctuation-insensitive.
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
+}
+
+// The first non-empty attribution displayName on a photo, if any.
+function attributionName(author: unknown): string | null {
+  if (!Array.isArray(author)) return null
+  for (const a of author) {
+    const n = a && typeof a === "object" ? (a as { displayName?: string }).displayName : undefined
+    if (typeof n === "string" && n.trim()) return n.trim()
+  }
+  return null
+}
+
+// Owner photos are attributed to the BUSINESS's own Google profile — the attribution
+// displayName IS the business name (a stable contributor). Everything else is a
+// customer/reviewer upload. (Our first cut keyed off ABSENCE of attribution, which
+// never happens — Google attributes every photo — so it read all as customer and the
+// split never fired.) With no ownerName we can't tell them apart, so nothing is owner
+// and the split self-suppresses.
+export function isOwnerPhoto(author: unknown, ownerName?: string | null): boolean {
+  if (!ownerName) return false
+  const n = attributionName(author)
+  return n != null && normalizeName(n) === normalizeName(ownerName)
 }
 
 // ── Per-entity profile — used for BOTH own listing and each competitor (the Shelf) ──
@@ -150,13 +164,18 @@ function essentialSlotsFor(presentSlots: Set<ListingSlot>): ListingSlot[] {
 // ── Own-listing audit — the Listing Check module's full read ─────────────────
 export type SlotState = "covered" | "thin" | "missing"
 
+export type GalleryPhoto = { url: string; owner: boolean; category: string | null }
+
 export type ListingAudit = {
   total: number
   analyzed: number
-  // owner-vs-customer asymmetry (best-estimate; gated by showSplit)
+  // owner-vs-customer asymmetry (owner = attributed to the business; gated by showSplit)
   ownerCount: number
   customerCount: number
   showSplit: boolean
+  // renderable photos, segmented owner vs customer (only rows with an image_url)
+  ownerPhotos: GalleryPhoto[]
+  customerPhotos: GalleryPhoto[]
   // coverage punch-list
   essentials: Array<{ slot: ListingSlot; label: string; why: string; state: SlotState; count: number }>
   coveredCount: number
@@ -168,14 +187,26 @@ export type ListingAudit = {
   fixNext: string[]
 }
 
-export function buildListingAudit(rows: PhotoRow[]): ListingAudit {
+export function buildListingAudit(rows: PhotoRow[], opts: { ownerName?: string | null } = {}): ListingAudit {
   const profile = buildEntityPhotoProfile(rows)
+  const ownerName = opts.ownerName ?? null
 
-  // Owner/customer split over ALL fetched photos (attribution is independent of
-  // whether vision could analyze the image).
+  // Owner/customer split (owner = attributed to the business) + the renderable,
+  // segmented galleries. A row attributed to no one counts as neither, but still
+  // shows in the customer gallery (it isn't the operator's own upload).
+  let ownerCount = 0
   let customerCount = 0
-  for (const r of rows) if (isCustomerPhoto(r.author_attribution)) customerCount++
-  const ownerCount = rows.length - customerCount
+  const ownerPhotos: GalleryPhoto[] = []
+  const customerPhotos: GalleryPhoto[] = []
+  for (const r of rows) {
+    const owner = isOwnerPhoto(r.author_attribution, ownerName)
+    if (owner) ownerCount++
+    else if (attributionName(r.author_attribution) != null) customerCount++
+    if (r.image_url) {
+      const category = parseAnalysis(r.analysis_result)?.category ?? null
+      ;(owner ? ownerPhotos : customerPhotos).push({ url: r.image_url, owner, category })
+    }
+  }
 
   const essentialSlots = essentialSlotsFor(profile.slots)
   const essentials = essentialSlots.map((slot) => {
@@ -204,7 +235,11 @@ export function buildListingAudit(rows: PhotoRow[]): ListingAudit {
     analyzed: profile.analyzed,
     ownerCount,
     customerCount,
-    showSplit: rows.length >= SPLIT_MIN_N,
+    // Enough volume AND a genuine mix (both sides present) — so a location where we
+    // can't identify the owner (name mismatch) falls back to a neutral count.
+    showSplit: rows.length >= SPLIT_MIN_N && ownerCount > 0 && customerCount > 0,
+    ownerPhotos,
+    customerPhotos,
     essentials,
     coveredCount,
     essentialTotal: essentials.length,
