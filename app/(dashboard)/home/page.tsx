@@ -8,6 +8,8 @@ import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
 import BriefView from "./brief-view"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
+import { pickCoverPhoto } from "@/lib/places/listing-audit"
+import { competitorCoversFrom } from "./hero-covers"
 import "./brief.css"
 
 // Loose read for the location row — `brand_tolerance` lands with the engine-rewrite
@@ -119,6 +121,13 @@ export default async function HomePage() {
     rows,
   }))
 
+  // Hero imagery (2026-07-01): the brief's lead-play hero shows a REAL photo instead of
+  // the gradient default. Own-listing cover for own/reputation/menu plays (+ the universal
+  // fallback); per-competitor covers so a competitive play can show THAT rival's photo.
+  // Both are pure picks over photo data already fetched above — no new query.
+  const ownCover = pickCoverPhoto(ownPhotos)
+  const competitorCovers = competitorCoversFrom(photosData.photos, compNameById)
+
   return (
     <BriefView
       brief={brief}
@@ -133,6 +142,8 @@ export default async function HomePage() {
       ownPhotos={ownPhotos}
       hasListing={!!locRow.primary_place_id}
       shelfCompetitors={shelfCompetitors}
+      ownCover={ownCover}
+      competitorCovers={competitorCovers}
     />
   )
 }

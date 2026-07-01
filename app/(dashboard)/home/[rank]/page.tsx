@@ -52,6 +52,9 @@ import {
   playShowsRivalPosts,
 } from "../pass-map"
 import { playHeadToHead, leverageLabel, kindLabel } from "./detail-map"
+import { loadHeroCovers } from "../hero-covers"
+import { resolvePlayHeroPhoto, buildCompetitorCoverMap } from "../hero-photo"
+import { HeroImage } from "../../hero-image"
 import "./detail.css"
 
 export default async function PlayDetail({ params }: { params: Promise<{ rank: string }> }) {
@@ -83,6 +86,15 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
     perType.set(t, n + 1)
     return true
   }).slice(0, 5)
+
+  // Hero imagery: match the brief's lead-play hero — a real subject photo (competitor
+  // post / competitor cover / own-listing cover) with the gradient canvas as fallback.
+  const covers = await loadHeroCovers(ctx.locationId)
+  const heroResolved = resolvePlayHeroPhoto(
+    play,
+    { ownCover: covers.ownCover, competitorCovers: buildCompetitorCoverMap(covers.competitorCovers) },
+    ctx.locationName,
+  )
 
   // ── honest presentation mapping ──
   const family = playFamily(play)
@@ -130,7 +142,13 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             </>
           }
           lede={play.rationale}
-          photo={<DetailHeroCanvas family={family} label={ctx.locationName} />}
+          photo={
+            <HeroImage
+              url={heroResolved?.url}
+              label={heroResolved?.label ?? ctx.locationName}
+              fallback={<DetailHeroCanvas family={family} label={ctx.locationName} />}
+            />
+          }
           venueChip={
             <>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

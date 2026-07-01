@@ -16,6 +16,9 @@ import {
 } from "@/components/ticket"
 import { buildPeakData } from "@/lib/traffic/peak-data"
 import { fetchTrafficPageData } from "@/lib/cache/traffic"
+import { fetchOwnPhotos } from "@/lib/cache/photos"
+import { pickCoverPhoto } from "@/lib/places/listing-audit"
+import { HeroImage } from "../hero-image"
 import type { TrafficData } from "./traffic-types"
 import TrafficControls from "./traffic-controls"
 import TrafficBars from "./traffic-bars"
@@ -67,6 +70,15 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // Hero imagery: the operator's own-listing cover fills the hero instead of the gradient
+  // default (this is their block, so their own storefront/food is the honest subject).
+  const selectedLocationName = locations?.find((l) => l.id === selectedLocationId)?.name ?? "Your location"
+  const heroCover = selectedLocationId
+    ? pickCoverPhoto(
+        (await fetchOwnPhotos(selectedLocationId)).map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url })),
+      )
+    : null
 
   const { data: competitors } = selectedLocationId
     ? await supabase
@@ -249,7 +261,13 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
             <RevealOnView style={{ marginTop: 22 }}>
               <TkHero
                 titleId="trf-hero-title"
-                photo={<TrafficHeroCanvas label="Daily rhythm" />}
+                photo={
+                  <HeroImage
+                    url={heroCover}
+                    label={selectedLocationName}
+                    fallback={<TrafficHeroCanvas label="Daily rhythm" />}
+                  />
+                }
                 venueChip={
                   <>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

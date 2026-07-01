@@ -17,6 +17,7 @@ import { useState, type CSSProperties, type ReactNode } from "react"
 import LocationAddForm from "@/components/places/location-add-form"
 import LocationAddressForm from "./location-address-form"
 import MiniMap from "@/components/places/mini-map"
+import { HeroImage } from "../hero-image"
 import {
   TkHero,
   TkPlayCard,
@@ -52,6 +53,8 @@ export type LocationCard = {
   lng: number | null
   hours: string[]
   reviews: Array<{ text: string; who: string; when: string; rating: number | null }>
+  /** own-listing Google cover (pickCoverPhoto) — fills the lead hero; null ⇒ gradient canvas */
+  coverUrl: string | null
   screenshotUrl: string | null
   menuItemCount: number
   menuConfidence: string | null
@@ -420,7 +423,13 @@ export function LocationsBoard({
                     Each location runs its own competitor set, signals, and daily brief.
                   </>
                 }
-                photo={<LocationCanvas label={lead.cityLine} />}
+                photo={
+                  <HeroImage
+                    url={lead.coverUrl}
+                    label={lead.name}
+                    fallback={<LocationCanvas label={lead.cityLine} />}
+                  />
+                }
                 venueChip={
                   <>
                     <IconMapPin /> {lead.cityLine}
