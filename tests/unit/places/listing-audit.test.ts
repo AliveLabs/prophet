@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildListingAudit, buildShelf, isOwnerPhoto, pickCoverPhoto, type PhotoRow } from "@/lib/places/listing-audit"
+import { buildListingAudit, buildShelf, isOwnerPhoto, pickCoverPhoto, pickInsightPhoto, type PhotoRow } from "@/lib/places/listing-audit"
 import type { PhotoCategory } from "@/lib/providers/photos"
 
 const BIZ = "Testaurant Grill"
@@ -33,6 +33,25 @@ function row(
     ...(opts.url ? { image_url: opts.url } : {}),
   }
 }
+
+describe("pickInsightPhoto — category-aware pick", () => {
+  it("prefers the earliest matching category in the prefer list, not the generic cover priority", () => {
+    const rows = [row("food_dish", { url: "food.jpg" }), row("interior", { url: "int.jpg" })]
+    // interior first → interior, even though food_dish outranks it for a generic cover
+    expect(pickInsightPhoto(rows, ["interior", "food_dish"])).toBe("int.jpg")
+    // food first → food; same rows, different prefer order → different photo (the variety guarantee)
+    expect(pickInsightPhoto(rows, ["food_dish", "interior"])).toBe("food.jpg")
+  })
+
+  it("falls back to the best overall cover when no preferred category is present", () => {
+    expect(pickInsightPhoto([row("staff_team", { url: "staff.jpg" })], ["food_dish", "menu_board"])).toBe("staff.jpg")
+  })
+
+  it("returns null when there are no usable (url'd) photos", () => {
+    expect(pickInsightPhoto([], ["food_dish"])).toBeNull()
+    expect(pickInsightPhoto([row("food_dish")], ["food_dish"])).toBeNull()
+  })
+})
 
 describe("buildListingAudit — coverage states", () => {
   it("marks slots covered (≥2) / thin (1) / missing (0)", () => {

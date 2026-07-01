@@ -5,6 +5,8 @@ import {
   buildCompetitorCoverMap,
   type HeroPhotoSources,
 } from "@/app/(dashboard)/home/hero-photo"
+import type { PhotoRow } from "@/lib/places/listing-audit"
+import type { PhotoCategory } from "@/lib/providers/photos"
 import type { Category, EnrichedRecommendation, PlayPresentation } from "@/lib/skills/types"
 
 // Minimal play — only the fields the resolver reads (category + presentation) matter.
@@ -24,7 +26,28 @@ function play(category: Category, presentation?: PlayPresentation): EnrichedReco
   } as unknown as EnrichedRecommendation
 }
 
-const OWN = "https://cdn/own-cover.jpg"
+// An own-listing photo row with a given category + url (professional/styled so it scores).
+function ownRow(category: PhotoCategory, url: string): PhotoRow {
+  return {
+    image_url: url,
+    analysis_result: {
+      category,
+      subcategory: "",
+      tags: [],
+      extracted_text: "",
+      promotional_content: false,
+      promotional_details: "",
+      quality_signals: { lighting: "professional", staging: "styled" },
+      confidence: 0.9,
+      notable_changes: "",
+    },
+  }
+}
+
+const FOOD = "https://cdn/food.jpg"
+const INTERIOR = "https://cdn/interior.jpg"
+const EXTERIOR = "https://cdn/exterior.jpg"
+const STAFF = "https://cdn/staff.jpg"
 const ownLabel = "Testaurant Grill"
 
 describe("resolvePlayHeroPhoto", () => {
@@ -38,48 +61,56 @@ describe("resolvePlayHeroPhoto", () => {
         source: "social.x",
       },
     })
-    const r = resolvePlayHeroPhoto(p, { ownCover: OWN }, ownLabel)
+    const r = resolvePlayHeroPhoto(p, { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)
     expect(r).toEqual({ url: "https://cdn/joe-post.jpg", label: "Joe's Diner" })
   })
 
-  it("social play with no exemplar image → falls back to own cover", () => {
-    const r = resolvePlayHeroPhoto(play("social"), { ownCover: OWN }, ownLabel)
-    expect(r).toEqual({ url: OWN, label: ownLabel })
+  it("social play with no exemplar → falls back to a category-matched own photo", () => {
+    const r = resolvePlayHeroPhoto(play("social"), { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)
+    expect(r).toEqual({ url: FOOD, label: ownLabel })
   })
 
   it("competitive play → the named competitor's cover (name-normalized match)", () => {
     const p = play("positioning", {
       breakoutQuotes: [{ text: "…", source: "review.x", competitor: "Joe's Diner" }],
     })
-    // Stored name differs only by CASE from the play's cited name — both normalize to
-    // the same key ("joe s diner"), so the cover still matches (the punctuation-insensitive
-    // path is exercised by the shared apostrophe).
+    // Stored name differs only by CASE from the cited name — both normalize to "joe s diner".
     const sources: HeroPhotoSources = {
-      ownCover: OWN,
+      ownPhotos: [ownRow("exterior", EXTERIOR)],
       competitorCovers: buildCompetitorCoverMap([{ name: "JOE'S DINER", url: "https://cdn/joe.jpg" }]),
     }
-    const r = resolvePlayHeroPhoto(p, sources, ownLabel)
-    expect(r).toEqual({ url: "https://cdn/joe.jpg", label: "Joe's Diner" })
+    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: "https://cdn/joe.jpg", label: "Joe's Diner" })
   })
 
-  it("competitive play whose competitor has no cover → falls back to own cover", () => {
+  it("competitive play whose competitor has no cover → own photo (exterior preferred)", () => {
     const p = play("positioning", {
       breakoutQuotes: [{ text: "…", source: "review.x", competitor: "Nobody's Cafe" }],
     })
     const sources: HeroPhotoSources = {
-      ownCover: OWN,
+      ownPhotos: [ownRow("interior", INTERIOR), ownRow("exterior", EXTERIOR)],
       competitorCovers: buildCompetitorCoverMap([{ name: "Joe's Diner", url: "https://cdn/joe.jpg" }]),
     }
-    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: OWN, label: ownLabel })
+    // competitive prefers exterior first → EXTERIOR, not the interior shot.
+    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: EXTERIOR, label: ownLabel })
   })
 
-  it("reputation/menu/other play → own cover with the location label", () => {
-    expect(resolvePlayHeroPhoto(play("reputation"), { ownCover: OWN }, ownLabel)).toEqual({ url: OWN, label: ownLabel })
-    expect(resolvePlayHeroPhoto(play("menu"), { ownCover: OWN }, ownLabel)).toEqual({ url: OWN, label: ownLabel })
+  it("varies the own photo by insight family (fixes the repeated-cover problem)", () => {
+    const ownPhotos = [ownRow("interior", INTERIOR), ownRow("food_dish", FOOD)]
+    // menu wants food first; reputation wants interior/atmosphere first — same photos, different pick.
+    expect(resolvePlayHeroPhoto(play("menu"), { ownPhotos }, ownLabel)).toEqual({ url: FOOD, label: ownLabel })
+    expect(resolvePlayHeroPhoto(play("reputation"), { ownPhotos }, ownLabel)).toEqual({ url: INTERIOR, label: ownLabel })
   })
 
-  it("no matched image AND no own cover → null (caller renders the gradient)", () => {
-    expect(resolvePlayHeroPhoto(play("reputation"), { ownCover: null }, ownLabel)).toBeNull()
+  it("falls back to the best overall photo when nothing matches the family's categories", () => {
+    // menu prefers [food_dish, menu_board]; only a staff photo exists → still shows it, not nothing.
+    expect(resolvePlayHeroPhoto(play("menu"), { ownPhotos: [ownRow("staff_team", STAFF)] }, ownLabel)).toEqual({
+      url: STAFF,
+      label: ownLabel,
+    })
+  })
+
+  it("no own photos AND no competitor match → null (caller renders the gradient)", () => {
+    expect(resolvePlayHeroPhoto(play("reputation"), { ownPhotos: [] }, ownLabel)).toBeNull()
     expect(resolvePlayHeroPhoto(play("positioning"), {}, ownLabel)).toBeNull()
   })
 })

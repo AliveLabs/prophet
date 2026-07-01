@@ -67,7 +67,6 @@ export default function BriefView({
   ownPhotos = [],
   hasListing = false,
   shelfCompetitors = [],
-  ownCover = null,
   competitorCovers = [],
 }: {
   brief: Brief
@@ -84,9 +83,8 @@ export default function BriefView({
   ownPhotos?: PhotoRow[]
   hasListing?: boolean
   shelfCompetitors?: CompetitorPhotoGroup[]
-  /** Hero imagery: the operator's own-listing cover + one picked cover per competitor,
-   *  so the lead play's hero shows a real subject photo instead of the gradient default. */
-  ownCover?: string | null
+  /** Hero imagery: one picked cover per competitor, so a competitive lead play can show
+   *  that rival's photo. The own-photo tier is category-matched from `ownPhotos` above. */
   competitorCovers?: Array<{ name: string; url: string }>
 }) {
   const competitorCoverMap = buildCompetitorCoverMap(competitorCovers)
@@ -127,7 +125,7 @@ export default function BriefView({
   // cover / own-listing cover) when we have one, else the family gradient canvas. Only
   // the hero (isLead) carries a photo slot; grid cards stay text-only.
   const heroPhotoFor = (play: EnrichedRecommendation) => {
-    const resolved = resolvePlayHeroPhoto(play, { ownCover, competitorCovers: competitorCoverMap }, locationName)
+    const resolved = resolvePlayHeroPhoto(play, { ownPhotos, competitorCovers: competitorCoverMap }, locationName)
     return (
       <HeroImage
         url={resolved?.url}

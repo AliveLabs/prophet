@@ -92,7 +92,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
   const covers = await loadHeroCovers(ctx.locationId)
   const heroResolved = resolvePlayHeroPhoto(
     play,
-    { ownCover: covers.ownCover, competitorCovers: buildCompetitorCoverMap(covers.competitorCovers) },
+    { ownPhotos: covers.ownPhotos, competitorCovers: buildCompetitorCoverMap(covers.competitorCovers) },
     ctx.locationName,
   )
 
