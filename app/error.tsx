@@ -1,8 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import "./chrome.css"
+import { ReportIssueLink } from "@/components/ticket/report-issue-link"
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const [reportState, setReportState] = useState<"idle" | "sending" | "sent" | "failed">("idle")
+
   return (
     <main className="ticket-chrome">
       <div className="chrome-card">
@@ -15,6 +19,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           <a className="chrome-btn chrome-btn--ghost" href="/home">Back to your brief</a>
         </div>
         {error?.digest ? <p className="chrome-foot">Reference · {error.digest}</p> : null}
+        <ReportIssueLink error={error} state={reportState} onStateChange={setReportState} />
       </div>
     </main>
   )
