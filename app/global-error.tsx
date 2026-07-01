@@ -1,9 +1,13 @@
 "use client"
 
 // Catches errors in the root layout itself — must render its own <html>/<body>.
+import { useState } from "react"
 import "./chrome.css"
+import { ReportIssueLink } from "@/components/ticket/report-issue-link"
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const [reportState, setReportState] = useState<"idle" | "sending" | "sent" | "failed">("idle")
+
   return (
     <html lang="en">
       <body>
@@ -16,6 +20,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               <button className="chrome-btn" onClick={() => reset()}>Try again</button>
             </div>
             {error?.digest ? <p className="chrome-foot">Reference · {error.digest}</p> : null}
+            <ReportIssueLink error={error} state={reportState} onStateChange={setReportState} />
           </div>
         </main>
       </body>

@@ -42,6 +42,13 @@
 .chrome-foot { font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); margin: 56px 0 0; }
 @media (max-width: 560px) { .chrome-h { font-size: 40px; } }
 
+/* ALT-243: "Report this" control under the reference line on the error boundary. */
+.chrome-report { margin: 14px 0 0; }
+.chrome-report-link { font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; color: var(--ink-2); background: none; border: none; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.chrome-report-link:hover { color: var(--ink); }
+.chrome-report-link:disabled { cursor: default; opacity: .6; text-decoration: none; }
+.chrome-report-status { font-size: 13.5px; color: var(--print); margin: 8px 0 0; }
+
 /* ── Auth (login / signup) — floating premium card on the pearlescent canvas ──── */
 .auth-card { max-width: 440px; align-items: stretch; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: var(--r-xl); box-shadow: var(--shadow-lg); padding: 40px 38px 34px; }
 @media (prefers-reduced-motion: no-preference){ .auth-card{ animation: ob-card-in .5s var(--ease) both; } @keyframes ob-card-in{ from{ opacity:0; transform:translateY(12px) scale(.99);} to{ opacity:1; transform:none; } } }
