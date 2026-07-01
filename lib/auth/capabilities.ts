@@ -35,6 +35,7 @@ export type Capability =
   | "user.delete" // hard-delete a user (auth + cascade)
   | "admin.manage" // add / remove / re-role platform admins
   | "knowledge.manage" // promote/retire learned skill_knowledge rows (the §2.3.3 human gate)
+  | "source_quality.manage" // mark-resolved/reopen a source-quality triage flag (ALT-246)
 
 // Minimum role required for each capability. Read-only = view + export; admin = the
 // day-to-day surface; super_admin = the destructive / billing / governance surface.
@@ -57,6 +58,9 @@ export const CAPABILITY_MIN_ROLE: Record<Capability, AdminRole> = {
   // human-only question_demand) to ACTIVE — or retiring one — alters what every brief is built from.
   // That is governance-grade, so it's super_admin only (bryan + chris), like admin.manage.
   "knowledge.manage": "super_admin",
+  // Triage is data-quality bookkeeping (not governance-grade like knowledge.manage) — day-to-day
+  // admin work, so it sits at the same bar as org.manage/user.manage.
+  "source_quality.manage": "admin",
 }
 
 /** True iff `role` ranks at or above `minRole`. */

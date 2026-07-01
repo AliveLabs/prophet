@@ -7,6 +7,7 @@ import {
   insightFlag,
   aggregateBySource,
   sortFlagsNewestFirst,
+  filterByReviewStatus,
   type SourceQualityFlag,
   type LooksWrongRow,
   type InaccurateInsightRow,
@@ -109,6 +110,21 @@ describe("resolvePlayFlag", () => {
     }
     expect(resolvePlayFlag(row, briefWith([play]), loc).note).toBeUndefined()
   })
+
+  test("reviewed_status defaults to open, and passes through when resolved (ALT-246)", () => {
+    const play = makePlay({ evidenceRefs: ["event:1"] })
+    const baseRow: LooksWrongRow = {
+      location_id: "loc1",
+      date_key: "2026-06-28",
+      play_key: playKey(play),
+      note: null,
+      updated_at: "2026-06-28T12:00:00Z",
+    }
+    expect(resolvePlayFlag(baseRow, briefWith([play]), loc).reviewedStatus).toBe("open")
+    expect(
+      resolvePlayFlag({ ...baseRow, reviewed_status: "resolved" }, briefWith([play]), loc).reviewedStatus,
+    ).toBe("resolved")
+  })
 })
 
 describe("insightFlag", () => {
@@ -135,6 +151,38 @@ describe("insightFlag", () => {
   test("falls back to created_at when feedback_at is null", () => {
     expect(insightFlag({ ...base, feedback_at: null }, loc).flaggedAt).toBe("2026-06-20T00:00:00Z")
   })
+
+  test("reviewed_status defaults to open, and passes through when resolved (ALT-246)", () => {
+    expect(insightFlag(base, loc).reviewedStatus).toBe("open")
+    expect(insightFlag({ ...base, reviewed_status: "resolved" }, loc).reviewedStatus).toBe("resolved")
+  })
+})
+
+describe("filterByReviewStatus", () => {
+  const flagged = (id: string, reviewedStatus: "open" | "resolved"): SourceQualityFlag => ({
+    id,
+    kind: "insight",
+    flaggedAt: "2026-06-28T00:00:00Z",
+    locationId: "l",
+    locationName: "L",
+    title: "t",
+    sources: [],
+    sourceFamily: "X",
+    reviewedStatus,
+  })
+
+  test("'open' keeps only open flags (the default view)", () => {
+    const flags = [flagged("a", "open"), flagged("b", "resolved")]
+    expect(filterByReviewStatus(flags, "open").map((f) => f.id)).toEqual(["a"])
+  })
+  test("'resolved' keeps only resolved flags", () => {
+    const flags = [flagged("a", "open"), flagged("b", "resolved")]
+    expect(filterByReviewStatus(flags, "resolved").map((f) => f.id)).toEqual(["b"])
+  })
+  test("'all' keeps everything, unfiltered", () => {
+    const flags = [flagged("a", "open"), flagged("b", "resolved")]
+    expect(filterByReviewStatus(flags, "all").map((f) => f.id)).toEqual(["a", "b"])
+  })
 })
 
 describe("aggregateBySource", () => {
@@ -153,6 +201,7 @@ describe("aggregateBySource", () => {
     note,
     sources: [],
     sourceFamily: family,
+    reviewedStatus: "open",
   })
 
   test("groups by family, sorts by count desc then family asc, splits kinds", () => {
@@ -180,8 +229,8 @@ describe("aggregateBySource", () => {
 describe("sortFlagsNewestFirst", () => {
   test("returns a new array sorted newest-first without mutating input", () => {
     const input: SourceQualityFlag[] = [
-      { id: "a", kind: "insight", flaggedAt: "2026-06-20T00:00:00Z", locationId: "l", locationName: "L", title: "old", sources: [], sourceFamily: "X" },
-      { id: "b", kind: "brief_play", flaggedAt: "2026-06-28T00:00:00Z", locationId: "l", locationName: "L", title: "new", sources: [], sourceFamily: "X" },
+      { id: "a", kind: "insight", flaggedAt: "2026-06-20T00:00:00Z", locationId: "l", locationName: "L", title: "old", sources: [], sourceFamily: "X", reviewedStatus: "open" },
+      { id: "b", kind: "brief_play", flaggedAt: "2026-06-28T00:00:00Z", locationId: "l", locationName: "L", title: "new", sources: [], sourceFamily: "X", reviewedStatus: "open" },
     ]
     const out = sortFlagsNewestFirst(input)
     expect(out.map((f) => f.title)).toEqual(["new", "old"])

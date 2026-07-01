@@ -40,14 +40,18 @@ type AdminClient = SupabaseClient<Database>
 
 export default async function SourceQualityPage() {
   await connection()
-  await requirePlatformAdminContext() // redirect non-admins; read-only, no capability needed to view
+  const { role } = await requirePlatformAdminContext() // redirect non-admins
+  // Triage (mark-resolved/reopen) needs source_quality.manage (= admin+); read_only sees the
+  // queue but not the action buttons. The server action enforces this independently — this
+  // just keeps the UI honest (mirrors knowledge-review's canManage gate).
+  const canManage = role !== "read_only"
 
   const supabase = createAdminSupabaseClient()
 
   const flags = sortFlagsNewestFirst(await loadFlags(supabase))
   const aggregates = aggregateBySource(flags)
 
-  return <SourceQualityQueue flags={flags} aggregates={aggregates} windowDays={WINDOW_DAYS} />
+  return <SourceQualityQueue flags={flags} aggregates={aggregates} windowDays={WINDOW_DAYS} canManage={canManage} />
 }
 
 // ── data layer ─────────────────────────────────────────────────────────────────────────────
@@ -76,8 +80,9 @@ async function loadFlags(supabase: AdminClient): Promise<SourceQualityFlag[]> {
   return [...briefFlags, ...insightFlags]
 }
 
-/** play_actions.reason/.note aren't in the generated DB types yet — use a loose surface (same posture
- *  as brief-actions.ts). Pre-migration the `reason` column is absent → the query errors → empty. */
+/** play_actions.reason/.note/.reviewed_status aren't in the generated DB types yet — use a loose
+ *  surface (same posture as brief-actions.ts). Pre-migration the missing column errors the query →
+ *  empty (caught below). */
 type LooseQuery = {
   from: (t: string) => {
     select: (c: string) => {
@@ -93,11 +98,27 @@ type LooseQuery = {
   }
 }
 
+/** Same posture as LooseQuery, for the insights read (no `.gte()` — windowing happens client-side
+ *  against feedback_at/created_at, same as before this migration). insights.reviewed_status isn't
+ *  in the generated types yet either. */
+type LooseInsightsQuery = {
+  from: (t: string) => {
+    select: (c: string) => {
+      eq: (c: string, v: string) => {
+        order: (
+          c: string,
+          o: { ascending: boolean },
+        ) => Promise<{ data: Record<string, unknown>[] | null; error: unknown }>
+      }
+    }
+  }
+}
+
 async function loadLooksWrongRows(supabase: AdminClient, sinceIso: string): Promise<LooksWrongRow[]> {
   try {
     const { data } = await (supabase as unknown as LooseQuery)
       .from("play_actions")
-      .select("location_id, date_key, play_key, note, updated_at")
+      .select("location_id, date_key, play_key, note, updated_at, reviewed_status")
       .eq("reason", "looks_wrong")
       .gte("updated_at", sinceIso)
       .order("updated_at", { ascending: false })
@@ -107,6 +128,7 @@ async function loadLooksWrongRows(supabase: AdminClient, sinceIso: string): Prom
       play_key: String(r.play_key ?? ""),
       note: typeof r.note === "string" ? r.note : null,
       updated_at: String(r.updated_at ?? ""),
+      reviewed_status: typeof r.reviewed_status === "string" ? r.reviewed_status : null,
     }))
   } catch {
     return []
@@ -115,22 +137,23 @@ async function loadLooksWrongRows(supabase: AdminClient, sinceIso: string): Prom
 
 async function loadInaccurateInsightRows(supabase: AdminClient, sinceIso: string): Promise<InaccurateInsightRow[]> {
   try {
-    const { data } = await supabase
+    const { data } = await (supabase as unknown as LooseInsightsQuery)
       .from("insights")
-      .select("id, location_id, insight_type, title, summary, created_at, feedback_at")
+      .select("id, location_id, insight_type, title, summary, created_at, feedback_at, reviewed_status")
       .eq("status", "inaccurate")
-      .order("feedback_at", { ascending: false, nullsFirst: false })
+      .order("feedback_at", { ascending: false })
     // Window by when it was flagged (feedback_at), falling back to created_at when unset.
     return (data ?? [])
-      .filter((r) => (r.feedback_at ?? r.created_at) >= sinceIso)
+      .filter((r) => String(r.feedback_at ?? r.created_at ?? "") >= sinceIso)
       .map((r) => ({
-        id: r.id,
-        location_id: r.location_id,
-        insight_type: r.insight_type,
-        title: r.title,
-        summary: r.summary,
-        created_at: r.created_at,
-        feedback_at: r.feedback_at,
+        id: String(r.id ?? ""),
+        location_id: String(r.location_id ?? ""),
+        insight_type: String(r.insight_type ?? ""),
+        title: typeof r.title === "string" ? r.title : null,
+        summary: typeof r.summary === "string" ? r.summary : null,
+        created_at: String(r.created_at ?? ""),
+        feedback_at: typeof r.feedback_at === "string" ? r.feedback_at : null,
+        reviewed_status: typeof r.reviewed_status === "string" ? r.reviewed_status : null,
       }))
   } catch {
     return []

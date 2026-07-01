@@ -65,6 +65,48 @@
 }
 .sq-stat.sq-stat-accent .sq-v { color: var(--rust-deep); }
 
+/* ── toolbar (status filter + count) — ALT-246 ──────────────── */
+.sq-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 22px; }
+.sq-select {
+  appearance: none; -webkit-appearance: none;
+  font-family: var(--font-display); font-size: 13px; font-weight: 600;
+  color: var(--ink); background: var(--card); border: 1.5px solid var(--line-2);
+  border-radius: 11px; padding: 10px 36px 10px 14px; min-height: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23756A5D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 13px center;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+}
+.sq-select:hover { border-color: var(--ink-3); }
+.sq-toolbar .sq-count {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; color: var(--ink-2);
+}
+
+/* ── triage action banner + buttons — ALT-246 ───────────────── */
+.sq-banner {
+  display: flex; align-items: center; gap: 10px;
+  border-radius: var(--r-md); padding: 12px 16px; font-size: 13.5px; font-weight: 600;
+  border: 1px solid; line-height: 1.4; margin-top: 16px;
+}
+.sq-banner svg { width: 16px; height: 16px; flex: none; }
+.sq-banner.sq-ok { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 35%, transparent); }
+.sq-banner.sq-err { background: var(--alert-wash); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 35%, transparent); }
+
+.sq-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+}
+.sq-status .sq-dot { width: 6px; height: 6px; border-radius: 50%; }
+.sq-status--open { background: var(--rust-tint); color: var(--rust-deep); }
+.sq-status--open .sq-dot { background: var(--rust); }
+.sq-status--resolved { background: var(--teal-tint); color: var(--teal-deep); }
+.sq-status--resolved .sq-dot { background: var(--teal); }
+
+.sq-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; }
+.sq-btn[disabled] { opacity: .5; cursor: not-allowed; }
+.sq-readonly { font-size: 12px; color: var(--ink-3); font-style: italic; padding-top: 4px; }
+
 /* ── sections ────────────────────────────────────────────── */
 .sq-section { margin-top: 32px; }
 .sq-h2 {
