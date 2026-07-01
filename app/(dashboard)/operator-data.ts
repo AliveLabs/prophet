@@ -306,7 +306,11 @@ function cachedWeekdayDescriptions(meta: Record<string, unknown> | null): string
   const pd = (meta?.placeDetails as Record<string, unknown> | null) ?? null
   const reg = (pd?.regularOpeningHours as { weekdayDescriptions?: string[] } | null) ?? null
   const cur = (pd?.currentOpeningHours as { weekdayDescriptions?: string[] } | null) ?? null
-  const wd = reg?.weekdayDescriptions ?? cur?.weekdayDescriptions
+  // ALT-264 — the busy-times pull caches the same place's posted hours under
+  // metadata.outscraperHours (traffic pipeline); use it when the Places profile
+  // never landed. Most of the watched set only has the Outscraper read.
+  const osh = (meta?.outscraperHours as { weekdayDescriptions?: string[] } | null) ?? null
+  const wd = reg?.weekdayDescriptions ?? cur?.weekdayDescriptions ?? osh?.weekdayDescriptions
   return Array.isArray(wd) && wd.length > 0 ? wd : null
 }
 

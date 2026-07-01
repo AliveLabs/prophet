@@ -52,7 +52,13 @@ export default function CompetitorComparison({
   todayDow: number
   locationId?: string
 }) {
-  const hasHours = hoursEntities.some((e) => e.hoursKnown)
+  // ALT-264 — busy-only rows count too: the open-hours bar renders an observed
+  // window from the busy curve even when posted hours can't be read.
+  const hasHours = hoursEntities.some(
+    (e) =>
+      e.hoursKnown ||
+      e.days.some((d) => Array.isArray(d.hourly_scores) && d.hourly_scores.some((s) => s > 0)),
+  )
 
   // Nothing pulled on any side yet — one honest empty state, no fake viz.
   if (!hasCompetitorData && !hasOwnData && !hasHours) {

@@ -6,6 +6,8 @@ import {
   isOpenAtHour,
   openHourCount,
   openLabel,
+  observedWindow,
+  observedLabel,
 } from "@/lib/competitors/open-hours"
 
 describe("competitors/open-hours · parseSpan", () => {
@@ -164,5 +166,39 @@ describe("competitors/open-hours · helpers", () => {
     expect(openLabel(parseSpan("7 AM – 2 PM, 5 PM – 10 PM"))).toBe("7 AM - 2 PM, 5 PM - 10 PM")
     // No en/em dashes in the user-facing label (Ticket voice rule).
     expect(openLabel(parseSpan("9 AM – 5 PM"))).not.toMatch(/–|—/)
+  })
+})
+
+// ALT-264 — activity-observed fallback for spots with unreadable posted hours.
+describe("competitors/open-hours · observedWindow", () => {
+  it("spans first to last active hour (half-open end)", () => {
+    const scores = Array(24).fill(0)
+    scores[10] = 30
+    scores[15] = 80
+    scores[21] = 12
+    expect(observedWindow(scores)).toEqual({ start: 10, end: 22 })
+  })
+
+  it("bridges a mid-day lull into one conservative span (never two invented windows)", () => {
+    const scores = Array(24).fill(0)
+    scores[8] = 40
+    scores[9] = 25
+    // 10a-4p reads 0 (very quiet, still open) — the span must not split.
+    scores[17] = 60
+    scores[19] = 100
+    expect(observedWindow(scores)).toEqual({ start: 8, end: 20 })
+  })
+
+  it("returns null for all-zero, missing, or empty curves", () => {
+    expect(observedWindow(Array(24).fill(0))).toBeNull()
+    expect(observedWindow(null)).toBeNull()
+    expect(observedWindow(undefined)).toBeNull()
+    expect(observedWindow([])).toBeNull()
+  })
+
+  it("labels the window as observed, plain language, hyphen range", () => {
+    expect(observedLabel({ start: 10, end: 22 })).toBe("Observed 10 AM - 10 PM")
+    expect(observedLabel({ start: 0, end: 24 })).toBe("Observed 12 AM - 12 AM")
+    expect(observedLabel({ start: 10, end: 22 })).not.toMatch(/–|—/)
   })
 })

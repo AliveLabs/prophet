@@ -75,6 +75,31 @@ export function buildTrafficSteps(): PipelineStepDef<TrafficPipelineCtx>[] {
                   current_popularity: result.current_popularity,
                 })),
               )
+
+              // ALT-264 — the same pull carries the place's posted hours; cache them on
+              // the competitor so "Who's open when" renders a real window without a paid
+              // Places call. Read-modify-write on the jsonb (the worker loop is
+              // sequential, so last-writer-wins is acceptable here).
+              if (result.working_hours_lines) {
+                const { data: compRow } = await ctx.supabase
+                  .from("competitors")
+                  .select("metadata")
+                  .eq("id", comp.id)
+                  .maybeSingle()
+                const meta = (compRow?.metadata as Record<string, unknown> | null) ?? {}
+                await ctx.supabase
+                  .from("competitors")
+                  .update({
+                    metadata: {
+                      ...meta,
+                      outscraperHours: {
+                        weekdayDescriptions: result.working_hours_lines,
+                        updated_at: ctx.dateKey,
+                      },
+                    },
+                  })
+                  .eq("id", comp.id)
+              }
             }
             await sleep(500)
           } catch (err) {
