@@ -11,7 +11,8 @@ import { fetchPhotosPageData } from "@/lib/cache/photos"
 import { pickCoverPhoto, type PhotoRow } from "@/lib/places/listing-audit"
 
 export type HeroCovers = {
-  ownCover: string | null
+  /** the operator's own-listing photo rows — the resolver category-matches within these */
+  ownPhotos: PhotoRow[]
   /** one picked cover per competitor that has a usable photo */
   competitorCovers: Array<{ name: string; url: string }>
 }
@@ -30,10 +31,8 @@ export async function loadHeroCovers(locationId: string): Promise<HeroCovers> {
 
   const photos = await fetchPhotosPageData(locationId, approved.map((c) => c.id))
 
-  const ownCover = pickCoverPhoto(
-    photos.ownPhotos.map((p): PhotoRow => ({ analysis_result: p.analysis_result, image_url: p.image_url })),
-  )
-  return { ownCover, competitorCovers: competitorCoversFrom(photos.photos, new Map(approved.map((c) => [c.id, c.name]))) }
+  const ownPhotos = photos.ownPhotos.map((p): PhotoRow => ({ analysis_result: p.analysis_result, image_url: p.image_url }))
+  return { ownPhotos, competitorCovers: competitorCoversFrom(photos.photos, new Map(approved.map((c) => [c.id, c.name]))) }
 }
 
 /** Pure: pick one cover per competitor from their photo rows. Shared by the brief page

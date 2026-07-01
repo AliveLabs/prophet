@@ -181,6 +181,33 @@ export function pickCoverPhoto(rows: PhotoRow[]): string | null {
   return best?.url ?? null
 }
 
+// Category-aware variant of the cover picker. Picks the photo whose category best fits the
+// SURFACE, ranked by the caller's `prefer` ORDER (a menu insight → a food_dish shot; a
+// reputation insight → an interior/atmosphere shot) so the image is RELEVANT to the card
+// AND different insight families don't all render the same single cover. Ranking by prefer-
+// order (not the generic cover priority) is deliberate: it keeps food_dish from winning
+// every family just because it outranks other slots. Quality breaks ties within a category.
+// Falls back to the best overall cover when the entity has nothing in the preferred set.
+export function pickInsightPhoto(rows: PhotoRow[], prefer: PhotoCategory[]): string | null {
+  if (prefer.length) {
+    let best: { url: string; rank: number; quality: number } | null = null
+    for (const r of rows) {
+      if (!r.image_url) continue
+      const a = parseAnalysis(r.analysis_result)
+      if (!a) continue
+      const rank = prefer.indexOf(a.category)
+      if (rank < 0) continue
+      const quality =
+        (a.quality_signals.lighting === "professional" ? 3 : 0) + (a.quality_signals.staging === "styled" ? 1 : 0)
+      if (!best || rank < best.rank || (rank === best.rank && quality > best.quality)) {
+        best = { url: r.image_url, rank, quality }
+      }
+    }
+    if (best) return best.url
+  }
+  return pickCoverPhoto(rows)
+}
+
 // Essentials for an entity = the always-on set + any conditional slot the entity
 // clearly has (a bar/patio photo of its own is the evidence it exists).
 function essentialSlotsFor(presentSlots: Set<ListingSlot>): ListingSlot[] {

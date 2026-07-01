@@ -8,7 +8,6 @@ import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
 import BriefView from "./brief-view"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
-import { pickCoverPhoto } from "@/lib/places/listing-audit"
 import { competitorCoversFrom } from "./hero-covers"
 import "./brief.css"
 
@@ -121,11 +120,10 @@ export default async function HomePage() {
     rows,
   }))
 
-  // Hero imagery (2026-07-01): the brief's lead-play hero shows a REAL photo instead of
-  // the gradient default. Own-listing cover for own/reputation/menu plays (+ the universal
-  // fallback); per-competitor covers so a competitive play can show THAT rival's photo.
-  // Both are pure picks over photo data already fetched above — no new query.
-  const ownCover = pickCoverPhoto(ownPhotos)
+  // Hero imagery (2026-07-01): the lead play's hero shows a REAL photo instead of the
+  // gradient default. The own-photo tier is category-matched per insight inside BriefView
+  // (from ownPhotos, above); here we only pick one cover per competitor so a competitive
+  // play can show THAT rival's photo. Pure picks over data already fetched — no new query.
   const competitorCovers = competitorCoversFrom(photosData.photos, compNameById)
 
   return (
@@ -142,7 +140,6 @@ export default async function HomePage() {
       ownPhotos={ownPhotos}
       hasListing={!!locRow.primary_place_id}
       shelfCompetitors={shelfCompetitors}
-      ownCover={ownCover}
       competitorCovers={competitorCovers}
     />
   )
