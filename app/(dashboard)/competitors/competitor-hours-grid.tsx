@@ -1,26 +1,25 @@
 "use client"
 
-// ALT-231 — "Who's open when": a 24-hour OPEN-HOURS bar per competitor, with the
-// busy curve painted INSIDE the open window (quiet → busy, same gold ramp as the
-// weekly heatmap above), navigable ONE DAY AT A TIME (default = today) via a day
-// selector + prev/next. Each row can expand into its own 7-day breakdown (the
-// "accordion" from the 2026-06-29 review) so we never render 7 days × every spot
-// at once.
+// "Who's busy when" (ALT-262/263/265 rebuild of ALT-231's "Who's open when") — one
+// composite rhythm read for the whole set: a 24-hour track per spot showing WHEN
+// it's open and the SHAPE of its day (an area curve of Google popular times),
+// navigable one day at a time, with a per-spot week profile and a generated
+// plain-language read line.
 //
-// Design language is Concept A's window track: closed hours read as a muted
-// diagonal hatch, open hours as filled cells. Honest framing: open hours + busy
-// curves are Google Maps data; a spot with no readable hours shows an explicit
-// "hours unavailable" track — we never invent a window. Pure data-viz, so the card
-// carries the "Ask Ticket about this" T-bubble (ALT-230) to turn the picture into
-// an insight.
+// THE HONESTY RULE THAT SHAPES THIS WIDGET: Google's busy score is "% of that
+// spot's OWN typical peak" — a self-normalized number with no headcount in it.
+// Research (2026-07-01, Reddit/GBP operator sweep) showed people read a bare
+// percentage as occupancy, so the surface NEVER shows the raw % — it speaks in
+// four plain levels (Quiet / Steady / Busy / Their peak), the same categorical
+// language Google Maps itself uses. The truly comparable numbers stay numeric:
+// peak TIME, open hours, day-of-week profile. Cross-spot magnitude comparison
+// ("who's busier") deliberately does not exist here — that question is answered
+// honestly by the scorecard's absolute metrics, not by popular times.
 //
-// ALT-264 — belt-and-suspenders fallback: when a spot's POSTED hours can't be read
-// but its busy curve exists, we still paint the busy read — on an "observed
-// activity" window (dashed band edges, labeled as observed) derived from the hours
-// Google saw activity. The widget only goes to its empty state when there's
-// neither hours NOR activity for the whole set.
+// ALT-264 fallback preserved: a spot with unreadable posted hours but observed
+// activity paints its curve on a dashed "observed" window, labeled as such.
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useId, useMemo, useState } from "react"
 import { RevealOnView, TkCard, TkSectionHead, TkEmptyState } from "@/components/ticket"
 import { VizTBubble, type VizContext } from "@/components/ticket/viz-tbubble"
 import { tkcx as cx } from "@/components/ticket/primitives"
@@ -42,7 +41,7 @@ export type HoursDay = {
   hourly_scores: number[] | null
 }
 
-/** One entity (own location or a competitor) for the open-hours grid. */
+/** One entity (own location or a competitor) for the rhythm grid. */
 export type HoursEntity = {
   competitor_id: string
   name: string
@@ -54,8 +53,9 @@ export type HoursEntity = {
 
 const DAY_FULL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-const HOURS = Array.from({ length: 24 }, (_, i) => i) // 0..23 — full day (breakfast → late night)
-const AXIS = [0, 6, 12, 18, 24] // tick hours under the track
+const DAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"]
+const HOURS = Array.from({ length: 24 }, (_, i) => i) // 0..23 — full day
+const AXIS = [0, 6, 12, 18, 24] // tick hours under the tracks
 
 const CLOCK_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -64,16 +64,16 @@ const CLOCK_ICON = (
   </svg>
 )
 
-/** Busy intensity → background. DESIGN DECISION (ALT-231): the 2026-06-29 review
- *  referenced the old traffic visual's "white to dark red" ramp, but we deliberately
- *  use the GOLD ramp here to match the weekly "When the block fills up" heatmap that
- *  sits directly above this widget on the same page — the two busy reads then share
- *  one visual language, and gold reads as "activity" rather than red's "alert/danger".
- *  Same mix math as traffic-heatmap-grid's heatStyle. */
-function busyBg(score: number): string {
-  const t = Math.min(1, Math.max(0, score) / 100)
-  const pct = Math.round(18 + t * 70) // 18%→88% gold mix
-  return `color-mix(in srgb, var(--gold) ${pct}%, var(--card))`
+/* ── Busy levels: the ONE user-facing encoding of the relative busy score.
+      Words, not percentages (see header comment). Thresholds tuned so "Their
+      peak" only claims the top of a spot's own curve. ── */
+const LEVEL_LABEL = ["Quiet", "Steady", "Busy", "Their peak"] as const
+function busyLevel(score: number): -1 | 0 | 1 | 2 | 3 {
+  if (score <= 0) return -1
+  if (score < 40) return 0
+  if (score < 70) return 1
+  if (score < 90) return 2
+  return 3
 }
 
 function hourTick(h: number): string {
@@ -83,34 +83,42 @@ function hourTick(h: number): string {
   return hh < 12 ? `${hh}a` : `${hh - 12}p`
 }
 
-const pct = (n: number): string => `${(n / 24) * 100}%`
+const pctX = (n: number): string => `${(n / 24) * 100}%`
 
-/** One 24-hour track for an entity on one day. The track BACKGROUND is a seamless
- *  diagonal "closed" hatch (Concept A); open windows paint as a calm tint band on
- *  top, and the busy curve paints per-hour heat cells over the band (quiet → busy).
- *  Open-but-not-pulled hours stay the calm tint — honest, never a fabricated peak. */
-function HoursTrack({
+/** Resolve a day's effective window + whether it's observed-only (ALT-264). */
+function effectiveDay(day: DayHours, scores: number[] | null): { eff: DayHours; observed: boolean } {
+  const obs = !day.known ? observedWindow(scores) : null
+  return {
+    observed: obs != null,
+    eff: obs ? { known: true, open: true, is24h: false, intervals: [obs] } : day,
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   RhythmTrack — one 24h track: hatch = closed, tint band = open (dashed
+   when observed-only), and the busy curve as an area shape INSIDE the
+   window. The curve's amplitude carries the story (a spot that runs hot
+   all day still shows a visible peak); the rust dot + "7p peak" label
+   mark each spot's own busiest hour. The raw % never renders.
+   ════════════════════════════════════════════════════════════════════ */
+const TRACK_H = 44 // non-compact track height (compact rows keep the 16px CSS class)
+
+function RhythmTrack({
   day,
   scores,
   compact = false,
+  scrubHour = null,
 }: {
   day: DayHours
   scores: number[] | null
   compact?: boolean
+  /** shared hover hour (0-23) — paints the guide + level chip; null = idle */
+  scrubHour?: number | null
 }) {
-  // ALT-264 — posted hours unreadable but Google observed activity ⇒ render the
-  // busy curve on an OBSERVED window (dashed band) instead of a dead flat track.
-  const { eff, observed } = useMemo(() => {
-    const obs = !day.known ? observedWindow(scores) : null
-    return {
-      observed: obs != null,
-      eff: obs
-        ? ({ known: true, open: true, is24h: false, intervals: [obs] } as DayHours)
-        : day,
-    }
-  }, [day, scores])
+  const gid = useId()
+  const { eff, observed } = useMemo(() => effectiveDay(day, scores), [day, scores])
 
-  // Busiest OPEN hour (with data) → a subtle peak cap, echoing Concept A's "surge".
+  // The spot's own busiest hour (needs a real curve — no false peaks on flat data).
   const peakHour = useMemo(() => {
     if (!eff.open || !scores) return -1
     let best = -1
@@ -121,7 +129,24 @@ function HoursTrack({
         best = h
       }
     }
-    return bestScore >= 12 ? best : -1 // ignore flat curves — no false "peak"
+    return bestScore >= 12 ? best : -1
+  }, [eff, scores])
+
+  // Area path over a 100×36 viewBox (preserveAspectRatio=none stretches it to the
+  // track). Closed / no-data hours sit on the baseline, so the shape lives inside
+  // the open window by construction.
+  const H = 36
+  const path = useMemo(() => {
+    if (!eff.open || !scores) return null
+    const y = (v: number) => (v <= 0 ? H : H - 2 - (Math.min(100, v) / 100) * (H - 8))
+    const x = (h: number) => ((h + 0.5) / 24) * 100
+    let d = `M 0 ${H}`
+    for (const h of HOURS) {
+      const v = isOpenAtHour(eff, h) ? (scores[h] ?? 0) : 0
+      d += ` L ${x(h).toFixed(2)} ${y(v).toFixed(2)}`
+    }
+    d += ` L 100 ${H} Z`
+    return d
   }, [eff, scores])
 
   if (!eff.known) {
@@ -139,42 +164,231 @@ function HoursTrack({
     )
   }
 
-  // Screen readers can't see the gold busy ramp, so fold the busy story into the
-  // track's label (a text alternative for the color-encoded data — WCAG 1.4.1/1.3.1).
   const windowTxt = observed
     ? `${observedLabel(eff.intervals[0])} (posted hours unavailable)`
     : openLabel(eff)
+  // The color/shape story, spoken: window + when the spot peaks (WCAG 1.4.1/1.3.1).
   const srLabel =
-    peakHour >= 0 && scores
-      ? `${windowTxt}. Busiest around ${hourTick(peakHour)}, ${scores[peakHour]}% of its typical peak`
-      : windowTxt
+    peakHour >= 0 ? `${windowTxt}. Busiest around ${hourTick(peakHour)}.` : windowTxt
+
+  const scrubLevel =
+    scrubHour != null && scores && isOpenAtHour(eff, scrubHour)
+      ? busyLevel(scores[scrubHour] ?? 0)
+      : null
 
   return (
-    <div className={cx("tk-hrs-track", compact && "tk-hrs-track-sm")} role="img" aria-label={srLabel}>
+    <div
+      className={cx("tk-hrs-track", compact && "tk-hrs-track-sm")}
+      style={compact ? undefined : { height: TRACK_H }}
+      role="img"
+      aria-label={srLabel}
+    >
       {eff.intervals.map((iv, i) => (
         <div
           key={`band-${i}`}
           className={cx("tk-hrs-band", observed && "tk-hrs-band-obs")}
-          style={{ left: pct(iv.start), width: pct(iv.end - iv.start) }}
+          style={{ left: pctX(iv.start), width: pctX(iv.end - iv.start) }}
         />
       ))}
-      {scores &&
-        HOURS.map((h) => {
-          if (!isOpenAtHour(eff, h)) return null
-          const s = scores[h]
-          if (s == null) return null
-          return (
-            <div
-              key={`heat-${h}`}
-              className={cx("tk-hrs-heat", h === peakHour && "tk-hrs-peak")}
-              style={{ left: pct(h), width: pct(1), background: busyBg(s) }}
-              data-tip={`${hourTick(h)} to ${hourTick(h + 1)} · ${s}% of own typical peak`}
+
+      {path && (
+        <svg
+          className="tk-hrs-curve"
+          viewBox={`0 0 100 ${H}`}
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <defs>
+            <linearGradient id={gid} x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0" stopColor="var(--gold-tint)" />
+              <stop offset="1" stopColor="var(--gold)" />
+            </linearGradient>
+          </defs>
+          <path d={path} fill={`url(#${gid})`} stroke="var(--gold-2)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          {peakHour >= 0 && scores && (
+            <circle
+              cx={((peakHour + 0.5) / 24) * 100}
+              cy={H - 2 - (Math.min(100, scores[peakHour] ?? 0) / 100) * (H - 8)}
+              r={compact ? 1.6 : 2.2}
+              fill="var(--rust)"
+              stroke="var(--card)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
             />
-          )
-        })}
+          )}
+        </svg>
+      )}
+
+      {/* The honest cross-venue number: WHEN they peak (never a bare %). */}
+      {!compact && peakHour >= 0 && (
+        <span
+          className="tk-hrs-peaklbl"
+          style={{ left: `clamp(28px, ${(((peakHour + 0.5) / 24) * 100).toFixed(1)}%, calc(100% - 34px))` }}
+          aria-hidden="true"
+        >
+          {hourTick(peakHour)} peak
+        </span>
+      )}
+
+      {/* Scrub: shared vertical guide + this spot's level word at that hour. */}
+      {!compact && scrubHour != null && (
+        <>
+          <span className="tk-hrs-guide" style={{ left: pctX(scrubHour + 0.5) }} aria-hidden="true" />
+          <span
+            className={cx("tk-hrs-scrub-chip", scrubLevel === 3 && "tk-hrs-scrub-peak")}
+            style={{ left: `clamp(34px, ${(((scrubHour + 0.5) / 24) * 100).toFixed(1)}%, calc(100% - 40px))` }}
+            aria-hidden="true"
+          >
+            {scrubLevel != null && scrubLevel !== -1 ? LEVEL_LABEL[scrubLevel] : "—"}
+          </span>
+        </>
+      )}
     </div>
   )
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   WeekMiniMap — 7 tiny bars: each day's peak height for this spot, the
+   spot's best day in rust. Answers "which days do they perform" at a
+   glance; clicking a bar drives the shared day selector.
+   ════════════════════════════════════════════════════════════════════ */
+function WeekMiniMap({
+  entity,
+  selectedDay,
+  onPick,
+}: {
+  entity: HoursEntity
+  selectedDay: number
+  onPick: (d: number) => void
+}) {
+  const profile = useMemo(() => {
+    const peaks = Array.from({ length: 7 }, (_, d) => {
+      const dh = entity.days.find((x) => x.day_of_week === d)
+      const s = dh?.hourly_scores
+      return Array.isArray(s) && s.length ? Math.max(...s) : 0
+    })
+    let best = -1
+    for (let d = 0; d < 7; d++) if (peaks[d] > 0 && (best < 0 || peaks[d] > peaks[best])) best = d
+    return { peaks, best }
+  }, [entity])
+
+  if (profile.best < 0) return <div className="tk-hrs-week-map" aria-hidden="true" />
+
+  return (
+    <div className="tk-hrs-week-map">
+      <div className="tk-hrs-wbars" role="group" aria-label={`${entity.name} — strongest days`}>
+        {profile.peaks.map((p, d) => (
+          <button
+            key={d}
+            type="button"
+            className={cx(
+              "tk-hrs-wbar",
+              d === profile.best && "tk-hrs-wbar-best",
+              d === selectedDay && "tk-hrs-wbar-on",
+            )}
+            aria-label={`Switch to ${DAY_FULL[d]}`}
+            aria-pressed={d === selectedDay}
+            onClick={() => onPick(d)}
+          >
+            {/* px heights (22px bar area) — deterministic for SSR, no %-of-flex quirks */}
+            <i style={{ height: `${Math.max(3, Math.round((p / 100) * 22))}px` }} aria-hidden="true" />
+            <span aria-hidden="true">{DAY_LETTER[d]}</span>
+          </button>
+        ))}
+      </div>
+      <span className="tk-hrs-wbest">
+        Best: <b>{DAY_ABBR[profile.best]}</b>
+      </span>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   The read line — the picture, answered as the operator's own questions
+   ("is everyone slow tonight, or just me?" / "where's my open gap?").
+   Pure derivation from the curves; fail-soft (hidden when it has nothing
+   confident to say).
+   ════════════════════════════════════════════════════════════════════ */
+function scoresFor(e: HoursEntity, d: number): number[] | null {
+  return e.days.find((x) => x.day_of_week === d)?.hourly_scores ?? null
+}
+
+function isActiveAt(e: HoursEntity, d: number, h: number): boolean {
+  const dh = e.days.find((x) => x.day_of_week === d)
+  if (!dh) return false
+  const { eff } = effectiveDay(dh.hours, dh.hourly_scores)
+  return eff.open && isOpenAtHour(eff, h)
+}
+
+function computeRead(entities: HoursEntity[], day: number): string[] {
+  const you = entities.find((e) => e.isYou) ?? null
+  const comps = entities.filter((e) => !e.isYou)
+  if (comps.length === 0) return []
+  const parts: string[] = []
+
+  // (a) When does the set run hot — and are you in that fight? Requires 2+ hot
+  //     competitors before claiming a set-wide read; ties break to the hour with
+  //     the strongest combined curve (not just the earliest).
+  let bestH = -1
+  let bestC = 1
+  let bestSum = -1
+  for (let h = 6; h < 24; h++) {
+    let c = 0
+    let sum = 0
+    for (const e of comps) {
+      const s = scoresFor(e, day)
+      const v = s ? (s[h] ?? 0) : 0
+      if (busyLevel(v) >= 2) c++
+      sum += v
+    }
+    if (c > bestC || (c === bestC && c > 1 && sum > bestSum)) {
+      bestC = c
+      bestSum = sum
+      bestH = h
+    }
+  }
+  if (bestH >= 0) {
+    const ys = you ? scoresFor(you, day) : null
+    const suffix = !you
+      ? ""
+      : ys && busyLevel(ys[bestH] ?? 0) >= 2
+        ? " — you're in that fight too"
+        : " — a quieter hour for you"
+    parts.push(`Most of the set runs hot around ${hourTick(bestH)}${suffix}.`)
+  }
+
+  // (b) Your clearest window: you're open (or observed active) while every
+  //     competitor is quiet or closed, for 2+ hours.
+  if (you) {
+    let runStart = -1
+    let gap: [number, number] | null = null
+    for (let h = 0; h <= 24; h++) {
+      const inWindow =
+        h < 24 &&
+        isActiveAt(you, day, h) &&
+        comps.every((e) => {
+          if (!isActiveAt(e, day, h)) return true // closed counts as clear
+          const s = scoresFor(e, day)
+          return s ? busyLevel(s[h] ?? 0) <= 0 : false // no curve + open ⇒ not provably quiet
+        })
+      if (inWindow) {
+        if (runStart < 0) runStart = h
+      } else if (runStart >= 0) {
+        if (!gap || h - runStart > gap[1] - gap[0]) gap = [runStart, h]
+        runStart = -1
+      }
+    }
+    if (gap && gap[1] - gap[0] >= 2) {
+      parts.push(
+        `Your clearest window: ${hourTick(gap[0])} - ${hourTick(gap[1])} — you're open while the rest of the set runs quiet or closed.`,
+      )
+    }
+  }
+
+  return parts
+}
+
+/* ════════════════════════════════════════════════════════════════════ */
 
 export default function CompetitorHoursGrid({
   entities,
@@ -190,6 +404,7 @@ export default function CompetitorHoursGrid({
   const [day, setDay] = useState(serverToday)
   const [today, setToday] = useState(serverToday)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
+  const [scrubHour, setScrubHour] = useState<number | null>(null)
 
   // `todayDow` is computed server-side (UTC on Vercel), which can be a day off from the
   // operator's local weekday. Correct to the client's real local day on mount — deferred
@@ -215,12 +430,12 @@ export default function CompetitorHoursGrid({
   if (entities.length === 0 || !anyData) {
     return (
       <>
-        <TkSectionHead title="Who's open when" sub="Open hours across the block, by day" />
+        <TkSectionHead title="Who's busy when" sub="Open hours and each spot's rhythm, by day" />
         <TkEmptyState
           icon={CLOCK_ICON}
           variant="muted"
-          title="No opening hours read yet"
-          description="We read each spot's open hours from Google Maps. Once a listing is pulled, you'll see when every competitor is open across the day, and how busy they run while they're open."
+          title="No rhythm read yet"
+          description="We read each spot's open hours and busy pattern from Google Maps. Once a listing is pulled, you'll see when every competitor is open, when each one runs hot, and where the quiet windows are."
         />
       </>
     )
@@ -229,10 +444,11 @@ export default function CompetitorHoursGrid({
   const dayLabel = DAY_FULL[day]
   const byDay = (e: HoursEntity, d: number): HoursDay | undefined =>
     e.days.find((x) => x.day_of_week === d)
+  const readParts = computeRead(entities, day)
 
   const viz: VizContext = {
     domain: "competitors",
-    metric: "Who's open when",
+    metric: "Who's busy when",
     entityType: "competitor",
     timeframe: dayLabel,
     source: "Google Maps",
@@ -252,25 +468,28 @@ export default function CompetitorHoursGrid({
     setDay((d) => (((d + delta) % 7) + 7) % 7)
   }
 
+  // Track-level scrub: pointer x → hour, shared across every row so one hover
+  // reads the whole set at that hour. Words only — never a bare %.
+  function onTrackMove(e: React.PointerEvent<HTMLDivElement>) {
+    const r = e.currentTarget.getBoundingClientRect()
+    const frac = (e.clientX - r.left) / r.width
+    if (frac < 0 || frac > 1) return setScrubHour(null)
+    setScrubHour(Math.min(23, Math.max(0, Math.floor(frac * 24))))
+  }
+
   return (
     <>
-      <TkSectionHead title="Who's open when" sub="Open hours and how busy each spot runs, by day" />
+      <TkSectionHead
+        title="Who's busy when"
+        sub="Open hours and each spot's rhythm against its own normal, by day"
+      />
       <RevealOnView>
         <TkCard tBubble={<VizTBubble viz={viz} />}>
           <div className="tk-hrs">
-            {/* ── Day controller: prev/next + a 7-day selector, centered on today ── */}
+            {/* ── Day controller + level legend ── */}
             <div className="tk-hrs-bar">
-              {/* A button group, not a tablist: each day is an independently
-                  Tab-focusable button whose selected state is aria-pressed, and the
-                  prev/next buttons step the day. (role=tab would promise arrow-key /
-                  roving-tabindex behavior we don't implement — WCAG 4.1.2.) */}
               <div className="tk-hrs-days" role="group" aria-label="Choose a day">
-                <button
-                  type="button"
-                  className="tk-hrs-step"
-                  onClick={() => step(-1)}
-                  aria-label="Previous day"
-                >
+                <button type="button" className="tk-hrs-step" onClick={() => step(-1)} aria-label="Previous day">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
                 </button>
                 {DAY_ABBR.map((d, i) => (
@@ -286,18 +505,16 @@ export default function CompetitorHoursGrid({
                     {i === today && <span className="tk-hrs-today-dot" aria-hidden="true" />}
                   </button>
                 ))}
-                <button
-                  type="button"
-                  className="tk-hrs-step"
-                  onClick={() => step(1)}
-                  aria-label="Next day"
-                >
+                <button type="button" className="tk-hrs-step" onClick={() => step(1)} aria-label="Next day">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
                 </button>
               </div>
+              {/* Levels legend: Quiet on the LEFT, peak on the RIGHT, no arrow (ALT-265). */}
               <span className="tk-hrs-legend" aria-hidden="true">
-                <span className="tk-hrs-leg-ramp"><i /><i /><i /><i /></span>
-                <span>quiet → busy</span>
+                <span className="tk-hrs-lv"><i className="tk-hrs-lv0" /> Quiet</span>
+                <span className="tk-hrs-lv"><i className="tk-hrs-lv1" /> Steady</span>
+                <span className="tk-hrs-lv"><i className="tk-hrs-lv2" /> Busy</span>
+                <span className="tk-hrs-lv"><i className="tk-hrs-lv3" /> Their peak</span>
                 <span className="tk-hrs-leg-x"><span className="tk-hrs-leg-closed" /> closed</span>
                 <span className="tk-hrs-leg-x"><span className="tk-hrs-leg-obs" /> observed</span>
               </span>
@@ -308,35 +525,44 @@ export default function CompetitorHoursGrid({
               {entities.map((e) => {
                 const dh = byDay(e, day)
                 const hours: DayHours = dh?.hours ?? { known: false, open: false, is24h: false, intervals: [] }
-                // ALT-264 — no posted hours but activity exists: label the row with the
-                // observed window so the head matches the dashed track below it.
                 const obs = !hours.known ? observedWindow(dh?.hourly_scores ?? null) : null
                 const isOpenExpanded = expanded.has(e.competitor_id)
                 return (
                   <div key={e.competitor_id} className={cx("tk-hrs-row", e.isYou && "tk-hrs-row-you")}>
-                    <div className="tk-hrs-rowhead">
-                      <button
-                        type="button"
-                        className={cx("tk-hrs-expand", isOpenExpanded && "tk-hrs-expand-on")}
-                        onClick={() => toggle(e.competitor_id)}
-                        aria-expanded={isOpenExpanded}
-                        aria-controls={`tk-hrs-week-${e.competitor_id}`}
-                        aria-label={`${isOpenExpanded ? "Hide" : "Show"} ${e.name}'s full week`}
+                    <div className="tk-hrs-rowgrid">
+                      <div className="tk-hrs-rowhead">
+                        <button
+                          type="button"
+                          className={cx("tk-hrs-expand", isOpenExpanded && "tk-hrs-expand-on")}
+                          onClick={() => toggle(e.competitor_id)}
+                          aria-expanded={isOpenExpanded}
+                          aria-controls={`tk-hrs-week-${e.competitor_id}`}
+                          aria-label={`${isOpenExpanded ? "Hide" : "Show"} ${e.name}'s full week`}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+                        </button>
+                        <span className="tk-hrs-name">
+                          {e.name}
+                          {e.isYou && <span className="tk-hrs-you">You</span>}
+                        </span>
+                        <span
+                          className="tk-hrs-open-lbl"
+                          title={obs ? "Posted hours unavailable — showing when Google observed activity" : undefined}
+                        >
+                          {obs ? observedLabel(obs) : openLabel(hours)}
+                        </span>
+                      </div>
+
+                      <div
+                        className="tk-hrs-trackwrap"
+                        onPointerMove={onTrackMove}
+                        onPointerLeave={() => setScrubHour(null)}
                       >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
-                      </button>
-                      <span className="tk-hrs-name">
-                        {e.name}
-                        {e.isYou && <span className="tk-hrs-you">You</span>}
-                      </span>
-                      <span
-                        className="tk-hrs-open-lbl"
-                        title={obs ? "Posted hours unavailable — showing when Google observed activity" : undefined}
-                      >
-                        {obs ? observedLabel(obs) : openLabel(hours)}
-                      </span>
+                        <RhythmTrack day={hours} scores={dh?.hourly_scores ?? null} scrubHour={scrubHour} />
+                      </div>
+
+                      <WeekMiniMap entity={e} selectedDay={day} onPick={setDay} />
                     </div>
-                    <HoursTrack day={hours} scores={dh?.hourly_scores ?? null} />
 
                     {/* Accordion: this spot's full week, broken down by day */}
                     {isOpenExpanded && (
@@ -353,7 +579,7 @@ export default function CompetitorHoursGrid({
                           return (
                             <div key={d} className={cx("tk-hrs-wrow", d === day && "tk-hrs-wrow-on")}>
                               <span className="tk-hrs-wlbl">{lbl}</span>
-                              <HoursTrack day={wh} scores={wd?.hourly_scores ?? null} compact />
+                              <RhythmTrack day={wh} scores={wd?.hourly_scores ?? null} compact />
                               <span className="tk-hrs-wval">
                                 {wh.is24h ? "24h" : wh.known ? `${openHourCount(wh)}h` : wObs ? `~${wObs.end - wObs.start}h` : "?"}
                               </span>
@@ -374,11 +600,19 @@ export default function CompetitorHoursGrid({
               ))}
             </div>
 
+            {/* ── The read: the operator's questions, answered from the curves ── */}
+            {readParts.length > 0 && (
+              <div className="tk-hrs-read">
+                <span className="tk-hrs-read-lbl">The read</span>
+                <p>{readParts.join(" ")}</p>
+              </div>
+            )}
+
             <p className="tk-hrs-foot">
-              Open hours and busy curves come from Google Maps popular times. Busy is shown as a share of each
-              spot&apos;s own typical peak: a relative read of timing, not headcount or sales. When a spot posts no
-              hours, the dashed window shows where Google observed activity — marked as observed, never presented
-              as posted hours.
+              Open hours and rhythm come from Google Maps popular times. Each curve shows that spot against its
+              own normal — &quot;their peak&quot; is the busiest hour of their typical week, whatever size that crowd is.
+              This compares timing, never crowd size. When a spot posts no hours, the dashed window shows where
+              Google observed activity — marked as observed, never presented as posted hours.
             </p>
           </div>
         </TkCard>

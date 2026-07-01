@@ -198,7 +198,8 @@ describe("competitors/open-hours · observedWindow", () => {
 
   it("labels the window as observed, plain language, hyphen range", () => {
     expect(observedLabel({ start: 10, end: 22 })).toBe("Observed 10 AM - 10 PM")
-    expect(observedLabel({ start: 0, end: 24 })).toBe("Observed 12 AM - 12 AM")
+    // A full-day span must not read as "12 AM - 12 AM".
+    expect(observedLabel({ start: 0, end: 24 })).toBe("Observed activity all day")
     expect(observedLabel({ start: 10, end: 22 })).not.toMatch(/–|—/)
   })
 })
