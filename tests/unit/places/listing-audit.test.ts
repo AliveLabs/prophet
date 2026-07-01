@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { buildListingAudit, buildShelf, isOwnerPhoto, type PhotoRow } from "@/lib/places/listing-audit"
+import { buildListingAudit, buildShelf, isOwnerPhoto, pickCoverPhoto, type PhotoRow } from "@/lib/places/listing-audit"
 import type { PhotoCategory } from "@/lib/providers/photos"
 
 const BIZ = "Testaurant Grill"
@@ -116,6 +116,26 @@ describe("buildListingAudit — owner/customer split (owner = business-attribute
     )
     expect(a.ownerPhotos.map((p) => p.url)).toEqual(["o1"])
     expect(a.customerPhotos.map((p) => p.url)).toEqual(["c1"]) // the url-less customer row is still counted, just not rendered
+  })
+})
+
+describe("pickCoverPhoto (ALT-152 — own-listing image fallback)", () => {
+  it("returns null with no photos or none with an image_url", () => {
+    expect(pickCoverPhoto([])).toBeNull()
+    expect(pickCoverPhoto([row("exterior")])).toBeNull() // no url on this row
+  })
+
+  it("prefers a professional, high-priority-slot shot over an amateur one", () => {
+    const url = pickCoverPhoto([
+      row("staff_team", { lighting: "amateur", url: "amateur-staff" }),
+      row("food_dish", { lighting: "professional", url: "pro-dish" }),
+    ])
+    expect(url).toBe("pro-dish")
+  })
+
+  it("falls back to any photo with a url when nothing scores above zero", () => {
+    const url = pickCoverPhoto([row("other", { url: "only-option" })])
+    expect(url).toBe("only-option")
   })
 })
 

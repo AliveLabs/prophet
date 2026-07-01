@@ -155,6 +155,32 @@ export function buildEntityPhotoProfile(rows: PhotoRow[]): EntityPhotoProfile {
   }
 }
 
+// ── Cover-photo picker (ALT-152) ────────────────────────────────────────────
+// Pick the single best own-listing photo to use as an image FALLBACK elsewhere
+// in the app (e.g. a social post card with no usable photo of its own). Scores
+// on the same signals as the aggregate above — no new data, just a ranking.
+const COVER_SLOT_PRIORITY: ListingSlot[] = [
+  "food_dish", "exterior", "interior", "signage", "bar_drinks", "patio_outdoor", "menu_board", "staff_team",
+]
+
+export function pickCoverPhoto(rows: PhotoRow[]): string | null {
+  let best: { url: string; score: number } | null = null
+  for (const r of rows) {
+    if (!r.image_url) continue
+    const a = parseAnalysis(r.analysis_result)
+    let score = 0
+    if (a) {
+      if (a.quality_signals.lighting === "professional") score += 3
+      if (a.quality_signals.staging === "styled") score += 1
+      const slot = CAT_TO_SLOT[a.category]
+      const priority = slot ? COVER_SLOT_PRIORITY.indexOf(slot) : -1
+      if (priority >= 0) score += COVER_SLOT_PRIORITY.length - priority
+    }
+    if (!best || score > best.score) best = { url: r.image_url, score }
+  }
+  return best?.url ?? null
+}
+
 // Essentials for an entity = the always-on set + any conditional slot the entity
 // clearly has (a bar/patio photo of its own is the evidence it exists).
 function essentialSlotsFor(presentSlots: Set<ListingSlot>): ListingSlot[] {

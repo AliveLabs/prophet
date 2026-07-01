@@ -131,11 +131,16 @@ function PostGrade({ a }: { a: SocialPostAnalysis }) {
 export default function SocialPostsPass({
   posts,
   variant = "all",
+  fallbackPhotoUrl,
 }: {
   posts: PostWithMeta[]
   /** Drives the responsive column count (ALT-201): your own posts get fewer,
    *  roomier columns; competitors' get more, denser ones for scanning the set. */
   variant?: "own" | "competitors" | "all"
+  /** ALT-152: best photo from the operator's Google listing, used as a fallback
+   *  when an own post has no usable social image of its own. Only applies to
+   *  own posts — competitor posts have no listing photos to fall back to. */
+  fallbackPhotoUrl?: string | null
 }) {
   const [activePlatform, setActivePlatform] = useState<SocialPlatform | "all">("all")
   const [activeEntity, setActiveEntity] = useState<string>("all")
@@ -229,9 +234,15 @@ export default function SocialPostsPass({
             const sharePct = Math.round((engagement / peakEngagement) * 100)
             const isOwn = post.entityType === "location"
             const caption = post.text ? post.text.slice(0, 140) : null
+            const ownFallback = isOwn ? fallbackPhotoUrl ?? undefined : undefined
             const photo =
-              post.mediaUrl ? (
-                <PostPhoto url={post.mediaUrl} alt={caption ?? "Social post"} label={post.entityName} />
+              post.mediaUrl || ownFallback ? (
+                <PostPhoto
+                  url={post.mediaUrl ?? undefined}
+                  fallbackUrl={ownFallback}
+                  alt={caption ?? "Social post"}
+                  label={post.entityName}
+                />
               ) : undefined
             return (
               <div key={`${post.entityName}-${post.platform}-${post.platformPostId}-${i}`}>
@@ -290,18 +301,39 @@ export default function SocialPostsPass({
   )
 }
 
-/* Render a real post image into the embed's photo slot, falling back to the
-   kit's gradient placeholder if it fails to load. */
-function PostPhoto({ url, alt, label }: { url: string; alt: string; label?: string }) {
-  const [failed, setFailed] = useState(false)
-  // (1) real image; (3) clean neutral fallback if it fails to load. The Google
-  // Places photo fallback (2) is not wired — the post data carries no place_id
-  // (see ALT-152 report).
-  if (failed) return <TkPhotoFallback label={label} />
+/* Render a post image into the embed's photo slot with a three-tier cascade
+   (ALT-152): (1) the real social-post image; (2) if missing or it fails to
+   load, the operator's own Google-listing cover photo (own posts only — see
+   `fallbackPhotoUrl` on SocialPostsPass); (3) if that's also missing or fails,
+   the kit's neutral placeholder. */
+function PostPhoto({
+  url,
+  fallbackUrl,
+  alt,
+  label,
+}: {
+  url?: string
+  fallbackUrl?: string
+  alt: string
+  label?: string
+}) {
+  const [primaryFailed, setPrimaryFailed] = useState(false)
+  const [fallbackFailed, setFallbackFailed] = useState(false)
+
+  const usingFallback = !url || primaryFailed
+  const src = usingFallback ? fallbackUrl : url
+
+  if (!src || (usingFallback && fallbackFailed)) return <TkPhotoFallback label={label} />
+
   return (
     <div className="tk-photo sp-photo-img">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt={alt} loading="lazy" onError={() => setFailed(true)} />
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        onError={() => (usingFallback ? setFallbackFailed(true) : setPrimaryFailed(true))}
+      />
     </div>
   )
 }

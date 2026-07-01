@@ -52,6 +52,24 @@ export type CachedPhotosResult = {
   }>
 }
 
+/** ALT-160/ALT-152: the operator's own Google-listing photos, shared by the
+ *  /photos page (full audit) and anywhere else that needs an own-location
+ *  image fallback (e.g. social post cards with no usable photo of their own). */
+export async function fetchOwnPhotos(locationId: string): Promise<CachedOwnPhoto[]> {
+  "use cache"
+  cacheTag("photos-data")
+  cacheLife({ revalidate: 604800 })
+
+  if (!locationId) return []
+  const supabase = createAdminSupabaseClient()
+  const { data } = await (supabase as unknown as LooseSelect)
+    .from("location_photos")
+    .select("id, location_id, image_url, image_hash, analysis_result, author_attribution, first_seen_at, created_at")
+    .eq("location_id", locationId)
+    .order("created_at", { ascending: false })
+  return (data ?? []) as CachedOwnPhoto[]
+}
+
 export async function fetchPhotosPageData(
   locationId: string,
   competitorIds: string[],
@@ -62,7 +80,7 @@ export async function fetchPhotosPageData(
 
   const supabase = createAdminSupabaseClient()
 
-  const [{ data: photosRaw }, { data: ownPhotosRaw }, { data: insightsRaw }] = await Promise.all([
+  const [{ data: photosRaw }, ownPhotos, { data: insightsRaw }] = await Promise.all([
     competitorIds.length > 0
       ? supabase
           .from("competitor_photos")
@@ -70,13 +88,7 @@ export async function fetchPhotosPageData(
           .in("competitor_id", competitorIds)
           .order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    locationId
-      ? (supabase as unknown as LooseSelect)
-          .from("location_photos")
-          .select("id, location_id, image_url, image_hash, analysis_result, author_attribution, first_seen_at, created_at")
-          .eq("location_id", locationId)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as unknown[] }),
+    fetchOwnPhotos(locationId),
     supabase
       .from("insights")
       .select("id, title, summary, severity, insight_type, date_key, evidence, recommendations")
@@ -88,7 +100,7 @@ export async function fetchPhotosPageData(
 
   return {
     photos: (photosRaw ?? []) as CachedPhotosResult["photos"],
-    ownPhotos: (ownPhotosRaw ?? []) as CachedOwnPhoto[],
+    ownPhotos,
     insights: (insightsRaw ?? []) as CachedPhotosResult["insights"],
   }
 }

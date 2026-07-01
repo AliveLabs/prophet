@@ -7,6 +7,8 @@ import JobRefreshButton from "@/components/ui/job-refresh-button"
 import { type FeedInsight } from "@/components/insights/insight-feed"
 import { scoreInsights, type InsightPreference } from "@/lib/insights/scoring"
 import { fetchSocialPageData } from "@/lib/cache/social"
+import { fetchOwnPhotos } from "@/lib/cache/photos"
+import { pickCoverPhoto } from "@/lib/places/listing-audit"
 import { fetchSocialDashboardData } from "./actions"
 import SocialWatchedAccounts from "./watched-accounts"
 import {
@@ -62,14 +64,20 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   // Parallel fetch: social dashboard data + cached insights/preferences
   // -------------------------------------------------------------------------
 
-  const [socialData, cached] = await Promise.all([
+  const [socialData, cached, ownPhotos] = await Promise.all([
     selectedLocationId
       ? fetchSocialDashboardData(selectedLocationId)
       : Promise.resolve({ profiles: [], handles: [], topPosts: [] }),
     selectedLocationId
       ? fetchSocialPageData(organizationId, selectedLocationId)
       : Promise.resolve({ insights: [], preferences: [] }),
+    selectedLocationId ? fetchOwnPhotos(selectedLocationId) : Promise.resolve([]),
   ])
+
+  // ALT-152: when an own post has no usable social image, fall back to the
+  // best photo from your Google listing (already fetched + graded by ALT-160)
+  // instead of dropping straight to the neutral placeholder.
+  const ownFallbackPhotoUrl = pickCoverPhoto(ownPhotos)
 
   const allInsights = cached.insights
   const preferences: InsightPreference[] = cached.preferences
@@ -280,7 +288,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
 
             {/* Your recent posts — fewer columns to give your own posts room (ALT-201) */}
             {hasOwnPosts ? (
-              <SocialPostsPass posts={ownPosts} variant="own" />
+              <SocialPostsPass posts={ownPosts} variant="own" fallbackPhotoUrl={ownFallbackPhotoUrl} />
             ) : hasOwnProfiles ? (
               <TkEmptyState
                 title="No posts read yet"
