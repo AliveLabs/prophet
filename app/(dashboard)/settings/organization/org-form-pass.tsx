@@ -6,7 +6,7 @@
 // kit tk-set-* inputs + a TkButton submit with pending state.
 
 import { useFormStatus } from "react-dom"
-import { updateOrganizationAction } from "./actions"
+import { updateOrganizationAction, resendBillingEmailVerificationAction } from "./actions"
 import { TkButton } from "@/components/ticket"
 
 function SubmitButton() {
@@ -18,11 +18,21 @@ function SubmitButton() {
   )
 }
 
+function ResendButton() {
+  const { pending } = useFormStatus()
+  return (
+    <TkButton type="submit" variant="ghost" disabled={pending}>
+      {pending ? "Sending…" : "Resend verification"}
+    </TkButton>
+  )
+}
+
 export function OrgFormPass({
   orgId,
   name,
   displayName,
   billingEmail,
+  pendingBillingEmail,
 }: {
   orgId: string
   /** Legal/account name — immutable here (ALT-226). */
@@ -30,8 +40,11 @@ export function OrgFormPass({
   /** Optional editable display name; blank ⇒ falls back to the legal name. */
   displayName: string | null
   billingEmail: string | null
+  /** ALT-227: a billing email change awaiting confirmation, if one is in flight. */
+  pendingBillingEmail?: string | null
 }) {
   return (
+  <>
     <form action={updateOrganizationAction} className="tk-set-form">
       <input type="hidden" name="org_id" value={orgId} />
 
@@ -77,11 +90,25 @@ export function OrgFormPass({
           placeholder="billing@company.com"
           className="tk-set-input"
         />
+        {pendingBillingEmail && (
+          <span className="tk-set-hint">
+            Verification pending for <strong>{pendingBillingEmail}</strong> — check that
+            inbox to confirm. Billing email stays as shown above until then.
+          </span>
+        )}
       </div>
 
       <div>
         <SubmitButton />
       </div>
     </form>
+
+    {pendingBillingEmail && (
+      <form action={resendBillingEmailVerificationAction} className="tk-set-form" style={{ marginTop: 8 }}>
+        <input type="hidden" name="org_id" value={orgId} />
+        <ResendButton />
+      </form>
+    )}
+  </>
   )
 }

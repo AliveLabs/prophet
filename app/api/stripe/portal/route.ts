@@ -11,17 +11,22 @@ import {
 import { isValidIndustryType } from "@/lib/verticals"
 
 // POST /api/stripe/portal
+// Body: { flow?: 'payment_method_update' } — ALT-228: plan changes and
+// cancellation now happen in-app (change-plan/cancel routes); the Portal is
+// reserved for what genuinely can't be done in-app — updating the tokenized
+// card itself. Passing flow scopes the session to JUST that flow. Omitting it
+// falls back to the full Portal (invoices, etc.) which still isn't dead scope
+// even for our billing page, but is what will be used from anywhere still
+// linking generically.
 // Returns: { url } -- a one-time Stripe Customer Portal URL.
 //
-// The Portal lets the user upgrade/downgrade between their brand's 3 paid
-// tiers, cancel, update payment method, and download invoices. Which of the
-// two Portal configurations (Ticket vs Neat) they land on is chosen here
-// based on the org's industry_type -- so Ticket customers never see Neat
+// Which of the two Portal configurations (Ticket vs Neat) is used is chosen
+// here based on the org's industry_type -- so Ticket customers never see Neat
 // product names in the Portal UI.
 //
 // RBAC: only owners/admins of the org can mint a Portal session.
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const block = await impersonationReadOnlyBlock()
     if (block) return NextResponse.json(block, { status: 403 })
@@ -63,6 +68,9 @@ export async function POST() {
       )
     }
 
+    const body = await request.json().catch(() => ({}))
+    const flow = body.flow === "payment_method_update" ? "payment_method_update" as const : null
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
     const configurationId = getPortalConfigId(org.industry_type)
 
@@ -71,6 +79,7 @@ export async function POST() {
       customer: org.stripe_customer_id,
       return_url: `${appUrl}/settings/billing`,
       ...(configurationId ? { configuration: configurationId } : {}),
+      ...(flow ? { flow_data: { type: flow } } : {}),
     })
 
     return NextResponse.json({ url: session.url })

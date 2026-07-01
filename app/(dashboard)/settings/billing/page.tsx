@@ -13,6 +13,7 @@ import {
   TIER_PRICING,
 } from "@/lib/billing/tiers"
 import { getVerticalConfig, isValidIndustryType, type IndustryType } from "@/lib/verticals"
+import { resolvePriceInfo } from "@/lib/stripe/pricing"
 import { DunningBanner } from "@/components/billing/dunning-banner"
 import {
   RevealOnView,
@@ -22,7 +23,9 @@ import {
 } from "@/components/ticket"
 import { UpgradeSuccessToast } from "./upgrade-success"
 import { UpgradeTilesPass } from "./upgrade-tiles-pass"
-import { ManageBillingPass } from "./manage-billing-pass"
+import { PlanChangeTilesPass } from "./plan-change-tiles-pass"
+import { CancelSubscriptionPass } from "./cancel-subscription-pass"
+import { UpdateCardPass } from "./update-card-pass"
 import "../settings-pass.css"
 
 export default async function BillingPage({
@@ -46,7 +49,7 @@ export default async function BillingPage({
     ? await supabase
         .from("organizations")
         .select(
-          "subscription_tier, billing_email, trial_started_at, trial_ends_at, industry_type, payment_state, current_period_end, cancel_at_period_end, stripe_customer_id"
+          "subscription_tier, billing_email, trial_started_at, trial_ends_at, industry_type, payment_state, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_price_id"
         )
         .eq("id", organizationId)
         .single()
@@ -71,6 +74,11 @@ export default async function BillingPage({
   const noStripe = !paymentState && !isSuspended
   const isLegacyTrial = noStripe && daysRemaining > 0
   const hasCustomer = Boolean(organization?.stripe_customer_id)
+  const priceInfo = resolvePriceInfo(organization?.stripe_price_id)
+  // Plan changes/cancel only make sense once there's a live subscription to
+  // mutate in place — trialing counts (Stripe already has the subscription),
+  // past_due does not (Stripe blocks subscription updates on a failed sub).
+  const canManageInApp = (isActive || isTrialing) && tier !== "suspended"
 
   const statusLine =
     isTrialing || isLegacyTrial
@@ -143,10 +151,11 @@ export default async function BillingPage({
                   <div className="tk-set-flbl">Payment</div>
                   <div className="tk-set-fval">
                     <div className="tk-set-row-actions">
-                      <ManageBillingPass />
+                      <UpdateCardPass />
                     </div>
                     <p className="tk-set-hint">
-                      Update your card, switch plans, or cancel in the Stripe portal.
+                      Your card is tokenized by Stripe — we can&rsquo;t see or update it
+                      directly, so this opens a Stripe form scoped to just your card.
                     </p>
                   </div>
                 </div>
@@ -154,6 +163,31 @@ export default async function BillingPage({
             </div>
           </TkSoftPanel>
         </RevealOnView>
+
+        {/* ── CHANGE PLAN (in-app, ALT-228) ── */}
+        {canManageInApp && (
+          <RevealOnView className="tk-set-block">
+            <TkSectionHead
+              title="Change plan"
+              sub="Upgrade, downgrade, or switch billing cadence — takes effect immediately, prorated by Stripe."
+            />
+            <PlanChangeTilesPass
+              industry={industry}
+              currentTier={tier}
+              currentCadence={priceInfo?.cadence ?? null}
+            />
+          </RevealOnView>
+        )}
+
+        {/* ── CANCEL / RESUME (in-app, ALT-228) ── */}
+        {canManageInApp && (
+          <RevealOnView className="tk-set-block">
+            <TkSectionHead title="Cancel" sub="No phone calls, no hoops — cancel or resume anytime" />
+            <TkSoftPanel>
+              <CancelSubscriptionPass cancelAtPeriodEnd={Boolean(organization?.cancel_at_period_end)} />
+            </TkSoftPanel>
+          </RevealOnView>
+        )}
 
         {/* ── CHOOSE / RESUBSCRIBE ── */}
         {(noStripe || isCanceled) && (

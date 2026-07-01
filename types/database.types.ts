@@ -1106,6 +1106,9 @@ export type Database = {
       organizations: {
         Row: {
           billing_email: string | null
+          billing_email_token_expires_at: string | null
+          billing_email_token_hash: string | null
+          billing_email_token_sent_at: string | null
           cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
@@ -1116,6 +1119,7 @@ export type Database = {
           name: string
           org_kind: string
           payment_state: string | null
+          pending_billing_email: string | null
           settings: Json
           slug: string
           stripe_customer_id: string | null
@@ -1129,6 +1133,9 @@ export type Database = {
         }
         Insert: {
           billing_email?: string | null
+          billing_email_token_expires_at?: string | null
+          billing_email_token_hash?: string | null
+          billing_email_token_sent_at?: string | null
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
@@ -1139,6 +1146,7 @@ export type Database = {
           name: string
           org_kind?: string
           payment_state?: string | null
+          pending_billing_email?: string | null
           settings?: Json
           slug: string
           stripe_customer_id?: string | null
@@ -1152,6 +1160,9 @@ export type Database = {
         }
         Update: {
           billing_email?: string | null
+          billing_email_token_expires_at?: string | null
+          billing_email_token_hash?: string | null
+          billing_email_token_sent_at?: string | null
           cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
@@ -1162,6 +1173,7 @@ export type Database = {
           name?: string
           org_kind?: string
           payment_state?: string | null
+          pending_billing_email?: string | null
           settings?: Json
           slug?: string
           stripe_customer_id?: string | null
