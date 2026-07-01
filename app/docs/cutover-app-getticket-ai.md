@@ -250,14 +250,14 @@ Google Cloud Console → **APIs & Services → OAuth consent screen**:
 - **User support email**: pick a real monitored inbox (e.g. the same one behind `OPS_ALERT_EMAILS`, added for ALT-243's error-report channel)
 - **App logo**: upload the current Ticket wordmark/icon (whatever ships as the login-page logo post-ALT-156)
 - **Application home page**: `https://app.getticket.ai`
-- **Application privacy policy link**: `https://labs-website-tau.vercel.app/privacy` (or the production alias for that page if one exists — confirm current marketing-site domain before pasting)
-- **Application terms of service link**: `https://labs-website-tau.vercel.app/terms` (same domain caveat)
+- **Application privacy policy link**: `https://www.getticket.ai/privacy` (verified live, 2026-07-01)
+- **Application terms of service link**: `https://www.getticket.ai/terms` (verified live, 2026-07-01)
 - **Authorized domains**: add `getticket.ai`
 - **Developer contact information**: same inbox as support email
 
 Save, then re-check **Publishing status**: if the app is still in **Testing**, only invited test users see a clean screen — everyone else gets the scarier "Google hasn't verified this app" warning regardless of the name fix. Moving to **In production** requires the fields above to be filled in and may trigger Google's verification review (can take days) if the requested OAuth scopes are sensitive/restricted — for a basic email/profile scope this is usually immediate, but confirm the current scope list in the Supabase Google provider config before assuming no review is needed.
 
-Note the privacy/terms links above live on the marketing site domain, not `app.getticket.ai` — Google generally accepts this (many apps link to a parent company's policy pages), but if verification gets flagged, the fallback is standing up `app.getticket.ai/privacy` + `/terms` that simply redirect or re-render the same content.
+Note the privacy/terms links above live on the marketing site domain (`www.getticket.ai`), not the app domain (`app.getticket.ai`) — Google generally accepts this (many apps link to a parent company's policy pages), but if verification gets flagged, the fallback is standing up `app.getticket.ai/privacy` + `/terms` that simply redirect or re-render the same content.
 
 ### 4.5 Resend (transactional email)
 
