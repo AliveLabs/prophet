@@ -16,6 +16,8 @@ import { createLocationFromPlaceAction, deleteLocationAction, updateLocationActi
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchCurrentConditions, type WeatherSnapshot } from "@/lib/weather/google"
 import { getScreenshotUrl } from "@/lib/content/storage"
+import { fetchOwnPhotos } from "@/lib/cache/photos"
+import { pickCoverPhoto } from "@/lib/places/listing-audit"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { LocationsBoard, type LocationCard } from "./locations-board"
@@ -160,6 +162,17 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
     })
   )
 
+  // Hero imagery: each location's own-listing Google cover, so the lead hero shows a real
+  // photo instead of the gradient default. pickCoverPhoto is a pure rank over the cached
+  // location_photos rows — no new Places calls.
+  const coverUrlMap = new Map<string, string | null>()
+  await Promise.all(
+    (locations ?? []).map(async (location) => {
+      const rows = await fetchOwnPhotos(location.id)
+      coverUrlMap.set(location.id, pickCoverPhoto(rows.map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url }))))
+    })
+  )
+
   const resolvedSearchParams = await Promise.resolve(searchParams)
   const error = resolvedSearchParams?.error
 
@@ -201,6 +214,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
       lng: longitude,
       hours: placeDetails?.regularOpeningHours?.weekdayDescriptions ?? [],
       reviews,
+      coverUrl: coverUrlMap.get(location.id) ?? null,
       screenshotUrl: contentInfo?.screenshotUrl ?? null,
       menuItemCount: contentInfo?.menuItemCount ?? 0,
       menuConfidence: contentInfo?.menuConfidence ?? null,

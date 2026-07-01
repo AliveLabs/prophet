@@ -32,6 +32,8 @@ import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
 import { playFamily, confLabel } from "./pass-map"
+import { resolvePlayHeroPhoto, buildCompetitorCoverMap } from "./hero-photo"
+import { HeroImage } from "../hero-image"
 import ListingCheck from "@/components/imagery/listing-check"
 import TheShelf from "@/components/imagery/the-shelf"
 import type { PhotoRow, CompetitorPhotoGroup } from "@/lib/places/listing-audit"
@@ -65,6 +67,8 @@ export default function BriefView({
   ownPhotos = [],
   hasListing = false,
   shelfCompetitors = [],
+  ownCover = null,
+  competitorCovers = [],
 }: {
   brief: Brief
   locationId: string
@@ -80,7 +84,12 @@ export default function BriefView({
   ownPhotos?: PhotoRow[]
   hasListing?: boolean
   shelfCompetitors?: CompetitorPhotoGroup[]
+  /** Hero imagery: the operator's own-listing cover + one picked cover per competitor,
+   *  so the lead play's hero shows a real subject photo instead of the gradient default. */
+  ownCover?: string | null
+  competitorCovers?: Array<{ name: string; url: string }>
 }) {
+  const competitorCoverMap = buildCompetitorCoverMap(competitorCovers)
   const allRefs = brief.plays.flatMap((p) => p.evidenceRefs)
   const signalCount = dedupeRefs(allRefs).length
   // The distinct high-level sources behind today's plays — the detail the "Signals read" tile
@@ -114,6 +123,20 @@ export default function BriefView({
   // ── At-a-glance widgets (honest, %-framed) ──
   const wonCount = brief.plays.filter((p) => p.presentation?.advantage === true).length
 
+  // The lead play's hero photo: a real subject-matched image (social post / competitor
+  // cover / own-listing cover) when we have one, else the family gradient canvas. Only
+  // the hero (isLead) carries a photo slot; grid cards stay text-only.
+  const heroPhotoFor = (play: EnrichedRecommendation) => {
+    const resolved = resolvePlayHeroPhoto(play, { ownCover, competitorCovers: competitorCoverMap }, locationName)
+    return (
+      <HeroImage
+        url={resolved?.url}
+        label={resolved?.label ?? locationName}
+        fallback={<PassHeroCanvas family={playFamily(play)} label={locationName} />}
+      />
+    )
+  }
+
   const card = (play: EnrichedRecommendation, rank: number, action: PlayAction | null, isLead: boolean) => (
     <PassPlayCard
       key={playKey(play)}
@@ -126,7 +149,7 @@ export default function BriefView({
       current={action}
       readOnly={readOnly}
       detailHref={detailHrefBase ? `${detailHrefBase}/${rank}` : undefined}
-      heroPhoto={isLead ? <PassHeroCanvas family={playFamily(play)} label={locationName} /> : undefined}
+      heroPhoto={isLead ? heroPhotoFor(play) : undefined}
     />
   )
 
