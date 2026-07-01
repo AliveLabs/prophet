@@ -13,6 +13,12 @@
 // "hours unavailable" track — we never invent a window. Pure data-viz, so the card
 // carries the "Ask Ticket about this" T-bubble (ALT-230) to turn the picture into
 // an insight.
+//
+// ALT-264 — belt-and-suspenders fallback: when a spot's POSTED hours can't be read
+// but its busy curve exists, we still paint the busy read — on an "observed
+// activity" window (dashed band edges, labeled as observed) derived from the hours
+// Google saw activity. The widget only goes to its empty state when there's
+// neither hours NOR activity for the whole set.
 
 import { useEffect, useMemo, useState } from "react"
 import { RevealOnView, TkCard, TkSectionHead, TkEmptyState } from "@/components/ticket"
@@ -22,6 +28,8 @@ import {
   isOpenAtHour,
   openLabel,
   openHourCount,
+  observedWindow,
+  observedLabel,
   type DayHours,
 } from "@/lib/competitors/open-hours"
 
@@ -90,28 +98,40 @@ function HoursTrack({
   scores: number[] | null
   compact?: boolean
 }) {
+  // ALT-264 — posted hours unreadable but Google observed activity ⇒ render the
+  // busy curve on an OBSERVED window (dashed band) instead of a dead flat track.
+  const { eff, observed } = useMemo(() => {
+    const obs = !day.known ? observedWindow(scores) : null
+    return {
+      observed: obs != null,
+      eff: obs
+        ? ({ known: true, open: true, is24h: false, intervals: [obs] } as DayHours)
+        : day,
+    }
+  }, [day, scores])
+
   // Busiest OPEN hour (with data) → a subtle peak cap, echoing Concept A's "surge".
   const peakHour = useMemo(() => {
-    if (!day.open || !scores) return -1
+    if (!eff.open || !scores) return -1
     let best = -1
     let bestScore = -1
     for (const h of HOURS) {
-      if (isOpenAtHour(day, h) && scores[h] != null && scores[h] > bestScore) {
+      if (isOpenAtHour(eff, h) && scores[h] != null && scores[h] > bestScore) {
         bestScore = scores[h]
         best = h
       }
     }
     return bestScore >= 12 ? best : -1 // ignore flat curves — no false "peak"
-  }, [day, scores])
+  }, [eff, scores])
 
-  if (!day.known) {
+  if (!eff.known) {
     return (
       <div className={cx("tk-hrs-track", "tk-hrs-flat", compact && "tk-hrs-track-sm")}>
         <span className="tk-hrs-flat-lbl">Hours unavailable</span>
       </div>
     )
   }
-  if (!day.open) {
+  if (!eff.open) {
     return (
       <div className={cx("tk-hrs-track", compact && "tk-hrs-track-sm")} role="img" aria-label="Closed">
         {!compact && <span className="tk-hrs-flat-lbl tk-hrs-closed-lbl">Closed</span>}
@@ -121,23 +141,26 @@ function HoursTrack({
 
   // Screen readers can't see the gold busy ramp, so fold the busy story into the
   // track's label (a text alternative for the color-encoded data — WCAG 1.4.1/1.3.1).
+  const windowTxt = observed
+    ? `${observedLabel(eff.intervals[0])} (posted hours unavailable)`
+    : openLabel(eff)
   const srLabel =
     peakHour >= 0 && scores
-      ? `${openLabel(day)}. Busiest around ${hourTick(peakHour)}, ${scores[peakHour]}% of its typical peak`
-      : openLabel(day)
+      ? `${windowTxt}. Busiest around ${hourTick(peakHour)}, ${scores[peakHour]}% of its typical peak`
+      : windowTxt
 
   return (
     <div className={cx("tk-hrs-track", compact && "tk-hrs-track-sm")} role="img" aria-label={srLabel}>
-      {day.intervals.map((iv, i) => (
+      {eff.intervals.map((iv, i) => (
         <div
           key={`band-${i}`}
-          className="tk-hrs-band"
+          className={cx("tk-hrs-band", observed && "tk-hrs-band-obs")}
           style={{ left: pct(iv.start), width: pct(iv.end - iv.start) }}
         />
       ))}
       {scores &&
         HOURS.map((h) => {
-          if (!isOpenAtHour(day, h)) return null
+          if (!isOpenAtHour(eff, h)) return null
           const s = scores[h]
           if (s == null) return null
           return (
@@ -182,9 +205,14 @@ export default function CompetitorHoursGrid({
     return () => cancelAnimationFrame(id)
   }, [serverToday])
 
-  // No entity has readable hours yet — one honest empty state, no fabricated bars.
-  const anyHours = entities.some((e) => e.hoursKnown)
-  if (entities.length === 0 || !anyHours) {
+  // Empty state only when the whole set has neither readable hours NOR any
+  // observed activity (ALT-264) — a busy-only row still renders its curve.
+  const anyData = entities.some(
+    (e) =>
+      e.hoursKnown ||
+      e.days.some((d) => Array.isArray(d.hourly_scores) && d.hourly_scores.some((s) => s > 0)),
+  )
+  if (entities.length === 0 || !anyData) {
     return (
       <>
         <TkSectionHead title="Who's open when" sub="Open hours across the block, by day" />
@@ -271,6 +299,7 @@ export default function CompetitorHoursGrid({
                 <span className="tk-hrs-leg-ramp"><i /><i /><i /><i /></span>
                 <span>quiet → busy</span>
                 <span className="tk-hrs-leg-x"><span className="tk-hrs-leg-closed" /> closed</span>
+                <span className="tk-hrs-leg-x"><span className="tk-hrs-leg-obs" /> observed</span>
               </span>
             </div>
 
@@ -279,6 +308,9 @@ export default function CompetitorHoursGrid({
               {entities.map((e) => {
                 const dh = byDay(e, day)
                 const hours: DayHours = dh?.hours ?? { known: false, open: false, is24h: false, intervals: [] }
+                // ALT-264 — no posted hours but activity exists: label the row with the
+                // observed window so the head matches the dashed track below it.
+                const obs = !hours.known ? observedWindow(dh?.hourly_scores ?? null) : null
                 const isOpenExpanded = expanded.has(e.competitor_id)
                 return (
                   <div key={e.competitor_id} className={cx("tk-hrs-row", e.isYou && "tk-hrs-row-you")}>
@@ -297,7 +329,12 @@ export default function CompetitorHoursGrid({
                         {e.name}
                         {e.isYou && <span className="tk-hrs-you">You</span>}
                       </span>
-                      <span className="tk-hrs-open-lbl">{openLabel(hours)}</span>
+                      <span
+                        className="tk-hrs-open-lbl"
+                        title={obs ? "Posted hours unavailable — showing when Google observed activity" : undefined}
+                      >
+                        {obs ? observedLabel(obs) : openLabel(hours)}
+                      </span>
                     </div>
                     <HoursTrack day={hours} scores={dh?.hourly_scores ?? null} />
 
@@ -312,11 +349,14 @@ export default function CompetitorHoursGrid({
                         {DAY_ABBR.map((lbl, d) => {
                           const wd = byDay(e, d)
                           const wh: DayHours = wd?.hours ?? { known: false, open: false, is24h: false, intervals: [] }
+                          const wObs = !wh.known ? observedWindow(wd?.hourly_scores ?? null) : null
                           return (
                             <div key={d} className={cx("tk-hrs-wrow", d === day && "tk-hrs-wrow-on")}>
                               <span className="tk-hrs-wlbl">{lbl}</span>
                               <HoursTrack day={wh} scores={wd?.hourly_scores ?? null} compact />
-                              <span className="tk-hrs-wval">{wh.is24h ? "24h" : wh.known ? `${openHourCount(wh)}h` : "?"}</span>
+                              <span className="tk-hrs-wval">
+                                {wh.is24h ? "24h" : wh.known ? `${openHourCount(wh)}h` : wObs ? `~${wObs.end - wObs.start}h` : "?"}
+                              </span>
                             </div>
                           )
                         })}
@@ -336,8 +376,9 @@ export default function CompetitorHoursGrid({
 
             <p className="tk-hrs-foot">
               Open hours and busy curves come from Google Maps popular times. Busy is shown as a share of each
-              spot&apos;s own typical peak: a relative read of the block&apos;s rhythm, not headcount or sales. A spot with
-              no readable hours shows as unavailable; we never invent a window.
+              spot&apos;s own typical peak: a relative read of timing, not headcount or sales. When a spot posts no
+              hours, the dashed window shows where Google observed activity — marked as observed, never presented
+              as posted hours.
             </p>
           </div>
         </TkCard>

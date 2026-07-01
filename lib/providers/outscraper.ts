@@ -22,6 +22,27 @@ export type BusyTimesResult = {
   days: BusyTimesDay[]
   typical_time_spent: string | null
   current_popularity: number | null
+  /** ALT-264 — the place's posted hours, as "Day: span" lines (parseable by
+   *  lib/competitors/open-hours). The same paid pull carries them; null when absent. */
+  working_hours_lines: string[] | null
+}
+
+/** ALT-264 — normalize Outscraper's `working_hours` (an object keyed by day name,
+ *  values like "11AM-10PM", "Open 24 hours", or occasionally an array of spans)
+ *  into "Day: span" lines the open-hours parser reads. Null when unusable. */
+export function workingHoursToLines(wh: unknown): string[] | null {
+  if (!wh || typeof wh !== "object" || Array.isArray(wh)) return null
+  const lines: string[] = []
+  for (const [day, span] of Object.entries(wh as Record<string, unknown>)) {
+    const text = Array.isArray(span)
+      ? span.filter((s): s is string => typeof s === "string" && s.trim() !== "").join(", ")
+      : typeof span === "string"
+        ? span
+        : ""
+    if (!text.trim()) continue
+    lines.push(`${day}: ${text.trim()}`)
+  }
+  return lines.length > 0 ? lines : null
 }
 
 type OutscraperHourEntry = {
@@ -130,5 +151,6 @@ export async function fetchBusyTimes(
     days,
     typical_time_spent: place.time_spent ?? null,
     current_popularity: currentPopularity,
+    working_hours_lines: workingHoursToLines(place.working_hours),
   }
 }

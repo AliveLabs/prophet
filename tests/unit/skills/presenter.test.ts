@@ -48,6 +48,7 @@ const busy: BusyTimesResult = {
   competitor_id: "self",
   typical_time_spent: null,
   current_popularity: null,
+  working_hours_lines: null,
   days: [
     { day_of_week: 5, day_name: "Friday", hourly_scores: [], peak_hour: 19, peak_score: 100, slow_hours: [] },
     { day_of_week: 6, day_name: "Saturday", hourly_scores: [], peak_hour: 19, peak_score: 88, slow_hours: [] },

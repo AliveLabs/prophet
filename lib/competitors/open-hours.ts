@@ -192,3 +192,28 @@ export function openLabel(day: DayHours | undefined): string {
     .map((iv) => `${H12(iv.start)} - ${H12(iv.end)}`)
     .join(", ")
 }
+
+/** ALT-264 — the window where Google observed activity (busy > 0) on a day, for
+ *  spots whose POSTED hours we can't read. Google's popular-times curve is only
+ *  nonzero while a place is open, so the active span is an honest "we saw activity
+ *  here" window — one conservative span from the first to the last active hour.
+ *  Presented as observed activity, never as posted hours. */
+export function observedWindow(scores: number[] | null | undefined): OpenInterval | null {
+  if (!Array.isArray(scores)) return null
+  let first = -1
+  let last = -1
+  const n = Math.min(24, scores.length)
+  for (let h = 0; h < n; h++) {
+    if ((scores[h] ?? 0) > 0) {
+      if (first < 0) first = h
+      last = h
+    }
+  }
+  if (first < 0) return null
+  return { start: first, end: Math.min(24, last + 1) }
+}
+
+/** Label for an observed-activity window: "Observed 10 AM - 10 PM". */
+export function observedLabel(iv: OpenInterval): string {
+  return `Observed ${H12(iv.start)} - ${H12(iv.end)}`
+}
