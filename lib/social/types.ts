@@ -80,6 +80,9 @@ export type SocialPostAnalysis = {
   /** VIDEO-ONLY: a short plain-words description of the FIRST FRAME / thumbnail (the scroll-stopper
    *  the operator must nail), e.g. "close-up of cheese pull". Empty/omitted for static images. */
   firstFrame?: string
+  /** Normalized 0..1 focal point of the main subject, for anchoring cover-crops of the post
+   *  image (x: 0=left→1=right, y: 0=top→1=bottom). Optional; consumers default to center. */
+  focalPoint?: { x: number; y: number }
 }
 
 export type EntityVisualProfile = {

@@ -437,6 +437,8 @@ function buildExemplarSocialPost(play: EnrichedRecommendation, ctx: Presentation
     source: socialRef,
   }
   if (best.rate != null) post.engagementPct = Math.round(best.rate * 1000) / 10
+  // Carry the image's focal point (when analyzed) so the hero can anchor the crop on-subject.
+  if (p.visualAnalysis?.focalPoint) post.focalPoint = p.visualAnalysis.focalPoint
   return post
 }
 

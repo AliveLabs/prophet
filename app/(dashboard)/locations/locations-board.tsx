@@ -55,6 +55,8 @@ export type LocationCard = {
   reviews: Array<{ text: string; who: string; when: string; rating: number | null }>
   /** own-listing Google cover (pickCoverPhoto) — fills the lead hero; null ⇒ gradient canvas */
   coverUrl: string | null
+  /** normalized focal point of the cover, for anchoring its crop (null → center) */
+  coverFocal: { x: number; y: number } | null
   screenshotUrl: string | null
   menuItemCount: number
   menuConfidence: string | null
@@ -426,6 +428,7 @@ export function LocationsBoard({
                 photo={
                   <HeroImage
                     url={lead.coverUrl}
+                    focal={lead.coverFocal}
                     label={lead.name}
                     fallback={<LocationCanvas label={lead.cityLine} />}
                   />

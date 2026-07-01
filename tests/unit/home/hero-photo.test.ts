@@ -6,7 +6,7 @@ import {
   type HeroPhotoSources,
 } from "@/app/(dashboard)/home/hero-photo"
 import type { PhotoRow } from "@/lib/places/listing-audit"
-import type { PhotoCategory } from "@/lib/providers/photos"
+import type { PhotoCategory, FocalPoint } from "@/lib/providers/photos"
 import type { Category, EnrichedRecommendation, PlayPresentation } from "@/lib/skills/types"
 
 // Minimal play — only the fields the resolver reads (category + presentation) matter.
@@ -27,7 +27,8 @@ function play(category: Category, presentation?: PlayPresentation): EnrichedReco
 }
 
 // An own-listing photo row with a given category + url (professional/styled so it scores).
-function ownRow(category: PhotoCategory, url: string): PhotoRow {
+// `focal` is stored on the analysis when provided; omitted → the resolver defaults to center.
+function ownRow(category: PhotoCategory, url: string, focal?: FocalPoint): PhotoRow {
   return {
     image_url: url,
     analysis_result: {
@@ -40,6 +41,7 @@ function ownRow(category: PhotoCategory, url: string): PhotoRow {
       quality_signals: { lighting: "professional", staging: "styled" },
       confidence: 0.9,
       notable_changes: "",
+      ...(focal ? { focal_point: focal } : {}),
     },
   }
 }
@@ -48,6 +50,7 @@ const FOOD = "https://cdn/food.jpg"
 const INTERIOR = "https://cdn/interior.jpg"
 const EXTERIOR = "https://cdn/exterior.jpg"
 const STAFF = "https://cdn/staff.jpg"
+const CENTER: FocalPoint = { x: 0.5, y: 0.5 }
 const ownLabel = "Testaurant Grill"
 
 describe("resolvePlayHeroPhoto", () => {
@@ -61,25 +64,53 @@ describe("resolvePlayHeroPhoto", () => {
         source: "social.x",
       },
     })
-    const r = resolvePlayHeroPhoto(p, { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)
-    expect(r).toEqual({ url: "https://cdn/joe-post.jpg", label: "Joe's Diner" })
+    expect(resolvePlayHeroPhoto(p, { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)).toEqual({
+      url: "https://cdn/joe-post.jpg",
+      label: "Joe's Diner",
+      focal: CENTER,
+    })
   })
 
-  it("social play with no exemplar → falls back to a category-matched own photo", () => {
-    const r = resolvePlayHeroPhoto(play("social"), { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)
-    expect(r).toEqual({ url: FOOD, label: ownLabel })
+  it("carries the exemplar post's focal point through when present", () => {
+    const p = play("social", {
+      exemplarSocialPost: {
+        competitor: "Joe's Diner",
+        platform: "instagram",
+        mediaUrl: "https://cdn/joe-post.jpg",
+        caption: "",
+        source: "social.x",
+        focalPoint: { x: 0.3, y: 0.75 },
+      },
+    })
+    expect(resolvePlayHeroPhoto(p, {}, ownLabel)?.focal).toEqual({ x: 0.3, y: 0.75 })
   })
 
-  it("competitive play → the named competitor's cover (name-normalized match)", () => {
+  it("social play with no exemplar → a category-matched own photo (center focal by default)", () => {
+    expect(resolvePlayHeroPhoto(play("social"), { ownPhotos: [ownRow("food_dish", FOOD)] }, ownLabel)).toEqual({
+      url: FOOD,
+      label: ownLabel,
+      focal: CENTER,
+    })
+  })
+
+  it("uses the chosen own photo's stored focal point", () => {
+    const r = resolvePlayHeroPhoto(play("menu"), { ownPhotos: [ownRow("food_dish", FOOD, { x: 0.25, y: 0.8 })] }, ownLabel)
+    expect(r).toEqual({ url: FOOD, label: ownLabel, focal: { x: 0.25, y: 0.8 } })
+  })
+
+  it("competitive play → the named competitor's cover + its focal (name-normalized match)", () => {
     const p = play("positioning", {
       breakoutQuotes: [{ text: "…", source: "review.x", competitor: "Joe's Diner" }],
     })
-    // Stored name differs only by CASE from the cited name — both normalize to "joe s diner".
     const sources: HeroPhotoSources = {
       ownPhotos: [ownRow("exterior", EXTERIOR)],
-      competitorCovers: buildCompetitorCoverMap([{ name: "JOE'S DINER", url: "https://cdn/joe.jpg" }]),
+      competitorCovers: buildCompetitorCoverMap([{ name: "JOE'S DINER", url: "https://cdn/joe.jpg", focal: { x: 0.2, y: 0.4 } }]),
     }
-    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: "https://cdn/joe.jpg", label: "Joe's Diner" })
+    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({
+      url: "https://cdn/joe.jpg",
+      label: "Joe's Diner",
+      focal: { x: 0.2, y: 0.4 },
+    })
   })
 
   it("competitive play whose competitor has no cover → own photo (exterior preferred)", () => {
@@ -88,24 +119,22 @@ describe("resolvePlayHeroPhoto", () => {
     })
     const sources: HeroPhotoSources = {
       ownPhotos: [ownRow("interior", INTERIOR), ownRow("exterior", EXTERIOR)],
-      competitorCovers: buildCompetitorCoverMap([{ name: "Joe's Diner", url: "https://cdn/joe.jpg" }]),
+      competitorCovers: buildCompetitorCoverMap([{ name: "Joe's Diner", url: "https://cdn/joe.jpg", focal: CENTER }]),
     }
-    // competitive prefers exterior first → EXTERIOR, not the interior shot.
-    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: EXTERIOR, label: ownLabel })
+    expect(resolvePlayHeroPhoto(p, sources, ownLabel)).toEqual({ url: EXTERIOR, label: ownLabel, focal: CENTER })
   })
 
   it("varies the own photo by insight family (fixes the repeated-cover problem)", () => {
     const ownPhotos = [ownRow("interior", INTERIOR), ownRow("food_dish", FOOD)]
-    // menu wants food first; reputation wants interior/atmosphere first — same photos, different pick.
-    expect(resolvePlayHeroPhoto(play("menu"), { ownPhotos }, ownLabel)).toEqual({ url: FOOD, label: ownLabel })
-    expect(resolvePlayHeroPhoto(play("reputation"), { ownPhotos }, ownLabel)).toEqual({ url: INTERIOR, label: ownLabel })
+    expect(resolvePlayHeroPhoto(play("menu"), { ownPhotos }, ownLabel)?.url).toBe(FOOD)
+    expect(resolvePlayHeroPhoto(play("reputation"), { ownPhotos }, ownLabel)?.url).toBe(INTERIOR)
   })
 
   it("falls back to the best overall photo when nothing matches the family's categories", () => {
-    // menu prefers [food_dish, menu_board]; only a staff photo exists → still shows it, not nothing.
     expect(resolvePlayHeroPhoto(play("menu"), { ownPhotos: [ownRow("staff_team", STAFF)] }, ownLabel)).toEqual({
       url: STAFF,
       label: ownLabel,
+      focal: CENTER,
     })
   })
 

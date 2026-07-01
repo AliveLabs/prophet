@@ -35,6 +35,18 @@ export type PhotoCategory =
   | "patio_outdoor" | "bar_drinks" | "staff_team" | "event_promotion"
   | "signage" | "renovation" | "seasonal_decor" | "customer_atmosphere" | "other"
 
+/** Normalized 0..1 coordinates of a photo's main subject — the point that must stay
+ *  visible when the image is cropped to fill a slot. x: 0 left → 1 right; y: 0 top → 1
+ *  bottom. Used to anchor cover-crops (background-position) instead of dead-centering. */
+export type FocalPoint = { x: number; y: number }
+
+/** Clamp a model-returned focal point into [0,1]; default to center when absent/garbage. */
+export function normalizeFocal(raw: unknown): FocalPoint {
+  const r = raw as { x?: unknown; y?: unknown } | null | undefined
+  const clamp = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5)
+  return { x: clamp(r?.x), y: clamp(r?.y) }
+}
+
 export type PhotoAnalysis = {
   category: PhotoCategory
   subcategory: string
@@ -48,6 +60,9 @@ export type PhotoAnalysis = {
   }
   confidence: number
   notable_changes: string
+  /** Normalized focal point of the main subject (for crop anchoring). Optional so older
+   *  persisted rows (analyzed before this field existed) deserialize; callers default to center. */
+  focal_point?: FocalPoint
 }
 
 export type PhotoDiffResult = {
@@ -161,7 +176,8 @@ Analyze this Google Places photo and return ONLY valid JSON with these fields:
 - promotional_details: if promotional_content is true, describe the promotion. Empty string otherwise.
 - quality_signals: object with { lighting: "professional"|"amateur"|"unknown", staging: "styled"|"candid"|"unknown" }
 - confidence: number 0.0-1.0 for overall classification confidence
-- notable_changes: describe anything that suggests a recent renovation, new menu item, or operational change. Empty string if nothing notable.`
+- notable_changes: describe anything that suggests a recent renovation, new menu item, or operational change. Empty string if nothing notable.
+- focal_point: object { x, y } with normalized 0.0-1.0 coordinates of the MAIN SUBJECT's center — the point that must stay visible if the image is cropped to a different shape (x: 0=left, 1=right; y: 0=top, 1=bottom). For a dish, the plate; for a storefront, the sign/entrance; for a person, the face. Use { "x": 0.5, "y": 0.5 } only when there is no single clear subject.`
 
   const res = await fetchWithRetry(`${GEMINI_VISION_URL}?key=${getGeminiKey()}`, {
     method: "POST",
@@ -199,6 +215,7 @@ Analyze this Google Places photo and return ONLY valid JSON with these fields:
       quality_signals: parsed.quality_signals ?? { lighting: "unknown", staging: "unknown" },
       confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
       notable_changes: parsed.notable_changes ?? "",
+      focal_point: normalizeFocal(parsed.focal_point),
     }
   } catch {
     return {
@@ -211,6 +228,7 @@ Analyze this Google Places photo and return ONLY valid JSON with these fields:
       quality_signals: { lighting: "unknown", staging: "unknown" },
       confidence: 0.3,
       notable_changes: "",
+      focal_point: { x: 0.5, y: 0.5 },
     }
   }
 }

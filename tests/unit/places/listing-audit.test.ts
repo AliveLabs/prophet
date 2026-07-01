@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { buildListingAudit, buildShelf, isOwnerPhoto, pickCoverPhoto, pickInsightPhoto, type PhotoRow } from "@/lib/places/listing-audit"
-import type { PhotoCategory } from "@/lib/providers/photos"
+import { buildListingAudit, buildShelf, isOwnerPhoto, pickCoverPhoto, pickCoverPhotoWithFocal, pickInsightPhoto, type PhotoRow } from "@/lib/places/listing-audit"
+import { normalizeFocal, type PhotoCategory } from "@/lib/providers/photos"
 
 const BIZ = "Testaurant Grill"
 
@@ -33,6 +33,33 @@ function row(
     ...(opts.url ? { image_url: opts.url } : {}),
   }
 }
+
+describe("normalizeFocal", () => {
+  it("clamps to [0,1] and defaults missing/garbage to center", () => {
+    expect(normalizeFocal({ x: 0.2, y: 0.9 })).toEqual({ x: 0.2, y: 0.9 })
+    expect(normalizeFocal({ x: -1, y: 2 })).toEqual({ x: 0, y: 1 })
+    expect(normalizeFocal(undefined)).toEqual({ x: 0.5, y: 0.5 })
+    expect(normalizeFocal({ x: "nope", y: null })).toEqual({ x: 0.5, y: 0.5 })
+  })
+})
+
+describe("pickCoverPhotoWithFocal", () => {
+  it("returns the chosen photo's focal — center when it was analyzed before focal existed", () => {
+    expect(pickCoverPhotoWithFocal([row("food_dish", { url: "f.jpg" })])).toEqual({ url: "f.jpg", focal: { x: 0.5, y: 0.5 } })
+  })
+  it("carries a stored focal point through", () => {
+    const r: PhotoRow = {
+      image_url: "g.jpg",
+      analysis_result: {
+        category: "food_dish", subcategory: "", tags: [], extracted_text: "",
+        promotional_content: false, promotional_details: "",
+        quality_signals: { lighting: "professional", staging: "styled" },
+        confidence: 0.9, notable_changes: "", focal_point: { x: 0.7, y: 0.2 },
+      },
+    }
+    expect(pickCoverPhotoWithFocal([r])).toEqual({ url: "g.jpg", focal: { x: 0.7, y: 0.2 } })
+  })
+})
 
 describe("pickInsightPhoto — category-aware pick", () => {
   it("prefers the earliest matching category in the prefer list, not the generic cover priority", () => {

@@ -17,7 +17,7 @@ import {
 import { buildPeakData } from "@/lib/traffic/peak-data"
 import { fetchTrafficPageData } from "@/lib/cache/traffic"
 import { fetchOwnPhotos } from "@/lib/cache/photos"
-import { pickCoverPhoto } from "@/lib/places/listing-audit"
+import { pickCoverPhotoWithFocal } from "@/lib/places/listing-audit"
 import { HeroImage } from "../hero-image"
 import type { TrafficData } from "./traffic-types"
 import TrafficControls from "./traffic-controls"
@@ -75,7 +75,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   // default (this is their block, so their own storefront/food is the honest subject).
   const selectedLocationName = locations?.find((l) => l.id === selectedLocationId)?.name ?? "Your location"
   const heroCover = selectedLocationId
-    ? pickCoverPhoto(
+    ? pickCoverPhotoWithFocal(
         (await fetchOwnPhotos(selectedLocationId)).map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url })),
       )
     : null
@@ -263,7 +263,8 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                 titleId="trf-hero-title"
                 photo={
                   <HeroImage
-                    url={heroCover}
+                    url={heroCover?.url}
+                    focal={heroCover?.focal}
                     label={selectedLocationName}
                     fallback={<TrafficHeroCanvas label="Daily rhythm" />}
                   />
