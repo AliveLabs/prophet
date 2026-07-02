@@ -4,7 +4,7 @@
 // proximity %, and "estimated" demand-window framing — labeled as such in the UI.
 
 import type { NormalizedEvent } from "@/lib/events/types"
-import type { TkFamily, TkConfidenceLevel } from "@/components/ticket"
+import type { TkFamily, TkConfidenceLevel, TkImpactLevel } from "@/components/ticket"
 
 /* ── Wall-clock time parsing (ALT-212) ───────────────────────────────────────
    The event feed gives a LOCAL wall-clock time (e.g. the venue's "11:00"), but
@@ -174,6 +174,18 @@ export function severityToConfidence(severity?: string | null): TkConfidenceLeve
   if (severity === "critical" || severity === "warning") return "high"
   if (severity === "info" || severity === "notice") return "medium"
   return "directional"
+}
+
+/* ── Severity (insight row) → kit impact (ALT-289) ───────────────────────────
+   The events insight rows carry the same `severity` field the confidence mapping
+   above already reads (critical/warning/info/notice) — it's the same honest proxy
+   the insights surfaces key their impact tag off of (see insights-map.ts
+   `insightImpactLevel`). Mirrored here so an event insight's impact tag agrees
+   with the rest of the app's convention. */
+export function eventInsightImpactLevel(severity?: string | null): TkImpactLevel {
+  if (severity === "critical") return "high"
+  if (severity === "warning") return "medium"
+  return "low"
 }
 
 /* ── In-trade-area gate (ALT-209 / ALT-215) ──────────────────────────────────

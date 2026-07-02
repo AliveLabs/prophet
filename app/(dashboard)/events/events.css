@@ -1,0 +1,23 @@
+/* Events — page-local CSS (ALT-288).
+   Scoped, page-local overrides on top of the shared components/ticket kit —
+   same pattern as home/brief.css, insights/insights.css, weather/weather.css. */
+
+/* ── FEED GRID ────────────────────────────────────────────────── */
+/* .tk-grid (kit) gives the 2-col→1-col layout. Cards in a row match height
+   (same align-items:stretch pattern as .pass-grid/.pool-grid) so a short
+   event card doesn't look orphaned next to a tall one. */
+.tk-kit .events-feed .tk-grid { align-items: stretch; }
+.tk-kit .events-feed .tk-grid > div { display: flex; }
+.tk-kit .events-feed .tk-grid > div > * { width: 100%; }
+
+/* ── CARD FOOT ────────────────────────────────────────────────── */
+/* Matched-competitor chips + the links footer anchor to the BOTTOM of the
+   card (mirrors the brief's .pass-foot) so the footer lines up across a row
+   regardless of how much summary/description text sits above it. */
+.tk-kit .ev-foot {
+  margin-top: auto;
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

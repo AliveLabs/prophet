@@ -17,6 +17,7 @@
 
 import type { CSSProperties, ReactNode } from "react"
 import { redirect } from "next/navigation"
+import "./events.css"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import EventsFilters from "@/components/events/events-filters"
@@ -50,6 +51,7 @@ import {
   distanceLabel,
   pickLeadEvent,
   severityToConfidence,
+  eventInsightImpactLevel,
   isInTradeArea,
   pickEventDeepLink,
   impactLabel,
@@ -639,8 +641,11 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     <TkCard>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <TkChip family="competitive">Events insight</TkChip>
-                        {/* ALT-214: show the impact/confidence label, not bare pips */}
-                        <TkConfidence level={severityToConfidence(ins.severity)} />
+                        {/* ALT-289: confidence + impact pair, right-aligned — matches every other card */}
+                        <div className="flex items-center gap-2">
+                          <TkConfidence level={severityToConfidence(ins.severity)} />
+                          <TkImpactTag level={eventInsightImpactLevel(ins.severity)} />
+                        </div>
                       </div>
                       <h4 className="font-display text-[15px] font-bold leading-snug tracking-[-0.01em] text-[var(--ink)]">
                         {ins.title}
@@ -684,7 +689,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
         {/* ── EVENT FEED — date-grouped grid of play cards ── */}
         {feedEvents.length > 0 && (
-          <div className="space-y-8">
+          <div className="events-feed space-y-8">
             {Array.from(groupedEvents.entries()).map(([dateLabel, dayEvents]) => (
               <RevealOnView key={dateLabel}>
                 {/* date separator */}
@@ -774,10 +779,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                       <div key={ev.uid} style={{ "--tk-i": i } as CSSProperties}>
                         <TkPlayCard
                           family={family}
-                          icon={CAL_ICON}
                           title={ev.title ?? "Untitled event"}
-                          // ALT-214: show the confidence label, not bare pips
-                          confidence={<TkConfidence level={eventConfidence(ev)} />}
+                          // ALT-288: confidence + impact pair, right-aligned (icon dropped — the
+                          // family chip already carries it, same fix as home/weather).
+                          confidence={
+                            <>
+                              <TkConfidence level={eventConfidence(ev)} />
+                              <TkImpactTag level={eventImpact(ev)} label={impactLabel(ev)} />
+                            </>
+                          }
                           chips={
                             <>
                               <TkChip family={family}>{eventChipLabel(ev, isMatched)}</TkChip>
@@ -796,42 +806,41 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                             </>
                           }
                         >
-                          {/* proximity / draw meter — ALT-214: paired with an impact label */}
+                          {/* proximity / draw meter — ALT-288: impact now lives in the card's
+                              top-right confidence slot, not embedded in this caption */}
                           <TkRangeBar
                             value={proximityFill(ev.distanceMiles)}
                             scale={["Across town", "Few blocks", "Next door"]}
-                            caption={
-                              <span className="inline-flex items-center gap-2">
-                                Proximity
-                                <TkImpactTag level={eventImpact(ev)} label={impactLabel(ev)} />
-                              </span>
-                            }
+                            caption="Proximity"
                             captionRight={distanceLabel(ev.distanceMiles)}
                             tip="Straight-line distance to the geocoded venue"
                             tipValue={distanceLabel(ev.distanceMiles)}
                           />
 
-                          {/* matched competitors */}
-                          {matchedNames.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {matchedNames.map((name) => (
-                                <span
-                                  key={name}
-                                  className="inline-flex items-center gap-1 rounded-md bg-[var(--teal-tint)] px-2 py-0.5 text-[10px] font-medium text-[var(--teal-deep)] ring-1 ring-[color:var(--teal)]"
-                                >
-                                  <span className="h-1 w-1 rounded-full bg-[var(--teal)]" />
-                                  {name}
-                                </span>
-                              ))}
-                            </div>
-                          )}
+                          {/* ALT-288: matched competitors + links footer anchor to the bottom
+                              of the card (same approach as the brief's .pass-foot) so a short
+                              event doesn't leave its footer floating mid-card next to a tall one. */}
+                          <div className="ev-foot">
+                            {matchedNames.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {matchedNames.map((name) => (
+                                  <span
+                                    key={name}
+                                    className="inline-flex items-center gap-1 rounded-md bg-[var(--teal-tint)] px-2 py-0.5 text-[10px] font-medium text-[var(--teal-deep)] ring-1 ring-[color:var(--teal)]"
+                                  >
+                                    <span className="h-1 w-1 rounded-full bg-[var(--teal)]" />
+                                    {name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
 
-                          {/* links footer */}
-                          {links.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-2.5">
-                              {links}
-                            </div>
-                          )}
+                            {links.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 border-t border-[var(--line)] pt-2.5">
+                                {links}
+                              </div>
+                            )}
+                          </div>
                         </TkPlayCard>
                       </div>
                     )
