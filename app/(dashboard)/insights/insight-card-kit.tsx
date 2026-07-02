@@ -286,39 +286,11 @@ export function InsightCardKit({
     </>
   )
 
-  // ── thumbs (ALT-184f): the SAME `updateInsightStatusAction` the Track menu and
-  //   Dismiss already call — there's no separate `brief_feedback`-style table for
-  //   pool insights, so thumbs-up records the existing "useful" signal via the
-  //   `read` status (a no-op if already tracked) and thumbs-down opens the SAME
-  //   dismiss-reason capture Dismiss uses, which already writes "not_useful". No
-  //   new server action, no new mutation — just a second, faster way to fire the
-  //   ones that already exist. ──
-  const thumbs = !isCleared ? (
-    <span className="ins-thumbs">
-      <span className="ins-thumbs-lbl">Helpful?</span>
-      <button
-        type="button"
-        className="ins-thumb ins-thumb-up"
-        disabled={pending}
-        aria-label="Helpful"
-        aria-pressed={insight.userFeedback === "useful"}
-        onClick={() => applyStatus("read", "Noted, more like this.")}
-      >
-        👍
-      </button>
-      <button
-        type="button"
-        className="ins-thumb ins-thumb-down"
-        disabled={pending}
-        aria-label="Not helpful"
-        aria-pressed={insight.userFeedback === "not_useful"}
-        aria-expanded={reasonOpen}
-        onClick={() => setReasonOpen(true)}
-      >
-        👎
-      </button>
-    </span>
-  ) : null
+  // NOTE (ALT-184f): thumbs are deliberately NOT on this card yet. A 👍 here would
+  // have to write the `read` lifecycle status (there's no insight-level feedback
+  // action) — that conflates a rating with a state change and pollutes the learning
+  // signal. The pool (/home/pool) has real thumbs via brief_feedback; this surface
+  // gets them when a proper insights.userFeedback action exists.
 
   return (
     <TkPlayCard
@@ -337,7 +309,6 @@ export function InsightCardKit({
       {body}
       <div className="ins-foot">
         <TkActions>{actions}</TkActions>
-        {thumbs}
       </div>
       {!isCleared ? (
         <TkDismissReason
