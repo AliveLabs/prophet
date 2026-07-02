@@ -7,7 +7,7 @@
 // $ / covers are invented; everything is %/estimated/"you vs competitor" framing
 // already present in the engine evidence.
 
-import type { TkFamily, TkConfidenceLevel } from "@/components/ticket"
+import type { TkFamily, TkConfidenceLevel, TkImpactLevel } from "@/components/ticket"
 import {
   getSourceCategory,
   SOURCE_LABELS,
@@ -228,4 +228,23 @@ export function insightRecs(i: FeedInsight, max = 2): MappedRec[] {
     if (out.length >= max) break
   }
   return out
+}
+
+/* ── Impact: the SECOND score shown alongside confidence (ALT-184f) ──────
+ * The insights engine doesn't stamp a play-style `leverage`, but `severity`
+ * (critical/warning/info) is already the honest impact proxy — it's the same
+ * field `computeRelevanceScore`/`getUrgencyLevel` key off of. Mapped straight
+ * across so a pool card's impact tag agrees with its own urgency tag. */
+export function insightImpactLevel(severity: string): TkImpactLevel {
+  if (severity === "critical") return "high"
+  if (severity === "warning") return "medium"
+  return "low"
+}
+
+/* ── "Generated on" date stamp (ALT-293) — mirrors the pool's `.pool-seen`
+ * recency-stamp treatment (mono, --ink-3, right-aligned in the chip row). */
+export function insightDateStamp(dateKey: string): string {
+  const d = new Date(`${dateKey}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return dateKey
+  return `Generated ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
 }

@@ -16,6 +16,15 @@
 .ticket-app .pool-grid > div { display: flex; }
 .ticket-app .pool-grid > div > * { width: 100%; }
 
+/* ALT-184d: pool cards are icon-free (hideIcon) — with the glyph tile gone, the
+   confidence + impact scores right-align in the top row like on every other card. */
+.ticket-app .pool-grid .tk-pc-top { justify-content: flex-end; }
+
+/* ALT-184g: the Pinned / "Everything else" section blocks — same section rhythm the
+   brief uses, with clear top breathing room between stacked sections. */
+.ticket-app .pool-sec { display: flex; flex-direction: column; gap: 14px; }
+.ticket-app .pool-sec + .pool-sec { margin-top: 30px; }
+
 /* ── FILTER STRIP ─────────────────────────────────────────────────────────────────── */
 .ticket-app .pool-filters {
   display: flex;
@@ -100,11 +109,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* ALT-184d: the category-labelled icon wrapper — inherit the kit icon box's centering
-   so the title-tooltip span doesn't disturb the 38px glyph slot. */
-.ticket-app .pool-card-icon { display: grid; place-items: center; width: 100%; height: 100%; }
-.ticket-app .pool-card-icon svg { width: 20px; height: 20px; }
-
 /* ── "Top this week" chip (gold; -deep text for AA on small type) ── */
 .ticket-app .pool-top-chip {
   display: inline-flex;
@@ -134,8 +138,9 @@
   align-self: center;
 }
 
-/* ── empty / filtered-empty states ── */
-.ticket-app .pool-empty-wrap { margin-top: 8px; }
+/* ── empty / filtered-empty states (ALT-184e: secondary views get real top
+   breathing room from the filter strip above instead of sitting cramped) ── */
+.ticket-app .pool-empty-wrap { margin-top: 24px; }
 .ticket-app .pool-clear {
   margin-top: 14px;
   min-height: 44px;

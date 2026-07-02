@@ -52,6 +52,18 @@
   color: var(--ink-3);
 }
 
+/* ── ALT-293: "generated on" date stamp — mirrors the pool's `.pool-seen`
+   recency-stamp treatment exactly (mono, muted, right-aligned in the chip row). ── */
+.ticket-app .ins-seen {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.01em;
+  color: var(--ink-3);
+  white-space: nowrap;
+  align-self: center;
+}
+
 /* ── Priority briefing ── */
 .ticket-app .ins-brief { display: flex; flex-direction: column; gap: 18px; }
 .ticket-app .ins-brief-action {
@@ -164,12 +176,27 @@
 .ticket-app .ins-vt:hover { color: var(--ink); }
 .ticket-app .ins-vt-on { background: var(--ink); color: var(--paper); }
 
+/* ── ALT-184g: Pinned — same rhythm as a category section (.ins-cat), so it reads
+   as a first-class part of the page, not a bolt-on. The 26px gap from `.ins-feed`
+   already separates it from the ALT-230 generate UI above and the Feed/Board
+   secondary view below (ALT-184e — no extra one-off spacing value needed). ── */
+.ticket-app .ins-pinned { display: flex; flex-direction: column; gap: 14px; }
+
 .ticket-app .ins-cats { display: flex; flex-direction: column; gap: 28px; }
 .ticket-app .ins-cat { display: flex; flex-direction: column; gap: 14px; }
 .ticket-app .ins-cat-head { display: inline-flex; align-items: center; }
-.ticket-app .ins-grid { align-items: start; }
+/* ALT-184b: cards must match height WITHIN A ROW — different content lengths (quotes,
+   metrics, recs) were leaving ragged gaps under `align-items: start`. `stretch` (the grid
+   default) makes every card in a row match the row's tallest; each card is already a flex
+   column with its `.ins-foot` action row pinned to the bottom via `margin-top: auto`, so
+   the extra height lands as breathing room above the footer, not a stretched card body. */
+.ticket-app .ins-grid { align-items: stretch; }
 .ticket-app .ins-grid > div { display: flex; }
 .ticket-app .ins-grid > div > * { width: 100%; }
+.ticket-app .ins-grid .tk-pcard { height: 100%; }
+/* ALT-184d: with the category glyph tile removed, the confidence + impact scores
+   right-align in the card's top row instead of drifting left into the empty slot. */
+.ticket-app .ins-card .tk-pc-top { justify-content: flex-end; }
 
 .ticket-app .ins-more {
   align-self: flex-start;
@@ -287,6 +314,18 @@
 .ticket-app .ins-gen-retry { flex: none; font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--rust-deep); padding: 7px 14px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--rust) 40%, transparent); background: var(--card); transition: background var(--t-fast), border-color var(--t-fast); }
 .ticket-app .ins-gen-retry:hover { background: var(--rust-tint); border-color: var(--rust); }
 .ticket-app .ins-card-cleared:hover { opacity: 1; }
+
+/* ── card foot (ALT-184f): actions + thumbs together, LEFT-aligned — mirrors
+   the brief's `.pass-foot`/`.pass-foot-left` so a pool card reads as the same
+   product as a brief play card. ── */
+.ticket-app .ins-foot {
+  margin-top: auto;
+  padding-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
 
 /* the Track status menu (kebab-equivalent) */
 .ticket-app .ins-menu-wrap { position: relative; }

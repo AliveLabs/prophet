@@ -68,8 +68,14 @@ const CAT_FAMILY: Record<SourceCategory, TkFamily> = {
 }
 
 const HIDDEN_STATUSES = new Set(["dismissed", "snoozed", "inaccurate"])
+// ALT-184g: "pinned" = kept/saved — the existing positive statuses the Track menu
+// already writes (Mark as read / Add to to-do / Mark as done). No new status or
+// column: this is the same set <InsightCardKit/> already treats as "kept" for its
+// own Track-button fill state.
+const PINNED_STATUSES = new Set(["read", "todo", "actioned"])
 const CARDS_PER_CATEGORY = 6
 const CARDS_PER_COLUMN = 8
+const PINNED_PREVIEW_COUNT = 4
 
 const KANBAN_COLUMNS = [
   { key: "inbox", label: "Inbox", statuses: new Set(["new", "read"]) },
@@ -102,6 +108,7 @@ export default function InsightsFeedKit({
   const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map())
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
   const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set())
+  const [pinnedExpanded, setPinnedExpanded] = useState(false)
 
   // ── ALT-230: live "Generate insight" from a viz card. We POST the carried-in viz
   //    context once, show a placeholder at the top of the pool, then pin the result. ──
@@ -180,6 +187,18 @@ export default function InsightsFeedKit({
     }
     return list
   }, [mergedInsights, activeTab, statusFilter])
+
+  // ── ALT-184g: the Pinned section — kept/saved insights, most-recent first.
+  // Reads from `mergedInsights` (not `filteredInsights`) so it's independent of the
+  // category tab / status filter: a kept insight stays visible at the top regardless
+  // of what the operator is currently filtering the rest of the pool by. ──
+  const pinnedInsights = useMemo(
+    () =>
+      mergedInsights
+        .filter((i) => PINNED_STATUSES.has(i.status))
+        .sort((a, b) => b.dateKey.localeCompare(a.dateKey)),
+    [mergedInsights],
+  )
 
   const tabCounts = useMemo(() => {
     const base = mergedInsights.filter((i) => !HIDDEN_STATUSES.has(i.status))
@@ -338,7 +357,34 @@ export default function InsightsFeedKit({
           </div>
         ) : null}
 
-        {/* ── Feed view ── */}
+        {/* ── ALT-184g: Pinned — kept/saved insights, pinned to the TOP of the pool,
+            most-recent first. A pinned insight also still appears in its normal
+            category/board slot below (same "flagged, not hidden" pattern as the
+            brief-linked pool's "Top this week" chip) — this section is a fast, honest
+            shortcut to what the operator has already acted on, not a second inbox. ── */}
+        {pinnedInsights.length ? (
+          <section className="ins-pinned">
+            <TkSectionHead
+              title="Pinned"
+              sub={`${pinnedInsights.length} kept insight${pinnedInsights.length === 1 ? "" : "s"}`}
+            />
+            <RevealOnView className="tk-grid ins-grid" stagger>
+              {(pinnedExpanded ? pinnedInsights : pinnedInsights.slice(0, PINNED_PREVIEW_COUNT)).map((insight, i) => (
+                <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
+                  <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                </div>
+              ))}
+            </RevealOnView>
+            {pinnedInsights.length > PINNED_PREVIEW_COUNT ? (
+              <button type="button" className="ins-more" onClick={() => setPinnedExpanded((v) => !v)}>
+                {pinnedExpanded ? "Show less" : `Show ${pinnedInsights.length - PINNED_PREVIEW_COUNT} more`}
+              </button>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* ── Feed view (a secondary view relative to Pinned above — ALT-184e gives it
+            the same top breathing room the page already uses between major sections). ── */}
         {viewMode === "feed" && hasAnyInsights ? (
           <div className="ins-cats">
             {orderedCategories.map((cat) => {

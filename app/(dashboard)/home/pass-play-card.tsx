@@ -122,6 +122,8 @@ export function PassPlayCard({
   detailHref,
   heroPhoto,
   heroVenueChip,
+  hideIcon = false,
+  extraChips,
 }: {
   play: EnrichedRecommendation
   rank: number
@@ -135,6 +137,11 @@ export function PassPlayCard({
   /** lead-only: the hero canvas + venue chip */
   heroPhoto?: ReactNode
   heroVenueChip?: ReactNode
+  /** ALT-184d: the pool renders icon-free cards (the text chip carries the category) */
+  hideIcon?: boolean
+  /** ALT-184h: page-specific framing chips (e.g. the pool's "Top this week" + recency stamp)
+   *  appended after the category chip — the card design stays shared, the framing stays local */
+  extraChips?: ReactNode
 }) {
   const router = useRouter()
   const toast = useTkToast()
@@ -411,10 +418,15 @@ export function PassPlayCard({
     <>
       <TkPlayCard
         family={family}
-        icon={FAMILY_ICON[family]}
+        icon={hideIcon ? null : FAMILY_ICON[family]}
         title={play.title}
         confidence={status}
-        chips={<TkChip family={family}>{playChipLabel(play)}</TkChip>}
+        chips={
+          <>
+            <TkChip family={family}>{playChipLabel(play)}</TkChip>
+            {extraChips}
+          </>
+        }
         summary={play.rationale}
         onTitleClick={() => setDrawerOpen(true)}
         actions={null}
