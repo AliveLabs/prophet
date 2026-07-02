@@ -53,11 +53,3 @@ export type PipelineStepDef<TCtx = unknown> = {
   label: string
   run: (ctx: TCtx) => Promise<Record<string, unknown> | null>
 }
-
-// Ambient feed card
-export type AmbientCard = {
-  id: string
-  category: "from_your_data" | "industry_tip" | "did_you_know" | "step_result"
-  text: string
-  icon?: string
-}
