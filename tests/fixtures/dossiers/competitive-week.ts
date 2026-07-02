@@ -33,6 +33,25 @@ const ruleOutputs: GeneratedInsight[] = [
     evidence: { competitor: "Bachi Box", trend: "their velocity up" },
     recommendations: [{ title: "Ask for reviews", rationale: "Close the velocity gap." }],
   },
+  // An own-review complaint theme (shape mirrors reviewInsightsFromSentiment). reputation@v2's
+  // floor only fires on an unambiguous own-failure signal — v1's floor fired off the
+  // competitor-scoped velocity row above via misattribution, which is the defect v2 fixes —
+  // so the golden needs the signal a real competitive week carries once review sentiment runs.
+  {
+    insight_type: "review.theme",
+    title: "Review theme: slow service (negative)",
+    summary: 'Customers are raising "slow service" as a problem.',
+    confidence: "medium",
+    severity: "warning",
+    evidence: {
+      theme: "slow service",
+      sentiment: "negative",
+      mentions: 6,
+      examples: ["Waited forty minutes for two entrees on a half-empty night."],
+      windowDays: 90,
+    },
+    recommendations: [],
+  },
   {
     insight_type: "menu.price_positioning_shift",
     title: "Bachi Box sits well under your dine-in check",
