@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { asSubscriptionTier } from "@/lib/billing/tiers"
 import { isSeoIntersectionEnabled } from "@/lib/billing/limits"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import { fetchVisibilityPageData } from "@/lib/cache/visibility"
 import { loadCoverageHealth, EMPTY_COVERAGE } from "@/lib/jobs/vendor-health"
 import { VendorUnavailableBanner } from "@/components/ui/vendor-unavailable-banner"
@@ -369,16 +368,6 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           selectedLocationId={selectedLocationId ?? ""}
           activeTab={activeTab}
           freshnessLabel={freshnessLabel}
-          refreshSlot={
-            selectedLocationId ? (
-              <JobRefreshButton
-                type="visibility"
-                locationId={selectedLocationId}
-                label="Refresh SEO"
-                pendingLabel="Refreshing SEO data"
-              />
-            ) : undefined
-          }
         />
 
         {/* ── Status / notices ── */}

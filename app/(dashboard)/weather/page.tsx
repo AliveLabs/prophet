@@ -14,7 +14,6 @@
 
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { fetchWeatherPageData } from "@/lib/cache/weather"
@@ -280,24 +279,13 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
       <div className="tk-kit tk-weather-body">
         <TkTooltipLayer />
 
-        {/* ── Toolbar: location filter + refresh ── */}
-        {selectedLocationId ? (
+        {/* ── Toolbar: location filter ── */}
+        {selectedLocationId && locations && locations.length > 1 ? (
           <div className="tk-weather-toolbar">
-            {locations && locations.length > 1 && selectedLocationId && (
-              <LocationFilter
-                locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                selectedLocationId={selectedLocationId}
-              />
-            )}
-            <span className="tk-tb-spacer" />
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="weather"
-                locationId={selectedLocationId}
-                label="Update weather"
-                pendingLabel="Fetching weather data"
-              />
-            )}
+            <LocationFilter
+              locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+              selectedLocationId={selectedLocationId}
+            />
           </div>
         ) : null}
 

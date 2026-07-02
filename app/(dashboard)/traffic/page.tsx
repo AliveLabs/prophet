@@ -72,7 +72,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
     : locations?.[0]?.id ?? null
 
   // Hero imagery: the operator's own-listing cover fills the hero instead of the gradient
-  // default (this is their block, so their own storefront/food is the honest subject).
+  // default (this is their own location, so their own storefront/food is the honest subject).
   const selectedLocationName = locations?.find((l) => l.id === selectedLocationId)?.name ?? "Your location"
   const heroCover = selectedLocationId
     ? pickCoverPhotoWithFocal(
@@ -211,7 +211,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
     <div className="pv-page">
       <div className="pv-page-head">
         <span className="pv-kicker">Foot traffic</span>
-        <h1 className="pv-h1">When the block fills up</h1>
+        <h1 className="pv-h1">When your competitors fill up</h1>
         <p className="pv-sub">
           How busy your competitors get, hour by hour — pulled from Google Maps popular times. Scores
           are <b>% of each spot&apos;s own typical peak</b>, so you can read the rhythm of the
@@ -241,7 +241,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                 days={1}
                 target={7}
                 title="Still reading the neighborhood's rhythm"
-                description="Hit “Fetch busy times” to pull popular hours from Google Maps. Once a few competitors land, you'll see when the block fills up and where your openings are."
+                description="Popular hours pull in daily from Google Maps. Once a few competitors land, you'll see when they fill up and where your openings are."
               />
             ) : (
               <TkEmptyState
@@ -251,7 +251,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                   </svg>
                 }
                 title="No location to read yet"
-                description="Add a location to start pulling competitor busy times for your block."
+                description="Add a location to start pulling competitor busy times."
               />
             )}
           </RevealOnView>
@@ -275,7 +275,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                       <path d="M12 21s-7-4.5-9-9a9 9 0 1118 0c-2 4.5-9 9-9 9z" />
                       <circle cx="12" cy="12" r="2.5" />
                     </svg>
-                    Your block
+                    Your competitors
                   </>
                 }
                 chips={
@@ -289,7 +289,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                   <>
                     Across the set, <b>{DAY_NAMES[bestCompeteDay]}</b> around{" "}
                     <b>{formatHour(bestCompeteHour)}</b> is when competitors are quietest — the
-                    moment your block has the least pull elsewhere.
+                    moment your set has the least pull elsewhere.
                   </>
                 }
               >
@@ -333,7 +333,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                     </>,
                     <>
                       Scores are <b>% of each spot&apos;s typical peak</b> from Google Maps popular
-                      times — a relative read of the block&apos;s rhythm, not headcount or sales.
+                      times — a relative read of the set&apos;s rhythm, not headcount or sales.
                     </>,
                     <>
                       The surge band marks <b>{hourShort(surgeHour)}</b>, when the set is busiest and
@@ -406,7 +406,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
               <div className="tk-trf-panel">
                 <p className="tk-trf-panel-sub">
                   Each bar is how busy that competitor runs at that hour — % of their own typical peak.
-                  Taller stacks mean the whole block is full at once.
+                  Taller stacks mean the whole set is full at once.
                 </p>
                 <TrafficBars data={trafficData} />
               </div>

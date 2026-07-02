@@ -1,16 +1,16 @@
 // The Pass — Photos, REBUILT to Concept A's structure.
 //
 // Structure rebuild (not a reskin): the .pv-page title chrome → a glass toolbar
-// (location filter + scan action) → a weighted at-a-glance WIDGET grid (the KPI
-// aggregates) → kit intel PANELS (visual mix / quality benchmark / promo / changes)
+// (location filter) → a weighted at-a-glance WIDGET grid (the KPI aggregates)
+// → kit intel PANELS (visual mix / quality benchmark / promo / changes)
 // → the gallery in a soft card → honest empty / still-learning states. All data
 // fetching, aggregation, and the server-action wiring are UNCHANGED — only the
 // presentation moves to the kit. Honest framing: %/estimated, "you vs competitor",
-// no fabricated $ or covers.
+// no fabricated $ or covers. ALT-268 removed the per-surface manual "Scan photos"
+// refresh button (photos refresh daily via cron).
 
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import LocationFilter from "@/components/ui/location-filter"
 import PhotoGrid, { type PhotoGridItem } from "@/components/photos/photo-grid"
 import PhotoIntel from "./photo-intel"
@@ -229,14 +229,6 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
               <LocationFilter
                 locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
                 selectedLocationId={selectedLocationId!}
-              />
-            )}
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="photos"
-                locationId={selectedLocationId}
-                label="Scan photos"
-                pendingLabel="Scanning competitor photos"
               />
             )}
           </div>

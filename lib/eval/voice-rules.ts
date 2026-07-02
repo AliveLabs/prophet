@@ -42,6 +42,12 @@ export const CHEF_LINGO: { term: RegExp; suggest: string }[] = [
   // Absorb a leading "the " so "the knock-on window" -> "the rush right after" (no doubled article).
   { term: /\b(?:the\s+)?knock-?on(?:\s+window)?\b/i, suggest: "the rush right after" },
   { term: /\bkickoff window\b/i, suggest: "start window" },
+  // ALT-267: "the block" implies literal geographic proximity — a real rival can be miles away.
+  { term: /\bthe block'?s\b/i, suggest: "the set's" },
+  { term: /\bvs\.? the block\b/i, suggest: "vs the set" },
+  { term: /\b(?:on|around)\s+the block\b/i, suggest: "among your competitors" },
+  { term: /\bthe block\b/i, suggest: "your competitors / the set" },
+  { term: /\byour block\b/i, suggest: "your competitors" },
 ]
 
 export type VoiceViolation = { kind: "em_dash" | "chef_lingo"; detail: string }
