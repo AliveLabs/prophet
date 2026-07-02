@@ -20,12 +20,19 @@ export function TkActions({
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   TkImpactTag — a small labeled pill that ALWAYS accompanies an impact
-   bar/meter, so a filled bar is never shown without its plain-language
-   read (e.g. "High impact"). Colored by level (teal/gold/ink), matching
-   the confidence-pip palette. Server-safe.
+   TkImpactTag — ALT-251: shares TkConfidence's three-bar pip geometry (same
+   bar size/spacing) instead of a single dot, so confidence and impact read
+   as ONE consistent visual language. Level fills 1/2/3 bars for low/medium/
+   high; colored by level (ink/gold/teal), matching the confidence palette.
+   Always renders its plain-language label alongside the bars. Server-safe.
    ════════════════════════════════════════════════════════════════════ */
 export type TkImpactLevel = "high" | "medium" | "low"
+
+const IMPACT_ON: Record<TkImpactLevel, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+}
 
 export function TkImpactTag({
   level,
@@ -37,10 +44,22 @@ export function TkImpactTag({
   /** override the default label text */
   label?: ReactNode
 } & HTMLAttributes<HTMLSpanElement>) {
+  const on = IMPACT_ON[level]
   return (
-    <span className={cx("tk-impact", `tk-impact-${level}`, className)} {...props}>
-      <span className="tk-impact-dot" aria-hidden="true" />
-      {label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}
+    <span
+      className={cx("tk-impact", `tk-impact-${level}`, className)}
+      role="img"
+      aria-label={`${label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}`}
+      {...props}
+    >
+      <span className="tk-pips" aria-hidden="true">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className={cx("tk-pip", i < on ? "tk-pip-on" : "tk-pip-off")} />
+        ))}
+      </span>
+      <span className="tk-impact-label">
+        {label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}
+      </span>
     </span>
   )
 }

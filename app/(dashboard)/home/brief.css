@@ -26,18 +26,35 @@
 }
 
 /* ── BRIEF HEADER ─────────────────────────────────────────────── */
+/* ALT-250: header is now a column — a top row (kicker LEFT, refresh timestamp
+   RIGHT, same baseline) sits above the body row (headline block growing full
+   width, the play-count badge pinned right). */
 .ticket-brief .pass-brief-head {
   padding: 30px 0 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ticket-brief .pass-brief-head-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ticket-brief .pass-brief-head .tk-eyebrow { margin: 0; }
+.ticket-brief .pass-brief-head-body {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 22px;
   flex-wrap: wrap;
 }
-.ticket-brief .pass-brief-head-text { min-width: 0; }
-.ticket-brief .pass-brief-head .tk-eyebrow { margin-bottom: 10px; }
+.ticket-brief .pass-brief-head-text { min-width: 0; flex: 1 1 auto; }
 
-/* The lead headline — THE one editorial flourish (Fraunces italic). */
+/* The lead headline — THE one editorial flourish (Fraunces italic). ALT-250b:
+   no artificial max-width — it spans the full container so it renders on one
+   line instead of wrapping just to leave room for a floated meta column. */
 .ticket-brief .pass-headline {
   font-family: var(--font-editorial, Georgia, serif);
   font-weight: 400;
@@ -47,7 +64,6 @@
   letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0;
-  max-width: 20ch;
   text-wrap: balance;
 }
 .ticket-brief .pass-deck {
@@ -69,13 +85,6 @@
 }
 .ticket-brief .pass-synth b { color: var(--ink-2); font-weight: 700; }
 
-.ticket-brief .pass-brief-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  text-align: right;
-  gap: 9px;
-}
 .ticket-brief .pass-count-badge {
   display: inline-flex;
   align-items: center;
@@ -85,6 +94,7 @@
   background: var(--card);
   border: 1px solid var(--line-2);
   box-shadow: var(--shadow-sm);
+  flex: none;
 }
 .ticket-brief .pass-count-n {
   font-family: var(--font-mono);
@@ -125,14 +135,8 @@
   }
 }
 @media (max-width: 760px) {
-  .ticket-brief .pass-brief-head { padding: 22px 0 8px; }
-  .ticket-brief .pass-brief-meta {
-    align-items: flex-start;
-    text-align: left;
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-between;
-  }
+  .ticket-brief .pass-brief-head { padding: 22px 0 8px; gap: 10px; }
+  .ticket-brief .pass-brief-head-body { align-items: flex-start; }
 }
 
 /* ── HERO WRAP ────────────────────────────────────────────────── */
@@ -154,8 +158,10 @@
 .ticket-brief .pass-sec { margin-top: 46px; }
 
 /* ── PLAY GRID ────────────────────────────────────────────────── */
-/* .tk-grid (kit) gives the 2-col→1-col layout; pass-grid only tunes flow. */
-.ticket-brief .pass-grid { align-items: start; }
+/* .tk-grid (kit) gives the 2-col→1-col layout. ALT-253b: cards in a row match
+   height (same align-items:stretch pattern as .pool-grid / .sp-grid) so a short
+   card doesn't look orphaned next to a tall one; each card fills its cell. */
+.ticket-brief .pass-grid { align-items: stretch; }
 .ticket-brief .pass-grid > div { display: flex; }
 .ticket-brief .pass-grid > div > * { width: 100%; }
 
@@ -235,25 +241,36 @@
   margin-left: auto;
 }
 
-/* ── PLAY-CARD FOOT (actions + thumbs + detail) — page glue ───── */
+/* ── PLAY-CARD FOOT (actions row + detail/thumbs line) — page glue ─
+   ALT-253c/d: the whole foot block (action row + footer line) anchors to the
+   BOTTOM of the card — "Why we're confident" sits above it against flexible
+   negative space. The action row's own TkActions already carries margin-top:auto;
+   pass-foot only needs to stick to the card's flex-column bottom in turn. */
 .ticket-brief .pass-foot {
   margin-top: auto;
   padding-top: 6px;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* "See the play" (acts on the recommendation) vs Keep/Dismiss/Undo (acts on the
+   card) are separated into their own sub-groups with a 12px gap between them. */
+.ticket-brief .pass-actions-play,
+.ticket-brief .pass-actions-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   flex-wrap: wrap;
+}
+.ticket-brief .pass-actions-play { margin-right: 12px; }
+/* the footer line: "Full details & evidence" LEFT, the "helpful" thumbs RIGHT */
+.ticket-brief .pass-foot-line {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px 16px;
-}
-/* action buttons + the "helpful" thumbs, LEFT-aligned together (ALT-168b) */
-.ticket-brief .pass-foot-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
   flex-wrap: wrap;
 }
-/* "Full details & evidence" stays pinned RIGHT */
-.ticket-brief .pass-foot > .pass-detail-link { margin-left: auto; }
 .ticket-brief .pass-kept-state {
   font-family: var(--font-mono);
   font-size: 10.5px;
