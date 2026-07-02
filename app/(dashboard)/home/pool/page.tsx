@@ -3,7 +3,8 @@ import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { loadPoolEntries } from "@/lib/insights/insight-pool"
-import { RevealOnView } from "@/components/ticket"
+import { loadLatestPlayActionsByKey } from "@/lib/insights/momentum"
+import { RevealOnView, TkTooltipLayer } from "@/components/ticket"
 import PoolFeedPass from "./pool-feed-pass"
 import "./pool.css"
 
@@ -46,12 +47,21 @@ export default async function InsightPoolPage() {
 
   // loadPoolEntries is fail-soft (returns [] pre-migration / on any error). Reads via the default
   // admin client like getBrief — the page-level auth above already scopes this to the user's own org.
-  const entries = await loadPoolEntries(locRow.id)
+  // ALT-184f/g: the latest per-play actions ride along so pool cards render their Kept/Dismissed
+  // state and kept insights pin to the top ("Pinned").
+  const [entries, playActions] = await Promise.all([
+    loadPoolEntries(locRow.id),
+    loadLatestPlayActionsByKey(locRow.id),
+  ])
 
   const topCount = entries.filter((e) => e.is_top).length
 
   return (
-    <div className="pv-page tk-kit">
+    // .ticket-brief scopes the shared play-card styles (pass-foot, keep/dismiss, thumbs) the
+    // pool cards now reuse — the same wrapper the /insights page puts over its kit feed.
+    <div className="ticket-brief tk-kit">
+      <TkTooltipLayer />
+      <div className="pv-page">
       {/* ── PAGE-TITLE CHROME (on-system .pv-* header) ── */}
       <Link href="/home" className="pv-back">
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
@@ -88,7 +98,8 @@ export default async function InsightPoolPage() {
 
       {/* ── POOL BODY (kit grid + filters; client island, same data) ── */}
       <div className="pool-body">
-        <PoolFeedPass entries={entries} />
+        <PoolFeedPass entries={entries} locationId={locRow.id} actions={playActions} />
+      </div>
       </div>
     </div>
   )
