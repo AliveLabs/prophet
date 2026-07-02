@@ -22,18 +22,73 @@ function filterByMenuType(categories: MenuCategory[], menuType: MenuType): MenuC
   return categories.filter((c) => (c.menuType ?? "dine_in") === menuType)
 }
 
-function avgPrice(categories: MenuCategory[]): number | null {
-  const prices: number[] = []
+// A flat average of EVERY priced item in a menu-type bucket compares apples to oranges
+// between a combo-driven concept (few, higher-priced bundled items) and an à la carte
+// concept (many cheap standalone sides/drinks/sauces) — the average skews toward
+// whichever structure has more cheap line items, not toward who's actually pricier for
+// a comparable meal. This excludes items that are clearly NOT a stand-alone meal (drinks,
+// sides, sauces/condiments, desserts sold alone) so both sides average closer to "what a
+// meal costs," not "every line item on the menu." It's a heuristic, not true item-to-item
+// matching — see PRICE_COMPARISON_LIMITATION below.
+// Deliberately does NOT match "salad" — entree salads (Chicken Caesar, Cobb, etc.) are a
+// common real meal on many dine-in menus; excluding them would hurt comparability, the
+// opposite of this fix's goal. Same reasoning for not stripping every generic "side" —
+// only the explicit "side(s)" keyword (a menu section/label) and named common sides.
+const NON_MEAL_ITEM = /\b(drink|soda|pop|fountain|coke|coca-cola|pepsi|sprite|dr\.?\s*pepper|iced?\s*tea|lemonade|water|bottled|juice|shake|smoothie|coffee|sauce|dip|dressing|ketchup|mustard|mayo(?:nnaise)?|bbq\s*sauce|napkin|utensil|straw|extra|add-?on|sides?|fries|onion\s+rings|slaw|chips|cookie|pie\s+slice)\b/i
+
+/** Priced items in a bucket, filtered to exclude standalone non-meal add-ons (see
+ *  NON_MEAL_ITEM). Falls back to the UNFILTERED set if filtering would empty it (a menu
+ *  that's genuinely all sides/drinks shouldn't be zeroed out by its own filter). */
+export function comparableItems(categories: MenuCategory[]): number[] {
+  const all: number[] = []
+  const filtered: number[] = []
   for (const cat of categories) {
     for (const item of cat.items) {
-      if (item.priceValue != null && item.priceValue > 0) {
-        prices.push(item.priceValue)
-      }
+      if (item.priceValue == null || item.priceValue <= 0) continue
+      all.push(item.priceValue)
+      if (!NON_MEAL_ITEM.test(item.name)) filtered.push(item.priceValue)
     }
   }
-  if (prices.length === 0) return null
-  return prices.reduce((a, b) => a + b, 0) / prices.length
+  return filtered.length > 0 ? filtered : all
 }
+
+// Below this many comparable items on either side, the average is dominated by whichever
+// handful of items a scrape happened to capture that run (confirmed against live data —
+// a competitor's catering bucket swung from 3 to 5 items run-to-run, swinging its reported
+// "average price" by 60% with no real price change). A read this thin is worse than none —
+// drop it rather than report it, matching the confidence-floor pattern used for photo
+// analysis (lib/places/listing-audit.ts CONF_FLOOR).
+const MIN_COMPARABLE_ITEMS = 6
+// >= this many on the SMALLER side, confidence is "high"; between MIN and this, "medium" —
+// confidence now reflects how much the average could shift from one more/fewer item, not a
+// fixed literal. See PRICE_COMPARISON_LIMITATION.
+const HIGH_CONFIDENCE_ITEMS = 12
+
+type PriceStats = { avg: number; n: number; confidence: "high" | "medium" }
+
+/** Comparable-price read for a bucket pair, or null when either side is too thin to trust
+ *  (see MIN_COMPARABLE_ITEMS) — the caller should skip emitting an insight entirely, not
+ *  fall back to a low-confidence guess. */
+export function priceStatsPair(locCategories: MenuCategory[], compCategories: MenuCategory[]): { loc: PriceStats; comp: PriceStats } | null {
+  const locItems = comparableItems(locCategories)
+  const compItems = comparableItems(compCategories)
+  const minN = Math.min(locItems.length, compItems.length)
+  if (minN < MIN_COMPARABLE_ITEMS) return null
+  const confidence = minN >= HIGH_CONFIDENCE_ITEMS ? "high" : "medium"
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+  return {
+    loc: { avg: avg(locItems), n: locItems.length, confidence },
+    comp: { avg: avg(compItems), n: compItems.length, confidence },
+  }
+}
+
+// PRICE_COMPARISON_LIMITATION: excluding non-meal add-ons + requiring a minimum sample
+// narrows, but does not eliminate, the comparability gap — a combo-only concept's "meal"
+// items (bundled: entree+side+drink) are still structurally different from an à la carte
+// concept's individual entree prices. True fix is per-category / per-item-type matching,
+// which needs menu-parse-time item classification we don't have yet (tracked as a
+// follow-up). This is a bounded improvement: fewer wild swings, no insight from noise-level
+// samples, confidence that reflects real data volume — not a claim of full comparability.
 
 function categoryNames(categories: MenuCategory[]): Set<string> {
   return new Set(categories.map((c) => c.name.toLowerCase().trim()))
@@ -191,14 +246,14 @@ export function generateContentInsights(
   // 1. menu.price_positioning_shift (dine-in only)
   // -----------------------------------------------------------------------
   if (locDineIn.length > 0) {
-    const locAvg = avgPrice(locDineIn)
     for (const comp of competitorMenus) {
       const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
       if (compDineIn.length === 0) continue
-      const compAvg = avgPrice(compDineIn)
-      if (locAvg == null || compAvg == null) continue
-      const diff = compAvg - locAvg
-      const pctDiff = Math.abs(diff) / locAvg
+      const stats = priceStatsPair(locDineIn, compDineIn)
+      if (!stats) continue // too few comparable items on either side to trust the average
+      const { loc, comp: compStats } = stats
+      const diff = compStats.avg - loc.avg
+      const pctDiff = Math.abs(diff) / loc.avg
 
       if (pctDiff >= 0.15) {
         insights.push({
@@ -206,12 +261,14 @@ export function generateContentInsights(
           title: diff > 0
             ? `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% higher`
             : `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% lower`,
-          summary: `Your average dine-in price ($${locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compAvg.toFixed(2)}). ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
-          confidence: "high",
+          summary: `Your average dine-in price ($${loc.avg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compStats.avg.toFixed(2)}), based on ${loc.n} of your comparable items vs ${compStats.n} of theirs. ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
+          confidence: loc.confidence,
           severity: Math.abs(pctDiff) >= 0.3 ? "warning" : "info",
           evidence: {
-            locationAvgPrice: locAvg,
-            competitorAvgPrice: compAvg,
+            locationAvgPrice: loc.avg,
+            competitorAvgPrice: compStats.avg,
+            locationSampleSize: loc.n,
+            competitorSampleSize: compStats.n,
             priceDiffPct: Math.round(pctDiff * 100),
             competitor: comp.competitorName,
             menuType: "dine_in",
@@ -442,14 +499,17 @@ export function generateContentInsights(
   // Compare catering prices between location and competitors
   // -----------------------------------------------------------------------
   if (locCatering.length > 0) {
-    const locCatAvg = avgPrice(locCatering)
     for (const comp of competitorMenus) {
       const compCatering = filterByMenuType(comp.menu.categories, "catering")
       if (compCatering.length === 0) continue
-      const compCatAvg = avgPrice(compCatering)
-      if (locCatAvg == null || compCatAvg == null) continue
-      const diff = compCatAvg - locCatAvg
-      const pctDiff = Math.abs(diff) / locCatAvg
+      // Catering menus are inherently SMALL (a handful of tray/package options) — the
+      // same minimum-sample gate applies, so a catering comparison built from 3-5 items
+      // (confirmed unstable run-to-run against live data) is dropped rather than reported.
+      const stats = priceStatsPair(locCatering, compCatering)
+      if (!stats) continue
+      const { loc, comp: compStats } = stats
+      const diff = compStats.avg - loc.avg
+      const pctDiff = Math.abs(diff) / loc.avg
 
       if (pctDiff >= 0.10) {
         insights.push({
@@ -457,12 +517,14 @@ export function generateContentInsights(
           title: diff > 0
             ? `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% higher`
             : `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% lower`,
-          summary: `Your average catering price ($${locCatAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compCatAvg.toFixed(2)}). Catering margins are typically high — pricing accurately matters.`,
-          confidence: "high",
+          summary: `Your average catering price ($${loc.avg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compStats.avg.toFixed(2)}), based on ${loc.n} of your comparable items vs ${compStats.n} of theirs. Catering margins are typically high — pricing accurately matters.`,
+          confidence: loc.confidence,
           severity: Math.abs(pctDiff) >= 0.25 ? "warning" : "info",
           evidence: {
-            locationCateringAvgPrice: locCatAvg,
-            competitorCateringAvgPrice: compCatAvg,
+            locationCateringAvgPrice: loc.avg,
+            competitorCateringAvgPrice: compStats.avg,
+            locationSampleSize: loc.n,
+            competitorSampleSize: compStats.n,
             priceDiffPct: Math.round(pctDiff * 100),
             competitor: comp.competitorName,
             menuType: "catering",

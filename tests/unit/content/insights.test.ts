@@ -3,8 +3,14 @@
 // flag price does a price play stand; otherwise it reframes to positioning.
 
 import { describe, it, expect } from "vitest"
-import { generateContentInsights, canCorroboratePrice, corroboratePriceInsights } from "@/lib/content/insights"
-import type { MenuItem, MenuSnapshot, MenuType } from "@/lib/content/types"
+import {
+  generateContentInsights,
+  canCorroboratePrice,
+  corroboratePriceInsights,
+  comparableItems,
+  priceStatsPair,
+} from "@/lib/content/insights"
+import type { MenuItem, MenuCategory, MenuSnapshot, MenuType } from "@/lib/content/types"
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 
@@ -12,15 +18,22 @@ import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 function item(priceValue: number, name = `Item ${priceValue}`): MenuItem {
   return { name, description: null, price: `$${priceValue}`, priceValue, tags: [] }
 }
-function menu(avg: number, menuType: MenuType = "dine_in"): MenuSnapshot {
+// `count` identical-priced items — keeps avg == avg exactly while clearing the minimum-
+// comparable-sample gate (MIN_COMPARABLE_ITEMS=6 in lib/content/insights.ts). Default 8
+// sits in the "medium" confidence band (6-11); pass 12+ to test the "high" band.
+function menu(avg: number, menuType: MenuType = "dine_in", count = 8): MenuSnapshot {
+  const items = Array.from({ length: count }, (_, i) => item(avg, `Entree ${i}`))
   return {
     menuUrl: null,
     capturedAt: "2026-06-19",
     screenshot: null,
     currency: "USD",
-    categories: [{ name: "Entrees", menuType, items: [item(avg, "Steak"), item(avg, "Chop")] }],
-    parseMeta: { itemsTotal: 2, confidence: "high", notes: [] },
+    categories: [{ name: "Entrees", menuType, items }],
+    parseMeta: { itemsTotal: count, confidence: "high", notes: [] },
   }
+}
+function categoriesOf(items: MenuItem[], menuType: MenuType = "dine_in"): MenuCategory[] {
+  return [{ name: "Entrees", menuType, items }]
 }
 function reviews(themes: ReviewSentiment["themes"]): ReviewSentiment {
   return { themes, source: "google_places", windowDays: 90 }
@@ -136,5 +149,89 @@ describe("generateContentInsights price rule → corroboration (end to end)", ()
     const pricedOut = reviews([{ theme: "price", sentiment: "negative", mentions: 6, examples: ["overpriced for what it is"] }])
     const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, null), pricedOut)
     expect(priceFor(out)?.evidence.corroboration).toBe("strong")
+  })
+})
+
+// ── Data-integrity fix (2026-07-01): a flat average of every priced item compared a
+// combo-driven concept (Raising Cane's) against à-la-carte concepts (Whataburger, Arby's,
+// Chick-fil-A) and swung wildly run-to-run on a live account because the comparable sample
+// was as thin as 3-5 items. See lib/content/insights.ts comparableItems/priceStatsPair. ──
+
+describe("comparableItems — excludes standalone non-meal add-ons, with a fallback", () => {
+  it("drops drinks/sides/sauces/desserts sold on their own", () => {
+    const cats = categoriesOf([
+      item(12, "Grilled Chicken Sandwich"),
+      item(11, "Cheeseburger"),
+      item(2.5, "Fountain Drink"),
+      item(1.5, "BBQ Sauce"),
+      item(3, "Small Side"),
+      item(4, "Cookie"),
+    ])
+    expect(comparableItems(cats).sort((a, b) => a - b)).toEqual([11, 12])
+  })
+  it("keeps an item whose NAME doesn't match the non-meal pattern even in a small menu", () => {
+    const cats = categoriesOf([item(9, "Club Sandwich"), item(10, "Grilled Cheese")])
+    expect(comparableItems(cats).sort((a, b) => a - b)).toEqual([9, 10])
+  })
+  it("falls back to the unfiltered set when filtering would empty it (an all-sides/drinks menu)", () => {
+    const cats = categoriesOf([item(2, "Iced Tea"), item(3, "French Fries"), item(1, "Ketchup")])
+    expect(comparableItems(cats).sort((a, b) => a - b)).toEqual([1, 2, 3])
+  })
+})
+
+describe("priceStatsPair — minimum-sample gate + confidence tiers", () => {
+  it("returns null (drop the insight) when EITHER side has fewer than 6 comparable items", () => {
+    const thin = categoriesOf(Array.from({ length: 3 }, (_, i) => item(10 + i, `Entree ${i}`)))
+    const healthy = categoriesOf(Array.from({ length: 8 }, (_, i) => item(10 + i, `Entree ${i}`)))
+    expect(priceStatsPair(thin, healthy)).toBeNull()
+    expect(priceStatsPair(healthy, thin)).toBeNull()
+  })
+  it("confidence is 'medium' when the smaller side has 6-11 comparable items", () => {
+    const eight = categoriesOf(Array.from({ length: 8 }, () => item(10)))
+    const twenty = categoriesOf(Array.from({ length: 20 }, () => item(12)))
+    const stats = priceStatsPair(eight, twenty)
+    expect(stats?.loc.confidence).toBe("medium")
+    expect(stats?.comp.confidence).toBe("medium") // confidence reflects the SMALLER side for both
+  })
+  it("confidence is 'high' only when the smaller side has >=12 comparable items", () => {
+    const twelve = categoriesOf(Array.from({ length: 12 }, () => item(10)))
+    const twenty = categoriesOf(Array.from({ length: 20 }, () => item(12)))
+    const stats = priceStatsPair(twelve, twenty)
+    expect(stats?.loc.confidence).toBe("high")
+  })
+  it("reproduces the live Whataburger instability finding: a 3-5 item catering sample never clears the gate", () => {
+    const caneCatering = categoriesOf([item(95.99, "Family Pack"), item(89.99, "Party Box")], "catering")
+    const wbCateringDay1 = categoriesOf(
+      [item(65.32, "Bag Meal"), item(58.0, "Party Pack"), item(72.65, "Big Box")],
+      "catering",
+    )
+    expect(priceStatsPair(caneCatering, wbCateringDay1)).toBeNull()
+  })
+})
+
+describe("generateContentInsights — thin/unstable samples are dropped, not reported", () => {
+  it("does NOT emit menu.price_positioning_shift when the comparable sample is below the minimum (was: always emitted at hardcoded 'high' confidence)", () => {
+    const locMenu = menu(25, "dine_in", 2) // the old fixture size — exactly what broke on live data
+    const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: menu(18, "dine_in", 2), siteContent: null }]
+    const out = generateContentInsights(locMenu, compMenus, null, null)
+    expect(out.find((i) => i.insight_type === "menu.price_positioning_shift")).toBeUndefined()
+  })
+  it("menu.catering_pricing_gap: emits with a healthy sample, confidence reflects sample size (never a hardcoded literal)", () => {
+    const locMenu: MenuSnapshot = { ...menu(90, "catering", 10), categories: [{ name: "Catering", menuType: "catering", items: Array.from({ length: 10 }, (_, i) => item(90 + i, `Tray ${i}`)) }] }
+    const compMenu: MenuSnapshot = { ...menu(60, "catering", 10), categories: [{ name: "Catering", menuType: "catering", items: Array.from({ length: 10 }, (_, i) => item(60 + i, `Tray ${i}`)) }] }
+    const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: compMenu, siteContent: null }]
+    const out = generateContentInsights(locMenu, compMenus, null, null)
+    const gap = out.find((i) => i.insight_type === "menu.catering_pricing_gap")
+    expect(gap).toBeDefined()
+    expect(gap?.confidence).toBe("medium") // 10 items/side → medium band, not a hardcoded "high"
+    expect(gap?.evidence.locationSampleSize).toBe(10)
+    expect(gap?.evidence.competitorSampleSize).toBe(10)
+  })
+  it("menu.catering_pricing_gap: does NOT emit on a thin sample (the exact live-data failure mode — a 3-item catering bucket)", () => {
+    const locMenu: MenuSnapshot = { ...menu(95.99, "catering", 2), categories: [{ name: "Catering", menuType: "catering", items: [item(95.99, "Family Pack"), item(89.99, "Party Box")] }] }
+    const compMenu: MenuSnapshot = { ...menu(65, "catering", 3), categories: [{ name: "Catering", menuType: "catering", items: [item(65.32, "Bag Meal"), item(58, "Party Pack"), item(72.65, "Big Box")] }] }
+    const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: compMenu, siteContent: null }]
+    const out = generateContentInsights(locMenu, compMenus, null, null)
+    expect(out.find((i) => i.insight_type === "menu.catering_pricing_gap")).toBeUndefined()
   })
 })
