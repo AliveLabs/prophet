@@ -36,34 +36,38 @@
   margin-bottom: 8px;
 }
 
-/* the at-a-glance read strip inside the hero body */
-.pd-meta-strip {
+/* ALT-254: confidence + impact as labeled 3-bar graphs in the hero BODY (the
+   toprow chips were redundant with the evidence sections below, so they moved
+   here) — a label + the shared TkConfidence/TkImpactTag bar per row, with the
+   grounding line directly underneath the pair. */
+.pd-scores {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px 28px;
+  flex-direction: column;
+  gap: 8px;
   padding: 14px 0 2px;
   border-top: 1px solid var(--line);
 }
-.pd-meta {
+.pd-score-row {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 10px;
 }
-.pd-meta-k {
+.pd-score-k {
   font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-3);
-}
-.pd-meta-v {
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--ink);
+  min-width: 76px;
 }
 .pd-meta-reach {
   font-weight: 600;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.pd-grounded {
+  margin-top: 2px;
+  font-size: 12.5px;
   color: var(--ink-2);
 }
 
@@ -561,9 +565,6 @@
 
 /* ── RESPONSIVE / MOBILE ────────────────────────────────── */
 @media (max-width: 760px) {
-  .pd-meta-strip {
-    gap: 12px 20px;
-  }
   .pd-facts,
   .pd-signals {
     grid-template-columns: 1fr;
