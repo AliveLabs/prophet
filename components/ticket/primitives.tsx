@@ -2,7 +2,7 @@
 // No hooks / no handlers here (except via passthrough props) so these can render
 // in server components. Interactive islands live in their own files.
 
-import type { ButtonHTMLAttributes, ReactNode, HTMLAttributes } from "react"
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, HTMLAttributes } from "react"
 import Link from "next/link"
 
 function cx(...parts: Array<string | false | null | undefined>) {
@@ -45,12 +45,41 @@ export type TkFamily =
   | "grassroots"
 
 /* ════════════════════════════════════════════════════════════════════
-   TkButton
+   TkButton — THE button system (ALT-252).
+
+   Four PERMANENT visual tiers, decided 2026-07-01:
+     primary    — filled copper gradient, knockout text: the ONE main action
+     secondary  — copper outline, copper text + icons: a real alternative action
+     tertiary   — thin gray outline + subtle shadow: calm utility (cancel/undo)
+     borderless — copper text/icon only, SAME font size as every other button,
+                  and deliberately NO hover treatment: the color alone carries
+                  the affordance. A hover pill/underline would imply an extra
+                  action that doesn't exist — a fake button in an already
+                  complex UI (Bryan, 2026-07-01).
+   Legacy names map onto the system (act→primary, add→secondary,
+   ghost→tertiary) so existing call sites inherit it without churn.
+   `keep`/`dismiss` stay as FUNCTIONAL variants (toggle state / destructive x).
+   Spacing rule: a primary next to an adjacent borderless gets a 12px gap.
    ════════════════════════════════════════════════════════════════════ */
-export type TkButtonVariant = "act" | "keep" | "dismiss" | "add" | "ghost"
+export type TkButtonVariant =
+  | "primary" | "secondary" | "tertiary" | "borderless"
+  | "act" | "add" | "ghost" // legacy aliases → primary/secondary/tertiary
+  | "keep" | "dismiss"
+
+const VARIANT_CLASS: Record<TkButtonVariant, string> = {
+  primary: "primary",
+  act: "primary",
+  secondary: "secondary",
+  add: "secondary",
+  tertiary: "tertiary",
+  ghost: "tertiary",
+  borderless: "borderless",
+  keep: "keep",
+  dismiss: "dismiss",
+}
 
 export function TkButton({
-  variant = "act",
+  variant = "primary",
   kept = false,
   className,
   children,
@@ -65,7 +94,7 @@ export function TkButton({
       type="button"
       className={cx(
         "tk-btn",
-        `tk-btn-${variant}`,
+        `tk-btn-${VARIANT_CLASS[variant]}`,
         variant === "keep" && kept && "tk-is-kept",
         className
       )}
@@ -74,6 +103,41 @@ export function TkButton({
       {children}
     </button>
   )
+}
+
+/** Anchor rendered as a system button — for link-actions like "Event details" /
+ *  "Map it" that navigate rather than mutate. Same four tiers as TkButton. */
+export function TkButtonLink({
+  variant = "primary",
+  className,
+  children,
+  ...props
+}: {
+  variant?: TkButtonVariant
+} & AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a className={cx("tk-btn", `tk-btn-${VARIANT_CLASS[variant]}`, className)} {...props}>
+      {children}
+    </a>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TkRule — THE divider (ALT-283). Two variants, decided 2026-07-01:
+     strong — 2px solid ink: page-header rule (absorbs .pv-rule)
+     quiet  — 1px var(--rule): internal separations (absorbs .pv-acct__divider
+              and TkSectionHead's faint gradient rule)
+   The landing page's rust→gold accent tick (.lp-rule) is a marketing-only
+   brand accent, NOT a divider — it stays out of the kit on purpose.
+   ════════════════════════════════════════════════════════════════════ */
+export function TkRule({
+  variant = "strong",
+  className,
+  ...props
+}: {
+  variant?: "strong" | "quiet"
+} & HTMLAttributes<HTMLHRElement>) {
+  return <hr className={cx(`tk-rule-${variant}`, className)} {...props} />
 }
 
 /* ════════════════════════════════════════════════════════════════════

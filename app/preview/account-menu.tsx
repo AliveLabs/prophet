@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import Link from "next/link"
 import type { AccountLocation } from "./preview-data"
+import { TkRule } from "@/components/ticket"
 
 function initials(s: string): string {
   return s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
@@ -36,7 +37,7 @@ export default function AccountMenu({ userName, locations }: { userName: string;
             </button>
           ))}
           <button type="button" className="pv-acct__add">+ Add a location</button>
-          <div className="pv-acct__divider" />
+          <TkRule variant="quiet" />
           <Link href="/preview/settings" className="pv-acct__item" role="menuitem" onClick={() => setOpen(false)}>Settings</Link>
           <button type="button" className="pv-acct__item" role="menuitem">Sign out</button>
           <div className="pv-acct__soon">Switching, add-location & sign-out aren&apos;t wired yet. Settings apply to the current location.</div>

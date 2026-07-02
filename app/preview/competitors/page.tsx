@@ -6,6 +6,7 @@
 import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
 import CompetitorList from "../../(dashboard)/competitors/competitor-list"
+import { TkRule } from "@/components/ticket"
 
 export default async function PreviewCompetitors() {
   await connection()
@@ -17,7 +18,7 @@ export default async function PreviewCompetitors() {
         <h1 className="pv-h1">Competitors</h1>
         <p className="pv-sub">The places we watch for you{ctx.city ? ` around ${ctx.city}` : ""}. We track their pricing, reviews, social, and menus, and surface anything that moves into your brief.</p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <CompetitorList
         initial={ctx.competitors.map((c) => ({

@@ -23,6 +23,7 @@ import {
   TkWidget,
   TkEmptyState,
   TkStillLearning,
+  TkRule,
 } from "@/components/ticket"
 import "./photos.css"
 
@@ -213,7 +214,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
           it, and the promotions they&apos;re running. We surface anything that moves into your brief.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 22, marginTop: 24 }}>
         {/* ── Toolbar ── */}

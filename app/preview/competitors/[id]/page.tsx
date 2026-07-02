@@ -8,6 +8,7 @@ import { connection } from "next/server"
 import Link from "next/link"
 import { loadCompetitorDetail } from "../../preview-data"
 import { humanizeRef } from "@/lib/skills/evidence-format"
+import { TkRule } from "@/components/ticket"
 
 function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
@@ -41,7 +42,7 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
           {c.address ? <p className="pv-comp-head__addr">{c.address}</p> : null}
         </div>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="pv-section">
         <div className="pv-section-head">What we&apos;re seeing <span className="pv-section-sub">recent signals from this competitor</span></div>

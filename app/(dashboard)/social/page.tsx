@@ -19,6 +19,7 @@ import {
   TkEmptyState,
   TkButton,
   TkTooltipLayer,
+  TkRule,
 } from "@/components/ticket"
 import SocialStandingPass from "./social-standing-pass"
 import SocialPostsPass from "./social-posts-pass"
@@ -192,7 +193,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
           dollars or customer counts.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="sp-body tk-kit">
         <TkTooltipLayer />

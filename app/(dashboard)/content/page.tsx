@@ -6,6 +6,7 @@ import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import ContentBoard, { type CompetitorMenuDisplay } from "./content-board"
 import "./content.css"
+import { TkRule } from "@/components/ticket"
 
 type PageProps = {
   searchParams?: Promise<{
@@ -123,7 +124,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
           honestly against your competitors&apos; own published menus.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       {/* control bar — location filter + refresh, on-system */}
       <div className="tk-kit">

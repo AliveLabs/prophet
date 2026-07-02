@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { signOutAction, switchOrganizationAction } from "./actions"
 import type { AccountLocation } from "./operator-data"
+import { TkRule } from "@/components/ticket"
 
 /** Consistent auto-initials: first letters of the first two SIGNIFICANT words → up to 2
  *  chars. "Sugar Bacon" → "SB", "The Rusty Spoon" → "RS" (skips leading articles), "Cane's"
@@ -149,7 +150,7 @@ export default function AccountMenu({
               })
             )}
           </div>
-          <div className="pv-acct__divider" />
+          <TkRule variant="quiet" />
           {!locked && (
             <>
               <Link href="/locations/new" className="pv-acct__item" role="menuitem" onClick={() => setOpenState(false)}>Add a location</Link>
