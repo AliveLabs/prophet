@@ -790,3 +790,11 @@ button.tk-ask-inline {
 .pass-drawer-evidence { display: flex; flex-direction: column; gap: 12px; margin: 14px 0 18px; }
 .pass-drawer-evidence .tk-why,
 .pass-drawer-evidence .pass-quotes { margin-top: 0; }
+
+/* ════════════════════════════════════════════════════════════
+   TWO-COLOR HEADLINES (ALT-266) — key words accented in rust.
+   Applied by accentize() on hero/page-level headlines; static
+   headlines hand-author <em className="tk-em">. Card titles stay
+   single-color by decision.
+   ════════════════════════════════════════════════════════════ */
+.tk-em { color: var(--rust-deep, var(--rust)); font-style: normal; }

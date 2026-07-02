@@ -18,6 +18,7 @@ import {
   type TkFamily,
 } from "@/components/ticket"
 import { FAMILY_ICON } from "../home/pass-icons"
+import { accentize } from "@/components/ticket/accentize"
 
 const CAT_FAMILY: Record<SourceCategory, TkFamily> = {
   competitors: "reputation",
@@ -66,7 +67,7 @@ export default function InsightsBriefingKit({
 
       <RevealOnView className="ins-brief-hero-wrap">
         <TkHero
-          title={lead.title}
+          title={accentize(lead.title)}
           chips={
             <>
               <TkChip family={leadFamily}>{SOURCE_LABELS[lead.source]}</TkChip>

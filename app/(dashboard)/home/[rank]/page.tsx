@@ -58,6 +58,7 @@ import { loadHeroCovers } from "../hero-covers"
 import { resolvePlayHeroPhoto, buildCompetitorCoverMap } from "../hero-photo"
 import { HeroImage } from "../../hero-image"
 import "./detail.css"
+import { accentize } from "@/components/ticket/accentize"
 
 export default async function PlayDetail({ params }: { params: Promise<{ rank: string }> }) {
   const { rank } = await params
@@ -133,7 +134,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
       {/* ── HERO LEAD — the play, its standing, and the comparative read ── */}
       <RevealOnView className="pd-hero-wrap">
         <TkHero
-          title={play.title}
+          title={accentize(play.title)}
           titleId={titleId}
           chips={
             <>
