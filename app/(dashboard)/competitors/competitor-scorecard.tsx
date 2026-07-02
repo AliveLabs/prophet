@@ -19,6 +19,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { RevealOnView, TkCard, TkSectionHead, TkEmptyState, TkChip, TkConfidence } from "@/components/ticket"
+import { VizTBubble, type VizContext } from "@/components/ticket/viz-tbubble"
 import type { TkConfidenceLevel } from "@/components/ticket/primitives"
 import { tkcx as cx } from "@/components/ticket/primitives"
 import { TicketChatMark } from "@/components/brand/ticket-chat-mark"
@@ -131,9 +132,11 @@ function FieldStrip({ m }: { m: ScorecardMetric }) {
 export default function CompetitorScorecard({
   metrics,
   ownName,
+  locationId,
 }: {
   metrics: ScorecardMetric[]
   ownName: string
+  locationId?: string
 }) {
   const router = useRouter()
   const [open, setOpen] = useState<string | null>(null)
@@ -160,6 +163,18 @@ export default function CompetitorScorecard({
   const behinds = withYou.filter((m) => m.status === "behind").length
   const worst = withYou.find((m) => m.status === "behind") // already sorted worst-first
 
+  // ALT-230 contract — the same "Ask Ticket about this" T-bubble every data-rich
+  // viz card carries, fed this card's overall record.
+  const viz: VizContext = {
+    domain: "competitors",
+    metric: "competitive standing",
+    value: `${leads} of ${withYou.length}`,
+    unit: " measures ahead",
+    entityType: "competitor",
+    source: "Google, search and social profiles",
+    locationId,
+  }
+
   function toggle(key: string) {
     setOpen((cur) => (cur === key ? null : key))
   }
@@ -183,7 +198,7 @@ export default function CompetitorScorecard({
         sub="Every rival on the same scale — where you lead, where they do, and what's driving it"
       />
       <RevealOnView>
-        <TkCard>
+        <TkCard tBubble={<VizTBubble viz={viz} />}>
           <div className="tk-sc">
             {/* ── Verdict header ── */}
             <div className="tk-sc-verdict">

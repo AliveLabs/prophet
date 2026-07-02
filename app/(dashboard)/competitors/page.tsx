@@ -66,7 +66,7 @@ export default async function CompetitorsPage() {
           magnitude across venues, and the heatmap's day×hour values live inside
           the busy read now. The tooltip layer renders data-tip hovers. */}
       <TkTooltipLayer />
-      <CompetitorScorecard metrics={scorecard.metrics} ownName={ctx.locationName} />
+      <CompetitorScorecard metrics={scorecard.metrics} ownName={ctx.locationName} locationId={ctx.locationId} />
       <section className="tk-comp-sec">
         <CompetitorHoursGrid
           entities={comparison.hoursEntities}
