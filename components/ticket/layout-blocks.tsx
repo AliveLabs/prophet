@@ -121,8 +121,8 @@ export function TkPlayCard({
   ...props
 }: {
   family: TkFamily
-  /** the small square icon glyph (an <svg/>) */
-  icon: ReactNode
+  /** the small square icon glyph (an <svg/>); omit to render no icon block */
+  icon?: ReactNode
   title: ReactNode
   summary?: ReactNode
   /** chip row content (e.g. <TkChip/> + distance pill) */
@@ -137,9 +137,11 @@ export function TkPlayCard({
   return (
     <article className={cx("tk-pcard", className)} {...props}>
       <div className="tk-pc-top">
-        <div className={cx("tk-pc-icon", `tk-icon-${family}`)} aria-hidden="true">
-          {icon}
-        </div>
+        {icon && (
+          <div className={cx("tk-pc-icon", `tk-icon-${family}`)} aria-hidden="true">
+            {icon}
+          </div>
+        )}
         {confidence}
       </div>
       {chips && <div className="tk-pc-chiprow">{chips}</div>}

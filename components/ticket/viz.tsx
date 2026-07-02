@@ -354,14 +354,19 @@ export function TkWeatherStrip({
       {caption && <TkVizCap left={caption} right={captionRight} />}
       <div className="tk-fc7">
         {days.map((d, i) => (
-          <div className="tk-fcday" key={i}>
-            {d.event && <div className="tk-evt">{d.event}</div>}
-            <div className="tk-dow">{d.dow}</div>
-            <div className={cx("tk-ic", `tk-${d.icon}-ic`)}>{WEATHER_GLYPH[d.icon]}</div>
-            <div className="tk-hi">{d.hi}</div>
-            <div className="tk-lo">{d.lo}</div>
-            <div className={cx("tk-dem", `tk-${d.demand}`)} data-tip={d.tip} data-tipv={d.tipValue}>
-              {DEMAND_LABEL[d.demand]}
+          <div className="tk-fccol" key={i}>
+            <div className="tk-fcday">
+              {d.event && <div className="tk-evt">{d.event}</div>}
+              <div className="tk-dow">{d.dow}</div>
+              <div className={cx("tk-ic", `tk-${d.icon}-ic`)}>{WEATHER_GLYPH[d.icon]}</div>
+              <div className="tk-hi">{d.hi}</div>
+              <div className="tk-lo">{d.lo}</div>
+            </div>
+            <div className="tk-dem-row">
+              <div className="tk-dem-label">Est. walk-in demand</div>
+              <div className={cx("tk-dem", `tk-${d.demand}`)} data-tip={d.tip} data-tipv={d.tipValue}>
+                {DEMAND_LABEL[d.demand]}
+              </div>
             </div>
           </div>
         ))}

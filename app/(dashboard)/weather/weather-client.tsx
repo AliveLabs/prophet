@@ -524,7 +524,6 @@ export function WeatherActionPlays({ days }: { days: WeatherDay[] }) {
         <TkPlayCard
           key={i}
           family={TONE_FAMILY[p.tone]}
-          icon={ACTION_GLYPH[p.icon]}
           title={p.title}
           summary={p.summary}
           chips={<TkChip family={TONE_FAMILY[p.tone]}>{TONE_CHIP[p.tone]}</TkChip>}
