@@ -205,6 +205,12 @@ export default function BriefView({
           </RevealOnView>
         ) : (
           <>
+            {/* ── See-all-insights link (ALT-184a) — moved to the TOP of the brief's insights
+                list so it's discoverable immediately instead of buried at the bottom. ── */}
+            <Link className="pass-pool-link pass-pool-link-top" href="/home/pool">
+              See all insights in your pool &rarr;
+            </Link>
+
             {/* ── FALLBACK BANNER (last-good brief; honest, not faked) ── */}
             {isFallback ? (
               <div className="pass-fallback-banner" role="status">
@@ -278,12 +284,6 @@ export default function BriefView({
                 </div>
               </div>
             ) : null}
-
-            {/* ── See-all-insights link (ALT-184a) — at the END of the brief's insights, near
-                "Cleared today", not orphaned at the bottom of the whole page. ── */}
-            <Link className="pass-pool-link" href="/home/pool">
-              See all insights in your pool &rarr;
-            </Link>
 
             {/* ── AT-A-GLANCE WIDGETS ── */}
             <TkSectionHead title="At a glance" sub="Weighted widgets · your week" className="pass-sec" />

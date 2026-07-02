@@ -19,6 +19,7 @@ import {
   TkPlayCard,
   TkChip,
   TkConfidence,
+  TkImpactTag,
   TkButton,
   TkWhy,
   TkQuote,
@@ -29,11 +30,11 @@ import {
 } from "@/components/ticket"
 import { updateInsightStatusAction } from "./actions"
 import type { FeedInsight } from "./insights-feed-kit"
-import { FAMILY_ICON } from "../home/pass-icons"
 import {
   insightFamily,
   insightChipLabel,
   insightConfLevel,
+  insightImpactLevel,
   insightQuotes,
   insightSentiment,
   insightWhyPoints,
@@ -41,6 +42,7 @@ import {
   insightWhySource,
   insightMetrics,
   insightRecs,
+  insightDateStamp,
   URGENCY_LABEL,
 } from "./insights-map"
 
@@ -74,6 +76,7 @@ export function InsightCardKit({
 
   const family = insightFamily(insight)
   const level = insightConfLevel(insight.confidence)
+  const impact = insightImpactLevel(insight.severity)
   const quotes = insightQuotes(insight)
   const sentiment = insightSentiment(insight)
   const why = insightWhyPoints(insight)
@@ -117,12 +120,18 @@ export function InsightCardKit({
     )
   }
 
-  // ── status top-right: insights show confidence pips (no label) so the operator
-  //    can weight them at a glance. A win-flag is reserved for the brief's true
-  //    advantages — an insight never claims an edge it can't back. ──
-  const statusEl = <TkConfidence level={level} showLabel={false} />
+  // ── status top-right: confidence pips + impact tag — the SAME two-score read
+  //    the brief's play cards use (ALT-184f), so a pool card never shows only
+  //    one axis. A win-flag is reserved for the brief's true advantages — an
+  //    insight never claims an edge it can't back. ──
+  const statusEl = (
+    <>
+      <TkConfidence level={level} showLabel={false} />
+      <TkImpactTag level={impact} />
+    </>
+  )
 
-  // ── chip row: source family + urgency + (when cleared) the cleared state ──
+  // ── chip row: source family + urgency + generated-on date + (when cleared) the cleared state ──
   const chips = (
     <>
       {insight.justGenerated ? (
@@ -147,6 +156,9 @@ export function InsightCardKit({
       ) : status === "todo" ? (
         <span className="ins-cleared-tag ins-todo">To-do</span>
       ) : null}
+      {/* ALT-293: every insight card shows when it was generated — mirrors the
+          pool's existing `.pool-seen` recency-stamp treatment (mono, muted, right-aligned). */}
+      <span className="ins-seen">{insightDateStamp(insight.dateKey)}</span>
     </>
   )
 
@@ -274,10 +286,46 @@ export function InsightCardKit({
     </>
   )
 
+  // ── thumbs (ALT-184f): the SAME `updateInsightStatusAction` the Track menu and
+  //   Dismiss already call — there's no separate `brief_feedback`-style table for
+  //   pool insights, so thumbs-up records the existing "useful" signal via the
+  //   `read` status (a no-op if already tracked) and thumbs-down opens the SAME
+  //   dismiss-reason capture Dismiss uses, which already writes "not_useful". No
+  //   new server action, no new mutation — just a second, faster way to fire the
+  //   ones that already exist. ──
+  const thumbs = !isCleared ? (
+    <span className="ins-thumbs">
+      <span className="ins-thumbs-lbl">Helpful?</span>
+      <button
+        type="button"
+        className="ins-thumb ins-thumb-up"
+        disabled={pending}
+        aria-label="Helpful"
+        aria-pressed={insight.userFeedback === "useful"}
+        onClick={() => applyStatus("read", "Noted, more like this.")}
+      >
+        👍
+      </button>
+      <button
+        type="button"
+        className="ins-thumb ins-thumb-down"
+        disabled={pending}
+        aria-label="Not helpful"
+        aria-pressed={insight.userFeedback === "not_useful"}
+        aria-expanded={reasonOpen}
+        onClick={() => setReasonOpen(true)}
+      >
+        👎
+      </button>
+    </span>
+  ) : null
+
   return (
     <TkPlayCard
       family={family}
-      icon={FAMILY_ICON[family]}
+      // ALT-184d: no category glyph on a pool card (matches the home-card icon-removal
+      // decision) — the family chip text below still carries the category in plain view.
+      icon={null}
       title={insight.title}
       confidence={statusEl}
       chips={chips}
@@ -287,7 +335,10 @@ export function InsightCardKit({
       style={{ position: "relative" }}
     >
       {body}
-      <TkActions>{actions}</TkActions>
+      <div className="ins-foot">
+        <TkActions>{actions}</TkActions>
+        {thumbs}
+      </div>
       {!isCleared ? (
         <TkDismissReason
           open={reasonOpen}

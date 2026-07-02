@@ -664,8 +664,8 @@
   padding: 4px 11px;
 }
 
-/* ── See-all-insights link (ALT-184a: now at the end of the brief's insights, before
-   "At a glance") ──────────────────────────────────────────────── */
+/* ── See-all-insights link (ALT-184a: moved to the TOP of the brief's insights
+   list so it's discoverable immediately, not buried at the bottom) ──────── */
 .ticket-brief .pass-pool-link {
   display: inline-block;
   margin-top: 22px;
@@ -677,3 +677,4 @@
   text-decoration: none;
 }
 .ticket-brief .pass-pool-link:hover { color: var(--ink); }
+.ticket-brief .pass-pool-link-top { margin-top: 0; margin-bottom: 22px; }
