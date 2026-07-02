@@ -191,6 +191,11 @@ function RhythmTrack({
       role="img"
       aria-label={srLabel}
     >
+      {/* faint hour gridlines (6a/12p/6p) so the axis ticks visibly tie to the plot */}
+      {!compact &&
+        [6, 12, 18].map((h) => (
+          <span key={`grid-${h}`} className="tk-hrs-gridline" style={{ left: pctX(h) }} aria-hidden="true" />
+        ))}
       {eff.intervals.map((iv, i) => (
         <div
           key={`band-${i}`}
@@ -603,11 +608,19 @@ export default function CompetitorHoursGrid({
               })}
             </div>
 
-            {/* ── Axis ── */}
-            <div className="tk-hrs-axis" aria-hidden="true">
-              {AXIS.map((h) => (
-                <span key={h}>{hourTick(h)}</span>
-              ))}
+            {/* ── Axis — lives in the SAME grid as the rows so the ticks align to
+                  the track column's hour positions, never drifting under the name
+                  or week-profile columns. ── */}
+            <div className="tk-hrs-axis-row" aria-hidden="true">
+              <div className="tk-hrs-axis-pad" />
+              <div className="tk-hrs-axis">
+                {AXIS.map((h) => (
+                  <span key={h} style={{ left: pctX(h) }}>
+                    {hourTick(h)}
+                  </span>
+                ))}
+              </div>
+              <div className="tk-hrs-axis-pad" />
             </div>
 
             {/* ── The read: the operator's questions, answered from the curves ── */}
