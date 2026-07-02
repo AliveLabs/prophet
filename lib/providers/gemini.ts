@@ -207,6 +207,12 @@ export const geminiProvider: Provider = {
           },
         },
       }),
+    }, {
+      // A generation grounded with BOTH Maps + Search routinely runs past the
+      // 30s default — onboarding discovery was dying at exactly 30000ms
+      // (timeouts never retry). Generous ceiling; the server action budget is 300s.
+      timeoutMs: 120_000,
+      label: "gemini-discovery",
     })
 
     if (!response.ok) {
