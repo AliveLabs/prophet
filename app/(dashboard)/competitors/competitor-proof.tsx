@@ -72,6 +72,7 @@ export function CompetitorPostsGrid({ posts }: { posts: ProofPost[] }) {
                 </>
               }
               network={NET_ICON}
+              networkLabel={PLATFORM_LABEL[p.platform] ?? p.platform}
               photo={photo}
               postUrl={p.postUrl}
               postUrlLabel={`Open ${p.entityName}'s post on ${PLATFORM_LABEL[p.platform] ?? p.platform}`}

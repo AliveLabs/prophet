@@ -256,6 +256,7 @@ export default function SocialPostsPass({
                     </>
                   }
                   network={NET_ICON[post.platform]}
+                  networkLabel={PLATFORM_LABEL[post.platform]}
                   photo={photo}
                   photoLabel={post.entityName}
                   postUrl={post.postUrl}

@@ -311,8 +311,12 @@
 /* ALT-175: video badge over the embed media (bottom-left glass chip). */
 .tk-se-vid { position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); }
 .tk-se-vid svg { width: 11px; height: 11px; }
-/* ALT-174: open-original-post button over the embed media (top-right glass button). */
-.tk-se-open { position: absolute; right: 10px; top: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: var(--card); background: rgba(20,26,32,.76); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; border: 1px solid rgba(255,255,255,.16); transition: background var(--t-fast), transform var(--t-fast); }
+/* ALT-174: open-original-post button over the embed media (top-right glass button).
+   ALT-272a: the glass chip is theme-invariant (fixed dark over the photo), so the icon
+   color is the palette's lightest paper (#FAF8F4) as a literal — every surface token
+   flips dark in dark mode and would vanish here. Stronger .76 backdrop + a subtle
+   drop-shadow keep the icon legible over bright photos. */
+.tk-se-open { position: absolute; right: 10px; top: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #FAF8F4; background: rgba(20,26,32,.76); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; border: 1px solid rgba(255,255,255,.16); transition: background var(--t-fast), transform var(--t-fast); }
 .tk-se-open svg { width: 15px; height: 15px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
 .tk-se-open:hover { background: rgba(20,26,32,.88); }
 .tk-se-open:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
