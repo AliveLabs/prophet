@@ -79,13 +79,21 @@ function parseClock(raw: string): number | null {
 /** Turn one open–close pair (in minutes) into a same-day hour interval, or null.
  *  start floors to the hour, end ceils (so a 10:30 open still lights the 10 o'clock
  *  cell and a 10:30pm close still lights the 10 o'clock cell). Overnight windows
- *  (close <= open, or close at exactly midnight) clip to the end of this day. */
-function toInterval(openMin: number, closeMin: number): OpenInterval | null {
+ *  (close <= open, or close at exactly midnight) clip to the end of this day —
+ *  the after-midnight tail is returned separately as `spill` so the weekly parser
+ *  can attribute it to the NEXT calendar day (a "5 PM - 2 AM" spot is open
+ *  12 AM - 2 AM on the following day's track). */
+function toInterval(
+  openMin: number,
+  closeMin: number,
+): { interval: OpenInterval; spill: OpenInterval | null } | null {
   const start = Math.floor(openMin / 60)
   // Midnight close (0) and any close not strictly after open ⇒ runs to end of day.
-  const end = closeMin === 0 || closeMin <= openMin ? 24 : Math.min(24, Math.ceil(closeMin / 60))
+  const overnight = closeMin > 0 && closeMin <= openMin
+  const end = closeMin === 0 || overnight ? 24 : Math.min(24, Math.ceil(closeMin / 60))
   if (!(start >= 0 && start < 24 && end > start)) return null
-  return { start, end }
+  const spillEnd = overnight ? Math.min(24, Math.ceil(closeMin / 60)) : 0
+  return { interval: { start, end }, spill: spillEnd > 0 ? { start: 0, end: spillEnd } : null }
 }
 
 /** Merge overlapping/touching intervals (sorted) so a split-shift bar paints clean. */
@@ -100,63 +108,103 @@ function mergeIntervals(intervals: OpenInterval[]): OpenInterval[] {
   return out
 }
 
-/** Parse the TIME-SPAN portion of a day's hours (everything after the day name),
- *  e.g. "10:00 AM – 11:00 PM" or "7 AM – 2 PM, 5 PM – 10 PM" or "Open 24 hours". */
-export function parseSpan(spanRaw: string | null | undefined): DayHours {
-  if (spanRaw == null) return UNKNOWN
+/** Parse a span into the day's hours PLUS any after-midnight spill (the tail of an
+ *  overnight window, to be attributed to the next calendar day). */
+function parseSpanWithSpill(spanRaw: string | null | undefined): {
+  day: DayHours
+  spill: OpenInterval | null
+} {
+  if (spanRaw == null) return { day: UNKNOWN, spill: null }
   const span = normalizeSpan(spanRaw)
-  if (!span) return UNKNOWN
+  if (!span) return { day: UNKNOWN, spill: null }
   const lower = span.toLowerCase()
 
-  if (/\bclosed\b/.test(lower)) return CLOSED
+  if (/\bclosed\b/.test(lower)) return { day: CLOSED, spill: null }
   if (/\b(open\s+)?24\s*hours\b/.test(lower) || /\bopen\s+24\b/.test(lower)) {
-    return { known: true, open: true, is24h: true, intervals: [{ start: 0, end: 24 }] }
+    return {
+      day: { known: true, open: true, is24h: true, intervals: [{ start: 0, end: 24 }] },
+      spill: null,
+    }
   }
 
   const intervals: OpenInterval[] = []
+  let spill: OpenInterval | null = null
   for (const part of span.split(",")) {
     const [from, to] = part.split("-").map((p) => p.trim())
     if (!from || !to) continue
     const openMin = parseClock(from)
     const closeMin = parseClock(to)
     if (openMin == null || closeMin == null) continue
-    const iv = toInterval(openMin, closeMin)
-    if (iv) intervals.push(iv)
+    const parsed = toInterval(openMin, closeMin)
+    if (!parsed) continue
+    intervals.push(parsed.interval)
+    if (parsed.spill && (!spill || parsed.spill.end > spill.end)) spill = parsed.spill
   }
 
-  if (intervals.length === 0) return UNKNOWN
+  if (intervals.length === 0) return { day: UNKNOWN, spill: null }
   const merged = mergeIntervals(intervals)
   const is24h = merged.length === 1 && merged[0].start === 0 && merged[0].end === 24
-  return { known: true, open: true, is24h, intervals: merged }
+  return { day: { known: true, open: true, is24h, intervals: merged }, spill }
+}
+
+/** Parse the TIME-SPAN portion of a day's hours (everything after the day name),
+ *  e.g. "10:00 AM – 11:00 PM" or "7 AM – 2 PM, 5 PM – 10 PM" or "Open 24 hours".
+ *  Overnight tails are clipped here (single-day view) — the weekly parser
+ *  (parseWeekdayDescriptions) attributes them to the next calendar day. */
+export function parseSpan(spanRaw: string | null | undefined): DayHours {
+  return parseSpanWithSpill(spanRaw).day
 }
 
 /** Parse one full weekday-description line ("Monday: 10:00 AM – 11:00 PM").
- *  Returns the day-of-week (0=Sun, or null when the day name isn't recognized)
- *  and the parsed hours. Splits on the FIRST colon only, so the time keeps its own. */
-export function parseDayLine(line: string | null | undefined): { dow: number | null; hours: DayHours } {
-  if (!line) return { dow: null, hours: UNKNOWN }
+ *  Returns the day-of-week (0=Sun, or null when the day name isn't recognized),
+ *  the parsed hours, and any after-midnight spill (overnight tail — belongs to
+ *  the NEXT calendar day). Splits on the FIRST colon only, so the time keeps its own. */
+export function parseDayLine(line: string | null | undefined): {
+  dow: number | null
+  hours: DayHours
+  spill: OpenInterval | null
+} {
+  if (!line) return { dow: null, hours: UNKNOWN, spill: null }
   const idx = line.indexOf(":")
   if (idx < 0) {
     // No "Day:" prefix — treat the whole line as a span (e.g. a bare value).
-    return { dow: null, hours: parseSpan(line) }
+    const bare = parseSpanWithSpill(line)
+    return { dow: null, hours: bare.day, spill: bare.spill }
   }
   const dayName = line.slice(0, idx).trim().toLowerCase()
   const dow = dayName in DAY_NAME_TO_DOW ? DAY_NAME_TO_DOW[dayName] : null
-  return { dow, hours: parseSpan(line.slice(idx + 1)) }
+  const parsed = parseSpanWithSpill(line.slice(idx + 1))
+  return { dow, hours: parsed.day, spill: parsed.spill }
 }
 
 /** Parse Google's `weekdayDescriptions` array into hours keyed by day-of-week
  *  (0=Sun … 6=Sat). Days the source doesn't mention are left absent (caller treats
  *  a missing key as `known: false`). Robust to locale day order — we key off the
- *  day NAME in each line, not the array index. */
+ *  day NAME in each line, not the array index.
+ *
+ *  Overnight windows land on the CALENDAR day they occur: "Monday: 5 PM - 2 AM"
+ *  gives Monday 5 PM - 12 AM and adds 12 AM - 2 AM to Tuesday — so a late-night
+ *  spot reads open in the early morning, closed, then open again, matching the
+ *  0-24 calendar-day track. (A spilled-into day whose own line is missing shows
+ *  just the tail — we know they're open then, even if the rest is unread.) */
 export function parseWeekdayDescriptions(
   lines: string[] | null | undefined,
 ): Record<number, DayHours> {
   const out: Record<number, DayHours> = {}
   if (!Array.isArray(lines)) return out
+  const spills: Array<{ dow: number; spill: OpenInterval }> = []
   for (const line of lines) {
-    const { dow, hours } = parseDayLine(line)
-    if (dow != null) out[dow] = hours
+    const { dow, hours, spill } = parseDayLine(line)
+    if (dow == null) continue
+    out[dow] = hours
+    if (spill) spills.push({ dow: (dow + 1) % 7, spill })
+  }
+  for (const { dow, spill } of spills) {
+    const cur = out[dow]
+    if (cur?.is24h) continue // already covers the tail
+    const intervals = mergeIntervals([...(cur?.open ? cur.intervals : []), spill])
+    const is24h = intervals.length === 1 && intervals[0].start === 0 && intervals[0].end === 24
+    out[dow] = { known: true, open: true, is24h, intervals }
   }
   return out
 }
