@@ -303,6 +303,86 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
 
         {hasData ? (
           <>
+            {/* ── At-a-glance widgets (honest, no $/covers) ── */}
+            <div>
+              <TkSectionHead title="At a glance" sub={`Across ${kpiDaysLabel}`} />
+              <RevealOnView>
+                <TkWidgetGrid>
+                  <TkWidget
+                    tone="gold"
+                    size="wide"
+                    label="Avg high"
+                    value={`${avgTemp}°F`}
+                    sub="mean daily high in view"
+                    data-tip="Average daily high across history + forecast"
+                    data-tipv={`${avgTemp}°F avg high`}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Avg high",
+                          value: avgTemp,
+                          unit: "°F",
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Total precip"
+                    value={`${totalPrecip.toFixed(2)}"`}
+                    sub="rain + snow in view"
+                    data-tip="Total precipitation across the window"
+                    data-tipv={`${totalPrecip.toFixed(2)} inches`}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Total precip",
+                          value: totalPrecip.toFixed(2),
+                          unit: '"',
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
+                  />
+                  <TkWidget
+                    tone={severeCount > 0 ? "rust" : "teal"}
+                    label="Severe days"
+                    value={String(severeCount)}
+                    sub={severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}
+                    data-tip="Days flagged severe — we down-weight expected walk-in on these"
+                    data-tipv={severeCount > 0 ? `${severeCount} severe day${severeCount === 1 ? "" : "s"}` : "none flagged"}
+                    tBubble={
+                      <VizTBubble
+                        viz={{
+                          domain: "weather",
+                          metric: "Severe days",
+                          value: severeCount,
+                          timeframe: kpiDaysLabel,
+                          source: "OpenWeatherMap",
+                          locationId: selectedLocationId ?? undefined,
+                        }}
+                      />
+                    }
+                  />
+                  <TkWidget
+                    tone="slate"
+                    label="Locations"
+                    value={String(Math.max(1, allLocationWeather.length))}
+                    sub="tracked in your set"
+                    data-tip="Locations with a current weather reading"
+                    data-tipv={`${Math.max(1, allLocationWeather.length)} tracked`}
+                  />
+                </TkWidgetGrid>
+              </RevealOnView>
+            </div>
+
             {/* ── LEAD: the Concept A "Weather, events & demand" composite —
                 now + a next-7 strip that unifies weather (icon/temp), the notable
                 nearby events that move demand (rust badge), and the honest
@@ -386,86 +466,6 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                     Demand is estimated from conditions and what&rsquo;s happening nearby — directional, not a measured count.
                   </p>
                 </TkCard>
-              </RevealOnView>
-            </div>
-
-            {/* ── At-a-glance widgets (honest, no $/covers) ── */}
-            <div>
-              <TkSectionHead title="At a glance" sub={`Across ${kpiDaysLabel}`} />
-              <RevealOnView>
-                <TkWidgetGrid>
-                  <TkWidget
-                    tone="gold"
-                    size="wide"
-                    label="Avg high"
-                    value={`${avgTemp}°F`}
-                    sub="mean daily high in view"
-                    data-tip="Average daily high across history + forecast"
-                    data-tipv={`${avgTemp}°F avg high`}
-                    tBubble={
-                      <VizTBubble
-                        viz={{
-                          domain: "weather",
-                          metric: "Avg high",
-                          value: avgTemp,
-                          unit: "°F",
-                          timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
-                          locationId: selectedLocationId ?? undefined,
-                        }}
-                      />
-                    }
-                  />
-                  <TkWidget
-                    tone="slate"
-                    label="Total precip"
-                    value={`${totalPrecip.toFixed(2)}"`}
-                    sub="rain + snow in view"
-                    data-tip="Total precipitation across the window"
-                    data-tipv={`${totalPrecip.toFixed(2)} inches`}
-                    tBubble={
-                      <VizTBubble
-                        viz={{
-                          domain: "weather",
-                          metric: "Total precip",
-                          value: totalPrecip.toFixed(2),
-                          unit: '"',
-                          timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
-                          locationId: selectedLocationId ?? undefined,
-                        }}
-                      />
-                    }
-                  />
-                  <TkWidget
-                    tone={severeCount > 0 ? "rust" : "teal"}
-                    label="Severe days"
-                    value={String(severeCount)}
-                    sub={severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}
-                    data-tip="Days flagged severe — we down-weight expected walk-in on these"
-                    data-tipv={severeCount > 0 ? `${severeCount} severe day${severeCount === 1 ? "" : "s"}` : "none flagged"}
-                    tBubble={
-                      <VizTBubble
-                        viz={{
-                          domain: "weather",
-                          metric: "Severe days",
-                          value: severeCount,
-                          timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
-                          locationId: selectedLocationId ?? undefined,
-                        }}
-                      />
-                    }
-                  />
-                  <TkWidget
-                    tone="slate"
-                    label="Locations"
-                    value={String(Math.max(1, allLocationWeather.length))}
-                    sub="tracked in your set"
-                    data-tip="Locations with a current weather reading"
-                    data-tipv={`${Math.max(1, allLocationWeather.length)} tracked`}
-                  />
-                </TkWidgetGrid>
               </RevealOnView>
             </div>
 

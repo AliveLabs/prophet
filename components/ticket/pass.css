@@ -474,19 +474,29 @@
 /* ════════════════════════════════════════════════════════════
    WEATHER STRIP
    ════════════════════════════════════════════════════════════ */
-.tk-fc7 { display: flex; gap: 9px; overflow-x: auto; padding-bottom: 4px; }
-.tk-fcday { flex: 1; min-width: 84px; border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 10px; text-align: center; background: var(--card-2); position: relative; transition: transform var(--t-fast), box-shadow var(--t-fast); }
+/* top padding gives the .tk-evt tag (which pokes above the card) room to
+   render without being clipped — overflow-x: auto on this axis forces
+   overflow-y: auto too per spec, so anything poking past the box edge gets
+   cut off. The matching negative margin on .tk-fccol pulls the row back up
+   so the added padding doesn't push the whole strip down. */
+.tk-fc7 { display: flex; gap: 9px; overflow-x: auto; padding-top: 11px; padding-bottom: 4px; }
+.tk-fccol { flex: 1; min-width: 84px; margin-top: -11px; display: flex; flex-direction: column; }
+.tk-fcday { border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 10px; text-align: center; background: var(--card-2); position: relative; transition: transform var(--t-fast), box-shadow var(--t-fast); }
 .tk-fcday:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 .tk-fcday .tk-dow { font-size: 11px; font-weight: 700; color: var(--ink-2); }
 .tk-fcday .tk-ic { height: 30px; display: grid; place-items: center; margin: 6px 0; }
 .tk-fcday .tk-ic svg { width: 26px; height: 26px; }
 .tk-fcday .tk-hi { font-family: var(--font-mono); font-size: 15px; font-weight: 700; }
 .tk-fcday .tk-lo { font-family: var(--font-mono); font-size: 12px; color: var(--ink-3); }
-.tk-fcday .tk-dem { margin-top: 8px; font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 3px 0; border-radius: 6px; }
+.tk-fcday .tk-evt { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; letter-spacing: .03em; background: var(--rust); color: #fff; padding: 2px 7px; border-radius: 6px; white-space: nowrap; box-shadow: var(--shadow-sm); }
+/* demand read: a separate row below the card so it never reads as the
+   weather itself being "down" — same column, distinct block. */
+.tk-dem-row { margin-top: 8px; text-align: center; }
+.tk-dem-label { font-size: 8.5px; font-weight: 600; letter-spacing: .02em; color: var(--ink-3); text-transform: uppercase; margin-bottom: 3px; }
+.tk-dem { display: inline-block; font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 3px 10px; border-radius: 6px; }
 .tk-dem.tk-up   { background: var(--teal-tint);  color: var(--teal-deep); }
 .tk-dem.tk-flat { background: var(--slate-tint); color: var(--slate-deep); }
 .tk-dem.tk-down { background: var(--alert-wash); color: var(--alert-deep); }
-.tk-fcday .tk-evt { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); font-size: 9px; font-weight: 800; letter-spacing: .03em; background: var(--rust); color: #fff; padding: 2px 7px; border-radius: 6px; white-space: nowrap; box-shadow: var(--shadow-sm); }
 .tk-sun-ic   { color: var(--gold); }
 .tk-cloud-ic { color: var(--slate); }
 .tk-rain-ic  { color: #4E7AA8; }
