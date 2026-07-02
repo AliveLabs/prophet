@@ -47,9 +47,22 @@ export function buildTrafficSteps(): PipelineStepDef<TrafficPipelineCtx>[] {
         let fetched = 0
         let totalDays = 0
         for (const comp of ctx.competitors) {
-          if (!comp.provider_entity_id) continue
+          if (!comp.provider_entity_id) {
+            // A competitor with no place id can never get busy data — say so instead
+            // of skipping silently (this gap is invisible in the UI otherwise).
+            ctx.state.warnings.push(`Busy times for ${comp.name}: no provider place id — skipped`)
+            continue
+          }
           try {
             const result = await fetchBusyTimes(comp.provider_entity_id, comp.id)
+            // An empty result is a real outcome, not an error — but it must not be
+            // silent: a spot stuck at zero busy_times rows renders a curveless track
+            // forever (the McDonald's gap, 2026-07-01) and nobody can tell why.
+            if (!result || result.days.length === 0) {
+              ctx.state.warnings.push(
+                `Busy times for ${comp.name}: provider returned no popular-times data — kept previous rows (if any)`,
+              )
+            }
             if (result && result.days.length > 0) {
               ctx.state.results.set(comp.id, result)
               fetched++
