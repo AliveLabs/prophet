@@ -85,6 +85,10 @@ const ENTITIES: HoursEntity[] = [
     "Friday: Closed",
     "Saturday: 9:00 AM – 3:00 PM",
   ], MORNING),
+  // Open until 4 AM — the overnight tail spills onto the NEXT calendar day's
+  // track (open 12a-4a, closed gap, open again at 10a), so late-night hours
+  // stay visible on the 24h calendar-day axis.
+  mkEntity("c-late", "Late Shift Bar", false, everyDay("10:00 AM – 4:00 AM"), LATE),
   // Hours known, but no busy curve pulled yet — open band, no heat (honest).
   mkEntity("c-new", "The New Spot", false, everyDay("11:00 AM – 9:00 PM"), null),
   // No readable hours at all — shows "hours unavailable" (never fabricated).

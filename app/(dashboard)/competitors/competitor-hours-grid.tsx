@@ -118,14 +118,22 @@ function RhythmTrack({
   const gid = useId()
   const { eff, observed } = useMemo(() => effectiveDay(day, scores), [day, scores])
 
+  // An hour counts as active when the posted window covers it OR Google recorded
+  // activity there — recorded activity always paints (late-night hours matter:
+  // insights tell operators to capitalize on 12a-4a, so the curve must show it
+  // even when the posted window disagrees).
+  const activeAt = (h: number): boolean =>
+    isOpenAtHour(eff, h) || ((scores?.[h] ?? 0) > 0)
+
   // The spot's own busiest hour (needs a real curve — no false peaks on flat data).
   const peakHour = useMemo(() => {
     if (!eff.open || !scores) return -1
     let best = -1
     let bestScore = -1
     for (const h of HOURS) {
-      if (isOpenAtHour(eff, h) && scores[h] != null && scores[h] > bestScore) {
-        bestScore = scores[h]
+      const v = scores[h]
+      if ((isOpenAtHour(eff, h) || (v ?? 0) > 0) && v != null && v > bestScore) {
+        bestScore = v
         best = h
       }
     }
@@ -133,8 +141,7 @@ function RhythmTrack({
   }, [eff, scores])
 
   // Area path over a 100×36 viewBox (preserveAspectRatio=none stretches it to the
-  // track). Closed / no-data hours sit on the baseline, so the shape lives inside
-  // the open window by construction.
+  // track). Inactive hours sit on the baseline.
   const H = 36
   const path = useMemo(() => {
     if (!eff.open || !scores) return null
@@ -142,7 +149,8 @@ function RhythmTrack({
     const x = (h: number) => ((h + 0.5) / 24) * 100
     let d = `M 0 ${H}`
     for (const h of HOURS) {
-      const v = isOpenAtHour(eff, h) ? (scores[h] ?? 0) : 0
+      const raw = scores[h] ?? 0
+      const v = isOpenAtHour(eff, h) || raw > 0 ? raw : 0
       d += ` L ${x(h).toFixed(2)} ${y(v).toFixed(2)}`
     }
     d += ` L 100 ${H} Z`
@@ -172,7 +180,7 @@ function RhythmTrack({
     peakHour >= 0 ? `${windowTxt}. Busiest around ${hourTick(peakHour)}.` : windowTxt
 
   const scrubLevel =
-    scrubHour != null && scores && isOpenAtHour(eff, scrubHour)
+    scrubHour != null && scores && activeAt(scrubHour)
       ? busyLevel(scores[scrubHour] ?? 0)
       : null
 
@@ -183,6 +191,11 @@ function RhythmTrack({
       role="img"
       aria-label={srLabel}
     >
+      {/* faint hour gridlines (6a/12p/6p) so the axis ticks visibly tie to the plot */}
+      {!compact &&
+        [6, 12, 18].map((h) => (
+          <span key={`grid-${h}`} className="tk-hrs-gridline" style={{ left: pctX(h) }} aria-hidden="true" />
+        ))}
       {eff.intervals.map((iv, i) => (
         <div
           key={`band-${i}`}
@@ -316,6 +329,8 @@ function scoresFor(e: HoursEntity, d: number): number[] | null {
 function isActiveAt(e: HoursEntity, d: number, h: number): boolean {
   const dh = e.days.find((x) => x.day_of_week === d)
   if (!dh) return false
+  // Posted window OR recorded activity — matches the track's own paint rule.
+  if ((dh.hourly_scores?.[h] ?? 0) > 0) return true
   const { eff } = effectiveDay(dh.hours, dh.hourly_scores)
   return eff.open && isOpenAtHour(eff, h)
 }
@@ -593,11 +608,19 @@ export default function CompetitorHoursGrid({
               })}
             </div>
 
-            {/* ── Axis ── */}
-            <div className="tk-hrs-axis" aria-hidden="true">
-              {AXIS.map((h) => (
-                <span key={h}>{hourTick(h)}</span>
-              ))}
+            {/* ── Axis — lives in the SAME grid as the rows so the ticks align to
+                  the track column's hour positions, never drifting under the name
+                  or week-profile columns. ── */}
+            <div className="tk-hrs-axis-row" aria-hidden="true">
+              <div className="tk-hrs-axis-pad" />
+              <div className="tk-hrs-axis">
+                {AXIS.map((h) => (
+                  <span key={h} style={{ left: pctX(h) }}>
+                    {hourTick(h)}
+                  </span>
+                ))}
+              </div>
+              <div className="tk-hrs-axis-pad" />
             </div>
 
             {/* ── The read: the operator's questions, answered from the curves ── */}

@@ -803,10 +803,23 @@
 .tk-comp .tk-hrs-wlbl { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: var(--ink-3); }
 .tk-comp .tk-hrs-wval { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); text-align: right; }
 
-/* Axis + footnote */
+/* Axis + footnote — the axis row mirrors the rowgrid columns so its ticks sit
+   exactly under the track column's hour positions (they used to span the full
+   card and drift under the name / week-profile columns). */
+.tk-comp .tk-hrs-axis-row {
+  display: grid; grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) 96px;
+  gap: 4px 16px; margin-top: -6px;
+}
 .tk-comp .tk-hrs-axis {
-  display: flex; justify-content: space-between;
-  font-family: var(--font-mono); font-size: 10px; color: var(--ink-3); margin-top: -4px;
+  position: relative; height: 14px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-3);
+}
+.tk-comp .tk-hrs-axis span { position: absolute; transform: translateX(-50%); }
+.tk-comp .tk-hrs-axis span:first-child { transform: none; }
+.tk-comp .tk-hrs-axis span:last-child { transform: translateX(-100%); }
+.tk-comp .tk-hrs-gridline {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent); pointer-events: none;
 }
 .tk-comp .tk-hrs-foot { font-size: 11.5px; line-height: 1.5; color: var(--ink-3); margin: 2px 0 0; max-width: 72ch; }
 
@@ -814,6 +827,9 @@
   /* Stack the row: who / track / week profile. */
   .tk-comp .tk-hrs-rowgrid { grid-template-columns: minmax(0, 1fr); gap: 5px; }
   .tk-comp .tk-hrs-week-map { max-width: 150px; }
+  /* Stacked rows ⇒ the track spans full width; the axis follows suit. */
+  .tk-comp .tk-hrs-axis-row { grid-template-columns: minmax(0, 1fr); }
+  .tk-comp .tk-hrs-axis-pad { display: none; }
 }
 
 @media (max-width: 560px) {

@@ -12,7 +12,10 @@ import { useInView } from "@/components/ticket"
 import type { TrafficData } from "./traffic-types"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-const HOURS = Array.from({ length: 18 }, (_, i) => i + 6)
+// Full calendar day (12a-11p). The grid used to start at 6a, which hid the
+// 12a-5a hours late-night and 24h spots actually trade in — the same hours our
+// insights tell operators to capitalize on.
+const HOURS = Array.from({ length: 24 }, (_, i) => i)
 
 function formatHour(h: number): string {
   if (h === 0) return "12a"

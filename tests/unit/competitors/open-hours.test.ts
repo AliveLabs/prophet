@@ -203,3 +203,52 @@ describe("competitors/open-hours · observedWindow", () => {
     expect(observedLabel({ start: 10, end: 22 })).not.toMatch(/–|—/)
   })
 })
+
+// Calendar-day overnight spill: "5 PM - 2 AM" belongs to BOTH days' tracks.
+describe("competitors/open-hours · overnight spill (calendar days)", () => {
+  it("attributes the after-midnight tail to the next day", () => {
+    const byDay = parseWeekdayDescriptions([
+      "Monday: 5:00 PM – 2:00 AM",
+      "Tuesday: Closed",
+    ])
+    expect(byDay[1].intervals).toEqual([{ start: 17, end: 24 }])
+    // Tuesday was Closed but gains the Monday-night tail: open 12 AM - 2 AM.
+    expect(byDay[2]).toEqual({
+      known: true,
+      open: true,
+      is24h: false,
+      intervals: [{ start: 0, end: 2 }],
+    })
+    expect(openLabel(byDay[2])).toBe("12 AM - 2 AM")
+  })
+
+  it("merges the tail with the next day's own window (open, gap, open again)", () => {
+    const byDay = parseWeekdayDescriptions([
+      "Monday: 10:00 AM – 4:00 AM",
+      "Tuesday: 10:00 AM – 4:00 AM",
+    ])
+    // Tuesday: Monday's 12a-4a tail + its own 10a-12a window.
+    expect(byDay[2].intervals).toEqual([
+      { start: 0, end: 4 },
+      { start: 10, end: 24 },
+    ])
+    expect(openLabel(byDay[2])).toBe("12 AM - 4 AM, 10 AM - 12 AM")
+  })
+
+  it("wraps Saturday night into Sunday", () => {
+    const byDay = parseWeekdayDescriptions(["Saturday: 8:00 PM – 3:00 AM"])
+    expect(byDay[0]).toEqual({
+      known: true,
+      open: true,
+      is24h: false,
+      intervals: [{ start: 0, end: 3 }],
+    })
+  })
+
+  it("does not spill a plain midnight close or a 24h day", () => {
+    const a = parseWeekdayDescriptions(["Monday: 5:00 PM – 12:00 AM", "Tuesday: Closed"])
+    expect(a[2]).toEqual({ known: true, open: false, is24h: false, intervals: [] })
+    const b = parseWeekdayDescriptions(["Monday: Open 24 hours", "Tuesday: Open 24 hours"])
+    expect(b[2].is24h).toBe(true)
+  })
+})
