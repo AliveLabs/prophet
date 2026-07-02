@@ -44,7 +44,7 @@ export default async function NewLocationPage() {
   const [{ data: orgRow }, { count: locationCount }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("subscription_tier, trial_ends_at, payment_state")
+      .select("subscription_tier, trial_ends_at, payment_state, org_kind")
       .eq("id", profile.current_organization_id)
       .maybeSingle(),
     supabase

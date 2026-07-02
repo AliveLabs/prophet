@@ -161,7 +161,7 @@ export async function createLocationAction(formData: FormData) {
 
   const { data: orgRow } = await supabaseAdmin
     .from("organizations")
-    .select("subscription_tier, trial_ends_at, payment_state")
+    .select("subscription_tier, trial_ends_at, payment_state, org_kind")
     .eq("id", organizationId)
     .maybeSingle()
 
@@ -380,7 +380,7 @@ export async function createLocationForOrgAction(
 
   const { data: orgRow } = await admin
     .from("organizations")
-    .select("subscription_tier, trial_ends_at, payment_state")
+    .select("subscription_tier, trial_ends_at, payment_state, org_kind")
     .eq("id", input.orgId)
     .maybeSingle()
 
