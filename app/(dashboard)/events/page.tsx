@@ -43,6 +43,7 @@ import {
   TkImpactTag,
 } from "@/components/ticket"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
+import { accentize } from "@/components/ticket/accentize"
 import {
   eventFamily,
   eventChipLabel,
@@ -419,7 +420,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           <RevealOnView>
             <TkHero
               titleId="events-lead"
-              title={lead.title ?? "A draw worth prepping for"}
+              title={lead.title ? accentize(lead.title) : "A draw worth prepping for"}
               chips={
                 <>
                   <TkChip family={leadFamily}>{eventChipLabel(lead, leadMatched)}</TkChip>

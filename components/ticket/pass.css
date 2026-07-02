@@ -733,3 +733,11 @@ button.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28
   .tk-sonar-sweep, .tk-sonar-ping, .tk-sonar-blip, .tk-sonar-core-ring { animation: none; }
   .tk-sonar-ping { opacity: .16; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   TWO-COLOR HEADLINES (ALT-266) — key words accented in rust.
+   Applied by accentize() on hero/page-level headlines; static
+   headlines hand-author <em className="tk-em">. Card titles stay
+   single-color by decision.
+   ════════════════════════════════════════════════════════════ */
+.tk-em { color: var(--rust-deep, var(--rust)); font-style: normal; }

@@ -5,6 +5,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { AskContext } from "./answer"
+import { stripAccents } from "@/lib/text/accents"
 
 export async function gatherAskContext(locationId: string): Promise<AskContext> {
   const sb = createAdminSupabaseClient()
@@ -36,7 +37,7 @@ export async function gatherAskContext(locationId: string): Promise<AskContext> 
 
   const brief = await getBrief(locationId)
   const briefCtx = brief
-    ? { headline: brief.headline, deck: brief.deck, plays: brief.plays.map((p) => p.title) }
+    ? { headline: stripAccents(brief.headline), deck: brief.deck, plays: brief.plays.map((p) => p.title) }
     : null
 
   return { restaurantName, competitors, insights, brief: briefCtx }
