@@ -17,14 +17,22 @@ export function ensureLocationLimit(
 // matter what the tier limits say — stated here so a future change to
 // maxLocations can't silently open multi-location trials. Paid orgs fall
 // through to the per-tier limit.
+//
+// DEMO EXCEPTION (Bryan, 2026-07-02): org_kind="demo" orgs (admin-built
+// showcases — never billed, never emailed) are exempt from BOTH the trial
+// one-location rule and the tier cap, so demos can stage multi-location
+// stories freely. Real orgs are unaffected; callers that don't select
+// org_kind simply keep the strict behavior.
 export function ensureCanAddLocation(
   org: {
     subscription_tier: string
     trial_ends_at: string | null
     payment_state?: string | null
+    org_kind?: string | null
   },
   currentCount: number
 ): void {
+  if (org.org_kind === "demo") return
   if (currentCount >= 1 && isTrialing(org)) {
     throw new Error(
       "Trials cover one location. Convert to a paid plan to add more."
@@ -40,6 +48,7 @@ export function canAddLocationHere(
     subscription_tier: string
     trial_ends_at: string | null
     payment_state?: string | null
+    org_kind?: string | null
   },
   currentCount: number
 ): boolean {
