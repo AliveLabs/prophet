@@ -391,7 +391,7 @@ export function TkSocialEmbed({
   handle: ReactNode
   verified?: boolean
   subline?: ReactNode
-  /** the network pill (icon + name) */
+  /** the bare network icon (no label/pill — see ALT-272) */
   network?: ReactNode
   caption?: ReactNode
   tags?: ReactNode
@@ -413,7 +413,6 @@ export function TkSocialEmbed({
   return (
     <div className="tk-social-embed">
       <div className="tk-se-head">
-        <span className="tk-se-avatar"><i /></span>
         <div className="tk-se-meta">
           <div className="tk-h">
             {handle}

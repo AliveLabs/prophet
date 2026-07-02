@@ -255,12 +255,7 @@ export default function SocialPostsPass({
                       {post.createdTime ? ` · ${timeAgo(post.createdTime)}` : ""}
                     </>
                   }
-                  network={
-                    <>
-                      {NET_ICON[post.platform]}
-                      {PLATFORM_LABEL[post.platform]}
-                    </>
-                  }
+                  network={NET_ICON[post.platform]}
                   photo={photo}
                   photoLabel={post.entityName}
                   postUrl={post.postUrl}

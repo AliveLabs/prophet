@@ -65,14 +65,13 @@ export function CompetitorPostsGrid({ posts }: { posts: ProofPost[] }) {
           <div key={p.id} style={{ "--tk-i": i } as CSSProperties}>
             <TkSocialEmbed
               handle={`@${p.handle}`}
-              subline={<TkCompetitorLink id={p.entityId} name={p.entityName} />}
-              network={
+              subline={
                 <>
-                  {NET_ICON}
-                  {PLATFORM_LABEL[p.platform] ?? p.platform}
+                  <TkCompetitorLink id={p.entityId} name={p.entityName} />
                   {date ? ` · ${date}` : ""}
                 </>
               }
+              network={NET_ICON}
               photo={photo}
               postUrl={p.postUrl}
               postUrlLabel={`Open ${p.entityName}'s post on ${PLATFORM_LABEL[p.platform] ?? p.platform}`}
