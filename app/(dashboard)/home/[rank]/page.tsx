@@ -40,7 +40,6 @@ import {
   playFamily,
   playChipLabel,
   confLevel,
-  confLabel,
   impactLevel,
   impactLabel,
   isAdvantage,
@@ -136,8 +135,6 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
           chips={
             <>
               <TkChip family={family}>{playChipLabel(play)}</TkChip>
-              <TkConfidence level={confLevel(play.confidence)} />
-              <TkImpactTag level={impactLevel(play)} />
               {advantage ? <TkWinFlag /> : null}
             </>
           }
@@ -150,39 +147,27 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
               fallback={<DetailHeroCanvas family={family} label={ctx.locationName} />}
             />
           }
-          venueChip={
-            <>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M12 21s-7-5.5-7-11a7 7 0 1 1 14 0c0 5.5-7 11-7 11z" />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-              {ctx.locationName}
-            </>
-          }
         >
-          {/* the at-a-glance read strip: confidence · impact · signals (ALT-167).
-              Confidence + Impact are two SEPARATE scores and BOTH always render — Impact
-              no longer hides when a play carries no sized leverage (the prior bug); it
-              falls back to the engine's default tier via impactLabel(). `reach` is an
-              optional extra shown only when the play actually carries it. */}
-          <div className="pd-meta-strip">
-            <div className="pd-meta">
-              <span className="pd-meta-k">Confidence</span>
-              <span className="pd-meta-v">{confLabel(play.confidence)}</span>
+          {/* ALT-254: confidence + impact move OUT of the hero toprow — the evidence
+              body below already discusses them at length, so the chips up top were
+              redundant. Here they render as labeled 3-bar graphs (the SAME TkConfidence/
+              TkImpactTag components used everywhere else), with the grounding line
+              directly underneath so the two scores and their basis read as one unit. */}
+          <div className="pd-scores">
+            <div className="pd-score-row">
+              <span className="pd-score-k">Confidence</span>
+              <TkConfidence level={confLevel(play.confidence)} />
             </div>
-            <div className="pd-meta">
-              <span className="pd-meta-k">Impact</span>
-              <span className="pd-meta-v">
-                {impactLabel(play)}
-                {lev?.reach ? <span className="pd-meta-reach"> · {lev.reach}</span> : null}
-              </span>
+            <div className="pd-score-row">
+              <span className="pd-score-k">Impact</span>
+              {/* label override: the row's own "Impact" key makes the tag's default
+                  "High impact" read as "Impact … High impact" — level word only here. */}
+              <TkImpactTag level={impactLevel(play)} label={impactLabel(play)} />
+              {lev?.reach ? <span className="pd-meta-reach"> · {lev.reach}</span> : null}
             </div>
-            <div className="pd-meta">
-              <span className="pd-meta-k">Grounded in</span>
-              <span className="pd-meta-v">
-                {signalCount} signal{signalCount === 1 ? "" : "s"}
-              </span>
-            </div>
+            <p className="pd-grounded">
+              Grounded in {signalCount} signal{signalCount === 1 ? "" : "s"}
+            </p>
           </div>
 
           {estimate ? (
