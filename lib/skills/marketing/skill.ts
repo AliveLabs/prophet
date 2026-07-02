@@ -26,6 +26,12 @@
 // buildDossier's competitor path (plumbing gap, see rationale.md) — it rides as
 // null until that lands and the daypart-gap exemplars then get their raw material.
 //
+// HONEST FLOOR: the deterministic fallback only fires on warning/critical-grade
+// signals and only on competitor-SCOPED conquest triggers — an info-grade signal or
+// an own-win seo signal must never manufacture a canned play (the quiet-week golden
+// scenario is the contract: a quiet week stays an honest quiet brief). Bold plays on
+// soft signals are the MODEL's job, where the framing can be earned (amplify-the-win).
+//
 // TOKEN BUDGET: every input family is capped (guerrilla precedent: a ~40k-char
 // prompt at medium effort silently timed out into the fallback). If p95 latency
 // nears 120s once competitor busy-times data lands, flip `effort: "low"` on the
@@ -206,6 +212,16 @@ function parse(raw: unknown): EnrichedRecommendation[] | null {
 // Family-aware: picks the strongest signal families present (priority: rhythm → guest
 // voice → competitor move → social) and emits a family-shaped play, so even the floor
 // is sharper than v1's single "tighten your content plan" template. Never fabricates.
+
+// Fallback-only conquest trigger: competitor-SCOPED moves. The intake predicate above
+// stays broad (the model reads each signal's title/summary and can route "your visibility
+// is up" to amplify-the-win vs "a rival's ad push" to conquest-counter), but this canned
+// floor cannot read nuance — an own-win seo signal selecting the conquest template is
+// exactly the slop the quiet-week golden scenario exists to catch.
+function isCompetitorMoveTrigger(t: string): boolean {
+  return t.startsWith("photo.") || t.startsWith("events.competitor_") || (t.startsWith("seo_") && t.includes("competitor"))
+}
+
 function fallback(d: Dossier): EnrichedRecommendation[] {
   const families: Array<{
     pred: (t: string) => boolean
@@ -242,7 +258,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
       dependencies: ["your phone", "a menu or table-card tweak to name the item"],
     },
     {
-      pred: isCompetitorMoveSignal,
+      pred: isCompetitorMoveTrigger,
       title: "Answer the competitor's move while it is fresh",
       rationale: (t) =>
         `Grounded in ${t}. A competitor near you just changed their game. Decide your counter this week: beat it with added value, or own the audience and occasion their move ignores. Do not match on price.`,
@@ -269,7 +285,10 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
   const out: EnrichedRecommendation[] = []
   for (const fam of families) {
     if (out.length >= 2) break // v1's cap preserved: the fallback floor stays small
-    const ins = d.ruleOutputs.find((i) => fam.pred(i.insight_type))
+    // Severity gate: the floor never manufactures urgency from an info-grade signal — a
+    // quiet week must stay an honest quiet brief (the golden-scenario contract). Info
+    // signals remain model-path context, where a bold play can earn its framing.
+    const ins = d.ruleOutputs.find((i) => fam.pred(i.insight_type) && i.severity !== "info")
     if (!ins) continue
     out.push({
       title: fam.title,

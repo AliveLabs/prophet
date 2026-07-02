@@ -9,7 +9,8 @@ import {
 } from "@/lib/skills/marketing/skill"
 
 // Minimal dossier: fallback() and parse() only touch ruleOutputs + tier.ownSocialPlatforms.
-const dossier = (ruleOutputs: { insight_type: string; title: string }[]) =>
+// Real rule outputs always carry severity ("info" | "warning" | "critical") — the floor gates on it.
+const dossier = (ruleOutputs: { insight_type: string; title: string; severity?: string }[]) =>
   ({ ruleOutputs, tier: { ownSocialPlatforms: ["instagram"] } }) as unknown as Dossier
 
 const step = {
@@ -110,13 +111,13 @@ describe("parse — domain grounding and the template kill-list", () => {
   })
 })
 
-describe("fallback — family-aware, capped, and sharper than v1's floor", () => {
+describe("fallback — family-aware, capped, and an honest floor", () => {
   test("prioritizes demand rhythm, then guest voice, capped at 2", () => {
     const out = marketingSkill.fallback(
       dossier([
-        { insight_type: "social.engagement_gap", title: "Short video is winning nearby" },
-        { insight_type: "rating.trend_down", title: "Rating slipped this month" },
-        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet" },
+        { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "warning" },
+        { insight_type: "rating.trend_down", title: "Rating slipped this month", severity: "warning" },
+        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
       ]),
     )
     expect(out).toHaveLength(2)
@@ -125,16 +126,42 @@ describe("fallback — family-aware, capped, and sharper than v1's floor", () =>
   })
 
   test("emits nothing when no marketing-family signal exists (never fabricates)", () => {
-    expect(marketingSkill.fallback(dossier([{ insight_type: "menu.price_change", title: "x" }]))).toEqual([])
+    expect(marketingSkill.fallback(dossier([{ insight_type: "menu.price_change", title: "x", severity: "warning" }]))).toEqual([])
+  })
+
+  test("info-grade signals never produce a floor play (the quiet-week golden contract)", () => {
+    const out = marketingSkill.fallback(
+      dossier([
+        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "info" },
+        { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "info" },
+      ]),
+    )
+    expect(out).toEqual([])
+  })
+
+  test("an own-win seo signal never selects the conquest template, even at warning severity", () => {
+    // amplify-the-win is a MODEL play with earned framing, not a canned floor template
+    const out = marketingSkill.fallback(
+      dossier([{ insight_type: "seo_organic_visibility_up", title: "Your search visibility is up", severity: "warning" }]),
+    )
+    expect(out).toEqual([])
+  })
+
+  test("a competitor-scoped seo signal does trigger the conquest floor play", () => {
+    const out = marketingSkill.fallback(
+      dossier([{ insight_type: "seo_new_competitor_ads_detected", title: "A rival started paid search on your category", severity: "warning" }]),
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].evidenceRefs).toEqual(["seo_new_competitor_ads_detected"])
   })
 
   test("every fallback play passes the skill's own gates and the voice lint", () => {
     const out = marketingSkill.fallback(
       dossier([
-        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet" },
-        { insight_type: "review.theme_shift", title: "Guests keep praising one dish" },
-        { insight_type: "photo.promotion_detected", title: "A rival posted a new promo" },
-        { insight_type: "social.engagement_gap", title: "Short video is winning nearby" },
+        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
+        { insight_type: "review.theme_shift", title: "Guests keep praising one dish", severity: "warning" },
+        { insight_type: "photo.promotion_detected", title: "A rival posted a new promo", severity: "warning" },
+        { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "warning" },
       ]),
     )
     expect(out.length).toBeGreaterThan(0)
