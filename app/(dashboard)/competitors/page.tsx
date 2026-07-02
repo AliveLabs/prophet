@@ -7,7 +7,7 @@
 import { loadOperatorContext, loadCompetitorComparison, loadCompetitorScorecard, loadCompetitorSwapState, tierLabel } from "../operator-data"
 import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
 import { computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
-import { TkTooltipLayer } from "@/components/ticket"
+import { TkTooltipLayer, TkRule } from "@/components/ticket"
 import CompetitorRoster from "./competitor-roster"
 import CompetitorScorecard from "./competitor-scorecard"
 import CompetitorHoursGrid from "./competitor-hours-grid"
@@ -41,7 +41,7 @@ export default async function CompetitorsPage() {
           reviews, social, and menus, and surface anything that moves into your brief.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <CompetitorRoster
         initial={ctx.competitors.map((c) => ({

@@ -13,6 +13,7 @@ import {
   TkEmptyState,
   TkStillLearning,
   TkTooltipLayer,
+  TkRule,
 } from "@/components/ticket"
 import { buildPeakData } from "@/lib/traffic/peak-data"
 import { fetchTrafficPageData } from "@/lib/cache/traffic"
@@ -218,7 +219,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
           neighborhood and find the openings.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 8 }}>
         <TkTooltipLayer />

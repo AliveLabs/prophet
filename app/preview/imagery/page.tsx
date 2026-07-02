@@ -7,7 +7,7 @@ import ListingCheck from "@/components/imagery/listing-check"
 import TheShelf from "@/components/imagery/the-shelf"
 import type { PhotoRow } from "@/lib/places/listing-audit"
 import type { PhotoCategory } from "@/lib/providers/photos"
-import { TkSectionHead, TkSocialEmbed } from "@/components/ticket"
+import { TkSectionHead, TkSocialEmbed, TkRule } from "@/components/ticket"
 import "@/components/ticket/pass.css"
 import "@/components/imagery/imagery.css"
 import "@/app/(dashboard)/social/social.css"
@@ -90,7 +90,7 @@ export default function ImageryPreview() {
           and you-vs-them, never invented dollars or customer counts.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <ListingCheck photos={OWN_PHOTOS} hasPlaceId ownerName={DEMO_BIZ} />

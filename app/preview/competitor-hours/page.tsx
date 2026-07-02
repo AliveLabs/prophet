@@ -9,7 +9,7 @@
 // through the SAME parser the authed loader uses, so this also exercises the
 // production parsing path (breakfast-only, 24h, midnight close, closed days).
 
-import { TkTooltipLayer } from "@/components/ticket"
+import { TkTooltipLayer, TkRule } from "@/components/ticket"
 import CompetitorHoursGrid, {
   type HoursEntity,
   type HoursDay,
@@ -107,7 +107,7 @@ export default function CompetitorHoursPreview() {
           any spot for its full week. Pure data-viz, so it carries the Ask Ticket bubble.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <TkTooltipLayer />
       <div className="tk-kit">

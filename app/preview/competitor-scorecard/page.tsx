@@ -5,7 +5,7 @@
 // ordering, evidence panel + Ask ingress, dark mode, mobile) without an authed
 // session. Prod-guarded by the preview layout (VERCEL_ENV !== production).
 
-import { TkTooltipLayer } from "@/components/ticket"
+import { TkTooltipLayer, TkRule } from "@/components/ticket"
 import CompetitorScorecard, {
   type ScorecardMetric,
 } from "@/app/(dashboard)/competitors/competitor-scorecard"
@@ -119,7 +119,7 @@ export default function CompetitorScorecardPreview() {
           Worst gap first; a behind-row expands into the evidence panel with the Ask Ticket ingress.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
       <TkTooltipLayer />
       <CompetitorScorecard metrics={METRICS} ownName="Wagyu Bar" />
     </div>

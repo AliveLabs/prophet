@@ -8,6 +8,7 @@ import { connection } from "next/server"
 import { loadPreviewContext, tierLabel } from "../preview-data"
 import BriefTuning from "../../(dashboard)/settings/brief-tuning"
 import { VoiceSelect, CommsPrefs } from "../../(dashboard)/settings/settings-controls"
+import { TkRule } from "@/components/ticket"
 
 export default async function PreviewSettings() {
   await connection()
@@ -19,7 +20,7 @@ export default async function PreviewSettings() {
         <h1 className="pv-h1">Settings</h1>
         <p className="pv-sub">Your account, how your briefs are tuned, and the competitors we watch for you.</p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="pv-section">
         <div className="pv-section-head">Account</div>

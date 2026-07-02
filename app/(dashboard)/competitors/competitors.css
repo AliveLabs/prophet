@@ -576,7 +576,7 @@
 .tk-comp .tk-comp-sec { margin-top: 36px; }
 /* on the list page the roster follows the page-title rule — trim its top margin
    (the detail page leads with the hero, which keeps the full 36px below it). */
-.tk-comp .pv-rule + .tk-comp-sec { margin-top: 18px; }
+.tk-comp .tk-rule-strong + .tk-comp-sec { margin-top: 18px; }
 
 @media (max-width: 560px) {
   .tk-comp .tk-roster { grid-template-columns: 1fr; }

@@ -11,6 +11,7 @@ import {
   TkCard,
   TkWeatherStrip,
   VizTBubble,
+  TkRule,
 } from "@/components/ticket"
 import "@/components/ticket/pass.css"
 
@@ -26,7 +27,7 @@ export default function TBubblePreview() {
           its bubble; click it to open the popover.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
         {/* ── A big viz card with the bubble (mirrors the weather lead) ── */}

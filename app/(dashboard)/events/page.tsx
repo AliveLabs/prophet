@@ -41,6 +41,8 @@ import {
   TkStillLearning,
   TkEmptyState,
   TkImpactTag,
+  TkRule,
+  TkButtonLink,
 } from "@/components/ticket"
 import type { NormalizedEventsSnapshotV1, NormalizedEvent } from "@/lib/events/types"
 import {
@@ -378,7 +380,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
           big it draws — so you can prep for the surge and spot anything your competitors are tied to.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="space-y-5" style={{ marginTop: 22 }}>
         {/* ── TOOLBAR: venue-search filter (existing client component, kit-framed) ── */}
@@ -477,23 +479,24 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                 ) : undefined
               }
               actions={
-                <div className="flex flex-wrap items-center gap-2">
+                // ALT-252: primary + adjacent borderless get the 12px pair gap
+                <div className="flex flex-wrap items-center gap-3">
                   {/* ALT-210: land on the most specific real destination we have */}
                   {leadDeepLink && (
-                    <a href={leadDeepLink} target="_blank" rel="noopener noreferrer" className="tk-btn tk-btn-act">
+                    <TkButtonLink variant="primary" href={leadDeepLink} target="_blank" rel="noopener noreferrer">
                       {LINK_ICON} Event details
-                    </a>
+                    </TkButtonLink>
                   )}
-                  {/* ALT-216(b): "Map it" is a small text-only link, off to the side */}
+                  {/* ALT-216(b)/252: "Map it" — borderless tier, standard button font size */}
                   {lead.venue?.mapsUrl && (
-                    <a
+                    <TkButtonLink
+                      variant="borderless"
                       href={lead.venue.mapsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="tk-maplink"
                     >
                       {PIN_ICON_INLINE} Map it
-                    </a>
+                    </TkButtonLink>
                   )}
                 </div>
               }
@@ -722,15 +725,16 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     // ALT-216(c): primary "Event details" in the brand copper treatment.
                     if (deepLink) {
                       links.push(
-                        <a
+                        <TkButtonLink
                           key="ev"
+                          variant="primary"
                           href={deepLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="tk-btn tk-btn-act tk-btn-sm"
+                          className="tk-btn-sm"
                         >
                           {LINK_ICON} Event details
-                        </a>
+                        </TkButtonLink>
                       )
                     }
                     // Keep the clickable data-source call-out (which site this came from).
@@ -760,18 +764,20 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                         </a>
                       )
                     })
-                    // ALT-216(b): "Map it" is a small text-only link off to the side.
+                    // ALT-216(b)/252: "Map it" — borderless tier, sized to match its
+                    // sibling compact 'Event details' (tk-btn-sm), off to the side.
                     if (ev.venue?.mapsUrl) {
                       links.push(
-                        <a
+                        <TkButtonLink
                           key="map"
+                          variant="borderless"
                           href={ev.venue.mapsUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="tk-maplink ml-auto"
+                          className="tk-btn-sm ml-auto"
                         >
                           {PIN_ICON_INLINE} Map it
-                        </a>
+                        </TkButtonLink>
                       )
                     }
 

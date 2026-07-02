@@ -9,6 +9,8 @@ export { useInView } from "./use-in-view"
 // presentational primitives (server-safe)
 export {
   TkButton,
+  TkButtonLink,
+  TkRule,
   TkChip,
   TkConfidence,
   TkWinFlag,

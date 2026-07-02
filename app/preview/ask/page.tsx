@@ -7,6 +7,7 @@
 import { connection } from "next/server"
 import { loadPreviewContext } from "../preview-data"
 import AskBox from "../../(dashboard)/ask/ask-box"
+import { TkRule } from "@/components/ticket"
 
 export default async function PreviewAsk() {
   await connection()
@@ -18,7 +19,7 @@ export default async function PreviewAsk() {
         <h1 className="pv-h1">Ask anything about your market.</h1>
         <p className="pv-sub">Plain-language questions, answered only from your own market and competitor data, never the open web.</p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="pv-section">
         <div className="pv-ask-hero">
