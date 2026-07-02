@@ -1,14 +1,14 @@
 "use client"
 
-// The Pass — Traffic page filter + refresh bar (client island).
+// The Pass — Traffic page filter bar (client island).
 //
-// Wraps the SAME wired interactive bits (LocationFilter pushes ?location_id,
-// JobRefreshButton runs the busy_times job) — only the surrounding chrome is
-// rebuilt to the kit's soft-panel look with a live pulse + tracked count.
-// Server data flow is untouched: this is purely the presentation wrapper.
+// Wraps the SAME wired interactive bit (LocationFilter pushes ?location_id)
+// — only the surrounding chrome is rebuilt to the kit's soft-panel look with
+// a live pulse + tracked count. Server data flow is untouched: this is
+// purely the presentation wrapper. Busy-times data refreshes daily via cron
+// (ALT-268 removed the per-surface manual "Fetch busy times" button).
 
 import LocationFilter from "@/components/ui/location-filter"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 
 export default function TrafficControls({
   locations,
@@ -37,12 +37,6 @@ export default function TrafficControls({
         {locations.length > 1 && (
           <LocationFilter locations={locations} selectedLocationId={selectedLocationId} />
         )}
-        <JobRefreshButton
-          type="busy_times"
-          locationId={selectedLocationId}
-          label="Fetch busy times"
-          pendingLabel="Fetching busy times data"
-        />
       </div>
     </div>
   )

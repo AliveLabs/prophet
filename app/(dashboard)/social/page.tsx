@@ -3,7 +3,6 @@ import Link from "next/link"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import LocationFilter from "@/components/ui/location-filter"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import { type FeedInsight } from "@/components/insights/insight-feed"
 import { scoreInsights, type InsightPreference } from "@/lib/insights/scoring"
 import { fetchSocialPageData } from "@/lib/cache/social"
@@ -199,24 +198,15 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
         <TkTooltipLayer />
 
         {/* ── Controls ── */}
-        {selectedLocationId && (
+        {selectedLocationId && locations && locations.length > 1 && (
           <RevealOnView>
             <TkSoftPanel className="sp-controls">
               <div className="sp-controls-left">
-                {locations && locations.length > 1 && (
-                  <LocationFilter
-                    locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
-                    selectedLocationId={selectedLocationId}
-                  />
-                )}
+                <LocationFilter
+                  locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name ?? "Location" }))}
+                  selectedLocationId={selectedLocationId}
+                />
               </div>
-              <JobRefreshButton
-                type="social"
-                locationId={selectedLocationId}
-                label="Fetch social data"
-                pendingLabel="Fetching social data"
-                hideElapsed
-              />
             </TkSoftPanel>
           </RevealOnView>
         )}

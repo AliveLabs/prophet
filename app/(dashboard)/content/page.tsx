@@ -2,7 +2,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { getScreenshotUrl } from "@/lib/content/storage"
 import LocationFilter from "@/components/ui/location-filter"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import ContentBoard, { type CompetitorMenuDisplay } from "./content-board"
@@ -135,13 +134,6 @@ export default async function ContentPage({ searchParams }: PageProps) {
               selectedLocationId={selectedLocationId}
             />
           )}
-          <JobRefreshButton
-            type="content"
-            locationId={selectedLocationId ?? ""}
-            label="Refresh content"
-            pendingLabel="Reading your website"
-            disabled={!selectedLocationId}
-          />
           {lastRefreshDate && (
             <span className="content-refreshed">
               <span className="content-dot" aria-hidden="true" />

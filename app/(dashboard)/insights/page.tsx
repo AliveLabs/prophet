@@ -4,7 +4,6 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import {
   scoreInsights,
   type InsightPreference,
@@ -482,14 +481,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 },
               ]}
             />
-            {selectedLocationId && (
-              <JobRefreshButton
-                type="insights"
-                locationId={selectedLocationId}
-                label="Generate insights"
-                pendingLabel="Generating insights"
-              />
-            )}
           </TkSoftPanel>
 
           {/* Error banner */}

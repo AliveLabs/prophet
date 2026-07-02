@@ -1,7 +1,7 @@
 // The Pass — Local Events Intelligence, REBUILT to Concept A's structure.
 //
-// STRUCTURE rebuild (not a reskin): a page header → a kit toolbar (filters +
-// refresh) → weighted "at a glance" widgets → a HERO for the lead event (with an
+// STRUCTURE rebuild (not a reskin): a page header → a kit toolbar (venue-search
+// filter) → weighted "at a glance" widgets → a HERO for the lead event (with an
 // honest "open window" demand timeline) → a "what these events mean for you"
 // insight card grid → a date-grouped grid of event PLAY CARDS (proximity meter,
 // matched-competitor chips, links). Honest mapping only: distance is geocoded,
@@ -9,15 +9,16 @@
 // fabricated covers/$/POS.
 //
 // Server component: all data fetching / vendor-health / filtering stays EXACTLY
-// as before. The only interactive bits remain the existing shared client
-// components (EventsFilters, JobRefreshButton) and the kit's own viz islands
-// (RevealOnView / TkRangeBar / TkWindowViz), which are safe to render here.
+// as before. The only interactive bit remains the existing shared client
+// component (EventsFilters) and the kit's own viz islands (RevealOnView /
+// TkRangeBar / TkWindowViz), which are safe to render here. ALT-268 removed
+// the per-surface manual "Fetch Events" refresh button (events refresh daily
+// via cron).
 
 import type { CSSProperties, ReactNode } from "react"
 import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import JobRefreshButton from "@/components/ui/job-refresh-button"
 import EventsFilters from "@/components/events/events-filters"
 import MiniMap from "@/components/places/mini-map"
 import { fetchEventsPageData } from "@/lib/cache/events"
@@ -378,7 +379,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
       <hr className="pv-rule" />
 
       <div className="space-y-5" style={{ marginTop: 22 }}>
-        {/* ── TOOLBAR: filters + refresh (existing client components, kit-framed) ── */}
+        {/* ── TOOLBAR: venue-search filter (existing client component, kit-framed) ── */}
         <TkSoftPanel className="flex flex-wrap items-center gap-3">
           <EventsFilters
             locations={locationList.map((l) => ({ id: l.id, name: l.name }))}
@@ -387,20 +388,6 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
             venueFilter={venueFilter}
             matchedOnly={matchedOnly}
           />
-          {selectedLocationId && (
-            <JobRefreshButton
-              type="events"
-              locationId={selectedLocationId}
-              label="Fetch Events"
-              pendingLabel="Fetching local events"
-            />
-          )}
-          {snapshotDate && (
-            <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11px] text-[var(--ink-3)]">
-              <span className="live-dot" />
-              Last fetched {snapshotDate}
-            </span>
-          )}
         </TkSoftPanel>
 
         {/* ── BANNERS (unchanged logic) ── */}
