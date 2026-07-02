@@ -16,7 +16,7 @@
 .ticket-app .pool-grid > div { display: flex; }
 .ticket-app .pool-grid > div > * { width: 100%; }
 
-/* ALT-184d: pool cards are icon-free (hideIcon) — with the glyph tile gone, the
+/* ALT-184d/253a: play cards are icon-free everywhere now — with the glyph tile gone, the
    confidence + impact scores right-align in the top row like on every other card. */
 .ticket-app .pool-grid .tk-pc-top { justify-content: flex-end; }
 

@@ -31,14 +31,12 @@ import { PassPlayCard } from "./pass-play-card"
 import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
-import { playFamily, confLabel } from "./pass-map"
+import { playFamily } from "./pass-map"
 import { resolvePlayHeroPhoto, buildCompetitorCoverMap } from "./hero-photo"
 import { HeroImage } from "../hero-image"
 import ListingCheck from "@/components/imagery/listing-check"
 import TheShelf from "@/components/imagery/the-shelf"
 import type { PhotoRow, CompetitorPhotoGroup } from "@/lib/places/listing-audit"
-
-const CONF_RANK = { high: 3, medium: 2, directional: 1 } as const
 
 function fmtDateline(dateKey: string): string {
   const d = new Date(`${dateKey}T12:00:00`)
@@ -95,10 +93,6 @@ export default function BriefView({
   const signalSources = distinctDomains(allRefs)
   const coverage = brief.coverage ?? []
   const freshCount = coverage.filter((c) => c.present && !c.stale).length
-  const leadConf = brief.plays.reduce<EnrichedRecommendation["confidence"]>(
-    (best, p) => (CONF_RANK[p.confidence] > CONF_RANK[best] ? p.confidence : best),
-    "directional",
-  )
 
   // The acted-on loop (unchanged): Removed (dismissed)/legacy-snoozed collapse into a
   // "cleared" strip; Kept (saved) + untouched plays stay in the active stack.
@@ -158,22 +152,30 @@ export default function BriefView({
         <TkTooltipLayer />
 
         {/* ── BRIEF HEADER ── */}
+        {/* ALT-250: the kicker (left) and the refresh timestamp (right) share one
+            top row; the headline runs full-width below it on its own line so it
+            never wraps just to dodge a floated meta column. */}
         <RevealOnView as="header" className="pass-brief-head">
-          <div className="pass-brief-head-text">
+          <div className="pass-brief-head-top">
             <div className="tk-eyebrow">Daily brief · {fmtDateline(brief.dateKey)}</div>
-            {/* The ONE editorial flourish (Fraunces) — the lead headline only. */}
-            <h1 className="pass-headline">{brief.headline}</h1>
-            {brief.deck ? <p className="pass-deck">{brief.deck}</p> : null}
-            <p className="pass-synth">
-              Synthesized from <b>{signalCount} signal{signalCount === 1 ? "" : "s"}</b>
-              {competitors.length ? (
-                <> across <b>{competitors.length} competitor{competitors.length === 1 ? "" : "s"}</b></>
-              ) : null}
-              {" · "}Confidence <b>{confLabel(leadConf)}</b>
-              {brief.fallback ? " · holding your last good brief" : ""}
-            </p>
+            <span className="pass-run-note">
+              <span className="pass-dot" aria-hidden="true" />
+              Refreshed overnight · {fmtSwept(brief.asOf)}
+            </span>
           </div>
-          <div className="pass-brief-meta">
+          <div className="pass-brief-head-body">
+            <div className="pass-brief-head-text">
+              {/* The ONE editorial flourish (Fraunces) — the lead headline only. */}
+              <h1 className="pass-headline">{brief.headline}</h1>
+              {brief.deck ? <p className="pass-deck">{brief.deck}</p> : null}
+              <p className="pass-synth">
+                Synthesized from <b>{signalCount} signal{signalCount === 1 ? "" : "s"}</b>
+                {competitors.length ? (
+                  <> across <b>{competitors.length} competitor{competitors.length === 1 ? "" : "s"}</b></>
+                ) : null}
+                {brief.fallback ? " · holding your last good brief" : ""}
+              </p>
+            </div>
             <span className="pass-count-badge">
               <span className="pass-count-n">{active.length}</span>
               <span className="pass-count-lbl">
@@ -181,10 +183,6 @@ export default function BriefView({
                 <br />
                 today
               </span>
-            </span>
-            <span className="pass-run-note">
-              <span className="pass-dot" aria-hidden="true" />
-              Refreshed overnight · {fmtSwept(brief.asOf)}
             </span>
           </div>
         </RevealOnView>

@@ -34,7 +34,7 @@ import { DISMISS_REASONS, dismissReasonCode } from "@/lib/skills/feedback-signal
 import { setPlayAction } from "./brief-actions"
 import BriefFeedback from "./brief-feedback"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
-import { FAMILY_ICON, ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON, COPY_ICON, CHECK_ICON } from "./pass-icons"
+import { ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON, COPY_ICON, CHECK_ICON } from "./pass-icons"
 import {
   playFamily,
   playChipLabel,
@@ -122,7 +122,6 @@ export function PassPlayCard({
   detailHref,
   heroPhoto,
   heroVenueChip,
-  hideIcon = false,
   extraChips,
 }: {
   play: EnrichedRecommendation
@@ -137,8 +136,6 @@ export function PassPlayCard({
   /** lead-only: the hero canvas + venue chip */
   heroPhoto?: ReactNode
   heroVenueChip?: ReactNode
-  /** ALT-184d: the pool renders icon-free cards (the text chip carries the category) */
-  hideIcon?: boolean
   /** ALT-184h: page-specific framing chips (e.g. the pool's "Top this week" + recency stamp)
    *  appended after the category chip — the card design stays shared, the framing stays local */
   extraChips?: ReactNode
@@ -285,46 +282,67 @@ export function PassPlayCard({
   )
 
   // ── the action row (kit buttons; same wiring) ──
+  // ALT-253f: "See the play" acts on the RECOMMENDATION; Keep/Dismiss (or the kept/
+  // dismissed state + Undo) act on the CARD — the two groups get their own wrapper
+  // so a gap can separate them instead of reading as one undifferentiated row.
   const actions = readOnly ? (
-    <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
-      {ACT_ICON} {actVerb}
-    </TkButton>
-  ) : current ? (
-    <>
+    <span className="pass-actions-play">
       <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
         {ACT_ICON} {actVerb}
       </TkButton>
-      <span className="pass-kept-state">{kept ? "Kept" : "Dismissed"}</span>
-      <TkButton variant="ghost" disabled={pending} onClick={undo}>
-        {UNDO_ICON} Undo
-      </TkButton>
+    </span>
+  ) : current ? (
+    <>
+      <span className="pass-actions-play">
+        <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
+          {ACT_ICON} {actVerb}
+        </TkButton>
+      </span>
+      <span className="pass-actions-card">
+        <span className="pass-kept-state">{kept ? "Kept" : "Dismissed"}</span>
+        <TkButton variant="ghost" disabled={pending} onClick={undo}>
+          {UNDO_ICON} Undo
+        </TkButton>
+      </span>
     </>
   ) : (
     <>
-      <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
-        {ACT_ICON} {actVerb}
-      </TkButton>
-      <TkButton variant="keep" kept={kept} disabled={pending} onClick={keep} aria-label="Keep this play">
-        {KEEP_ICON} <span className="kw">Keep</span>
-      </TkButton>
-      <TkButton
-        variant="dismiss"
-        disabled={pending}
-        onClick={() => setReasonOpen(true)}
-        aria-label="Dismiss this play"
-        aria-expanded={reasonOpen}
-      >
-        {DISMISS_ICON} <span className="kw">Dismiss</span>
-      </TkButton>
+      <span className="pass-actions-play">
+        <TkButton variant="act" onClick={() => setDrawerOpen(true)}>
+          {ACT_ICON} {actVerb}
+        </TkButton>
+      </span>
+      <span className="pass-actions-card">
+        <TkButton variant="keep" kept={kept} disabled={pending} onClick={keep} aria-label="Keep this play">
+          {KEEP_ICON} <span className="kw">Keep</span>
+        </TkButton>
+        <TkButton
+          variant="dismiss"
+          disabled={pending}
+          onClick={() => setReasonOpen(true)}
+          aria-label="Dismiss this play"
+          aria-expanded={reasonOpen}
+        >
+          {DISMISS_ICON} <span className="kw">Dismiss</span>
+        </TkButton>
+      </span>
     </>
   )
 
-  // Footer (ALT-168b): the action buttons + the "helpful" thumbs module sit together on the
-  // LEFT; only "Full details and evidence" is pushed to the RIGHT.
+  // Footer (ALT-253d): the action row anchors to the BOTTOM of the card; below it, a
+  // footer line puts "Full details & evidence" on the LEFT and the "helpful" thumbs
+  // module on the RIGHT (reverses the prior ALT-168b left/right split).
   const foot = (
     <div className="pass-foot">
-      <div className="pass-foot-left">
-        <TkActions>{actions}</TkActions>
+      <TkActions>{actions}</TkActions>
+      <div className="pass-foot-line">
+        {detailHref ? (
+          <a className="pass-detail-link" href={detailHref}>
+            Full details &amp; evidence &rarr;
+          </a>
+        ) : (
+          <span />
+        )}
         <BriefFeedback
           locationId={locationId}
           dateKey={dateKey}
@@ -333,11 +351,6 @@ export function PassPlayCard({
           readOnly={readOnly}
         />
       </div>
-      {detailHref ? (
-        <a className="pass-detail-link" href={detailHref}>
-          Full details &amp; evidence &rarr;
-        </a>
-      ) : null}
     </div>
   )
 
@@ -418,7 +431,6 @@ export function PassPlayCard({
     <>
       <TkPlayCard
         family={family}
-        icon={hideIcon ? null : FAMILY_ICON[family]}
         title={play.title}
         confidence={status}
         chips={

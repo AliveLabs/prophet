@@ -112,14 +112,19 @@
 
 /* impact tag — always paired with an impact bar so a filled bar never reads
    without its plain-language label (ALT-214). */
-.tk-impact { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; line-height: 1; }
-.tk-impact .tk-impact-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.tk-impact.tk-impact-high { color: var(--teal-deep); }
-.tk-impact.tk-impact-high .tk-impact-dot { background: var(--teal); }
-.tk-impact.tk-impact-medium { color: var(--gold-deep); }
-.tk-impact.tk-impact-medium .tk-impact-dot { background: var(--gold); }
-.tk-impact.tk-impact-low { color: var(--ink-2); }
-.tk-impact.tk-impact-low .tk-impact-dot { background: var(--ink-3); }
+/* ALT-251: TkImpactTag now shares TkConfidence's three-bar pip geometry (.tk-pips/
+   .tk-pip are the SAME bar size/spacing as .tk-conf-pips) instead of a single dot,
+   so confidence and impact read as one visual language. Level colors mirror the
+   confidence palette (high=teal, medium=gold, low=ink). */
+.tk-impact { display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; line-height: 1; }
+.tk-impact .tk-pips { display: inline-flex; gap: 3px; align-items: center; }
+.tk-impact .tk-pip { width: 14px; height: 6px; border-radius: 3px; background: var(--line-2); }
+.tk-impact.tk-impact-high .tk-pip-on { background: var(--teal); }
+.tk-impact.tk-impact-high .tk-impact-label { color: var(--teal-deep); }
+.tk-impact.tk-impact-medium .tk-pip-on { background: var(--gold); }
+.tk-impact.tk-impact-medium .tk-impact-label { color: var(--gold-deep); }
+.tk-impact.tk-impact-low .tk-pip-on { background: var(--ink-3); }
+.tk-impact.tk-impact-low .tk-impact-label { color: var(--ink-2); }
 
 .tk-win-flag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: .02em; background: var(--teal-tint); color: var(--teal-deep); }
 .tk-win-flag svg { width: 12px; height: 12px; }
@@ -135,7 +140,12 @@
 .tk-hero-venuechip { position: absolute; left: 18px; top: 18px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: rgba(20,26,32,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.16); }
 .tk-hero-venuechip svg { width: 13px; height: 13px; color: #F0C9B6; }
 .tk-hero-body { position: relative; padding: 30px 32px 28px; display: flex; flex-direction: column; gap: 16px; }
+/* ALT-251: the first chip (the family tag) stays LEFT; the confidence+impact pair
+   (and win-flag, when present) push RIGHT via margin-left:auto on the first of the
+   trailing indicators. Applies to every TkHero consumer (brief + events) since it's
+   a shared-component fix, not a page override. */
 .tk-hero-toprow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tk-hero-toprow > :first-child { margin-right: auto; }
 .tk-hero-body h2 { font-family: var(--font-display); font-size: clamp(20px, 2.6vw, 27px); font-weight: 800; letter-spacing: -.02em; line-height: 1.14; text-wrap: balance; }
 .tk-hero-body p.tk-lede { color: var(--ink-2); font-size: 15px; max-width: 48ch; }
 .tk-hero-body p.tk-lede b { color: var(--ink); font-weight: 700; }
@@ -188,7 +198,11 @@
 .tk-pcard { position: relative; background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r-lg); padding: 20px 20px 18px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 13px; transition: transform var(--t-fast), box-shadow var(--t), opacity var(--t), height var(--t); }
 .tk-pcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .tk-pcard.tk-dismissing { opacity: 0; transform: scale(.97); box-shadow: none; }
-.tk-pcard .tk-pc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* ALT-253e: the confidence+impact pair is the only thing left in tk-pc-top once
+   a card has no icon — keep it flush RIGHT (icon, when present, stays left via
+   margin-right:auto) rather than relying on space-between with a single child. */
+.tk-pcard .tk-pc-top { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.tk-pcard .tk-pc-top .tk-pc-icon { margin-right: auto; }
 .tk-pcard .tk-pc-icon { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex: none; }
 .tk-pcard .tk-pc-icon svg { width: 20px; height: 20px; }
 .tk-icon-competitive { background: var(--slate-tint); color: var(--slate-deep); }
@@ -355,11 +369,16 @@
    WHY ROLLDOWN
    ════════════════════════════════════════════════════════════ */
 .tk-why { margin-top: 2px; }
-.tk-why-toggle { display: inline-flex; align-items: center; gap: 9px; width: auto; padding: 9px 14px; min-height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--card-2); font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--slate-deep); transition: background var(--t-fast), border-color var(--t-fast); }
+/* ALT-256: min-height 44px keeps the summary row a comfortable tap target now
+   that the chevron itself has grown — the hit area, not the icon, carries a11y. */
+.tk-why-toggle { display: inline-flex; align-items: center; gap: 9px; width: auto; padding: 9px 14px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--card-2); font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--slate-deep); transition: background var(--t-fast), border-color var(--t-fast); }
 .tk-why-toggle:hover { background: var(--paper-2); border-color: var(--slate); }
 .tk-why-toggle .tk-info-i { width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--slate); color: #fff; font-size: 11px; font-weight: 800; font-style: italic; }
 /* The expander chevron — enlarged so it's an easy, obvious target (ALT-168a). */
-.tk-why-toggle .tk-chev { margin-left: auto; padding-left: 6px; font-size: 17px; line-height: 1; color: var(--slate); transition: transform var(--t); }
+/* ALT-256: chevron bumped ~30% larger for a clearer disclosure affordance; the
+   hit target stays comfortable via .tk-why-toggle's existing ≥44px min-height,
+   not the icon's own size. */
+.tk-why-toggle .tk-chev { margin-left: auto; padding-left: 6px; font-size: 22px; line-height: 1; color: var(--slate); transition: transform var(--t); }
 .tk-why-toggle[aria-expanded="true"] .tk-chev { transform: rotate(180deg); }
 .tk-why-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--t) var(--ease); }
 .tk-why-panel > div { overflow: hidden; }

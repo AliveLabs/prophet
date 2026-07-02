@@ -148,7 +148,6 @@ export default function PoolFeedPass({
           dateKey={row?.dateKey ?? e.last_seen_date}
           playKey={e.play_key}
           current={row?.action ?? null}
-          hideIcon
           extraChips={
             <>
               {e.is_top ? TOP_CHIP : null}
