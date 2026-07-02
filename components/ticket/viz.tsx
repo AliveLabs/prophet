@@ -383,6 +383,7 @@ export function TkSocialEmbed({
   verified = false,
   subline,
   network,
+  networkLabel,
   caption,
   tags,
   grade,
@@ -398,6 +399,9 @@ export function TkSocialEmbed({
   subline?: ReactNode
   /** the bare network icon (no label/pill — see ALT-272) */
   network?: ReactNode
+  /** Accessible name for the network icon (e.g. "Instagram") — the icons are
+   *  aria-hidden, so this keeps the platform readable now the visible label is gone. */
+  networkLabel?: string
   caption?: ReactNode
   tags?: ReactNode
   /** ALT-160: the per-post visual read (image-quality + standout cues) rendered
@@ -429,7 +433,14 @@ export function TkSocialEmbed({
           </div>
           {subline && <div className="tk-s">{subline}</div>}
         </div>
-        {network && <span className="tk-se-net">{network}</span>}
+        {network && (
+          <span
+            className="tk-se-net"
+            {...(networkLabel ? { role: "img", "aria-label": networkLabel, title: networkLabel } : {})}
+          >
+            {network}
+          </span>
+        )}
       </div>
       <div className="tk-se-photo">
         {photo ?? <TkPhotoFallback label={photoLabel} />}
