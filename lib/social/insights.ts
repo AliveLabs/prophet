@@ -537,7 +537,7 @@ function checkPostingFrequencyBenchmark(location: EntitySnapshot): GeneratedInsi
   if (freq < benchmark.min && freq > 0) {
     insights.push({
       insight_type: "social.posting_frequency_low",
-      title: `You're posting ${Math.round(freq)}x/week on ${platformLabel(location.platform)} — below the recommended ${benchmark.min}x`,
+      title: `You're posting ${freq.toFixed(1)}x/week on ${platformLabel(location.platform)} — below the recommended ${benchmark.min}x`,
       summary: `Your ${platformLabel(location.platform)} posting frequency is ${freq.toFixed(1)} posts/week ${window}. Industry benchmarks for restaurants suggest at least ${benchmark.min}x/week, with ${benchmark.ideal}x/week being ideal for consistent growth.`,
       confidence: "high",
       severity: "warning",
@@ -558,7 +558,7 @@ function checkPostingFrequencyBenchmark(location: EntitySnapshot): GeneratedInsi
   } else if (freq >= benchmark.ideal) {
     insights.push({
       insight_type: "social.posting_frequency_strong",
-      title: `Great posting cadence: ${Math.round(freq)}x/week on ${platformLabel(location.platform)}`,
+      title: `Great posting cadence: ${freq.toFixed(1)}x/week on ${platformLabel(location.platform)}`,
       summary: `You've posted ${freq.toFixed(1)} times per week on ${platformLabel(location.platform)} ${window}, meeting or exceeding the recommended ${benchmark.ideal}x/week. Keep this up!`,
       confidence: "high",
       severity: "info",
