@@ -29,7 +29,10 @@ export const DOMAIN_PREFIXES: Record<string, readonly string[]> = {
   operations: ["traffic.", "hours"],
   marketing: ["social."],
   "local-demand": ["events.", "weather", "visual.weather", "cross_event"],
-  positioning: ["menu.", "content.", "seo_competitor"],
+  // positioning@v4: seo_competitor_* ceded to marketing's competitor-move family; photo.price_change
+  // added as a shared corroboration read (marketing runs the conquest campaign, positioning moves the
+  // comparison set). Lockstep with the skill's own intake predicates.
+  positioning: ["menu.", "content.", "photo.price_change"],
   reputation: ["rating", "review"],
 }
 
