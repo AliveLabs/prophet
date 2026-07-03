@@ -115,4 +115,29 @@ describe("selectAdjacentSignals", () => {
       summary: "summary for events.new_high_signal_event",
     })
   })
+
+  // T5(b) — DOMAIN_PREFIXES.reputation gained weekly_rating / weekly_review prefixes
+  // (previously only "rating"/"review", missing lib/insights/trends.ts's
+  // weekly_rating_trend / weekly_review_trend types). Written against the REAL map
+  // per the ticket's test requirement.
+  it("a weekly_rating_trend row reaches a skill that borrows reputation adjacency (local-demand)", () => {
+    const d = dossierWith(["weekly_rating_trend"])
+    expect(DOMAIN_PREFIXES.reputation.some((p) => "weekly_rating_trend".startsWith(p))).toBe(true)
+    const out = selectAdjacentSignals(d, "local-demand")
+    expect(out.map((s) => s.insight_type)).toContain("weekly_rating_trend")
+    expect(out[0].domain).toBe("reputation")
+  })
+
+  it("a weekly_review_trend row reaches a skill that borrows reputation adjacency (marketing)", () => {
+    const d = dossierWith(["weekly_review_trend"])
+    expect(DOMAIN_PREFIXES.reputation.some((p) => "weekly_review_trend".startsWith(p))).toBe(true)
+    const out = selectAdjacentSignals(d, "marketing")
+    expect(out.map((s) => s.insight_type)).toContain("weekly_review_trend")
+  })
+
+  it("a weekly_rating_trend row reaches positioning (also adjacent to reputation)", () => {
+    const d = dossierWith(["weekly_rating_trend"])
+    const out = selectAdjacentSignals(d, "positioning")
+    expect(out.map((s) => s.insight_type)).toContain("weekly_rating_trend")
+  })
 })

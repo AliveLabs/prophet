@@ -25,6 +25,26 @@ import type { GeneratedInsight } from "@/lib/insights/types"
 // mirror each skill's own `isXInsight()` selector so adjacency stays in lockstep with
 // what each skill already claims as its home turf — change a skill's prefixes and you
 // update them here too. (These are `insight_type` PREFIXES, matched with startsWith.)
+//
+// T5(b): reputation's own intake already treats `weekly_rating_trend` /
+// `weekly_review_trend` (lib/insights/trends.ts) as reputation signals (see
+// reputation-skill-rewrite's own fix for the same prefix gap) — this map had NOT been
+// updated to match, so a weekly trend row was invisible to every skill borrowing
+// reputation's adjacency. Added "weekly_rating" / "weekly_review" prefixes to close
+// the gap. LOCKSTEP RULE: if reputation's own intake predicate ever changes which
+// insight_type prefixes it claims, update this entry in the same change.
+//
+// Adjacency impact of this change (ADJACENT_DOMAINS below) — every skill that reads
+// FROM reputation now also sees weekly_rating_trend / weekly_review_trend rows:
+//   - local-demand ← reputation  (a weekly rating/review trend can flip "opportunity or risk")
+//   - marketing    ← reputation  (weekly trend now visible alongside rating/review theme rows)
+//   - positioning  ← reputation  (weekly trend now visible alongside rating/review theme rows)
+// No other skill declares reputation as adjacent, so this is the full blast radius.
+// selectAdjacentSignals caps borrowed signals per skill (default cap 4, round-robined
+// across each skill's adjacent domains), so this widens WHICH reputation rows are
+// eligible to be picked, not how MANY — prompt growth from this change is negligible
+// (at most it means a weekly-trend row occasionally displaces an older rating/review
+// row within the same small cap, never an increase in total borrowed signals).
 export const DOMAIN_PREFIXES: Record<string, readonly string[]> = {
   operations: ["traffic.", "hours"],
   marketing: ["social."],
@@ -33,7 +53,7 @@ export const DOMAIN_PREFIXES: Record<string, readonly string[]> = {
   // added as a shared corroboration read (marketing runs the conquest campaign, positioning moves the
   // comparison set). Lockstep with the skill's own intake predicates.
   positioning: ["menu.", "content.", "photo.price_change"],
-  reputation: ["rating", "review"],
+  reputation: ["rating", "review", "weekly_rating", "weekly_review"],
 }
 
 // Which domains each skill may borrow a few signals from. Directional and narrow:
