@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
 import { mapWithConcurrency } from "@/lib/jobs/concurrency"
 import { fetchPlaceDetails } from "@/lib/places/google"
-import { diffSnapshots, buildInsights, buildWeeklyInsights } from "@/lib/insights"
+import { diffSnapshots, buildInsights, buildOwnInsights, buildWeeklyInsights } from "@/lib/insights"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
@@ -174,6 +174,58 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
               /* best-effort; the own row shows "hours unavailable" until this lands */
             }
           }
+
+          // T5(a) — own-location rating_change / review_velocity_* rows, entity-named, so
+          // "your rating fell" can be honestly claimed (mirrors the competitor diff loop in
+          // the `competitor_analysis` step below, but diffed against OUR OWN previous
+          // snapshot instead of a competitor's). Persisted under its own provider key so the
+          // read-previous / diff / write-current cycle is independent of the hours/sentiment
+          // caches above. Free-text provider, no migration. Best-effort: a fetch/diff failure
+          // here must never block the rest of the pipeline.
+          if (c.state.locationSnapshot?.profile) {
+            try {
+              const profile = c.state.locationSnapshot.profile
+              const { data: prevOwnSnap } = await c.supabase
+                .from("location_snapshots")
+                .select("raw_data")
+                .eq("location_id", c.locationId)
+                .eq("provider", "google_places_profile")
+                .order("date_key", { ascending: false })
+                .limit(1)
+                .maybeSingle()
+              const previousProfile = (prevOwnSnap?.raw_data as { profile?: NormalizedSnapshot["profile"] } | null)?.profile ?? null
+
+              const ownDiff = diffSnapshots(
+                previousProfile ? ({ profile: previousProfile } as NormalizedSnapshot) : null,
+                { profile } as NormalizedSnapshot,
+              )
+              const ownInsights = buildOwnInsights(ownDiff, c.location.name ?? "Your location")
+              for (const insight of ownInsights) {
+                c.state.insightsPayload.push({
+                  location_id: c.locationId,
+                  competitor_id: null,
+                  date_key: c.dateKey,
+                  ...insight,
+                  status: "new",
+                })
+              }
+
+              await c.supabase.from("location_snapshots").upsert(
+                {
+                  location_id: c.locationId,
+                  provider: "google_places_profile",
+                  date_key: c.dateKey,
+                  captured_at: new Date().toISOString(),
+                  raw_data: { profile } as unknown as Record<string, unknown>,
+                  diff_hash: createHash("sha256").update(JSON.stringify(profile)).digest("hex"),
+                },
+                { onConflict: "location_id,provider,date_key" },
+              )
+            } catch {
+              /* own-snapshot diffing is best-effort; a miss here just skips this run's own rows */
+            }
+          }
+
           // Review sentiment for write-time price corroboration (P4.1) — reuses the reviews we
           // just fetched (no extra Places call). analyzeReviews has a graceful empty fallback.
           const raw = (c.state.locationSnapshot?.recentReviews ?? []).map((r) => ({ text: r.text, rating: r.rating, date: r.date }))
@@ -449,3 +501,4 @@ export async function buildInsightsContext(
     state: { locationSnapshot: null, locationReviews: null, insightsPayload: [], warnings: [] },
   }
 }
+

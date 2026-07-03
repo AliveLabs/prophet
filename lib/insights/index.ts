@@ -1,6 +1,6 @@
 export { normalizeSnapshot } from "./normalize"
 export { diffSnapshots } from "./diff"
-export { buildInsights } from "./rules"
+export { buildInsights, buildOwnInsights } from "./rules"
 export { buildWeeklyInsights } from "./trends"
 export { computeDiffHash } from "./hash"
 export { generatePhotoInsights } from "./photo-insights"
