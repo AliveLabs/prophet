@@ -30,7 +30,7 @@ import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
 import { GUERRILLA_KNOWLEDGE } from "@/lib/skills/guerrilla-marketing/knowledge"
 
-const KNOWLEDGE_VERSION = "guerrilla@v2.1"
+const KNOWLEDGE_VERSION = "guerrilla@v2.2"
 
 // ── The named-anchor archetypes (the upgrade). Stable keys: also the click-feedback
 //    sub-domain the rollup learns by (which archetype lands per scope). ─────────────────
@@ -278,7 +278,7 @@ export function namesAnAnchor(play: EnrichedRecommendation, d: Dossier): boolean
     ...play.recipe.flatMap((s) => [s.audience, s.channel, s.offer ?? "", s.copy ?? "", s.window?.note ?? ""]),
     play.leverage?.basisInternal ?? "",
   ]
-    .join("  ")
+    .join("  ")
     .toLowerCase()
   const partnerNamed = (d.partnerEntities ?? []).some((p) => p.name && hay.includes(p.name.toLowerCase()))
   const eventNamed = d.demandCalendar.events.some((e) => {
@@ -403,11 +403,14 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   kind: "capitalize",
   category: "grassroots",
   tier: "reasoning",
-  // Heaviest producer prompt (7 entity-grounded archetypes + per-archetype anchors/economics from the
-  // partner catalog → ~40k chars). At the default medium thinking effort this call ran >120s and hit the
-  // abort timeout → degraded to the number-free fallback (0 surviving plays). "low" completes in ~74s with
-  // full-quality anchored plays. (2026-06-25 — see diag + session log.)
-  effort: "low",
+  // M11 UNTHROTTLE (2026-07-03): restored to "medium". The old "low" pin (2026-06-25) blamed a
+  // "~40k-char prompt" timing out >120s → degraded to the number-free fallback. That figure was
+  // stale: the P16 refactor already distilled selectInput to slim per-archetype anchor summaries, so
+  // the built prompt now measures ~20.9k (bare) / ~26.4k (full partner catalog + dated events) — the
+  // SMALLEST of the six producers and BELOW the 25.7-32k band the five mastered siblings run at
+  // medium without timing out (measured via the buildPrompt smoke; see rationale.md + M11 diag). A
+  // prompt-size regression test guards the ceiling so it can never silently re-bloat past the hazard.
+  effort: "medium",
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: GUERRILLA_KNOWLEDGE,

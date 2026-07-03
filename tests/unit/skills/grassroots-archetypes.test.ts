@@ -99,7 +99,7 @@ describe("grassroots upgrade — wiring", () => {
     expect(guerrillaMarketingSkill.category).toBe("grassroots")
     expect(guerrillaMarketingSkill.deep).toBeFalsy()
     expect(guerrillaMarketingSkill.tier).toBe("reasoning")
-    expect(guerrillaMarketingSkill.knowledgeVersion).toBe("guerrilla@v2.1")
+    expect(guerrillaMarketingSkill.knowledgeVersion).toBe("guerrilla@v2.2")
   })
   it("declares the P14 learning hook with grassroots as the click lead-domain", () => {
     expect(guerrillaMarketingSkill.learning?.playTypeLeadDomain).toBe("grassroots")
@@ -282,7 +282,7 @@ describe("parse — the named-anchor gate (the CORE upgrade)", () => {
       d,
     )
     expect(plays).toHaveLength(1)
-    expect(plays![0].knowledgeVersion).toBe("guerrilla@v2.1")
+    expect(plays![0].knowledgeVersion).toBe("guerrilla@v2.2")
   })
   it("SUPPRESSES a play that grounds on a real signal but names NO partner or dated event", () => {
     const d = withCatalog([partner("Forney High School", "school")], [sig("traffic.new_slow_period")])
@@ -411,7 +411,7 @@ describe("applySpiritNightNaming — the school-only naming rule", () => {
       confidence: "medium",
       leverage: { label: "high", basisInternal: "borrowed distribution; a spirit night fills the window" },
       evidenceRefs: ["traffic.new_slow_period"],
-      knowledgeVersion: "guerrilla@v2.1",
+      knowledgeVersion: "guerrilla@v2.2",
     }) as unknown as EnrichedRecommendation
 
   it("KEEPS 'Spirit Night' when the named anchor is literally a school", () => {
