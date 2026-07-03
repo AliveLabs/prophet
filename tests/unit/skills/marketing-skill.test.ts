@@ -73,6 +73,17 @@ describe("isMarketingSignal — the widened intake covers every marketing family
   test.each(["menu.price_change", "cross.demand_convergence"])("leaves %s to siblings", (t) => {
     expect(isMarketingSignal(t)).toBe(false)
   })
+
+  // T2 — own-scoped demand-curve rules (lib/insights/own-traffic-insights.ts) use the
+  // `hours.own_*` prefix specifically so they land in isRhythmSignal's turf (rhythm =
+  // traffic.* + anything startsWith("hours")). Verifies the naming requirement holds
+  // for marketing's intake, not just operations'.
+  test.each(["hours.own_dead_edge_hour", "hours.own_slow_window", "hours.own_peak_drift"])(
+    "claims T2 own-curve ref %s (hours.own_* prefix match)",
+    (t) => {
+      expect(isMarketingSignal(t)).toBe(true)
+    },
+  )
 })
 
 describe("MARKETING_ARCHETYPES — stable feedback-learning keys", () => {
@@ -113,6 +124,9 @@ describe("parse — domain grounding and the template kill-list", () => {
 
 describe("fallback — family-aware, capped, and an honest floor", () => {
   test("prioritizes demand rhythm, then guest voice, capped at 2", () => {
+    // T1: the rhythm family's floor is pinned via a pick override to
+    // traffic.competitive_opportunity (info-severity by design, exempt from the warning
+    // gate) — a plain traffic.* warning (e.g. weekend_shift) no longer selects it.
     const out = marketingSkill.fallback(
       dossier([
         { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "warning" },
@@ -122,11 +136,16 @@ describe("fallback — family-aware, capped, and an honest floor", () => {
           severity: "info", // positive themes are info-severity; the praise pick is exempt from the warning gate
           evidence: { theme: "smash burger", sentiment: "positive", mentions: 9 },
         },
-        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
+        {
+          insight_type: "traffic.competitive_opportunity",
+          title: "Gap in Friday 5pm demand, all competitors slow",
+          severity: "info",
+          evidence: { day: "Friday", hour: 17, competitor_count: 2 },
+        },
       ]),
     )
     expect(out).toHaveLength(2)
-    expect(out[0].evidenceRefs).toEqual(["traffic.weekend_shift"])
+    expect(out[0].evidenceRefs).toEqual(["traffic.competitive_opportunity"])
     expect(out[1].evidenceRefs).toEqual(["review.theme"])
   })
 
@@ -177,10 +196,49 @@ describe("fallback — family-aware, capped, and an honest floor", () => {
     expect(out[0].evidenceRefs).toEqual(["seo_new_competitor_ads_detected"])
   })
 
+  // T1: arming traffic.surge (previously dormant — the traffic pipeline hardcoded
+  // previous:null) must not let the rhythm family's plain warning-gate fire off a
+  // RIVAL's surge (misattribution: "sell your quiet window" grounded in a competitor's
+  // traffic going UP). The rhythm family's floor is now pinned via a pick override to
+  // traffic.competitive_opportunity — the one honest, set-wide sell-your-window signal.
+  test("rhythm floor: a rival traffic.surge (warning) alone never triggers the sell-your-window play", () => {
+    const out = marketingSkill.fallback(
+      dossier([
+        {
+          insight_type: "traffic.surge",
+          title: "O-Ku traffic surged on Fridays at 7pm",
+          severity: "warning",
+          evidence: { competitor_name: "O-Ku", day: "Friday", hour: 19, previous_score: 40, current_score: 75 },
+        },
+      ]),
+    )
+    expect(out).toEqual([])
+  })
+
+  test("rhythm floor: traffic.competitive_opportunity (info) fires exactly one rhythm play grounded on it", () => {
+    const out = marketingSkill.fallback(
+      dossier([
+        {
+          insight_type: "traffic.competitive_opportunity",
+          title: "Gap in Tuesday 3pm demand, all competitors slow",
+          severity: "info",
+          evidence: { day: "Tuesday", hour: 15, competitor_count: 2 },
+        },
+      ]),
+    )
+    expect(out).toHaveLength(1)
+    expect(out[0].evidenceRefs).toEqual(["traffic.competitive_opportunity"])
+  })
+
   test("every fallback play passes the skill's own gates and the voice lint", () => {
     const out = marketingSkill.fallback(
       dossier([
-        { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
+        {
+          insight_type: "traffic.competitive_opportunity",
+          title: "Gap in Friday 5pm demand, all competitors slow",
+          severity: "info",
+          evidence: { day: "Friday", hour: 17, competitor_count: 2 },
+        },
         {
           insight_type: "review.theme",
           title: "Review theme: smash burger (positive)",

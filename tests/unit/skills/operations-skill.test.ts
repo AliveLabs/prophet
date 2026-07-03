@@ -102,6 +102,16 @@ describe("isOperationsSignal — the intake covers every verified operations-fam
   ])("leaves %s to siblings", (t) => {
     expect(isOperationsSignal(t)).toBe(false)
   })
+
+  // T2 — own-scoped demand-curve rules (lib/insights/own-traffic-insights.ts) use the
+  // `hours.own_*` prefix specifically so they land in this intake (isHoursSignal matches
+  // any startsWith("hours")). Verifies operations still picks them up under that name.
+  test.each(["hours.own_dead_edge_hour", "hours.own_slow_window", "hours.own_peak_drift"])(
+    "claims T2 own-curve ref %s (hours.own_* prefix match)",
+    (t) => {
+      expect(isOperationsSignal(t)).toBe(true)
+    },
+  )
 })
 
 describe("OPERATIONS_ARCHETYPES — stable feedback-learning keys", () => {
