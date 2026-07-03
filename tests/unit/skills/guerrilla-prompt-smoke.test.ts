@@ -69,6 +69,12 @@ describe("buildPrompt smoke (guerrilla@v2.2)", () => {
     // the playbook rides in the cached prefix
     expect(systemCached).toContain("NAME THE ANCHOR OR DON'T SPEAK")
     expect(systemCached).toContain("SPIRIT NIGHT")
+    // T6: the engine-wide AUDIENCE_FRAME rides in the cached prefix for every producer.
+    expect(systemCached).toContain("WHO YOU ARE WRITING FOR")
+    expect(systemCached).toContain("SHOW the move; never JUSTIFY it to a peer")
+    // T6: the guerrilla knowledge carries the WRITE FOR THE OWNER closer + the fixed band line.
+    expect(systemCached).toContain("WRITE FOR THE OWNER")
+    expect(systemCached).not.toContain("a larger enrollment band scales up")
     // no partners/events → the anchor arrays in the user prompt are empty
     expect(prompt).toContain('"spiritNightAnchors": []')
     const total = systemCached.length + system.length + prompt.length
@@ -84,6 +90,18 @@ describe("buildPrompt smoke (guerrilla@v2.2)", () => {
     expect(prompt).toContain("Forney High School")
     expect(prompt).toContain("projectedEconomics")
     expect(total).toBeLessThan(PROMPT_SIZE_CEILING)
+
+    // T6: the raw internal taxonomy must NEVER enter the prompt. The anchors carry a plain-prose
+    // `description` instead of partnerLabel / sizeBand / sizeProxyKind. The fixture partners are all
+    // typed with sizeProxyKind "enrollment band"; that string must not appear anywhere in the prompt.
+    expect(prompt).not.toContain("enrollment band")
+    expect(prompt).not.toContain("sizeProxyKind")
+    expect(prompt).not.toContain("sizeBand")
+    expect(prompt).not.toContain("partnerLabel")
+    expect(prompt).not.toContain("school / PTA") // the raw partnerLabel value
+    // the plain owner-facing sentence is what the model reads instead:
+    expect(prompt).toContain('"description"')
+    expect(prompt).toContain("with roughly 40-60 families")
   })
 
   test("the skill runs at medium effort (unthrottled) — never silently re-pin to low", () => {

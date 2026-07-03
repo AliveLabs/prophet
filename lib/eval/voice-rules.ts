@@ -48,6 +48,18 @@ export const CHEF_LINGO: { term: RegExp; suggest: string }[] = [
   { term: /\b(?:on|around)\s+the block\b/i, suggest: "among your competitors" },
   { term: /\bthe block\b/i, suggest: "your competitors / the set" },
   { term: /\byour block\b/i, suggest: "your competitors" },
+  // T6 BACKSTOP ONLY (2026-07-03) — the real fix is audience-aware writing at the source (the
+  // AUDIENCE_FRAME in prompt-kit.ts + the guerrilla describePartnerForPrompt() + knowledge closer),
+  // NOT this deny-list (Bryan was explicit). These catch the specific internal-taxonomy leaks the
+  // 2026-07-03 voice audit found in live copy, in case a future prompt edit ever lets one slip past
+  // the frame. The "band" rule: "band" is only ever a literal musical band; never a size bracket —
+  // a school = families, a gym = members, a church = the congregation.
+  { term: /\benrollment band\b/i, suggest: "students and families" },
+  { term: /\bcongregation band\b/i, suggest: "members of the congregation" },
+  { term: /\bmembership band\b/i, suggest: "members" },
+  { term: /\bsize band\b/i, suggest: "size (say the plain count, e.g. roughly 40-60 families)" },
+  // "typed as a school/PTA anchor" — the meta-justification leak. Collapse the whole internal phrase.
+  { term: /\btyped as (?:an?\s+)?[^.,;]*?\banchor\b/i, suggest: "a good fit" },
 ]
 
 export type VoiceViolation = { kind: "em_dash" | "chef_lingo"; detail: string }

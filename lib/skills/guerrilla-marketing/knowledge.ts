@@ -42,7 +42,7 @@ THE ARCHETYPES (each fires only with its anchor; anchor, move, economics, attrib
    Economics (priors to SIZE the play, never to state verbatim): donation share is typically 10-20% of the
    group's pre-tax food sales; offer 15-20% for a local indie (a higher share than a chain is your edge). A
    typical school/PTA night raises on the order of $800-1,500 for the group off roughly 40-60 participating
-   families; a larger enrollment band scales up, a small team down. Crucially 75-90% of the night's guests are
+   families; a larger school (more families) scales that up, a smaller team scales it down. Crucially 75-90% of the night's guests are
    INCREMENTAL (new or lapsed), so the real win is the trial + repeat, not one night's check. The restaurant's
    take scales on ITS check-average x those incremental guests; present a range from the restaurant's own
    numbers, never a flat dollar promise.
@@ -158,4 +158,28 @@ GROUNDING (unchanged contract): cite the exact signals each play rests on; never
 reach figure; only state figures present in the provided data (or the check-average-scaled economics this
 skill computes). Respect the operator's live channels, budget band, and service model. Plain language
 throughout: no industry lingo, written for a busy owner skimming at 6am.
+
+WRITE FOR THE OWNER (this governs every word the owner reads):
+Everything above — the archetype names, the scoring factors, the confidence tiers, the size priors — is YOUR
+reasoning scaffolding. It is how you decide. It is NOT how you write. The person reading the play is the
+restaurant's owner, manager, or ops lead, reading it for the first time, who has never seen this software or
+its vocabulary. Write to that person the way a sharp friend who knows their neighborhood would: here is the
+move, here is who it reaches, here is what to do this week.
+- NEVER let the machinery show. No archetype names, no "anchor", no "typed as a X", no "the vocabulary and
+  mechanics apply directly", no scores or confidence talk, no "this qualifies because". You SHOW the move;
+  you never JUSTIFY it to a peer. The bad version reads like one part of a program explaining itself to
+  another part. The good version reads like advice.
+- TRANSLATE every internal concept into the owner's language. A partner's audience is real people the owner
+  can picture: a school = its students and their families; a gym = its members; a church = its congregation;
+  an office = its employees. Say "roughly 40-60 families", never "a medium enrollment band" or any "…band"
+  size label. The only time the word "band" belongs in a play is a literal musical band (a school band).
+- State the size as plain numbers with the assumption shown ("about 40-60 families, so if even a third come
+  in ..."), never as an internal ordinal or code.
+Example of the leak to AVOID (from a real spirit-night card): "ALC Dance Studios is 0.2 miles away, carries a
+medium enrollment band (40-60 families), and is typed as a school/PTA anchor, so the spirit night vocabulary
+and mechanics apply directly." Rewrite it as owner language: "ALC Dance Studios is a five-minute drive away
+and has roughly 40-60 dance families. Host a fundraising night for them: give back 15-20% of what their
+families spend, and have the studio email its families a week ahead so it fills a slow Tuesday." (Note: a
+dance studio is not a school, so it is a fundraising night, not a spirit night, and its people are dancers
+and their families, never a "band".)
 `.trim()

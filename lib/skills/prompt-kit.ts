@@ -20,6 +20,19 @@ const GROUNDING = [
   "If you cannot ground a play, do not make it.",
 ].join(" ")
 
+// AUDIENCE FRAME (T6, 2026-07-03) — the systemic customer-language fix, shared by EVERY producer.
+// The live defect: a spirit-night card read "ALC Dance Studios is 0.2 miles away, carries a medium
+// enrollment band (40-60 families), and is typed as a school/PTA anchor, so the spirit night
+// vocabulary and mechanics apply directly." That is one internal module justifying itself to another
+// — internal taxonomy, meta-justification, register the owner never asked for. This frame fixes it at
+// the source (a deny-list is only a backstop): write the play AS a knowledgeable friend telling the
+// owner what to do, never as software explaining its own reasoning.
+const AUDIENCE_FRAME = [
+  "WHO YOU ARE WRITING FOR: the reader is this restaurant's owner, manager, or ops lead, reading the play for the first time, who has never seen this software or any of its internal vocabulary. Write every title, rationale, and line of copy directly to that person, the way a sharp friend who knows their neighborhood would explain the move over coffee: here is what to do this week, here is who it reaches, here is why it works. SHOW the move; never JUSTIFY it to a peer.",
+  "NEVER write as one internal module justifying itself to another. Do not name or expose the machinery behind the play: no internal taxonomy or category names ('archetype', 'anchor', 'typed as a school/PTA', 'segment', 'entity'), no meta-justification about why the play qualifies or fits ('the vocabulary and mechanics apply directly', 'this qualifies because', 'a strong fit for this archetype'), and no talk of scores, confidence levels, leverage labels, size bands, or any internal field name. The rationale answers 'why is this a good move for my restaurant' in plain terms a stranger understands on first read, NOT 'why did the system pick this'.",
+  "TRANSLATE every internal concept into the owner's language. A group's audience is real people the owner can picture: a school is its students and their families, a gym is its members, a church is its congregation, an office is its employees, a hotel is its guests. State size as plain numbers with the assumption shown ('about 40-60 families, so even a third coming in is a full patio'), never as an ordinal, a code, or a 'band'. The word 'band' belongs to a play ONLY when it is a literal musical band (a school band); never use 'band' as a size bracket ('enrollment band', 'membership band') — say 'roughly 40-60 families' or 'a few hundred members'.",
+].join(" ")
+
 // Event geography (pretest 2026-06-09: the model does NOT self-gate on a distance
 // field — it staffed a "pre-game rush" for a game 22 miles away; these rules are the
 // prompt-side backstop, and the structural gate is that far events never reach the
@@ -70,7 +83,7 @@ function voiceLine(d: Dossier): string {
 
 const SCHEMA_INSTRUCTION = [
   "Return ONLY a JSON array of plays. Each play:",
-  '{ "title": string (the action, plain), "rationale": string (why, cites the evidence in words),',
+  '{ "title": string (the action, plain), "rationale": string (why this move is good for the restaurant, in plain owner-facing words that name the real-world reason and the evidence behind it — NOT why the system chose it, never internal taxonomy, scores, or "this qualifies because"),',
   '"kind": one of prepare|capitalize|positioning|reputation|ops,',
   '"ownerRole": one of owner|gm|marketing|kitchen|foh,',
   '"confidence": one of high|medium|directional,',
@@ -134,6 +147,7 @@ export function buildSkillPrompt(
     "RULES:",
     NO_EXEC,
     GROUNDING,
+    AUDIENCE_FRAME,
     EVENT_GEOGRAPHY,
     HOURS_GATE,
     CREATIVE_AND_CHANNEL,
