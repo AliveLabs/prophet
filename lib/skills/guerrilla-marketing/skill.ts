@@ -288,7 +288,91 @@ export function namesAnAnchor(play: EnrichedRecommendation, d: Dossier): boolean
   return partnerNamed || eventNamed
 }
 
+// ── T6: pre-translate the internal partner taxonomy into plain owner prose ──────────────────
+// The dossier carries INTERNAL taxonomy fields on every partner — `partnerLabel` (e.g. "school /
+// PTA"), `sizeBand` ("small|medium|large"), and `sizeProxyKind` ("enrollment band", "congregation
+// band", "membership band", "staff headcount", "rooms", …). Those are OUR scaffolding, not the
+// restaurant owner's language. When they entered a prompt raw the model echoed them straight into
+// customer copy ("carries a medium enrollment band … typed as a school/PTA anchor") — one module
+// justifying itself to another, not a friend telling an owner what to do. So we NEVER send the raw
+// taxonomy to the model. `describePartnerForPrompt` renders each partner as one plain sentence a
+// stranger to this software understands on first read, translating the size proxy into the audience
+// the owner actually pictures (a school = students/families, a gym = members, a church = the
+// congregation) and turning the coarse band + numeric range into "roughly N-M families/members".
+//
+// THE "BAND" RULE (Bryan, 2026-07-03): the word "band" belongs ONLY to a literal musical band. A
+// dance studio is its dancers and their families, a gym is its members, a church is its congregation.
+// We never say "enrollment band" / "membership band" / "size band"; we say "roughly 40-60 families".
+// This is the PRIMARY fix — audience-aware writing at the source — not the voice-rules deny-list
+// (that stays a backstop for anything a future edit lets slip through).
+
+/** What audience a partner TYPE actually hands the restaurant, in the owner's own words. The KEY
+ *  translation: it converts the internal `sizeProxyKind` (which carries the "…band" jargon) into a
+ *  plain noun the owner pictures. Keyed by partnerType so it never depends on the raw proxy string. */
+function audienceNounForPartner(p: PartnerEntitySummary): { singular: string; plural: string; place: string } {
+  switch (p.partnerType) {
+    case "school":
+      return { singular: "family", plural: "families", place: "a nearby school" }
+    case "youth_sports":
+      return { singular: "family", plural: "families", place: "a nearby youth sports team or league" }
+    case "church":
+      return { singular: "member", plural: "members of the congregation", place: "a nearby church" }
+    case "gym":
+      return { singular: "member", plural: "members", place: "a nearby gym or fitness studio" }
+    case "office":
+      return { singular: "employee", plural: "employees", place: "a nearby office" }
+    case "hospital":
+      return { singular: "staff member", plural: "staff", place: "a nearby hospital or clinic" }
+    case "hotel":
+      return { singular: "room", plural: "rooms of guests", place: "a nearby hotel" }
+    case "dealership":
+      return { singular: "employee", plural: "staff", place: "a nearby car dealership" }
+    case "theater":
+      return { singular: "seat", plural: "seats of moviegoers", place: "a nearby theater" }
+    case "brewery":
+      return { singular: "guest", plural: "taproom guests", place: "a nearby brewery or taproom" }
+    case "bakery":
+      return { singular: "customer", plural: "regular customers", place: "a nearby bakery or cafe" }
+    case "farmers_market":
+      return { singular: "shopper", plural: "weekend shoppers", place: "a nearby farmers market" }
+    default:
+      return { singular: "person", plural: "people", place: "a nearby spot" }
+  }
+}
+
+/** Plain-English size phrase for a partner — NEVER the word "band". Uses the numeric proxy range when
+ *  present ("roughly 40-60 families"), otherwise the ordinal word rendered as plain sizing ("a smaller
+ *  / mid-sized / larger" audience). The numbers are the SAME priors as before; only the WORDS change. */
+function sizePhraseForPartner(p: PartnerEntitySummary): string {
+  const { plural } = audienceNounForPartner(p)
+  const low = p.sizeProxyLow
+  const high = p.sizeProxyHigh
+  if (low != null && high != null && low > 0 && high > 0) {
+    return low === high ? `roughly ${low} ${plural}` : `roughly ${low}-${high} ${plural}`
+  }
+  const ordinal = p.sizeBand === "small" ? "a smaller group of" : p.sizeBand === "large" ? "a large group of" : "a mid-sized group of"
+  return `${ordinal} ${plural}`
+}
+
+/** Render ONE partner as a single plain sentence for the prompt — the owner-facing description that
+ *  REPLACES the raw taxonomy fields (`partnerLabel` / `sizeBand` / `sizeProxyKind`) in selectInput.
+ *  Example (the ALC Dance Studios defect): instead of `{ type: "school / PTA", sizeBand: "medium",
+ *  sizeProxyKind: "enrollment band" }` the model now sees:
+ *    "ALC Dance Studios, a nearby school about 0.2 miles away, with roughly 40-60 families."
+ *  No taxonomy names, no "band", no ordinal codes — just the audience the owner pictures. Pure. */
+export function describePartnerForPrompt(p: PartnerEntitySummary): string {
+  const { place } = audienceNounForPartner(p)
+  const dist =
+    p.distanceMi != null && Number.isFinite(p.distanceMi)
+      ? ` about ${p.distanceMi} ${p.distanceMi === 1 ? "mile" : "miles"} away`
+      : " nearby"
+  return `${p.name}, ${place}${dist}, with ${sizePhraseForPartner(p)}.`
+}
+
 // ── Input selection (what the model reasons over) ───────────────────────────────────────────
+// T6: every anchor object now carries a plain-prose `description` (describePartnerForPrompt) and NO
+// raw taxonomy fields. The internal ordinals (sizeBand) are kept ONLY where a pure function needs
+// them downstream (projectSpiritNightEconomics) — they never ride into the prompt as raw strings.
 function selectInput(d: Dossier) {
   const check = ownCheckAverage(d)
   // Build the partner anchor set per archetype, each pre-loaded with its scaled economics where
@@ -296,32 +380,39 @@ function selectInput(d: Dossier) {
   const spiritPartners = partnersFor(d, ARCHETYPE_PARTNER_TYPES.spirit_night).slice(0, 4)
   return {
     ownCheckAverage: check, // the scaling input; null → economics stay ordinal
-    spiritNightAnchors: spiritPartners.map((p) => ({
-      name: p.name,
-      type: p.partnerLabel,
-      distanceMi: p.distanceMi,
-      sizeBand: p.sizeBand,
-      sizeProxyKind: p.sizeProxyKind,
+    spiritNightAnchors: spiritPartners.map((p) => {
       // economics are PRIORS scaled by check-avg + size band; the model must use these, not invent.
-      projectedEconomics: projectSpiritNightEconomics(check, p.sizeBand),
-    })),
+      // T6: drop the internal `basis` audit trail (it carries the ordinal `sizeBand` field name +
+      // value) before it enters the prompt — it exists for the anti-fabrication test, not the model.
+      const fullEconomics = projectSpiritNightEconomics(check, p.sizeBand)
+      const { basis, ...economicsForPrompt } = fullEconomics
+      void basis // internal audit trail; intentionally kept out of the prompt
+      return {
+        name: p.name,
+        // Plain owner-facing description REPLACES raw type/sizeBand/sizeProxyKind (T6). The model
+        // writes from this sentence, so no internal taxonomy can leak into customer copy.
+        description: describePartnerForPrompt(p),
+        distanceMi: p.distanceMi,
+        projectedEconomics: economicsForPrompt,
+      }
+    }),
     workplaceLunchAnchors: servesLunch(d)
       ? partnersFor(d, ARCHETYPE_PARTNER_TYPES.workplace_lunch)
           .slice(0, 4)
-          .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand, sizeProxyKind: p.sizeProxyKind }))
+          .map((p) => ({ name: p.name, description: describePartnerForPrompt(p), distanceMi: p.distanceMi }))
       : [],
     reciprocalAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.reciprocal_partner)
       .slice(0, 4)
-      .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi })),
+      .map((p) => ({ name: p.name, description: describePartnerForPrompt(p), distanceMi: p.distanceMi })),
     // Sponsorship anchors: teams/boosters/charities you give to for brand presence (qualitative — no
     // scaled $ economics; the win is exposure + goodwill, not a tracked sales return).
     sponsorshipAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.sponsorship)
       .slice(0, 4)
-      .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand })),
+      .map((p) => ({ name: p.name, description: describePartnerForPrompt(p), distanceMi: p.distanceMi })),
     // General-outreach anchors: employers/clinics/dealerships/gyms to drop free trial cards to.
     generalOutreachAnchors: partnersFor(d, ARCHETYPE_PARTNER_TYPES.general_outreach)
       .slice(0, 4)
-      .map((p) => ({ name: p.name, type: p.partnerLabel, distanceMi: p.distanceMi, sizeBand: p.sizeBand })),
+      .map((p) => ({ name: p.name, description: describePartnerForPrompt(p), distanceMi: p.distanceMi })),
     // Dated local events — the event_activation anchor (the demand calendar only carries LOCAL roles).
     datedEvents: d.demandCalendar.events.slice(0, 6).map((e) => ({
       name: e.validatedVenueName ?? e.venue?.name ?? e.title,
