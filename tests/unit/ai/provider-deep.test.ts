@@ -2,7 +2,7 @@
 // Opus 4.8 REJECTS temperature and budget_tokens; thinking must be adaptive + effort.
 
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { claudeRaw, DEEP_MODEL } from "@/lib/ai/provider"
+import { claudeRaw, generateStructured, DEEP_MODEL, type FallbackReason } from "@/lib/ai/provider"
 
 type Captured = Record<string, unknown>
 
@@ -70,5 +70,76 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     await vi.advanceTimersByTimeAsync(120_000)
     await assertion
     expect(fetchMock).toHaveBeenCalledTimes(1) // hung deep call must NOT be retried
+  })
+})
+
+// 2026-07-03 regression: adaptive-thinking output that hits max_tokens used to slip through as
+// empty text → null parse → SILENT deterministic fallback (hid a fleet-wide producer outage for
+// ~2 weeks). claudeRaw must now FAIL LOUD, and generateStructured must classify it as "truncated".
+describe("provider truncation guard (stop_reason=max_tokens)", () => {
+  const realFetch = global.fetch
+  const hadKey = process.env.ANTHROPIC_API_KEY
+  afterEach(() => {
+    global.fetch = realFetch
+    if (hadKey === undefined) delete process.env.ANTHROPIC_API_KEY
+    else process.env.ANTHROPIC_API_KEY = hadKey
+    vi.restoreAllMocks()
+  })
+
+  function mockTruncated() {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ content: [{ type: "text", text: "" }], stop_reason: "max_tokens", usage: { output_tokens: 32000 } }),
+    })) as unknown as typeof fetch
+  }
+
+  it("throws a clear truncation error when the model stops at max_tokens", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    mockTruncated()
+    await expect(claudeRaw({ tier: "reasoning", prompt: "x", label: "guerrilla-marketing" })).rejects.toThrow(/truncated at max_tokens/i)
+  })
+
+  it("does NOT throw on a normal stop (end_turn / absent stop_reason)", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn" }),
+    })) as unknown as typeof fetch
+    await expect(claudeRaw({ tier: "reasoning", prompt: "x" })).resolves.toBe("{}")
+  })
+
+  it("generateStructured classifies truncation as 'truncated' and serves the fallback", async () => {
+    let captured: FallbackReason | null = null
+    const fallbackValue = [{ ok: true }]
+    const truncatingTransport = async () => {
+      throw new Error("Anthropic output truncated at max_tokens (out=32000, cap=32000)")
+    }
+    const result = await generateStructured<typeof fallbackValue>(
+      { tier: "reasoning", prompt: "x", label: "guerrilla-marketing" },
+      {
+        transport: truncatingTransport,
+        validate: (raw) => raw as typeof fallbackValue,
+        fallback: () => fallbackValue,
+        onFallback: (info) => { captured = info.reason },
+      },
+    )
+    expect(result).toBe(fallbackValue)
+    expect(captured).toBe("truncated")
+  })
+
+  it("generateStructured classifies unparseable output (valid call, failed validation) distinctly", async () => {
+    let captured: FallbackReason | null = null
+    const fallbackValue = [{ ok: true }]
+    const result = await generateStructured<typeof fallbackValue>(
+      { tier: "reasoning", prompt: "x", label: "positioning" },
+      {
+        transport: async () => ({ garbage: true }), // resolves, but validate rejects it
+        validate: () => null,
+        fallback: () => fallbackValue,
+        onFallback: (info) => { captured = info.reason },
+      },
+    )
+    expect(result).toBe(fallbackValue)
+    expect(captured).toBe("unparseable")
   })
 })

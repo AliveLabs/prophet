@@ -18,6 +18,8 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   staleQueuedJobs: 0,
   vendorDown: false,
   vendorPaymentRequired: false,
+  fallbackSkillRate: 0,
+  briefsAssessed: 0,
   ...over,
 })
 
@@ -88,6 +90,29 @@ describe("evaluatePipelineHealth — DEGRADED (running but not finishing cleanly
   })
   it("does NOT alert on a single stale location (below the partial-stall threshold)", () => {
     expect(evaluatePipelineHealth(healthy({ staleLocations: 1 }), NOW).status).toBe("ok")
+  })
+})
+
+describe("evaluatePipelineHealth — fleet-wide producer fallback (the 2026-06 truncation signature)", () => {
+  it("degrades when producers are serving the deterministic floor above the threshold", () => {
+    // Briefs BUILD (freshness all fine) but ~70% of producer slots fell back — the truncation bug.
+    const v = evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.7, briefsAssessed: 5 }), NOW)
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.join(" ")).toMatch(/serving deterministic fallbacks/i)
+    expect(v.reasons.join(" ")).toMatch(/70%/)
+  })
+  it("does NOT alert on a single flaky skill (1 of ~9 ≈ 0.11, below the 0.4 threshold)", () => {
+    expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.11, briefsAssessed: 5 }), NOW).status).toBe("ok")
+  })
+  it("does NOT alert when NO briefs carry skillHealth yet (pre-migration: can't judge)", () => {
+    // Rate is 0 with 0 assessed — the field just isn't populated yet; must not read as healthy-proven
+    // nor alert. A high rate with 0 assessed is impossible, but the gate is on briefsAssessed > 0.
+    expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0, briefsAssessed: 0 }), NOW).status).toBe("ok")
+    expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.9, briefsAssessed: 0 }), NOW).status).toBe("ok")
+  })
+  it("fires exactly at the threshold boundary", () => {
+    expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.4, briefsAssessed: 3 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.39, briefsAssessed: 3 }), NOW).status).toBe("ok")
   })
 })
 

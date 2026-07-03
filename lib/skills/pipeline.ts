@@ -6,7 +6,7 @@
 
 import type { Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
-import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
+import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
 import type { PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
 // (suppressedKeys / evergreen / playTypeMultipliers are loaded by the build caller from
@@ -50,6 +50,22 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   const skillResults = await runProducerSkills(skills, dossier, t)
   const candidates = skillResults.flatMap((r) => r.plays)
 
+  // Per-producer health, captured BEFORE synthesis flattens the per-skill structure. Recorded onto
+  // the brief so the pipeline watchdog can alert on fleet-wide fallback-serving (2026-06 truncation).
+  const skillHealth: SkillHealth[] = skillResults.map((r) => ({
+    skillId: r.skillId,
+    status: r.status,
+    usedFallback: !!r.usedFallback,
+    ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
+  }))
+  const fellBack = skillHealth.filter((h) => h.usedFallback || h.status === "failed")
+  if (fellBack.length > 0) {
+    console.warn(
+      `[runBrief] ${dossier.profile.locationId}: ${fellBack.length}/${skillHealth.length} producers degraded — ` +
+        fellBack.map((h) => `${h.skillId}(${h.status === "failed" ? "failed" : h.reason ?? "fallback"})`).join(", "),
+    )
+  }
+
   // graduated brand-fit review, gated by the customer's tolerance slider (default 50)
   const verdicts = await reviewPlays(dossier, candidates, t)
   const { kept, dropped } = applyHarmReview(candidates, verdicts, dossier.profile.brandTolerance ?? 50)
@@ -74,7 +90,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
   const presented = presentBrief(written, dossier)
-  const brief = await voicePass(presented)
+  const brief: Brief = { ...(await voicePass(presented)), skillHealth }
 
   return { brief, skillResults, dropped }
 }

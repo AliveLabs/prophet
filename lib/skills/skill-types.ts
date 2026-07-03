@@ -71,4 +71,10 @@ export type SkillResult = {
   status: "ok" | "failed"
   plays: EnrichedRecommendation[]
   error?: string
+  /** true when this producer served its DETERMINISTIC fallback instead of real model output. A
+   *  fallback still yields status "ok" (the brief builds), so this is the ONLY signal that the
+   *  model path degraded — the gap that hid the 2026-06 fleet-wide truncation regression. */
+  usedFallback?: boolean
+  /** Why it fell back: truncated | timeout | rate_limited | transport_error | unparseable. */
+  fallbackReason?: string
 }
