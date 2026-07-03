@@ -30,6 +30,41 @@ const ruleOutputs: GeneratedInsight[] = [
     evidence: { venue: "State Farm Arena", ticket_sources: 2, distance_mi: 0.5, day: "Friday" },
     recommendations: [{ title: "Target attendees before the show", rationale: "Pre-show dinner window." }],
   },
+  // The impact-model surge row prod would emit alongside the keyword row for a sold-out show
+  // 0.5 mi out (shape mirrors buildSurgeInsight). Added so the flagship arena scenario
+  // exercises local-demand@v2's warning-gated surge floor: the keyword row above is info BY
+  // CONSTRUCTION (v1's floor fired its template pair off it; v2's correctly does not).
+  {
+    insight_type: "events.major_lobby_surge",
+    title: "Major event nearby: Sold-out show at State Farm Arena",
+    summary:
+      "A sold-out show at State Farm Arena (Fri 7:00 PM) draws an arena-scale crowd 0.5mi from Wagyu House Atlanta. Expect a dining-room surge around the start and let-out, well above your typical volume for that window.",
+    confidence: "medium",
+    severity: "warning",
+    evidence: {
+      stable_key: "evt-statefarm-fri:dine_in",
+      channel: "dine_in",
+      direction: "up",
+      role: "local_foot",
+      attendance_estimate: 15000,
+      capacity_confidence: "prior",
+      distance_miles: 0.5,
+      pct_lift: null,
+      absolute_incremental: null,
+      impact_score: 0.78,
+      doors: null,
+      surface_confidence: "modeled",
+      baseline_missing: true,
+      venue_confidence: null,
+      validated_venue: "State Farm Arena",
+      authoritative_local_start: "2026-06-26T19:00:00-04:00",
+      fixture_ref: null,
+      league_validated: false,
+      event: "Sold-out show at State Farm Arena",
+      location_name: "Wagyu House Atlanta",
+    },
+    recommendations: [],
+  },
   {
     insight_type: "menu.price_positioning_shift",
     title: "Bachi Box sits well under your dine-in check",
