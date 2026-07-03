@@ -278,6 +278,20 @@ export type BriefCoverage = {
   stale?: boolean
 }
 
+/** Per-producer health for one brief build. Recorded so the pipeline watchdog can catch the
+ *  "every skill silently served its deterministic floor" failure (the 2026-06 truncation bug),
+ *  which the brief-level `fallback` flag misses — that flag only trips when the WHOLE brief
+ *  degrades, but a brief built from 9 fallback producers still saves with fallback=false. */
+export type SkillHealth = {
+  skillId: string
+  /** "ok" = produced model plays (or a clean fallback); "failed" = the skill threw (0 plays). */
+  status: "ok" | "failed"
+  /** true when this skill served its DETERMINISTIC fallback instead of real model output. */
+  usedFallback: boolean
+  /** Why it fell back (truncated | timeout | rate_limited | transport_error | unparseable), if known. */
+  reason?: string
+}
+
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */
 export type Brief = {
   locationId: string
@@ -292,4 +306,6 @@ export type Brief = {
   coverage?: BriefCoverage[]
   /** true when this brief was served from a model failure fallback (e.g. yesterday's good brief). */
   fallback?: boolean
+  /** Per-producer health from this build (see SkillHealth). Absent on briefs built before 2026-07-03. */
+  skillHealth?: SkillHealth[]
 }

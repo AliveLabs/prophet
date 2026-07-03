@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { runProducerSkills } from "@/lib/skills/run"
+import { runBrief } from "@/lib/skills/pipeline"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { synthesize } from "@/lib/skills/synthesis"
 import { voicePass, scrubBrief, isVoiceClean } from "@/lib/skills/voice"
@@ -126,6 +127,21 @@ describe("full engine pipeline (producers -> synthesis -> voice)", () => {
     const brief = await runPipeline(throwing)
     expect(brief.deck.length).toBeGreaterThan(0)
     expect(brief.deck.toLowerCase()).toContain("ranked by impact") // deterministicDeck signature
+    expect(brief.plays.length).toBeGreaterThan(0)
+  })
+
+  it("records per-skill health on the brief and flags EVERY producer that fell back (truncation-observability)", async () => {
+    // The 2026-06 gap: a producer serving its deterministic floor was indistinguishable from a real
+    // generation. Under a truncating transport, every producer must be flagged usedFallback=truncated
+    // so the pipeline watchdog can see the fleet-wide degrade.
+    const truncating: Transport = async () => {
+      throw new Error("Anthropic output truncated at max_tokens (out=32000, cap=32000)")
+    }
+    const { brief } = await runBrief(arenaWeekDossier, { transport: truncating })
+    expect(brief.skillHealth?.length).toBe(PRODUCER_SKILLS.length)
+    expect(brief.skillHealth?.every((h) => h.usedFallback)).toBe(true)
+    expect(brief.skillHealth?.every((h) => h.reason === "truncated")).toBe(true)
+    // brief still builds on the grounded floor (resilience preserved)
     expect(brief.plays.length).toBeGreaterThan(0)
   })
 

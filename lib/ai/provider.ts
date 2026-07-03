@@ -34,6 +34,9 @@ export type GenerateRequest = {
   model?: string
   thinking?: boolean
   effort?: "low" | "medium" | "high" | "xhigh" | "max"
+  /** Observability only (e.g. the skill id). Named in the truncation/fallback logs so a degraded
+   *  call points at the culprit skill. NEVER sent to the API. */
+  label?: string
 }
 
 /** A transport returns already-parsed JSON (or null on parse failure). Injectable for tests. */
@@ -158,6 +161,7 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
       }
       const data = (await res.json()) as {
         content?: Array<{ type?: string; text?: string }>
+        stop_reason?: string | null
         usage?: { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
       }
       // Cache observability: read>0 means the stable prefix hit; creation>0 means it
@@ -168,6 +172,21 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
           `[claudeRaw] usage in=${u.input_tokens ?? 0} out=${u.output_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0}`
         )
       }
+      // TRUNCATION GUARD (2026-07-03): adaptive-thinking tokens count toward max_tokens, so a real
+      // (large) prompt can hit the ceiling mid-thinking and emit little/no JSON. That used to slip
+      // through as empty text → null parse → SILENT deterministic fallback — hiding a fleet-wide
+      // producer regression for ~2 weeks. Fail LOUD: name the skill + out_tokens and THROW so the
+      // call degrades visibly (and the fallback log/health signal can classify it as "truncated").
+      if (data.stop_reason === "max_tokens") {
+        const cap = req.maxOutputTokens ?? (req.thinking ? 32000 : 8192)
+        console.error(
+          `[claudeRaw] ${req.label ? `${req.label} ` : ""}output TRUNCATED at max_tokens ` +
+            `(model=${req.model ?? ANTHROPIC_MODEL}, out=${u?.output_tokens ?? "?"}, cap=${cap}) — raise maxOutputTokens`,
+        )
+        const truncErr = new Error(`Anthropic output truncated at max_tokens (out=${u?.output_tokens ?? "?"}, cap=${cap})`)
+        truncErr.name = "TruncationError"
+        throw truncErr
+      }
       return (data.content ?? []).map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("")
     } catch (err) {
       // A timeout abort means the call HUNG — retrying just hangs again (and on the deep path
@@ -176,6 +195,9 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
         console.warn(`[claudeRaw] aborted after ${timeoutMs}ms (no response); degrading to fallback`)
         throw new Error(`Anthropic request timed out after ${timeoutMs}ms`)
       }
+      // Truncation is DETERMINISTIC — retrying the same prompt at the same cap just truncates again
+      // (and burns another call). Bail straight to the fallback, like the abort path.
+      if ((err as { name?: string })?.name === "TruncationError") throw err
       // network/transport error — retry too
       lastErr = err
       if (attempt < maxAttempts) {
@@ -211,12 +233,30 @@ export function defaultTransport(req: GenerateRequest): Promise<unknown> {
 // swappable, a `gatewayTransport` drops in here later WITHOUT changing generateStructured
 // or any skill. Kept as direct REST for now to stay dependency-free and headless-testable.
 
+/** Why a call degraded to its deterministic fallback — carried into the log line and the
+ *  per-skill health signal so a fleet-wide degrade names its cause instead of hiding. */
+export type FallbackReason = "truncated" | "timeout" | "rate_limited" | "transport_error" | "unparseable"
+
+/** Classify a transport throw for the fallback log + health signal. */
+function classifyTransportError(err: unknown): FallbackReason {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (/truncated at max_tokens/i.test(msg)) return "truncated"
+  if (/timed out/i.test(msg)) return "timeout"
+  if (/\b429\b|rate.?limit/i.test(msg)) return "rate_limited"
+  return "transport_error"
+}
+
 export type StructuredOptions<T> = {
   transport?: Transport
   /** Coerce/validate the parsed JSON into T. Return null to signal invalid -> fallback/throw. */
   validate?: (raw: unknown) => T | null
   /** Deterministic fallback when the model fails or returns invalid output. */
   fallback?: () => T
+  /** Fires when the deterministic fallback is served, with WHY + elapsed. Lets the caller
+   *  (runProducerSkill) mark the result so the brief records per-skill health and the pipeline
+   *  watchdog can alert on fleet-wide fallback-serving (the 2026-06 truncation bug hid because a
+   *  fallback was indistinguishable from a real generation at every layer above this one). */
+  onFallback?: (info: { reason: FallbackReason; elapsedMs: number }) => void
 }
 
 /**
@@ -225,14 +265,19 @@ export type StructuredOptions<T> = {
  */
 export async function generateStructured<T>(req: GenerateRequest, opts: StructuredOptions<T> = {}): Promise<T> {
   const transport = opts.transport ?? defaultTransport
+  const label = req.label ? `${req.label} ` : ""
+  const startedAt = Date.now()
   let raw: unknown = null
   try {
     raw = await transport(req)
   } catch (err) {
-    // Surface the degrade-to-floor transition — a fleet-wide model outage otherwise drops every
-    // brief to its deterministic fallback with no signal at this layer.
+    // Surface the degrade-to-floor transition — a fleet-wide model outage/truncation otherwise
+    // drops every brief to its deterministic fallback with no signal at this layer.
     if (opts.fallback) {
-      console.warn("[generateStructured] model call failed; serving deterministic fallback:", err)
+      const reason = classifyTransportError(err)
+      const elapsedMs = Date.now() - startedAt
+      console.warn(`[generateStructured] ${label}model call failed (reason=${reason}, ${elapsedMs}ms); serving deterministic fallback:`, err)
+      opts.onFallback?.({ reason, elapsedMs })
       return opts.fallback()
     }
     throw err
@@ -240,7 +285,9 @@ export async function generateStructured<T>(req: GenerateRequest, opts: Structur
   const validated = opts.validate ? opts.validate(raw) : (raw as T | null)
   if (validated != null) return validated
   if (opts.fallback) {
-    console.warn("[generateStructured] model output failed validation; serving deterministic fallback")
+    const elapsedMs = Date.now() - startedAt
+    console.warn(`[generateStructured] ${label}model output failed validation (reason=unparseable, ${elapsedMs}ms); serving deterministic fallback`)
+    opts.onFallback?.({ reason: "unparseable", elapsedMs })
     return opts.fallback()
   }
   throw new Error("generateStructured: model returned invalid output and no fallback was provided")

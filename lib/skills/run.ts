@@ -55,18 +55,30 @@ export async function runProducerSkill(
     const { systemCached, system, prompt } = skill.buildPrompt(dossier, knowledge)
     // Deep skills (convergence) → Opus + adaptive thinking, high effort. Producers → the base
     // reasoning model (Sonnet 4.6) + adaptive thinking, MEDIUM effort (quality uplift, Bryan
-    // 2026-06-20) bounded to 16k output. The provider omits temperature on any thinking path.
-    // COST DIAL-DOWN: if spend threatens the model, drop producers back to no-thinking +
-    // temperature (remove thinking/effort here) — that's the "like-for-like" 4.6 baseline.
+    // 2026-06-20). max_tokens = 32k: adaptive-thinking tokens count toward the output budget, so on
+    // a REAL (large) dossier prompt the thinking alone exhausted the old 16k ceiling BEFORE the JSON
+    // was emitted → truncated → every producer silently served its deterministic FALLBACK for ~2
+    // weeks (2026-06-20 → 07-03; the root of the "samey / not insightful" complaint). 32k matches
+    // the deep pass's headroom. The provider omits temperature on any thinking path. COST DIAL-DOWN:
+    // if spend threatens the model, drop producers back to no-thinking + temperature (remove
+    // thinking/effort here) — that's the "like-for-like" 4.6 baseline.
     const reqTuning = skill.deep
       ? { model: DEEP_MODEL, thinking: true as const, effort: "high" as const }
-      : { thinking: true as const, effort: skill.effort ?? ("medium" as const), maxOutputTokens: 16000 }
+      : { thinking: true as const, effort: skill.effort ?? ("medium" as const), maxOutputTokens: 32000 }
+
+    // OBSERVABILITY (2026-07-03): a producer that serves its deterministic fallback used to be
+    // INDISTINGUISHABLE from a real generation (both come back status "ok"). Capture it so the brief
+    // records per-skill health and the pipeline watchdog can alert on fleet-wide fallback-serving.
+    // Object holder (not a bare `let`): a bare let assigned only inside the onFallback closure gets
+    // narrowed back to its `null` initializer by TS control-flow; a property read keeps its declared type.
+    const degrade: { reason: string | null } = { reason: null }
     const plays = await generateStructured<EnrichedRecommendation[]>(
-      { tier: skill.tier, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
+      { tier: skill.tier, label: skill.id, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
       {
         transport: opts.transport,
         validate: (raw) => skill.parse(raw, dossier),
         fallback: () => skill.fallback(dossier),
+        onFallback: (info) => { degrade.reason = info.reason },
       },
     )
 
@@ -80,7 +92,12 @@ export async function runProducerSkill(
           p.evidenceRefs.every((r) => index.allowedRefs.has(r)),
       )
 
-    return { skillId: skill.id, status: "ok", plays: grounded }
+    return {
+      skillId: skill.id,
+      status: "ok",
+      plays: grounded,
+      ...(degrade.reason ? { usedFallback: true, fallbackReason: degrade.reason } : {}),
+    }
   } catch (err) {
     return { skillId: skill.id, status: "failed", plays: [], error: err instanceof Error ? err.message : "failed" }
   }

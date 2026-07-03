@@ -45,6 +45,14 @@ export type PipelineSignals = {
   /** DataForSEO fleet health (reused from the vendor-health detector). */
   vendorDown: boolean
   vendorPaymentRequired: boolean
+  /** Fraction (0..1) of producer skill-slots that DEGRADED (served their deterministic fallback OR
+   *  threw) across the newest brief per recently-active location. High = the engine is silently
+   *  serving the floor to customers (the 2026-06 truncation regression). 0 when nothing to assess. */
+  fallbackSkillRate: number
+  /** How many newest-per-location briefs carried per-skill health (the rate's denominator base).
+   *  Briefs built before skillHealth shipped lack it → excluded, so 0 here means "can't yet judge",
+   *  NOT "healthy" — the rate is only trustworthy once briefs re-render carrying the field. */
+  briefsAssessed: number
 }
 
 export type PipelineHealthThresholds = {
@@ -55,12 +63,17 @@ export type PipelineHealthThresholds = {
   failedJobsAlert: number
   /** Number of stale recently-active locations that escalates to degraded (partial-stall). */
   staleLocationsAlert: number
+  /** Fleet-wide producer fallback rate (0..1) that escalates to degraded. 0.4 = if ≥40% of producer
+   *  slots are serving the deterministic floor, the model path is systemically broken (the 2026-06
+   *  truncation bug ran ~70-80%). A single flaky skill (~1/9 ≈ 0.11) stays below it — no daily noise. */
+  fallbackRateAlert: number
 }
 
 export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   staleHours: 26,
   failedJobsAlert: 3,
   staleLocationsAlert: 2,
+  fallbackRateAlert: 0.4,
 }
 
 /** A location counts as "recently active" (and therefore expected to stay fresh) if it built a
@@ -83,6 +96,8 @@ export type PipelineHealthVerdict = {
   failedJobsRecent: number
   staleQueuedJobs: number
   vendor: { down: boolean; paymentRequired: boolean }
+  fallbackSkillRate: number
+  briefsAssessed: number
   thresholds: PipelineHealthThresholds
 }
 
@@ -149,6 +164,15 @@ export function evaluatePipelineHealth(
     reasons.push(`DataForSEO is failing fleet-wide${s.vendorPaymentRequired ? " (out of credits — refill the account)" : ""}`)
     escalate("degraded")
   }
+  // Fleet-wide fallback-serving — briefs BUILD (so freshness looks fine) but the producers behind
+  // them silently degraded to the deterministic floor. This is the signal that would have caught the
+  // 2026-06 truncation regression in hours instead of ~2 weeks. Only fires once briefs carry health.
+  if (s.briefsAssessed > 0 && s.fallbackSkillRate >= t.fallbackRateAlert) {
+    reasons.push(
+      `${(s.fallbackSkillRate * 100).toFixed(0)}% of producer skills are serving deterministic fallbacks across ${s.briefsAssessed} location(s) — the model path may be broken (truncation/outage); customers are seeing the floor`,
+    )
+    escalate("degraded")
+  }
 
   return {
     status,
@@ -165,6 +189,8 @@ export function evaluatePipelineHealth(
     failedJobsRecent: s.failedJobsRecent,
     staleQueuedJobs: s.staleQueuedJobs,
     vendor: { down: s.vendorDown, paymentRequired: s.vendorPaymentRequired },
+    fallbackSkillRate: s.fallbackSkillRate,
+    briefsAssessed: s.briefsAssessed,
     thresholds: t,
   }
 }
@@ -183,8 +209,10 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     sb.from("pipeline_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("location_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("daily_briefs").select("generated_at").order("generated_at", { ascending: false }).limit(1).maybeSingle(),
-    // Per-location brief freshness (partial-stall detection): newest brief per recently-active location.
-    sb.from("daily_briefs").select("location_id, generated_at").gte("generated_at", recentActiveIso).order("generated_at", { ascending: false }),
+    // Per-location brief freshness (partial-stall detection) + per-skill health (fallback-rate).
+    // `brief->skillHealth` extracts just that jsonb path server-side, so we get the health array
+    // without pulling the whole (large) brief. Newest brief per recently-active location.
+    sb.from("daily_briefs").select("location_id, generated_at, brief->skillHealth").gte("generated_at", recentActiveIso).order("generated_at", { ascending: false }),
     sb.from("signal_jobs").select("id", { count: "exact", head: true }).eq("status", "running").lt("claimed_at", zombieIso),
     // Distinct (location, pipeline) failures — fetch the rows and de-dup in JS (PostgREST can't distinct-count).
     sb.from("signal_jobs").select("location_id, pipeline").eq("status", "failed").gte("updated_at", sinceIso),
@@ -193,14 +221,38 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   ])
 
   // Newest brief per location (rows are ordered newest-first, so first seen per location wins).
-  const newestBriefByLocation = new Map<string, string>()
-  for (const r of recentBriefs.data ?? []) {
-    if (r.location_id && !newestBriefByLocation.has(r.location_id)) newestBriefByLocation.set(r.location_id, r.generated_at)
+  // The jsonb-path select isn't in the generated types, so treat rows loosely here.
+  type RecentBriefRow = { location_id: string | null; generated_at: string; skillHealth: unknown }
+  const recentRows = (recentBriefs.data ?? []) as unknown as RecentBriefRow[]
+  const newestBriefByLocation = new Map<string, { generatedAt: string; skillHealth: unknown }>()
+  for (const r of recentRows) {
+    if (r.location_id && !newestBriefByLocation.has(r.location_id)) {
+      newestBriefByLocation.set(r.location_id, { generatedAt: r.generated_at, skillHealth: r.skillHealth })
+    }
   }
   let staleLocations = 0
-  for (const ts of newestBriefByLocation.values()) {
-    if (new Date(ts).getTime() < staleCutoffMs) staleLocations++
+  for (const b of newestBriefByLocation.values()) {
+    if (new Date(b.generatedAt).getTime() < staleCutoffMs) staleLocations++
   }
+
+  // Fleet-wide fallback rate over the newest brief per location that CARRIES per-skill health.
+  // A slot counts as degraded if it served a fallback or the skill threw. Briefs without skillHealth
+  // (pre-2026-07-03) are excluded — can't assess them — so briefsAssessed gates the alert.
+  let degradedSlots = 0
+  let totalSlots = 0
+  let briefsAssessed = 0
+  for (const b of newestBriefByLocation.values()) {
+    const health = Array.isArray(b.skillHealth)
+      ? (b.skillHealth as Array<{ usedFallback?: unknown; status?: unknown }>)
+      : null
+    if (!health || health.length === 0) continue
+    briefsAssessed++
+    for (const h of health) {
+      totalSlots++
+      if (h?.usedFallback === true || h?.status === "failed") degradedSlots++
+    }
+  }
+  const fallbackSkillRate = totalSlots > 0 ? degradedSlots / totalSlots : 0
 
   const failedKeys = new Set((failedRows.data ?? []).map((r) => `${r.location_id}|${r.pipeline}`))
 
@@ -214,6 +266,8 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     staleQueuedJobs: staleQ.count ?? 0,
     vendorDown: vendor.down,
     vendorPaymentRequired: vendor.paymentRequired,
+    fallbackSkillRate,
+    briefsAssessed,
   }
 }
 
