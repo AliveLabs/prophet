@@ -10,7 +10,7 @@ import {
 
 // Minimal dossier: fallback() and parse() only touch ruleOutputs + tier.ownSocialPlatforms.
 // Real rule outputs always carry severity ("info" | "warning" | "critical") — the floor gates on it.
-const dossier = (ruleOutputs: { insight_type: string; title: string; severity?: string }[]) =>
+const dossier = (ruleOutputs: { insight_type: string; title: string; severity?: string; evidence?: Record<string, unknown> }[]) =>
   ({ ruleOutputs, tier: { ownSocialPlatforms: ["instagram"] } }) as unknown as Dossier
 
 const step = {
@@ -116,13 +116,35 @@ describe("fallback — family-aware, capped, and an honest floor", () => {
     const out = marketingSkill.fallback(
       dossier([
         { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "warning" },
-        { insight_type: "rating.trend_down", title: "Rating slipped this month", severity: "warning" },
+        {
+          insight_type: "review.theme",
+          title: "Review theme: smash burger (positive)",
+          severity: "info", // positive themes are info-severity; the praise pick is exempt from the warning gate
+          evidence: { theme: "smash burger", sentiment: "positive", mentions: 9 },
+        },
         { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
       ]),
     )
     expect(out).toHaveLength(2)
     expect(out[0].evidenceRefs).toEqual(["traffic.weekend_shift"])
-    expect(out[1].evidenceRefs).toEqual(["rating.trend_down"])
+    expect(out[1].evidenceRefs).toEqual(["review.theme"])
+  })
+
+  test("guest-voice floor boundary: negative themes and rating diffs never trigger the praise play", () => {
+    // A NEGATIVE theme is reputation@v2's fix-side floor; a rating diff is ambiguous-attribution.
+    // Neither may select marketing's praise template (which would read as tone-deaf on a complaint).
+    const out = marketingSkill.fallback(
+      dossier([
+        {
+          insight_type: "review.theme",
+          title: "Review theme: slow service (negative)",
+          severity: "warning",
+          evidence: { theme: "slow service", sentiment: "negative", mentions: 6 },
+        },
+        { insight_type: "rating.trend_down", title: "Rating slipped this month", severity: "warning" },
+      ]),
+    )
+    expect(out).toEqual([])
   })
 
   test("emits nothing when no marketing-family signal exists (never fabricates)", () => {
@@ -159,7 +181,12 @@ describe("fallback — family-aware, capped, and an honest floor", () => {
     const out = marketingSkill.fallback(
       dossier([
         { insight_type: "traffic.weekend_shift", title: "Friday early evening runs quiet", severity: "warning" },
-        { insight_type: "review.theme_shift", title: "Guests keep praising one dish", severity: "warning" },
+        {
+          insight_type: "review.theme",
+          title: "Review theme: smash burger (positive)",
+          severity: "info",
+          evidence: { theme: "smash burger", sentiment: "positive", mentions: 9 },
+        },
         { insight_type: "photo.promotion_detected", title: "A rival posted a new promo", severity: "warning" },
         { insight_type: "social.engagement_gap", title: "Short video is winning nearby", severity: "warning" },
       ]),

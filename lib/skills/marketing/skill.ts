@@ -225,6 +225,13 @@ function isCompetitorMoveTrigger(t: string): boolean {
 function fallback(d: Dossier): EnrichedRecommendation[] {
   const families: Array<{
     pred: (t: string) => boolean
+    /** Optional floor-only trigger override. The praise play must fire ONLY on a POSITIVE
+     *  own review theme (exempt from the warning gate below — repeated praise is legitimate
+     *  capture material, not manufactured urgency). A NEGATIVE theme is reputation@v2's
+     *  fix-side floor; rating/velocity diffs are ambiguous-attribution and match no floor.
+     *  Without this, the praise template could fire off a complaint theme (positive themes
+     *  are info-severity, so the warning gate alone selects exactly the wrong rows). */
+    pick?: (dd: Dossier) => Dossier["ruleOutputs"][number] | undefined
     title: string
     rationale: (insightTitle: string) => string
     channel: string
@@ -247,6 +254,7 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
     },
     {
       pred: isGuestVoiceSignal,
+      pick: (dd) => dd.ruleOutputs.find((i) => i.insight_type === "review.theme" && i.evidence?.["sentiment"] === "positive"),
       title: "Put the thing your reviews praise to work",
       rationale: (t) =>
         `Grounded in ${t}. When guests keep praising the same thing unprompted, that is your ad already written. Name it, photograph it, and lead every channel with it this week; count its sales before and after.`,
@@ -288,7 +296,8 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
     // Severity gate: the floor never manufactures urgency from an info-grade signal — a
     // quiet week must stay an honest quiet brief (the golden-scenario contract). Info
     // signals remain model-path context, where a bold play can earn its framing.
-    const ins = d.ruleOutputs.find((i) => fam.pred(i.insight_type) && i.severity !== "info")
+    // (A family's `pick` override replaces this gate with its own, stricter trigger.)
+    const ins = fam.pick ? fam.pick(d) : d.ruleOutputs.find((i) => fam.pred(i.insight_type) && i.severity !== "info")
     if (!ins) continue
     out.push({
       title: fam.title,
