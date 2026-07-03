@@ -2,9 +2,12 @@
 // buildDossier — assemble a real Dossier from the Supabase branch.
 //
 // Reuses the exact query patterns from lib/jobs/pipelines/insights.ts. Read-only.
-// Optional signal fields default to null until their pulls are wired (own listing,
-// busy times, social, review sentiment) — honest "not yet populated", not a
-// placeholder; skills reason over the 76 rule outputs + what is present.
+// Optional signal fields default to null until their pulls are wired — honest "not yet
+// populated", not a placeholder; skills reason over the rule outputs + what is present.
+// Own-location listing/busyTimes/reviews are FUNDED live pulls (own Places + own Outscraper
+// call, below). Competitor busyTimes/reviews (T3/T4) are wired from ALREADY-STORED data
+// (the traffic pipeline's busy_times table; the insights pipeline's review_themes rows) —
+// never a new live pull or LLM call per competitor per dossier build.
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
@@ -22,9 +25,10 @@ import type { BriefCoverage } from "@/lib/skills/types"
 import type { Transport } from "@/lib/ai/provider"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { priceLevelToTier, typeToCuisine } from "@/lib/places/format"
-import { fetchBusyTimes } from "@/lib/providers/outscraper"
+import { fetchBusyTimes, type BusyTimesResult } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
+import { generateOwnTrafficInsights } from "@/lib/insights/own-traffic-insights"
 import { corroboratePriceInsights } from "@/lib/content/insights"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
@@ -220,6 +224,77 @@ async function latestCompetitorSnapshot(sb: SB, competitorId: string, snapshotTy
   }
 }
 
+// T3 — competitor busyTimes: read the STORED rows the traffic pipeline (lib/jobs/pipelines/traffic.ts,
+// see fix/traffic-silent-skip) already writes to `busy_times` on its own cadence. Mirrors
+// lib/cache/traffic.ts's read shape but WITHOUT "use cache" (buildDossier is plain server code,
+// not a cached page-data function) and batched across all competitors in one query — never a live
+// per-competitor Outscraper call here (that would be an unbudgeted paid-API multiply; the own-location
+// live pull at line ~386 is a SEPARATE, already-funded path and must not be mirrored for competitors).
+// Fail-soft: an empty/absent row set returns an empty map, and callers leave `busyTimes` null.
+export async function loadCompetitorBusyTimes(sb: SB, competitorIds: string[]): Promise<Map<string, BusyTimesResult>> {
+  const out = new Map<string, BusyTimesResult>()
+  if (competitorIds.length === 0) return out
+  try {
+    const { data, error } = await sb
+      .from("busy_times")
+      .select("competitor_id, day_of_week, hourly_scores, peak_hour, peak_score, slow_hours, typical_time_spent, current_popularity")
+      .in("competitor_id", competitorIds)
+      .order("created_at", { ascending: false })
+    if (error) {
+      console.warn(`[dossier] competitor busy_times read error: ${error.message}`)
+      return out
+    }
+    // Rows are one-per-(competitor, day_of_week); group into BusyTimesResult per competitor,
+    // keeping the FIRST (newest, since created_at desc) row seen for each day.
+    const seenDay = new Set<string>()
+    for (const r of data ?? []) {
+      const compId = r.competitor_id as string
+      const dow = r.day_of_week as number
+      const dayKey = `${compId}|${dow}`
+      if (seenDay.has(dayKey)) continue
+      seenDay.add(dayKey)
+      let entry = out.get(compId)
+      if (!entry) {
+        entry = {
+          competitor_id: compId,
+          days: [],
+          typical_time_spent: (r.typical_time_spent as string) ?? null,
+          current_popularity: (r.current_popularity as number) ?? null,
+          working_hours_lines: null, // not persisted on this table; ALT-264 caches it on competitors.metadata instead
+        }
+        out.set(compId, entry)
+      }
+      entry.days.push({
+        day_of_week: dow,
+        day_name: DAY_NAMES_BY_INDEX[dow] ?? "Unknown",
+        hourly_scores: (r.hourly_scores as number[]) ?? [],
+        peak_hour: (r.peak_hour as number) ?? 0,
+        peak_score: (r.peak_score as number) ?? 0,
+        slow_hours: (r.slow_hours as number[]) ?? [],
+      })
+    }
+    return out
+  } catch (err) {
+    console.warn(`[dossier] competitor busy_times read threw:`, err)
+    return out
+  }
+}
+
+const DAY_NAMES_BY_INDEX = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+// T4 — shape a stored `review_themes` insight row's evidence.themes (written by the insights
+// pipeline's narrative pass, lib/jobs/pipelines/insights.ts ~268) into ReviewSentiment["themes"].
+// Pure/exported for direct unit testing. Tolerant of the loose evidence shape (LLM-authored JSON).
+export function themesFromReviewThemesEvidence(evidence: Record<string, unknown> | null | undefined): ReviewSentiment["themes"] {
+  const themes = Array.isArray(evidence?.themes) ? (evidence!.themes as Array<Record<string, unknown>>) : []
+  return themes.map((t) => ({
+    theme: String(t.theme ?? ""),
+    sentiment: (["positive", "negative", "mixed"].includes(String(t.sentiment)) ? t.sentiment : "mixed") as ReviewSentiment["themes"][number]["sentiment"],
+    mentions: typeof t.mentions === "number" ? t.mentions : 0,
+    examples: Array.isArray(t.examples) ? (t.examples as string[]) : (t.example ? [String(t.example)] : []),
+  }))
+}
+
 export type BuildDossierOptions = { tier?: Tier; dateKey?: string; transport?: Transport }
 
 const TIER_NUMBER: Record<SubscriptionTier, Tier> = {
@@ -291,6 +366,14 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   const seenKey = new Set<string>()
   const latestDateByType = new Map<string, string>()
   const ruleOutputs: GeneratedInsight[] = []
+  // T4 — competitor review sentiment: the insights pipeline's narrative pass
+  // (lib/jobs/pipelines/insights.ts ~268) already runs an LLM analysis per competitor
+  // as part of its normal cadence and stores the result as an `insight_type: "review_themes"`
+  // row (evidence.themes) keyed by competitor_id. Reuse it here — ZERO new model calls,
+  // same freshness/dedup rules as every other rule output (freshest per competitor within
+  // RETENTION_DAYS). Do NOT call analyzeReviews() per competitor; that would multiply the
+  // LLM cost the own-location path pays once (see build.ts ~469).
+  const competitorThemesByCompId = new Map<string, ReviewSentiment["themes"]>()
   for (const r of rows) {
     const type = r.insight_type as string
     const dk = r.date_key as string
@@ -307,6 +390,10 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
       evidence: (r.evidence as Record<string, unknown>) ?? {},
       recommendations: (r.recommendations as GeneratedInsight["recommendations"]) ?? [],
     })
+    if (type === "review_themes" && r.competitor_id && !competitorThemesByCompId.has(r.competitor_id as string)) {
+      const themes = themesFromReviewThemesEvidence(r.evidence as Record<string, unknown> | null)
+      if (themes.length > 0) competitorThemesByCompId.set(r.competitor_id as string, themes)
+    }
   }
   /** Freshest date_key across any insight type matching a predicate (for coverage). */
   const latestDateMatching = (pred: (t: string) => boolean): string | null => {
@@ -473,21 +560,51 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     } catch {
       /* non-fatal */
     }
+    // T2 — own-scoped demand-curve rules (hours.own_dead_edge_hour / hours.own_slow_window).
+    // Both location.busyTimes (own foot traffic, above) and operatingHours (own posted hours,
+    // above) are settled at this point. hours.own_peak_drift is intentionally NOT emitted —
+    // no dated own-curve history is persisted anywhere yet (location_busy_times upserts on
+    // (location_id, day_of_week), overwriting the prior snapshot — see lib/events/baseline.ts).
+    // sampleWeeks defaults to 1 (a single live Outscraper pull); wire the real count once
+    // own-curve history exists. Fails soft (empty array) when there's no own curve to reason
+    // over — never throws, never blocks the rest of the dossier.
+    try {
+      ruleOutputs.push(
+        ...generateOwnTrafficInsights({
+          busyTimes: location.busyTimes,
+          weekdayDescriptions: operatingHours?.weekdayDescriptions ?? null,
+          sampleWeeks: 1,
+        }),
+      )
+    } catch {
+      /* non-fatal */
+    }
   }
 
   // ── competitor signals ──
+  // T3: busyTimes read once for all approved competitors (batched, stored rows — see
+  // loadCompetitorBusyTimes above). T4: competitorThemesByCompId was built above from the
+  // already-fetched insight rows, also with zero extra queries.
+  const competitorBusyTimes = await loadCompetitorBusyTimes(sb, approved.map((c) => c.id as string))
   const competitors: EntitySignals[] = await Promise.all(
     approved.map(async (c) => {
+      const compId = c.id as string
       const [listing, menu] = await Promise.all([
-        latestCompetitorSnapshot(sb, c.id as string),
-        latestCompetitorSnapshot(sb, c.id as string, "web_menu_weekly"),
+        latestCompetitorSnapshot(sb, compId),
+        latestCompetitorSnapshot(sb, compId, "web_menu_weekly"),
       ])
+      // T4: reviews — fail-soft null when no review_themes row exists for this competitor yet.
+      const themes = competitorThemesByCompId.get(compId)
+      const reviews: ReviewSentiment | null = themes ? { themes, source: "google_places", windowDays: RETENTION_DAYS } : null
       return {
-        entityId: c.id as string,
+        entityId: compId,
         kind: "competitor" as const,
         name: (c.name as string) ?? "Competitor",
         listing: (listing as NormalizedSnapshot | null) ?? null,
         menu: (menu as MenuSnapshot | null) ?? null,
+        // T3: busyTimes — fail-soft null when the traffic pipeline hasn't produced a row yet.
+        busyTimes: competitorBusyTimes.get(compId) ?? null,
+        reviews,
       }
     }),
   )

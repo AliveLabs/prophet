@@ -32,6 +32,14 @@
 // scenario is the contract: a quiet week stays an honest quiet brief). Bold plays on
 // soft signals are the MODEL's job, where the framing can be earned (amplify-the-win).
 //
+// T1 (2026-07-03): the rhythm family's floor is now RESTRICTED via a pick override to
+// traffic.competitive_opportunity only (see lib/jobs/pipelines/traffic.ts's previous-
+// snapshot wiring). Arming traffic.surge/peak_shift/extended_busy/new_slow_period would
+// otherwise let the plain warning-gate below fire "sell your quiet window" grounded in
+// a RIVAL's traffic going UP — the same misattribution class reputation@v2 and
+// operations@v2 already fixed. traffic.competitive_opportunity (the set-wide "all
+// competitors slow at this hour" read) is the one honest sell-your-window trigger.
+//
 // TOKEN BUDGET: every input family is capped (guerrilla precedent: a ~40k-char
 // prompt at medium effort silently timed out into the fallback). If p95 latency
 // nears 120s once competitor busy-times data lands, flip `effort: "low"` on the
@@ -157,10 +165,24 @@ function selectInput(d: Dossier) {
       .map((c) => ({ name: c.name, social: c.social ?? null, visual: c.visual ?? null })),
     ...(reviewThemes.length ? { reviewThemes } : {}),
     // DEMAND-RHYTHM raw material for the counterfactual plays: own curve + hours, and
-    // each competitor's curve. competitorBusyTimes is null today (buildDossier's
-    // competitor path doesn't populate it yet — see rationale.md); fail-soft by design.
+    // each rival's curve trimmed to WINDOW grain (day name + peak hour/level + slow
+    // hours) — mirrors operations/skill.ts exactly. buildDossier now populates competitor
+    // busyTimes from stored rows (T3), so the full 5 rivals x 7 days x 24 hourly scores
+    // would blow the token budget (~56k, past the ~40k timeout precedent); the drift/gap
+    // reads all happen at window grain, so the hourly arrays are dropped here. Fail-soft:
+    // days is null when a rival has no stored curve yet.
     ownBusyTimes: d.location.busyTimes ?? null,
-    competitorBusyTimes: d.competitors.slice(0, 5).map((c) => ({ name: c.name, busyTimes: c.busyTimes ?? null })),
+    competitorBusyTimes: d.competitors.slice(0, 5).map((c) => ({
+      name: c.name,
+      days:
+        c.busyTimes?.days.map((day) => ({
+          day_of_week: day.day_of_week,
+          day_name: day.day_name,
+          peak_hour: day.peak_hour,
+          peak_score: day.peak_score,
+          slow_hours: day.slow_hours,
+        })) ?? null,
+    })),
     ownHours: d.profile.hours ?? null,
     // Far-away MAJOR events (metro attention moments) — TIE-IN material only, rules
     // unchanged from v1 (see the metro-hook rules in the playbook + EVENT_GEOGRAPHY).
@@ -242,6 +264,16 @@ function fallback(d: Dossier): EnrichedRecommendation[] {
   }> = [
     {
       pred: isRhythmSignal,
+      // T1: arming traffic.surge/peak_shift/extended_busy/new_slow_period (previously
+      // dormant — the traffic pipeline hardcoded previous:null) would otherwise let this
+      // family's warning-gate fire off a RIVAL's surge — the same misattribution class
+      // reputation@v2 and operations@v2 already fixed (this play would tell the operator
+      // to "sell your quiet window" grounded in a competitor's traffic going UP, not down).
+      // Restrict the floor to traffic.competitive_opportunity — the set-wide "all
+      // competitors slow at this hour" read is the one honest sell-your-window trigger.
+      // It is info-severity by design, so this pick is exempt from the warning gate below
+      // (precedent: the guest-voice praise-floor pick above/below).
+      pick: (dd) => dd.ruleOutputs.find((i) => i.insight_type === "traffic.competitive_opportunity"),
       title: "Sell your quiet window instead of waiting it out",
       rationale: (t) =>
         `Grounded in ${t}. Pick the slow window this signal shows, attach one named offer to it, and tell people it exists. Track it with a code word so you can count who came for it against a normal week.`,

@@ -13,8 +13,10 @@ import { arenaWeekDossier } from "@/tests/fixtures/dossiers/arena-week"
 import { patioWeatherDossier } from "@/tests/fixtures/dossiers/patio-weather"
 import { quietWeekDossier } from "@/tests/fixtures/dossiers/quiet-week"
 import { competitiveWeekDossier } from "@/tests/fixtures/dossiers/competitive-week"
+import { trafficWeekDossier } from "@/tests/fixtures/dossiers/traffic-week"
 import { runProducerSkill } from "@/lib/skills/run"
 import { marketingSkill } from "@/lib/skills/marketing/skill"
+import { operationsSkill } from "@/lib/skills/operations/skill"
 import { reputationSkill } from "@/lib/skills/reputation/skill"
 import { positioningSkill } from "@/lib/skills/positioning/skill"
 import type { Transport } from "@/lib/ai/provider"
@@ -68,5 +70,37 @@ describe("golden-set scenarios (deterministic engine)", () => {
     expect(brief.plays.length).toBe(0)
     expect(brief.headline.toLowerCase()).toContain("quiet")
     expect(isVoiceClean(brief)).toBe(true)
+  })
+
+  // T1: the traffic diff family armed (previous-snapshot wiring lands, traffic.surge no
+  // longer dormant). Verifies the paired fix: operations' rival-shift floor fires a
+  // grounded, voice-clean, fix-stance play off the warning-grade surge, while marketing's
+  // rhythm family — now pinned via a pick override to traffic.competitive_opportunity —
+  // contributes ZERO rhythm plays grounded on that same surge (the misattribution class
+  // reputation@v2/operations@v2 already fixed elsewhere must not resurface here).
+  it("traffic-week: operations fires a grounded fix-stance play; marketing contributes zero rhythm plays off the surge", async () => {
+    const index = buildRefIndex(trafficWeekDossier)
+
+    const opsRes = await runProducerSkill(operationsSkill, trafficWeekDossier, { transport: failing })
+    expect(opsRes.status).toBe("ok")
+    expect(opsRes.plays.length).toBeGreaterThanOrEqual(1)
+    for (const p of opsRes.plays) {
+      expect(p.skillId).toBe("operations")
+      expect(p.stance).toBe("fix")
+      expect(p.evidenceRefs.every((r) => index.allowedRefs.has(r))).toBe(true)
+      expect(p.evidenceRefs).toContain("traffic.surge")
+    }
+
+    const marketingRes = await runProducerSkill(marketingSkill, trafficWeekDossier, { transport: failing })
+    expect(marketingRes.status).toBe("ok")
+    const rhythmPlaysOffSurge = marketingRes.plays.filter((p) => p.evidenceRefs.includes("traffic.surge"))
+    expect(rhythmPlaysOffSurge).toHaveLength(0)
+
+    const brief = await run(trafficWeekDossier)
+    expect(isVoiceClean(brief)).toBe(true)
+    for (const p of brief.plays) {
+      expect(p.evidenceRefs.every((r) => index.allowedRefs.has(r))).toBe(true)
+    }
+    expect(evaluateBrief({ plays: brief.plays }, index).ok).toBe(true)
   })
 })
