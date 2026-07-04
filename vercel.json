@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/build-brief",
-      "schedule": "0 8 * * *"
+      "schedule": "0 * * * *"
     },
     {
       "path": "/api/cron/trial-reminders",

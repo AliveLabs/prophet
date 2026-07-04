@@ -1,14 +1,16 @@
 // ---------------------------------------------------------------------------
 // GET /api/cron/build-brief
 // Daily brief scheduling. Two modes:
-//   - no params: ENQUEUE one durable `brief` job per active-org location and
-//     return immediately. The worker builds them — each with its own 800s
-//     budget, retries, zombie reclaim, and honest pipeline_runs outcomes.
-//     (Replaces the inline build-all loop, which hit THIS route's 800s ceiling
-//     at ~8 locations and silently skipped the rest — 2026-06-12 Raising
-//     Cane's incident: 7 of 14 briefs built, newest location got none.)
-//   - ?location_id=...: build that ONE location inline (manual ops lever; one
-//     location fits the budget comfortably).
+//   - no params: runs HOURLY (see vercel.json) and ENQUEUES one durable `brief` job per active-org
+//     location WHOSE LOCAL CLOCK reads the build hour (default 3 AM, per locations.timezone). This
+//     staggers the fleet across time zones — each hourly tick fires only the zone hitting 3 AM, not
+//     the whole fleet at once (Vercel crons are UTC-only, so a single fixed time was one big burst
+//     that self-contends at scale). The worker builds them — each with its own 800s budget, retries,
+//     zombie reclaim, honest pipeline_runs outcomes. (Replaces the inline build-all loop, which hit
+//     this route's 800s ceiling at ~8 locations — 2026-06-12 Cane's incident.) The 1-hour-wide local
+//     gate enqueues each location exactly once/day; `enqueueBriefIfMissing` guards double-fires.
+//   - ?force=1: enqueue ALL active locations NOW regardless of local hour (manual fleet re-render).
+//   - ?location_id=...: build that ONE location inline (manual ops lever; fits the budget comfortably).
 // Auth: Bearer CRON_SECRET (mirrors /api/cron/daily).
 // ---------------------------------------------------------------------------
 
@@ -23,6 +25,7 @@ import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
 import { isTrialActive } from "@/lib/billing/trial"
+import { isLocalBuildHour, resolveBuildHour } from "@/lib/jobs/build-schedule"
 
 export const maxDuration = 800 // inline single-location mode still does LLM work
 
@@ -72,10 +75,14 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Scheduled mode: enqueue a brief job per active-org location ──────────
+  // ── Scheduled mode: enqueue a brief job per active-org location AT ITS LOCAL BUILD HOUR ──────────
+  // Runs hourly; `force=1` bypasses the local-hour gate to enqueue the whole fleet now (manual re-render).
+  const force = url.searchParams.get("force") === "1"
+  const now = new Date()
+  const buildHour = resolveBuildHour()
   const { data: locations, error: locErr } = await sb
     .from("locations")
-    .select("id, organization_id")
+    .select("id, organization_id, timezone")
   if (locErr || !locations) {
     return Response.json({ error: "Failed to list locations", details: locErr?.message }, { status: 500 })
   }
@@ -101,9 +108,16 @@ export async function GET(req: Request) {
   let enqueued = 0
   let skipped = 0
   let inactive = 0
+  let offHour = 0
   for (const loc of locations) {
     if (!activeOrgs.has(loc.organization_id)) {
       inactive++
+      continue
+    }
+    // Timezone stagger: only enqueue when it's this location's local build hour (unless forced).
+    // The gate is 1 hour wide and the cron fires hourly, so each location enqueues exactly once/day.
+    if (!force && !isLocalBuildHour(loc.timezone, now, buildHour)) {
+      offHour++
       continue
     }
     try {
@@ -121,5 +135,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, mode: "enqueue", enqueued, skipped, inactive })
+  return Response.json({ ok: true, mode: force ? "enqueue-forced" : "enqueue", buildHour, enqueued, skipped, offHour, inactive })
 }
