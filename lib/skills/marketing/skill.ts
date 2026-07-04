@@ -367,11 +367,11 @@ export const marketingSkill: ProducerSkill = {
   kind: "capitalize",
   category: "marketing",
   tier: "reasoning",
-  // effort left at the default (medium): the widened input is hard-capped per family,
-  // so the prompt stays well under the ~40k-char size that forced guerrilla to "low".
-  // WATCH ITEM: if p95 nears the 120s abort once competitor busy-times data lands,
-  // flip to `effort: "low"` (the proven lever) rather than letting the skill silently
-  // degrade to the fallback.
+  // effort "low" (2026-07-04): the WATCH ITEM fired. Post-16k→32k fix (PR #96/#97), marketing
+  // timed out at medium even on an ISOLATED build (240s abort) — it's the heaviest producer, so
+  // medium-effort thinking on its prompt genuinely exceeds the budget. "low" is the proven lever
+  // (guerrilla precedent: ~74s, full-quality anchored plays). Fleet audit: 1/7 real at medium.
+  effort: "low",
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: MARKETING_KNOWLEDGE,
