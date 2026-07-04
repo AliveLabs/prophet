@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { generateGeminiJson } from "@/lib/ai/gemini"
+import { withAnthropicSlot } from "@/lib/ai/concurrency"
 
 export type ModelTier = "reasoning" | "cheap"
 
@@ -111,9 +112,18 @@ function buildSystemPayload(req: GenerateRequest): string | Array<Record<string,
 }
 
 /** Claude raw text via the stable Messages REST API. Needs ANTHROPIC_API_KEY.
- *  Retries transient errors (429/5xx/529 overloaded) with backoff so a momentary
- *  provider hiccup never silently degrades a brief to the deterministic fallback. */
+ *  Runs under the global per-instance concurrency governor: a brief's 9-wide producer burst (and any
+ *  co-located concurrent builds) can't spike past ANTHROPIC_MAX_CONCURRENCY in flight and starve each
+ *  other of rate → timeout → fallback. Waiting for a slot does NOT consume the per-call abort budget
+ *  (the timeout clock starts inside claudeRawUnthrottled, after the slot is acquired). */
 export async function claudeRaw(req: GenerateRequest, opts: { retries?: number } = {}): Promise<string> {
+  return withAnthropicSlot(() => claudeRawUnthrottled(req, opts))
+}
+
+/** The actual REST call + retry loop. Do not call directly — go through `claudeRaw` so every Anthropic
+ *  call is governed. Retries transient errors (429/5xx/529 overloaded) with backoff so a momentary
+ *  provider hiccup never silently degrades a brief to the deterministic fallback. */
+async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: number } = {}): Promise<string> {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) throw new Error("ANTHROPIC_API_KEY is not configured")
   // synthesis runs right after a parallel skill burst; retry to survive rate limits. Only the
