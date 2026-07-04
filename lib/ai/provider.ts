@@ -52,6 +52,12 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 // adaptive thinking is genuinely slow. Normal (Sonnet) calls get a tighter ceiling.
 const DEEP_TIMEOUT_MS = Number(process.env.ANTHROPIC_DEEP_TIMEOUT_MS) || 120_000
 const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 60_000
+// Producers (Sonnet + adaptive thinking) need MORE than the Opus-deep 120s. After the 16k→32k fix
+// (PR #96) medium-effort thinking on a rich dossier prompt runs past 120s and ABORTED → silent
+// fallback (reason=timeout) — i.e. we traded truncation for timeout. They used to inherit the
+// Opus-deep 120s ceiling; give them their OWN (larger) one. Fits the 800s route/worker budget:
+// producers run in parallel (≤ this ceiling) + Opus convergence (DEEP_TIMEOUT) + synthesis. Env-tunable.
+const PRODUCER_TIMEOUT_MS = Number(process.env.ANTHROPIC_PRODUCER_TIMEOUT_MS) || 240_000
 
 export function extractJson(text: string): unknown {
   // strip markdown code fences, then try whole-string parse
@@ -117,7 +123,9 @@ export async function claudeRaw(req: GenerateRequest, opts: { retries?: number }
   const maxAttempts = (opts.retries ?? (isDeepOpus ? 1 : 4)) + 1
   // Thinking calls are non-streaming with big headroom; give them a generous abort ceiling so a
   // hang degrades to the fallback instead of stalling the brief. Non-thinking calls get a tighter one.
-  const timeoutMs = req.thinking ? DEEP_TIMEOUT_MS : REQUEST_TIMEOUT_MS
+  // Producers (Sonnet + thinking) get their OWN ceiling — bigger than the Opus deep pass — because
+  // medium-effort thinking on a rich prompt runs past 120s (see PRODUCER_TIMEOUT_MS).
+  const timeoutMs = !req.thinking ? REQUEST_TIMEOUT_MS : isDeepOpus ? DEEP_TIMEOUT_MS : PRODUCER_TIMEOUT_MS
   let lastErr: unknown
   const system = buildSystemPayload(req)
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {

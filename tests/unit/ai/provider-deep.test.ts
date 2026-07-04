@@ -71,6 +71,36 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     await assertion
     expect(fetchMock).toHaveBeenCalledTimes(1) // hung deep call must NOT be retried
   })
+
+  // 2026-07-04: the 16k→32k fix (PR #96) traded truncation for TIMEOUT — 7/9 producers aborted at
+  // the 120s Opus-deep ceiling they'd inherited. Producers (Sonnet + thinking, NO opus model) must
+  // get their OWN, larger ceiling (240s) so medium-effort thinking actually finishes.
+  it("gives producers (Sonnet + thinking) a longer 240s ceiling, not the Opus 120s", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(
+      (_url: unknown, init: { signal: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener("abort", () => {
+            const e = new Error("aborted")
+            e.name = "AbortError"
+            reject(e)
+          })
+        }),
+    )
+    global.fetch = fetchMock as unknown as typeof fetch
+    const p = claudeRaw({ tier: "reasoning", prompt: "x", thinking: true, effort: "medium" }) // producer: no opus model
+    const assertion = expect(p).rejects.toThrow(/timed out/)
+    // At the Opus-deep ceiling (120s) a producer must NOT have aborted yet.
+    await vi.advanceTimersByTimeAsync(120_000)
+    const sentinel = Symbol("pending")
+    const race = await Promise.race([p.then(() => "settled", () => "settled"), Promise.resolve(sentinel)])
+    expect(race).toBe(sentinel) // still pending at 120s — proves it's not on the 120s ceiling
+    // It aborts at its own 240s ceiling.
+    await vi.advanceTimersByTimeAsync(120_000)
+    await assertion
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
 })
 
 // 2026-07-03 regression: adaptive-thinking output that hits max_tokens used to slip through as
