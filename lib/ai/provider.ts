@@ -92,7 +92,21 @@ export function extractJson(text: string): unknown {
 
 // Anthropic returns these on transient load/rate issues; they are safe to retry.
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 529])
+// Rate-limit / overloaded statuses specifically (429 = rate limit, 529 = overloaded). Tracked as the
+// leading indicator of the account's rate ceiling: under scale these rise FIRST, then (once retries are
+// exhausted) turn into latency/timeouts/fallbacks. See the fleet rateLimitedRate health signal.
+const RATE_LIMIT_STATUS = new Set([429, 529])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// Process-lifetime provider counters. runBrief snapshots the DELTA around its build and records it on
+// the brief (Brief.providerStats) → pipeline-health aggregates a fleet-wide rate. Cross-build
+// attribution is approximate on a shared Fluid instance — fine for a fleet RATE, which is all we need.
+let anthropicRequests = 0
+let anthropicRateLimited = 0
+/** Cumulative Anthropic request counters (requests attempted, of which rate-limited: 429/529). */
+export function anthropicCallStats(): { requests: number; rateLimited: number } {
+  return { requests: anthropicRequests, rateLimited: anthropicRateLimited }
+}
 
 /** Build the `system` payload. With a systemCached prefix (and caching enabled) it
  *  becomes a block array: [stable block + cache_control(1h), volatile block]. The 1h
@@ -163,6 +177,11 @@ async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: numb
         }),
         signal: controller.signal,
       })
+      anthropicRequests++
+      if (RATE_LIMIT_STATUS.has(res.status)) {
+        anthropicRateLimited++
+        console.warn(`[anthropic-ratelimit] status=${res.status} model=${req.model ?? ANTHROPIC_MODEL} attempt=${attempt}/${maxAttempts}${req.label ? ` skill=${req.label}` : ""}`)
+      }
       if (!res.ok) {
         const body = await res.text()
         const err = new Error(`Anthropic error ${res.status}: ${body}`)

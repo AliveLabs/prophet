@@ -2,7 +2,7 @@
 // Opus 4.8 REJECTS temperature and budget_tokens; thinking must be adaptive + effort.
 
 import { describe, it, expect, vi, afterEach } from "vitest"
-import { claudeRaw, generateStructured, DEEP_MODEL, type FallbackReason } from "@/lib/ai/provider"
+import { claudeRaw, generateStructured, anthropicCallStats, DEEP_MODEL, type FallbackReason } from "@/lib/ai/provider"
 
 type Captured = Record<string, unknown>
 
@@ -171,5 +171,43 @@ describe("provider truncation guard (stop_reason=max_tokens)", () => {
     )
     expect(result).toBe(fallbackValue)
     expect(captured).toBe("unparseable")
+  })
+})
+
+// Rate-limit counters feed the fleet-wide rateLimitedRate health signal (the leading indicator of the
+// Anthropic rate ceiling). A 429 must increment both the request count and the rate-limited count.
+describe("provider rate-limit counters (429/529)", () => {
+  const realFetch = global.fetch
+  const hadKey = process.env.ANTHROPIC_API_KEY
+  afterEach(() => {
+    global.fetch = realFetch
+    if (hadKey === undefined) delete process.env.ANTHROPIC_API_KEY
+    else process.env.ANTHROPIC_API_KEY = hadKey
+    vi.restoreAllMocks()
+  })
+
+  it("counts a 429 as one request + one rate-limit (retries:0 → no backoff sleep)", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const before = anthropicCallStats()
+    global.fetch = vi.fn(async () => ({
+      ok: false,
+      status: 429,
+      headers: { get: () => null },
+      text: async () => "rate limited",
+    })) as unknown as typeof fetch
+    await expect(claudeRaw({ tier: "reasoning", prompt: "x", label: "marketing" }, { retries: 0 })).rejects.toThrow(/429/)
+    const after = anthropicCallStats()
+    expect(after.rateLimited - before.rateLimited).toBe(1)
+    expect(after.requests - before.requests).toBe(1)
+  })
+
+  it("a clean 200 increments requests but NOT rate-limited", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const before = anthropicCallStats()
+    global.fetch = vi.fn(async () => ({ ok: true, json: async () => ({ content: [{ type: "text", text: "{}" }] }) })) as unknown as typeof fetch
+    await claudeRaw({ tier: "reasoning", prompt: "x" })
+    const after = anthropicCallStats()
+    expect(after.requests - before.requests).toBe(1)
+    expect(after.rateLimited - before.rateLimited).toBe(0)
   })
 })

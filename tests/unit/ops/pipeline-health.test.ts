@@ -20,6 +20,8 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   vendorPaymentRequired: false,
   fallbackSkillRate: 0,
   briefsAssessed: 0,
+  rateLimitedRate: 0,
+  rateLimitCallsSampled: 0,
   ...over,
 })
 
@@ -113,6 +115,25 @@ describe("evaluatePipelineHealth — fleet-wide producer fallback (the 2026-06 t
   it("fires exactly at the threshold boundary", () => {
     expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.4, briefsAssessed: 3 }), NOW).status).toBe("degraded")
     expect(evaluatePipelineHealth(healthy({ fallbackSkillRate: 0.39, briefsAssessed: 3 }), NOW).status).toBe("ok")
+  })
+})
+
+describe("evaluatePipelineHealth — rate-ceiling pressure (the leading indicator)", () => {
+  it("degrades when Anthropic rate-limits exceed the threshold with enough sample", () => {
+    const v = evaluatePipelineHealth(healthy({ rateLimitedRate: 0.3, rateLimitCallsSampled: 50 }), NOW)
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.join(" ")).toMatch(/rate-limited \(429\/529\)/i)
+    expect(v.reasons.join(" ")).toMatch(/30%/)
+  })
+  it("does NOT alert below a meaningful sample (a 1-of-2 spike can't trip it)", () => {
+    expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 1, rateLimitCallsSampled: 2 }), NOW).status).toBe("ok")
+  })
+  it("does NOT alert on an occasional, self-healing 429 rate", () => {
+    expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 0.05, rateLimitCallsSampled: 200 }), NOW).status).toBe("ok")
+  })
+  it("fires at the threshold boundary", () => {
+    expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 0.25, rateLimitCallsSampled: 40 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 0.24, rateLimitCallsSampled: 40 }), NOW).status).toBe("ok")
   })
 })
 

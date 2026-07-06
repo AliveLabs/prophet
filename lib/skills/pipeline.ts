@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Transport } from "@/lib/ai/provider"
+import { anthropicCallStats } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
@@ -46,6 +47,10 @@ export type BriefResult = {
 export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Promise<BriefResult> {
   const skills = opts.skills ?? PRODUCER_SKILLS
   const t = opts.transport ? { transport: opts.transport } : {}
+
+  // Snapshot provider counters so we can record THIS build's Anthropic requests + rate-limits on the
+  // brief (→ fleet rateLimitedRate health signal). Inert under a mock transport (tests don't hit the API).
+  const providerAtStart = anthropicCallStats()
 
   const skillResults = await runProducerSkills(skills, dossier, t)
   const candidates = skillResults.flatMap((r) => r.plays)
@@ -89,8 +94,14 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     ...synthesized,
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
+  const providerAtEnd = anthropicCallStats()
+  const providerStats = {
+    requests: providerAtEnd.requests - providerAtStart.requests,
+    rateLimited: providerAtEnd.rateLimited - providerAtStart.rateLimited,
+  }
+
   const presented = presentBrief(written, dossier)
-  const brief: Brief = { ...(await voicePass(presented)), skillHealth }
+  const brief: Brief = { ...(await voicePass(presented)), skillHealth, providerStats }
 
   return { brief, skillResults, dropped }
 }
