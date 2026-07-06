@@ -63,12 +63,13 @@ export class Semaphore {
   }
 }
 
-/** Max concurrent Anthropic calls per instance. Default 6: shaves the 9-wide producer burst so calls
- *  don't starve each other of rate, while keeping enough parallelism that briefs stay fast. Tune via
- *  env without a code change. */
+/** Max concurrent Anthropic calls per instance. Default 8: shaves the 9-wide producer burst (and caps
+ *  builds that Fluid co-locates on one instance) while barely serializing a single build. Started at 6,
+ *  but a canary showed cap 6 ~doubled isolated build latency (2 producer waves) without fixing the lone
+ *  heavy straggler — 8 keeps the protection with far less latency cost. Tune via env, no code change. */
 export const ANTHROPIC_MAX_CONCURRENCY = (() => {
   const n = Number(process.env.ANTHROPIC_MAX_CONCURRENCY)
-  return Number.isInteger(n) && n >= 1 ? n : 6
+  return Number.isInteger(n) && n >= 1 ? n : 8
 })()
 
 const anthropicLimiter = new Semaphore(ANTHROPIC_MAX_CONCURRENCY)
