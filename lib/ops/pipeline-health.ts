@@ -53,6 +53,13 @@ export type PipelineSignals = {
    *  Briefs built before skillHealth shipped lack it → excluded, so 0 here means "can't yet judge",
    *  NOT "healthy" — the rate is only trustworthy once briefs re-render carrying the field. */
   briefsAssessed: number
+  /** Fraction (0..1) of Anthropic requests that were rate-limited (429/529) across the newest brief per
+   *  recently-active location. The LEADING indicator of the account's rate ceiling: it rises FIRST under
+   *  load, before latency → timeouts → fallbacks. 0 when no assessable calls. */
+  rateLimitedRate: number
+  /** Total Anthropic requests sampled for rateLimitedRate (its denominator). Low sample → not yet
+   *  judgeable; gates the alert so pre-2026-07-04 briefs (no providerStats) never false-alarm. */
+  rateLimitCallsSampled: number
 }
 
 export type PipelineHealthThresholds = {
@@ -67,6 +74,12 @@ export type PipelineHealthThresholds = {
    *  slots are serving the deterministic floor, the model path is systemically broken (the 2026-06
    *  truncation bug ran ~70-80%). A single flaky skill (~1/9 ≈ 0.11) stays below it — no daily noise. */
   fallbackRateAlert: number
+  /** Fleet-wide rate-limit fraction (0..1) that escalates to degraded. 0.25 = if ≥25% of Anthropic
+   *  requests are getting 429/529'd, we're leaning hard on the rate ceiling (retries mask it for now,
+   *  but that's the precursor to load-driven timeouts). Conservative — occasional 429s self-heal. */
+  rateLimitedRateAlert: number
+  /** Minimum requests sampled before rateLimitedRate can alert (avoids a 1-of-2 spike tripping it). */
+  rateLimitMinSample: number
 }
 
 export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
@@ -74,6 +87,8 @@ export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   failedJobsAlert: 3,
   staleLocationsAlert: 2,
   fallbackRateAlert: 0.4,
+  rateLimitedRateAlert: 0.25,
+  rateLimitMinSample: 20,
 }
 
 /** A location counts as "recently active" (and therefore expected to stay fresh) if it built a
@@ -98,6 +113,8 @@ export type PipelineHealthVerdict = {
   vendor: { down: boolean; paymentRequired: boolean }
   fallbackSkillRate: number
   briefsAssessed: number
+  rateLimitedRate: number
+  rateLimitCallsSampled: number
   thresholds: PipelineHealthThresholds
 }
 
@@ -173,6 +190,14 @@ export function evaluatePipelineHealth(
     )
     escalate("degraded")
   }
+  // Rate-ceiling pressure — the LEADING indicator. Rises before latency/timeouts/fallbacks do, so this
+  // is the early-warning that we're outgrowing the Anthropic tier (raise it / add cross-instance cap).
+  if (s.rateLimitCallsSampled >= t.rateLimitMinSample && s.rateLimitedRate >= t.rateLimitedRateAlert) {
+    reasons.push(
+      `${(s.rateLimitedRate * 100).toFixed(0)}% of Anthropic requests are being rate-limited (429/529) across ${s.rateLimitCallsSampled} recent calls — leaning on the rate ceiling; raise the tier or add a cross-instance cap before it turns into timeouts`,
+    )
+    escalate("degraded")
+  }
 
   return {
     status,
@@ -191,6 +216,8 @@ export function evaluatePipelineHealth(
     vendor: { down: s.vendorDown, paymentRequired: s.vendorPaymentRequired },
     fallbackSkillRate: s.fallbackSkillRate,
     briefsAssessed: s.briefsAssessed,
+    rateLimitedRate: s.rateLimitedRate,
+    rateLimitCallsSampled: s.rateLimitCallsSampled,
     thresholds: t,
   }
 }
@@ -209,10 +236,10 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     sb.from("pipeline_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("location_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("daily_briefs").select("generated_at").order("generated_at", { ascending: false }).limit(1).maybeSingle(),
-    // Per-location brief freshness (partial-stall detection) + per-skill health (fallback-rate).
-    // `brief->skillHealth` extracts just that jsonb path server-side, so we get the health array
-    // without pulling the whole (large) brief. Newest brief per recently-active location.
-    sb.from("daily_briefs").select("location_id, generated_at, brief->skillHealth").gte("generated_at", recentActiveIso).order("generated_at", { ascending: false }),
+    // Per-location brief freshness (partial-stall) + per-skill health (fallback-rate) + provider stats
+    // (rate-limit rate). The `brief->path` selects extract just those jsonb paths server-side, so we get
+    // the small arrays/objects without pulling the whole (large) brief. Newest brief per recently-active location.
+    sb.from("daily_briefs").select("location_id, generated_at, brief->skillHealth, brief->providerStats").gte("generated_at", recentActiveIso).order("generated_at", { ascending: false }),
     sb.from("signal_jobs").select("id", { count: "exact", head: true }).eq("status", "running").lt("claimed_at", zombieIso),
     // Distinct (location, pipeline) failures — fetch the rows and de-dup in JS (PostgREST can't distinct-count).
     sb.from("signal_jobs").select("location_id, pipeline").eq("status", "failed").gte("updated_at", sinceIso),
@@ -222,12 +249,12 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
 
   // Newest brief per location (rows are ordered newest-first, so first seen per location wins).
   // The jsonb-path select isn't in the generated types, so treat rows loosely here.
-  type RecentBriefRow = { location_id: string | null; generated_at: string; skillHealth: unknown }
+  type RecentBriefRow = { location_id: string | null; generated_at: string; skillHealth: unknown; providerStats: unknown }
   const recentRows = (recentBriefs.data ?? []) as unknown as RecentBriefRow[]
-  const newestBriefByLocation = new Map<string, { generatedAt: string; skillHealth: unknown }>()
+  const newestBriefByLocation = new Map<string, { generatedAt: string; skillHealth: unknown; providerStats: unknown }>()
   for (const r of recentRows) {
     if (r.location_id && !newestBriefByLocation.has(r.location_id)) {
-      newestBriefByLocation.set(r.location_id, { generatedAt: r.generated_at, skillHealth: r.skillHealth })
+      newestBriefByLocation.set(r.location_id, { generatedAt: r.generated_at, skillHealth: r.skillHealth, providerStats: r.providerStats })
     }
   }
   let staleLocations = 0
@@ -254,6 +281,18 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   }
   const fallbackSkillRate = totalSlots > 0 ? degradedSlots / totalSlots : 0
 
+  // Fleet-wide rate-limit rate over the newest brief per location that CARRIES providerStats. Briefs
+  // without it (pre-2026-07-04) are excluded → the sample count gates the alert (no false alarms).
+  let rateLimitedTotal = 0
+  let requestsTotal = 0
+  for (const b of newestBriefByLocation.values()) {
+    const ps = b.providerStats as { requests?: unknown; rateLimited?: unknown } | null
+    if (!ps || typeof ps.requests !== "number" || typeof ps.rateLimited !== "number") continue
+    requestsTotal += ps.requests
+    rateLimitedTotal += ps.rateLimited
+  }
+  const rateLimitedRate = requestsTotal > 0 ? rateLimitedTotal / requestsTotal : 0
+
   const failedKeys = new Set((failedRows.data ?? []).map((r) => `${r.location_id}|${r.pipeline}`))
 
   return {
@@ -268,6 +307,8 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     vendorPaymentRequired: vendor.paymentRequired,
     fallbackSkillRate,
     briefsAssessed,
+    rateLimitedRate,
+    rateLimitCallsSampled: requestsTotal,
   }
 }
 

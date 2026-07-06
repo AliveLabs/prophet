@@ -308,4 +308,8 @@ export type Brief = {
   fallback?: boolean
   /** Per-producer health from this build (see SkillHealth). Absent on briefs built before 2026-07-03. */
   skillHealth?: SkillHealth[]
+  /** Anthropic call counters for this build: `requests` attempted, of which `rateLimited` (429/529).
+   *  Feeds the fleet-wide rateLimitedRate health signal — the leading indicator of the rate ceiling.
+   *  Absent on briefs built before 2026-07-04. */
+  providerStats?: { requests: number; rateLimited: number }
 }
