@@ -565,6 +565,7 @@ export const socialCounterSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: SOCIAL_COUNTER_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(socialCounterSkill, d, selectInput(d), k),
   parse,
   fallback,

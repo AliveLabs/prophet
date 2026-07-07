@@ -375,6 +375,7 @@ export const marketingSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: MARKETING_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(marketingSkill, d, selectInput(d), k),
   parse,
   fallback,

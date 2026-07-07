@@ -307,6 +307,7 @@ export const operationsSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: OPERATIONS_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(operationsSkill, d, selectInput(d), k),
   parse,
   fallback,

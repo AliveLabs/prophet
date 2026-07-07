@@ -357,6 +357,7 @@ export const foodPairingSkill: ProducerSkill = {
   temperature: 0.5,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: FOOD_PAIRING_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(foodPairingSkill, d, selectInput(d), k),
   parse,
   fallback,

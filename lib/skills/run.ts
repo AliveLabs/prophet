@@ -12,6 +12,7 @@
 // ---------------------------------------------------------------------------
 
 import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
+import { skillInputHash } from "@/lib/skills/input-hash"
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
@@ -52,6 +53,17 @@ export async function runProducerSkill(
         : { global: [], scoped: [], globalVersion: "" })
     // Plays stamp the EFFECTIVE version (base + global-set hash); empty set → base unchanged.
     const knowledgeVersion = effectiveKnowledgeVersion(skill.knowledgeVersion, knowledge)
+    // Differential builds (Phase 0): hash the skill's exact input slice + knowledge. Recorded on the
+    // result → skillHealth; Phase 1 compares against yesterday's to skip unchanged experts. Fail-soft:
+    // a hashing error must never break a build (hash just stays undefined → always re-runs).
+    let inputHash: string | undefined
+    if (skill.selectInput) {
+      try {
+        inputHash = skillInputHash(skill.id, skill.selectInput(dossier), knowledgeVersion)
+      } catch (err) {
+        console.warn(`[runProducerSkill] ${skill.id} input-hash failed (differential reuse disabled for this run):`, err)
+      }
+    }
     const { systemCached, system, prompt } = skill.buildPrompt(dossier, knowledge)
     // Deep skills (convergence) → Opus + adaptive thinking, high effort. Producers → the base
     // reasoning model (Sonnet 4.6) + adaptive thinking, MEDIUM effort (quality uplift, Bryan
@@ -103,6 +115,7 @@ export async function runProducerSkill(
       status: "ok",
       plays: grounded,
       elapsedMs,
+      ...(inputHash ? { inputHash } : {}),
       ...(degrade.reason ? { usedFallback: true, fallbackReason: degrade.reason } : {}),
     }
   } catch (err) {
