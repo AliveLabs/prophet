@@ -67,6 +67,18 @@ export const DEFAULT_JITTER_SPACING_SECONDS = 420
  *  the marginal skills timed out into fallbacks (31% floor). Spacing the zone's jobs a few minutes
  *  apart keeps builds ~sequential. Capped at 50 min so every job still starts inside the build hour
  *  (the NEXT hourly tick skips these locations anyway — their job is queued/active). */
+/** Weekly FULL-build day (differential builds' drift backstop): Sunday in the location's LOCAL
+ *  timezone — aligned with the other weekly crons (knowledge ingest, feedback rollup, ask-mining).
+ *  On this day callers skip reuse entirely; every expert re-runs on fresh evidence. */
+export function isWeeklyFullBuildDay(timezone: string | null | undefined, now: Date): boolean {
+  const tz = timezone && timezone.trim() ? timezone : FALLBACK_ZONE
+  try {
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(now) === "Sun"
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { timeZone: FALLBACK_ZONE, weekday: "short" }).format(now) === "Sun"
+  }
+}
+
 export function briefJitterSeconds(index: number, spacingEnv: string | undefined = process.env.BRIEF_JITTER_SPACING_SECONDS): number {
   const parsed = Number(spacingEnv)
   const spacing = Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_JITTER_SPACING_SECONDS

@@ -17,7 +17,7 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
-import { saveBrief } from "@/lib/insights/daily-brief"
+import { saveBrief, loadPreviousBuild } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
 import { loadPlayTypeMultipliersForLocation, loadShadowPlayTypeMultipliers } from "@/lib/skills/feedback-rollup"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
@@ -53,7 +53,10 @@ export async function GET(req: Request) {
         loadPlayTypeMultipliersForLocation(single, skillIds),
         loadShadowPlayTypeMultipliers(skillIds, { locationId: single }),
       ])
+      // Differential builds: ?fullBuild=1 forces every expert to run (all other gates inside).
+      const previous = await loadPreviousBuild(single, dossier.dateKey, { force: url.searchParams.get("fullBuild") === "1" })
       const { brief, dropped } = await runBrief(dossier, {
+        previous,
         suppressedKeys,
         evergreen,
         playTypeMultipliers,

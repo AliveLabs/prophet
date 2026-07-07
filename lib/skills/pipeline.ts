@@ -10,6 +10,7 @@ import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
 import type { PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
+import type { PreviousBuild } from "@/lib/skills/differential"
 // (suppressedKeys / evergreen / playTypeMultipliers are loaded by the build caller from
 //  lib/insights/evergreen.ts and lib/skills/feedback-rollup.ts)
 import { runProducerSkills } from "@/lib/skills/run"
@@ -36,6 +37,9 @@ export type RunBriefOptions = {
   shadowMultipliers?: PlayTypeMultiplierLookup
   /** How many shadow multipliers were in play (0 → the shadow replay is skipped). */
   shadowSignalCount?: number
+  /** Differential builds: yesterday's reusable per-skill state (extractPreviousBuild). Callers omit
+   *  it on full-build days (Sunday local), when DIFFERENTIAL_BUILDS=0, or on ?fullBuild=1. */
+  previous?: PreviousBuild
 }
 
 export type BriefResult = {
@@ -52,7 +56,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   // brief (→ fleet rateLimitedRate health signal). Inert under a mock transport (tests don't hit the API).
   const providerAtStart = anthropicCallStats()
 
-  const skillResults = await runProducerSkills(skills, dossier, t)
+  const skillResults = await runProducerSkills(skills, dossier, { ...t, previous: opts.previous })
   const candidates = skillResults.flatMap((r) => r.plays)
 
   // Per-producer health, captured BEFORE synthesis flattens the per-skill structure. Recorded onto
@@ -64,7 +68,10 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
     ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
     ...(r.inputHash ? { inputHash: r.inputHash } : {}),
+    ...(r.reused ? { reused: true } : {}),
   }))
+  const reusedCount = skillResults.filter((r) => r.reused).length
+  if (reusedCount > 0) console.log(`[runBrief] ${dossier.profile.locationId}: differential reuse ${reusedCount}/${skillResults.length} skills (input unchanged)`)
   // Differential builds: persist each producer's raw grounded plays so tomorrow's build can carry
   // them forward when that skill's inputHash is unchanged (Brief.plays only keeps synthesis survivors).
   const skillOutputs = Object.fromEntries(skillResults.map((r) => [r.skillId, r.plays]))

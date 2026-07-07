@@ -296,6 +296,9 @@ export type SkillHealth = {
   /** Differential builds: this run's input-slice hash (see lib/skills/input-hash.ts). Tomorrow's
    *  build compares its fresh hash against this to decide run-vs-reuse. Absent pre-2026-07-07. */
   inputHash?: string
+  /** Differential builds: this skill's plays were carried forward from the previous real run
+   *  (input slice unchanged). Reused ≠ fallback — the fleet fallback-rate signal is unaffected. */
+  reused?: boolean
 }
 
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */
