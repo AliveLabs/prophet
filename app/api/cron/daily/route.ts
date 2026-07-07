@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import { createClient } from "@supabase/supabase-js"
+import { isWeeklyFullBuildDay } from "@/lib/jobs/build-schedule"
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isTrialActive, isTrialing } from "@/lib/billing/trial"
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
 
   const { data: locations, error: locErr } = await supabase
     .from("locations")
-    .select("id, name, organization_id")
+    .select("id, name, organization_id, timezone")
 
   if (locErr || !locations) {
     return Response.json(
@@ -115,11 +116,19 @@ export async function GET(req: Request) {
     }
 
     const pipelines = [
-      "content",
       "visibility",
       "events",
       "weather",
     ]
+
+    // Differential builds Phase 2 — content is the heaviest chain (map site → scrape+screenshot →
+    // LLM menu extract → Google enrichment → competitor menus) for data that changes ~monthly, yet it
+    // ran DAILY. Now: weekly, on the Sunday-local full-refresh day (Bryan 2026-07-07; same day the
+    // brief engine does its full non-differential rebuild). Onboarding (first_run) still does a full
+    // content pull, so a new signup never waits for Sunday; a mid-week menu change lands ≤7 days.
+    if (isWeeklyFullBuildDay(location.timezone, new Date())) {
+      pipelines.unshift("content")
+    }
 
     // Photos and busy_times run weekly regardless of tier
     if (isMonday) {

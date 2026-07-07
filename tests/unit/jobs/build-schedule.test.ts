@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest"
 import {
+  isWeeklyFullBuildDay,
   localHourInZone,
   isLocalBuildHour,
   resolveBuildHour,
@@ -85,5 +86,18 @@ describe("resolveBuildHour", () => {
     expect(resolveBuildHour("nope")).toBe(DEFAULT_BUILD_LOCAL_HOUR)
     expect(resolveBuildHour("24")).toBe(DEFAULT_BUILD_LOCAL_HOUR)
     expect(resolveBuildHour("-1")).toBe(DEFAULT_BUILD_LOCAL_HOUR)
+  })
+})
+
+describe("isWeeklyFullBuildDay — the Sunday-local full-refresh gate", () => {
+  it("true on Sunday in the location's zone, false other days", () => {
+    // 2026-07-05 is a Sunday. 01:00 UTC Sunday = still Saturday evening in LA.
+    expect(isWeeklyFullBuildDay("America/New_York", new Date("2026-07-05T12:00:00Z"))).toBe(true)
+    expect(isWeeklyFullBuildDay("America/New_York", new Date("2026-07-06T12:00:00Z"))).toBe(false)
+    expect(isWeeklyFullBuildDay("America/Los_Angeles", new Date("2026-07-05T01:00:00Z"))).toBe(false)
+  })
+  it("invalid/missing tz falls back to the default zone", () => {
+    expect(isWeeklyFullBuildDay(null, new Date("2026-07-05T12:00:00Z"))).toBe(true)
+    expect(isWeeklyFullBuildDay("Junk/Zone", new Date("2026-07-06T12:00:00Z"))).toBe(false)
   })
 })
