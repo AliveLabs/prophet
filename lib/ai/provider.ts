@@ -51,7 +51,10 @@ const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 // The deep pass is NON-streaming with a 32k max_tokens; a hung Opus call must abort and
 // degrade to the deterministic fallback rather than stall the whole brief. Generous because
 // adaptive thinking is genuinely slow. Normal (Sonnet) calls get a tighter ceiling.
-const DEEP_TIMEOUT_MS = Number(process.env.ANTHROPIC_DEEP_TIMEOUT_MS) || 120_000
+// 240s (was 120s, 2026-07-07): under the 3 AM within-zone build burst, Opus convergence calls ran
+// past 120s and timed out into fallbacks on 4/6 briefs — the flagship skill was the morning's biggest
+// quality loss. 240s matches the producer ceiling; the whole build still fits the 800s budget.
+const DEEP_TIMEOUT_MS = Number(process.env.ANTHROPIC_DEEP_TIMEOUT_MS) || 240_000
 const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 60_000
 // Producers (Sonnet + adaptive thinking) need MORE than the Opus-deep 120s. After the 16k→32k fix
 // (PR #96) medium-effort thinking on a rich dossier prompt runs past 120s and ABORTED → silent

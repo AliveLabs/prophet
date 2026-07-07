@@ -66,6 +66,7 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
 
     let completed = 0
     let failed = 0
+    let criticalFailed = false
     const warnings: string[] = []
     // Capture a vendor outage (e.g. DataForSEO 402) so it's recorded as a structured signal,
     // not just laundered into a generic "partial"/"failed" reason string. Keep the worst one.
@@ -76,16 +77,23 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
         completed++
       } catch (e) {
         failed++
+        if (step.critical) criticalFailed = true
         warnings.push(`${step.label}: ${e instanceof Error ? e.message : "failed"}`)
         vendorError = moreSevereVendorSignal(vendorError, vendorSignalFromError(e))
       }
     }
 
-    const { outcome, reason, signals } = await summarize(sb, job, { completed, failed, warnings, vendorError })
+    const summarized = await summarize(sb, job, { completed, failed, warnings, vendorError })
+    // A CRITICAL step failure is a failed job, period — sibling-step progress must not launder a
+    // missing artifact into "partial"/done (2026-07-07 Cane's: saveBrief failed, the email step
+    // succeeded → job done, no brief saved, no retry; customer saw yesterday's brief).
+    const { outcome, reason, signals } = criticalFailed
+      ? { ...summarized, outcome: "failed" as const, reason: summarized.reason ?? warnings[0] }
+      : summarized
     await recordRun(sb, { runId: job.run_id, locationId: job.location_id, pipeline: job.pipeline, outcome, reason, signals, startedAt })
 
-    // Fully-failed → retry; any progress → done (partial is recorded honestly, not retried forever).
-    const ok = completed > 0 || failed === 0
+    // Fully-failed OR critical-step-failed → retry; other progress → done (partial recorded honestly).
+    const ok = !criticalFailed && (completed > 0 || failed === 0)
     const disposition = await finishJob(sb, job, ok, warnings.join(" | ") || undefined)
 
     // A finished first_run insights job chains the brief build (same run_id, so

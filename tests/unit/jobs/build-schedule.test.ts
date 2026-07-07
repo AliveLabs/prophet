@@ -7,7 +7,9 @@ import {
   localHourInZone,
   isLocalBuildHour,
   resolveBuildHour,
+  briefJitterSeconds,
   DEFAULT_BUILD_LOCAL_HOUR,
+  DEFAULT_JITTER_SPACING_SECONDS,
 } from "@/lib/jobs/build-schedule"
 
 describe("localHourInZone", () => {
@@ -53,6 +55,22 @@ describe("isLocalBuildHour — the stagger", () => {
     expect(isLocalBuildHour(null, t, 3)).toBe(true)
     expect(isLocalBuildHour("", t, 3)).toBe(true)
     expect(isLocalBuildHour("Garbage/Zone", t, 3)).toBe(true)
+  })
+})
+
+describe("briefJitterSeconds — the WITHIN-zone stagger", () => {
+  it("spaces a zone's locations spacing-seconds apart (first one immediate)", () => {
+    expect(briefJitterSeconds(0, undefined)).toBe(0)
+    expect(briefJitterSeconds(1, undefined)).toBe(DEFAULT_JITTER_SPACING_SECONDS)
+    expect(briefJitterSeconds(6, undefined)).toBe(6 * DEFAULT_JITTER_SPACING_SECONDS) // 7th location: 42 min
+  })
+  it("caps at 50 min so every job still starts inside the build hour", () => {
+    expect(briefJitterSeconds(50, undefined)).toBe(3000)
+  })
+  it("honors the env spacing override and falls back on junk", () => {
+    expect(briefJitterSeconds(2, "60")).toBe(120)
+    expect(briefJitterSeconds(2, "nope")).toBe(2 * DEFAULT_JITTER_SPACING_SECONDS)
+    expect(briefJitterSeconds(2, "-5")).toBe(2 * DEFAULT_JITTER_SPACING_SECONDS)
   })
 })
 
