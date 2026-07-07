@@ -290,6 +290,9 @@ export type SkillHealth = {
   usedFallback: boolean
   /** Why it fell back (truncated | timeout | rate_limited | transport_error | unparseable), if known. */
   reason?: string
+  /** Wall-clock ms for this producer's model call. Fleet p95 over these is the early warning that
+   *  producers are drifting toward the abort ceiling (→ timeout-fallbacks). Absent pre-2026-07-04. */
+  elapsedMs?: number
 }
 
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */

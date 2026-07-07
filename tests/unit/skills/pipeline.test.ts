@@ -141,6 +141,8 @@ describe("full engine pipeline (producers -> synthesis -> voice)", () => {
     expect(brief.skillHealth?.length).toBe(PRODUCER_SKILLS.length)
     expect(brief.skillHealth?.every((h) => h.usedFallback)).toBe(true)
     expect(brief.skillHealth?.every((h) => h.reason === "truncated")).toBe(true)
+    // p95 watch signal: every producer call records its wall-clock (even fallback-served ones)
+    expect(brief.skillHealth?.every((h) => typeof h.elapsedMs === "number" && h.elapsedMs >= 0)).toBe(true)
     // brief still builds on the grounded floor (resilience preserved)
     expect(brief.plays.length).toBeGreaterThan(0)
   })

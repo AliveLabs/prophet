@@ -77,4 +77,7 @@ export type SkillResult = {
   usedFallback?: boolean
   /** Why it fell back: truncated | timeout | rate_limited | transport_error | unparseable. */
   fallbackReason?: string
+  /** Wall-clock ms for this producer's model call (incl. governor slot-wait). Feeds the fleet p95
+   *  latency watch signal — rising p95 is the precursor to timeout-fallbacks. Absent on a throw. */
+  elapsedMs?: number
 }
