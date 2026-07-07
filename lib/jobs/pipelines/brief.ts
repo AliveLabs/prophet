@@ -48,6 +48,9 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
     {
       name: "build_and_save_brief",
       label: "Synthesizing the brief",
+      // The brief IS this job's artifact: if this step fails (e.g. a transient saveBrief error),
+      // the job must FAIL and retry — the notify step succeeding must not carry it to done.
+      critical: true,
       run: async (c) => {
         // First-brief check must happen BEFORE the save.
         c.state.isFirstBrief = !(await hasAnyBrief(c.locationId))

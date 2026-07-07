@@ -56,3 +56,19 @@ export function resolveBuildHour(env: string | undefined = process.env.BRIEF_BUI
   const n = Number(env)
   return Number.isInteger(n) && n >= 0 && n <= 23 ? n : DEFAULT_BUILD_LOCAL_HOUR
 }
+
+/** Seconds between same-zone build starts (env BRIEF_JITTER_SPACING_SECONDS, default 7 min). A build
+ *  runs ~6-15 min, so 7-min spacing keeps ~1-2 in flight instead of the whole zone at once. */
+export const DEFAULT_JITTER_SPACING_SECONDS = 420
+
+/** Enqueue delay for the Nth eligible location in a build tick. The timezone gate stops the CROSS-zone
+ *  herd, but every location in one zone still hits its build hour together — 2026-07-07: all 7 (one
+ *  zone) enqueued within 1s, workers overlapped for ~80 min of sustained max-concurrency building, and
+ *  the marginal skills timed out into fallbacks (31% floor). Spacing the zone's jobs a few minutes
+ *  apart keeps builds ~sequential. Capped at 50 min so every job still starts inside the build hour
+ *  (the NEXT hourly tick skips these locations anyway — their job is queued/active). */
+export function briefJitterSeconds(index: number, spacingEnv: string | undefined = process.env.BRIEF_JITTER_SPACING_SECONDS): number {
+  const parsed = Number(spacingEnv)
+  const spacing = Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_JITTER_SPACING_SECONDS
+  return Math.min(Math.max(0, index) * spacing, 3000)
+}

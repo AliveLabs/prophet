@@ -111,7 +111,14 @@ export async function enqueueAdhocPlatform(sb: SB, args: { organizationId: strin
  */
 export async function enqueueBriefIfMissing(
   sb: SB,
-  args: { organizationId: string; locationId: string; recentWindowMinutes?: number }
+  args: {
+    organizationId: string
+    locationId: string
+    recentWindowMinutes?: number
+    /** Delay worker pickup (scheduled_for = now + delay). The build-brief cron staggers a zone's
+     *  locations a few minutes apart so one zone's 3 AM doesn't build every brief at once. */
+    delaySeconds?: number
+  }
 ): Promise<"enqueued" | "skipped"> {
   const windowMs = (args.recentWindowMinutes ?? 120) * 60 * 1000
   const { data: latest } = await sb
@@ -134,6 +141,7 @@ export async function enqueueBriefIfMissing(
     organizationId: args.organizationId,
     locationId: args.locationId,
     pipelines: ["brief"],
+    ...(args.delaySeconds && args.delaySeconds > 0 ? { delaySeconds: args.delaySeconds } : {}),
   })
   return "enqueued"
 }

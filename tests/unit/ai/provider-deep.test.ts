@@ -67,15 +67,18 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     global.fetch = fetchMock as unknown as typeof fetch
     const p = claudeRaw({ tier: "reasoning", prompt: "x", model: DEEP_MODEL, thinking: true, effort: "high" })
     const assertion = expect(p).rejects.toThrow(/timed out/)
-    await vi.advanceTimersByTimeAsync(120_000)
+    // Deep ceiling raised 120s→240s (2026-07-07): convergence timed out on 4/6 briefs under the
+    // 3 AM burst; the flagship needs the same headroom producers got in #97.
+    await vi.advanceTimersByTimeAsync(240_000)
     await assertion
     expect(fetchMock).toHaveBeenCalledTimes(1) // hung deep call must NOT be retried
   })
 
   // 2026-07-04: the 16k→32k fix (PR #96) traded truncation for TIMEOUT — 7/9 producers aborted at
-  // the 120s Opus-deep ceiling they'd inherited. Producers (Sonnet + thinking, NO opus model) must
-  // get their OWN, larger ceiling (240s) so medium-effort thinking actually finishes.
-  it("gives producers (Sonnet + thinking) a longer 240s ceiling, not the Opus 120s", async () => {
+  // the 120s Opus-deep ceiling they'd inherited. Producers (Sonnet + thinking, NO opus model) get
+  // their OWN 240s ceiling. (2026-07-07: the deep ceiling was also raised to 240s, so the "pending
+  // at 120s" probe now guards BOTH paths against a regression to the old 120s default.)
+  it("gives producers (Sonnet + thinking) the full 240s ceiling, not the old 120s", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key"
     vi.useFakeTimers()
     const fetchMock = vi.fn(

@@ -25,7 +25,7 @@ import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
 import { isTrialActive } from "@/lib/billing/trial"
-import { isLocalBuildHour, resolveBuildHour } from "@/lib/jobs/build-schedule"
+import { isLocalBuildHour, resolveBuildHour, briefJitterSeconds } from "@/lib/jobs/build-schedule"
 
 export const maxDuration = 800 // inline single-location mode still does LLM work
 
@@ -127,6 +127,10 @@ export async function GET(req: Request) {
         // The daily rebuild must enqueue even though yesterday's job exists;
         // only an ACTIVE (queued/running) job should skip.
         recentWindowMinutes: 0,
+        // WITHIN-zone stagger: space this tick's jobs a few minutes apart so one zone's build hour
+        // doesn't build every brief at once (2026-07-07: 7 simultaneous builds → sustained burst →
+        // timeout-fallbacks on 31% of producer slots). Forced runs are manual → no delay.
+        delaySeconds: force ? 0 : briefJitterSeconds(enqueued),
       })
       if (result === "enqueued") enqueued++
       else skipped++

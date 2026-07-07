@@ -52,4 +52,9 @@ export type PipelineStepDef<TCtx = unknown> = {
   name: string
   label: string
   run: (ctx: TCtx) => Promise<Record<string, unknown> | null>
+  /** This step IS the job: if it fails, the job fails (→ queue retry) even when sibling steps
+   *  succeeded. Without it, "any progress → done" let a failed brief-save ride a successful email
+   *  step to done — customer saw yesterday's brief, nothing retried, nothing alerted (2026-07-07).
+   *  Reserve for the artifact-producing step; leave best-effort steps (emails, notifies) unset. */
+  critical?: boolean
 }
