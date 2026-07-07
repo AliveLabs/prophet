@@ -22,6 +22,8 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   briefsAssessed: 0,
   rateLimitedRate: 0,
   rateLimitCallsSampled: 0,
+  producerLatencyP95Ms: 0,
+  latencySamples: 0,
   ...over,
 })
 
@@ -134,6 +136,25 @@ describe("evaluatePipelineHealth — rate-ceiling pressure (the leading indicato
   it("fires at the threshold boundary", () => {
     expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 0.25, rateLimitCallsSampled: 40 }), NOW).status).toBe("degraded")
     expect(evaluatePipelineHealth(healthy({ rateLimitedRate: 0.24, rateLimitCallsSampled: 40 }), NOW).status).toBe("ok")
+  })
+})
+
+describe("evaluatePipelineHealth — producer latency drift (the pre-cliff warning)", () => {
+  it("degrades when producer p95 approaches the abort ceiling with enough sample", () => {
+    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 210_000, latencySamples: 30 }), NOW)
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.join(" ")).toMatch(/p95 latency is 210s/)
+    expect(v.reasons.join(" ")).toMatch(/abort ceiling/i)
+  })
+  it("does NOT alert below a meaningful sample (one slow brief can't trip it)", () => {
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 239_000, latencySamples: 9 }), NOW).status).toBe("ok")
+  })
+  it("does NOT alert on healthy latencies", () => {
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 90_000, latencySamples: 60 }), NOW).status).toBe("ok")
+  })
+  it("fires at the threshold boundary", () => {
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 200_000, latencySamples: 18 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 199_999, latencySamples: 18 }), NOW).status).toBe("ok")
   })
 })
 

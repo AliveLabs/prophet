@@ -62,6 +62,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     status: r.status,
     usedFallback: !!r.usedFallback,
     ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
+    ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
   }))
   const fellBack = skillHealth.filter((h) => h.usedFallback || h.status === "failed")
   if (fellBack.length > 0) {

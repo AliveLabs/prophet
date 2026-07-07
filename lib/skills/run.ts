@@ -72,6 +72,11 @@ export async function runProducerSkill(
     // Object holder (not a bare `let`): a bare let assigned only inside the onFallback closure gets
     // narrowed back to its `null` initializer by TS control-flow; a property read keeps its declared type.
     const degrade: { reason: string | null } = { reason: null }
+    // Wall-clock the model call (p95 watch signal): a producer drifting toward the abort ceiling is
+    // the precursor to timeout-fallbacks, so the brief records elapsed per skill and pipeline-health
+    // watches the fleet p95. Includes governor slot-wait — that's intentional; the operator-visible
+    // question is "how close is this skill to degrading", whatever the cause.
+    const startedAt = Date.now()
     const plays = await generateStructured<EnrichedRecommendation[]>(
       { tier: skill.tier, label: skill.id, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
       {
@@ -81,6 +86,7 @@ export async function runProducerSkill(
         onFallback: (info) => { degrade.reason = info.reason },
       },
     )
+    const elapsedMs = Date.now() - startedAt
 
     const index = buildRefIndex(dossier)
     const grounded = plays
@@ -96,6 +102,7 @@ export async function runProducerSkill(
       skillId: skill.id,
       status: "ok",
       plays: grounded,
+      elapsedMs,
       ...(degrade.reason ? { usedFallback: true, fallbackReason: degrade.reason } : {}),
     }
   } catch (err) {

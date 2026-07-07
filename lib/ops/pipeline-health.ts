@@ -60,6 +60,12 @@ export type PipelineSignals = {
   /** Total Anthropic requests sampled for rateLimitedRate (its denominator). Low sample → not yet
    *  judgeable; gates the alert so pre-2026-07-04 briefs (no providerStats) never false-alarm. */
   rateLimitCallsSampled: number
+  /** p95 wall-clock ms across producer model calls (skillHealth.elapsedMs) on the newest brief per
+   *  recently-active location. Rising p95 = producers drifting toward the abort ceiling — the last
+   *  warning BEFORE timeout-fallbacks appear. 0 when no samples. */
+  producerLatencyP95Ms: number
+  /** How many producer calls carried elapsedMs (the p95's sample base; gates the alert). */
+  latencySamples: number
 }
 
 export type PipelineHealthThresholds = {
@@ -80,6 +86,12 @@ export type PipelineHealthThresholds = {
   rateLimitedRateAlert: number
   /** Minimum requests sampled before rateLimitedRate can alert (avoids a 1-of-2 spike tripping it). */
   rateLimitMinSample: number
+  /** Producer p95 latency (ms) that escalates to degraded. 200s default = within ~17% of the 240s
+   *  producer abort (ANTHROPIC_PRODUCER_TIMEOUT_MS default) — p95 there means the slowest producers
+   *  are about to start timing out into fallbacks. Deliberately below the cliff, not at it. */
+  producerP95AlertMs: number
+  /** Minimum producer-call samples before the p95 can alert (two briefs' worth of producers). */
+  latencyMinSample: number
 }
 
 export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
@@ -89,6 +101,8 @@ export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   fallbackRateAlert: 0.4,
   rateLimitedRateAlert: 0.25,
   rateLimitMinSample: 20,
+  producerP95AlertMs: 200_000,
+  latencyMinSample: 18,
 }
 
 /** A location counts as "recently active" (and therefore expected to stay fresh) if it built a
@@ -115,6 +129,8 @@ export type PipelineHealthVerdict = {
   briefsAssessed: number
   rateLimitedRate: number
   rateLimitCallsSampled: number
+  producerLatencyP95Ms: number
+  latencySamples: number
   thresholds: PipelineHealthThresholds
 }
 
@@ -198,6 +214,15 @@ export function evaluatePipelineHealth(
     )
     escalate("degraded")
   }
+  // Producer latency drift — the LAST warning before the cliff. p95 near the abort ceiling means the
+  // slowest producers are about to start timing out into fallbacks (rate pressure, prompt bloat, or
+  // concurrency contention). Fires while briefs still look healthy.
+  if (s.latencySamples >= t.latencyMinSample && s.producerLatencyP95Ms >= t.producerP95AlertMs) {
+    reasons.push(
+      `producer p95 latency is ${Math.round(s.producerLatencyP95Ms / 1000)}s across ${s.latencySamples} recent calls — approaching the abort ceiling; timeouts/fallbacks are imminent (check rate pressure, prompt size, or concurrency)`,
+    )
+    escalate("degraded")
+  }
 
   return {
     status,
@@ -218,6 +243,8 @@ export function evaluatePipelineHealth(
     briefsAssessed: s.briefsAssessed,
     rateLimitedRate: s.rateLimitedRate,
     rateLimitCallsSampled: s.rateLimitCallsSampled,
+    producerLatencyP95Ms: s.producerLatencyP95Ms,
+    latencySamples: s.latencySamples,
     thresholds: t,
   }
 }
@@ -268,18 +295,24 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   let degradedSlots = 0
   let totalSlots = 0
   let briefsAssessed = 0
+  const latencies: number[] = [] // producer elapsedMs samples (p95 watch signal); absent pre-2026-07-04
   for (const b of newestBriefByLocation.values()) {
     const health = Array.isArray(b.skillHealth)
-      ? (b.skillHealth as Array<{ usedFallback?: unknown; status?: unknown }>)
+      ? (b.skillHealth as Array<{ usedFallback?: unknown; status?: unknown; elapsedMs?: unknown }>)
       : null
     if (!health || health.length === 0) continue
     briefsAssessed++
     for (const h of health) {
       totalSlots++
       if (h?.usedFallback === true || h?.status === "failed") degradedSlots++
+      if (typeof h?.elapsedMs === "number" && h.elapsedMs >= 0) latencies.push(h.elapsedMs)
     }
   }
   const fallbackSkillRate = totalSlots > 0 ? degradedSlots / totalSlots : 0
+
+  // p95 producer latency over the sampled calls (ascending sort; index = ceil(0.95n)-1).
+  latencies.sort((a, b) => a - b)
+  const producerLatencyP95Ms = latencies.length > 0 ? latencies[Math.max(0, Math.ceil(latencies.length * 0.95) - 1)] : 0
 
   // Fleet-wide rate-limit rate over the newest brief per location that CARRIES providerStats. Briefs
   // without it (pre-2026-07-04) are excluded → the sample count gates the alert (no false alarms).
@@ -309,6 +342,8 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     briefsAssessed,
     rateLimitedRate,
     rateLimitCallsSampled: requestsTotal,
+    producerLatencyP95Ms,
+    latencySamples: latencies.length,
   }
 }
 
