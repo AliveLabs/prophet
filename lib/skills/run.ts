@@ -28,6 +28,10 @@ export type RunOptions = {
   knowledge?: KnowledgeInjection
   /** Org id for org-scoped learnings (the dossier only carries locationId). */
   organizationId?: string | null
+  /** Differential builds: yesterday's reusable per-skill state (see extractPreviousBuild). When a
+   *  skill's FRESH inputHash matches its previous hash, its model call is skipped and the previous
+   *  real plays carry forward. Absent (full-build day / env off / no usable history) → all run. */
+  previous?: import("@/lib/skills/differential").PreviousBuild
 }
 
 export async function runProducerSkill(
@@ -64,6 +68,14 @@ export async function runProducerSkill(
         console.warn(`[runProducerSkill] ${skill.id} input-hash failed (differential reuse disabled for this run):`, err)
       }
     }
+    // Phase 1 REUSE: identical slice + knowledge since the last real run → the expert would see
+    // byte-identical evidence → skip the model call and carry the previous grounded plays forward.
+    // Deliberately NO elapsedMs on reused results (a 0 would dilute the p95 latency signal).
+    if (inputHash && opts.previous && opts.previous.hashes[skill.id] === inputHash) {
+      console.log(`[runProducerSkill] ${skill.id}: input unchanged — reusing previous plays (differential)`)
+      return { skillId: skill.id, status: "ok", plays: opts.previous.outputs[skill.id] ?? [], inputHash, reused: true }
+    }
+
     const { systemCached, system, prompt } = skill.buildPrompt(dossier, knowledge)
     // Deep skills (convergence) → Opus + adaptive thinking, high effort. Producers → the base
     // reasoning model (Sonnet 4.6) + adaptive thinking, MEDIUM effort (quality uplift, Bryan

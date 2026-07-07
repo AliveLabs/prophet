@@ -88,4 +88,7 @@ export type SkillResult = {
   /** Differential builds: sha256 of (skill id + effective knowledge version + selectInput slice).
    *  Same hash tomorrow ⇒ the expert would see identical evidence ⇒ Phase 1 reuses instead of calling. */
   inputHash?: string
+  /** Differential builds: true when this result carried yesterday's real plays forward (no model
+   *  call). Never true for a fallback-served run (those are excluded from reuse at extraction). */
+  reused?: boolean
 }
