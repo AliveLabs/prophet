@@ -489,6 +489,7 @@ export const convergenceSkill: ProducerSkill = {
   temperature: 0.5, // ignored on the deep path (Opus + adaptive thinking rejects temperature); kept for the type
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: CONVERGENCE_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(convergenceSkill, d, selectInput(d), k),
   parse,
   fallback,

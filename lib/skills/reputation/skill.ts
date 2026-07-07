@@ -319,6 +319,7 @@ export const reputationSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: REPUTATION_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(reputationSkill, d, selectInput(d), k),
   parse,
   fallback,

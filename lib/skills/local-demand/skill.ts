@@ -440,6 +440,7 @@ export const localDemandSkill: ProducerSkill = {
   temperature: 0.5,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: LOCAL_DEMAND_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(localDemandSkill, d, selectInput(d), k),
   parse,
   fallback,

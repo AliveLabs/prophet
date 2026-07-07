@@ -609,6 +609,7 @@ export const positioningSkill: ProducerSkill = {
   temperature: 0.4,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: POSITIONING_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(positioningSkill, d, selectInput(d), k),
   parse,
   fallback,

@@ -63,7 +63,11 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     usedFallback: !!r.usedFallback,
     ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
     ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
+    ...(r.inputHash ? { inputHash: r.inputHash } : {}),
   }))
+  // Differential builds: persist each producer's raw grounded plays so tomorrow's build can carry
+  // them forward when that skill's inputHash is unchanged (Brief.plays only keeps synthesis survivors).
+  const skillOutputs = Object.fromEntries(skillResults.map((r) => [r.skillId, r.plays]))
   const fellBack = skillHealth.filter((h) => h.usedFallback || h.status === "failed")
   if (fellBack.length > 0) {
     console.warn(
@@ -102,7 +106,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   }
 
   const presented = presentBrief(written, dossier)
-  const brief: Brief = { ...(await voicePass(presented)), skillHealth, providerStats }
+  const brief: Brief = { ...(await voicePass(presented)), skillHealth, skillOutputs, providerStats }
 
   return { brief, skillResults, dropped }
 }

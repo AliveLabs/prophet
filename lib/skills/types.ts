@@ -293,6 +293,9 @@ export type SkillHealth = {
   /** Wall-clock ms for this producer's model call. Fleet p95 over these is the early warning that
    *  producers are drifting toward the abort ceiling (→ timeout-fallbacks). Absent pre-2026-07-04. */
   elapsedMs?: number
+  /** Differential builds: this run's input-slice hash (see lib/skills/input-hash.ts). Tomorrow's
+   *  build compares its fresh hash against this to decide run-vs-reuse. Absent pre-2026-07-07. */
+  inputHash?: string
 }
 
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */
@@ -315,4 +318,9 @@ export type Brief = {
    *  Feeds the fleet-wide rateLimitedRate health signal — the leading indicator of the rate ceiling.
    *  Absent on briefs built before 2026-07-04. */
   providerStats?: { requests: number; rateLimited: number }
+  /** Differential builds: each producer's RAW grounded plays from this build, keyed by skillId.
+   *  Brief.plays only holds the post-synthesis survivors, so reuse (Phase 1) carries these forward
+   *  when a skill's inputHash matches. Fallback-served skills are stored too but NEVER reused
+   *  (skillHealth.usedFallback gates that). Absent pre-2026-07-07. */
+  skillOutputs?: Record<string, EnrichedRecommendation[]>
 }

@@ -64,6 +64,11 @@ export type ProducerSkill = {
   fallback: (d: Dossier) => EnrichedRecommendation[]
   /** P14: OPT-IN learning hook (which streams/kinds this skill consumes). Absence = today's behavior. */
   learning?: SkillLearningHook
+  /** The exact dossier slice this skill reads (the same function buildPrompt uses). Differential
+   *  builds hash this: identical slice + knowledge since yesterday → the expert has nothing new to
+   *  look at → reuse yesterday's real plays instead of a model call. Do NOT hash the built prompt
+   *  (dateKey leaks into prompt text → zero reuse ever). */
+  selectInput?: (d: Dossier) => unknown
 }
 
 export type SkillResult = {
@@ -80,4 +85,7 @@ export type SkillResult = {
   /** Wall-clock ms for this producer's model call (incl. governor slot-wait). Feeds the fleet p95
    *  latency watch signal — rising p95 is the precursor to timeout-fallbacks. Absent on a throw. */
   elapsedMs?: number
+  /** Differential builds: sha256 of (skill id + effective knowledge version + selectInput slice).
+   *  Same hash tomorrow ⇒ the expert would see identical evidence ⇒ Phase 1 reuses instead of calling. */
+  inputHash?: string
 }

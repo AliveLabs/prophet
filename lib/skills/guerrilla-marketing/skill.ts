@@ -505,6 +505,7 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: GUERRILLA_KNOWLEDGE,
+  selectInput,
   buildPrompt: (d, k) => buildSkillPrompt(guerrillaMarketingSkill, d, selectInput(d), k),
   parse,
   fallback,
