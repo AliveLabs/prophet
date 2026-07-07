@@ -11,7 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
 import { buildDossier } from "@/lib/insights/dossier/build"
 import { runBrief } from "@/lib/skills/pipeline"
-import { saveBrief, hasAnyBrief } from "@/lib/insights/daily-brief"
+import { saveBrief, hasAnyBrief, loadPreviousBuild } from "@/lib/insights/daily-brief"
 import { loadActiveCooldowns, loadEvergreenPlays } from "@/lib/insights/evergreen"
 import { loadPlayTypeMultipliersForLocation, loadShadowPlayTypeMultipliers } from "@/lib/skills/feedback-rollup"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
@@ -67,7 +67,10 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
           loadPlayTypeMultipliersForLocation(c.locationId, skillIds),
           loadShadowPlayTypeMultipliers(skillIds, { locationId: c.locationId }),
         ])
+        // Differential builds: reuse unchanged experts (all gates inside loadPreviousBuild).
+        const previous = await loadPreviousBuild(c.locationId, dossier.dateKey)
         const { brief, dropped } = await runBrief(dossier, {
+          previous,
           suppressedKeys,
           evergreen,
           playTypeMultipliers,

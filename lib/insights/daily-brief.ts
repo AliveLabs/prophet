@@ -12,6 +12,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Brief } from "@/lib/skills/types"
 import type { Database, Json } from "@/types/database.types"
 import { updateInsightPool } from "@/lib/insights/insight-pool"
+import { extractPreviousBuild, type PreviousBuild } from "@/lib/skills/differential"
+import { isWeeklyFullBuildDay } from "@/lib/jobs/build-schedule"
 
 // Was a hand-written loose surface; daily_briefs is now in the generated types, so this is just the
 // real typed client. Aliased so callers can still inject a (mock) client in tests.
@@ -66,4 +68,28 @@ export async function getBrief(locationId: string, opts: { dateKey?: string; cli
   if (opts.dateKey) q = q.eq("date_key", opts.dateKey)
   const { data } = await q.order("date_key", { ascending: false }).limit(1).maybeSingle()
   return (data?.brief as Brief | undefined) ?? null
+}
+
+/** Differential builds: load yesterday's reusable per-skill state, applying every gate in ONE place.
+ *  Returns undefined (→ full build) when: env DIFFERENTIAL_BUILDS=0, forced full build, the weekly
+ *  Sunday-local full-build day, no/too-old previous brief, or any error (always fail-soft). */
+export async function loadPreviousBuild(
+  locationId: string,
+  todayKey: string,
+  opts: { force?: boolean; client?: BriefStore } = {},
+): Promise<PreviousBuild | undefined> {
+  try {
+    if (opts.force || process.env.DIFFERENTIAL_BUILDS === "0") return undefined
+    const sb = store(opts.client)
+    const { data: loc } = await sb.from("locations").select("timezone").eq("id", locationId).maybeSingle()
+    if (isWeeklyFullBuildDay(loc?.timezone, new Date())) {
+      console.log(`[loadPreviousBuild] ${locationId}: weekly full-build day (Sunday local) — no reuse`)
+      return undefined
+    }
+    const prev = await getBrief(locationId, { client: sb })
+    return extractPreviousBuild(prev, todayKey)
+  } catch (err) {
+    console.warn(`[loadPreviousBuild] ${locationId}: failed (full build):`, err)
+    return undefined
+  }
 }
