@@ -24,6 +24,8 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   rateLimitCallsSampled: 0,
   producerLatencyP95Ms: 0,
   latencySamples: 0,
+  briefDrainP95Ms: 0,
+  briefDrainsSampled: 0,
   ...over,
 })
 
@@ -155,6 +157,25 @@ describe("evaluatePipelineHealth — producer latency drift (the pre-cliff warni
   it("fires at the threshold boundary", () => {
     expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 200_000, latencySamples: 18 }), NOW).status).toBe("degraded")
     expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 199_999, latencySamples: 18 }), NOW).status).toBe("ok")
+  })
+})
+
+describe("evaluatePipelineHealth — brief queue drain stretch (the throughput ceiling)", () => {
+  it("degrades when enqueue→done p95 stretches past the alert window", () => {
+    const v = evaluatePipelineHealth(healthy({ briefDrainP95Ms: 3 * 3_600_000, briefDrainsSampled: 7 }), NOW)
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.join(" ")).toMatch(/drain p95 is 3\.0h/)
+    expect(v.reasons.join(" ")).toMatch(/isn't keeping up/i)
+  })
+  it("does NOT alert below the minimum sample", () => {
+    expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 5 * 3_600_000, briefDrainsSampled: 2 }), NOW).status).toBe("ok")
+  })
+  it("does NOT alert on healthy drain times (minutes, not hours)", () => {
+    expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 20 * 60_000, briefDrainsSampled: 7 }), NOW).status).toBe("ok")
+  })
+  it("fires at the threshold boundary (2h)", () => {
+    expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 7_200_000, briefDrainsSampled: 3 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 7_199_999, briefDrainsSampled: 3 }), NOW).status).toBe("ok")
   })
 })
 

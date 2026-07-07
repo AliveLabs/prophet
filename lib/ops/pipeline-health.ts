@@ -66,6 +66,12 @@ export type PipelineSignals = {
   producerLatencyP95Ms: number
   /** How many producer calls carried elapsedMs (the p95's sample base; gates the alert). */
   latencySamples: number
+  /** p95 enqueue→done ms across brief jobs completed in the window. This is the THROUGHPUT ceiling
+   *  signal: the worker drains ~2 briefs/invocation, so as the fleet grows, drain time stretches and
+   *  the "built overnight, before the operator's morning" promise erodes — long before anything fails. */
+  briefDrainP95Ms: number
+  /** How many completed brief jobs the drain p95 was computed over (gates the alert). */
+  briefDrainsSampled: number
 }
 
 export type PipelineHealthThresholds = {
@@ -92,6 +98,13 @@ export type PipelineHealthThresholds = {
   producerP95AlertMs: number
   /** Minimum producer-call samples before the p95 can alert (two briefs' worth of producers). */
   latencyMinSample: number
+  /** Brief enqueue→done p95 (ms) that escalates to degraded. 2h default: a 3 AM-local enqueue should
+   *  land well before the operator's morning; p95 past 2h means the worker isn't keeping up with the
+   *  fleet (throughput ceiling) even though every individual build still succeeds. */
+  briefDrainAlertMs: number
+  /** Minimum completed brief jobs before the drain p95 can alert. Small on purpose — drain times are
+   *  not noisy like call latencies, and even a few multi-hour drains are a real throughput finding. */
+  drainMinSample: number
 }
 
 export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
@@ -103,6 +116,8 @@ export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   rateLimitMinSample: 20,
   producerP95AlertMs: 200_000,
   latencyMinSample: 18,
+  briefDrainAlertMs: 7_200_000,
+  drainMinSample: 3,
 }
 
 /** A location counts as "recently active" (and therefore expected to stay fresh) if it built a
@@ -131,6 +146,8 @@ export type PipelineHealthVerdict = {
   rateLimitCallsSampled: number
   producerLatencyP95Ms: number
   latencySamples: number
+  briefDrainP95Ms: number
+  briefDrainsSampled: number
   thresholds: PipelineHealthThresholds
 }
 
@@ -223,6 +240,15 @@ export function evaluatePipelineHealth(
     )
     escalate("degraded")
   }
+  // Queue drain stretch — the THROUGHPUT ceiling. Every build succeeds, but enqueue→done is
+  // lengthening: the worker can't keep pace with the fleet, so briefs land later and later into the
+  // morning. The growth signal — fires as locations scale, long before anything visibly breaks.
+  if (s.briefDrainsSampled >= t.drainMinSample && s.briefDrainP95Ms >= t.briefDrainAlertMs) {
+    reasons.push(
+      `brief queue drain p95 is ${(s.briefDrainP95Ms / 3_600_000).toFixed(1)}h across ${s.briefDrainsSampled} recent builds — the worker isn't keeping up with the fleet; briefs are landing late (add worker throughput or spread the schedule further)`,
+    )
+    escalate("degraded")
+  }
 
   return {
     status,
@@ -245,6 +271,8 @@ export function evaluatePipelineHealth(
     rateLimitCallsSampled: s.rateLimitCallsSampled,
     producerLatencyP95Ms: s.producerLatencyP95Ms,
     latencySamples: s.latencySamples,
+    briefDrainP95Ms: s.briefDrainP95Ms,
+    briefDrainsSampled: s.briefDrainsSampled,
     thresholds: t,
   }
 }
@@ -259,7 +287,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   const queuedGraceIso = new Date(nowMs - 120 * 60_000).toISOString()
   const recentActiveIso = new Date(nowMs - RECENT_ACTIVE_DAYS * 24 * 3_600_000).toISOString()
 
-  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, vendor] = await Promise.all([
+  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, doneBriefJobs, vendor] = await Promise.all([
     sb.from("pipeline_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("location_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("daily_briefs").select("generated_at").order("generated_at", { ascending: false }).limit(1).maybeSingle(),
@@ -271,6 +299,8 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     // Distinct (location, pipeline) failures — fetch the rows and de-dup in JS (PostgREST can't distinct-count).
     sb.from("signal_jobs").select("location_id, pipeline").eq("status", "failed").gte("updated_at", sinceIso),
     sb.from("signal_jobs").select("id", { count: "exact", head: true }).eq("status", "queued").lt("scheduled_for", queuedGraceIso),
+    // Brief jobs completed in the window: enqueue→done duration = the queue drain (throughput signal).
+    sb.from("signal_jobs").select("created_at, updated_at").eq("pipeline", "brief").eq("status", "done").gte("updated_at", sinceIso),
     detectDataForSeoHealth(sb, { nowMs }),
   ])
 
@@ -328,6 +358,15 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
 
   const failedKeys = new Set((failedRows.data ?? []).map((r) => `${r.location_id}|${r.pipeline}`))
 
+  // Enqueue→done drain per brief job completed in the window; p95 mirrors the latency signal's math.
+  const drains: number[] = []
+  for (const j of doneBriefJobs.data ?? []) {
+    const ms = new Date(j.updated_at).getTime() - new Date(j.created_at).getTime()
+    if (Number.isFinite(ms) && ms >= 0) drains.push(ms)
+  }
+  drains.sort((a, b) => a - b)
+  const briefDrainP95Ms = drains.length > 0 ? drains[Math.max(0, Math.ceil(drains.length * 0.95) - 1)] : 0
+
   return {
     lastRunAt: (run.data?.finished_at ?? run.data?.started_at) ?? null,
     lastDataAt: data.data?.created_at ?? null,
@@ -344,6 +383,8 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     rateLimitCallsSampled: requestsTotal,
     producerLatencyP95Ms,
     latencySamples: latencies.length,
+    briefDrainP95Ms,
+    briefDrainsSampled: drains.length,
   }
 }
 
