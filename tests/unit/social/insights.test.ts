@@ -635,9 +635,27 @@ describe("Integration: multiple rules", () => {
 describe("honest engagement language on quiet accounts", () => {
   const daysAgoIso = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString()
 
+  // The engagement rate is a per-post average, so the verdict only fires with a
+  // real sample behind it. Realistic fixtures carry the posts that rate was
+  // computed from (production never has a nonzero rate with zero posts).
+  const makePosts = (n: number): SocialSnapshotData["recentPosts"] =>
+    Array.from({ length: n }, (_, i) => ({
+      platformPostId: `p${i}`,
+      platform: "instagram" as SocialPlatform,
+      text: `Post ${i}`,
+      mediaUrl: null,
+      mediaType: "image" as const,
+      likesCount: 10,
+      commentsCount: 2,
+      sharesCount: 0,
+      viewsCount: null,
+      hashtags: [],
+      createdTime: daysAgoIso(i + 1),
+    }))
+
   it("a quiet account's high engagement reads 'when you post', never as current health", () => {
     const loc = makeEntity("location", "Me", "tiktok", {
-      recentPosts: [],
+      recentPosts: makePosts(8),
       aggregateMetrics: {
         engagementRate: 63.3,
         postingFrequencyPerWeek: 0,
@@ -664,6 +682,7 @@ describe("honest engagement language on quiet accounts", () => {
 
   it("an active account keeps the straightforward 'excellent engagement' framing", () => {
     const loc = makeEntity("location", "Me", "tiktok", {
+      recentPosts: makePosts(16),
       aggregateMetrics: {
         engagementRate: 12,
         postingFrequencyPerWeek: 4,
@@ -683,6 +702,82 @@ describe("honest engagement language on quiet accounts", () => {
 
     expect(excellent).toBeDefined()
     expect(excellent!.title).toMatch(/^Excellent TikTok engagement/)
+  })
+
+  // ALT-275: a per-post rate on a thin scrape is noise. Never hand an operator a
+  // confident verdict — good or bad — about their own page off a handful of posts.
+  it("suppresses BOTH verdicts when too few posts back the rate", () => {
+    const excellentButThin = makeEntity("location", "Me", "instagram", {
+      recentPosts: makePosts(4),
+      aggregateMetrics: {
+        engagementRate: 20, // well above 'great'
+        topHashtags: [],
+        avgLikesPerPost: 50,
+        avgCommentsPerPost: 5,
+        avgSharesPerPost: 2,
+        avgViewsPerPost: null,
+        postingFrequencyPerWeek: 1,
+      } as SocialSnapshotData["aggregateMetrics"],
+    })
+    const belowButThin = makeEntity("location", "Me", "facebook", {
+      recentPosts: makePosts(3),
+      aggregateMetrics: {
+        engagementRate: 0.2, // below facebook 'low' of 0.5
+        topHashtags: [],
+        avgLikesPerPost: 1,
+        avgCommentsPerPost: 0,
+        avgSharesPerPost: 0,
+        avgViewsPerPost: null,
+        postingFrequencyPerWeek: 1,
+      } as SocialSnapshotData["aggregateMetrics"],
+    })
+    const a = generateSocialInsights([excellentButThin], [])
+    const b = generateSocialInsights([belowButThin], [])
+    expect(a.find((i) => i.insight_type === "social.engagement_excellent")).toBeUndefined()
+    expect(b.find((i) => i.insight_type === "social.engagement_below_average")).toBeUndefined()
+  })
+
+  it("a genuinely low rate over a real sample still fires — and cites the sample", () => {
+    const loc = makeEntity("location", "Me", "facebook", {
+      recentPosts: makePosts(20),
+      aggregateMetrics: {
+        engagementRate: 0.2, // real, below facebook 'low' of 0.5
+        topHashtags: [],
+        avgLikesPerPost: 2,
+        avgCommentsPerPost: 0,
+        avgSharesPerPost: 0,
+        avgViewsPerPost: null,
+        postingFrequencyPerWeek: 3,
+      } as SocialSnapshotData["aggregateMetrics"],
+    })
+    const below = generateSocialInsights([loc], []).find(
+      (i) => i.insight_type === "social.engagement_below_average"
+    )
+    expect(below).toBeDefined()
+    expect(below!.summary).toContain("across 20 recent posts")
+    expect(below!.confidence).toBe("high") // >= 12 posts
+  })
+
+  it("reports medium confidence on a borderline sample and never renders '0.0%'", () => {
+    const loc = makeEntity("location", "Me", "facebook", {
+      recentPosts: makePosts(6), // >= floor, < high-confidence bar
+      aggregateMetrics: {
+        engagementRate: 0.04, // real but tiny — must not collapse to "0.0%"
+        topHashtags: [],
+        avgLikesPerPost: 1,
+        avgCommentsPerPost: 0,
+        avgSharesPerPost: 0,
+        avgViewsPerPost: null,
+        postingFrequencyPerWeek: 2,
+      } as SocialSnapshotData["aggregateMetrics"],
+    })
+    const below = generateSocialInsights([loc], []).find(
+      (i) => i.insight_type === "social.engagement_below_average"
+    )
+    expect(below).toBeDefined()
+    expect(below!.confidence).toBe("medium")
+    expect(below!.title).toContain("0.04%")
+    expect(below!.title).not.toContain("(0.0%)")
   })
 })
 

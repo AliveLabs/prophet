@@ -585,10 +585,36 @@ const ENGAGEMENT_BENCHMARKS: Record<string, { low: number; good: number; great: 
   tiktok: { low: 2.0, good: 5.0, great: 10.0 },
 }
 
+// A per-post engagement RATE is only as trustworthy as the number of posts it
+// averages over. On a thin scrape (a handful of captured posts, or a sparse
+// Facebook page) the rate is noise, and a near-zero rate can round to "0.0%".
+// Below this floor we stay silent rather than hand an operator a confident
+// "your content isn't resonating" verdict about their own page (ALT-275).
+// Mirrors the 5-post floor Rule 13 already uses.
+const MIN_POSTS_FOR_ENGAGEMENT_VERDICT = 5
+// At/above this many posts the average is stable enough to call "high"
+// confidence; between the floor and here it reports "medium".
+const ENGAGEMENT_HIGH_CONF_POSTS = 12
+
+/** Render an engagement rate without collapsing a real, tiny value to "0.0%"
+ *  (which reads like broken data). Two decimals under 0.1%, one otherwise. */
+function formatEngagementRate(rate: number): string {
+  return (rate < 0.1 ? rate.toFixed(2) : rate.toFixed(1)) + "%"
+}
+
 function checkEngagementBenchmark(location: EntitySnapshot): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
   const rate = location.current.aggregateMetrics.engagementRate
   if (rate <= 0) return insights
+
+  // Don't judge a rate we can't stand behind: too few posts → the average is
+  // noise, so stay silent for BOTH the positive and negative verdicts (a lucky
+  // single post shouldn't earn "excellent", a thin scrape shouldn't earn
+  // "below average"). See ALT-275.
+  const postsAnalyzed = location.current.recentPosts.length
+  if (postsAnalyzed < MIN_POSTS_FOR_ENGAGEMENT_VERDICT) return insights
+  const rateConfidence: "high" | "medium" =
+    postsAnalyzed >= ENGAGEMENT_HIGH_CONF_POSTS ? "high" : "medium"
 
   const bench = ENGAGEMENT_BENCHMARKS[location.platform] ?? { low: 1.0, good: 3.0, great: 6.0 }
   // Engagement is a per-post rate — on a quiet account it must read as latent
@@ -601,12 +627,12 @@ function checkEngagementBenchmark(location: EntitySnapshot): GeneratedInsight[] 
     insights.push({
       insight_type: "social.engagement_excellent",
       title: accountQuiet
-        ? `When you post on ${platformLabel(location.platform)}, engagement averages ${rate.toFixed(1)}%`
-        : `Excellent ${platformLabel(location.platform)} engagement: ${rate.toFixed(1)}%`,
+        ? `When you post on ${platformLabel(location.platform)}, engagement averages ${formatEngagementRate(rate)}`
+        : `Excellent ${platformLabel(location.platform)} engagement: ${formatEngagementRate(rate)}`,
       summary: accountQuiet
-        ? `When you do post, your per-post engagement on ${platformLabel(location.platform)} averages ${rate.toFixed(1)}% — well above the ${bench.good}% industry average. But your last post was ${Math.round(sincePost)} days ago; that audience is waiting for you to resume.`
-        : `Your per-post engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} is well above the industry average of ${bench.good}%. Your content is resonating strongly with your audience.`,
-      confidence: "high",
+        ? `When you do post, your per-post engagement on ${platformLabel(location.platform)} averages ${formatEngagementRate(rate)} — well above the ${bench.good}% industry average. But your last post was ${Math.round(sincePost)} days ago; that audience is waiting for you to resume.`
+        : `Your per-post engagement rate of ${formatEngagementRate(rate)} on ${platformLabel(location.platform)} is well above the industry average of ${bench.good}%. Your content is resonating strongly with your audience.`,
+      confidence: rateConfidence,
       severity: "info",
       evidence: {
         yourRate: rate,
@@ -632,9 +658,9 @@ function checkEngagementBenchmark(location: EntitySnapshot): GeneratedInsight[] 
   } else if (rate < bench.low) {
     insights.push({
       insight_type: "social.engagement_below_average",
-      title: `${platformLabel(location.platform)} engagement (${rate.toFixed(1)}%) is below average`,
-      summary: `Your per-post engagement rate of ${rate.toFixed(1)}% on ${platformLabel(location.platform)} (measured across your recent posts) is below the industry benchmark of ${bench.low}%. This means your content isn't resonating — try different formats, posting times, or ask questions in captions.`,
-      confidence: "high",
+      title: `${platformLabel(location.platform)} engagement (${formatEngagementRate(rate)}) is below average`,
+      summary: `Your per-post engagement rate of ${formatEngagementRate(rate)} on ${platformLabel(location.platform)} (measured across ${postsAnalyzed} recent posts) is below the industry benchmark of ${bench.low}%. This means your content isn't resonating — try different formats, posting times, or ask questions in captions.`,
+      confidence: rateConfidence,
       severity: "warning",
       evidence: {
         yourRate: rate,
