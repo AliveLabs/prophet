@@ -30,10 +30,11 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
 })
 
 describe("evaluatePipelineHealth — healthy", () => {
-  it("returns ok with no reasons when everything is fresh", () => {
+  it("returns ok with no reasons/warnings when everything is fresh", () => {
     const v = evaluatePipelineHealth(healthy(), NOW)
     expect(v.status).toBe("ok")
     expect(v.reasons).toEqual([])
+    expect(v.warnings).toEqual([])
     expect(v.checkedAt).toBe(new Date(NOW).toISOString())
     expect(v.hoursSinceLastRun).toBeCloseTo(1, 5)
   })
@@ -141,22 +142,43 @@ describe("evaluatePipelineHealth — rate-ceiling pressure (the leading indicato
   })
 })
 
-describe("evaluatePipelineHealth — producer latency drift (the pre-cliff warning)", () => {
-  it("degrades when producer p95 approaches the abort ceiling with enough sample", () => {
-    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 210_000, latencySamples: 30 }), NOW)
+describe("evaluatePipelineHealth — producer latency (CORROBORATING signal only, never pages alone)", () => {
+  // 2026-07-08 false-alarm postmortem: elapsedMs includes governor slot-wait/retry backoff, not just
+  // API time, so a healthy fleet legitimately runs p95 in the 240-300s band (a SUCCESSFUL call logged
+  // 326s that morning). High latency alone must never page — only when paired with real fallback impact.
+  it("high p95 with NO fallback impact is a WARNING, not a page — status stays ok", () => {
+    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 320_000, latencySamples: 30, fallbackSkillRate: 0, briefsAssessed: 5 }), NOW)
+    expect(v.status).toBe("ok")
+    expect(v.reasons).toEqual([])
+    expect(v.warnings.join(" ")).toMatch(/p95 latency is 320s/)
+    expect(v.warnings.join(" ")).toMatch(/not yet corroborated/i)
+  })
+  it("high p95 CORROBORATED by real fallback impact escalates and pages", () => {
+    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 320_000, latencySamples: 30, fallbackSkillRate: 0.2, briefsAssessed: 5 }), NOW)
     expect(v.status).toBe("degraded")
-    expect(v.reasons.join(" ")).toMatch(/p95 latency is 210s/)
-    expect(v.reasons.join(" ")).toMatch(/abort ceiling/i)
+    expect(v.reasons.join(" ")).toMatch(/p95 latency is 320s/)
+    expect(v.reasons.join(" ")).toMatch(/20% fallback rate/)
+    expect(v.warnings).toEqual([]) // promoted to reasons, not double-counted as a warning
   })
-  it("does NOT alert below a meaningful sample (one slow brief can't trip it)", () => {
-    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 239_000, latencySamples: 9 }), NOW).status).toBe("ok")
+  it("does NOT surface anything below a meaningful sample (one slow brief can't trip it)", () => {
+    // fallbackSkillRate 0.2 is ABOVE the corroboration bar (0.15) but below the standalone
+    // fallbackRateAlert (0.4), so it isolates the latency signal's OWN sample gate.
+    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 320_000, latencySamples: 9, fallbackSkillRate: 0.2, briefsAssessed: 5 }), NOW)
+    expect(v.status).toBe("ok")
+    expect(v.warnings).toEqual([])
   })
-  it("does NOT alert on healthy latencies", () => {
-    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 90_000, latencySamples: 60 }), NOW).status).toBe("ok")
+  it("does NOT surface healthy latencies", () => {
+    const v = evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 90_000, latencySamples: 60 }), NOW)
+    expect(v.status).toBe("ok")
+    expect(v.warnings).toEqual([])
   })
-  it("fires at the threshold boundary", () => {
-    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 200_000, latencySamples: 18 }), NOW).status).toBe("degraded")
-    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 199_999, latencySamples: 18 }), NOW).status).toBe("ok")
+  it("fires at the corrected (units-aware) threshold boundary — 300s, not the old 200s", () => {
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 300_000, latencySamples: 18, fallbackSkillRate: 0.2, briefsAssessed: 5 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 299_999, latencySamples: 18, fallbackSkillRate: 0.2, briefsAssessed: 5 }), NOW).status).toBe("ok")
+  })
+  it("fires at the corroboration-rate boundary (0.15)", () => {
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 320_000, latencySamples: 30, fallbackSkillRate: 0.15, briefsAssessed: 5 }), NOW).status).toBe("degraded")
+    expect(evaluatePipelineHealth(healthy({ producerLatencyP95Ms: 320_000, latencySamples: 30, fallbackSkillRate: 0.14, briefsAssessed: 5 }), NOW).status).toBe("ok")
   })
 })
 

@@ -76,9 +76,11 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
 
   // 2026-07-04: the 16k→32k fix (PR #96) traded truncation for TIMEOUT — 7/9 producers aborted at
   // the 120s Opus-deep ceiling they'd inherited. Producers (Sonnet + thinking, NO opus model) get
-  // their OWN 240s ceiling. (2026-07-07: the deep ceiling was also raised to 240s, so the "pending
-  // at 120s" probe now guards BOTH paths against a regression to the old 120s default.)
-  it("gives producers (Sonnet + thinking) the full 240s ceiling, not the old 120s", async () => {
+  // their OWN ceiling. (2026-07-07: the deep ceiling was also raised to 240s, so the "pending at
+  // 120s" probe still guards both paths against a regression to the old 120s default. 2026-07-08:
+  // producer ceiling raised again, 240s→300s — guerrilla/local-demand/positioning genuinely needed
+  // >240s of pure API time on some full-build dossiers; NOT contention, no rate pressure that morning.)
+  it("gives producers (Sonnet + thinking) the full 300s ceiling, not the old 120s or 240s", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key"
     vi.useFakeTimers()
     const fetchMock = vi.fn(
@@ -99,8 +101,8 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     const sentinel = Symbol("pending")
     const race = await Promise.race([p.then(() => "settled", () => "settled"), Promise.resolve(sentinel)])
     expect(race).toBe(sentinel) // still pending at 120s — proves it's not on the 120s ceiling
-    // It aborts at its own 240s ceiling.
-    await vi.advanceTimersByTimeAsync(120_000)
+    // It aborts at its own 300s ceiling.
+    await vi.advanceTimersByTimeAsync(180_000)
     await assertion
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
