@@ -41,6 +41,7 @@ const DASHBOARD_ROUTES = [
 // Static admin routes.
 const ADMIN_ROUTES = [
   "/admin",
+  "/admin/health",
   "/admin/knowledge-review",
   "/admin/maintenance",
   "/admin/organizations",

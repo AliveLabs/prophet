@@ -16,6 +16,7 @@ export interface AdminNavItem {
 
 export const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin", label: "Overview", icon: <OverviewIcon /> },
+  { href: "/admin/health", label: "Pipeline Health", short: "Health", icon: <HealthIcon /> },
   { href: "/admin/waitlist", label: "Waitlist", icon: <WaitlistIcon /> },
   { href: "/admin/users", label: "Users", icon: <UsersIcon /> },
   { href: "/admin/organizations", label: "Organizations", short: "Orgs", icon: <OrgsIcon /> },
@@ -87,6 +88,14 @@ function OverviewIcon() {
       <rect x="9" y="1" width="6" height="6" rx="1.4" />
       <rect x="1" y="9" width="6" height="6" rx="1.4" />
       <rect x="9" y="9" width="6" height="6" rx="1.4" />
+    </svg>
+  )
+}
+function HealthIcon() {
+  // a heartbeat pulse — pipeline vitals
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <path d="M1 8h3l1.5-4 2.5 8 1.5-4H15" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
