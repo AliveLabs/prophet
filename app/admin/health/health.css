@@ -1,0 +1,113 @@
+/* ============================================================
+   ADMIN — Pipeline Health page (ph-*). Same posture as admin-pass.css
+   (users/waitlist): a self-contained token surface (.ticket-chrome.tk-kit.ph-page)
+   since the admin shell's <main> isn't itself a token surface.
+   ============================================================ */
+
+@import "../../../components/ticket/pass.css";
+
+.ph-page {
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ── PAGE HEADER ─────────────────────────────────────────── */
+.ph-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.ph-head-text { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.ph-head .tk-eyebrow { color: var(--rust-deep); }
+.dark .ph-head .tk-eyebrow { color: var(--rust); }
+.ph-title { font-family: var(--font-display); font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.ph-sub { font-size: 14px; color: var(--ink-2); max-width: 68ch; }
+
+/* ── STATUS PILL ─────────────────────────────────────────── */
+.ph-status {
+  display: flex; align-items: center; gap: 9px;
+  border-radius: 999px; padding: 9px 16px 9px 12px;
+  border: 1px solid var(--line-2); background: var(--card); box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+.ph-status-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.ph-status-ok .ph-status-dot { background: var(--teal); }
+.ph-status-degraded .ph-status-dot { background: var(--gold); }
+.ph-status-down .ph-status-dot { background: var(--alert); }
+.ph-status-label { font-weight: 700; font-size: 13.5px; }
+.ph-status-ok .ph-status-label { color: var(--teal-deep); }
+.ph-status-degraded .ph-status-label { color: var(--gold-deep); }
+.ph-status-down .ph-status-label { color: var(--alert-deep); }
+.dark .ph-status-ok .ph-status-label { color: var(--teal); }
+.dark .ph-status-degraded .ph-status-label { color: var(--gold); }
+.dark .ph-status-down .ph-status-label { color: var(--alert); }
+.ph-status-time { font-size: 12px; color: var(--ink-3); font-family: var(--font-mono); }
+
+/* ── SIGNAL TILES (echoes admin-pass.css's ap-stat grid) ─── */
+.ph-signals { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+.ph-tile {
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--line-2);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative; overflow: hidden;
+  transition: transform var(--t-fast), box-shadow var(--t-fast);
+}
+.ph-tile:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ph-tile-rail { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+.ph-tile-teal  .ph-tile-rail { background: var(--teal); }
+.ph-tile-gold  .ph-tile-rail { background: var(--gold); }
+.ph-tile-alert .ph-tile-rail { background: var(--alert); }
+.ph-tile-lbl { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ph-tile-val { font-family: var(--font-mono); font-size: 24px; font-weight: 700; letter-spacing: -.02em; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ph-tile-teal  .ph-tile-val { color: var(--teal-deep); }
+.ph-tile-gold  .ph-tile-val { color: var(--gold-deep); }
+.ph-tile-alert .ph-tile-val { color: var(--alert-deep); }
+.dark .ph-tile-teal  .ph-tile-val { color: var(--teal); }
+.dark .ph-tile-gold  .ph-tile-val { color: var(--gold); }
+.dark .ph-tile-alert .ph-tile-val { color: var(--alert); }
+.ph-tile-sub { font-size: 11.5px; color: var(--ink-3); }
+
+/* ── REASONS / WARNINGS ──────────────────────────────────── */
+.ph-reasons {
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  border: 1px solid var(--line-2);
+}
+.ph-reasons ul { margin: 8px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.ph-reasons li { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+.ph-reasons-alert { background: color-mix(in srgb, var(--alert) 8%, var(--card)); border-color: color-mix(in srgb, var(--alert) 30%, var(--line-2)); }
+.ph-reasons-gold { background: color-mix(in srgb, var(--gold) 8%, var(--card)); border-color: color-mix(in srgb, var(--gold) 30%, var(--line-2)); }
+.ph-clean {
+  border-radius: var(--r-lg);
+  padding: 16px 18px;
+  border: 1px solid var(--line-2);
+  background: color-mix(in srgb, var(--teal) 6%, var(--card));
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+/* ── SECTION HEADS + TABLES (echoes admin.css's adm-table) ─ */
+.ph-h2 { font-family: var(--font-display); font-size: 16px; font-weight: 700; letter-spacing: -.01em; margin: 4px 0 0; }
+.ph-table-wrap { overflow-x: auto; border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--card); }
+.ph-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; min-width: 640px; }
+.ph-table thead th {
+  padding: 11px 16px;
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-3); border-bottom: 1px solid var(--line-2);
+}
+.ph-table tbody td { padding: 11px 16px; border-bottom: 1px solid var(--line); color: var(--ink-2); vertical-align: middle; }
+.ph-table tbody tr:last-child td { border-bottom: 0; }
+.ph-table tbody tr:hover { background: var(--card-2); }
+.ph-table td.is-strong { font-weight: 600; color: var(--ink); }
+.ph-table td.is-alert { color: var(--alert-deep); font-weight: 600; }
+.dark .ph-table td.is-alert { color: var(--alert); }
+.ph-offenders { max-width: 42ch; font-size: 12px; }
+.ph-empty { text-align: center; color: var(--ink-3); padding: 24px 16px !important; }
+
+@media (max-width: 900px) {
+  .ph-signals { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .ph-signals { grid-template-columns: 1fr; }
+}

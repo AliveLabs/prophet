@@ -6,10 +6,17 @@
 # for ~2 weeks in 2026-06 with no alert (every in-app alerter was a Vercel cron,
 # dark alongside everything else).
 #
-# It polls GET /api/health/pipeline and alerts you + Chris (Slack + email) when the
-# pipeline is unhealthy OR the endpoint is unreachable (app/Vercel down). The final
-# step also fails the run, so GitHub's native "workflow failed" email is a free
-# third backstop channel to repo admins.
+# It polls GET /api/health/pipeline and alerts you + Chris (Slack + email) whenever the engine
+# reports degraded/down OR the endpoint is unreachable.
+#
+# RUN OUTCOME (2026-07-08 fix): the Actions run itself only FAILS (exit 1 → red X → GitHub's
+# native "workflow failed" email) when the PROBE couldn't complete — unreachable, timed out, or
+# an auth rejection. A successful probe that reports the ENGINE as degraded/down still pages
+# Slack/email, but the run itself stays GREEN. Before this, any engine-degraded read failed the
+# run too, so a working watchdog looked identical (red X, "failure", exit 1) to a genuinely
+# broken one — an operator reading the Actions UI couldn't tell "the pipeline has a problem"
+# from "the watchdog itself is broken" without opening the logs. One signal, one meaning now:
+# red X = the watchdog couldn't check; Slack/email = what it found when it could.
 #
 # REQUIRED repo secrets (Settings → Secrets and variables → Actions):
 #   HEALTH_CHECK_TOKEN     - must equal the same env var set on the Vercel app
@@ -64,6 +71,7 @@ jobs:
           if [ -z "${HEALTH_TOKEN}" ]; then
             echo "HEALTH_CHECK_TOKEN not set — watchdog is not armed; skipping."
             echo "healthy=true" >> "$GITHUB_OUTPUT"
+            echo "probe_ok=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           set +e
@@ -74,6 +82,18 @@ jobs:
           [ -s /tmp/health.json ] || echo '{}' > /tmp/health.json
           STATUS=$(jq -r '.status // "unreachable"' /tmp/health.json 2>/dev/null || echo "unreachable")
           REASONS=$(jq -r '(.reasons // []) | join(" | ")' /tmp/health.json 2>/dev/null || echo "")
+          # Decision-relevant numbers (2026-07-08): the alert used to carry ONLY the tripping
+          # reason string. Bryan's ask: show enough to act without opening a database query.
+          # Blank (not "0%") when the probe itself failed — {} has no fields to summarize.
+          SUMMARY=$(jq -r '
+            if (.checkedAt // empty) == "" then "" else
+              "Fallback: \((((.fallbackSkillRate // 0)*100)|round))% (\(.briefsAssessed // 0) loc) · " +
+              "Rate-limited: \((((.rateLimitedRate // 0)*100)|round))% (\(.rateLimitCallsSampled // 0) calls) · " +
+              "Producer p95: \(((.producerLatencyP95Ms // 0)/1000)|round)s (\(.latencySamples // 0) calls) · " +
+              "Drain p95: \(((.briefDrainP95Ms // 0)/60000)|round)m (\(.briefDrainsSampled // 0) builds) · " +
+              "Stale locations: \(.staleLocations // 0)"
+            end
+          ' /tmp/health.json 2>/dev/null || echo "")
           # An auth rejection means the SECRET is wrong, not the pipeline — say so, or the operator
           # chases a healthy pipeline. (Endpoint returns no reasons body on 401/403.)
           if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
@@ -81,18 +101,31 @@ jobs:
           elif [ "$CURL_RC" -ne 0 ]; then
             REASONS="${REASONS:-could not reach the health endpoint (curl exit $CURL_RC) — app/Vercel may be down}"
           fi
-          if [ "$CURL_RC" -ne 0 ] || [ "$HTTP_CODE" != "200" ] || [ "$STATUS" != "ok" ]; then
+          # PROBE_OK: did the CHECK itself complete (reachable, 200, accepted token)? This is what
+          # fails the Actions run — a red X means "the watchdog couldn't check", nothing else.
+          if [ "$CURL_RC" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+            PROBE_OK=false
+          else
+            PROBE_OK=true
+          fi
+          # HEALTHY: did the ENGINE report ok? Drives Slack/email — independent of PROBE_OK's
+          # meaning, though a failed probe is always reported unhealthy too (can't confirm ok).
+          if [ "$PROBE_OK" = "false" ] || [ "$STATUS" != "ok" ]; then
             HEALTHY=false
           else
             HEALTHY=true
           fi
-          echo "Probe: http=$HTTP_CODE curl_rc=$CURL_RC status=$STATUS healthy=$HEALTHY"
+          echo "Probe: http=$HTTP_CODE curl_rc=$CURL_RC status=$STATUS probe_ok=$PROBE_OK healthy=$HEALTHY"
           {
             echo "healthy=$HEALTHY"
+            echo "probe_ok=$PROBE_OK"
             echo "status=$STATUS"
             echo "http_code=$HTTP_CODE"
             echo "reasons<<__EOF__"
             echo "${REASONS:-<none returned>}"
+            echo "__EOF__"
+            echo "summary<<__EOF__"
+            echo "${SUMMARY}"
             echo "__EOF__"
           } >> "$GITHUB_OUTPUT"
 
@@ -105,17 +138,23 @@ jobs:
           IS_TEST: ${{ github.event.inputs.test_alert }}
           STATUS: ${{ steps.probe.outputs.status }}
           HTTP_CODE: ${{ steps.probe.outputs.http_code }}
+          PROBE_OK: ${{ steps.probe.outputs.probe_ok }}
           REASONS: ${{ steps.probe.outputs.reasons }}
+          SUMMARY: ${{ steps.probe.outputs.summary }}
         run: |
           if [ -z "${SLACK_WEBHOOK}" ]; then echo "SLACK_ALERT_WEBHOOK_URL not set; skipping Slack"; exit 0; fi
           if [ "${IS_TEST}" = "true" ]; then
             TEXT=":white_check_mark: *Ticket pipeline watchdog — TEST alert.* Manual drill to confirm Slack delivery; no action needed. (Live pipeline status: ${STATUS}.)"
-          else
-            TEXT=":rotating_light: *Ticket pipeline watchdog* — status: ${STATUS} (http ${HTTP_CODE})
-          The scheduled data/brief pipeline is not healthy.
-          Reasons: ${REASONS}
+          elif [ "${PROBE_OK}" = "false" ]; then
+            TEXT=":satellite: *Ticket pipeline watchdog* — could not reach the health endpoint (http ${HTTP_CODE})
+          ${REASONS}
           Check Vercel → prophet → Settings → Crons (enabled? billing OK?) and the worker queue.
-          Dashboard: https://app.getticket.ai/admin"
+          Dashboard: https://app.getticket.ai/admin/health"
+          else
+            TEXT=":rotating_light: *Ticket pipeline watchdog* — status: ${STATUS}
+          Reasons: ${REASONS}
+          ${SUMMARY}
+          Dashboard: https://app.getticket.ai/admin/health"
           fi
           jq -n --arg t "$TEXT" '{text:$t}' \
             | curl -sS --fail-with-body -m 20 -X POST -H 'Content-Type: application/json' -d @- "$SLACK_WEBHOOK"
@@ -131,28 +170,37 @@ jobs:
           IS_TEST: ${{ github.event.inputs.test_alert }}
           STATUS: ${{ steps.probe.outputs.status }}
           HTTP_CODE: ${{ steps.probe.outputs.http_code }}
+          PROBE_OK: ${{ steps.probe.outputs.probe_ok }}
           REASONS: ${{ steps.probe.outputs.reasons }}
+          SUMMARY: ${{ steps.probe.outputs.summary }}
         run: |
           if [ -z "${RESEND_API_KEY}" ]; then echo "RESEND_API_KEY not set; skipping email"; exit 0; fi
           TO_JSON=$(printf '%s' "${OPS_EMAILS}" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length>0))')
           if [ "${IS_TEST}" = "true" ]; then
             SUBJECT="[Ticket] Pipeline watchdog — TEST alert (delivery check)"
             HTML="<h2>Ticket pipeline watchdog — TEST</h2><p>Manual drill to confirm email delivery to you + Chris. No action needed.</p><p>Live pipeline status: <b>${STATUS}</b>.</p>"
+          elif [ "${PROBE_OK}" = "false" ]; then
+            SUBJECT="[Ticket] Pipeline watchdog: could not reach the health endpoint"
+            HTML="<h2>Ticket pipeline watchdog</h2><p>Could not complete the health check (http ${HTTP_CODE}).</p><p><pre>${REASONS}</pre></p><p>Check Vercel &rarr; prophet &rarr; Settings &rarr; Crons (enabled? billing OK?) and the worker queue.</p><p><a href=\"https://app.getticket.ai/admin/health\">Open dashboard</a></p>"
           else
             SUBJECT="[Ticket] Pipeline watchdog: ${STATUS} — scheduled jobs unhealthy"
-            HTML="<h2>Ticket pipeline watchdog</h2><p>Status: <b>${STATUS}</b> (http ${HTTP_CODE})</p><p>The scheduled data/brief pipeline is not healthy.</p><p><b>Reasons:</b></p><pre>${REASONS}</pre><p>Check Vercel &rarr; prophet &rarr; Settings &rarr; Crons (enabled? billing OK?) and the worker queue.</p><p><a href=\"https://app.getticket.ai/admin\">Open dashboard</a></p>"
+            HTML="<h2>Ticket pipeline watchdog</h2><p>Status: <b>${STATUS}</b></p><p><b>Reasons:</b></p><pre>${REASONS}</pre><p><b>Signals:</b> ${SUMMARY}</p><p><a href=\"https://app.getticket.ai/admin/health\">Open dashboard</a></p>"
           fi
           jq -n --argjson to "$TO_JSON" --arg from "$RESEND_FROM" --arg subject "$SUBJECT" --arg html "$HTML" \
             '{from:$from, to:$to, subject:$subject, html:$html}' \
             | curl -sS --fail-with-body -m 20 -X POST https://api.resend.com/emails \
                 -H "Authorization: Bearer ${RESEND_API_KEY}" -H "Content-Type: application/json" -d @-
 
-      - name: Fail the run when unhealthy (GitHub-native backstop alert)
-        # always() so a failed Slack post never skips the email or the exit-1 backstop —
-        # independent alert paths are the whole point of a watchdog.
-        if: always() && steps.probe.outputs.healthy == 'false'
+      - name: Fail the run when the PROBE couldn't complete (GitHub-native backstop alert)
+        # Only fails on a probe failure (unreachable / non-200 / rejected token) — NOT on an
+        # engine-degraded read. A successful probe reporting degraded/down already paged Slack +
+        # email above; failing the Actions run too would make a WORKING watchdog indistinguishable
+        # from a BROKEN one in the Actions UI (2026-07-08: this is what made a healthy alert cycle
+        # read as "the watchdog is broken" — exit 1 fired on every engine-degraded morning).
+        # always() so a failed Slack/email step never skips this backstop.
+        if: always() && steps.probe.outputs.probe_ok == 'false'
         env:
-          STATUS: ${{ steps.probe.outputs.status }}
+          HTTP_CODE: ${{ steps.probe.outputs.http_code }}
         run: |
-          echo "Pipeline unhealthy (status=${STATUS}). Failing the run so it surfaces in the Actions UI + GitHub notifications."
+          echo "Health probe could not complete (http=${HTTP_CODE}). Failing the run so it surfaces in the Actions UI + GitHub notifications — this means the WATCHDOG couldn't check, not necessarily that the pipeline is unhealthy (Slack/email above cover that separately)."
           exit 1
