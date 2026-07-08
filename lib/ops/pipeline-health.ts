@@ -92,12 +92,21 @@ export type PipelineHealthThresholds = {
   rateLimitedRateAlert: number
   /** Minimum requests sampled before rateLimitedRate can alert (avoids a 1-of-2 spike tripping it). */
   rateLimitMinSample: number
-  /** Producer p95 latency (ms) that escalates to degraded. 200s default = within ~17% of the 240s
-   *  producer abort (ANTHROPIC_PRODUCER_TIMEOUT_MS default) — p95 there means the slowest producers
-   *  are about to start timing out into fallbacks. Deliberately below the cliff, not at it. */
+  /** Producer p95 latency (ms) worth SURFACING. 300s default: elapsedMs includes governor slot-wait
+   *  and retry backoff, NOT just API time (the abort clock excludes slot-wait) — so a healthy fleet
+   *  routinely runs p95 in the 240-300s band (2026-07-08: a "successful" call logged 326s). This
+   *  threshold is deliberately ABOVE that healthy band; it exists to CORROBORATE a fallback-rate
+   *  finding (see producerP95CorroborationFallbackRate), never to page on its own — internal timing
+   *  alone is not customer impact. Below-threshold latency is still recorded in `warnings`, not `reasons`. */
   producerP95AlertMs: number
-  /** Minimum producer-call samples before the p95 can alert (two briefs' worth of producers). */
+  /** Minimum producer-call samples before the p95 signal is trustworthy (two briefs' worth). */
   latencyMinSample: number
+  /** Fleet fallback rate (0..1) that must ALSO be true for high p95 to escalate to degraded — the
+   *  corroborating "customer impact" bar, well below the standalone fallbackRateAlert (0.4). Latency
+   *  alone (even a genuinely high p95) is internal timing, not proof customers are seeing anything;
+   *  pairing it with real fallbacks turns "the abort ceiling is close" into "and it's already costing
+   *  real plays" before paging. Chosen well above the ~11% single-flaky-skill noise floor. */
+  producerP95CorroborationFallbackRate: number
   /** Brief enqueue→done p95 (ms) that escalates to degraded. 2h default: a 3 AM-local enqueue should
    *  land well before the operator's morning; p95 past 2h means the worker isn't keeping up with the
    *  fleet (throughput ceiling) even though every individual build still succeeds. */
@@ -114,8 +123,9 @@ export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   fallbackRateAlert: 0.4,
   rateLimitedRateAlert: 0.25,
   rateLimitMinSample: 20,
-  producerP95AlertMs: 200_000,
+  producerP95AlertMs: 300_000,
   latencyMinSample: 18,
+  producerP95CorroborationFallbackRate: 0.15,
   briefDrainAlertMs: 7_200_000,
   drainMinSample: 3,
 }
@@ -127,8 +137,13 @@ export const RECENT_ACTIVE_DAYS = 8
 export type PipelineHealthVerdict = {
   status: PipelineHealthStatus
   checkedAt: string
-  /** Human-readable problems; empty when status is ok. */
+  /** Human-readable problems that DROVE the status (down/degraded) — this is what pages Slack/email.
+   *  Empty when status is ok. */
   reasons: string[]
+  /** Informational findings that do NOT by themselves change status or page anyone (e.g. elevated
+   *  latency without corroborating fallback impact). Surfaced for the admin dashboard / trend-watching;
+   *  never sent to Slack/email — the alert channel should only ever carry actionable reasons. */
+  warnings: string[]
   lastRunAt: string | null
   lastDataAt: string | null
   lastBriefAt: string | null
@@ -165,6 +180,7 @@ export function evaluatePipelineHealth(
   const briefAge = ageHours(s.lastBriefAt)
 
   const reasons: string[] = []
+  const warnings: string[] = []
   let status: PipelineHealthStatus = "ok"
   const escalate = (to: PipelineHealthStatus) => {
     if (RANK[to] > RANK[status]) status = to
@@ -231,14 +247,23 @@ export function evaluatePipelineHealth(
     )
     escalate("degraded")
   }
-  // Producer latency drift — the LAST warning before the cliff. p95 near the abort ceiling means the
-  // slowest producers are about to start timing out into fallbacks (rate pressure, prompt bloat, or
-  // concurrency contention). Fires while briefs still look healthy.
+  // Producer latency — CORROBORATING signal only, never pages alone. elapsedMs includes governor
+  // slot-wait + retry backoff (not just API time), so a healthy fleet legitimately runs p95 in the
+  // 240-300s band (2026-07-08 false-alarm postmortem: a SUCCESSFUL call logged 326s). Internal timing
+  // by itself is not customer impact — only escalate when it's paired with a real (if modest) fallback
+  // rate, i.e. "the ceiling is close AND it's already costing plays." A high p95 with no fallback
+  // impact is recorded as a warning (visible in the admin dashboard) but does not page.
   if (s.latencySamples >= t.latencyMinSample && s.producerLatencyP95Ms >= t.producerP95AlertMs) {
-    reasons.push(
-      `producer p95 latency is ${Math.round(s.producerLatencyP95Ms / 1000)}s across ${s.latencySamples} recent calls — approaching the abort ceiling; timeouts/fallbacks are imminent (check rate pressure, prompt size, or concurrency)`,
-    )
-    escalate("degraded")
+    const corroborated = s.briefsAssessed > 0 && s.fallbackSkillRate >= t.producerP95CorroborationFallbackRate
+    const msg = `producer p95 latency is ${Math.round(s.producerLatencyP95Ms / 1000)}s across ${s.latencySamples} recent calls`
+    if (corroborated) {
+      reasons.push(
+        `${msg}, alongside a ${(s.fallbackSkillRate * 100).toFixed(0)}% fallback rate — the abort ceiling is already costing real plays (check rate pressure, prompt size, or concurrency)`,
+      )
+      escalate("degraded")
+    } else {
+      warnings.push(`${msg} — elevated but not yet corroborated by fallback impact; worth watching, not paging`)
+    }
   }
   // Queue drain stretch — the THROUGHPUT ceiling. Every build succeeds, but enqueue→done is
   // lengthening: the worker can't keep pace with the fleet, so briefs land later and later into the
@@ -254,6 +279,7 @@ export function evaluatePipelineHealth(
     status,
     checkedAt: new Date(nowMs).toISOString(),
     reasons,
+    warnings,
     lastRunAt: s.lastRunAt,
     lastDataAt: s.lastDataAt,
     lastBriefAt: s.lastBriefAt,

@@ -61,7 +61,13 @@ const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 6
 // fallback (reason=timeout) — i.e. we traded truncation for timeout. They used to inherit the
 // Opus-deep 120s ceiling; give them their OWN (larger) one. Fits the 800s route/worker budget:
 // producers run in parallel (≤ this ceiling) + Opus convergence (DEEP_TIMEOUT) + synthesis. Env-tunable.
-const PRODUCER_TIMEOUT_MS = Number(process.env.ANTHROPIC_PRODUCER_TIMEOUT_MS) || 240_000
+// 300s (was 240s, 2026-07-08): on full (non-reused) builds, guerrilla-marketing / local-demand /
+// positioning genuinely need >240s of pure API time at medium effort on some dossiers — NOT
+// contention (drains were clean, no rate-limit pressure) — and were hitting the abort exactly at
+// 240s (~19% fleet fallback rate that morning). Bumping the ceiling (not the effort level — Bryan's
+// explicit quality constraint) removes that fallback source directly. Differential-build reuse
+// (2026-07-07) also means these skills increasingly only run fresh when their inputs actually moved.
+const PRODUCER_TIMEOUT_MS = Number(process.env.ANTHROPIC_PRODUCER_TIMEOUT_MS) || 300_000
 
 export function extractJson(text: string): unknown {
   // strip markdown code fences, then try whole-string parse
