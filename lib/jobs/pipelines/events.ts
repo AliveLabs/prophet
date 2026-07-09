@@ -7,7 +7,10 @@ import type { PipelineStepDef } from "../types"
 import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { getEventsQueriesPerRun, getEventsMaxDepth } from "@/lib/billing/limits"
 import { fetchGoogleEvents } from "@/lib/providers/dataforseo/google-events"
+import { fetchGroundedEvents, GroundedEventsError } from "@/lib/providers/gemini/google-events"
 import { normalizeEventsSnapshot } from "@/lib/events/normalize"
+import { normalizeGroundedEvents } from "@/lib/events/normalize-grounded"
+import { mergeEventSnapshots } from "@/lib/events/merge"
 import { computeEventsSnapshotDiffHash } from "@/lib/events/hash"
 import { matchEventsToCompetitors } from "@/lib/events/match"
 import {
@@ -73,6 +76,23 @@ function getPreviousDateKey(dateKey: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+// ── Events source flag (Events source migration · P0) ───────────────────────
+// Unknown/unset → "dataforseo": the source-swap is DARK by default, so this pipeline is
+// byte-identical to pre-migration behavior until EVENTS_SOURCE is flipped globally.
+//   grounded — Gemini google_search grounding only (DataForSEO is the sole fallback on a throw)
+//   hybrid   — DataForSEO breadth + grounded accuracy, merged (grounded identity wins)
+// Per-location canary override (Phase 2) is a deliberate follow-up — not wired here.
+const GROUNDED_MAX_EVENTS = 25
+
+export function resolveEventsSource(): "dataforseo" | "grounded" | "hybrid" {
+  const v = (process.env.EVENTS_SOURCE ?? "").toLowerCase().trim()
+  return v === "grounded" || v === "hybrid" ? v : "dataforseo"
+}
+
+function errMessage(e: unknown): string {
+  return e instanceof Error ? e.message : String(e)
+}
+
 // ---------------------------------------------------------------------------
 // Step builders
 // ---------------------------------------------------------------------------
@@ -81,7 +101,11 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
   return [
     {
       name: "fetch_events",
-      label: "Fetching local events from DataForSEO",
+      label: "Fetching local events",
+      // When the grounded/hybrid source is active, a TOTAL fetch failure (grounded threw AND the
+      // DataForSEO fallback threw) must FAIL the job → retry, never launder stale data to "done"
+      // (risk #3). On the default DataForSEO path this stays falsy — today's exact behavior.
+      critical: resolveEventsSource() !== "dataforseo",
       run: async (c) => {
         const locationName = buildLocationName(c.location)
         const maxQueries = getEventsQueriesPerRun(c.tier)
@@ -113,33 +137,76 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
         } catch (err) {
           c.state.warnings.push(`Partner catalog refresh skipped: ${String(err)}`)
         }
-        const queryDefs = buildEventQueryPlan({
-          catalog,
-          maxQueries,
-          dateKey: c.dateKey,
-        })
+        // ── Source selection (Events source migration · P0). Default "dataforseo" runs the
+        // exact original path below; grounded/hybrid activate the Gemini-grounded source. ──
+        const source = resolveEventsSource()
 
-        const rawResults = await Promise.all(
-          queryDefs.map((q) =>
-            fetchGoogleEvents({
-              keyword: q.keyword,
+        // DataForSEO breadth fetch, encapsulated so grounded/hybrid reuse it as the fallback.
+        const fetchDataForSeoSnapshot = async (): Promise<NormalizedEventsSnapshotV1> => {
+          const queryDefs = buildEventQueryPlan({ catalog, maxQueries, dateKey: c.dateKey })
+          const rawResults = await Promise.all(
+            queryDefs.map((q) =>
+              fetchGoogleEvents({
+                keyword: q.keyword,
+                locationName,
+                dateRange: q.dateRange,
+                depth,
+                lat: c.location.geo_lat,
+                lng: c.location.geo_lng,
+              })
+            )
+          )
+          const queries: EventsQuery[] = queryDefs.map((q) => ({
+            keyword: q.keyword,
+            locationName,
+            dateRange: q.dateRange,
+            depth,
+          }))
+          return normalizeEventsSnapshot(rawResults, queries)
+        }
+
+        if (source === "dataforseo") {
+          c.state.snapshot = await fetchDataForSeoSnapshot()
+        } else {
+          // DataForSEO is best-effort breadth for hybrid; the sole fallback for grounded.
+          let dfSnapshot: NormalizedEventsSnapshotV1 | null = null
+          if (source === "hybrid") {
+            try {
+              dfSnapshot = await fetchDataForSeoSnapshot()
+            } catch (e) {
+              c.state.warnings.push(`[events] hybrid: DataForSEO breadth unavailable: ${errMessage(e)}`)
+            }
+          }
+          try {
+            const grounded = await fetchGroundedEvents({
               locationName,
-              dateRange: q.dateRange,
-              depth,
               lat: c.location.geo_lat,
               lng: c.location.geo_lng,
+              maxEvents: GROUNDED_MAX_EVENTS,
             })
-          )
-        )
-
-        const queries: EventsQuery[] = queryDefs.map((q) => ({
-          keyword: q.keyword,
-          locationName,
-          dateRange: q.dateRange,
-          depth,
-        }))
-
-        c.state.snapshot = normalizeEventsSnapshot(rawResults, queries)
+            // Well-formed empty is a real "nothing on", not a failure — flag it as a per-location
+            // zero-events anomaly (telemetry, risk #3) but don't force a fallback.
+            if (grounded.length === 0) {
+              c.state.warnings.push(`[events] grounded returned 0 events for ${c.location.name ?? c.locationId}`)
+            }
+            const groundedSnapshot = normalizeGroundedEvents(grounded, {
+              queries: [{ keyword: "grounded", locationName, dateRange: "month", depth: 0 }],
+              horizon: "month",
+            })
+            c.state.snapshot = dfSnapshot
+              ? mergeEventSnapshots(dfSnapshot, groundedSnapshot)
+              : groundedSnapshot
+          } catch (gErr) {
+            // A grounded THROW is a SIGNAL, never "no events" — fall back to DataForSEO so a Gemini
+            // blip can't zero the demand rail (risk #3). Log the distinct code (quota/http/parse).
+            const code = gErr instanceof GroundedEventsError ? gErr.code : "unknown"
+            c.state.warnings.push(`[events] grounded fetch failed (${code}) — falling back to DataForSEO: ${errMessage(gErr)}`)
+            console.warn(`[events] grounded fetch failed for ${c.location.name ?? c.locationId}`, gErr)
+            // Hybrid: reuse the breadth base if we got one. Grounded: fetch DataForSEO now. If THAT
+            // also throws it propagates → step fails → (critical) → retry, never a silent empty.
+            c.state.snapshot = dfSnapshot ?? (await fetchDataForSeoSnapshot())
+          }
+        }
 
         // ── Geo-relevance (Layer 1/2): geography is the event's content_as_of. ──
         // Geocode each venue, measure distance, catalog-match for a rebrand-proof

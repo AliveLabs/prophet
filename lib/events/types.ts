@@ -22,6 +22,20 @@ export type EventTicketInfo = {
   domain?: string
 }
 
+/** Closed set of event kinds. A GROUNDED source returns this directly; the DataForSEO path
+ *  derives it from the title/venue via classifyEventType (a corroborating regex fallback). */
+export const EVENT_TYPES = [
+  "sports",
+  "concert",
+  "festival",
+  "theater",
+  "conference",
+  "community",
+  "family",
+  "other",
+] as const
+export type EventType = (typeof EVENT_TYPES)[number]
+
 /** A single normalized event */
 export type NormalizedEvent = {
   uid: string // stable hash (title + start + venue + url)
@@ -46,6 +60,13 @@ export type NormalizedEvent = {
   /** Distance × magnitude → role. local_* may drive demand; metro_hook = marketing tie-in only;
    *  route_corridor = a street-closing route event (marathon/parade/race) near the restaurant. */
   role?: "local_foot" | "local_traffic" | "metro_hook" | "route_corridor" | "out_of_area" | "ungeocoded"
+
+  /** Closed-enum event kind. Set directly by a grounded source; back-filled by classifyEventType
+   *  on the DataForSEO path. Additive — no consumer keys a differential-build hash off it yet. */
+  type?: EventType
+  /** Which source produced this event, for hybrid-merge dedupe + shadow-compare telemetry. NOT the
+   *  stored `source` field (which stays "dataforseo_google_events" for read-path compatibility). */
+  origin?: "dataforseo" | "grounded"
 
   /** Venue's OFFICIAL website, resolved by the events pipeline from the geocoded venue's Google
    *  Place `websiteUri` (ALT-210 data-layer follow-up). A real venue URL we can deep-link to when
