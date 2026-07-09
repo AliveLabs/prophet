@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react"
 import { AnimatedNumber } from "@/components/ui/animated-number"
-import { useInView } from "./use-in-view"
 import { TkVizCap, TkPhotoFallback, tkcx as cx } from "./primitives"
 
 /* Reveal-on-mount: flips to `true` on the first client commit, so a 0→value bar
@@ -42,17 +41,19 @@ export function TkRangeBar({
   tip?: string
   tipValue?: string
 }) {
-  const { ref, inView } = useInView<HTMLDivElement>()
+  // Reveal on mount, not on intersection — same ALT-177 fix TkSentimentRows carries:
+  // a nested IntersectionObserver never fires inside a collapsed <details> or an
+  // opacity:0 RevealOnView subtree, leaving the fill stuck blank at width:0.
+  const shown = useReveal()
   return (
     <div className="tk-viz">
       {caption && <TkVizCap left={caption} right={captionRight} />}
       <div
         className="tk-rangebar"
-        ref={ref}
         data-tip={tip}
         data-tipv={tipValue}
       >
-        <div className="tk-fill" style={{ width: inView ? `${value}%` : 0 }} />
+        <div className="tk-fill" style={{ width: shown ? `${value}%` : 0 }} />
       </div>
       {scale && (
         <div className="tk-range-scale">
@@ -206,9 +207,12 @@ export function TkH2HBars({
   }>
   note?: ReactNode
 }) {
-  const { ref, inView } = useInView<HTMLDivElement>()
+  // Reveal on mount (ALT-177 class): the head-to-head bars sit on the Competitors
+  // scorecard, often inside a RevealOnView/collapsed subtree where an intersection
+  // observer never fires — so gate the fill on mount, never on visibility.
+  const shown = useReveal()
   return (
-    <div className="tk-h2h" ref={ref}>
+    <div className="tk-h2h">
       {title && (
         <div className="tk-h2h-title">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -231,7 +235,7 @@ export function TkH2HBars({
               className={r.side === "you" ? "tk-you" : "tk-them"}
               data-tip={r.tip}
               data-tipv={r.tipValue}
-              style={{ width: inView ? `${r.width * 0.5}%` : 0 }}
+              style={{ width: shown ? `${r.width * 0.5}%` : 0 }}
             />
           </div>
           <span className={cx("tk-verdict", r.side === "you" ? "tk-win" : "tk-lose")}>
