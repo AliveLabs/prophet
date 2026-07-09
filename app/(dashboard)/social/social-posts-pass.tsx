@@ -15,6 +15,7 @@ import { TkSocialEmbed, TkChip, TkPhotoFallback, RevealOnView } from "@/componen
 type PostWithMeta = NormalizedSocialPost & {
   entityName: string
   entityType: "location" | "competitor"
+  followerCount: number
 }
 
 const PLATFORM_LABEL: Record<SocialPlatform, string> = {
@@ -69,8 +70,8 @@ function timeAgo(dateStr: string): string {
 // ── Per-post visual read (ALT-160) ──────────────────────────────────────────
 // Turn the post's stored visualAnalysis into a compact, HONEST chip row: the
 // image-quality tier the vision tagger read, the content type, and the standout
-// cues it actually found. Strictly descriptive — it sits next to the "% of peak"
-// engagement stat so an operator can SEE what a strong post looked like, but we
+// cues it actually found. Strictly descriptive — it sits next to the per-post
+// engagement-rate stat so an operator can SEE what a strong post looked like, but we
 // never claim a cue CAUSED the engagement.
 const CONTENT_LABEL: Partial<Record<SocialPostAnalysis["contentCategory"], string>> = {
   food_dish: "Dish",
@@ -173,16 +174,9 @@ export default function SocialPostsPass({
     [posts, activePlatform, activeEntity],
   )
 
-  // Honest engagement framing: each post's TOTAL engagement as a share of the
-  // single most-engaged post in the visible set. No invented $/covers — this is
-  // a relative-strength read across what we actually pulled.
   // Competitor grids run more columns, so show more cards to fill the rows.
   const cap = variant === "competitors" ? 15 : 12
   const visible = filtered.slice(0, cap)
-  const peakEngagement = useMemo(
-    () => Math.max(1, ...visible.map((p) => p.likesCount + p.commentsCount + p.sharesCount)),
-    [visible],
-  )
 
   if (posts.length === 0) return null
 
@@ -231,7 +225,11 @@ export default function SocialPostsPass({
         <RevealOnView className="tk-grid sp-grid" stagger>
           {visible.map((post, i) => {
             const engagement = post.likesCount + post.commentsCount + post.sharesCount
-            const sharePct = Math.round((engagement / peakEngagement) * 100)
+            // Honest per-post engagement rate: interactions ÷ this account's followers
+            // (ALT-274, replacing the tautological "% of peak"). Null when followers are
+            // unknown — omit the stat rather than show a misleading 0%.
+            const engagementRate =
+              post.followerCount > 0 ? (engagement / post.followerCount) * 100 : null
             const isOwn = post.entityType === "location"
             const caption = post.text ? post.text.slice(0, 140) : null
             const ownFallback = isOwn ? fallbackPhotoUrl ?? undefined : undefined
@@ -275,12 +273,14 @@ export default function SocialPostsPass({
                     ...(post.sharesCount > 0
                       ? [{ value: formatNumber(post.sharesCount), label: "Shares" }]
                       : []),
-                    {
-                      value: `${sharePct}%`,
-                      label: "of peak",
-                      tip: "This post's total engagement as a share of the most-engaged post in view — a relative-strength read across what we pulled.",
-                      tipValue: `${formatNumber(engagement)} total interactions`,
-                    },
+                    ...(engagementRate != null
+                      ? [{
+                          value: `${engagementRate < 0.1 ? engagementRate.toFixed(2) : engagementRate.toFixed(1)}%`,
+                          label: "Engagement",
+                          tip: "This post's total interactions ÷ this account's followers.",
+                          tipValue: `${formatNumber(engagement)} interactions · ${formatNumber(post.followerCount)} followers`,
+                        }]
+                      : []),
                   ]}
                 />
               </div>
