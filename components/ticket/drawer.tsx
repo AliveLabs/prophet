@@ -1,6 +1,7 @@
 "use client"
 
-import { useCallback, useEffect, useId, useRef, type ReactNode } from "react"
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { tkcx as cx } from "./primitives"
 
 // Right-slide drawer on desktop, BOTTOM-SHEET on mobile (≤760, handled in
@@ -18,6 +19,7 @@ export function TkDrawer({
   children,
   className,
   wide = false,
+  portal = false,
 }: {
   open: boolean
   onClose: () => void
@@ -28,11 +30,18 @@ export function TkDrawer({
   titleId?: string
   children: ReactNode
   className?: string
-  /** ALT-169: the wide PARTIAL-drawer variant (~78% of viewport on desktop, scrim over the
+  /** ALT-169: the wide PARTIAL-drawer variant (~60% of viewport on desktop, scrim over the
    *  still-visible page). The body copy is constrained to a readable max-width via `.tk-drawer-wide`
    *  so a widescreen drawer doesn't stretch text edge-to-edge. Default stays the narrow 560px form
    *  used by the form/detail drawers (locations, content screenshot, photo lightbox). */
   wide?: boolean
+  /** Portal into the shell root (`.ticket-app`) instead of rendering in-tree. A fixed drawer left
+   *  in-tree gets trapped by a transformed/animated ancestor (e.g. a card reveal in the pool) — the
+   *  ancestor's containing block + stacking context re-anchored it to the content column and painted
+   *  it BEHIND the sticky sidebar. Portaling to `.ticket-app` escapes that (viewport-anchored, z-index
+   *  above the sidebar) while still inheriting the kit tokens + dark-mode class. Opt-in so the in-tree
+   *  drawers that already render correctly are untouched. */
+  portal?: boolean
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -63,6 +72,22 @@ export function TkDrawer({
     }
   }, [open])
 
+  // Portal host: the shell root (.ticket-app), matching the viz-tbubble pattern. As a
+  // direct child of .ticket-app the drawer escapes .pv-main / any transformed card
+  // ancestor (which trapped it in the content column, painting it behind the sidebar),
+  // its fixed position resolves against the viewport, and its z-index:61 outranks the
+  // sticky sidebar (z-index:30). It also inherits the design tokens + dark-mode class
+  // already scoped to .ticket-app. Deferred to a frame so setState isn't synchronous in
+  // the effect body (matches useReveal); the drawer starts closed, so there's no flash.
+  const [host, setHost] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!portal || typeof document === "undefined") return
+    const id = requestAnimationFrame(() =>
+      setHost(document.querySelector<HTMLElement>(".ticket-app") ?? document.body)
+    )
+    return () => cancelAnimationFrame(id)
+  }, [portal])
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -90,7 +115,7 @@ export function TkDrawer({
     [onClose]
   )
 
-  return (
+  const content = (
     <>
       <div
         className={cx("tk-scrim", open && "tk-open")}
@@ -127,4 +152,9 @@ export function TkDrawer({
       </aside>
     </>
   )
+
+  // portal=true renders nothing until the host mounts (client-only); the drawer
+  // starts closed, so there's no visible flash.
+  if (portal) return host ? createPortal(content, host) : null
+  return content
 }
