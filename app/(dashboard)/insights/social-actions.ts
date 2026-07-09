@@ -1,11 +1,28 @@
 "use server"
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { requireUser } from "@/lib/auth/server"
+import { enqueueAdhocPlatform } from "@/lib/jobs/queue"
 import type { SocialSnapshotData, SocialPlatform, NormalizedSocialPost, EntityVisualProfile } from "@/lib/social/types"
 import { generateSocialInsights } from "@/lib/social/insights"
 import { generateVisualInsights } from "@/lib/social/visual-insights"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
+
+// ALT-260: the brief/insights read own-location social ONLY from `social_snapshots`.
+// Setting or verifying a handle writes `social_profiles` but, without a data pull,
+// no snapshot is ever collected — so insights show "no account" indefinitely. Kick a
+// forced adhoc pull (+ delayed insights build) for the platform, exactly as
+// setOwnSocialNetwork does for the network-choice path. Best-effort: never fail the
+// user's save because a background enqueue hiccuped.
+async function enqueueOwnSocialPull(organizationId: string, locationId: string, platform: string) {
+  try {
+    const admin = createAdminSupabaseClient()
+    await enqueueAdhocPlatform(admin, { organizationId, locationId, platforms: [platform] })
+  } catch (err) {
+    console.warn("enqueueOwnSocialPull: adhoc enqueue failed", err)
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Social Profile CRUD
@@ -20,13 +37,15 @@ export async function saveSocialProfileAction(data: {
   await requireUser()
   const supabase = await createServerSupabaseClient()
 
+  let ownOrganizationId: string | null = null
   if (data.entityType === "location") {
     const { data: loc } = await supabase
       .from("locations")
-      .select("id")
+      .select("id, organization_id")
       .eq("id", data.entityId)
       .maybeSingle()
     if (!loc) return { error: "Location not found or access denied." }
+    ownOrganizationId = loc.organization_id
   } else {
     const { data: comp } = await supabase
       .from("competitors")
@@ -54,6 +73,14 @@ export async function saveSocialProfileAction(data: {
   )
 
   if (error) return { error: error.message }
+
+  // ALT-260: a manually set own-location handle must trigger a pull, or the brief
+  // shows "no account" until the next scheduled social run (never, for a demo/
+  // cron-excluded org). Own-location only — competitor social populates via its
+  // own discovery + daily flows.
+  if (data.entityType === "location" && ownOrganizationId) {
+    await enqueueOwnSocialPull(ownOrganizationId, data.entityId, data.platform)
+  }
   return {}
 }
 
@@ -70,12 +97,31 @@ export async function verifySocialProfileAction(id: string): Promise<{ error?: s
   await requireUser()
   const supabase = await createServerSupabaseClient()
 
+  const { data: profile } = await supabase
+    .from("social_profiles")
+    .select("entity_type, entity_id, platform")
+    .eq("id", id)
+    .maybeSingle()
+
   const { error } = await supabase
     .from("social_profiles")
     .update({ is_verified: true, updated_at: new Date().toISOString() })
     .eq("id", id)
 
   if (error) return { error: error.message }
+
+  // ALT-260: confirming a DISCOVERED own-location handle is the other "I set my
+  // handle" path — it must kick a pull too, else the brief keeps reading "no account".
+  if (profile?.entity_type === "location") {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", profile.entity_id)
+      .maybeSingle()
+    if (loc?.organization_id) {
+      await enqueueOwnSocialPull(loc.organization_id, profile.entity_id, profile.platform)
+    }
+  }
   return {}
 }
 
