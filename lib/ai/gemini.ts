@@ -9,6 +9,7 @@ type GeminiCandidate = {
       text?: string
     }>
   }
+  finishReason?: string
 }
 
 type GeminiResponse = {
@@ -43,7 +44,7 @@ function parseJson(text: string) {
 
 export async function generateGeminiJson(
   prompt: string,
-  options?: { maxOutputTokens?: number; temperature?: number }
+  options?: { maxOutputTokens?: number; temperature?: number; thinkingBudget?: number }
 ) {
   const response = await fetchWithRetry(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
     method: "POST",
@@ -60,6 +61,10 @@ export async function generateGeminiJson(
       generationConfig: {
         temperature: options?.temperature ?? 0.3,
         ...(options?.maxOutputTokens ? { maxOutputTokens: options.maxOutputTokens } : {}),
+        // gemini-2.5-pro thinks by default and bills thinking against the output budget.
+        // Bounding it (when the caller opts in) leaves room for the JSON so the model
+        // doesn't spend the whole budget reasoning and return empty content (ALT-294).
+        ...(options?.thinkingBudget != null ? { thinkingConfig: { thinkingBudget: options.thinkingBudget } } : {}),
       },
     }),
   })
@@ -70,7 +75,15 @@ export async function generateGeminiJson(
   }
 
   const data = (await response.json()) as GeminiResponse
-  const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? ""
+  const candidate = data.candidates?.[0]
+  const text = candidate?.content?.parts?.map((part) => part.text ?? "").join("") ?? ""
+  // A 200 with empty parts means the model produced no output — almost always
+  // finishReason MAX_TOKENS (thinking consumed the whole budget). Log it so this
+  // stops being an invisible null → 502 (ALT-294); contract unchanged (returns null).
+  if (!text) {
+    console.warn(`[Gemini] empty content (finishReason=${candidate?.finishReason ?? "unknown"}) — raise maxOutputTokens / thinkingBudget`)
+    return null
+  }
   return parseJson(text)
 }
 

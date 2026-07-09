@@ -24,6 +24,11 @@ import {
   type ParsedViz,
 } from "@/lib/ai/generated-insight"
 
+// The Gemini call can take a while (retries + thinking); give the function real
+// headroom so Vercel doesn't kill it mid-generation and return an HTML 504 that the
+// client can't parse (ALT-294).
+export const maxDuration = 120
+
 const CONFIDENCES = new Set(["medium", "low"]) // NEVER "high" from a single data point
 const SEVERITIES = new Set(["info", "warning"]) // NEVER "critical"
 
@@ -121,13 +126,20 @@ export async function POST(req: Request) {
     try {
       const parsed = await generateGeminiJson(buildGeneratedInsightPrompt(viz), {
         temperature: 0.4,
-        maxOutputTokens: 1024,
+        // gemini-2.5-pro thinks by default and bills it against maxOutputTokens; 1024 was
+        // too tight (thinking ate the budget → empty JSON → 502). Give the JSON real room
+        // and bound thinking so both fit (ALT-294).
+        maxOutputTokens: 4096,
+        thinkingBudget: 1024,
       })
       if (parsed) llm = coerceLlmInsight(parsed, viz)
     } catch (err) {
       console.warn("[GeneratedInsight] Gemini call failed:", err)
     }
-    if (!llm || !llm.summary) return Response.json({ insight: null }, { status: 502 })
+    if (!llm || !llm.summary) {
+      console.warn("[GeneratedInsight] model returned no usable insight (empty/parse-fail)")
+      return Response.json({ insight: null, reason: "model_failed" }, { status: 502 })
+    }
 
     const dateKey = new Date().toISOString().slice(0, 10)
     const shortId = globalThis.crypto.randomUUID().slice(0, 8)

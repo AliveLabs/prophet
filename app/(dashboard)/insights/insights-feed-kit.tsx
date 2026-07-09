@@ -127,12 +127,26 @@ export default function InsightsFeedKit({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ vizContext: reqStr }),
     })
-      .then((r) => r.json())
-      .then((data: { insight: FeedInsight | null }) => {
-        if (data?.insight?.id) setGenerated({ ...data.insight, justGenerated: true })
-        else setGenError("We couldn’t generate that just now.")
+      .then(async (r) => {
+        const data = (await r.json().catch(() => null)) as { insight: FeedInsight | null } | null
+        return { status: r.status, insight: data?.insight ?? null }
       })
-      .catch(() => setGenError("We couldn’t generate that just now."))
+      .then(({ status, insight }) => {
+        if (insight?.id) {
+          setGenerated({ ...insight, justGenerated: true })
+          return
+        }
+        // Tell the operator what actually happened instead of one catch-all that hides a
+        // rate-limit or permission issue (ALT-294). Plain voice, no em dashes.
+        setGenError(
+          status === 429
+            ? "You’re generating a lot right now. Give it a minute and try again."
+            : status === 403
+              ? "You don’t have permission to generate insights on this account."
+              : "We couldn’t generate that just now. Try again in a moment.",
+        )
+      })
+      .catch(() => setGenError("We couldn’t generate that just now. Try again in a moment."))
       .finally(() => setGenerating(false))
   }, [])
 
