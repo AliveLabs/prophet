@@ -394,7 +394,9 @@ export async function fetchSocialDashboardData(locationId: string) {
   }))
 
   // Extract ALL recent posts from snapshots for client-side filtering
-  type PostWithMeta = NormalizedSocialPost & { entityName: string; entityType: "location" | "competitor" }
+  // followerCount rides along so the card can show an honest per-post engagement
+  // rate (interactions ÷ followers) instead of the misleading "% of peak" (ALT-274).
+  type PostWithMeta = NormalizedSocialPost & { entityName: string; entityType: "location" | "competitor"; followerCount: number }
   const allPosts: PostWithMeta[] = []
 
   for (const profile of allProfiles) {
@@ -402,8 +404,9 @@ export async function fetchSocialDashboardData(locationId: string) {
     if (!snap?.recentPosts?.length) continue
     const entityName = nameMap.get(profile.entity_id) ?? "Unknown"
     const entityType = profile.entity_type as "location" | "competitor"
+    const followerCount = snap.profile?.followerCount ?? 0
     for (const post of snap.recentPosts) {
-      allPosts.push({ ...post, entityName, entityType })
+      allPosts.push({ ...post, entityName, entityType, followerCount })
     }
   }
 

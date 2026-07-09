@@ -60,7 +60,7 @@ export default function InsightsGlance({ data }: { data: GlanceData }) {
           value={String(insightCount)}
           sub={
             newCount > 0
-              ? `${newCount} new since your last visit`
+              ? `${newCount} you haven't reviewed`
               : "across every signal we watch for you"
           }
           data-tip="Live insights across all sources in your current view"
