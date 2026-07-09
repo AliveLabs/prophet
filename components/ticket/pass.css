@@ -236,7 +236,11 @@
 .tk-scrow { display: grid; grid-template-columns: 92px 1fr 38px; align-items: center; gap: 10px; }
 .tk-scrow .tk-cn { font-size: 12px; font-weight: 600; color: var(--ink-2); }
 .tk-sctrack { height: 13px; border-radius: 7px; background: var(--paper-2); border: 1px solid var(--line); overflow: hidden; cursor: pointer; }
-.tk-sctrack .tk-scf { height: 100%; border-radius: 7px; width: 0; transition: width 1s var(--ease); }
+/* display:block is load-bearing: the fill is an inline <i>, and width/height do
+   not apply to inline non-replaced elements — without it the bar paints 0×0 no
+   matter what width the component sets (the empty-sentiment-bars bug). Matches
+   every other bar-fill in the app (.tk-loc-meter i, .kr-meter i, .ao-stat-bar i). */
+.tk-sctrack .tk-scf { display: block; height: 100%; border-radius: 7px; width: 0; transition: width 1s var(--ease); }
 .tk-scf.tk-bad  { background: linear-gradient(90deg, var(--alert), var(--alert-2)); }
 .tk-scf.tk-warn { background: linear-gradient(90deg, var(--gold), var(--gold-2)); }
 .tk-scf.tk-ok   { background: linear-gradient(90deg, var(--teal), var(--teal-2)); }
