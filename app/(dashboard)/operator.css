@@ -452,7 +452,12 @@
 /* page content eases in on navigation — the "alive" entrance */
 @media (prefers-reduced-motion: no-preference){
   .pv-page, .ticket-app .ticket-brief .home-grid{ animation:pv-fade-up .42s var(--ease) both; }
-  @keyframes pv-fade-up{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+  /* Opacity-only, deliberately NO transform: a transform (even a finished one under
+     fill-mode:both) makes .pv-page a containing block for its position:fixed
+     descendants, which re-anchored the "See the play" drawer to this 1100px column
+     instead of the viewport — drawer floated inward and its content scrolled off-screen
+     (blank). Fading without the slide keeps the entrance while freeing fixed overlays. */
+  @keyframes pv-fade-up{ from{ opacity:0; } to{ opacity:1; } }
 }
 /* soft elevation on the resting cards (auto-applied via upgraded tokens) + lift on interactive ones */
 .pv-card{ transition:transform var(--t-fast), box-shadow var(--t), border-color var(--t-fast); }
