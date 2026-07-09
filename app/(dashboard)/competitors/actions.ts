@@ -29,7 +29,7 @@ function haversineMeters(input: {
 }
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import { ensureCompetitorLimit, computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
-import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
+import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
 import { enrichCompetitorContent } from "@/lib/content/enrich"
@@ -613,8 +613,24 @@ export async function ignoreCompetitorAction(formData: FormData) {
     const ts = r.updated_at as string | null
     if (ts && (!lastRemovalAt || ts > lastRemovalAt)) lastRemovalAt = ts
   }
+  // ALT-261: the cooldown only binds a real SWAP — a removal while the set is already at
+  // the plan cap. Below the cap, removing just frees a slot (not a swap), so it must not
+  // be blocked. Mirror the UI's atLimit guard + computeSwapCooldown's documented intent.
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", organizationId)
+    .maybeSingle()
+  const tier = asSubscriptionTier(org?.subscription_tier)
+  const { count: activeCount } = await supabase
+    .from("competitors")
+    .select("id", { count: "exact", head: true })
+    .eq("location_id", competitor.location_id)
+    .eq("is_active", true)
+  const atCap = (activeCount ?? 0) >= TIER_LIMITS[tier].maxCompetitorsPerLocation
+
   const cooldown = computeSwapCooldown(lastRemovalAt)
-  if (cooldown.locked) {
+  if (atCap && cooldown.locked) {
     redirect(
       `/competitors?error=${encodeURIComponent(
         `You can swap a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. Locked for ${cooldown.daysRemaining} more day${cooldown.daysRemaining === 1 ? "" : "s"}.`

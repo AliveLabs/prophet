@@ -47,8 +47,8 @@ function initials(name: string): string {
 type Suggestion = { place_id: string; description: string }
 
 const RM_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-    <path d="M18 6L6 18M6 6l12 12" />
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14M10 11v6M14 11v6" />
   </svg>
 )
 const ADD_ICON = (
@@ -88,7 +88,11 @@ export default function CompetitorRoster({
   // it too). `competitorLimit` is undefined in unscoped/preview use → never blocks.
   const atLimit = competitorLimit != null && rows.length >= competitorLimit
   // ALT-195 — persisted removes are disabled while the swap cooldown is active.
-  const swapLocked = persist && !!swapCooldown?.locked
+  // ALT-261 — but ONLY when the set is at the plan cap: the cooldown exists to bind a
+  // true SWAP (remove-then-readd at capacity). Below the cap a removal just frees a
+  // slot and isn't a swap, so it must never be blocked (this was disabling every
+  // removal, most visibly on Tier 2/3 which sit below cap far more often).
+  const swapLocked = persist && atLimit && !!swapCooldown?.locked
   const limitLabel =
     competitorLimit != null
       ? `Watching ${rows.length} of ${competitorLimit}, set by your plan (${tierLabel})`
