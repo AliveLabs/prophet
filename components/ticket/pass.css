@@ -552,7 +552,7 @@
    viewport (capped) with the scrim leaving the page visible behind it, but the BODY copy
    is constrained to a readable column so text never stretches edge-to-edge on widescreen.
    The header keeps its own padding; only the body content is width-limited + centered. */
-.tk-drawer-wide { width: min(78vw, 980px); }
+.tk-drawer-wide { width: min(60vw, 900px); }
 .tk-drawer-wide .tk-drawer-body { padding: 26px clamp(22px, 6vw, 64px) 40px; }
 .tk-drawer-wide .tk-drawer-body > * { width: 100%; max-width: 680px; margin-inline: auto; }
 .tk-drawer-wide .tk-drawer-body h2 { font-size: 26px; }

@@ -371,6 +371,7 @@ export function PassPlayCard({
       open={drawerOpen}
       onClose={() => setDrawerOpen(false)}
       wide
+      portal
       chip={<TkChip family={family}>{playChipLabel(play)} · {confLabel(play.confidence)} confidence · {impactLabel(play)} impact</TkChip>}
       title={play.title}
     >
