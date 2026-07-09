@@ -138,7 +138,7 @@ export function normalizeEventsSnapshot(
 // Summary builder
 // ---------------------------------------------------------------------------
 
-function buildSummary(events: NormalizedEvent[]): EventsSummary {
+export function buildSummary(events: NormalizedEvent[]): EventsSummary {
   const byDate: Record<string, number> = {}
   const byVenueName: Record<string, number> = {}
   const byDomain: Record<string, number> = {}
