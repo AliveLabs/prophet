@@ -99,8 +99,10 @@ describe("onboarding competitor discovery (live)", () => {
         }
       })
       .filter((s) => s.heuristic > 0)
-      .filter((s) => s.score === null || s.score >= RERANK_VETO_BELOW)
-      .sort((a, b) => (b.score ?? b.heuristic * 100) - (a.score ?? a.heuristic * 100))
+      // Mirror the action: with a rerank in hand, unranked candidates are dropped
+      // (an omission is noise, not a free pass past the veto).
+      .filter((s) => s.score !== null && s.score >= RERANK_VETO_BELOW)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
       .slice(0, DISCOVERY_KEEP)
 
     // eslint-disable-next-line no-console

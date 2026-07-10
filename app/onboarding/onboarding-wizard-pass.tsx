@@ -463,6 +463,10 @@ export default function OnboardingWizardPass({
   const [compPredictions, setCompPredictions] = useState<Prediction[]>([])
   const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
   const [addError, setAddError] = useState<string | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  // Query the last completed search ran for — gates the "no matches" empty state
+  // so it can't flash before the first result lands.
+  const [searchedFor, setSearchedFor] = useState("")
 
   // step 3 — monitoring prefs (same booleans the actions persist)
   const [monitoringPrefs, setMonitoringPrefs] = useState<Record<string, boolean>>({
@@ -653,9 +657,20 @@ export default function OnboardingWizardPass({
           `/api/places/autocomplete?input=${encodeURIComponent(q)}${bias}`
         )
         const data = await res.json()
-        setCompPredictions(data.ok ? (data.predictions ?? []).slice(0, 5) : [])
+        if (data.ok) {
+          setCompPredictions((data.predictions ?? []).slice(0, 5))
+          setSearchError(null)
+        } else {
+          // 401/429/502 all land here — an empty dropdown must not read as
+          // "that place doesn't exist".
+          setCompPredictions([])
+          setSearchError("Search isn't responding right now. Give it a moment and try again.")
+        }
+        setSearchedFor(q)
       } catch {
         setCompPredictions([])
+        setSearchError("Search isn't responding right now. Give it a moment and try again.")
+        setSearchedFor(q)
       } finally {
         setSearching(false)
       }
@@ -948,7 +963,9 @@ export default function OnboardingWizardPass({
                       : "Add the competitors you want us to watch. Keep at least one."}
                 </p>
                 {discovering ? <div className="ob-sweep" /> : null}
-                {discoveryError ? (
+                {/* Once the operator has picks (retry worked, or they added their
+                    own), a lingering discovery error would contradict the state. */}
+                {discoveryError && selected.length === 0 ? (
                   <>
                     <div className="ob-alert"><IconAlert />{discoveryError}</div>
                     <div className="ob-nav">
@@ -993,6 +1010,7 @@ export default function OnboardingWizardPass({
                           onChange={(e) => {
                             setSearchQuery(e.target.value)
                             setAddError(null)
+                            setSearchError(null)
                           }}
                         />
                         <button
@@ -1002,13 +1020,15 @@ export default function OnboardingWizardPass({
                             setSearchQuery("")
                             setCompPredictions([])
                             setAddError(null)
+                            setSearchError(null)
+                            setSearchedFor("")
                           }}
                         >
                           Done
                         </button>
                       </div>
-                      {addError ? (
-                        <div className="ob-alert"><IconAlert />{addError}</div>
+                      {addError || searchError ? (
+                        <div className="ob-alert"><IconAlert />{addError ?? searchError}</div>
                       ) : null}
                       {/* Already-suggested candidates that match what's typed. */}
                       {suggestions.map((c) => (
@@ -1057,7 +1077,9 @@ export default function OnboardingWizardPass({
                         <p className="ob-hint">Searching…</p>
                       ) : null}
                       {!searching &&
+                      !searchError &&
                       searchQuery.trim().length >= 2 &&
+                      searchedFor === searchQuery.trim() &&
                       compPredictions.length === 0 &&
                       suggestions.length === 0 ? (
                         <p className="ob-hint">No matches yet — keep typing the name.</p>

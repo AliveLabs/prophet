@@ -25,6 +25,7 @@ import {
   type RerankEntry,
 } from "@/lib/competitors/discover"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
+import { rateLimit } from "@/lib/http/rate-limit"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
 import { isTrialActive } from "@/lib/billing/trial"
@@ -580,6 +581,17 @@ export async function discoverCompetitorsForLocation(
   const user = await requireUser()
   const admin = createAdminSupabaseClient()
 
+  // Each run spends ~tiles Places sweeps + up to DISCOVERY_KEEP details calls + one
+  // Sonnet completion — cap the cadence per user (fail-open like every rateLimit use).
+  const rl = await rateLimit(user.id, {
+    prefix: "competitor-discovery",
+    limit: 6,
+    windowSeconds: 600,
+  })
+  if (!rl.ok) {
+    return { ok: false, error: "We just scanned — give it a minute and try again." }
+  }
+
   const loaded = await loadLocationForMember(admin, locationId, user.id)
   if (!loaded.ok) return loaded
   const { location } = loaded
@@ -679,7 +691,13 @@ export async function discoverCompetitorsForLocation(
       }
     })
     .filter((s) => s.heuristic.score > 0)
-    .filter((s) => s.rerankScore === null || s.rerankScore >= RERANK_VETO_BELOW)
+    // With a rerank in hand, a candidate the model didn't score is NOT a free pass —
+    // the prompt demands full coverage, so an omission is noise, and letting it
+    // through would rank it by the distance-heavy heuristic (the exact failure this
+    // rewrite removes). Heuristic ranking applies only when the whole rerank failed.
+    .filter((s) =>
+      rerank ? s.rerankScore !== null && s.rerankScore >= RERANK_VETO_BELOW : true
+    )
     .sort(
       (a, b) =>
         (b.rerankScore ?? b.heuristic.score * 100) -
@@ -811,12 +829,37 @@ export async function addCompetitorCandidateAction(input: {
   const user = await requireUser()
   const admin = createAdminSupabaseClient()
 
+  // Each add costs a Places details call and a permanent row — cap the cadence
+  // (fail-open like every rateLimit use).
+  const rl = await rateLimit(user.id, {
+    prefix: "competitor-add",
+    limit: 20,
+    windowSeconds: 60,
+  })
+  if (!rl.ok) {
+    return { ok: false, error: "That's a lot of adds at once — give it a minute." }
+  }
+
   const loaded = await loadLocationForMember(admin, input.locationId, user.id)
   if (!loaded.ok) return loaded
   const { location } = loaded
 
   if (input.placeId === location.primary_place_id) {
     return { ok: false, error: "That's your own location." }
+  }
+
+  // Hard ceiling on queued-but-unapproved rows per location: onboarding tracks at
+  // most a handful, so an ever-growing pending pile is only ever abuse or a bug.
+  const { count: pendingCount } = await admin
+    .from("competitors")
+    .select("id", { count: "exact", head: true })
+    .eq("location_id", location.id)
+    .eq("is_active", false)
+  if ((pendingCount ?? 0) >= 30) {
+    return {
+      ok: false,
+      error: "You've got plenty queued already — pick from what's here or remove some first.",
+    }
   }
 
   // Already on file (discovery suggested it, or it was ignored before)? Reuse the
@@ -833,7 +876,13 @@ export async function addCompetitorCandidateAction(input: {
       status: existing.is_active ? "approved" : "pending",
       source: "operator",
     }
-    await admin.from("competitors").update({ metadata }).eq("id", existing.id)
+    const { error: updateError } = await admin
+      .from("competitors")
+      .update({ metadata })
+      .eq("id", existing.id)
+    if (updateError) {
+      return { ok: false, error: updateError.message }
+    }
     return {
       ok: true,
       competitor: {
