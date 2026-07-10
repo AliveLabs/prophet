@@ -560,12 +560,16 @@ export default function OnboardingWizardPass({
     [verticalConfig.placesApiType]
   )
 
-  // Resume at step 2 with no candidates yet → re-run discovery once.
+  // Resume at step 2 with no candidates yet → re-run discovery once. Also
+  // re-run when every existing candidate predates identity-aware discovery
+  // (no metadata.source) — the run replaces the legacy suggestion set.
   const resumeDiscoveryRef = useRef(false)
   useEffect(() => {
     if (resumeDiscoveryRef.current) return
     resumeDiscoveryRef.current = true
-    if (initialStep === 2 && existingLocationId && (existingCompetitors ?? []).length === 0) {
+    const existing = existingCompetitors ?? []
+    const legacySet = existing.length > 0 && existing.every((c) => !c.metadata.source)
+    if (initialStep === 2 && existingLocationId && (existing.length === 0 || legacySet)) {
       void discover(existingLocationId)
     }
   }, [initialStep, existingLocationId, existingCompetitors, discover])
