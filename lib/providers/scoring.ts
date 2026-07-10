@@ -55,6 +55,43 @@ export const EXCLUDED_COMPETITOR_TYPES: ReadonlySet<string> = new Set([
   "painter",
 ])
 
+// Categories too vague to carry a cuisine identity. "Restaurant" tells us nothing —
+// treating it as a match is how a French bakery got "Same cuisine" steakhouses
+// (`"american_restaurant".includes("restaurant")` was true).
+const GENERIC_CATEGORIES = new Set([
+  "restaurant",
+  "food",
+  "meal_takeaway",
+  "meal_delivery",
+  "point_of_interest",
+  "establishment",
+  "store",
+])
+
+function categoryTokens(category: string): Set<string> {
+  return new Set(
+    category
+      .toLowerCase()
+      .split(/[^a-z]+/)
+      .filter((t) => t && !GENERIC_CATEGORIES.has(t))
+  )
+}
+
+/** 1 = genuinely same specific category, 0.6 = unknown (either side generic/missing),
+ *  0.4 = known mismatch. Only a 1 may be presented as "same cuisine". */
+export function categoryMatchScore(
+  category: string | undefined,
+  targetCategory: string | null | undefined
+): number {
+  if (!category || !targetCategory) return 0.6
+  const a = categoryTokens(category)
+  const b = categoryTokens(targetCategory)
+  // Either side purely generic ("restaurant") → identity unknown, not a match.
+  if (a.size === 0 || b.size === 0) return 0.6
+  for (const token of a) if (b.has(token)) return 1
+  return 0.4
+}
+
 export function scoreCompetitor(input: {
   distanceMeters?: number
   category?: string
@@ -76,12 +113,7 @@ export function scoreCompetitor(input: {
   const distanceScore = input.distanceMeters
     ? Math.max(0, 1 - input.distanceMeters / 5000)
     : 0.5
-  const categoryScore =
-    input.targetCategory && input.category
-      ? input.category.toLowerCase().includes(input.targetCategory.toLowerCase())
-        ? 1
-        : 0.4
-      : 0.6
+  const categoryScore = categoryMatchScore(input.category, input.targetCategory)
   const ratingScore = input.rating ? Math.min(input.rating / 5, 1) : 0.5
   const reviewScore = input.reviewCount
     ? Math.min(input.reviewCount / 200, 1)

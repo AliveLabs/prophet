@@ -4,13 +4,26 @@ import { redirect } from "next/navigation"
 import { requireUser } from "@/lib/auth/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
-import { getProvider } from "@/lib/providers"
 import {
-  fetchAutocomplete,
   fetchPlaceDetails,
+  fetchNearbyPlaces,
   mapPlaceToLocation,
+  type DiscoveredCompetitor as NearbyPlace,
 } from "@/lib/places/google"
-import { scoreCompetitor } from "@/lib/providers/scoring"
+import { scoreCompetitor, EXCLUDED_COMPETITOR_TYPES } from "@/lib/providers/scoring"
+import { generateStructured } from "@/lib/ai/provider"
+import {
+  buildTargetIdentity,
+  buildRerankPrompt,
+  parseRerank,
+  sanitizeWhy,
+  discoveryTypeTiles,
+  DISCOVERY_RADIUS_METERS,
+  RERANK_POOL_CAP,
+  RERANK_VETO_BELOW,
+  DISCOVERY_KEEP,
+  type RerankEntry,
+} from "@/lib/competitors/discover"
 import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
@@ -439,7 +452,20 @@ export async function createLocationForOrgAction(
 }
 
 // ---------------------------------------------------------------------------
-// Competitor discovery — pure function (no redirect)
+// Competitor discovery — identity-aware, no redirect.
+//
+// Recall: Places searchNearby tiled over type families (fast, complete, real
+// place IDs). Identity: the target's own Places details (editorial summary +
+// serves* + price) — primaryType alone is uselessly generic. Precision: one
+// Sonnet call scores every candidate 0-100 ("would the operator consider this
+// a direct competitor?") with a plain-language why; on any model failure the
+// heuristic score ranks instead (discovery never hard-fails on the model).
+//
+// The old shape (Gemini grounded discovery fed the typed keyword AS the target
+// business name, distance-dominant scoring, substring "same cuisine") produced
+// the la Madeleine incident: a French bakery-café "competing" with steakhouses
+// and cocktail bars. See lib/competitors/discover.ts for the probe-validated
+// design notes.
 // ---------------------------------------------------------------------------
 
 function toRadians(value: number) {
@@ -468,22 +494,56 @@ type DiscoveredCompetitor = {
   name: string | null
   category: string | null
   address: string | null
+  provider_entity_id: string | null
   metadata: Record<string, unknown>
   relevance_score: number | null
 }
 
-export async function discoverCompetitorsForLocation(
-  locationId: string,
-  query?: string,
-  placesApiType?: string
-): Promise<
-  | { ok: true; competitors: DiscoveredCompetitor[] }
-  | { ok: false; error: string }
-> {
-  const user = await requireUser()
-  const admin = createAdminSupabaseClient()
-  const radiusMeters = 5000
+const COMPETITOR_PROVIDER = "google_places"
 
+/** Pending (not yet approved, not ignored) candidates for a location, best first. */
+async function pendingCandidates(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  locationId: string
+): Promise<DiscoveredCompetitor[]> {
+  const { data } = await admin
+    .from("competitors")
+    .select("id, name, category, address, provider_entity_id, metadata, relevance_score")
+    .eq("location_id", locationId)
+    .eq("is_active", false)
+    .order("relevance_score", { ascending: false })
+  return (data ?? [])
+    .filter(
+      (c) => ((c.metadata as Record<string, unknown> | null)?.status ?? "pending") === "pending"
+    )
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      category: c.category,
+      address: c.address,
+      provider_entity_id: c.provider_entity_id,
+      metadata: (c.metadata as Record<string, unknown>) ?? {},
+      relevance_score: c.relevance_score,
+    }))
+}
+
+type LocationForDiscovery = {
+  id: string
+  organization_id: string
+  geo_lat: number | null
+  geo_lng: number | null
+  settings: Json | null
+  primary_place_id: string | null
+  name: string | null
+  city: string | null
+  region: string | null
+}
+
+async function loadLocationForMember(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  locationId: string,
+  userId: string
+): Promise<{ ok: true; location: LocationForDiscovery } | { ok: false; error: string }> {
   const { data: location, error: locError } = await admin
     .from("locations")
     .select(
@@ -500,238 +560,394 @@ export async function discoverCompetitorsForLocation(
     .from("organization_members")
     .select("id")
     .eq("organization_id", location.organization_id)
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle()
 
   if (!membership) {
     return { ok: false, error: "You are not a member of this organization." }
   }
 
+  return { ok: true, location }
+}
+
+export async function discoverCompetitorsForLocation(
+  locationId: string,
+  placesApiType?: string
+): Promise<
+  | { ok: true; competitors: DiscoveredCompetitor[] }
+  | { ok: false; error: string }
+> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const loaded = await loadLocationForMember(admin, locationId, user.id)
+  if (!loaded.ok) return loaded
+  const { location } = loaded
+
   if (location.geo_lat === null || location.geo_lng === null) {
     return { ok: false, error: "Location is missing coordinates" }
   }
 
-  const provider = getProvider("gemini")
   const targetCategory =
     (location.settings as { category?: string } | null)?.category ?? null
-  const defaultType =
-    process.env.VERTICALIZATION_ENABLED === "true" && placesApiType
-      ? placesApiType.replace(/_/g, " ")
-      : "restaurant"
-  const keywordBase = query ?? targetCategory ?? defaultType
-  const normalizedBase = keywordBase.replace(/_/g, " ").trim()
-  const locationHint = location.city ?? location.name ?? undefined
-  const keyword = [normalizedBase, locationHint, location.region]
-    .filter((v): v is string => Boolean(v?.trim()))
-    .join(" ")
 
-  let candidates: Awaited<ReturnType<typeof provider.fetchCompetitorsNear>>
-  try {
-    candidates = await provider.fetchCompetitorsNear({
-      lat: location.geo_lat,
-      lng: location.geo_lng,
-      radiusMeters,
-      query: keyword,
-      category: targetCategory ?? defaultType,
-      city: location.city ?? undefined,
-      region: location.region ?? undefined,
-    })
-  } catch (err) {
-    return { ok: false, error: `Discovery failed: ${String(err)}` }
+  // 1) Identity — who IS the target? Fail-soft to name + stored category.
+  let identity = buildTargetIdentity(location.name ?? "this business", null, targetCategory)
+  if (location.primary_place_id) {
+    try {
+      const details = await fetchPlaceDetails(location.primary_place_id)
+      identity = buildTargetIdentity(location.name ?? "this business", details, targetCategory)
+    } catch (err) {
+      console.warn(`[competitor-discovery] target details failed (identity degrades to name+category): ${String(err)}`)
+    }
   }
 
-  if (!candidates?.length) {
-    return { ok: true, competitors: [] }
+  // 2) Recall — tiled nearby sweep. A failed tile shrinks the pool; ALL failed = error.
+  const tiles = discoveryTypeTiles(placesApiType)
+  let failedTiles = 0
+  const tileResults = await Promise.all(
+    tiles.map((includedTypes) =>
+      fetchNearbyPlaces(location.geo_lat!, location.geo_lng!, {
+        includedTypes,
+        radius: DISCOVERY_RADIUS_METERS,
+        excludePlaceId: location.primary_place_id ?? undefined,
+      }).catch((err) => {
+        failedTiles++
+        console.warn(`[competitor-discovery] tile ${includedTypes.join(",")} failed: ${String(err)}`)
+        return [] as NearbyPlace[]
+      })
+    )
+  )
+  if (failedTiles === tiles.length) {
+    return { ok: false, error: "Couldn't scan nearby businesses right now. Try again in a moment." }
   }
 
-  // Resolve place IDs and enrich
-  const resolvedCandidates = await Promise.all(
-    candidates.map(async (candidate) => {
-      const raw = (candidate.raw ?? {}) as Record<string, unknown>
-      const rawPlaceId =
-        typeof raw.placeId === "string" ? raw.placeId : undefined
-      let providerEntityId = rawPlaceId ?? candidate.providerEntityId
-      let placeDetailsError: string | null = null
-      const isLikelyCid = (v: string) => /^\d{6,}$/.test(v)
+  const byPlaceId = new Map<string, NearbyPlace>()
+  for (const list of tileResults) {
+    for (const p of list) if (!byPlaceId.has(p.placeId)) byPlaceId.set(p.placeId, p)
+  }
+  const ownName = (location.name ?? "").trim().toLowerCase()
+  const pool = Array.from(byPlaceId.values())
+    .filter((p) => p.placeId !== location.primary_place_id)
+    .filter((p) => !ownName || p.name.trim().toLowerCase() !== ownName)
+    .filter((p) => !p.types.some((t) => EXCLUDED_COMPETITOR_TYPES.has(t)))
+    .sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))
+    .slice(0, RERANK_POOL_CAP)
 
-      if (providerEntityId.startsWith("places/")) {
-        providerEntityId = providerEntityId.replace("places/", "")
-      }
+  if (pool.length === 0) {
+    // Nothing around (rural edge case) — surface whatever is already pending
+    // (e.g. operator-added) instead of an error.
+    return { ok: true, competitors: await pendingCandidates(admin, locationId) }
+  }
 
-      if (
-        providerEntityId.startsWith("unknown:") ||
-        providerEntityId.startsWith("cid:") ||
-        isLikelyCid(providerEntityId)
-      ) {
-        const q = [candidate.name, location.city, location.region]
-          .filter(Boolean)
-          .join(" ")
-          .trim()
-        if (q) {
-          try {
-            const suggestions = await fetchAutocomplete(q)
-            if (suggestions[0]?.place_id) {
-              providerEntityId = suggestions[0].place_id
-            } else {
-              placeDetailsError = "Unable to resolve a valid Google Place ID."
-            }
-          } catch {
-            placeDetailsError = "Unable to resolve a valid Google Place ID."
-          }
-        }
-      }
+  // 3) Precision — one structured call; null = heuristic ranking (never a hard fail).
+  const rerank = await generateStructured<Map<number, RerankEntry> | null>(
+    {
+      tier: "reasoning",
+      prompt: buildRerankPrompt(identity, pool),
+      temperature: 0.2,
+      maxOutputTokens: 8192,
+      label: "competitor-rerank",
+    },
+    {
+      validate: (raw) => parseRerank(raw, pool.length),
+      fallback: () => null,
+      onFallback: ({ reason, elapsedMs }) =>
+        console.warn(
+          `[competitor-rerank] heuristic ranking fallback (reason=${reason}, ${elapsedMs}ms, pool=${pool.length})`
+        ),
+    }
+  )
 
-      let enrichedRaw = { ...(candidate.raw as Record<string, unknown> | null) }
-      let enrichedName = candidate.name
-      let enrichedCategory = candidate.category
-      let enrichedDistance = candidate.distanceMeters
-      if (
-        providerEntityId &&
-        !providerEntityId.startsWith("unknown:") &&
-        !providerEntityId.startsWith("cid:") &&
-        !isLikelyCid(providerEntityId)
-      ) {
-        try {
-          const details = await fetchPlaceDetails(providerEntityId)
-          const mapped = mapPlaceToLocation(details)
-          enrichedName = mapped.name || enrichedName
-          enrichedCategory = mapped.category ?? enrichedCategory
-          enrichedRaw = {
-            ...enrichedRaw,
-            address: mapped.address_line1,
-            city: mapped.city,
-            region: mapped.region,
-            website: mapped.website,
-            latitude: mapped.geo_lat,
-            longitude: mapped.geo_lng,
-            placeId: providerEntityId,
-            rating: details.rating ?? null,
-            types: mapped.types,
-            placeDetails: {
-              businessStatus: details.businessStatus ?? null,
-              priceLevel: details.priceLevel ?? null,
-              mapsUri: details.googleMapsUri ?? null,
-              editorialSummary: details.editorialSummary?.text ?? null,
-              shortFormattedAddress: details.shortFormattedAddress ?? null,
-              reviews: details.reviews ?? null,
-              types: details.types ?? null,
-              primaryType: details.primaryType ?? null,
-            },
-          }
-          if (
-            typeof mapped.geo_lat === "number" &&
-            typeof mapped.geo_lng === "number"
-          ) {
-            enrichedDistance = haversineMeters({
-              lat1: location.geo_lat!,
-              lng1: location.geo_lng!,
-              lat2: mapped.geo_lat,
-              lng2: mapped.geo_lng,
-            })
-          }
-        } catch (err) {
-          placeDetailsError = `Places details error: ${String(err)}`
-        }
-      }
-
+  // 4) Score + choose. Model score leads; heuristic fills gaps and breaks nothing.
+  const scored = pool
+    .map((p, i) => {
+      const heuristic = scoreCompetitor({
+        distanceMeters: p.distanceMeters ?? undefined,
+        category: p.primaryType ?? undefined,
+        targetCategory,
+        rating: p.rating ?? undefined,
+        reviewCount: p.reviewCount ?? undefined,
+        types: p.types,
+      })
+      const entry = rerank?.get(i)
       return {
-        ...candidate,
-        providerEntityId,
-        name: enrichedName,
-        category: enrichedCategory,
-        distanceMeters: enrichedDistance,
-        raw: { ...enrichedRaw, placeDetailsError },
+        place: p,
+        heuristic,
+        rerankScore: entry?.score ?? null,
+        why: sanitizeWhy(entry?.why ?? null),
+      }
+    })
+    .filter((s) => s.heuristic.score > 0)
+    .filter((s) => s.rerankScore === null || s.rerankScore >= RERANK_VETO_BELOW)
+    .sort(
+      (a, b) =>
+        (b.rerankScore ?? b.heuristic.score * 100) -
+        (a.rerankScore ?? a.heuristic.score * 100)
+    )
+    .slice(0, DISCOVERY_KEEP)
+
+  // 5) Enrich only what we keep (details are edge-cached ~7d). Fail-soft per candidate.
+  const enriched = await Promise.all(
+    scored.map(async (s) => {
+      try {
+        const details = await fetchPlaceDetails(s.place.placeId)
+        return { ...s, details, mapped: mapPlaceToLocation(details) }
+      } catch {
+        return { ...s, details: null, mapped: null }
       }
     })
   )
 
-  // Build rows and upsert to DB
-  const rows = resolvedCandidates
-    .filter((c) => {
-      if (c.providerEntityId === location.primary_place_id) return false
-      if (c.name && location.name) {
-        return c.name.trim().toLowerCase() !== location.name.trim().toLowerCase()
-      }
-      return true
-    })
-    .map((c) => {
-      const raw = (c.raw ?? {}) as Record<string, unknown>
-      const address =
-        typeof raw.address === "string"
-          ? raw.address
-          : typeof raw.shortFormattedAddress === "string"
-            ? raw.shortFormattedAddress
-            : null
-      const rawTypes = Array.isArray(raw.types)
-        ? (raw.types as unknown[]).filter((t): t is string => typeof t === "string")
-        : null
-      const { score, factors } = scoreCompetitor({
-        distanceMeters: c.distanceMeters,
-        category: c.category,
-        targetCategory,
-        rating: c.rating,
-        reviewCount: c.reviewCount,
-        types: rawTypes,
-      })
+  // 6) Persist. Refresh REPLACES prior discovery suggestions; operator-added pending
+  // rows survive, ignored competitors never come back.
+  const { data: existingRows } = await admin
+    .from("competitors")
+    .select("id, provider, provider_entity_id, metadata")
+    .eq("location_id", location.id)
+    .eq("is_active", false)
+  const ignoredPlaceIds = new Set(
+    (existingRows ?? [])
+      .filter((r) => (r.metadata as Record<string, unknown> | null)?.status === "ignored")
+      .map((r) => r.provider_entity_id)
+  )
 
+  const rows = enriched
+    .filter((s) => !ignoredPlaceIds.has(s.place.placeId))
+    .map(({ place, heuristic, rerankScore, why, details, mapped }) => {
+      const relevance =
+        rerankScore !== null ? Number((rerankScore / 100).toFixed(4)) : heuristic.score
       return {
         location_id: location.id,
-        provider: provider.name,
-        provider_entity_id: c.providerEntityId,
-        name: c.name,
-        category: c.category ?? targetCategory ?? null,
-        address,
-        phone: typeof raw.phone === "string" ? raw.phone : null,
-        website: typeof raw.website === "string" ? raw.website : null,
-        relevance_score: score,
+        provider: COMPETITOR_PROVIDER,
+        provider_entity_id: place.placeId,
+        name: mapped?.name || place.name,
+        category: mapped?.category ?? place.primaryType ?? targetCategory ?? null,
+        address: mapped?.address_line1 ?? place.address,
+        phone: mapped?.phone ?? null,
+        website: mapped?.website ?? null,
+        relevance_score: relevance,
         is_active: false,
         metadata: {
           status: "pending",
-          distanceMeters: c.distanceMeters ?? null,
-          rating: c.rating ?? null,
-          reviewCount: c.reviewCount ?? null,
-          address,
-          city: typeof raw.city === "string" ? raw.city : null,
-          region: typeof raw.region === "string" ? raw.region : null,
-          latitude: typeof raw.latitude === "number" ? raw.latitude : null,
-          longitude: typeof raw.longitude === "number" ? raw.longitude : null,
-          placeDetails: JSON.parse(JSON.stringify(raw.placeDetails ?? null)),
-          factors: JSON.parse(JSON.stringify(factors)),
+          source: "discovery",
+          why,
+          rerankScore,
+          distanceMeters: place.distanceMeters,
+          rating: details?.rating ?? place.rating,
+          reviewCount: details?.userRatingCount ?? place.reviewCount,
+          address: mapped?.address_line1 ?? place.address,
+          city: mapped?.city ?? null,
+          region: mapped?.region ?? null,
+          latitude: mapped?.geo_lat ?? place.lat ?? null,
+          longitude: mapped?.geo_lng ?? place.lng ?? null,
+          placeDetails: details
+            ? JSON.parse(
+                JSON.stringify({
+                  businessStatus: details.businessStatus ?? null,
+                  priceLevel: details.priceLevel ?? null,
+                  mapsUri: details.googleMapsUri ?? null,
+                  editorialSummary: details.editorialSummary?.text ?? null,
+                  shortFormattedAddress: details.shortFormattedAddress ?? null,
+                  reviews: details.reviews ?? null,
+                  types: details.types ?? null,
+                  primaryType: details.primaryType ?? null,
+                })
+              )
+            : null,
+          factors: JSON.parse(JSON.stringify(heuristic.factors)),
         } as Json,
       }
     })
-    // Drop rows scored as zero (hard-excluded non-competitor types like banks,
-    // government offices, schools, etc.) so they never show up in onboarding.
-    .filter((row) => (row.relevance_score ?? 0) > 0)
 
   if (rows.length) {
     const { error } = await admin.from("competitors").upsert(rows, {
       onConflict: "provider,provider_entity_id,location_id",
     })
-
     if (error) {
       return { ok: false, error: error.message }
     }
   }
 
-  // Re-fetch from DB so we have actual IDs
-  const { data: dbCompetitors } = await admin
+  // Sweep stale pending DISCOVERY rows (previous runs, the old gemini-era junk).
+  // Operator-added and ignored rows are untouched; the fresh set was just upserted.
+  const keptPlaceIds = new Set(rows.map((r) => r.provider_entity_id))
+  const staleIds = (existingRows ?? [])
+    .filter((r) => {
+      const meta = r.metadata as Record<string, unknown> | null
+      const status = (meta?.status as string | undefined) ?? "pending"
+      const source = meta?.source as string | undefined
+      // A row survives only if it's the exact row the fresh upsert just refreshed
+      // (same provider + place). A legacy-provider row for the same place would
+      // otherwise linger next to its fresh twin.
+      const refreshed =
+        r.provider === COMPETITOR_PROVIDER && keptPlaceIds.has(r.provider_entity_id ?? "")
+      return status === "pending" && source !== "operator" && !refreshed
+    })
+    .map((r) => r.id)
+  if (staleIds.length) {
+    const { error: sweepError } = await admin.from("competitors").delete().in("id", staleIds)
+    if (sweepError) {
+      // Non-fatal: stale suggestions linger but the fresh set still ranks first.
+      console.warn(`[competitor-discovery] stale-suggestion sweep failed: ${sweepError.message}`)
+    }
+  }
+
+  return { ok: true, competitors: await pendingCandidates(admin, locationId) }
+}
+
+// ---------------------------------------------------------------------------
+// Operator adds a specific competitor by Google place — the step-2 search picker.
+// Persists as a PENDING candidate (approval still happens at "Track these N").
+// ---------------------------------------------------------------------------
+
+export async function addCompetitorCandidateAction(input: {
+  locationId: string
+  placeId: string
+}): Promise<
+  | { ok: true; competitor: DiscoveredCompetitor }
+  | { ok: false; error: string }
+> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const loaded = await loadLocationForMember(admin, input.locationId, user.id)
+  if (!loaded.ok) return loaded
+  const { location } = loaded
+
+  if (input.placeId === location.primary_place_id) {
+    return { ok: false, error: "That's your own location." }
+  }
+
+  // Already on file (discovery suggested it, or it was ignored before)? Reuse the
+  // row — re-adding an ignored competitor is an explicit operator decision.
+  const { data: existing } = await admin
     .from("competitors")
-    .select("id, name, category, address, metadata, relevance_score")
-    .eq("location_id", locationId)
-    .eq("is_active", false)
-    .order("relevance_score", { ascending: false })
+    .select("id, name, category, address, provider_entity_id, metadata, relevance_score, is_active")
+    .eq("location_id", location.id)
+    .eq("provider_entity_id", input.placeId)
+    .maybeSingle()
+  if (existing) {
+    const metadata = {
+      ...(existing.metadata as Record<string, unknown> | null),
+      status: existing.is_active ? "approved" : "pending",
+      source: "operator",
+    }
+    await admin.from("competitors").update({ metadata }).eq("id", existing.id)
+    return {
+      ok: true,
+      competitor: {
+        id: existing.id,
+        name: existing.name,
+        category: existing.category,
+        address: existing.address,
+        provider_entity_id: existing.provider_entity_id,
+        metadata,
+        relevance_score: existing.relevance_score,
+      },
+    }
+  }
+
+  let details: Awaited<ReturnType<typeof fetchPlaceDetails>>
+  try {
+    details = await fetchPlaceDetails(input.placeId)
+  } catch (err) {
+    return { ok: false, error: `Couldn't load that place: ${err instanceof Error ? err.message : String(err)}` }
+  }
+  const mapped = mapPlaceToLocation(details)
+  if (
+    mapped.name &&
+    location.name &&
+    mapped.name.trim().toLowerCase() === location.name.trim().toLowerCase()
+  ) {
+    return { ok: false, error: "That's your own location." }
+  }
+
+  const targetCategory =
+    (location.settings as { category?: string } | null)?.category ?? null
+  const distanceMeters =
+    typeof mapped.geo_lat === "number" &&
+    typeof mapped.geo_lng === "number" &&
+    typeof location.geo_lat === "number" &&
+    typeof location.geo_lng === "number"
+      ? haversineMeters({
+          lat1: location.geo_lat,
+          lng1: location.geo_lng,
+          lat2: mapped.geo_lat,
+          lng2: mapped.geo_lng,
+        })
+      : null
+  const { factors } = scoreCompetitor({
+    distanceMeters: distanceMeters ?? undefined,
+    category: mapped.category ?? undefined,
+    targetCategory,
+    rating: details.rating ?? undefined,
+    reviewCount: details.userRatingCount ?? undefined,
+    types: mapped.types ?? null,
+  })
+
+  const metadata = {
+    status: "pending",
+    source: "operator",
+    why: "You added this one.",
+    rerankScore: null,
+    distanceMeters,
+    rating: details.rating ?? null,
+    reviewCount: details.userRatingCount ?? null,
+    address: mapped.address_line1,
+    city: mapped.city,
+    region: mapped.region,
+    latitude: mapped.geo_lat,
+    longitude: mapped.geo_lng,
+    placeDetails: JSON.parse(
+      JSON.stringify({
+        businessStatus: details.businessStatus ?? null,
+        priceLevel: details.priceLevel ?? null,
+        mapsUri: details.googleMapsUri ?? null,
+        editorialSummary: details.editorialSummary?.text ?? null,
+        shortFormattedAddress: details.shortFormattedAddress ?? null,
+        reviews: details.reviews ?? null,
+        types: details.types ?? null,
+        primaryType: details.primaryType ?? null,
+      })
+    ),
+    factors: JSON.parse(JSON.stringify(factors)),
+  } as Json
+
+  const { data: inserted, error } = await admin
+    .from("competitors")
+    .insert({
+      location_id: location.id,
+      provider: COMPETITOR_PROVIDER,
+      provider_entity_id: input.placeId,
+      name: mapped.name || "Competitor",
+      category: mapped.category ?? targetCategory ?? null,
+      address: mapped.address_line1,
+      phone: mapped.phone,
+      website: mapped.website,
+      // Operator intent outranks every model suggestion.
+      relevance_score: 0.99,
+      is_active: false,
+      metadata,
+    })
+    .select("id, name, category, address, provider_entity_id, metadata, relevance_score")
+    .single()
+
+  if (error || !inserted) {
+    return { ok: false, error: error?.message ?? "Couldn't add that competitor." }
+  }
 
   return {
     ok: true,
-    competitors: (dbCompetitors ?? []).map((c) => ({
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      address: c.address,
-      metadata: (c.metadata as Record<string, unknown>) ?? {},
-      relevance_score: c.relevance_score,
-    })),
+    competitor: {
+      id: inserted.id,
+      name: inserted.name,
+      category: inserted.category,
+      address: inserted.address,
+      provider_entity_id: inserted.provider_entity_id,
+      metadata: (inserted.metadata as Record<string, unknown>) ?? {},
+      relevance_score: inserted.relevance_score,
+    },
   }
 }
 

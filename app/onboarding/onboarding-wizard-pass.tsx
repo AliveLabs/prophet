@@ -16,6 +16,7 @@ import {
   createOrgAndLocationAction,
   createLocationForOrgAction,
   discoverCompetitorsForLocation,
+  addCompetitorCandidateAction,
   completeOnboardingAction,
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
@@ -48,6 +49,7 @@ export type OnboardingCandidate = {
   name: string | null
   category: string | null
   address: string | null
+  provider_entity_id: string | null
   metadata: Record<string, unknown>
   relevance_score: number | null
 }
@@ -56,6 +58,10 @@ type WizardProps = {
   existingOrgId?: string | null
   existingLocationId?: string | null
   existingCompetitors?: OnboardingCandidate[]
+  /** Coordinates of the existing location (resume/setup) — bias the step-2
+   *  competitor search to the neighborhood. Fresh signups get coords from the
+   *  step-0 place pick instead. */
+  existingLocationGeo?: { lat: number; lng: number } | null
   verticalConfig?: VerticalConfig
   /**
    * "signup" (default) = a new customer creating their account (ends at the
@@ -130,11 +136,16 @@ function metaLine(c: OnboardingCandidate): string {
   return parts.join(" · ")
 }
 
-// Human "why we picked it" from the scoring metadata.
+// Human "why we picked it". The ranker writes one plain sentence per pick
+// (metadata.why); the deterministic line below is the fallback when it didn't.
 function whyLine(c: OnboardingCandidate): string {
+  const written = typeof c.metadata.why === "string" ? c.metadata.why.trim() : ""
+  if (written) return written
   const factors = Array.isArray(c.metadata.factors)
     ? (c.metadata.factors as Array<{ label?: string; value?: number }>)
     : []
+  // "Same cuisine" only when the categories GENUINELY match (both specific) —
+  // the old substring check called steakhouses "Same cuisine" as a bakery.
   const sameCuisine = factors.some(
     (f) => f.label === "category_match" && (f.value ?? 0) >= 1
   )
@@ -404,6 +415,7 @@ export default function OnboardingWizardPass({
   existingOrgId,
   existingLocationId,
   existingCompetitors,
+  existingLocationGeo,
   verticalConfig: externalConfig,
   mode = "signup",
   setupOrgName,
@@ -444,8 +456,13 @@ export default function OnboardingWizardPass({
   const [adding, setAdding] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [searching, setSearching] = useState(false)
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const searchRequestIdRef = useRef(0)
+  // Places typeahead for "+ Add a competitor" — same instant autocomplete as
+  // step 0, biased to the location. (The old search here round-tripped through
+  // LLM discovery with the typed text as the TARGET business, so it could
+  // never return the place you actually typed.)
+  const [compPredictions, setCompPredictions] = useState<Prediction[]>([])
+  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
+  const [addError, setAddError] = useState<string | null>(null)
 
   // step 3 — monitoring prefs (same booleans the actions persist)
   const [monitoringPrefs, setMonitoringPrefs] = useState<Record<string, boolean>>({
@@ -517,16 +534,20 @@ export default function OnboardingWizardPass({
       try {
         const result = await discoverCompetitorsForLocation(
           locId,
-          undefined,
           verticalConfig.placesApiType
         )
         if (result.ok) {
           setCompetitors(result.competitors)
-          setSelectedIds((prev) =>
-            prev.size > 0
-              ? prev
+          // A re-run replaces the suggestion set (fresh DB rows, fresh ids) —
+          // keep whatever the operator already selected that still exists,
+          // otherwise default to the top picks.
+          setSelectedIds((prev) => {
+            const valid = new Set(result.competitors.map((c) => c.id))
+            const kept = new Set([...prev].filter((id) => valid.has(id)))
+            return kept.size > 0
+              ? kept
               : new Set(result.competitors.slice(0, MAX_TRACKED).map((c) => c.id))
-          )
+          })
         } else {
           setDiscoveryError(result.error)
         }
@@ -605,40 +626,75 @@ export default function OnboardingWizardPass({
     void discover(result.locationId)
   }
 
-  // Step 2 search — debounced server-side discovery with the typed query;
-  // results merge into the candidate pool (dedup by id).
-  function handleSearchChange(value: string) {
-    setSearchQuery(value)
-    if (!locationId) return
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
-    const q = value.trim()
-    if (q.length < 3) {
+  // Step 2 search — debounced Places autocomplete biased to the location
+  // (instant, and it finds the exact place you type — chains included).
+  const searchLat = place?.geo_lat ?? existingLocationGeo?.lat ?? null
+  const searchLng = place?.geo_lng ?? existingLocationGeo?.lng ?? null
+  useEffect(() => {
+    if (!adding) return
+    const q = searchQuery.trim()
+    if (q.length < 2) {
+      setCompPredictions([])
       setSearching(false)
       return
     }
-    searchDebounceRef.current = setTimeout(async () => {
-      const requestId = ++searchRequestIdRef.current
-      setSearching(true)
+    setSearching(true)
+    const t = setTimeout(async () => {
       try {
-        const result = await discoverCompetitorsForLocation(
-          locationId,
-          q,
-          verticalConfig.placesApiType
+        const bias =
+          searchLat !== null && searchLng !== null
+            ? `&lat=${searchLat}&lng=${searchLng}&radius=50000`
+            : ""
+        const res = await fetch(
+          `/api/places/autocomplete?input=${encodeURIComponent(q)}${bias}`
         )
-        if (requestId !== searchRequestIdRef.current) return
-        if (result.ok) {
-          setCompetitors((existing) => {
-            const byId = new Map(existing.map((c) => [c.id, c]))
-            for (const c of result.competitors) byId.set(c.id, c)
-            return Array.from(byId.values())
-          })
-        }
+        const data = await res.json()
+        setCompPredictions(data.ok ? (data.predictions ?? []).slice(0, 5) : [])
       } catch {
-        // keep current candidates on search failure
+        setCompPredictions([])
       } finally {
-        if (requestId === searchRequestIdRef.current) setSearching(false)
+        setSearching(false)
       }
-    }, 400)
+    }, 300)
+    return () => {
+      clearTimeout(t)
+      setSearching(false)
+    }
+  }, [adding, searchQuery, searchLat, searchLng])
+
+  // Pick from the typeahead → persist as a pending candidate → select it.
+  async function pickCompetitor(p: Prediction) {
+    if (!locationId || addingPlaceId) return
+    setAddingPlaceId(p.place_id)
+    setAddError(null)
+    try {
+      const result = await addCompetitorCandidateAction({
+        locationId,
+        placeId: p.place_id,
+      })
+      if (result.ok) {
+        const added = result.competitor
+        setCompetitors((existing) => {
+          const byId = new Map(existing.map((c) => [c.id, c]))
+          byId.set(added.id, added)
+          return Array.from(byId.values())
+        })
+        setSelectedIds((prev) => {
+          if (prev.size >= MAX_TRACKED || prev.has(added.id)) return prev
+          const next = new Set(prev)
+          next.add(added.id)
+          return next
+        })
+        setSearchQuery("")
+        setCompPredictions([])
+      } else {
+        setAddError(result.error)
+      }
+    } catch {
+      setAddError("Couldn't add that one. Try again.")
+    } finally {
+      setAddingPlaceId(null)
+    }
   }
 
   const removeCompetitor = (id: string) =>
@@ -928,21 +984,29 @@ export default function OnboardingWizardPass({
                           className="ob-input"
                           value={searchQuery}
                           autoFocus
-                          placeholder="Search restaurants near you…"
+                          placeholder="Search any business by name…"
                           aria-label="Search for a competitor"
-                          onChange={(e) => handleSearchChange(e.target.value)}
+                          onChange={(e) => {
+                            setSearchQuery(e.target.value)
+                            setAddError(null)
+                          }}
                         />
                         <button
                           className="ob-btn ob-btn--ghost ob-btn--sm"
                           onClick={() => {
                             setAdding(false)
                             setSearchQuery("")
+                            setCompPredictions([])
+                            setAddError(null)
                           }}
                         >
                           Done
                         </button>
                       </div>
-                      {searching ? <p className="ob-hint">Searching…</p> : null}
+                      {addError ? (
+                        <div className="ob-alert"><IconAlert />{addError}</div>
+                      ) : null}
+                      {/* Already-suggested candidates that match what's typed. */}
                       {suggestions.map((c) => (
                         <div className="ob-comp" key={c.id}>
                           <div className="ob-comp__body">
@@ -958,6 +1022,42 @@ export default function OnboardingWizardPass({
                           </button>
                         </div>
                       ))}
+                      {/* Fresh Places matches for anything we didn't already suggest. */}
+                      {compPredictions
+                        .filter(
+                          (p) =>
+                            !competitors.some(
+                              (c) =>
+                                c.provider_entity_id === p.place_id &&
+                                (selectedIds.has(c.id) ||
+                                  suggestions.some((s) => s.id === c.id))
+                            )
+                        )
+                        .map((p) => (
+                          <div className="ob-comp" key={p.place_id}>
+                            <div className="ob-comp__body">
+                              <div className="ob-comp__name">{p.description}</div>
+                            </div>
+                            <button
+                              className="ob-btn ob-btn--act ob-btn--sm"
+                              onClick={() => pickCompetitor(p)}
+                              disabled={
+                                selectedIds.size >= MAX_TRACKED || addingPlaceId !== null
+                              }
+                            >
+                              {addingPlaceId === p.place_id ? "Adding…" : "Add"}
+                            </button>
+                          </div>
+                        ))}
+                      {searching && compPredictions.length === 0 ? (
+                        <p className="ob-hint">Searching…</p>
+                      ) : null}
+                      {!searching &&
+                      searchQuery.trim().length >= 2 &&
+                      compPredictions.length === 0 &&
+                      suggestions.length === 0 ? (
+                        <p className="ob-hint">No matches yet — keep typing the name.</p>
+                      ) : null}
                       {selectedIds.size >= MAX_TRACKED ? (
                         <p className="ob-hint">
                           You&apos;re tracking the max of {MAX_TRACKED} — remove one to add another.

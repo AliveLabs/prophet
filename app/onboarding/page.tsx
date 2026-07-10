@@ -10,44 +10,60 @@ type OnboardingCandidate = {
   name: string | null
   category: string | null
   address: string | null
+  provider_entity_id: string | null
   metadata: Record<string, unknown>
   relevance_score: number | null
 }
 
-// Load an org's first location + its still-pending (is_active=false) competitor
-// candidates so the wizard can resume/continue mid-setup. Shared by the normal
-// resume path and admin setup mode.
+// Load an org's first location + its still-pending (is_active=false, not
+// ignored) competitor candidates so the wizard can resume/continue mid-setup.
+// Shared by the normal resume path and admin setup mode.
 async function loadLocationAndCompetitors(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   orgId: string
-): Promise<{ locationId: string | null; competitors: OnboardingCandidate[] }> {
+): Promise<{
+  locationId: string | null
+  locationGeo: { lat: number; lng: number } | null
+  competitors: OnboardingCandidate[]
+}> {
   const { data: loc } = await supabase
     .from("locations")
-    .select("id")
+    .select("id, geo_lat, geo_lng")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle()
 
-  if (!loc?.id) return { locationId: null, competitors: [] }
+  if (!loc?.id) return { locationId: null, locationGeo: null, competitors: [] }
 
   const { data: comps } = await supabase
     .from("competitors")
-    .select("id, name, category, address, metadata, relevance_score")
+    .select("id, name, category, address, provider_entity_id, metadata, relevance_score")
     .eq("location_id", loc.id)
     .eq("is_active", false)
     .order("relevance_score", { ascending: false })
 
   return {
     locationId: loc.id,
-    competitors: (comps ?? []).map((c) => ({
-      id: c.id,
-      name: c.name,
-      category: c.category,
-      address: c.address,
-      metadata: (c.metadata as Record<string, unknown>) ?? {},
-      relevance_score: c.relevance_score,
-    })),
+    locationGeo:
+      typeof loc.geo_lat === "number" && typeof loc.geo_lng === "number"
+        ? { lat: loc.geo_lat, lng: loc.geo_lng }
+        : null,
+    competitors: (comps ?? [])
+      .filter(
+        (c) =>
+          (((c.metadata as Record<string, unknown> | null)?.status as string | undefined) ??
+            "pending") === "pending"
+      )
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        category: c.category,
+        address: c.address,
+        provider_entity_id: c.provider_entity_id,
+        metadata: (c.metadata as Record<string, unknown>) ?? {},
+        relevance_score: c.relevance_score,
+      })),
   }
 }
 
@@ -93,7 +109,7 @@ export default async function OnboardingPage({
       redirect(`/admin/organizations/${setupOrgId}`)
     }
 
-    const { locationId, competitors } = await loadLocationAndCompetitors(
+    const { locationId, locationGeo, competitors } = await loadLocationAndCompetitors(
       supabase,
       setupOrgId
     )
@@ -119,6 +135,7 @@ export default async function OnboardingPage({
           existingOrgId={setupOrgId}
           existingLocationId={locationId}
           existingCompetitors={competitors}
+          existingLocationGeo={locationGeo}
           verticalConfig={verticalConfig}
           mode="setup"
           setupOrgName={org.name}
@@ -163,12 +180,14 @@ export default async function OnboardingPage({
 
   let existingOrgId: string | null = null
   let existingLocationId: string | null = null
+  let existingLocationGeo: { lat: number; lng: number } | null = null
   let existingCompetitors: OnboardingCandidate[] = []
 
   if (membership?.organization_id) {
     existingOrgId = membership.organization_id
     const loaded = await loadLocationAndCompetitors(supabase, membership.organization_id)
     existingLocationId = loaded.locationId
+    existingLocationGeo = loaded.locationGeo
     existingCompetitors = loaded.competitors
   }
 
@@ -178,6 +197,7 @@ export default async function OnboardingPage({
         existingOrgId={existingOrgId}
         existingLocationId={existingLocationId}
         existingCompetitors={existingCompetitors}
+        existingLocationGeo={existingLocationGeo}
         verticalConfig={verticalConfig}
       />
     </BrandProvider>
