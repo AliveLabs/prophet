@@ -15,7 +15,7 @@ type GooglePlacesAutocompleteResponse = {
   }
 }
 
-type GooglePlaceDetailsResponse = {
+export type GooglePlaceDetailsResponse = {
   id?: string
   displayName?: {
     text?: string
@@ -173,6 +173,7 @@ type GoogleNearbyResponse = {
     rating?: number
     userRatingCount?: number
     priceLevel?: string
+    shortFormattedAddress?: string
     location?: { latitude?: number; longitude?: number }
   }>
   error?: { message?: string; status?: string }
@@ -186,6 +187,7 @@ export type DiscoveredCompetitor = {
   rating: number | null
   reviewCount: number | null
   priceLevel: string | null
+  address: string | null
   distanceMeters: number | null
   lat?: number | null
   lng?: number | null
@@ -222,7 +224,7 @@ export async function fetchNearbyPlaces(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.location",
+        "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.shortFormattedAddress,places.location",
     },
     body: JSON.stringify({
       includedTypes: opts.includedTypes,
@@ -249,6 +251,7 @@ export async function fetchNearbyPlaces(
       rating: p.rating ?? null,
       reviewCount: p.userRatingCount ?? null,
       priceLevel: p.priceLevel ?? null,
+      address: p.shortFormattedAddress ?? null,
       distanceMeters:
         typeof p.location?.latitude === "number" && typeof p.location?.longitude === "number"
           ? Math.round(haversineMeters(lat, lng, p.location.latitude, p.location.longitude))
