@@ -96,7 +96,7 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   {
     kicker: "Found for you",
     head: <>Here&apos;s who <em>we'd watch.</em></>,
-    sub: "We scanned your neighborhood for similar spots and picked the closest competitors — each with the reason why.",
+    sub: "We scanned your neighborhood and picked the spots your customers would actually choose instead — each with the reason why.",
   },
   {
     kicker: "Optional",
