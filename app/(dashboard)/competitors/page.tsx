@@ -7,8 +7,10 @@
 import { loadOperatorContext, loadCompetitorComparison, loadCompetitorScorecard, loadCompetitorSwapState, tierLabel } from "../operator-data"
 import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
 import { computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { TkTooltipLayer } from "@/components/ticket"
 import CompetitorRoster from "./competitor-roster"
+import { type SuggestedCompetitor } from "./competitor-add-drawer"
 import CompetitorScorecard from "./competitor-scorecard"
 import CompetitorHoursGrid from "./competitor-hours-grid"
 import "./competitors.css"
@@ -31,6 +33,32 @@ export default async function CompetitorsPage() {
   const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
   // ALT-195 — swap cooldown (1 / 30 days), derived from the last removal timestamp.
   const swapCooldown = computeSwapCooldown(swapState.lastRemovalAt)
+
+  // Pending discovery candidates → the add drawer's "Suggested for you" (best first,
+  // never ignored rows). Empty is fine: the drawer scans on first open.
+  const supabase = await createServerSupabaseClient()
+  const { data: pendingRows } = await supabase
+    .from("competitors")
+    .select("id, name, category, address, provider_entity_id, metadata, relevance_score")
+    .eq("location_id", ctx.locationId)
+    .eq("is_active", false)
+    .order("relevance_score", { ascending: false })
+  const addSuggestions: SuggestedCompetitor[] = (pendingRows ?? [])
+    .filter(
+      (c) =>
+        (((c.metadata as Record<string, unknown> | null)?.status as string | undefined) ??
+          "pending") === "pending"
+    )
+    .slice(0, 12)
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      category: c.category,
+      address: c.address,
+      provider_entity_id: c.provider_entity_id,
+      metadata: (c.metadata as Record<string, unknown>) ?? {},
+      relevance_score: c.relevance_score,
+    }))
   return (
     <div className="pv-page tk-comp">
       <div className="pv-page-head">
@@ -56,6 +84,7 @@ export default async function CompetitorsPage() {
         competitorLimit={competitorLimit}
         locationId={ctx.locationId}
         locationGeo={ctx.locationGeo}
+        addSuggestions={addSuggestions}
         swapCooldown={swapCooldown}
         swapCooldownDays={COMPETITOR_SWAP_COOLDOWN_DAYS}
       />
