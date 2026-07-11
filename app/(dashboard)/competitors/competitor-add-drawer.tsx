@@ -91,6 +91,13 @@ export default function CompetitorAddDrawer({
   const [scanning, setScanning] = useState(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const autoScanRef = useRef(false)
+  // Re-sync from the server between sessions (render-time derived state) — but
+  // only while CLOSED, so an in-progress session's list doesn't shift underfoot.
+  const [prevInitial, setPrevInitial] = useState(initialSuggestions)
+  if (!open && prevInitial !== initialSuggestions) {
+    setPrevInitial(initialSuggestions)
+    setSuggestions(initialSuggestions)
+  }
 
   // Search
   const [query, setQuery] = useState("")
@@ -154,6 +161,9 @@ export default function CompetitorAddDrawer({
       return
     }
     setSearching(true)
+    // `cancelled` covers the in-flight fetch too: without it, a response landing
+    // after the query changed/cleared would repopulate stale predictions.
+    let cancelled = false
     const t = setTimeout(async () => {
       try {
         const bias =
@@ -162,6 +172,7 @@ export default function CompetitorAddDrawer({
             : ""
         const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(q)}${bias}`)
         const data = await res.json()
+        if (cancelled) return
         if (data.ok) {
           setPredictions((data.predictions ?? []).slice(0, 5))
           setSearchError(null)
@@ -171,14 +182,16 @@ export default function CompetitorAddDrawer({
         }
         setSearchedFor(q)
       } catch {
+        if (cancelled) return
         setPredictions([])
         setSearchError("Search isn't responding right now. Give it a moment and try again.")
         setSearchedFor(q)
       } finally {
-        setSearching(false)
+        if (!cancelled) setSearching(false)
       }
     }, 300)
     return () => {
+      cancelled = true
       clearTimeout(t)
       setSearching(false)
     }
@@ -314,9 +327,14 @@ export default function CompetitorAddDrawer({
             </TkButton>
           </div>
         ) : suggestions.length === 0 ? (
-          <p className="tk-cadd-hint">
-            Nothing new nearby right now. Search above for anyone we missed.
-          </p>
+          <div className="tk-cadd-empty">
+            <p className="tk-cadd-hint">
+              Nothing new nearby right now. Search above for anyone we missed.
+            </p>
+            <TkButton variant="ghost" onClick={() => void scan()}>
+              Scan again
+            </TkButton>
+          </div>
         ) : (
           <div className="tk-cadd-list">
             {suggestions.map((s) => (

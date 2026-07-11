@@ -557,15 +557,18 @@ async function loadLocationForMember(
     return { ok: false, error: locError?.message ?? "Location not found" }
   }
 
+  // Owner/admin only — matches addCompetitorAction's gate. A plain member could
+  // otherwise burn discovery spend (Places sweeps + a model call) on a set they
+  // aren't allowed to change. Onboarding always runs as the org creator (owner).
   const { data: membership } = await admin
     .from("organization_members")
-    .select("id")
+    .select("role")
     .eq("organization_id", location.organization_id)
     .eq("user_id", userId)
     .maybeSingle()
 
-  if (!membership) {
-    return { ok: false, error: "You are not a member of this organization." }
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    return { ok: false, error: "Only admins can manage competitors." }
   }
 
   return { ok: true, location }
@@ -615,24 +618,48 @@ export async function discoverCompetitorsForLocation(
   }
 
   // 2) Recall — tiled nearby sweep. A failed tile shrinks the pool; ALL failed = error.
+  // The location's existing competitor rows load alongside: WATCHED (is_active)
+  // and IGNORED rows must never enter the pool. Discovery once ran only during
+  // onboarding (nothing active yet); from the dashboard, a watched rival that
+  // re-enters the pool would be upserted back to is_active:false — silently
+  // un-watching it. The exclusion here is what makes a re-scan non-destructive.
   const tiles = discoveryTypeTiles(placesApiType)
   let failedTiles = 0
-  const tileResults = await Promise.all(
-    tiles.map((includedTypes) =>
-      fetchNearbyPlaces(location.geo_lat!, location.geo_lng!, {
-        includedTypes,
-        radius: DISCOVERY_RADIUS_METERS,
-        excludePlaceId: location.primary_place_id ?? undefined,
-      }).catch((err) => {
-        failedTiles++
-        console.warn(`[competitor-discovery] tile ${includedTypes.join(",")} failed: ${String(err)}`)
-        return [] as NearbyPlace[]
-      })
-    )
-  )
+  const [tileResults, existingRowsRes] = await Promise.all([
+    Promise.all(
+      tiles.map((includedTypes) =>
+        fetchNearbyPlaces(location.geo_lat!, location.geo_lng!, {
+          includedTypes,
+          radius: DISCOVERY_RADIUS_METERS,
+          excludePlaceId: location.primary_place_id ?? undefined,
+        }).catch((err) => {
+          failedTiles++
+          console.warn(`[competitor-discovery] tile ${includedTypes.join(",")} failed: ${String(err)}`)
+          return [] as NearbyPlace[]
+        })
+      )
+    ),
+    admin
+      .from("competitors")
+      .select("id, provider, provider_entity_id, metadata, is_active")
+      .eq("location_id", location.id),
+  ])
   if (failedTiles === tiles.length) {
     return { ok: false, error: "Couldn't scan nearby businesses right now. Try again in a moment." }
   }
+  const existingRows = existingRowsRes.data ?? []
+  const watchedPlaceIds = new Set(
+    existingRows.filter((r) => r.is_active).map((r) => r.provider_entity_id)
+  )
+  const ignoredPlaceIds = new Set(
+    existingRows
+      .filter(
+        (r) =>
+          !r.is_active &&
+          (r.metadata as Record<string, unknown> | null)?.status === "ignored"
+      )
+      .map((r) => r.provider_entity_id)
+  )
 
   const byPlaceId = new Map<string, NearbyPlace>()
   for (const list of tileResults) {
@@ -643,6 +670,7 @@ export async function discoverCompetitorsForLocation(
     .filter((p) => p.placeId !== location.primary_place_id)
     .filter((p) => !ownName || p.name.trim().toLowerCase() !== ownName)
     .filter((p) => !p.types.some((t) => EXCLUDED_COMPETITOR_TYPES.has(t)))
+    .filter((p) => !watchedPlaceIds.has(p.placeId) && !ignoredPlaceIds.has(p.placeId))
     .sort((a, b) => (a.distanceMeters ?? Infinity) - (b.distanceMeters ?? Infinity))
     .slice(0, RERANK_POOL_CAP)
 
@@ -718,20 +746,13 @@ export async function discoverCompetitorsForLocation(
   )
 
   // 6) Persist. Refresh REPLACES prior discovery suggestions; operator-added pending
-  // rows survive, ignored competitors never come back.
-  const { data: existingRows } = await admin
-    .from("competitors")
-    .select("id, provider, provider_entity_id, metadata")
-    .eq("location_id", location.id)
-    .eq("is_active", false)
-  const ignoredPlaceIds = new Set(
-    (existingRows ?? [])
-      .filter((r) => (r.metadata as Record<string, unknown> | null)?.status === "ignored")
-      .map((r) => r.provider_entity_id)
-  )
-
+  // rows survive, ignored competitors never come back, and WATCHED rows can never
+  // be clobbered back to pending (the pool excluded them; the filter here is the
+  // second lock on the same door).
   const rows = enriched
-    .filter((s) => !ignoredPlaceIds.has(s.place.placeId))
+    .filter(
+      (s) => !ignoredPlaceIds.has(s.place.placeId) && !watchedPlaceIds.has(s.place.placeId)
+    )
     .map(({ place, heuristic, rerankScore, why, details, mapped }) => {
       const relevance =
         rerankScore !== null ? Number((rerankScore / 100).toFixed(4)) : heuristic.score
@@ -788,10 +809,14 @@ export async function discoverCompetitorsForLocation(
   }
 
   // Sweep stale pending DISCOVERY rows (previous runs, the old gemini-era junk).
-  // Operator-added and ignored rows are untouched; the fresh set was just upserted.
+  // Watched, operator-added, and ignored rows are untouched; the fresh set was
+  // just upserted. `!r.is_active` is load-bearing: existingRows now includes the
+  // WATCHED set, and an active row with legacy metadata (no status) would
+  // otherwise read as "pending" and be deleted.
   const keptPlaceIds = new Set(rows.map((r) => r.provider_entity_id))
-  const staleIds = (existingRows ?? [])
+  const staleIds = existingRows
     .filter((r) => {
+      if (r.is_active) return false
       const meta = r.metadata as Record<string, unknown> | null
       const status = (meta?.status as string | undefined) ?? "pending"
       const source = meta?.source as string | undefined

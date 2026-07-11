@@ -1028,3 +1028,4 @@
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em;
   text-transform: uppercase; color: var(--teal-deep, var(--ink-2)); white-space: nowrap;
 }
+.tk-cadd-empty { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
