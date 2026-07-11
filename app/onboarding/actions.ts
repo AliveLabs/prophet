@@ -647,6 +647,12 @@ export async function discoverCompetitorsForLocation(
   if (failedTiles === tiles.length) {
     return { ok: false, error: "Couldn't scan nearby businesses right now. Try again in a moment." }
   }
+  // FAIL CLOSED on the safety read: the watched/ignored exclusions below are what
+  // keep a scan from un-watching active rivals. If this SELECT errored, data is
+  // null and the guards would silently guard nothing — abort instead.
+  if (existingRowsRes.error) {
+    return { ok: false, error: "Couldn't check your current competitor set. Try again in a moment." }
+  }
   const existingRows = existingRowsRes.data ?? []
   const watchedPlaceIds = new Set(
     existingRows.filter((r) => r.is_active).map((r) => r.provider_entity_id)
