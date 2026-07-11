@@ -36,6 +36,7 @@ import {
   TkEmptyState,
   TkTooltipLayer,
   VizTBubble,
+  TkRule,
 } from "@/components/ticket"
 import {
   WeatherTrend,
@@ -274,7 +275,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
           traffic insights already account for it. All-weather, honest, and estimated.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit tk-weather-body">
         <TkTooltipLayer />

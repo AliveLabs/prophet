@@ -51,28 +51,39 @@
 /* ════════════════════════════════════════════════════════════
    BUTTONS
    ════════════════════════════════════════════════════════════ */
+/* ALT-252 — THE four-tier button system (see TkButton in primitives.tsx).
+   Legacy class names (-act/-add/-ghost) ride the same rules so raw admin
+   markup keeps working until its own sweep. */
 .tk-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border-radius: 11px; font-family: var(--font-display); font-weight: 700; font-size: 13.5px; line-height: 1; padding: 11px 16px; min-height: 44px; transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast), border-color var(--t-fast), color var(--t-fast); white-space: nowrap; }
 .tk-btn svg { width: 15px; height: 15px; }
-.tk-btn-act { background: linear-gradient(145deg, var(--rust), var(--rust-2)); color: #fff; box-shadow: var(--shadow-sm); }
-.tk-btn-act:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
-.tk-btn-act:active { transform: translateY(0); }
-.tk-btn-keep { background: var(--card); color: var(--ink); border: 1.5px solid var(--line-2); }
+.tk-btn[disabled] { opacity: .45; cursor: not-allowed; }
+/* PRIMARY — filled copper, knockout text: the one main action. */
+.tk-btn-primary, .tk-btn-act { background: linear-gradient(145deg, var(--rust), var(--rust-2)); color: #fff; box-shadow: var(--shadow-sm); }
+.tk-btn-primary:hover, .tk-btn-act:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
+.tk-btn-primary:active, .tk-btn-act:active { transform: translateY(0); }
+/* SECONDARY — copper outline, copper text + icons: a real alternative action. */
+.tk-btn-secondary, .tk-btn-add { background: var(--card); color: var(--rust-deep, var(--rust)); border: 1.5px solid color-mix(in srgb, var(--rust) 55%, transparent); }
+.tk-btn-secondary svg, .tk-btn-add svg { color: currentColor; }
+.tk-btn-secondary:hover, .tk-btn-add:hover { background: var(--rust-tint); border-color: var(--rust); }
+/* TERTIARY — thin gray outline + subtle shadow: calm utility (cancel/undo). */
+.tk-btn-tertiary, .tk-btn-ghost { background: var(--card); color: var(--ink-2); border: 1px solid var(--line-2); box-shadow: var(--shadow-sm); }
+.tk-btn-tertiary:hover, .tk-btn-ghost:hover { background: var(--paper-2); color: var(--ink); border-color: var(--ink-3); }
+/* BORDERLESS — copper text/icon only, SAME font size as every other button.
+   Deliberately NO hover rule: the color alone carries the affordance; a hover
+   pill/underline reads as an implied extra action that doesn't exist. */
+.tk-btn-borderless { background: none; border: 0; box-shadow: none; padding: 11px 4px; color: var(--rust-deep, var(--rust)); }
+.tk-btn-borderless svg { color: currentColor; }
+/* functional variants (unchanged semantics; tertiary-family look) */
+.tk-btn-keep { background: var(--card); color: var(--ink); border: 1.5px solid var(--line-2); box-shadow: var(--shadow-sm); }
 .tk-btn-keep:hover { background: var(--paper-2); border-color: var(--ink-3); }
 .tk-btn-keep.tk-is-kept { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }
 .tk-btn-dismiss { color: var(--ink-3); padding: 11px 14px; border-radius: 10px; border: 1.5px solid transparent; }
 .tk-btn-dismiss:hover { background: var(--paper-2); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 26%, transparent); }
-.tk-btn-add { background: var(--slate-2); color: #fff; border-radius: 11px; padding: 11px 16px; font-family: var(--font-display); font-weight: 700; font-size: 13.5px; min-height: 44px; }
-.tk-btn-add:hover { background: var(--slate); }
-.tk-btn-add[disabled] { opacity: .45; cursor: not-allowed; }
-.tk-btn-ghost { color: var(--ink-2); border: 1px solid transparent; background: transparent; }
-.tk-btn-ghost:hover { background: var(--paper-2); color: var(--ink); }
-/* compact button — for dense card footers (keeps the copper treatment, smaller) */
+/* compact button — for dense card footers (keeps the tier treatment, smaller) */
 .tk-btn-sm { font-size: 11px; padding: 6px 11px; min-height: 0; border-radius: 8px; gap: 5px; }
 .tk-btn-sm svg { width: 12px; height: 12px; }
-/* "Map it" — a quiet text-only link, off to the side (ALT-216b) */
-.tk-maplink { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-3); transition: color var(--t-fast); }
-.tk-maplink svg { width: 11px; height: 11px; color: var(--rust-deep); }
-.tk-maplink:hover { color: var(--ink); }
+/* spacing rule: a primary action next to an adjacent borderless link gets 12px */
+.tk-actionpair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 /* hero venue map — fills the hero's photo canvas (ALT-216d) */
 .tk-hero-map { position: absolute; inset: 0; display: flex; flex-direction: column; }
 .tk-hero-map > div:first-child { flex: 1; border: 0; border-radius: 0; }
@@ -185,7 +196,15 @@
 .tk-sec-head { display: flex; align-items: baseline; gap: 12px; margin: 42px 0 16px; flex-wrap: wrap; }
 .tk-sec-head h3 { font-family: var(--font-display); font-size: 18px; font-weight: 800; letter-spacing: -.01em; }
 .tk-sec-head .tk-sub { font-size: 13px; color: var(--ink-3); }
-.tk-sec-head .tk-rule { flex: 1; height: 1px; background: linear-gradient(to right, var(--line-2), transparent); }
+/* ALT-283: absorbed into the quiet-rule treatment (was a one-off gradient fade). */
+.tk-sec-head .tk-rule { flex: 1; height: 1px; background: var(--rule); }
+
+/* ════════════════════════════════════════════════════════════
+   TkRule — THE divider (ALT-283). strong = page-header rule,
+   quiet = internal separation. lp-rule (landing accent) is NOT a divider.
+   ════════════════════════════════════════════════════════════ */
+.tk-rule-strong { border: 0; border-top: 2px solid var(--ink); margin: 18px 0 0; }
+.tk-rule-quiet { border: 0; height: 1px; background: var(--rule); margin: 6px 0; }
 
 /* ════════════════════════════════════════════════════════════
    CARDS · PLAY CARDS · SOFT PANELS

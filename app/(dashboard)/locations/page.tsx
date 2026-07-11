@@ -22,6 +22,7 @@ import { humanizeLabel } from "@/lib/skills/evidence-format"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { LocationsBoard, type LocationCard } from "./locations-board"
 import "./locations.css"
+import { TkRule } from "@/components/ticket"
 
 const formatTemperature = (weather: WeatherSnapshot | null): string => {
   if (!weather || typeof weather.temperature !== "number") return "—"
@@ -238,7 +239,7 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           first data pull starts immediately.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div style={{ marginTop: 22 }}>
         <LocationsBoard

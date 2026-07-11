@@ -144,7 +144,6 @@
 .pv-acct__check{ margin-left:auto; color:var(--clear); }
 .pv-acct__add{ display:block; width:100%; text-align:left; border:0; background:transparent; cursor:pointer; padding:8px; border-radius:var(--radius); font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12px; color:var(--slate); }
 .pv-acct__add:hover{ background:var(--bond); }
-.pv-acct__divider{ height:1px; background:var(--rule); margin:6px 0; }
 .pv-acct__item{ display:block; width:100%; text-align:left; border:0; background:transparent; cursor:pointer; padding:9px 8px; border-radius:var(--radius); font-size:14px; color:var(--ink); }
 .pv-acct__item:hover{ background:var(--bond); }
 .pv-acct__soon{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash-2); padding:8px; line-height:1.4; }
@@ -254,7 +253,6 @@
 .pv-kicker{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.22em; font-size:12.5px; color:var(--rust); }
 .pv-h1{ font-family:var(--font-display); font-weight:400; line-height:1.04; letter-spacing:-.01em; font-size:46px; color:var(--ink); margin:8px 0 0; }
 .pv-sub{ font-size:16px; line-height:1.5; color:var(--print); margin:14px 0 0; max-width:60ch; }
-.pv-rule{ border:0; border-top:2px solid var(--ink); margin:18px 0 0; }
 /* ALT-184e: the back link is the first element on secondary views (pool / play detail),
    sitting directly under the trial/dunning banner — give it real top breathing room so it
    isn't cramped against the banner. Only affects pages that have a back link. */

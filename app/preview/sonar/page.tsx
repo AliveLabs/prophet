@@ -4,7 +4,7 @@
 // surface (so the teal/rust/gold tokens resolve). Prod-guarded by the preview
 // layout (VERCEL_ENV !== production). Toggle the layout's `.dark` to check dark.
 
-import { TkSonar } from "@/components/ticket"
+import { TkSonar, TkRule } from "@/components/ticket"
 import "@/components/ticket/pass.css"
 
 // The same static scope inlined into sidebar-nav / bottom-nav, at the nav's 15px box.
@@ -34,7 +34,7 @@ export default function SonarPreview() {
           Competitors nav icon. Teal scan, rust you, gold competitor blips — all design tokens.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         {/* ── Login status block ── */}

@@ -11,6 +11,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { loadPreviewContext } from "../../preview-data"
 import { humanizeRef, humanizeLabel } from "@/lib/skills/evidence-format"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import { TkRule } from "@/components/ticket"
 
 const KIND_LABEL: Record<EnrichedRecommendation["kind"], string> = {
   prepare: "Prepare", capitalize: "Capitalize", positioning: "Positioning", reputation: "Reputation", ops: "Operations",
@@ -64,7 +65,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
           ) : null}
         </div>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       {/* HOW — the full recipe, step by step */}
       <div className="pv-section">

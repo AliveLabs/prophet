@@ -2,6 +2,7 @@ import { getTierDisplayName } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
 import { UpgradeButtons } from "@/app/(dashboard)/settings/billing/upgrade-buttons"
 import { ManageBillingButton } from "@/app/(dashboard)/settings/billing/manage-billing-button"
+import { TkRule } from "@/components/ticket"
 
 interface AccountHeldPanelProps {
   orgName: string
@@ -66,7 +67,7 @@ export function AccountHeldPanel({
           </p>
         )}
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       {(insightCount > 0 || competitorCount > 0) && (
         <div className="pv-section">

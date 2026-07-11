@@ -16,7 +16,7 @@ import { isTrialing } from "@/lib/billing/trial"
 import { canAddLocationHere } from "@/lib/billing/limits"
 import { nextTierWithMoreLocations, asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import LocationAddForm from "@/components/places/location-add-form"
-import { TkCard, TkSoftPanel } from "@/components/ticket"
+import { TkCard, TkSoftPanel, TkRule } from "@/components/ticket"
 import { createLocationFromPlaceAction } from "../actions"
 import "../locations.css"
 
@@ -83,7 +83,7 @@ export default async function NewLocationPage() {
             Two ways to add the next one — keep it on this bill, or give it its own.
           </p>
         </div>
-        <hr className="pv-rule" />
+        <TkRule />
         <div className="loc-paths">
           {upgradeTarget ? (
             <TkCard className="loc-path-card">
@@ -126,7 +126,7 @@ export default async function NewLocationPage() {
           Google and we take it from there — the first data pull starts immediately.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="loc-newform">
         <TkSoftPanel className="loc-add-panel">

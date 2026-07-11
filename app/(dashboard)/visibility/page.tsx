@@ -11,6 +11,7 @@ import {
   TkWidget,
   TkSectionHead,
   TkEmptyState,
+  TkRule,
 } from "@/components/ticket"
 import {
   VisibilityControlBar,
@@ -359,7 +360,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           the keywords you win, where rivals out-rank you, and which searches you&apos;re missing.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="viz-body">
         {/* ── Control bar (location + organic/paid + refresh + freshness) ── */}

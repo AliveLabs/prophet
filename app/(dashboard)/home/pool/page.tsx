@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { loadPoolEntries } from "@/lib/insights/insight-pool"
 import { loadLatestPlayActionsByKey } from "@/lib/insights/momentum"
-import { RevealOnView, TkTooltipLayer } from "@/components/ticket"
+import { RevealOnView, TkTooltipLayer, TkRule } from "@/components/ticket"
 import PoolFeedPass from "./pool-feed-pass"
 import "./pool.css"
 
@@ -94,7 +94,7 @@ export default async function InsightPoolPage() {
         </p>
       </RevealOnView>
 
-      <hr className="pv-rule" />
+      <TkRule />
 
       {/* ── POOL BODY (kit grid + filters; client island, same data) ── */}
       <div className="pool-body">

@@ -6,6 +6,7 @@ import type { CSSProperties } from "react"
 import { TicketChatMark } from "@/components/brand/ticket-chat-mark"
 import { TicketLogo } from "@/components/brand/ticket-logo"
 import "@/components/ticket/pass.css"
+import { TkRule } from "@/components/ticket"
 
 const cell: CSSProperties = {
   display: "flex",
@@ -76,7 +77,7 @@ export default function TChatMarkPreview() {
           trigger size and on a card next to today’s icon.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="tk-kit" style={{ marginTop: 24 }}>
         {/* ── The mark, large ── */}

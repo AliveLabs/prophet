@@ -25,6 +25,7 @@ import {
   TkEmptyState,
   RevealOnView,
   type TkConfidenceLevel,
+  TkRule,
 } from "@/components/ticket"
 import PassAskBox from "./pass-ask-box"
 import PassStandingForm from "./pass-standing-form"
@@ -72,7 +73,7 @@ export default async function AskPage({
         <h1 className="pv-h1">Ask anything about your market.</h1>
         <p className="pv-sub">Plain-language questions, answered only from your own market and competitor data, never the open web.</p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       {/* the page BODY is the kit */}
       <div className="tk-kit">

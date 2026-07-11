@@ -5,6 +5,7 @@
 import { GenerateFlowDemo } from "./generate-flow-demo"
 import "@/components/ticket/pass.css"
 import "../../(dashboard)/insights/insights.css"
+import { TkRule } from "@/components/ticket"
 
 export default function GenerateFlowPreview() {
   return (
@@ -17,7 +18,7 @@ export default function GenerateFlowPreview() {
           call behind your login; this plays the same on-page states with the real cards and styling.
         </p>
       </div>
-      <hr className="pv-rule" />
+      <TkRule />
 
       <div className="ticket-brief tk-kit" style={{ marginTop: 24 }}>
         <GenerateFlowDemo />
