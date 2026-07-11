@@ -44,7 +44,16 @@ function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
 }
 
-type Suggestion = { place_id: string; description: string }
+type Suggestion = {
+  place_id: string
+  description: string
+  /** Straight-line meters from the operator's location (present when the search is biased). */
+  distance_meters?: number | null
+}
+
+function formatMiles(meters: number): string {
+  return Math.max(0.1, meters * 0.000621371).toFixed(1)
+}
 
 const RM_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -67,6 +76,7 @@ export default function CompetitorRoster({
   hrefBase = "/competitors",
   persist = true,
   locationId,
+  locationGeo,
   swapCooldown,
   swapCooldownDays = 30,
 }: {
@@ -78,6 +88,9 @@ export default function CompetitorRoster({
   hrefBase?: string
   persist?: boolean
   locationId?: string
+  /** Biases the add-competitor search to the neighborhood and puts a distance
+   *  on each result. Undefined in preview/unscoped use. */
+  locationGeo?: { lat: number; lng: number } | null
   /** ALT-195 — when locked, removing (and thus swapping) is blocked + warned. */
   swapCooldown?: SwapCooldown
   swapCooldownDays?: number
@@ -129,7 +142,12 @@ export default function CompetitorRoster({
     }
     debounce.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(q)}`)
+        const bias = locationGeo
+          ? `&lat=${locationGeo.lat}&lng=${locationGeo.lng}&radius=50000`
+          : ""
+        const res = await fetch(
+          `/api/places/autocomplete?input=${encodeURIComponent(q)}${bias}`
+        )
         const data = (await res.json()) as { ok: boolean; predictions?: Suggestion[] }
         setSuggestions(data.ok ? (data.predictions ?? []).slice(0, 5) : [])
       } catch {
@@ -139,7 +157,7 @@ export default function CompetitorRoster({
     return () => {
       if (debounce.current) clearTimeout(debounce.current)
     }
-  }, [name, adding, persist])
+  }, [name, adding, persist, locationGeo])
 
   const pick = (s: Suggestion) => {
     if (!locationId) return
@@ -181,6 +199,9 @@ export default function CompetitorRoster({
             <li key={s.place_id} role="option" aria-selected="false">
               <button type="button" className="tk-ac-item" onClick={() => pick(s)} disabled={pending}>
                 {s.description}
+                {typeof s.distance_meters === "number" ? (
+                  <span className="tk-ac-dist"> · {formatMiles(s.distance_meters)} mi</span>
+                ) : null}
               </button>
             </li>
           ))}

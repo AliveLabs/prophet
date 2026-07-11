@@ -102,6 +102,8 @@ export type OperatorContext = {
   locationId: string
   locationName: string
   city: string | null
+  /** Own-location coordinates — biases place searches and puts a distance on each result. */
+  locationGeo: { lat: number; lng: number } | null
   tier: string
   brandTolerance: number
   voiceTone: string | null
@@ -116,7 +118,7 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
 
   const { data: loc } = await sb
     .from("locations")
-    .select("brand_tolerance, voice_tone")
+    .select("brand_tolerance, voice_tone, geo_lat, geo_lng")
     .eq("id", op.locationId)
     .maybeSingle()
 
@@ -208,6 +210,10 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     locationId: op.locationId,
     locationName: op.locationName,
     city: op.city,
+    locationGeo:
+      typeof loc?.geo_lat === "number" && typeof loc?.geo_lng === "number"
+        ? { lat: loc.geo_lat, lng: loc.geo_lng }
+        : null,
     tier: org?.subscription_tier ?? "entry",
     brandTolerance: loc?.brand_tolerance ?? 50,
     voiceTone: loc?.voice_tone ?? null,

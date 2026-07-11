@@ -55,6 +55,7 @@ export default async function CompetitorsPage() {
         tierLabel={tierLabel(ctx.tier)}
         competitorLimit={competitorLimit}
         locationId={ctx.locationId}
+        locationGeo={ctx.locationGeo}
         swapCooldown={swapCooldown}
         swapCooldownDays={COMPETITOR_SWAP_COOLDOWN_DAYS}
       />

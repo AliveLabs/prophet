@@ -25,7 +25,12 @@ import type { VerticalConfig } from "@/lib/verticals"
 const TOTAL = 5
 const MAX_TRACKED = 5
 
-type Prediction = { place_id: string; description: string }
+type Prediction = {
+  place_id: string
+  description: string
+  /** Straight-line meters from the searcher's location (present when the search is biased). */
+  distance_meters?: number | null
+}
 
 // Shape of /api/places/details → place (mapPlaceToLocation output).
 type Place = {
@@ -1061,6 +1066,11 @@ export default function OnboardingWizardPass({
                           <div className="ob-comp" key={p.place_id}>
                             <div className="ob-comp__body">
                               <div className="ob-comp__name">{p.description}</div>
+                              {typeof p.distance_meters === "number" ? (
+                                <div className="ob-comp__meta">
+                                  {formatMiles(p.distance_meters)} mi away
+                                </div>
+                              ) : null}
                             </div>
                             <button
                               className="ob-btn ob-btn--act ob-btn--sm"
