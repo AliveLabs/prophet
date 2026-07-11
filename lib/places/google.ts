@@ -7,6 +7,8 @@ type GooglePlacesAutocompleteResponse = {
       text?: {
         text?: string
       }
+      /** Straight-line meters from the request `origin` (only when origin is sent). */
+      distanceMeters?: number
     }
   }>
   error?: {
@@ -97,6 +99,10 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
     input,
     includedPrimaryTypes: ["establishment"],
   }
+  const fields = [
+    "suggestions.placePrediction.placeId",
+    "suggestions.placePrediction.text",
+  ]
   if (hasCoords) {
     body.locationBias = {
       circle: {
@@ -104,13 +110,18 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
         radius: radius && Number.isFinite(radius) && radius > 0 ? radius : DEFAULT_LOCATION_BIAS_RADIUS_METERS,
       },
     }
+    // With an origin, each prediction carries distanceMeters in the SAME call
+    // (probe-verified 2026-07-10: no latency difference) — lets pickers show
+    // "2.1 mi" next to each result.
+    body.origin = { latitude: lat, longitude: lng }
+    fields.push("suggestions.placePrediction.distanceMeters")
   }
   const response = await fetchWithRetry("https://places.googleapis.com/v1/places:autocomplete", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Goog-Api-Key": getGoogleKey(),
-      "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text",
+      "X-Goog-FieldMask": fields.join(","),
     },
     body: JSON.stringify(body),
   })
@@ -129,6 +140,10 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
       ?.map((suggestion) => ({
         place_id: suggestion.placePrediction?.placeId ?? "",
         description: suggestion.placePrediction?.text?.text ?? "",
+        distance_meters:
+          typeof suggestion.placePrediction?.distanceMeters === "number"
+            ? suggestion.placePrediction.distanceMeters
+            : null,
       }))
       .filter((item) => item.place_id && item.description) ?? []
   )

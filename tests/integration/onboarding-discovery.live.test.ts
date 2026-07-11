@@ -12,7 +12,7 @@
 // bakery/café/breakfast places above the dinner-scene spots the old path suggested
 // (The Finch, JOEY Dallas et al).
 import { describe, it, expect } from "vitest"
-import { fetchPlaceDetails, fetchNearbyPlaces } from "@/lib/places/google"
+import { fetchAutocomplete, fetchPlaceDetails, fetchNearbyPlaces } from "@/lib/places/google"
 import { generateStructured } from "@/lib/ai/provider"
 import { scoreCompetitor, EXCLUDED_COMPETITOR_TYPES } from "@/lib/providers/scoring"
 import {
@@ -36,6 +36,20 @@ const LA_MADELEINE = {
 }
 
 describe("onboarding competitor discovery (live)", () => {
+  it("biased autocomplete finds the typed competitor WITH a distance per result", async () => {
+    const results = await fetchAutocomplete("Corner Bakery", {
+      lat: LA_MADELEINE.lat,
+      lng: LA_MADELEINE.lng,
+      radius: 50000,
+    })
+    expect(results.length).toBeGreaterThan(0)
+    expect(results.every((r) => /corner bakery/i.test(r.description))).toBe(true)
+    // origin → distanceMeters rides along in the same call (no extra latency)
+    expect(
+      results.some((r) => typeof r.distance_meters === "number" && r.distance_meters > 0)
+    ).toBe(true)
+  }, 30_000)
+
   it("finds and ranks a bakery-café competitive set for la Madeleine Dallas", async () => {
     // 1) Identity
     const details = await fetchPlaceDetails(LA_MADELEINE.placeId)

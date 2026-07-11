@@ -251,6 +251,7 @@
   min-height: 44px;
 }
 .tk-comp .tk-ac-item:hover { background: var(--paper-2); color: var(--ink); }
+.tk-comp .tk-ac-dist { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
 .tk-comp .tk-add-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .tk-comp .tk-note {
   font-size: 11.5px;
