@@ -10,7 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NormalizedEvent } from "./types"
 import { geocodeVenueDetailed, resolveVenueWebsite, haversineMiles } from "./geo"
-import { classifyEventMagnitude, classifyEventRole, isRouteEventTitle } from "./relevance"
+import { classifyEventMagnitude, classifyEventRole, isRouteEventTitle, classifyEventType } from "./relevance"
 import { matchEventToCatalog, isMajorCapacity, type CatalogVenue } from "./venue-catalog"
 import type { DensityClass } from "@/lib/local/census-density"
 
@@ -63,6 +63,9 @@ export async function annotateEventsGeo(
         const baseMagnitude = classifyEventMagnitude(e)
         e.magnitude = isMajorCapacity(e.capacityHigh) ? "major" : baseMagnitude
         e.role = classifyEventRole(e.distanceMiles, e.magnitude, { isRoute, densityClass: opts.densityClass })
+        // Event TYPE (closed enum): a grounded source already set it; back-fill the DataForSEO path
+        // from the title/venue. Additive — no consumer keys a differential-build hash off `type`.
+        e.type = e.type ?? classifyEventType(e)
       }),
     )
   }
