@@ -58,6 +58,12 @@
 @media (prefers-reduced-motion: no-preference) {
   .tk-comp .tk-rost-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md, var(--shadow-lg)); }
 }
+/* The hover lift's transform makes the card a stacking context, so without an
+   explicit z-index the open search dropdown (.tk-ac-list) gets trapped BELOW
+   later positioned sections ("Where you stand"). Lift the interacting card
+   above sibling sections; focus-within covers keyboard/touch. */
+.tk-comp .tk-rost-card:hover,
+.tk-comp .tk-rost-card:focus-within { z-index: 5; }
 .tk-comp .tk-rost-top {
   display: flex;
   align-items: center;
@@ -235,7 +241,9 @@
   position: absolute;
   left: 0;
   right: 0;
-  z-index: 8;
+  /* Above every in-card layer (chips, tooltip bubbles) — the dropdown is a
+     transient overlay and must never lose a paint fight inside its card. */
+  z-index: 30;
 }
 .tk-comp .tk-ac-item {
   display: block;
