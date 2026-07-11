@@ -4,13 +4,12 @@
 //
 // This REPLACES the legacy <CompetitorList/> presentation (.pv-* rows) with a kit
 // roster: branded mark cards in a grid, an add-a-rival flow, and a TkEmptyState CTA
-// when the set is empty. The DATA WIRING is identical to the old list — the same
-// addCompetitorAction / ignoreCompetitorAction server actions and the same Places
-// autocomplete endpoint — only the presentation changes (contract §0/§8).
+// when the set is empty. Adding (persist mode) opens the CompetitorAddDrawer —
+// search + neighborhood suggestions in one focused slide-over — instead of the
+// old cramped in-card typeahead. Preview mode keeps the simple local input.
 
-import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react"
+import { useState, type CSSProperties } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import {
   RevealOnView,
   TkCard,
@@ -18,7 +17,8 @@ import {
   TkSectionHead,
   TkEmptyState,
 } from "@/components/ticket"
-import { ignoreCompetitorAction, addCompetitorAction } from "./actions"
+import { ignoreCompetitorAction } from "./actions"
+import CompetitorAddDrawer, { type SuggestedCompetitor } from "./competitor-add-drawer"
 
 export type CompetitorRow = {
   id: string
@@ -44,16 +44,6 @@ function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase()
 }
 
-type Suggestion = {
-  place_id: string
-  description: string
-  /** Straight-line meters from the operator's location (present when the search is biased). */
-  distance_meters?: number | null
-}
-
-function formatMiles(meters: number): string {
-  return Math.max(0.1, meters * 0.000621371).toFixed(1)
-}
 
 const RM_ICON = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -77,6 +67,7 @@ export default function CompetitorRoster({
   persist = true,
   locationId,
   locationGeo,
+  addSuggestions,
   swapCooldown,
   swapCooldownDays = 30,
 }: {
@@ -91,11 +82,21 @@ export default function CompetitorRoster({
   /** Biases the add-competitor search to the neighborhood and puts a distance
    *  on each result. Undefined in preview/unscoped use. */
   locationGeo?: { lat: number; lng: number } | null
+  /** Pending discovery candidates for the add drawer's "Suggested for you". */
+  addSuggestions?: SuggestedCompetitor[]
   /** ALT-195 — when locked, removing (and thus swapping) is blocked + warned. */
   swapCooldown?: SwapCooldown
   swapCooldownDays?: number
 }) {
   const [rows, setRows] = useState<CompetitorRow[]>(initial)
+  // Adds land server-side (drawer → addCompetitorAction → router.refresh) while
+  // this component instance stays mounted — re-sync local rows when the server
+  // sends a fresh set (render-time derived state, per the React docs pattern).
+  const [prevInitial, setPrevInitial] = useState(initial)
+  if (prevInitial !== initial) {
+    setPrevInitial(initial)
+    setRows(initial)
+  }
   // ALT-194: when the plan's competitor count is full, gray out / disable adding.
   // No paid add-ons — the cap is simply enforced in the UI (server actions enforce
   // it too). `competitorLimit` is undefined in unscoped/preview use → never blocks.
@@ -110,13 +111,10 @@ export default function CompetitorRoster({
     competitorLimit != null
       ? `Watching ${rows.length} of ${competitorLimit}, set by your plan (${tierLabel})`
       : null
+  // persist mode: `adding` opens the drawer. Preview mode: `adding` shows the
+  // simple local input (nothing saves there).
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState("")
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [pending, startTransition] = useTransition()
-  const router = useRouter()
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const removeLocal = (id: string) => setRows((rs) => rs.filter((r) => r.id !== id))
   const add = () => {
@@ -131,105 +129,38 @@ export default function CompetitorRoster({
     setAdding(false)
   }
 
-  // Real add (persist mode): debounced Places autocomplete → pick → server action.
-  useEffect(() => {
-    if (!persist || !adding) return
-    const q = name.trim()
-    if (debounce.current) clearTimeout(debounce.current)
-    if (q.length < 2) {
-      setSuggestions([])
-      return
-    }
-    debounce.current = setTimeout(async () => {
-      try {
-        const bias = locationGeo
-          ? `&lat=${locationGeo.lat}&lng=${locationGeo.lng}&radius=50000`
-          : ""
-        const res = await fetch(
-          `/api/places/autocomplete?input=${encodeURIComponent(q)}${bias}`
-        )
-        const data = (await res.json()) as { ok: boolean; predictions?: Suggestion[] }
-        setSuggestions(data.ok ? (data.predictions ?? []).slice(0, 5) : [])
-      } catch {
-        setSuggestions([])
-      }
-    }, 300)
-    return () => {
-      if (debounce.current) clearTimeout(debounce.current)
-    }
-  }, [name, adding, persist, locationGeo])
-
-  const pick = (s: Suggestion) => {
-    if (!locationId) return
-    setError(null)
-    setSuggestions([])
-    startTransition(async () => {
-      const res = await addCompetitorAction({ locationId, placeId: s.place_id })
-      if (res.ok) {
-        setAdding(false)
-        setName("")
-        router.refresh()
-      } else {
-        setError(res.error)
-      }
-    })
-  }
-
+  // Preview-only inline add (no Places, no server).
   const addPanel = (
     <div className="tk-add-wrap">
       <input
         className="tk-add-input"
         value={name}
         autoFocus
-        placeholder={persist ? "Search restaurants near you…" : "Restaurant name…"}
+        placeholder="Restaurant name…"
         aria-label="Add a competitor"
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && !persist) add()
+          if (e.key === "Enter") add()
           if (e.key === "Escape") {
             setAdding(false)
             setName("")
           }
         }}
-        disabled={pending}
       />
-      {persist && name.trim().length >= 2 && suggestions.length ? (
-        <ul className="tk-ac-list" role="listbox" aria-label="Matching places">
-          {suggestions.map((s) => (
-            <li key={s.place_id} role="option" aria-selected="false">
-              <button type="button" className="tk-ac-item" onClick={() => pick(s)} disabled={pending}>
-                {s.description}
-                {typeof s.distance_meters === "number" ? (
-                  <span className="tk-ac-dist"> · {formatMiles(s.distance_meters)} mi</span>
-                ) : null}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
       <div className="tk-add-actions">
-        {!persist ? (
-          <TkButton variant="add" onClick={add} disabled={!name.trim()}>
-            Add to the set
-          </TkButton>
-        ) : null}
+        <TkButton variant="add" onClick={add} disabled={!name.trim()}>
+          Add to the set
+        </TkButton>
         <TkButton
           variant="ghost"
           onClick={() => {
             setAdding(false)
             setName("")
-            setSuggestions([])
-            setError(null)
           }}
-          disabled={pending}
         >
           Cancel
         </TkButton>
       </div>
-      {pending ? (
-        <p className="tk-note tk-busy">Adding — pulling their data in the background…</p>
-      ) : null}
-      {error ? <p className="tk-form-err">{error}</p> : null}
     </div>
   )
 
@@ -366,7 +297,7 @@ export default function CompetitorRoster({
 
           {/* add tile lives in the grid flow */}
           <div style={{ "--tk-i": rows.length } as CSSProperties}>
-            {adding ? (
+            {adding && !persist ? (
               <TkCard className="tk-rost-card tk-is-new">{addPanel}</TkCard>
             ) : atLimit ? (
               // ALT-194: plan is full — disable adding and relabel with the real numbers.
@@ -393,6 +324,19 @@ export default function CompetitorRoster({
           </div>
         </RevealOnView>
       )}
+
+      {persist && locationId ? (
+        <CompetitorAddDrawer
+          open={adding}
+          onClose={() => setAdding(false)}
+          locationId={locationId}
+          locationGeo={locationGeo}
+          initialSuggestions={addSuggestions ?? []}
+          watchedCount={rows.length}
+          competitorLimit={competitorLimit}
+          tierLabel={tierLabel}
+        />
+      ) : null}
     </section>
   )
 }
