@@ -35,6 +35,7 @@ import { setPlayAction } from "./brief-actions"
 import BriefFeedback from "./brief-feedback"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
 import { ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON, COPY_ICON, CHECK_ICON } from "./pass-icons"
+import { accentize } from "@/components/ticket/accentize"
 import {
   playFamily,
   playChipLabel,
@@ -410,7 +411,7 @@ export function PassPlayCard({
     return (
       <>
         <TkHero
-          title={play.title}
+          title={accentize(play.title)}
           titleId={titleId}
           chips={chips}
           lede={play.rationale}
