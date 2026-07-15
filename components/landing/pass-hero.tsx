@@ -19,8 +19,13 @@ const HERO_STATS = [
 /** A Pass-styled "daily brief" preview — the product, abstracted (no faked $/POS). */
 function BriefPreview() {
   return (
-    <LpReveal className="lp-panel" threshold={0.25}>
-      <div className="lp-panel-bar">
+    // Stage wraps the panel + its floating cards. The panel itself keeps
+    // `overflow: hidden` (for clean rounded corners), so the cards — which are
+    // meant to overhang the panel edges — must live OUTSIDE it, or they get
+    // clipped. The stage is the positioning context for the absolute cards.
+    <div className="lp-art-stage">
+      <LpReveal className="lp-panel" threshold={0.25}>
+        <div className="lp-panel-bar">
         <span className="lp-panel-dots" aria-hidden="true">
           <i /><i /><i />
         </span>
@@ -88,8 +93,10 @@ function BriefPreview() {
           ))}
         </svg>
       </div>
+      </LpReveal>
 
-      {/* floating mini cards over the panel */}
+      {/* floating mini cards over the panel — siblings of the panel (not inside
+          its clipped box) so their negative offsets can overhang the edges */}
       <div className="lp-float-card lp-float-tl lp-floaty" aria-hidden="true">
         <div className="lp-float-head">
           <span className="lp-sig-dot" />
@@ -105,7 +112,7 @@ function BriefPreview() {
         </div>
         <p>Match the window, not the price. Push your faster pickup in this week&rsquo;s post.</p>
       </div>
-    </LpReveal>
+    </div>
   )
 }
 

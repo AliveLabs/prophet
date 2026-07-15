@@ -196,6 +196,10 @@ html { scroll-behavior: smooth; }
 
 /* the floating product-preview panel */
 .lp-hero-art { position: relative; }
+/* stage = positioning context for the overhanging float cards; must NOT clip,
+   so the cards live here (siblings of the panel) rather than inside the panel,
+   whose `overflow: hidden` would otherwise cut off their overhang. */
+.lp-art-stage { position: relative; }
 .lp-panel {
   position: relative; background: var(--card); border: 1px solid var(--line-2);
   border-radius: var(--r-xl); box-shadow: var(--shadow-lg); overflow: hidden;
