@@ -24,8 +24,9 @@ import type {
   SeverityBand,
 } from "@/lib/reviews/types"
 
-/** Default locations.generosity_threshold for orgs that never touched the slider. */
-export const GENEROSITY_DEFAULT = 40
+/** Default locations.generosity_threshold for orgs that never touched the slider.
+ *  Bryan 2026-07-17 (DECISIONS D2): right down the middle. */
+export const GENEROSITY_DEFAULT = 50
 
 /**
  * ★ THE TUNING BLOCK ★ — every cut-point this module uses, in one place.

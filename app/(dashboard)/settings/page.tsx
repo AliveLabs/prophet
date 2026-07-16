@@ -60,7 +60,7 @@ export default async function SettingsPage() {
   const locSettings = (locRow?.settings as Record<string, unknown> | null) ?? {}
   const comms = (locSettings.communications ?? null) as Record<string, boolean> | null
   const generosityThreshold =
-    (locRow as { generosity_threshold?: number } | null)?.generosity_threshold ?? 40
+    (locRow as { generosity_threshold?: number } | null)?.generosity_threshold ?? 50
   const refreshStatus = await getFullRefreshStatus(ctx.locationId)
 
   // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other

@@ -1,4 +1,23 @@
-# Review Intelligence — decisions for Bryan (morning review)
+# Review Intelligence — decisions (RESOLVED by Bryan, 2026-07-17 morning)
+
+- **D1 RESOLVED:** keep the built defaults (chips, no visible score). Litmus-test the
+  name ("trust score"?) during beta.
+- **D2 RESOLVED:** labels stay; default moved to 50 (right down the middle). Applied
+  in code + migration.
+- **D3 RESOLVED:** left nav under Competitors (as built).
+- **D4 RESOLVED:** no demo seeds for review — run the REAL pipeline. Bush's first for
+  Bryan's review + feedback, then all locations.
+- **D5 DEFERRED:** engine-learning depth for review signals stays capture-only;
+  Bryan wants a proper conversation post-push. Keep as an exploration area.
+- **D6 CLOSED (no build):** never make customers authenticate to outside tools.
+  A suggested reply + a link to the right spot on Google is the enduring model.
+  (Kills the Google Business Profile OAuth path.)
+- **D7 RESOLVED:** both migrations applied to prod 2026-07-17; feature merged so
+  Bryan reviews live.
+
+Original decision framing kept below for the record.
+
+---
 
 Everything below was BUILT with the stated default so nothing blocked overnight.
 Each is a small, isolated change if you pick differently.

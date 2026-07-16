@@ -8,13 +8,13 @@
 -- how heated does a complaint have to be before you offer a discount or give money
 -- back. The OWNER decides where that line sits; Ticket only recommends, never executes
 -- a make-good. 0 = respond-first posture (never suggest give-aways), 100 = generous.
--- Default 40 = conservative-leaning (Bryan to confirm — see the feature DECISIONS doc).
+-- Default 50 = right down the middle (Bryan's call, 2026-07-17, DECISIONS D2).
 --
 -- Additive + defaulted ⇒ fail-soft: existing rows get the default; pre-migration reads
 -- fall back to the same constant in code (GENEROSITY_DEFAULT in lib/reviews/make-good.ts).
 
 alter table public.locations
-  add column if not exists generosity_threshold integer not null default 40;
+  add column if not exists generosity_threshold integer not null default 50;
 
 do $$ begin
   if not exists (

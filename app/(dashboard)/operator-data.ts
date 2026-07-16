@@ -225,7 +225,7 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     brandTolerance: loc?.brand_tolerance ?? 50,
     // 40 = the same default the generosity_threshold column ships with (migration
     // 20260716090100), so pre-migration reads and fresh rows read identically.
-    generosityThreshold: (loc as { generosity_threshold?: number } | null)?.generosity_threshold ?? 40,
+    generosityThreshold: (loc as { generosity_threshold?: number } | null)?.generosity_threshold ?? 50,
     voiceTone: loc?.voice_tone ?? null,
     userName: op.userName,
     brief,

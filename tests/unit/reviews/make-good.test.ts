@@ -188,7 +188,7 @@ describe("recommendMakeGood", () => {
   })
 
   it("GENEROSITY_DEFAULT lands between the extremes: serious complaints stay respond-tier", () => {
-    // default 40: discountAt = 80 - 14 = 66, compAt = 95 - 10 = 85 (>= crisis edge, so comp unreachable)
+    // default 50: discountAt = 80 - 17.5 = 62.5, compAt = 95 - 12.5 = 82.5 (comp only above the crisis edge)
     expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 60 }), { threshold: GENEROSITY_DEFAULT }).tier).toBe("respond")
     expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 70 }), { threshold: GENEROSITY_DEFAULT }).tier).toBe("discount")
   })
