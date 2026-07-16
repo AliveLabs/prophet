@@ -96,13 +96,32 @@ export async function runProducerSkill(
     // Object holder (not a bare `let`): a bare let assigned only inside the onFallback closure gets
     // narrowed back to its `null` initializer by TS control-flow; a property read keeps its declared type.
     const degrade: { reason: string | null } = { reason: null }
+    // Per-skill token attribution (2026-07-16): the provider reports usage per 200 response via
+    // onUsage. Accumulate (a retried call can in principle report more than once). Same object-holder
+    // pattern as `degrade` — see that comment for the TS narrowing rationale.
+    const usage: { tokens: SkillResult["tokens"] | null } = { tokens: null }
     // Wall-clock the model call (p95 watch signal): a producer drifting toward the abort ceiling is
     // the precursor to timeout-fallbacks, so the brief records elapsed per skill and pipeline-health
     // watches the fleet p95. Includes governor slot-wait — that's intentional; the operator-visible
     // question is "how close is this skill to degrading", whatever the cause.
     const startedAt = Date.now()
     const plays = await generateStructured<EnrichedRecommendation[]>(
-      { tier: skill.tier, label: skill.id, systemCached, system, prompt, temperature: skill.temperature, ...reqTuning },
+      {
+        tier: skill.tier,
+        label: skill.id,
+        systemCached,
+        system,
+        prompt,
+        temperature: skill.temperature,
+        onUsage: (u) => {
+          const t = (usage.tokens ??= { inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0 })
+          t.inputTokens += u.inputTokens
+          t.outputTokens += u.outputTokens
+          t.cacheWriteTokens += u.cacheWriteTokens
+          t.cacheReadTokens += u.cacheReadTokens
+        },
+        ...reqTuning,
+      },
       {
         transport: opts.transport,
         validate: (raw) => skill.parse(raw, dossier),
@@ -129,6 +148,7 @@ export async function runProducerSkill(
       elapsedMs,
       ...(inputHash ? { inputHash } : {}),
       ...(degrade.reason ? { usedFallback: true, fallbackReason: degrade.reason } : {}),
+      ...(usage.tokens ? { tokens: usage.tokens } : {}),
     }
   } catch (err) {
     return { skillId: skill.id, status: "failed", plays: [], error: err instanceof Error ? err.message : "failed" }

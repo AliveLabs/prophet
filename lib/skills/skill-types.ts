@@ -91,4 +91,9 @@ export type SkillResult = {
   /** Differential builds: true when this result carried yesterday's real plays forward (no model
    *  call). Never true for a fallback-served run (those are excluded from reuse at extraction). */
   reused?: boolean
+  /** Anthropic token usage for this producer's model call (2026-07-16 cost telemetry). Absent on
+   *  reuse (no call) and on timeout-aborted fallbacks (the client never sees a usage block even
+   *  though the server bills the generation — fallback days UNDERCOUNT). Feeds skillHealth.tokens
+   *  → the /admin/health $/brief estimate. */
+  tokens?: { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }
 }

@@ -14,11 +14,20 @@ import type { CSSProperties } from "react"
 import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { detectPipelineHealth, RECENT_ACTIVE_DAYS, type PipelineHealthVerdict } from "@/lib/ops/pipeline-health"
+import { estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricing"
 import { RevealOnView } from "@/components/ticket"
 import "./health.css"
 
 type SkillHealthRow = { skillId?: string; status?: string; usedFallback?: boolean; reused?: boolean; reason?: string; elapsedMs?: number }
-type ProviderStatsRow = { requests?: number; rateLimited?: number }
+type ProviderStatsRow = {
+  requests?: number
+  rateLimited?: number
+  // Cost telemetry (2026-07-16). Absent on briefs built before then; totals undercount on
+  // timeout-fallback days (aborted calls never surface usage client-side).
+  inputTokens?: number
+  outputTokens?: number
+  tokensByModel?: Record<string, ModelTokenTotals>
+}
 
 type LocationDetail = {
   locationId: string
@@ -27,6 +36,8 @@ type LocationDetail = {
   skills: SkillHealthRow[]
   requests: number
   rateLimited: number
+  /** Estimated Anthropic $ for the newest build (null pre-telemetry briefs). */
+  estCostUsd: number | null
 }
 
 type DayTrend = {
@@ -37,6 +48,9 @@ type DayTrend = {
   reusedSlots: number
   requests: number
   rateLimited: number
+  inputTokens: number
+  outputTokens: number
+  estCostUsd: number
 }
 
 const TREND_DAYS = 7
@@ -100,11 +114,12 @@ export default async function PipelineHealthPage() {
               <th>Fallback</th>
               <th>Offending skills</th>
               <th>Requests</th>
+              <th>Est. cost</th>
             </tr>
           </thead>
           <tbody>
             {locations.length === 0 && (
-              <tr><td colSpan={7} className="ph-empty">No briefs in the last {RECENT_ACTIVE_DAYS} days.</td></tr>
+              <tr><td colSpan={8} className="ph-empty">No briefs in the last {RECENT_ACTIVE_DAYS} days.</td></tr>
             )}
             {locations.map((loc) => {
               const real = loc.skills.filter((s) => s.status === "ok" && !s.usedFallback && !s.reused).length
@@ -124,6 +139,7 @@ export default async function PipelineHealthPage() {
                     {loc.requests}
                     {loc.rateLimited > 0 ? <span className="is-alert"> ({loc.rateLimited} limited)</span> : null}
                   </td>
+                  <td>{loc.estCostUsd == null ? "—" : usd(loc.estCostUsd)}</td>
                 </tr>
               )
             })}
@@ -142,11 +158,13 @@ export default async function PipelineHealthPage() {
               <th>Reused rate</th>
               <th>Requests</th>
               <th>Rate-limited</th>
+              <th>Tokens in / out</th>
+              <th>Est. cost</th>
             </tr>
           </thead>
           <tbody>
             {trend.length === 0 && (
-              <tr><td colSpan={6} className="ph-empty">No briefs in the last {TREND_DAYS} days.</td></tr>
+              <tr><td colSpan={8} className="ph-empty">No briefs in the last {TREND_DAYS} days.</td></tr>
             )}
             {trend.map((day) => (
               <tr key={day.dateKey}>
@@ -158,6 +176,8 @@ export default async function PipelineHealthPage() {
                 <td>{day.totalSlots > 0 ? pct(day.reusedSlots / day.totalSlots) : "—"}</td>
                 <td>{day.requests}</td>
                 <td>{day.requests > 0 ? pct(day.rateLimited / day.requests) : "—"}</td>
+                <td>{day.inputTokens > 0 || day.outputTokens > 0 ? `${tok(day.inputTokens)} / ${tok(day.outputTokens)}` : "—"}</td>
+                <td>{day.estCostUsd > 0 ? usd(day.estCostUsd) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -206,6 +226,7 @@ async function loadFleetDetail(
       skills: Array.isArray(r.skillHealth) ? r.skillHealth : [],
       requests: typeof stats?.requests === "number" ? stats.requests : 0,
       rateLimited: typeof stats?.rateLimited === "number" ? stats.rateLimited : 0,
+      estCostUsd: stats?.tokensByModel ? estimateAnthropicCostUsd(stats.tokensByModel) : null,
     })
   }
   locations.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
@@ -215,7 +236,7 @@ async function loadFleetDetail(
   const byDay = new Map<string, DayTrend>()
   for (const r of rows) {
     if (!r.date_key || new Date(r.generated_at).getTime() < trendCutoffMs) continue
-    const day = byDay.get(r.date_key) ?? { dateKey: r.date_key, locationsBuilt: 0, totalSlots: 0, fallbackSlots: 0, reusedSlots: 0, requests: 0, rateLimited: 0 }
+    const day = byDay.get(r.date_key) ?? { dateKey: r.date_key, locationsBuilt: 0, totalSlots: 0, fallbackSlots: 0, reusedSlots: 0, requests: 0, rateLimited: 0, inputTokens: 0, outputTokens: 0, estCostUsd: 0 }
     day.locationsBuilt++
     const skills = Array.isArray(r.skillHealth) ? r.skillHealth : []
     for (const s of skills) {
@@ -226,6 +247,9 @@ async function loadFleetDetail(
     const stats = (r.providerStats ?? null) as ProviderStatsRow | null
     day.requests += typeof stats?.requests === "number" ? stats.requests : 0
     day.rateLimited += typeof stats?.rateLimited === "number" ? stats.rateLimited : 0
+    day.inputTokens += typeof stats?.inputTokens === "number" ? stats.inputTokens : 0
+    day.outputTokens += typeof stats?.outputTokens === "number" ? stats.outputTokens : 0
+    if (stats?.tokensByModel) day.estCostUsd += estimateAnthropicCostUsd(stats.tokensByModel)
     byDay.set(r.date_key, day)
   }
   const trend = [...byDay.values()].sort((a, b) => b.dateKey.localeCompare(a.dateKey))
@@ -239,6 +263,15 @@ type RawBriefRow = { location_id: string | null; generated_at: string; date_key:
 
 function pct(n: number): string {
   return `${Math.round(n * 100)}%`
+}
+function usd(n: number): string {
+  return `$${n.toFixed(2)}`
+}
+/** Compact token count: 1234 -> "1.2k", 2500000 -> "2.5M". */
+function tok(n: number): string {
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`
+  return String(n)
 }
 function seconds(ms: number): string {
   return `${Math.round(ms / 1000)}s`
