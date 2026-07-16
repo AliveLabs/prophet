@@ -340,7 +340,7 @@ export default function ReviewsTriage({ groups }: { groups: ReviewGroups }) {
     <TkToastProvider>
       <div className="rev-body">
         {attention.length > 0 ? (
-          <RevealOnView as="section" className="rev-sec">
+          <RevealOnView as="section" className="rev-sec" threshold={0}>
             <TkSectionHead
               title={REVIEWS_COPY.sections.attention.title}
               sub={REVIEWS_COPY.sections.attention.sub}
@@ -354,7 +354,7 @@ export default function ReviewsTriage({ groups }: { groups: ReviewGroups }) {
         ) : null}
 
         {secondLook.length > 0 ? (
-          <RevealOnView as="section" className="rev-sec rev-sec-quiet">
+          <RevealOnView as="section" className="rev-sec rev-sec-quiet" threshold={0}>
             <TkSectionHead
               title={REVIEWS_COPY.sections.secondLook.title}
               sub={REVIEWS_COPY.sections.secondLook.sub}
@@ -368,7 +368,7 @@ export default function ReviewsTriage({ groups }: { groups: ReviewGroups }) {
         ) : null}
 
         {handled.length > 0 ? (
-          <RevealOnView as="section" className="rev-sec rev-sec-handled">
+          <RevealOnView as="section" className="rev-sec rev-sec-handled" threshold={0}>
             <TkSectionHead
               title={REVIEWS_COPY.sections.handled.title}
               sub={REVIEWS_COPY.sections.handled.sub}
