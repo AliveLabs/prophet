@@ -39,6 +39,21 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    // ALT-353: the Review Intelligence triage surface. Sits right after
+    // Competitors — reviews are the operator's own-reputation counterpart to
+    // the competitive read, ahead of the outside-influence trio below.
+    href: "/reviews",
+    label: "Reviews",
+    // Speech-bubble + star hybrid: a customer's words with the rating inside
+    // (same 1.5 stroke language as the rest of the rail).
+    icon: (
+      <svg viewBox="0 0 20 20" {...sw}>
+        <path d="M17 8.8c0 2.9-3.1 5.2-7 5.2-.7 0-1.4-.1-2-.2l-3.5 2.4.7-2.6C3.8 12.6 3 10.8 3 8.8c0-2.9 3.1-5.2 7-5.2s7 2.3 7 5.2z" />
+        <path d="M10 6.2l.8 1.6 1.8.3-1.3 1.3.3 1.8-1.6-.9-1.6.9.3-1.8-1.3-1.3 1.8-.3z" />
+      </svg>
+    ),
+  },
+  {
     href: "/ask",
     label: "Ask",
     // The Ticket chat mark — the same T-bubble that triggers "Ask Ticket about

@@ -64,7 +64,7 @@ function ShellSkeleton() {
             doesn't jump when <ShellNav> swaps in. The .tick here is a sized spacer
             standing in for the real item's leading icon slot. */}
         <nav className="pv-nav" aria-hidden>
-          {["Today", "Competitors", "Ask", "Social", "Weather", "Events"].map((label) => (
+          {["Today", "Competitors", "Reviews", "Ask", "Social", "Weather", "Events"].map((label) => (
             <span key={label}><span className="tick" />{label}</span>
           ))}
         </nav>

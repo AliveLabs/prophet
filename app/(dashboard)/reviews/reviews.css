@@ -1,0 +1,208 @@
+/* Review Intelligence (ALT-353) — page-local styling for the /reviews triage
+   surface. All colors flow from the shared editorial tokens (light + warm-dark
+   both work for free — no light-only hardcodes). Scoped under .ticket-app so it
+   never leaks past the operator surface (same convention as insights.css). */
+
+.ticket-app .rev-page {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+/* ── Location switcher bar (only rendered for multi-location orgs) ── */
+.ticket-app .rev-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.ticket-app .rev-bar > * {
+  min-height: 44px;
+}
+
+/* ── Sections ── */
+.ticket-app .rev-body { display: flex; flex-direction: column; gap: 34px; }
+.ticket-app .rev-sec { display: flex; flex-direction: column; gap: 14px; }
+.ticket-app .rev-list { display: flex; flex-direction: column; gap: 16px; }
+
+/* "Worth a second look" reads QUIETER, not broken: flatter cards on a softer
+   surface — operator attention without alarm. */
+.ticket-app .rev-sec-quiet .tk-rev-card {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--card) 72%, var(--paper));
+}
+
+/* Handled items step back (mirrors .ins-card-cleared) but stay readable on hover. */
+.ticket-app .rev-sec-handled .tk-rev-card { opacity: 0.62; transition: opacity 0.18s var(--ease); }
+.ticket-app .rev-sec-handled .tk-rev-card:hover { opacity: 1; }
+
+/* ── Card internals: quote (left) + the read rail (right), actions below ── */
+.ticket-app .tk-rev-card { display: flex; flex-direction: column; gap: 14px; }
+.ticket-app .tk-rev-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 236px;
+  gap: 14px 26px;
+  align-items: start;
+}
+.ticket-app .tk-rev-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ticket-app .tk-rev-rail { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+
+/* ── The severity meter — .tk-rangebar bones at card scale. The fill encodes
+   the BAND only (fixed widths in reviews-map), never a raw number: mild is a
+   low teal, serious an amber, crisis a deep rust. ── */
+.ticket-app .tk-rev-meter-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.ticket-app .tk-rev-meter-lbl {
+  font-family: var(--font-cond);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ticket-app .tk-rev-meter-lbl.tk-rev-sev-mild { color: var(--teal-deep); }
+.ticket-app .tk-rev-meter-lbl.tk-rev-sev-serious { color: var(--gold-deep); }
+.ticket-app .tk-rev-meter-lbl.tk-rev-sev-crisis { color: var(--rust-deep); }
+.ticket-app .tk-rev-meter { height: 10px; border-radius: 6px; }
+.ticket-app .tk-rev-meter .tk-fill { border-radius: 5px; }
+.ticket-app .tk-rev-meter-mild .tk-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--teal) 30%, transparent), var(--teal));
+}
+.ticket-app .tk-rev-meter-serious .tk-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 45%, transparent), var(--gold-2, var(--gold)));
+}
+.ticket-app .tk-rev-meter-crisis .tk-fill {
+  background: linear-gradient(90deg, var(--rust), var(--rust-deep));
+}
+/* unscored: an honest empty track (no fill state at all) */
+.ticket-app .tk-rev-meter-empty { background: var(--paper-2); }
+.ticket-app .tk-rev-reading {
+  font-size: 11.5px;
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+/* ── Genuineness chip — .tk-chip geometry, band-toned ── */
+.ticket-app .tk-rev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-family: var(--font-cond);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.ticket-app .tk-rev-chip-genuine { background: var(--teal-tint); color: var(--teal-deep); }
+.ticket-app .tk-rev-chip-caution { background: var(--gold-tint); color: var(--gold-deep); }
+.ticket-app .tk-rev-chip-suspect { background: color-mix(in srgb, var(--ink-3) 14%, transparent); color: var(--ink-2); }
+
+/* ── Recommended action tag — chip geometry, one step louder than the chip ── */
+.ticket-app .tk-rev-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-family: var(--font-cond);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.ticket-app .tk-rev-act-respond { background: var(--slate-tint); color: var(--slate-deep); border-color: color-mix(in srgb, var(--slate) 26%, transparent); }
+.ticket-app .tk-rev-act-discount { background: var(--gold-tint); color: var(--gold-deep); border-color: color-mix(in srgb, var(--gold) 30%, transparent); }
+.ticket-app .tk-rev-act-comp { background: var(--rust-tint); color: var(--rust-deep); border-color: color-mix(in srgb, var(--rust) 30%, transparent); }
+
+/* ── "Needs you personally" — the TkWinFlag treatment in the rust family:
+   quiet but unmistakable, never a blinking alarm. ── */
+.ticket-app .tk-rev-ownflag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--rust-tint);
+  color: var(--rust-deep);
+  border: 1px solid color-mix(in srgb, var(--rust) 34%, transparent);
+}
+.ticket-app .tk-rev-ownflag svg { width: 12px; height: 12px; }
+
+/* ── Handled state tag (mirrors .ins-cleared-tag) ── */
+.ticket-app .tk-rev-state {
+  align-self: flex-start;
+  font-family: var(--font-cond);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-3) 14%, transparent);
+  color: var(--ink-3);
+}
+.ticket-app .tk-rev-state-responded { color: var(--teal-deep); background: var(--teal-tint); }
+
+/* ── Foot: actions left, the quiet Google link right ── */
+.ticket-app .tk-rev-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 2px;
+}
+.ticket-app .tk-rev-actions { flex-wrap: wrap; row-gap: 8px; }
+
+/* the verdict affordance sits inside the action row as its own quiet cluster */
+.ticket-app .tk-rev-verdict {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.ticket-app .tk-rev-verdict-state {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding-right: 2px;
+}
+
+/* ── Responsive: single column, rail stacks under the quote, actions wrap ── */
+@media (max-width: 760px) {
+  .ticket-app .rev-page { gap: 24px; }
+  .ticket-app .tk-rev-grid { grid-template-columns: 1fr; }
+  .ticket-app .tk-rev-rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+  }
+  .ticket-app .tk-rev-meter-row { width: 100%; }
+}
+
+/* ── ALT-354: the suggested-reply block (tk-draft-box bones live in pass.css;
+   only the foot row is page-local: hint left, regenerate + Google link right) ── */
+.ticket-app .tk-rev-draft-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--line);
+}
+.ticket-app .tk-rev-draft-hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+.ticket-app .tk-rev-draft-tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}

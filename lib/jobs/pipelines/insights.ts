@@ -15,6 +15,7 @@ import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
 import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
+import { scoreLocationReviews } from "@/lib/reviews/scoring"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
@@ -156,6 +157,7 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       label: "Loading location data from Google Places",
       run: async (c) => {
         let reviewsPersisted = 0
+        let reviewsScored = 0
         if (c.location.primary_place_id) {
           const details = await fetchPlaceDetails(c.location.primary_place_id)
           c.state.locationSnapshot = buildSnapshotFromPlaceDetails(details)
@@ -276,8 +278,22 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
               /* sentiment persistence is best-effort; the brief recomputes if it's absent */
             }
           }
+
+          // ALT-348/350 — score any unscored persisted reviews (authenticity + severity)
+          // in ONE batched call. Best-effort BUT LOUD: a scoring miss never blocks the
+          // pipeline — rows just stay unscored (never fabricated) and the next build's
+          // pass picks them up — but its errors are logged (the spine-upsert lesson).
+          try {
+            const scoring = await scoreLocationReviews(c.supabase, c.locationId)
+            reviewsScored = scoring.scored
+            for (const err of scoring.errors) {
+              console.warn(`[insights:${c.locationId}] review scoring error: ${err}`)
+            }
+          } catch (err) {
+            console.warn(`[insights:${c.locationId}] review scoring threw:`, err)
+          }
         }
-        return { hasPlacesData: !!c.state.locationSnapshot, reviewsPersisted }
+        return { hasPlacesData: !!c.state.locationSnapshot, reviewsPersisted, reviewsScored }
       },
     },
     {
