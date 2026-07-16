@@ -23,8 +23,14 @@ import {
   useTkToast,
   tkcx as cx,
 } from "@/components/ticket"
-import { generateDraftAction, setReviewTriage, setReviewVerdict } from "./actions"
-import { REVIEWS_COPY, REV_METER_FILL, type ReviewCardView, type ReviewGroups } from "./reviews-map"
+import { generateDraftAction, setReviewTriage } from "./actions"
+import {
+  REVIEWS_COPY,
+  genuineMarkerPct,
+  sentimentMarkerPct,
+  type ReviewCardView,
+  type ReviewGroups,
+} from "./reviews-map"
 
 /* Copy/check glyphs for the draft block's copy button (the same two-squares +
    check pair the Pass's DraftCopyBox uses; local so routes stay uncoupled). */
@@ -40,9 +46,9 @@ const CHECK_ICON: ReactNode = (
   </svg>
 )
 
-/* Reveal-on-mount for the severity meter fill — the same ALT-177 fix the kit's
+/* Reveal-on-mount for the spectrum markers — the same ALT-177 fix the kit's
    TkRangeBar carries: a nested IntersectionObserver never fires inside an
-   opacity:0 RevealOnView subtree, so gate the width on mount, never visibility. */
+   opacity:0 RevealOnView subtree, so gate the marker on mount, never visibility. */
 function useReveal(): boolean {
   const [shown, setShown] = useState(false)
   useEffect(() => {
@@ -52,31 +58,49 @@ function useReveal(): boolean {
   return shown
 }
 
-/* ── the small warm severity meter (tk-rangebar bones, band-only fill) ── */
-function SeverityMeter({ severity }: { severity: ReviewCardView["severity"] }) {
+/* ── a spectrum bar (ALT-359/360): fixed gradient track + position marker ──
+   The track never changes; only the marker plots this review's read. `pct`
+   null = no read yet (genuine bar pre-scoring) → the "still reading" line. */
+function Spectrum({
+  kind,
+  pct,
+  reading,
+}: {
+  kind: "sentiment" | "genuine"
+  /** 0..100 marker position, or null for "still reading" */
+  pct: number | null
+  /** accessible reading of the marker position (band words, never a number) */
+  reading: string
+}) {
   const shown = useReveal()
-  if (!severity) {
-    // unscored: an empty track + the "still reading" line, never a fabricated band
+  const copy = REVIEWS_COPY.spectrum[kind]
+  if (pct == null) {
     return (
-      <div className="tk-rev-meter-row">
+      <div className="tk-rev-spec-row">
+        <span className="tk-rev-spec-lbl">{copy.label}</span>
         <span className="tk-rev-reading">{REVIEWS_COPY.stillReading}</span>
-        <div className="tk-rangebar tk-rev-meter tk-rev-meter-empty" aria-hidden="true" />
+        <div className={cx("tk-rev-spec", `tk-rev-spec-${kind}`, "tk-rev-spec-empty")} aria-hidden="true" />
       </div>
     )
   }
-  const label = REVIEWS_COPY.severity[severity]
   return (
-    <div className="tk-rev-meter-row">
-      <span className={cx("tk-rev-meter-lbl", `tk-rev-sev-${severity}`)}>
-        {REVIEWS_COPY.severityMeterName}: {label}
-      </span>
+    <div className="tk-rev-spec-row">
+      <span className="tk-rev-spec-lbl">{copy.label}</span>
       <div
-        className={cx("tk-rangebar", "tk-rev-meter", `tk-rev-meter-${severity}`)}
+        className={cx("tk-rev-spec", `tk-rev-spec-${kind}`)}
         role="img"
-        aria-label={`${REVIEWS_COPY.severityMeterName}: ${label}`}
+        aria-label={`${copy.label}: ${reading}`}
       >
-        <div className="tk-fill" style={{ width: shown ? `${REV_METER_FILL[severity]}%` : 0 }} />
+        <span
+          className="tk-rev-spec-marker"
+          style={{ left: `${pct}%`, opacity: shown ? 1 : 0 }}
+          aria-hidden="true"
+        />
       </div>
+      <span className="tk-rev-spec-ends" aria-hidden="true">
+        <span>{copy.left}</span>
+        <span>{copy.right}</span>
+      </span>
     </div>
   )
 }
@@ -99,20 +123,24 @@ function ReviewCard({ review }: { review: ReviewCardView }) {
   const router = useRouter()
   const toast = useTkToast()
   const [pending, startTransition] = useTransition()
-  const [verdictOpen, setVerdictOpen] = useState(false)
   // Drafting gets its OWN transition so a slow model call doesn't read as the
   // triage buttons being busy. localDraft = this session's freshest generation;
   // it wins over the persisted draftText until the refreshed row catches up.
   const [drafting, startDrafting] = useTransition()
   const [localDraft, setLocalDraft] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  // ALT-361 — the operator's per-draft make-good switch. Default ON: the
+  // generosity slider exists to be felt. Only rendered when the recommendation
+  // actually carries an offer.
+  const [includeOffer, setIncludeOffer] = useState(true)
+  const hasOffer = review.scored && review.tier != null && review.tier !== "respond"
 
   const open = review.triageStatus === "open"
   const draftText = localDraft ?? review.draftText
 
   function draftReply() {
     startDrafting(async () => {
-      const res = await generateDraftAction(review.id)
+      const res = await generateDraftAction(review.id, { includeOffer: hasOffer && includeOffer })
       if (res.ok && res.draft) {
         setLocalDraft(res.draft)
         router.refresh()
@@ -152,30 +180,22 @@ function ReviewCard({ review }: { review: ReviewCardView }) {
     })
   }
 
-  function verdict(v: "genuine" | "not_genuine") {
-    setVerdictOpen(false)
-    startTransition(async () => {
-      const res = await setReviewVerdict({ reviewId: review.id, verdict: v })
-      if (res.ok) {
-        toast(REVIEWS_COPY.toasts.verdict)
-        router.refresh()
-      } else {
-        toast(REVIEWS_COPY.toasts.error)
-      }
-    })
-  }
-
-  // Right rail: the read (meter + genuineness + recommended action + owner flag).
-  // Unscored rows render neutrally — no chip, no recommendation (fail-soft, never
-  // fabricated); the meter slot carries the "still reading" line instead.
+  // Right rail: the read (two spectrum bars + recommended action + owner flag).
+  // The sentiment bar ALWAYS plots (star anchor pre-scoring); the genuine bar
+  // shows "still reading" until the pass has written a real read (fail-soft,
+  // never fabricated).
   const rail = (
     <div className="tk-rev-rail">
-      <SeverityMeter severity={review.scored ? review.severity : null} />
-      {review.scored && review.genuineness ? (
-        <span className={cx("tk-rev-chip", `tk-rev-chip-${review.genuineness}`)}>
-          {REVIEWS_COPY.genuineness[review.genuineness]}
-        </span>
-      ) : null}
+      <Spectrum
+        kind="sentiment"
+        pct={sentimentMarkerPct(review.sentimentValue)}
+        reading={REVIEWS_COPY.spectrum.sentiment.bands[review.sentimentBand]}
+      />
+      <Spectrum
+        kind="genuine"
+        pct={review.genuineValue != null ? genuineMarkerPct(review.genuineValue) : null}
+        reading={review.genuineness ? REVIEWS_COPY.spectrum.genuine.bands[review.genuineness] : ""}
+      />
       {review.scored && review.tier ? (
         <span className={cx("tk-rev-act", `tk-rev-act-${review.tier}`)}>
           {REVIEWS_COPY.tiers[review.tier]}
@@ -185,46 +205,19 @@ function ReviewCard({ review }: { review: ReviewCardView }) {
     </div>
   )
 
-  // The verdict affordance: a quiet prompt that expands to the two options; once
-  // set, the call reads back with a "Change" reopen (display adjusts next render).
-  const verdictBlock = (
-    <div className="tk-rev-verdict">
-      {review.operatorVerdict && !verdictOpen ? (
-        <>
-          <span className="tk-rev-verdict-state">
-            {review.operatorVerdict === "genuine"
-              ? REVIEWS_COPY.verdict.setGenuine
-              : REVIEWS_COPY.verdict.setNotGenuine}
-          </span>
-          <TkButton variant="ghost" disabled={pending} onClick={() => setVerdictOpen(true)}>
-            {REVIEWS_COPY.verdict.change}
-          </TkButton>
-        </>
-      ) : verdictOpen ? (
-        <>
-          <span className="tk-rev-verdict-state">{REVIEWS_COPY.verdict.prompt}</span>
-          <TkButton variant="ghost" disabled={pending} onClick={() => verdict("genuine")}>
-            {REVIEWS_COPY.verdict.genuine}
-          </TkButton>
-          <TkButton variant="ghost" disabled={pending} onClick={() => verdict("not_genuine")}>
-            {REVIEWS_COPY.verdict.notGenuine}
-          </TkButton>
-          <TkButton variant="ghost" disabled={pending} onClick={() => setVerdictOpen(false)}>
-            {REVIEWS_COPY.verdict.cancel}
-          </TkButton>
-        </>
-      ) : (
-        <TkButton
-          variant="ghost"
-          disabled={pending}
-          aria-expanded={verdictOpen}
-          onClick={() => setVerdictOpen(true)}
-        >
-          {REVIEWS_COPY.verdict.prompt}
-        </TkButton>
-      )}
-    </div>
-  )
+  // ALT-361 — quiet checkbox beside the draft controls; rendered only when the
+  // recommendation carries a concrete offer for it to include.
+  const offerToggle = hasOffer ? (
+    <label className="tk-rev-offer">
+      <input
+        type="checkbox"
+        checked={includeOffer}
+        disabled={drafting || pending}
+        onChange={(e) => setIncludeOffer(e.target.checked)}
+      />
+      {REVIEWS_COPY.actions.includeOffer}
+    </label>
+  ) : null
 
   const googleLink = review.googleMapsUri ? (
     <a
@@ -263,6 +256,7 @@ function ReviewCard({ review }: { review: ReviewCardView }) {
       <div className="tk-rev-draft-foot">
         <span className="tk-rev-draft-hint">{REVIEWS_COPY.draft.hint}</span>
         <div className="tk-rev-draft-tools">
+          {offerToggle}
           <TkButton variant="ghost" disabled={drafting || pending} onClick={draftReply}>
             {drafting ? REVIEWS_COPY.actions.drafting : REVIEWS_COPY.draft.again}
           </TkButton>
@@ -310,20 +304,19 @@ function ReviewCard({ review }: { review: ReviewCardView }) {
                 {drafting ? REVIEWS_COPY.actions.drafting : REVIEWS_COPY.actions.draftReply}
               </TkButton>
             ) : null}
+            {!draftText ? offerToggle : null}
             <TkButton variant="keep" disabled={pending} onClick={() => triage("responded")}>
               {REVIEWS_COPY.actions.markHandled}
             </TkButton>
             <TkButton variant="dismiss" disabled={pending} onClick={() => triage("dismissed")}>
               {REVIEWS_COPY.actions.dismiss}
             </TkButton>
-            {verdictBlock}
           </TkActions>
         ) : (
           <TkActions className="tk-rev-actions">
             <TkButton variant="ghost" disabled={pending} onClick={() => triage("open")}>
               {REVIEWS_COPY.actions.reopen}
             </TkButton>
-            {verdictBlock}
           </TkActions>
         )}
         {/* the Google link lives beside the draft once one exists */}

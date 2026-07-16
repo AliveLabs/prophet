@@ -59,6 +59,7 @@ const RESCORE_RESET = {
   authenticity_rationale: null,
   severity_score: null,
   severity_rationale: null,
+  sentiment_score: null,
   red_flags: null,
   scored_at: null,
   score_version: null,
@@ -196,6 +197,7 @@ export async function applyReviewScores(
     authenticity_rationale: string
     severity_score: number
     severity_rationale: string
+    sentiment_score: number
     red_flags: string[]
   }>,
   scoreVersion: string,
@@ -214,6 +216,7 @@ export async function applyReviewScores(
         authenticity_rationale: s.authenticity_rationale,
         severity_score: s.severity_score,
         severity_rationale: s.severity_rationale,
+        sentiment_score: s.sentiment_score,
         red_flags: s.red_flags,
         scored_at: now,
         score_version: scoreVersion,

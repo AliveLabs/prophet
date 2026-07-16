@@ -16,8 +16,9 @@ import type {
   LocationReviewRow,
   MakeGoodRecommendation,
   MakeGoodTier,
-  SeverityBand,
+  SentimentBand,
 } from "@/lib/reviews/types"
+import { sentimentBandFor, sentimentValueFor } from "@/lib/reviews/make-good"
 
 /* ── all operator-facing copy, one object ──────────────────────────── */
 export const REVIEWS_COPY = {
@@ -39,19 +40,31 @@ export const REVIEWS_COPY = {
       sub: "Marked handled or dismissed.",
     },
   },
-  // Genuineness bands → chip words (never a number).
-  genuineness: {
-    genuine: "Reads genuine",
-    caution: "Worth a closer look",
-    suspect: "Doesn't add up",
-  } satisfies Record<GenuinenessBand, string>,
-  // Severity bands → meter label words (never a number).
-  severity: {
-    mild: "Mild",
-    serious: "Serious",
-    crisis: "Critical",
-  } satisfies Record<SeverityBand, string>,
-  severityMeterName: "How serious",
+  // The two spectrum bars (ALT-359/360). Fixed gradient tracks with a position
+  // marker; the words below are the accessible reading of the marker position
+  // (never a number).
+  spectrum: {
+    sentiment: {
+      label: "Sentiment",
+      left: "Upset",
+      right: "Delighted",
+      bands: {
+        negative: "Running negative",
+        neutral: "Mixed to neutral",
+        positive: "Positive",
+      } satisfies Record<SentimentBand, string>,
+    },
+    genuine: {
+      label: "Genuine",
+      left: "Risky",
+      right: "Confident",
+      bands: {
+        genuine: "Reads genuine",
+        caution: "Worth a closer look",
+        suspect: "Doesn't add up",
+      } satisfies Record<GenuinenessBand, string>,
+    },
+  },
   // Recommended action tiers → tag words. Recommendation only, the operator acts.
   tiers: {
     respond: "Reply with care",
@@ -71,6 +84,8 @@ export const REVIEWS_COPY = {
     dismiss: "Dismiss",
     reopen: "Reopen",
     openInGoogle: "Open in Google",
+    // ALT-361 — the operator's per-draft switch for the concrete make-good.
+    includeOffer: "Include the make-good offer",
   },
   // The suggested-reply block (ALT-354). The draft is a starting point the
   // operator posts THEMSELVES on Google. Ticket never posts anywhere.
@@ -81,15 +96,8 @@ export const REVIEWS_COPY = {
     again: "Draft again",
     hint: "Read it over, tweak anything, then paste it into your reply on Google.",
   },
-  verdict: {
-    prompt: "Is this genuine?",
-    genuine: "Genuine",
-    notGenuine: "Not genuine",
-    cancel: "Cancel",
-    setGenuine: "You called this genuine",
-    setNotGenuine: "You called this not genuine",
-    change: "Change",
-  },
+  // ALT-362: the "Is this genuine?" card control is retired (the bars carry the
+  // read now). The backend verdict capture is kept for a smarter affordance later.
   states: {
     responded: "Handled",
     dismissed: "Dismissed",
@@ -98,7 +106,6 @@ export const REVIEWS_COPY = {
     handled: "Marked handled.",
     dismissed: "Dismissed.",
     reopened: "Back in the open list.",
-    verdict: "Noted. Ticket learns from your call.",
     error: "That didn't save. Try again.",
     copied: "Copied. Paste it into your reply on Google.",
     draftError: "Could not draft this one, try again or write your own.",
@@ -121,15 +128,13 @@ export function reviewsSubLine(openCount: number, handledThisMonth: number): str
   return "Ticket reads each review as it comes in and flags what needs you."
 }
 
-/* ── severity meter geometry ───────────────────────────────────────── */
-// Band → fill width for the .tk-rev-meter (the small warm meter on the card).
-// FIXED per-band widths — the meter encodes the BAND, never the raw score, so
-// two "serious" reviews always read identically (no false precision).
-export const REV_METER_FILL: Record<SeverityBand, number> = {
-  mild: 28,
-  serious: 62,
-  crisis: 92,
-}
+/* ── spectrum geometry (ALT-359/360) ───────────────────────────────── */
+// The bars are FIXED gradient tracks; only the MARKER moves. Sentiment maps
+// -100..100 onto 0..100% (neutral = dead center); genuine plots the
+// authenticity read directly (50 = "can't determine" middle).
+export const sentimentMarkerPct = (value: number): number =>
+  Math.min(100, Math.max(0, (value + 100) / 2))
+export const genuineMarkerPct = (value: number): number => Math.min(100, Math.max(0, value))
 
 /* ── the serializable card view (server builds it, client renders it) ── */
 export type ReviewCardView = {
@@ -143,16 +148,23 @@ export type ReviewCardView = {
   googleMapsUri: string | null
   triageStatus: "open" | "responded" | "dismissed"
   operatorVerdict: "genuine" | "not_genuine" | null
-  /** false ⇒ the row renders neutrally (no meter fill, no chip, no recommendation) */
+  /** false ⇒ the row renders neutrally (no genuine bar, no recommendation) */
   scored: boolean
+  /** Sentiment marker (-100..100): the model's read when scored, else the star
+   *  anchor — the sentiment bar always plots SOMETHING honest. */
+  sentimentValue: number
+  sentimentBand: SentimentBand
+  /** Genuine marker (0..100); null until scored ⇒ the bar shows "still reading". */
+  genuineValue: number | null
   genuineness: GenuinenessBand | null
-  severity: SeverityBand | null
   tier: MakeGoodTier | null
   ownerAttention: boolean
   /** Why-rolldown bullets: recommendation rationale + the scoring rationales, present ones only */
   whyPoints: string[]
   /** Persisted response draft (ALT-354); null until the operator generates one */
   draftText: string | null
+  /** Publish time in epoch ms (0 when unknown) — the within-band recency sort key. */
+  sortTs: number
 }
 
 /** Reviewer display name → first name only (privacy-light, reads warmer). */
@@ -181,7 +193,6 @@ export function buildReviewCardView(
   row: LocationReviewRow,
   scored: {
     genuineness: GenuinenessBand
-    severity: SeverityBand
     recommendation: MakeGoodRecommendation
   } | null,
 ): ReviewCardView {
@@ -190,6 +201,7 @@ export function buildReviewCardView(
         (p): p is string => typeof p === "string" && p.trim().length > 0,
       )
     : []
+  const sortTs = row.published_at ? Date.parse(row.published_at) : NaN
   return {
     id: row.id,
     authorFirst: authorFirstName(row.author_name),
@@ -200,12 +212,15 @@ export function buildReviewCardView(
     triageStatus: row.triage_status,
     operatorVerdict: row.operator_verdict,
     scored: scored != null,
+    sentimentValue: sentimentValueFor(row),
+    sentimentBand: sentimentBandFor(row),
+    genuineValue: scored != null && typeof row.authenticity_score === "number" ? row.authenticity_score : null,
     genuineness: scored?.genuineness ?? null,
-    severity: scored?.severity ?? null,
     tier: scored?.recommendation.tier ?? null,
     ownerAttention: scored?.recommendation.ownerAttention ?? false,
     whyPoints,
     draftText: row.draft_text?.trim() ? row.draft_text : null,
+    sortTs: Number.isFinite(sortTs) ? sortTs : 0,
   }
 }
 
@@ -219,11 +234,11 @@ export type ReviewGroups = {
   handled: ReviewCardView[]
 }
 
-// crisis > serious > mild > unscored; within a band, genuine ahead of caution
-// (the surest fires first). Stable against the store's input order (severity
-// desc, fresh first) so ties keep their fresh-first read.
-const SEVERITY_RANK: Record<SeverityBand, number> = { crisis: 0, serious: 1, mild: 2 }
-const GENUINE_RANK: Record<GenuinenessBand, number> = { genuine: 0, caution: 1, suspect: 2 }
+// ALT-358 (Bryan 2026-07-17): BAND first, DATE second — a year-old review must
+// never outrank a fresher one of similar seriousness. Rank: owner-attention
+// (crisis/red-flag) first, then negative, neutral, positive sentiment bands;
+// within a band, newest first. Raw scores no longer drive fine ordering.
+const SENTIMENT_RANK: Record<SentimentBand, number> = { negative: 1, neutral: 2, positive: 3 }
 
 export function groupReviewViews(views: ReviewCardView[]): ReviewGroups {
   const attention: ReviewCardView[] = []
@@ -234,13 +249,15 @@ export function groupReviewViews(views: ReviewCardView[]): ReviewGroups {
     else if (v.genuineness === "suspect") secondLook.push(v)
     else attention.push(v)
   }
-  const rank = (v: ReviewCardView) =>
-    (v.severity ? SEVERITY_RANK[v.severity] : 3) * 10 + (v.genuineness ? GENUINE_RANK[v.genuineness] : 3)
-  // decorate-sort-undecorate keeps the sort stable across runtimes
-  const stable = (list: ReviewCardView[]) =>
+  const rank = (v: ReviewCardView) => (v.ownerAttention ? 0 : SENTIMENT_RANK[v.sentimentBand])
+  const byBandThenDate = (list: ReviewCardView[]) =>
     list
       .map((v, i) => ({ v, i }))
-      .sort((a, b) => rank(a.v) - rank(b.v) || a.i - b.i)
+      .sort((a, b) => rank(a.v) - rank(b.v) || b.v.sortTs - a.v.sortTs || a.i - b.i)
       .map(({ v }) => v)
-  return { attention: stable(attention), secondLook: stable(secondLook), handled }
+  return {
+    attention: byBandThenDate(attention),
+    secondLook: byBandThenDate(secondLook),
+    handled: byBandThenDate(handled),
+  }
 }

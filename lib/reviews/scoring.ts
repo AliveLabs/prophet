@@ -20,8 +20,10 @@ import { generateStructured, type Transport } from "@/lib/ai/provider"
 import { applyReviewScores, listUnscoredReviews } from "@/lib/reviews/store"
 import type { LocationReviewRow } from "@/lib/reviews/types"
 
-/** Bump to re-score the whole corpus differentially (old rows become "unscored"). */
-export const REVIEW_SCORE_VERSION = "ri-v1"
+/** Bump to re-score the whole corpus differentially (old rows become "unscored").
+ *  ri-v2 (2026-07-17): + sentimentScore axis, + authenticity calibration anchors
+ *  so markers use the full spectrum instead of clustering mid-range. */
+export const REVIEW_SCORE_VERSION = "ri-v2"
 
 /** The ONLY red-flag categories a score may carry (model output is whitelisted to these). */
 const RED_FLAG_CATEGORIES = ["illness", "food_safety", "discrimination", "safety", "legal"] as const
@@ -93,6 +95,7 @@ type ParsedScore = {
   authenticityRationale: string
   severityScore: number
   severityRationale: string
+  sentimentScore: number
   redFlags: RedFlagCategory[]
 }
 
@@ -100,6 +103,7 @@ type ParsedScore = {
 type ScoreMap = Record<string, ParsedScore>
 
 const clampScore = (n: number): number => Math.min(100, Math.max(0, Math.round(n)))
+const clampSentiment = (n: number): number => Math.min(100, Math.max(-100, Math.round(n)))
 
 /** Operator-facing rationale hygiene: the brand canon bans em AND en dashes in
  *  every surface, and these strings render verbatim in the "Why" rolldown. The
@@ -128,7 +132,8 @@ function parseScoreEntry(raw: unknown): ParsedScore | null {
   // about this review, and "know nothing" is stored as NULL, never as a guess.
   const auth = Number(o.authenticityScore)
   const sev = Number(o.severityScore)
-  if (!Number.isFinite(auth) || !Number.isFinite(sev)) return null
+  const sent = Number(o.sentimentScore)
+  if (!Number.isFinite(auth) || !Number.isFinite(sev) || !Number.isFinite(sent)) return null
   const confidence = ["low", "medium", "high"].includes(String(o.authenticityConfidence))
     ? (o.authenticityConfidence as ParsedScore["authenticityConfidence"])
     : "low" // unrecognized confidence degrades to the least-trusted band, never up
@@ -138,6 +143,7 @@ function parseScoreEntry(raw: unknown): ParsedScore | null {
     authenticityRationale: typeof o.authenticityRationale === "string" ? sanitizeRationale(o.authenticityRationale) : "",
     severityScore: clampScore(sev),
     severityRationale: typeof o.severityRationale === "string" ? sanitizeRationale(o.severityRationale) : "",
+    sentimentScore: clampSentiment(sent),
     redFlags: Array.isArray(o.redFlags)
       ? (o.redFlags.map(String).filter((f) => (RED_FLAG_CATEGORIES as readonly string[]).includes(f)) as RedFlagCategory[])
       : [],
@@ -157,6 +163,10 @@ const SCORING_SYSTEM = [
   "  Penalize: templated or spam-like text, off-topic rants, competitor-sabotage patterns, review-bombing tone,",
   "  and hostility with no evidence of an actual visit.",
   "  Do NOT penalize legitimate anger about a real bad experience — an angry regular is still genuine.",
+  "  CALIBRATE to the full range; do not cluster mid-scale: specific, detailed, plainly-real accounts score 85-100;",
+  "  short but plausible reviews with little to judge sit near 50-65 (unknown is the middle, not a penalty);",
+  "  hostile-with-no-visit-evidence or serial-complaint patterns sit near 20-35; bot-like, inflammatory, or",
+  "  slur-laden attacks score 0-15.",
   '- authenticityConfidence: "low" | "medium" | "high" — how sure you are of that score.',
   "- authenticityRationale: ONE short sentence, safe to show the business owner, explaining the score.",
   "- severityScore (integer 0-100): how serious and heated the complaint is.",
@@ -164,9 +174,13 @@ const SCORING_SYSTEM = [
   "  A positive review scores low severity.",
   "- severityRationale: ONE short sentence explaining the severity.",
   '- redFlags: array drawn ONLY from: "illness", "food_safety", "discrimination", "safety", "legal". Empty when none apply.',
+  "- sentimentScore (integer -100..100): how the CUSTOMER feels. -100 = furious/hostile, -50 = clearly unhappy,",
+  "  0 = neutral or mixed, +50 = pleased, +100 = delighted. USE THE EXTREMES: a glowing rave IS +80 or higher,",
+  "  a furious tirade IS -80 or lower. The star rating anchors the sign; the text sets the magnitude.",
   "Use ONLY the provided reviews. Do not invent details.",
   'Return ONLY JSON keyed by review id: { "<id>": { "authenticityScore": number, "authenticityConfidence": string,',
-  '"authenticityRationale": string, "severityScore": number, "severityRationale": string, "redFlags": string[] }, ... }',
+  '"authenticityRationale": string, "severityScore": number, "severityRationale": string, "sentimentScore": number,',
+  '"redFlags": string[] }, ... }',
 ].join("\n")
 
 /**
@@ -243,6 +257,9 @@ export async function scoreLocationReviews(
         authenticity_rationale: s.authenticityRationale,
         severity_score: severity,
         severity_rationale: s.severityRationale,
+        // A deterministic red-flag hit also floors sentiment into the deep-negative
+        // zone — an illness/discrimination account must never plot as neutral.
+        sentiment_score: forced.length > 0 ? Math.min(s.sentimentScore, -70) : s.sentimentScore,
         red_flags: redFlags,
       }
     })

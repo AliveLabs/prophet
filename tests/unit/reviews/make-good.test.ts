@@ -34,6 +34,7 @@ function rowWith(partial: Partial<LocationReviewRow> = {}): LocationReviewRow {
     authenticity_rationale: null,
     severity_score: null,
     severity_rationale: null,
+    sentiment_score: null,
     red_flags: null,
     scored_at: null,
     score_version: null,
@@ -135,9 +136,14 @@ describe("recommendMakeGood", () => {
     }
   })
 
-  it("caution genuineness is capped at respond too", () => {
-    const rec = recommendMakeGood(rowWith({ authenticity_score: 40, severity_score: 79 }), generous)
-    expect(rec.tier).toBe("respond")
+  it("caution genuineness drops the make-good ONE rung: a doubtful reviewer can get a meal, never a refund", () => {
+    // threshold 100: offerAt = 34, fullAt = 70. severity 75 earns the full rung
+    // when genuine; caution steps it down to replace_meal (Bryan 2026-07-17).
+    const genuine = recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 75 }), generous)
+    expect(genuine.remediation).toBe("refund_and_replace")
+    const doubted = recommendMakeGood(rowWith({ authenticity_score: 40, severity_score: 75 }), generous)
+    expect(doubted.remediation).toBe("replace_meal")
+    expect(doubted.tier).toBe("comp")
   })
 
   it("an operator not_genuine verdict caps a high-scoring review at respond", () => {
@@ -145,9 +151,10 @@ describe("recommendMakeGood", () => {
     expect(rec.tier).toBe("respond")
   })
 
-  it("hostile reviewer signals cap an otherwise-genuine review at respond", () => {
-    const rec = recommendMakeGood(rowWith({ authenticity_score: 90, severity_score: 79 }), { threshold: 100, signals: hostileSignals })
-    expect(rec.tier).toBe("respond")
+  it("hostile reviewer signals (the serial one-star account) drop the rung too", () => {
+    const rec = recommendMakeGood(rowWith({ authenticity_score: 90, severity_score: 75 }), { threshold: 100, signals: hostileSignals })
+    expect(rec.remediation).toBe("replace_meal")
+    expect(rec.remediation).not.toBe("refund_and_replace")
   })
 
   it("positive reviews never get a make-good (thanks only)", () => {
@@ -163,17 +170,24 @@ describe("recommendMakeGood", () => {
     expect(rec.tier).toBe("respond")
   })
 
-  it("threshold 0 is a respond-only posture (discount cut sits at the crisis edge)", () => {
-    const rec = recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 79 }), { threshold: 0 })
-    expect(rec.tier).toBe("respond")
+  it("the whole 'Respond first' slider band offers nothing, at any severity", () => {
+    for (const threshold of [0, 15, MAKE_GOOD_TUNING.respondOnlyMax]) {
+      const rec = recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 79 }), { threshold })
+      expect(rec.remediation).toBe("none")
+      expect(rec.tier).toBe("respond")
+    }
   })
 
-  it("a generous threshold unlocks discount, then comp, as severity rises", () => {
-    // threshold 100: discountAt = 80 - 35 = 45, compAt = 95 - 25 = 70
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 44 }), generous).tier).toBe("respond")
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 45 }), generous).tier).toBe("discount")
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 69 }), generous).tier).toBe("discount")
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 70 }), generous).tier).toBe("comp")
+  it("a generous threshold climbs the whole ladder as severity rises", () => {
+    // threshold 100: offerAt = max(34, 70-60) = 34, fullAt = max(42, 95-25) = 70, step = 12
+    const at = (severity: number) => recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: severity }), generous)
+    expect(at(33).remediation).toBe("none")
+    expect(at(34).remediation).toBe("replace_side")
+    expect(at(46).remediation).toBe("treat")
+    expect(at(58).remediation).toBe("replace_meal")
+    expect(at(70).remediation).toBe("refund_and_replace")
+    expect(at(34).tier).toBe("discount")
+    expect(at(58).tier).toBe("comp")
   })
 
   it("raising the threshold moves the tier monotonically (never down)", () => {
@@ -187,10 +201,16 @@ describe("recommendMakeGood", () => {
     }
   })
 
-  it("GENEROSITY_DEFAULT lands between the extremes: serious complaints stay respond-tier", () => {
-    // default 50: discountAt = 80 - 17.5 = 62.5, compAt = 95 - 12.5 = 82.5 (comp only above the crisis edge)
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 60 }), { threshold: GENEROSITY_DEFAULT }).tier).toBe("respond")
-    expect(recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: 70 }), { threshold: GENEROSITY_DEFAULT }).tier).toBe("discount")
+  it("GENEROSITY_DEFAULT (50) is measured: small gestures on serious complaints, refund unreachable", () => {
+    // default 50: offerAt = 70 - 30 = 40, fullAt = 95 - 12.5 = 82.5, step ~14.2.
+    // The refund rung starts at 82.5, above the crisis edge (80) where the owner
+    // takes over personally, so refunds are out of reach at the default.
+    const at = (severity: number) => recommendMakeGood(rowWith({ authenticity_score: 95, severity_score: severity }), { threshold: GENEROSITY_DEFAULT })
+    expect(at(39).remediation).toBe("none")
+    expect(at(42).remediation).toBe("replace_side")
+    expect(at(60).remediation).toBe("treat")
+    expect(at(70).remediation).toBe("replace_meal")
+    expect(at(79).remediation).toBe("replace_meal")
   })
 
   it("every recommendation carries a plain-language rationale with no em dashes or raw scores", () => {

@@ -31,6 +31,7 @@ function rowWith(partial: Partial<LocationReviewRow> = {}): LocationReviewRow {
     authenticity_rationale: "Reads like a real visit.",
     severity_score: 55,
     severity_rationale: "A serious but ordinary complaint.",
+    sentiment_score: null,
     red_flags: [],
     scored_at: "2026-07-15T12:00:00Z",
     score_version: "ri-v1",
@@ -47,6 +48,7 @@ function rowWith(partial: Partial<LocationReviewRow> = {}): LocationReviewRow {
 function recWith(partial: Partial<MakeGoodRecommendation> = {}): MakeGoodRecommendation {
   return {
     tier: "respond",
+    remediation: "none",
     rationale: "A sincere, specific reply is the right move here; no offer needed.",
     ownerAttention: false,
     ...partial,
@@ -99,22 +101,44 @@ describe("generateReviewResponseDraft", () => {
     expect(without.last().system).not.toContain("preferred voice")
   })
 
-  it('posture routing: "on us" comp language is issued ONLY for tier comp', async () => {
-    const comp = stub({ draft: "ok" })
-    await generateReviewResponseDraft({ ...draftInput({ recommendation: recWith({ tier: "comp" }) }), transport: comp.transport })
-    expect(comp.last().system).toContain("the next one on us")
+  it("posture routing: refund language is issued ONLY for the refund_and_replace rung", async () => {
+    const full = stub({ draft: "ok" })
+    await generateReviewResponseDraft({
+      ...draftInput({ recommendation: recWith({ tier: "comp", remediation: "refund_and_replace" }) }),
+      transport: full.transport,
+    })
+    expect(full.last().system).toContain("refund the order")
 
-    for (const tier of ["respond", "discount"] as const) {
+    for (const remediation of ["none", "replace_side", "treat", "replace_meal"] as const) {
       const s = stub({ draft: "ok" })
-      await generateReviewResponseDraft({ ...draftInput({ recommendation: recWith({ tier }) }), transport: s.transport })
-      expect(s.last().system).not.toContain("on us")
+      await generateReviewResponseDraft({
+        ...draftInput({ recommendation: recWith({ tier: remediation === "none" ? "respond" : "comp", remediation }) }),
+        transport: s.transport,
+      })
+      expect(s.last().system).not.toContain("refund the order")
     }
   })
 
-  it("discount guidance stays unpriced and softer; respond forbids any offer", async () => {
-    const discount = stub({ draft: "ok" })
-    await generateReviewResponseDraft({ ...draftInput({ recommendation: recWith({ tier: "discount" }) }), transport: discount.transport })
-    expect(discount.last().system).toContain("Never name a dollar amount")
+  it("each gesture rung issues its own concrete offer language", async () => {
+    const cases = [
+      { remediation: "replace_side", marker: "replace the specific item or side" },
+      { remediation: "treat", marker: "dessert or appetizer on the house" },
+      { remediation: "replace_meal", marker: "their meal is replaced" },
+    ] as const
+    for (const c of cases) {
+      const s = stub({ draft: "ok" })
+      await generateReviewResponseDraft({
+        ...draftInput({ recommendation: recWith({ tier: "discount", remediation: c.remediation }) }),
+        transport: s.transport,
+      })
+      expect(s.last().system).toContain(c.marker)
+    }
+  })
+
+  it("gesture rungs stay unpriced; none forbids any offer", async () => {
+    const treat = stub({ draft: "ok" })
+    await generateReviewResponseDraft({ ...draftInput({ recommendation: recWith({ tier: "discount", remediation: "treat" }) }), transport: treat.transport })
+    expect(treat.last().system).toContain("never name a dollar amount")
 
     const respond = stub({ draft: "ok" })
     await generateReviewResponseDraft({ ...draftInput(), transport: respond.transport })
@@ -124,13 +148,13 @@ describe("generateReviewResponseDraft", () => {
   it("ownerAttention overrides the tier: measured, no admission of fault, direct contact", async () => {
     const { transport, last } = stub({ draft: "ok" })
     await generateReviewResponseDraft({
-      ...draftInput({ recommendation: recWith({ tier: "comp", ownerAttention: true }) }),
+      ...draftInput({ recommendation: recWith({ tier: "comp", remediation: "refund_and_replace", ownerAttention: true }) }),
       transport,
     })
     const system = last().system ?? ""
     expect(system).toContain("no admission of fault")
     expect(system).toContain("contact the owner directly")
-    expect(system).not.toContain("the next one on us")
+    expect(system).not.toContain("refund the order")
   })
 
   it("doubtful genuineness (suspect score / operator verdict) pulls the brief non-escalating posture", async () => {

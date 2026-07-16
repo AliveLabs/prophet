@@ -15,7 +15,6 @@ import { TkEmptyState, TkSoftPanel, TkTooltipLayer } from "@/components/ticket"
 import { listLocationReviews, aggregateReviewerSignals } from "@/lib/reviews/store"
 import {
   genuinenessBand,
-  severityBandFor,
   recommendMakeGood,
   GENEROSITY_DEFAULT,
 } from "@/lib/reviews/make-good"
@@ -92,7 +91,6 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
     const signals = row.author_key ? signalsByAuthor.get(row.author_key) : undefined
     return buildReviewCardView(row, {
       genuineness: genuinenessBand(row, signals),
-      severity: severityBandFor(row),
       recommendation: recommendMakeGood(row, { threshold, signals }),
     })
   })

@@ -124,6 +124,7 @@ export async function setReviewVerdict(input: {
  *  nothing recommendation-shaped is ever trusted from the client. */
 export async function generateDraftAction(
   reviewId: string,
+  opts: { includeOffer?: boolean } = {},
 ): Promise<{ ok: boolean; draft?: string; error?: string }> {
   await requireUser()
   if (!UUID_RE.test(reviewId)) return { ok: false, error: "Invalid review id" }
@@ -161,10 +162,17 @@ export async function generateDraftAction(
     threshold: loc?.generosity_threshold ?? GENEROSITY_DEFAULT,
     signals,
   })
+  // ALT-361 — the operator's per-draft switch: unchecking "Include the
+  // make-good offer" suppresses the concrete offer (posture falls back to a
+  // plain reply) without touching the recommendation shown on the card.
+  const effective =
+    opts.includeOffer === false
+      ? { ...recommendation, remediation: "none" as const, tier: "respond" as const }
+      : recommendation
 
   const draft = await generateReviewResponseDraft({
     row,
-    recommendation,
+    recommendation: effective,
     voiceTone: loc?.voice_tone ?? null,
     locationName: loc?.name?.trim() ? loc.name : "our restaurant",
   })
