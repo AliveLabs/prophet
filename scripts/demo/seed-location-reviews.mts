@@ -37,8 +37,11 @@ function loadToken(): string {
 
 function loadProjectRef(): string {
   const raw = readFileSync(resolve(REPO_ROOT, "supabase/.temp/linked-project.json"), "utf8")
-  const ref = (JSON.parse(raw) as { projectRef?: string }).projectRef
-  if (!ref) throw new Error("projectRef missing from supabase/.temp/linked-project.json")
+  // The linked-project file's key is `ref` (see sql.mts's twin loader); accept
+  // `projectRef` too in case the CLI ever renames it.
+  const parsed = JSON.parse(raw) as { ref?: string; projectRef?: string }
+  const ref = parsed.ref ?? parsed.projectRef
+  if (!ref) throw new Error("ref missing from supabase/.temp/linked-project.json")
   return ref
 }
 
