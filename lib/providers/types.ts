@@ -11,7 +11,20 @@ export type NormalizedSnapshot = {
     phone?: string
   }
   hours?: Record<string, string>
-  recentReviews?: Array<{ id: string; rating: number; text: string; date: string }>
+  // ALT-347: optional identity/timestamp fields are ADDITIVE — existing consumers keep
+  // reading id/rating/text/date; the review persistence path (lib/reviews/store.ts)
+  // reads the richer fields when the provider supplies them.
+  recentReviews?: Array<{
+    id: string
+    rating: number
+    text: string
+    date: string
+    sourceReviewId?: string
+    authorName?: string
+    authorUri?: string
+    publishedAt?: string
+    googleMapsUri?: string
+  }>
   attributes?: Record<string, unknown>
   source_raw?: unknown
 }
