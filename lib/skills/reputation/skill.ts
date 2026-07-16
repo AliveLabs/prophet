@@ -161,6 +161,26 @@ function take(d: Dossier, pred: (t: string) => boolean, cap: number) {
 }
 
 // ── Input selection (what the model reasons over) ──────────────────────────────────
+/** Differential option (b): reputation's reuse hash. Excludes the sentiment-LLM prose only —
+ *  `ownReviewThemes` and each competitorField entry's `themes` (both re-generate daily with new
+ *  wording over identical reviews). Real reputation movement still re-runs this skill via the
+ *  citable rule outputs (ratingTrajectory/reviewFlow/ownTheme/competitorTheme signals hash on
+ *  actual review data) and via competitorField's rating/reviewCount numbers, which STAY hashed.
+ *  The prose still rides in the prompt via selectInput. Measured baseline: reused 2/46 slots in
+ *  the 07-09→07-13 week. */
+function selectStableInput(d: Dossier) {
+  const { ownReviewThemes, competitorField, ...stable } = selectInput(d)
+  void ownReviewThemes // volatile context — prompt-only, never hashed
+  return {
+    ...stable,
+    // Keep the slow-moving listing numbers; drop only the regenerated theme prose.
+    competitorField: competitorField.map(({ themes, ...c }) => {
+      void themes
+      return c
+    }),
+  }
+}
+
 function selectInput(d: Dossier) {
   // P5 adjacency unchanged: operations neighbors (traffic./hours) are often what the
   // bad reviews are ABOUT — the theme-to-fix archetype ties a review theme to its
@@ -320,6 +340,7 @@ export const reputationSkill: ProducerSkill = {
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: REPUTATION_KNOWLEDGE,
   selectInput,
+  selectStableInput,
   buildPrompt: (d, k) => buildSkillPrompt(reputationSkill, d, selectInput(d), k),
   parse,
   fallback,

@@ -140,6 +140,22 @@ function take(d: Dossier, pred: (t: string) => boolean, cap: number) {
 }
 
 // ── Input selection (what the model reasons over) ──────────────────────────────────
+/** Differential option (b): marketing's reuse hash. Excludes the daily-churn CONTEXT fields only:
+ *  `reviewThemes` (daily sentiment-LLM prose — rewrites over identical reviews) and the raw social
+ *  reads `ownSocial`/`ownVisual`/`competitorSocial` (engagement counts tick up daily on OLD posts).
+ *  A rival's genuinely NEW post still re-runs this skill via competitorMoveSignals (citable rule
+ *  outputs, hashed); metroAttentionHooks stays hashed on purpose — a new metro moment IS new tie-in
+ *  material. All excluded fields still ride in the prompt via selectInput. Measured baseline: this
+ *  skill reused 0/46 slots in the 07-09→07-13 week. */
+function selectStableInput(d: Dossier) {
+  const { reviewThemes, ownSocial, ownVisual, competitorSocial, ...stable } = selectInput(d)
+  void reviewThemes
+  void ownSocial
+  void ownVisual
+  void competitorSocial // volatile context — prompt-only, never hashed
+  return stable
+}
+
 function selectInput(d: Dossier) {
   // P5 adjacency unchanged: local-demand + reputation neighbors sharpen the angle.
   const adjacentSignals = selectAdjacentSignals(d, "marketing")
@@ -376,6 +392,7 @@ export const marketingSkill: ProducerSkill = {
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: MARKETING_KNOWLEDGE,
   selectInput,
+  selectStableInput,
   buildPrompt: (d, k) => buildSkillPrompt(marketingSkill, d, selectInput(d), k),
   parse,
   fallback,

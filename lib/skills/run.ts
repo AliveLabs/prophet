@@ -57,13 +57,18 @@ export async function runProducerSkill(
         : { global: [], scoped: [], globalVersion: "" })
     // Plays stamp the EFFECTIVE version (base + global-set hash); empty set → base unchanged.
     const knowledgeVersion = effectiveKnowledgeVersion(skill.knowledgeVersion, knowledge)
-    // Differential builds (Phase 0): hash the skill's exact input slice + knowledge. Recorded on the
-    // result → skillHealth; Phase 1 compares against yesterday's to skip unchanged experts. Fail-soft:
-    // a hashing error must never break a build (hash just stays undefined → always re-runs).
+    // Differential builds (Phase 0): hash the skill's input slice + knowledge. Recorded on the
+    // result → skillHealth; Phase 1 compares against yesterday's to skip unchanged experts.
+    // Option (b) (2026-07-16): when a skill declares selectStableInput, hash THAT instead — the
+    // stable core minus daily-churn context (LLM-regenerated prose, engagement tick-ups). The
+    // volatile fields still reach the prompt; they just stop forcing a rebuild. NOTE: changing the
+    // hash basis means the first build after deploy matches nothing (full build), reuse resumes
+    // day 2. Fail-soft: a hashing error must never break a build (hash stays undefined → re-runs).
     let inputHash: string | undefined
-    if (skill.selectInput) {
+    const hashSource = skill.selectStableInput ?? skill.selectInput
+    if (hashSource) {
       try {
-        inputHash = skillInputHash(skill.id, skill.selectInput(dossier), knowledgeVersion)
+        inputHash = skillInputHash(skill.id, hashSource(dossier), knowledgeVersion)
       } catch (err) {
         console.warn(`[runProducerSkill] ${skill.id} input-hash failed (differential reuse disabled for this run):`, err)
       }

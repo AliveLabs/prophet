@@ -357,6 +357,17 @@ function take(d: Dossier, pred: (t: string) => boolean, cap: number) {
 }
 
 // ── Input selection (what the model reasons over) ──────────────────────────────────
+/** Differential option (b): positioning's reuse hash. Excludes ONLY `reviewThemes` — prose from
+ *  the daily sentiment LLM run, which rewrites itself over identical reviews (measured: this skill
+ *  reused 0/46 slots in the 07-09→07-13 week purely from that churn). Guest-voice SUBSTANCE still
+ *  triggers re-runs via the citable rule-output signals (conversionSignals/adjacentSignals hash on
+ *  real review data). reviewThemes still rides in the prompt via selectInput. */
+function selectStableInput(d: Dossier) {
+  const { reviewThemes, ...stable } = selectInput(d)
+  void reviewThemes // volatile context — prompt-only, never hashed
+  return stable
+}
+
 function selectInput(d: Dossier) {
   // PV: positioning reads the venue's LOOK. Distilled (token-budget-aware), and omitted
   // entirely when absent so no-vision orgs see the exact no-vision prompt.
@@ -610,6 +621,7 @@ export const positioningSkill: ProducerSkill = {
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: POSITIONING_KNOWLEDGE,
   selectInput,
+  selectStableInput,
   buildPrompt: (d, k) => buildSkillPrompt(positioningSkill, d, selectInput(d), k),
   parse,
   fallback,

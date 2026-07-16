@@ -386,6 +386,19 @@ function take(d: Dossier, pred: (t: string) => boolean, cap: number) {
   return d.ruleOutputs.filter((i) => pred(i.insight_type)).slice(0, cap)
 }
 
+/** Differential option (b): social-counter's reuse hash. Excludes `competitorTeardowns` (top posts
+ *  by engagement RATE — rates and ordering drift daily on OLD posts) and `ownSocial` (same churn).
+ *  A rival's genuinely NEW post still re-runs this skill via competitorSocialSignals /
+ *  whitespaceSignals (citable rule outputs, hashed), and hasCompetitorSocialToCounter flips with
+ *  them. Teardown context still rides in the prompt via selectInput. Measured baseline: reused
+ *  0/46 slots in the 07-09→07-13 week. */
+function selectStableInput(d: Dossier) {
+  const { competitorTeardowns, ownSocial, ...stable } = selectInput(d)
+  void competitorTeardowns
+  void ownSocial // volatile context — prompt-only, never hashed
+  return stable
+}
+
 function selectInput(d: Dossier) {
   return {
     // The CITABLE social signals, PARTITIONED so the model knows which it may counter,
@@ -566,6 +579,7 @@ export const socialCounterSkill: ProducerSkill = {
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: SOCIAL_COUNTER_KNOWLEDGE,
   selectInput,
+  selectStableInput,
   buildPrompt: (d, k) => buildSkillPrompt(socialCounterSkill, d, selectInput(d), k),
   parse,
   fallback,

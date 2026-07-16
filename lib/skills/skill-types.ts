@@ -69,6 +69,17 @@ export type ProducerSkill = {
    *  look at → reuse yesterday's real plays instead of a model call. Do NOT hash the built prompt
    *  (dateKey leaks into prompt text → zero reuse ever). */
   selectInput?: (d: Dossier) => unknown
+  /** Differential builds option (b) (2026-07-16): the STABLE core of selectInput, used for the
+   *  reuse hash INSTEAD of the full slice. Declare it only to exclude fields that churn daily
+   *  WITHOUT carrying new information — LLM-regenerated prose (reviewThemes from the daily
+   *  sentiment run rewrites itself even over identical reviews) and social engagement tick-ups.
+   *  The excluded fields still reach the prompt via selectInput/buildPrompt; they just stop
+   *  forcing a rebuild. RULES: derive it FROM selectInput (destructure + drop keys) so any new
+   *  selectInput key enters the hash BY DEFAULT (conservative: new data = re-run), and never
+   *  exclude citable rule-output signals — those are the re-run triggers tied to real changes.
+   *  Skills whose volatile fields ARE substance (local-demand/food-pairing/convergence: weather,
+   *  events) must NOT declare this — they legitimately rebuild daily. */
+  selectStableInput?: (d: Dossier) => unknown
 }
 
 export type SkillResult = {
