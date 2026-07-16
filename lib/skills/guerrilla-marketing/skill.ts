@@ -494,14 +494,18 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   kind: "capitalize",
   category: "grassroots",
   tier: "reasoning",
-  // M11 UNTHROTTLE (2026-07-03): restored to "medium". The old "low" pin (2026-06-25) blamed a
-  // "~40k-char prompt" timing out >120s → degraded to the number-free fallback. That figure was
-  // stale: the P16 refactor already distilled selectInput to slim per-archetype anchor summaries, so
-  // the built prompt now measures ~20.9k (bare) / ~26.4k (full partner catalog + dated events) — the
-  // SMALLEST of the six producers and BELOW the 25.7-32k band the five mastered siblings run at
-  // medium without timing out (measured via the buildPrompt smoke; see rationale.md + M11 diag). A
-  // prompt-size regression test guards the ceiling so it can never silently re-bloat past the hazard.
-  effort: "medium",
+  // RE-PIN TO "low" (2026-07-16, cost Phase 0). The M11 unthrottle (2026-07-03) restored "medium"
+  // on prompt-SIZE grounds — and the size claim held (this is still the smallest producer prompt,
+  // ~21-26k). But a week of fleet data at the 300s ceiling (07-09 → 07-13) measured this skill at
+  // 59% timeout-fallback at medium (27/46 slots; the worst in the fleet by 2x) — customers got the
+  // number-free fallback most days, and every timed-out call still BILLED a full ~300s thinking
+  // generation. The 07-04 isolated canary already showed medium is intrinsically marginal here
+  // (real 1× / timeout 2× with zero contention): it's the thinking DEPTH on this skill's task
+  // shape, not the prompt size. At "low" it completes ~74s with full-quality anchored plays
+  // (2026-06-25 precedent). Real plays at low beat fallbacks at medium. If a future model/effort
+  // change lands, re-canary before unpinning — and judge SERVED quality (fallback rate), not
+  // prompt size.
+  effort: "low",
   temperature: 0.6,
   knowledgeVersion: KNOWLEDGE_VERSION,
   knowledge: GUERRILLA_KNOWLEDGE,

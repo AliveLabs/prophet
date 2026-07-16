@@ -69,6 +69,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
     ...(r.inputHash ? { inputHash: r.inputHash } : {}),
     ...(r.reused ? { reused: true } : {}),
+    ...(r.tokens ? { tokens: r.tokens } : {}),
   }))
   const reusedCount = skillResults.filter((r) => r.reused).length
   if (reusedCount > 0) console.log(`[runBrief] ${dossier.profile.locationId}: differential reuse ${reusedCount}/${skillResults.length} skills (input unchanged)`)
@@ -107,9 +108,34 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
   const providerAtEnd = anthropicCallStats()
-  const providerStats = {
+  // Token telemetry (2026-07-16): per-model delta between the two snapshots — THIS build's tokens.
+  // Same cross-build-approximate caveat as `requests` on a shared Fluid instance; fine for a trend.
+  const tokensByModel: NonNullable<Brief["providerStats"]>["tokensByModel"] = {}
+  for (const [model, end] of Object.entries(providerAtEnd.tokensByModel)) {
+    const start = providerAtStart.tokensByModel[model]
+    const delta = {
+      inputTokens: end.inputTokens - (start?.inputTokens ?? 0),
+      outputTokens: end.outputTokens - (start?.outputTokens ?? 0),
+      cacheWriteTokens: end.cacheWriteTokens - (start?.cacheWriteTokens ?? 0),
+      cacheReadTokens: end.cacheReadTokens - (start?.cacheReadTokens ?? 0),
+    }
+    if (delta.inputTokens || delta.outputTokens || delta.cacheWriteTokens || delta.cacheReadTokens) {
+      tokensByModel[model] = delta
+    }
+  }
+  const tokenTotals = Object.values(tokensByModel).reduce(
+    (acc, t) => ({
+      inputTokens: acc.inputTokens + t.inputTokens,
+      outputTokens: acc.outputTokens + t.outputTokens,
+      cacheWriteTokens: acc.cacheWriteTokens + t.cacheWriteTokens,
+      cacheReadTokens: acc.cacheReadTokens + t.cacheReadTokens,
+    }),
+    { inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0 },
+  )
+  const providerStats: Brief["providerStats"] = {
     requests: providerAtEnd.requests - providerAtStart.requests,
     rateLimited: providerAtEnd.rateLimited - providerAtStart.rateLimited,
+    ...(Object.keys(tokensByModel).length > 0 ? { ...tokenTotals, tokensByModel } : {}),
   }
 
   const presented = presentBrief(written, dossier)

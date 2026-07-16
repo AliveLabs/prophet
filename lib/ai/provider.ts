@@ -13,8 +13,16 @@
 
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { withAnthropicSlot } from "@/lib/ai/concurrency"
+import type { ModelTokenTotals } from "@/lib/ai/pricing"
 
 export type ModelTier = "reasoning" | "cheap"
+
+/** Per-call token usage reported back to the caller (observability only — NEVER sent to the API).
+ *  Fires on every 200 response, INCLUDING truncated ones (those billed too). Timeout-aborted calls
+ *  report nothing — the client never sees a usage block even though the server bills the generation —
+ *  so per-skill totals UNDERCOUNT on timeout-fallback days. That gap is acceptable: the telemetry's
+ *  job is trend + attribution, not invoice reconciliation (the console is billing truth). */
+export type TokenUsage = ModelTokenTotals & { model: string }
 
 export type GenerateRequest = {
   tier: ModelTier
@@ -38,6 +46,11 @@ export type GenerateRequest = {
   /** Observability only (e.g. the skill id). Named in the truncation/fallback logs so a degraded
    *  call points at the culprit skill. NEVER sent to the API. */
   label?: string
+  /** Observability only — receives the per-call token usage (see TokenUsage) so callers can
+   *  attribute spend per skill (skillHealth.tokens → the admin $/brief estimate). May fire more
+   *  than once if a retried call somehow yields multiple 200s (accumulate, don't assign). A throw
+   *  inside the callback is swallowed: telemetry must never break the call. NEVER sent to the API. */
+  onUsage?: (usage: TokenUsage) => void
 }
 
 /** A transport returns already-parsed JSON (or null on parse failure). Injectable for tests. */
@@ -112,9 +125,21 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // attribution is approximate on a shared Fluid instance — fine for a fleet RATE, which is all we need.
 let anthropicRequests = 0
 let anthropicRateLimited = 0
-/** Cumulative Anthropic request counters (requests attempted, of which rate-limited: 429/529). */
-export function anthropicCallStats(): { requests: number; rateLimited: number } {
-  return { requests: anthropicRequests, rateLimited: anthropicRateLimited }
+// Cumulative token usage per model id (2026-07-16 cost telemetry). Same snapshot-the-delta contract
+// as the request counters: runBrief diffs two snapshots and records the difference on the brief.
+// Only 200 responses accrue here (429s/5xx bill nothing; timeout-aborts never surface usage).
+const anthropicTokensByModel: Record<string, ModelTokenTotals> = {}
+/** Cumulative Anthropic request counters (requests attempted, of which rate-limited: 429/529) plus
+ *  per-model token totals. The token map is copied so held snapshots stay stable for delta math. */
+export function anthropicCallStats(): {
+  requests: number
+  rateLimited: number
+  tokensByModel: Record<string, ModelTokenTotals>
+} {
+  const tokensByModel = Object.fromEntries(
+    Object.entries(anthropicTokensByModel).map(([model, t]) => [model, { ...t }]),
+  )
+  return { requests: anthropicRequests, rateLimited: anthropicRateLimited, tokensByModel }
 }
 
 /** Build the `system` payload. With a systemCached prefix (and caching enabled) it
@@ -212,11 +237,35 @@ async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: numb
       }
       // Cache observability: read>0 means the stable prefix hit; creation>0 means it
       // was (re)written this call. Zero on both across repeats = silent invalidator.
+      // Runs BEFORE the truncation guard on purpose: a truncated call billed too.
       const u = data.usage
       if (u) {
+        const usedModel = req.model ?? ANTHROPIC_MODEL
+        const usage: TokenUsage = {
+          model: usedModel,
+          inputTokens: u.input_tokens ?? 0,
+          outputTokens: u.output_tokens ?? 0,
+          cacheWriteTokens: u.cache_creation_input_tokens ?? 0,
+          cacheReadTokens: u.cache_read_input_tokens ?? 0,
+        }
+        const totals = (anthropicTokensByModel[usedModel] ??= {
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+        })
+        totals.inputTokens += usage.inputTokens
+        totals.outputTokens += usage.outputTokens
+        totals.cacheWriteTokens += usage.cacheWriteTokens
+        totals.cacheReadTokens += usage.cacheReadTokens
         console.log(
-          `[claudeRaw] usage in=${u.input_tokens ?? 0} out=${u.output_tokens ?? 0} cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0}`
+          `[claudeRaw] usage in=${usage.inputTokens} out=${usage.outputTokens} cache_write=${usage.cacheWriteTokens} cache_read=${usage.cacheReadTokens}`
         )
+        try {
+          req.onUsage?.(usage)
+        } catch (usageErr) {
+          console.warn("[claudeRaw] onUsage callback threw (ignored):", usageErr)
+        }
       }
       // TRUNCATION GUARD (2026-07-03): adaptive-thinking tokens count toward max_tokens, so a real
       // (large) prompt can hit the ceiling mid-thinking and emit little/no JSON. That used to slip

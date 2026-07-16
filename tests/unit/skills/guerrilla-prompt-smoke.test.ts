@@ -104,8 +104,13 @@ describe("buildPrompt smoke (guerrilla@v2.2)", () => {
     expect(prompt).toContain("with roughly 40-60 families")
   })
 
-  test("the skill runs at medium effort (unthrottled) — never silently re-pin to low", () => {
-    // The whole point of keeping the prompt under the ceiling: the producer runs at medium.
-    expect(guerrillaMarketingSkill.effort).toBe("medium")
+  test("the skill runs at LOW effort (2026-07-16 re-pin) — never silently change effort either way", () => {
+    // DELIBERATE re-pin (cost Phase 0): the M11 unthrottle to medium was prompt-SIZE justified, but
+    // a week of fleet data (07-09 → 07-13) showed 59% timeout-fallback at medium — thinking DEPTH,
+    // not prompt size, is the hazard on this skill's task shape. At low it completes ~74s with
+    // full-quality anchored plays. This guard now pins the DECISION in both directions: changing
+    // effort here requires an isolated canary + fleet fallback-rate evidence, not a hunch.
+    // See the effort comment in lib/skills/guerrilla-marketing/skill.ts.
+    expect(guerrillaMarketingSkill.effort).toBe("low")
   })
 })

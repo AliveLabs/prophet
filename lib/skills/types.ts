@@ -299,6 +299,9 @@ export type SkillHealth = {
   /** Differential builds: this skill's plays were carried forward from the previous real run
    *  (input slice unchanged). Reused ≠ fallback — the fleet fallback-rate signal is unaffected. */
   reused?: boolean
+  /** Anthropic token usage for this producer's call (2026-07-16 cost telemetry). Absent on reused
+   *  slots (no call) and on timeout-aborted fallbacks (client never sees usage → undercounts). */
+  tokens?: { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }
 }
 
 /** The synthesized brief that the home renders (persisted to daily_briefs + brief_plays). */
@@ -319,8 +322,23 @@ export type Brief = {
   skillHealth?: SkillHealth[]
   /** Anthropic call counters for this build: `requests` attempted, of which `rateLimited` (429/529).
    *  Feeds the fleet-wide rateLimitedRate health signal — the leading indicator of the rate ceiling.
-   *  Absent on briefs built before 2026-07-04. */
-  providerStats?: { requests: number; rateLimited: number }
+   *  Absent on briefs built before 2026-07-04. Token fields (2026-07-16 cost telemetry): totals for
+   *  THIS build plus the per-model split (/admin/health prices Opus vs Sonnet from it). Token fields
+   *  UNDERCOUNT on timeout-fallback days (aborted calls never surface usage client-side) and cover
+   *  only calls made inside runBrief — the insights-pipeline calls (review scoring/sentiment) land
+   *  on no brief. Absent on briefs built before 2026-07-16. */
+  providerStats?: {
+    requests: number
+    rateLimited: number
+    inputTokens?: number
+    outputTokens?: number
+    cacheWriteTokens?: number
+    cacheReadTokens?: number
+    tokensByModel?: Record<
+      string,
+      { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }
+    >
+  }
   /** Differential builds: each producer's RAW grounded plays from this build, keyed by skillId.
    *  Brief.plays only holds the post-synthesis survivors, so reuse (Phase 1) carries these forward
    *  when a skill's inputHash matches. Fallback-served skills are stored too but NEVER reused
