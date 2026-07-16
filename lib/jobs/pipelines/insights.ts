@@ -14,6 +14,8 @@ import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
 import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
+import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
+import { scoreLocationReviews } from "@/lib/reviews/scoring"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
@@ -127,6 +129,13 @@ function buildSnapshotFromPlaceDetails(details: Awaited<ReturnType<typeof fetchP
     rating: r.rating ?? 0,
     text: r.text?.text ?? "",
     date: r.relativePublishTimeDescription ?? "",
+    // ALT-347: carry the identity/timestamp fields Google already returns so the
+    // review persistence path (lib/reviews/store.ts) can accumulate real rows.
+    sourceReviewId: r.name || undefined,
+    authorName: r.authorAttribution?.displayName || undefined,
+    authorUri: r.authorAttribution?.uri || undefined,
+    publishedAt: r.publishTime || undefined,
+    googleMapsUri: r.googleMapsUri || undefined,
   })) ?? []
   return {
     version: "1.0",
@@ -147,6 +156,8 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       name: "load_location_data",
       label: "Loading location data from Google Places",
       run: async (c) => {
+        let reviewsPersisted = 0
+        let reviewsScored = 0
         if (c.location.primary_place_id) {
           const details = await fetchPlaceDetails(c.location.primary_place_id)
           c.state.locationSnapshot = buildSnapshotFromPlaceDetails(details)
@@ -226,6 +237,23 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
             }
           }
 
+          // ALT-347 — persist this run's individual reviews (accumulating corpus for the
+          // Review Intelligence surface). Same data we just fetched, no extra Places call.
+          // Best-effort BUT LOUD: a persistence miss never blocks the pipeline, but its
+          // errors are logged (the spine-upsert lesson: silent no-ops are invisible).
+          try {
+            const captured = capturedFromSnapshot(c.state.locationSnapshot)
+            if (captured.length > 0) {
+              const result = await upsertLocationReviews(c.supabase, c.locationId, captured)
+              reviewsPersisted = result.written
+              for (const err of result.errors) {
+                console.warn(`[insights:${c.locationId}] location_reviews persist error: ${err}`)
+              }
+            }
+          } catch (err) {
+            console.warn(`[insights:${c.locationId}] location_reviews persist threw:`, err)
+          }
+
           // Review sentiment for write-time price corroboration (P4.1) — reuses the reviews we
           // just fetched (no extra Places call). analyzeReviews has a graceful empty fallback.
           const raw = (c.state.locationSnapshot?.recentReviews ?? []).map((r) => ({ text: r.text, rating: r.rating, date: r.date }))
@@ -250,8 +278,22 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
               /* sentiment persistence is best-effort; the brief recomputes if it's absent */
             }
           }
+
+          // ALT-348/350 — score any unscored persisted reviews (authenticity + severity)
+          // in ONE batched call. Best-effort BUT LOUD: a scoring miss never blocks the
+          // pipeline — rows just stay unscored (never fabricated) and the next build's
+          // pass picks them up — but its errors are logged (the spine-upsert lesson).
+          try {
+            const scoring = await scoreLocationReviews(c.supabase, c.locationId)
+            reviewsScored = scoring.scored
+            for (const err of scoring.errors) {
+              console.warn(`[insights:${c.locationId}] review scoring error: ${err}`)
+            }
+          } catch (err) {
+            console.warn(`[insights:${c.locationId}] review scoring threw:`, err)
+          }
         }
-        return { hasPlacesData: !!c.state.locationSnapshot }
+        return { hasPlacesData: !!c.state.locationSnapshot, reviewsPersisted, reviewsScored }
       },
     },
     {

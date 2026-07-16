@@ -55,14 +55,22 @@ export type GooglePlaceDetailsResponse = {
   regularOpeningHours?: {
     weekdayDescriptions?: string[]
   }
+  // ALT-347: the field mask requests the whole `reviews` object, so Google already
+  // returns every subfield below — the type previously narrowed them away and the
+  // normalizers dropped them. `name` is the stable review resource id (the upsert
+  // key for persisted reviews), `publishTime` the absolute RFC3339 timestamp.
   reviews?: Array<{
+    name?: string
     rating?: number
     relativePublishTimeDescription?: string
+    publishTime?: string
+    googleMapsUri?: string
     text?: {
       text?: string
     }
     authorAttribution?: {
       displayName?: string
+      uri?: string
     }
   }>
   addressComponents?: Array<{

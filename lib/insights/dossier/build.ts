@@ -28,6 +28,7 @@ import { priceLevelToTier, typeToCuisine } from "@/lib/places/format"
 import { fetchBusyTimes, type BusyTimesResult } from "@/lib/providers/outscraper"
 import { fetchForecast } from "@/lib/providers/openweathermap"
 import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/lib/insights/reviews/sentiment"
+import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { generateOwnTrafficInsights } from "@/lib/insights/own-traffic-insights"
 import { corroboratePriceInsights } from "@/lib/content/insights"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
@@ -529,6 +530,12 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
           rating: r.rating ?? 0,
           text: r.text?.text ?? "",
           date: r.relativePublishTimeDescription ?? "",
+          // ALT-347: identity/timestamp fields Google already returns (see lib/reviews/store.ts).
+          sourceReviewId: r.name || undefined,
+          authorName: r.authorAttribution?.displayName || undefined,
+          authorUri: r.authorAttribution?.uri || undefined,
+          publishedAt: r.publishTime || undefined,
+          googleMapsUri: r.googleMapsUri || undefined,
         }))
         location.listing = {
           version: "1.0",
@@ -536,6 +543,20 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
           profile: { title: details.displayName?.text, rating: details.rating, reviewCount: details.userRatingCount, priceLevel: details.priceLevel ?? undefined },
           recentReviews,
         } as NormalizedSnapshot
+        // ALT-347 — accumulate this fetch's individual reviews (idempotent upsert; the
+        // insights pipeline persists the same rows daily — this covers standalone brief
+        // builds). Best-effort but LOUD on write errors (spine-upsert lesson).
+        try {
+          const captured = capturedFromSnapshot(location.listing)
+          if (captured.length > 0) {
+            const persistResult = await upsertLocationReviews(sb, locationId, captured)
+            for (const err of persistResult.errors) {
+              console.warn(`[dossier:${locationId}] location_reviews persist error: ${err}`)
+            }
+          }
+        } catch (err) {
+          console.warn(`[dossier:${locationId}] location_reviews persist threw:`, err)
+        }
         // review sentiment -> location.reviews + citable review insights (activates Reputation).
         // Reuse the sentiment the insights pipeline already computed + persisted (skip a second
         // LLM pass; keep the brief consistent with the Feed); fall back to computing it here.

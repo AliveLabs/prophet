@@ -132,3 +132,36 @@ export async function setCommsPref(
   revalidatePath("/settings")
   return { ok: true }
 }
+
+// ALT-351 — operator's make-good posture (0 respond-first .. 100 generous), read by
+// lib/reviews/make-good.ts to place the discount/comp cut-points when it maps a scored
+// review to a recommended action. RLS via the user-scoped client is the membership
+// check (same as setBrandTolerance — no separate read-then-write needed).
+// `generosity_threshold` isn't in the generated DB types until types are regenerated;
+// same loose-client cast convention as setBrandTolerance (home/brief-actions.ts).
+type LocUpdater = {
+  from: (t: string) => {
+    update: (row: Record<string, unknown>) => {
+      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>
+    }
+  }
+}
+const clampGenerosity = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
+
+export async function setGenerosityThreshold(
+  locationId: string,
+  value: number,
+): Promise<{ ok: boolean; error?: string }> {
+  await requireUser()
+  const supabase = await createServerSupabaseClient()
+  const { error } = await (supabase as unknown as LocUpdater)
+    .from("locations")
+    .update({ generosity_threshold: clampGenerosity(value) })
+    .eq("id", locationId)
+  if (error) return { ok: false, error: error.message }
+  // Settings shows the current value; /reviews reads it to place the recommendation
+  // cut-points — both need the fresh value on the next render.
+  revalidatePath("/settings")
+  revalidatePath("/reviews")
+  return { ok: true }
+}

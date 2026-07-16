@@ -106,6 +106,9 @@ export type OperatorContext = {
   locationGeo: { lat: number; lng: number } | null
   tier: string
   brandTolerance: number
+  /** ALT-351 — operator's make-good posture (0 respond-first .. 100 generous), read by
+   *  lib/reviews/make-good.ts. Fallback 40 pre-migration (matches the column default). */
+  generosityThreshold: number
   voiceTone: string | null
   userName: string
   brief: Brief | null
@@ -116,9 +119,13 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
 
+  // ALT-351 — generosity_threshold isn't in the generated DB types until types are
+  // regenerated, so the select string carries it loosely (same convention as the
+  // brand_tolerance/voice_tone columns above it once did); a pre-migration read simply
+  // omits the key from `loc` and the fallback below covers it.
   const { data: loc } = await sb
     .from("locations")
-    .select("brand_tolerance, voice_tone, geo_lat, geo_lng")
+    .select("brand_tolerance, voice_tone, geo_lat, geo_lng, generosity_threshold")
     .eq("id", op.locationId)
     .maybeSingle()
 
@@ -216,6 +223,9 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
         : null,
     tier: org?.subscription_tier ?? "entry",
     brandTolerance: loc?.brand_tolerance ?? 50,
+    // 40 = the same default the generosity_threshold column ships with (migration
+    // 20260716090100), so pre-migration reads and fresh rows read identically.
+    generosityThreshold: (loc as { generosity_threshold?: number } | null)?.generosity_threshold ?? 50,
     voiceTone: loc?.voice_tone ?? null,
     userName: op.userName,
     brief,

@@ -19,6 +19,7 @@ import {
 import { getFullRefreshStatus } from "../refresh-actions"
 import SettingsBriefTuning from "./settings-brief-tuning"
 import SettingsCategoryPriors from "./settings-category-priors"
+import SettingsGenerosity from "./settings-generosity"
 import SettingsRefreshPass from "./settings-refresh-pass"
 import {
   VoiceSelectPass,
@@ -47,13 +48,19 @@ export default async function SettingsPage() {
   const ctx = await loadOperatorContext()
   const email = user.email ?? "you"
   const sb = await createServerSupabaseClient()
+  // ALT-351 — generosity_threshold rides on this same locations read (it's a plain
+  // column, not nested settings JSON); generosity_threshold isn't in the generated
+  // DB types until types are regenerated, so it's read loosely off locRow, with the
+  // same 40 fallback the column's own default ships with (migration 20260716090100).
   const { data: locRow } = await sb
     .from("locations")
-    .select("settings")
+    .select("settings, generosity_threshold")
     .eq("id", ctx.locationId)
     .maybeSingle()
   const locSettings = (locRow?.settings as Record<string, unknown> | null) ?? {}
   const comms = (locSettings.communications ?? null) as Record<string, boolean> | null
+  const generosityThreshold =
+    (locRow as { generosity_threshold?: number } | null)?.generosity_threshold ?? 50
   const refreshStatus = await getFullRefreshStatus(ctx.locationId)
 
   // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other
@@ -170,6 +177,26 @@ export default async function SettingsPage() {
                 <div className="tk-set-fval">
                   <p className="tk-set-desc">Used when we draft customer-facing copy in your name.</p>
                   <VoiceSelectPass initial={ctx.voiceTone} locationId={ctx.locationId} />
+                </div>
+              </div>
+            </div>
+          </TkSoftPanel>
+        </RevealOnView>
+
+        {/* ── REVIEWS ── */}
+        <RevealOnView className="tk-set-block">
+          <TkSectionHead title="Reviews and make-goods" sub="How Ticket triages what customers say" />
+          <TkSoftPanel>
+            <div className="tk-set-fields">
+              <div className="tk-set-field">
+                <div className="tk-set-flbl">Make-good comfort level</div>
+                <div className="tk-set-fval">
+                  <p className="tk-set-desc">
+                    When a review is serious, how far should Ticket lean when it suggests making it right: a
+                    reply, a discount, or a refund. You decide where that line sits. Ticket only ever
+                    suggests, you always make the call.
+                  </p>
+                  <SettingsGenerosity initial={generosityThreshold} locationId={ctx.locationId} />
                 </div>
               </div>
             </div>
