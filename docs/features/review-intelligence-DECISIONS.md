@@ -43,6 +43,29 @@ Each is a small, isolated change if you pick differently.
   column). Both additive/fail-soft. NOT applied to prod — needs your per-action OK
   per standing rule.
 
+## From the adversarial review (2026-07-16, overnight)
+9 confirmed findings; 8 fixed in-branch (edited-review re-score reset; column-level
+grants so members can't tamper with engine-owned scoring columns; missing INSERT
+policy for the user-scoped manual job routes; prompt-injection hardening in the
+scoring system prompt; dash guards on model rationales and drafts; scoring
+chunked at 15/call so a big backlog can't truncate-stall and re-bill forever;
+demo-seed contradiction). One DEFERRED:
+- **Concurrent double-score (low, cost-only):** the manual /api/jobs path and the
+  cron worker don't coordinate, so simultaneous runs could double one scoring
+  call. Rare, bounded by chunking. Fix would be a claim column; not worth the
+  surface pre-beta. Revisit if the ops dashboards ever show doubled scoring calls.
+- **Residual injection risk (documented):** reviews are scored in small batches,
+  so hostile review text could in principle still nudge same-batch neighbors.
+  The system prompt now hardens against it and red-flag floors are deterministic;
+  full isolation = per-review calls = ~15x scoring cost. Revisit only with evidence.
+
+## Morning verification checklist
+- Dark mode + mobile of /reviews on the PR's Vercel preview (light desktop verified
+  overnight in a local harness; dark is token-driven by construction but UNVERIFIED
+  by eyeball; the throwaway harness had a scroll quirk that made dark shots useless).
+- The two migrations against prod (your per-action OK), then seed the demo location
+  (D4) or run a real build on one.
+
 ## Watch items
 - The `ReviewSentiment.source` "outscraper" enum value + file-header comment are
   aspirational/dead (Outscraper only does busy-times). Left as-is; cleanup candidate.

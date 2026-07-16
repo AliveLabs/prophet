@@ -49,7 +49,42 @@ export function capturedFromSnapshot(snapshot: NormalizedSnapshot | null): Captu
     }))
 }
 
-/** Upsert this run's captured reviews for an own location. Loud on errors. */
+/** Scoring columns nulled when a review's CONTENT changed under its stable id, so
+ *  the scoring pass re-reads it (an edited "loved it" that becomes "got food
+ *  poisoning here" must not keep its old mild/genuine bands). Triage state is
+ *  deliberately NOT reset: the operator's handled/dismissed call survives edits. */
+const RESCORE_RESET = {
+  authenticity_score: null,
+  authenticity_confidence: null,
+  authenticity_rationale: null,
+  severity_score: null,
+  severity_rationale: null,
+  red_flags: null,
+  scored_at: null,
+  score_version: null,
+} as const
+
+/** Pure: which incoming reviews changed content vs. what we already hold.
+ *  Exported for unit tests. */
+export function changedReviewIds(
+  incoming: CapturedReview[],
+  existing: Array<Pick<LocationReviewRow, "source_review_id" | "review_text" | "rating">>,
+): Set<string> {
+  const byId = new Map(existing.map((e) => [e.source_review_id, e]))
+  const changed = new Set<string>()
+  for (const r of incoming) {
+    const prev = byId.get(r.sourceReviewId)
+    if (!prev) continue // brand-new row: inserts start unscored anyway
+    const textChanged = (prev.review_text ?? "") !== (r.text ?? "")
+    const ratingChanged = (prev.rating ?? null) !== (r.rating ?? null)
+    if (textChanged || ratingChanged) changed.add(r.sourceReviewId)
+  }
+  return changed
+}
+
+/** Upsert this run's captured reviews for an own location. Loud on errors.
+ *  Rows whose text/rating changed under their stable id get their scoring
+ *  columns reset (see RESCORE_RESET) so the next scoring pass re-reads them. */
 export async function upsertLocationReviews(
   supabase: Store,
   locationId: string,
@@ -59,6 +94,26 @@ export async function upsertLocationReviews(
   const source = opts.source ?? "google_places"
   if (reviews.length === 0) return { written: 0, errors: [] }
   const now = new Date().toISOString()
+
+  // Read the current content of the incoming ids first (cheap: ≤ a feed's worth
+  // of rows) so an edited review can be flagged for re-scoring. Fail-soft: if
+  // this read errors, we proceed without resets (worst case = the pre-fix
+  // behavior) but surface the error loudly on the result.
+  const errors: string[] = []
+  let changed = new Set<string>()
+  const ids = reviews.map((r) => r.sourceReviewId)
+  const { data: existing, error: readErr } = await supabase
+    .from("location_reviews")
+    .select("source_review_id, review_text, rating")
+    .eq("location_id", locationId)
+    .eq("source", source)
+    .in("source_review_id", ids)
+  if (readErr) {
+    errors.push(`location_reviews change-check read: ${readErr.code ?? ""} ${readErr.message}`.trim())
+  } else {
+    changed = changedReviewIds(reviews, (existing ?? []) as Array<Pick<LocationReviewRow, "source_review_id" | "review_text" | "rating">>)
+  }
+
   const payload = reviews.map((r) => ({
     location_id: locationId,
     source,
@@ -76,8 +131,23 @@ export async function upsertLocationReviews(
   const { error, count } = await supabase
     .from("location_reviews")
     .upsert(payload, { onConflict: "location_id,source,source_review_id", count: "exact" })
-  if (error) return { written: 0, errors: [`location_reviews upsert: ${error.code ?? ""} ${error.message}`.trim()] }
-  return { written: count ?? payload.length, errors: [] }
+  if (error) return { written: 0, errors: [...errors, `location_reviews upsert: ${error.code ?? ""} ${error.message}`.trim()] }
+
+  // Second, targeted statement (NOT folded into the upsert: PostgREST bulk rows
+  // must share one key set, and scoring columns are service-role-only under the
+  // column grants — a mixed payload would fail for every row on the user-scoped
+  // manual path). If this update is denied there, the stale-score reset simply
+  // waits for the next service-role build; the error still surfaces loudly.
+  if (changed.size > 0) {
+    const { error: resetErr } = await supabase
+      .from("location_reviews")
+      .update({ ...RESCORE_RESET, updated_at: now })
+      .eq("location_id", locationId)
+      .eq("source", source)
+      .in("source_review_id", Array.from(changed))
+    if (resetErr) errors.push(`location_reviews rescore reset: ${resetErr.code ?? ""} ${resetErr.message}`.trim())
+  }
+  return { written: count ?? payload.length, errors }
 }
 
 /** Triage-surface read: open first (caller filters), most severe first, fresh first. */

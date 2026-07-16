@@ -125,7 +125,9 @@ const SEEDS: Seed[] = [
   {
     id: "demo-010", author: "Patricia H.", rating: 2, publishedDaysAgo: 15, relative: "2 weeks ago",
     text: "Third time in a row my order was missing something. Tonight it was the okra. Check your bags before you drive off, folks. Sweet tea still the best around though.",
-    score: { auth: 93, authConf: "high", authWhy: "Repeat customer with a specific recurring failure, ends with genuine praise.", sev: 52, sevWhy: "Recurring order accuracy problem for a loyal customer. A make-good likely retains her." },
+    // sev 68 lands above the default-threshold discount cut (66), so the card's
+    // recommendation tier AND this rationale agree ("Consider a discount").
+    score: { auth: 93, authConf: "high", authWhy: "Repeat customer with a specific recurring failure, ends with genuine praise.", sev: 68, sevWhy: "Recurring order accuracy problem for a loyal customer. A make-good likely retains her." },
   },
   { id: "demo-011", author: "Denise W.", rating: 4, publishedDaysAgo: 0, relative: "an hour ago",
     text: "Stopped in on my lunch break, line moved quick and the chicken was crispy. Bathroom could use some attention but otherwise a good stop." },

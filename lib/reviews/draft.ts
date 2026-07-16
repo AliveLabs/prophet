@@ -90,7 +90,8 @@ function buildDraftSystem(input: {
 function validateDraftOutput(raw: unknown): string | null {
   const o = (raw ?? {}) as Record<string, unknown>
   if (typeof o.draft !== "string") return null
-  const draft = o.draft.trim().replace(/\s*—\s*/g, ", ")
+  // Canon bans em AND en dashes (EM_DASH = /[—–]/ in the voice rules).
+  const draft = o.draft.trim().replace(/\s*[—–]\s*/g, ", ")
   if (draft.length === 0) return null
   if (draft.length > DRAFT_MAX_CHARS) return null
   const lower = draft.toLowerCase()

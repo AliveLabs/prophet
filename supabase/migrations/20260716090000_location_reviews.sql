@@ -98,8 +98,12 @@ create policy "org members read location_reviews"
       and m.user_id = auth.uid()
   ));
 
--- Members update triage/verdict/draft state on their own locations' reviews (the
--- server actions are the write surface; engine/scoring writes use the service role).
+-- Members update their own locations' reviews (server actions are the intended
+-- write surface; engine/scoring writes use the service role). ROW scope comes
+-- from these policies; COLUMN scope comes from the grants below — RLS cannot
+-- restrict columns, and the anon key ships in the browser, so without column
+-- grants any org member could overwrite engine-owned scoring columns directly
+-- via PostgREST (adversarial-review finding, 2026-07-16).
 drop policy if exists "org members update location_reviews" on public.location_reviews;
 create policy "org members update location_reviews"
   on public.location_reviews for update
@@ -110,6 +114,43 @@ create policy "org members update location_reviews"
     where l.id = location_reviews.location_id
       and m.user_id = auth.uid()
   ));
+
+-- Members may also INSERT capture rows: the manual /api/jobs/* pipeline routes
+-- run on the USER-scoped client (not service role), and without an insert
+-- policy their review persistence is silently denied by RLS (sibling tables
+-- like location_snapshots carry the same member-insert allowance).
+drop policy if exists "org members insert location_reviews" on public.location_reviews;
+create policy "org members insert location_reviews"
+  on public.location_reviews for insert
+  with check (exists (
+    select 1
+    from public.locations l
+    join public.organization_members m on m.organization_id = l.organization_id
+    where l.id = location_reviews.location_id
+      and m.user_id = auth.uid()
+  ));
+
+-- COLUMN discipline (the part RLS can't do). authenticated keeps:
+--   INSERT/UPDATE on capture columns  — the user-scoped pipeline paths write these
+--   UPDATE on triage/verdict/draft    — the operator server actions write these
+-- and loses every scoring column (authenticity_*, severity_*, red_flags,
+-- scored_at, score_version): those are ENGINE-OWNED, written only by the
+-- service role. A member tampering with them could hide a crisis review from
+-- the owner's triage surface.
+revoke insert, update on public.location_reviews from authenticated, anon;
+grant insert (
+  location_id, source, source_review_id, author_name, author_key, rating,
+  review_text, published_at, relative_published, google_maps_uri,
+  last_seen_at, updated_at
+) on public.location_reviews to authenticated;
+grant update (
+  location_id, source, source_review_id, author_name, author_key, rating,
+  review_text, published_at, relative_published, google_maps_uri,
+  last_seen_at, updated_at,
+  triage_status, triage_updated_at, triage_updated_by,
+  operator_verdict, operator_verdict_at,
+  draft_text, draft_generated_at
+) on public.location_reviews to authenticated;
 
 comment on table public.location_reviews is
   'Review Intelligence (ALT-347): one row per customer review seen in the Google Places feed for an OWN location. Accumulates across daily builds (upsert on location_id/source/source_review_id). Scoring columns null until lib/reviews/scoring.ts runs.';
