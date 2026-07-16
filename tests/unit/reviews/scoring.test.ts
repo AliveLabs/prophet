@@ -29,6 +29,7 @@ function rowWith(partial: Partial<LocationReviewRow> = {}): LocationReviewRow {
     authenticity_rationale: null,
     severity_score: null,
     severity_rationale: null,
+    sentiment_score: null,
     red_flags: null,
     scored_at: null,
     score_version: null,
@@ -78,6 +79,7 @@ function mockStore(rows: LocationReviewRow[]) {
 
 const scoreEntry = (over: Record<string, unknown> = {}) => ({
   authenticityScore: 80,
+  sentimentScore: -40,
   authenticityConfidence: "high",
   authenticityRationale: "Reads like a real visit.",
   severityScore: 40,

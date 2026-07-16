@@ -45,6 +45,8 @@ export type LocationReviewRow = {
   authenticity_rationale: string | null
   severity_score: number | null
   severity_rationale: string | null
+  /** -100 (furious/hostile) .. 0 (neutral) .. +100 (delighted). Null until ri-v2 scores it. */
+  sentiment_score: number | null
   red_flags: string[] | null
   scored_at: string | null
   score_version: string | null
@@ -67,6 +69,8 @@ export type ReviewScore = {
   /** 0 (mild) .. 100 (crisis-grade). How serious/heated the complaint is. */
   severityScore: number
   severityRationale: string
+  /** -100 (furious/hostile) .. 0 (neutral) .. +100 (delighted). */
+  sentimentScore: number
   /** Matched red-flag categories (illness, discrimination, safety), if any. */
   redFlags: string[]
 }
@@ -84,12 +88,21 @@ export type ReviewerSignals = {
 /** Bands derived from scores — the ONLY vocabulary the UI speaks (no raw numbers). */
 export type GenuinenessBand = "genuine" | "caution" | "suspect"
 export type SeverityBand = "mild" | "serious" | "crisis"
+/** Display/sort band from sentiment (crisis routing stays on red_flags/severity). */
+export type SentimentBand = "negative" | "neutral" | "positive"
 
 /** Recommended action tier (ALT-352). Recommendation only — operator executes. */
 export type MakeGoodTier = "respond" | "discount" | "comp"
 
+/** Concrete make-good ladder (ALT-361). "none" = reply only. Rungs escalate with
+ *  severity x generosity; doubtful genuineness caps one rung DOWN (a serial
+ *  complainer might get their meal replaced, never a refund); suspect gets none. */
+export type Remediation = "none" | "replace_side" | "treat" | "replace_meal" | "refund_and_replace"
+
 export type MakeGoodRecommendation = {
   tier: MakeGoodTier
+  /** Concrete suggested make-good (drives the draft's offer when enabled). */
+  remediation: Remediation
   /** Operator-facing one-liner explaining the recommendation. */
   rationale: string
   /** True when a red flag routed this to owner attention. */

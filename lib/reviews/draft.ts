@@ -16,7 +16,7 @@
 
 import { generateStructured, type Transport } from "@/lib/ai/provider"
 import { genuinenessBand } from "@/lib/reviews/make-good"
-import type { LocationReviewRow, MakeGoodRecommendation, MakeGoodTier } from "@/lib/reviews/types"
+import type { LocationReviewRow, MakeGoodRecommendation, Remediation } from "@/lib/reviews/types"
 
 /** Hard ceiling on a draft. Google replies should stay short; past this we
  *  assume the model rambled and the operator is better off writing their own. */
@@ -32,16 +32,20 @@ const DRAFT_DENY_PHRASES = [
   "report this review",
 ] as const
 
-/** Per-tier drafting instruction. The comp language ("the next one is on us")
- *  is ONLY ever issued for tier "comp"; discount stays concrete but softer and
- *  unpriced; respond never offers anything. */
-const TIER_GUIDANCE: Record<MakeGoodTier, string> = {
-  respond:
+/** Per-remediation drafting instruction (ALT-361): the generosity slider's
+ *  output becomes a CONCRETE offer in the reply. Refund language is ONLY ever
+ *  issued for refund_and_replace; everything stays unpriced. */
+const REMEDIATION_GUIDANCE: Record<Remediation, string> = {
+  none:
     "Reply with empathy and a specific acknowledgment of what went wrong. Do NOT offer compensation, discounts, free items, or any make-good of any kind.",
-  discount:
-    "Include one concrete but unpriced make-good invitation, phrased softly: invite them back so the team can take better care of them next time. Never name a dollar amount or a percentage, and never promise a fully free visit or meal.",
-  comp:
-    "Make a clear make-it-right offer: invite them back in with the next one on us, and invite them to contact the owner directly so it gets handled personally. Never name a dollar amount.",
+  replace_side:
+    "Include one concrete offer: next time they come in, the team will replace the specific item or side that missed the mark. Keep it that narrow. Never name a dollar amount.",
+  treat:
+    "Include one concrete offer: a dessert or appetizer on the house on their next visit. Do not offer to replace the meal and never name a dollar amount.",
+  replace_meal:
+    "Include one concrete offer: come back in and their meal is replaced, made right this time. Do not offer a refund and never name a dollar amount.",
+  refund_and_replace:
+    "Make the full make-it-right offer: refund the order AND invite them back so the team can replace the meal properly, and ask them to contact the owner directly so it is handled personally. Never name a dollar amount beyond the refund itself.",
 }
 
 /**
@@ -61,7 +65,7 @@ function postureGuidance(recommendation: MakeGoodRecommendation, doubtful: boole
   if (doubtful) {
     return "This review may not reflect a real visit: keep the reply brief, professional, and non-escalating. No offer, no make-good of any kind. Invite them to reach out with details if they'd like."
   }
-  return TIER_GUIDANCE[recommendation.tier]
+  return REMEDIATION_GUIDANCE[recommendation.remediation]
 }
 
 /** Build the system prompt: identity, tone, the posture line, and the hard

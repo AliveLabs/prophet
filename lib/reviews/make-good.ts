@@ -20,7 +20,9 @@ import type {
   LocationReviewRow,
   MakeGoodRecommendation,
   MakeGoodTier,
+  Remediation,
   ReviewerSignals,
+  SentimentBand,
   SeverityBand,
 } from "@/lib/reviews/types"
 
@@ -48,14 +50,46 @@ export const MAKE_GOOD_TUNING = {
   suspectBelow: 30,
   seriousAt: 34,
   crisisAt: 80,
-  discountBase: 80,
-  discountSlope: 0.35,
-  compBase: 95,
-  compSlope: 0.25,
+  // The generosity frame (ALT-361). Slider bands map 1:1 to behavior:
+  //   <= respondOnlyMax ("Respond first")  -> no offers, ever
+  //   34-66 ("Measured make-goods")        -> gestures on genuinely serious complaints
+  //   67+  ("Generous")                    -> the refund rung becomes reachable
+  // offerAt = where gestures start; fullAt = where the top rung starts; the
+  // three lower rungs split [offerAt, fullAt) evenly.
+  respondOnlyMax: 33,
+  offerBase: 70,
+  offerSlope: 0.6,
+  fullBase: 95,
+  fullSlope: 0.25,
   makeGoodMaxRating: 2,
   degradeReviewCountAt: 2,
   degradeNegativeShareAt: 0.99,
+  // Sentiment display/sort bands (ALT-359): below negativeBelow = negative,
+  // above positiveAbove = positive, between = neutral. The gold zone on the
+  // spectrum deliberately extends a little below neutral (Bryan 2026-07-17).
+  sentimentNegativeBelow: -15,
+  sentimentPositiveAbove: 35,
 } as const
+
+/** Star-anchored sentiment fallback for rows the model hasn't read (no text /
+ *  not yet scored): the marker still plots somewhere honest. */
+const STAR_SENTIMENT: Record<number, number> = { 1: -70, 2: -45, 3: 0, 4: 50, 5: 75 }
+
+/** Sentiment position for the spectrum marker: the model's read when scored,
+ *  else the star anchor, else dead neutral. */
+export function sentimentValueFor(row: LocationReviewRow): number {
+  if (typeof row.sentiment_score === "number") return row.sentiment_score
+  if (typeof row.rating === "number" && STAR_SENTIMENT[row.rating] !== undefined) return STAR_SENTIMENT[row.rating]
+  return 0
+}
+
+/** Display/sort band from sentiment (crisis routing stays on red flags/severity). */
+export function sentimentBandFor(row: LocationReviewRow): SentimentBand {
+  const v = sentimentValueFor(row)
+  if (v < MAKE_GOOD_TUNING.sentimentNegativeBelow) return "negative"
+  if (v > MAKE_GOOD_TUNING.sentimentPositiveAbove) return "positive"
+  return "neutral"
+}
 
 /** One band more doubtful (genuine -> caution -> suspect; suspect stays put). */
 function degradeOneBand(band: GenuinenessBand): GenuinenessBand {
@@ -113,19 +147,40 @@ function makeGoodEligible(row: LocationReviewRow): boolean {
   return row.severity_score != null && row.severity_score >= MAKE_GOOD_TUNING.seriousAt
 }
 
+/** The make-good ladder, least to most generous. Index = "rung". */
+const LADDER: readonly Remediation[] = ["none", "replace_side", "treat", "replace_meal", "refund_and_replace"]
+
+/** Tag tier from the concrete remediation (keeps the card's tag vocabulary stable). */
+function tierFor(remediation: Remediation): MakeGoodTier {
+  if (remediation === "none") return "respond"
+  if (remediation === "replace_side" || remediation === "treat") return "discount"
+  return "comp"
+}
+
+/** Operator-facing description of each rung (also used to build rationales). */
+export const REMEDIATION_LABEL: Record<Remediation, string> = {
+  none: "no offer",
+  replace_side: "replace the side or item that missed",
+  treat: "a free dessert or appetizer on their next visit",
+  replace_meal: "replace their meal",
+  refund_and_replace: "refund the order and replace their meal",
+}
+
 /**
- * Recommended action tier for a review (ALT-352). Recommendation only — the
- * operator executes. Rules, IN ORDER:
- *   1. Red flags or crisis severity -> "respond" + ownerAttention. Crisis
- *      handling stays human; no automated generosity on an illness/safety/
- *      discrimination situation.
- *   2. Doubtful genuineness (suspect OR caution) -> capped at "respond". Never
- *      recommend give-aways on reviews we are not confident reflect a real visit.
- *   3. Positive / non-negative reviews -> "respond" (a thank-you; a glowing
- *      review never needs a make-good).
- *   4. Otherwise generosity_threshold slides the discount/comp cut-points down
- *      from their bases (see MAKE_GOOD_TUNING): 0 = respond-only posture,
- *      100 = generous.
+ * Recommended action for a review (ALT-352, reshaped by ALT-361). The output is
+ * a concrete MAKE-GOOD RUNG (plus the tag tier derived from it). Recommendation
+ * only — the operator executes. Rules, IN ORDER:
+ *   1. Red flags or crisis severity -> ownerAttention, no rung. Crisis handling
+ *      stays human; no automated generosity on an illness/safety/discrimination
+ *      situation.
+ *   2. Suspect genuineness (bot-like / abusive / operator-flagged) -> measured
+ *      reply, no rung. You cannot buy back someone who was never a customer.
+ *   3. Positive / non-negative reviews -> warm thanks, no rung.
+ *   4. Otherwise severity picks the rung, with generosity_threshold sliding the
+ *      cut-points down from their bases (0 = respond-only posture, 100 =
+ *      generous), and CAUTION genuineness drops the rung ONE step (Bryan
+ *      2026-07-17: the serial complainer might get their meal replaced, they do
+ *      not get a refund — doubt shrinks the offer, it does not erase the reply).
  */
 export function recommendMakeGood(
   row: LocationReviewRow,
@@ -138,24 +193,19 @@ export function recommendMakeGood(
   if (hasRedFlags || severityBand === "crisis") {
     return {
       tier: "respond",
+      remediation: "none",
       rationale: "This one needs the owner personally: reach out, hear the full story, and make it right directly before offering anything.",
       ownerAttention: true,
     }
   }
 
-  // 2. Doubtful reviews are capped at a reply — generosity waits for confidence.
+  // 2. Suspect reviews get a measured reply and nothing else.
   const genuineness = genuinenessBand(row, opts.signals)
   if (genuineness === "suspect") {
     return {
       tier: "respond",
+      remediation: "none",
       rationale: "Reply politely, but skip any offer: this review shows signs it may not come from a real visit.",
-      ownerAttention: false,
-    }
-  }
-  if (genuineness === "caution") {
-    return {
-      tier: "respond",
-      rationale: "Reply warmly, but hold off on offers until you are more confident this reflects a real visit.",
       ownerAttention: false,
     }
   }
@@ -164,39 +214,43 @@ export function recommendMakeGood(
   if (!makeGoodEligible(row)) {
     return {
       tier: "respond",
+      remediation: "none",
       rationale: "A warm thank-you reply is all this one needs.",
       ownerAttention: false,
     }
   }
 
-  // 4. Generosity slides the cut-points. Clamped at the "serious" edge so a
-  //    make-good is never suggested for mild dissatisfaction, even at 100.
+  // 4. Severity picks the rung; generosity slides the frame; caution drops one
+  //    rung. The "Respond first" slider band offers nothing by definition, and
+  //    everything is clamped at the "serious" edge so a make-good is never
+  //    suggested for mild dissatisfaction, even at 100.
   const threshold = Math.min(100, Math.max(0, opts.threshold))
-  const discountAt = Math.max(MAKE_GOOD_TUNING.seriousAt, MAKE_GOOD_TUNING.discountBase - threshold * MAKE_GOOD_TUNING.discountSlope)
-  const compAt = Math.max(MAKE_GOOD_TUNING.seriousAt, MAKE_GOOD_TUNING.compBase - threshold * MAKE_GOOD_TUNING.compSlope)
-  const severity = row.severity_score ?? 0 // unscored -> respond (neutral posture)
+  const severity = row.severity_score ?? 0 // unscored -> reply only (neutral posture)
 
-  let tier: MakeGoodTier = "respond"
-  if (severity >= compAt) tier = "comp"
-  else if (severity >= discountAt) tier = "discount"
+  let rung = 0
+  if (threshold > MAKE_GOOD_TUNING.respondOnlyMax) {
+    const offerAt = Math.max(MAKE_GOOD_TUNING.seriousAt, MAKE_GOOD_TUNING.offerBase - threshold * MAKE_GOOD_TUNING.offerSlope)
+    const fullAt = Math.max(offerAt + 8, MAKE_GOOD_TUNING.fullBase - threshold * MAKE_GOOD_TUNING.fullSlope)
+    const step = (fullAt - offerAt) / 3
+    if (severity >= fullAt) rung = 4
+    else if (severity >= offerAt + 2 * step) rung = 3
+    else if (severity >= offerAt + step) rung = 2
+    else if (severity >= offerAt) rung = 1
+  }
 
-  if (tier === "comp") {
-    return {
-      tier,
-      rationale: "This experience was bad enough that a sincere reply plus a comped visit is worth it to win them back.",
-      ownerAttention: false,
-    }
-  }
-  if (tier === "discount") {
-    return {
-      tier,
-      rationale: "A sincere reply plus a discount on their next visit is a fair way to make this right.",
-      ownerAttention: false,
-    }
-  }
-  return {
-    tier,
-    rationale: "A sincere, specific reply is the right move here; no offer needed.",
-    ownerAttention: false,
-  }
+  const cautioned = genuineness === "caution" && rung > 0
+  if (cautioned) rung -= 1
+
+  const remediation = LADDER[rung]
+  const tier = tierFor(remediation)
+  const rationale =
+    remediation === "none"
+      ? cautioned
+        ? "Reply warmly and hear them out; hold the offer until you are more confident this reflects a real visit."
+        : "A sincere, specific reply is the right move here; no offer needed."
+      : cautioned
+        ? `Reply with care and offer to ${REMEDIATION_LABEL[remediation]}; this reviewer's pattern says keep the gesture modest.`
+        : `A sincere reply plus an offer to ${REMEDIATION_LABEL[remediation]} is a fair way to make this right.`
+
+  return { tier, remediation, rationale, ownerAttention: false }
 }
