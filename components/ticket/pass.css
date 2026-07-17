@@ -135,7 +135,10 @@
 .tk-hero { position: relative; border-radius: var(--r-xl); overflow: hidden; border: 1px solid var(--line-2); box-shadow: var(--shadow-lg); background: var(--card); }
 .tk-hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; min-height: 380px; }
 .tk-hero-photo { position: relative; overflow: hidden; }
-.tk-hero-photo .tk-photo { background: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--rust) 55%, transparent), transparent 55%), linear-gradient(150deg, var(--slate-2), color-mix(in srgb, var(--slate-2) 70%, #000 30%) 80%); }
+/* background-image, NOT the `background:` shorthand — the shorthand resets
+   background-size/-repeat at this higher specificity, so a real HeroImage photo
+   tiles at natural size instead of covering the slot. */
+.tk-hero-photo .tk-photo { background-image: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--rust) 55%, transparent), transparent 55%), linear-gradient(150deg, var(--slate-2), color-mix(in srgb, var(--slate-2) 70%, #000 30%) 80%); }
 .tk-hero-photo .tk-veil { position: absolute; inset: 0; z-index: 2; background: linear-gradient(to top, rgba(15,20,25,.55), transparent 60%); }
 .tk-hero-venuechip { position: absolute; left: 18px; top: 18px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: rgba(20,26,32,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.16); }
 .tk-hero-venuechip svg { width: 13px; height: 13px; color: #F0C9B6; }
@@ -151,7 +154,7 @@
 .tk-hero-body p.tk-lede b { color: var(--ink); font-weight: 700; }
 
 /* a reusable image/gradient surface (replaces Concept A's .tphoto) */
-.tk-photo { position: relative; width: 100%; height: 100%; min-height: 200px; background: linear-gradient(135deg, color-mix(in srgb, var(--slate) 70%, #000 4%), var(--slate-2)); background-size: cover; background-position: center; display: flex; align-items: flex-end; }
+.tk-photo { position: relative; width: 100%; height: 100%; min-height: 200px; background: linear-gradient(135deg, color-mix(in srgb, var(--slate) 70%, #000 4%), var(--slate-2)); background-size: cover; background-position: center; background-repeat: no-repeat; display: flex; align-items: flex-end; }
 /* a real photo dropped into a tk-photo slot (img child) always fills the box (ALT-152b) */
 .tk-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .tk-photo[data-label]::after { content: attr(data-label); position: absolute; left: 12px; bottom: 11px; z-index: 2; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: rgba(255,255,255,.82); background: rgba(0,0,0,.42); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
