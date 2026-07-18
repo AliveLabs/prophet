@@ -1,6 +1,8 @@
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+import type { CapturedReview } from "@/lib/reviews/types"
 
 const BASE_URL = "https://api.app.outscraper.com/maps/search-v3"
+const REVIEWS_URL = "https://api.app.outscraper.com/maps/reviews-v3"
 
 function getApiKey(): string {
   const key = process.env.OUTSCRAPER_API_KEY
@@ -152,5 +154,94 @@ export async function fetchBusyTimes(
     typical_time_spent: place.time_spent ?? null,
     current_popularity: currentPopularity,
     working_hours_lines: workingHoursToLines(place.working_hours),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reviews (maps/reviews-v3). Google Places Details caps at 5 "most relevant"
+// reviews per fetch; this pulls a place's real review history (negatives
+// included). Canonical impl for BOTH the weekly backfill cron
+// (lib/jobs/backfill/reviews-refresh) and the manual ops script
+// (scripts/ops/backfill-reviews.mts).
+// ---------------------------------------------------------------------------
+
+type OutscraperReview = {
+  review_id?: string
+  author_id?: string
+  author_title?: string
+  review_rating?: number
+  review_timestamp?: number
+  review_text?: string
+  review_link?: string
+}
+
+/** Map one Outscraper review to a CapturedReview under the SAME key space as the
+ *  daily Places capture: source_review_id = places/{placeId}/reviews/{review_id},
+ *  author_key = uri:.../contrib/{author_id}/reviews (else normalized name). This
+ *  exact parity is what lets upsertLocationReviews dedup the two paths instead of
+ *  splitting rows or reviewer identities. Exported for unit tests. */
+export function normalizeOutscraperReview(placeId: string, r: OutscraperReview): CapturedReview {
+  const authorName = (r.author_title ?? "").trim() || null
+  const authorKey = r.author_id
+    ? `uri:https://www.google.com/maps/contrib/${r.author_id}/reviews`
+    : authorName
+      ? `name:${authorName.toLowerCase().replace(/\s+/g, " ")}`
+      : null
+  const rating =
+    typeof r.review_rating === "number" && r.review_rating >= 1 && r.review_rating <= 5
+      ? Math.round(r.review_rating)
+      : null
+  const publishedAt =
+    typeof r.review_timestamp === "number" && r.review_timestamp > 0
+      ? new Date(r.review_timestamp * 1000).toISOString()
+      : null
+  return {
+    sourceReviewId: `places/${placeId}/reviews/${r.review_id}`,
+    authorName,
+    authorKey,
+    rating,
+    text: (r.review_text ?? "").trim() || null,
+    publishedAt,
+    relativePublished: null, // reviews-v3 gives an absolute timestamp; UI falls back to the date
+    googleMapsUri: r.review_link ?? null,
+  }
+}
+
+/** Pull real Google review history for a place (sync mode). `limit` is capped at
+ *  Outscraper's practical 250; reviews without a stable id are dropped (we never
+ *  synthesize an upsert key). Returns normalized rows ready for
+ *  upsertLocationReviews plus the place's total review count for logging. */
+export async function fetchLocationReviews(
+  placeId: string,
+  opts: { limit?: number; sort?: "newest" | "most_relevant" } = {},
+): Promise<{ captured: CapturedReview[]; totalReviews: number | null; name: string | null }> {
+  const limit = Math.min(250, Math.max(1, opts.limit ?? 50))
+  const sort = opts.sort ?? "newest"
+  const url = new URL(REVIEWS_URL)
+  url.searchParams.set("query", placeId)
+  url.searchParams.set("reviewsLimit", String(limit))
+  url.searchParams.set("sort", sort)
+  url.searchParams.set("async", "false")
+
+  const res = await fetchWithRetry(
+    url.toString(),
+    { headers: { "X-API-KEY": getApiKey() } },
+    { timeoutMs: 120_000, label: "outscraper-reviews" },
+  )
+  if (!res.ok) {
+    throw new Error(`Outscraper reviews ${res.status}: ${(await res.text()).slice(0, 300)}`)
+  }
+
+  const payload = (await res.json()) as {
+    data?: Array<{ reviews_data?: OutscraperReview[]; reviews?: number; name?: string }>
+  }
+  const place = payload.data?.[0]
+  const captured = (place?.reviews_data ?? [])
+    .filter((r) => typeof r.review_id === "string" && r.review_id.length > 0)
+    .map((r) => normalizeOutscraperReview(placeId, r))
+  return {
+    captured,
+    totalReviews: typeof place?.reviews === "number" ? place.reviews : null,
+    name: place?.name ?? null,
   }
 }

@@ -86,7 +86,9 @@ demo-seed contradiction). One DEFERRED:
   (D4) or run a real build on one.
 
 ## Watch items
-- The `ReviewSentiment.source` "outscraper" enum value + file-header comment are
-  aspirational/dead (Outscraper only does busy-times). Left as-is; cleanup candidate.
+- RESOLVED (review-backfill cron): Outscraper now also fetches reviews via
+  `lib/providers/outscraper#fetchLocationReviews` (maps/reviews-v3), wired into the
+  weekly `/api/cron/backfill-reviews` job (seed each location once, then newest-N
+  top-ups). The `ReviewSentiment.source` "outscraper" enum value is no longer dead.
 - Types regen (`supabase gen types`) still pending repo-wide; new table uses the same
   loose-cast convention as `insight_pool_entries` until then.
