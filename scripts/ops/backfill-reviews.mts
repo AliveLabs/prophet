@@ -26,6 +26,13 @@
 // unscored rows, 60/run, chunked 15/call).
 //
 // Auth/ref conventions match scripts/db/sql.mts (Management API, linked ref).
+//
+// MANUAL ops one-off. The AUTOMATED weekly path is /api/cron/backfill-reviews
+// (lib/jobs/backfill/reviews-refresh), and the canonical fetch+normalize now lives
+// in lib/providers/outscraper#fetchLocationReviews. This script keeps its own inline
+// copy on purpose: it runs standalone via tsx (no @/ alias resolution) and writes via
+// the Management API because local .env.local may point at a non-prod project. Keep
+// this normalization in sync with fetchLocationReviews if you change either.
 
 import { readFileSync } from "node:fs"
 import { resolve, dirname } from "node:path"
