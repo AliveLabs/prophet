@@ -236,9 +236,19 @@ export async function fetchLocationReviews(
     data?: Array<{ reviews_data?: OutscraperReview[]; reviews?: number; name?: string }>
   }
   const place = payload.data?.[0]
-  const captured = (place?.reviews_data ?? [])
-    .filter((r) => typeof r.review_id === "string" && r.review_id.length > 0)
-    .map((r) => normalizeOutscraperReview(placeId, r))
+  // Dedupe by source_review_id: Outscraper occasionally returns the same review
+  // twice within one pull, and a single upsert can't touch the same conflict key
+  // twice ("ON CONFLICT DO UPDATE cannot affect row a second time"). Keep the first
+  // (newest, since sort=newest) occurrence.
+  const seen = new Set<string>()
+  const captured: CapturedReview[] = []
+  for (const r of place?.reviews_data ?? []) {
+    if (typeof r.review_id !== "string" || r.review_id.length === 0) continue
+    const c = normalizeOutscraperReview(placeId, r)
+    if (seen.has(c.sourceReviewId)) continue
+    seen.add(c.sourceReviewId)
+    captured.push(c)
+  }
   return {
     captured,
     totalReviews: typeof place?.reviews === "number" ? place.reviews : null,

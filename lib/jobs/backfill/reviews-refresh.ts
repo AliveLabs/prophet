@@ -17,13 +17,36 @@
 // source_review_id)), so overlapping pulls never split rows; existing scores/triage
 // survive. New rows land unscored and the normal scoring pass picks them up.
 
+import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { fetchLocationReviews } from "@/lib/providers/outscraper"
 import { upsertLocationReviews } from "@/lib/reviews/store"
+import type { CapturedReview } from "@/lib/reviews/types"
 
 // location_reviews / this marker post-date the generated Database types — same
 // loose-client convention as lib/reviews/store.ts.
 type Admin = SupabaseClient
+
+// A seed pulls up to 250 rows; upsertLocationReviews' change-check does a single
+// `.in(source_review_id, ids)` read, which 400s ("Bad Request") when the id list
+// makes the GET URL too long. Upsert in bounded chunks so that read stays small
+// (and each chunk is its own statement, so the write still lands in full).
+const UPSERT_CHUNK = 50
+
+async function upsertInChunks(
+  admin: Admin,
+  locationId: string,
+  rows: CapturedReview[],
+): Promise<{ written: number; errors: string[] }> {
+  let written = 0
+  const errors: string[] = []
+  for (let i = 0; i < rows.length; i += UPSERT_CHUNK) {
+    const res = await upsertLocationReviews(admin, locationId, rows.slice(i, i + UPSERT_CHUNK))
+    written += res.written
+    errors.push(...res.errors)
+  }
+  return { written, errors }
+}
 
 export const REVIEW_BACKFILL_MARKER = "outscraper_reviews"
 const SEED_LIMIT = 250
@@ -135,19 +158,23 @@ export async function refreshLocationReviews(
       fetched = pull.captured.length
       totalReviews = pull.totalReviews
       if (pull.captured.length > 0) {
-        const res = await upsertLocationReviews(admin, cand.locationId, pull.captured)
+        const res = await upsertInChunks(admin, cand.locationId, pull.captured)
         written = res.written
         errors.push(...res.errors)
       }
       // Marker records the pull so this location isn't re-selected until the
       // interval elapses. Only a written marker "finishes" a location.
+      // location_snapshots.diff_hash is NOT NULL (same as the pipeline's snapshot
+      // upserts), so hash the marker payload to satisfy it.
+      const markerData = { mode: cand.mode, fetched, written, totalReviews, name: pull.name }
       const { error: markErr } = await admin.from("location_snapshots").upsert(
         {
           location_id: cand.locationId,
           provider: REVIEW_BACKFILL_MARKER,
           date_key: today,
           captured_at: new Date().toISOString(),
-          raw_data: { mode: cand.mode, fetched, written, totalReviews, name: pull.name },
+          raw_data: markerData,
+          diff_hash: createHash("sha256").update(JSON.stringify(markerData)).digest("hex"),
         },
         { onConflict: "location_id,provider,date_key" },
       )
