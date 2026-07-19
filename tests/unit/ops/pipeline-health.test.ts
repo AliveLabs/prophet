@@ -2,7 +2,7 @@
 // already-fetched signals + "now" into a verdict, so every branch is testable directly.
 
 import { describe, it, expect } from "vitest"
-import { evaluatePipelineHealth, DEFAULT_THRESHOLDS, type PipelineSignals } from "@/lib/ops/pipeline-health"
+import { evaluatePipelineHealth, computeBriefDrainP95Ms, DEFAULT_THRESHOLDS, type PipelineSignals } from "@/lib/ops/pipeline-health"
 
 const NOW = Date.parse("2026-06-22T13:00:00Z")
 const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString()
@@ -183,11 +183,11 @@ describe("evaluatePipelineHealth — producer latency (CORROBORATING signal only
 })
 
 describe("evaluatePipelineHealth — brief queue drain stretch (the throughput ceiling)", () => {
-  it("degrades when enqueue→done p95 stretches past the alert window", () => {
+  it("degrades when eligible→done p95 stretches past the alert window", () => {
     const v = evaluatePipelineHealth(healthy({ briefDrainP95Ms: 3 * 3_600_000, briefDrainsSampled: 7 }), NOW)
     expect(v.status).toBe("degraded")
     expect(v.reasons.join(" ")).toMatch(/drain p95 is 3\.0h/)
-    expect(v.reasons.join(" ")).toMatch(/isn't keeping up/i)
+    expect(v.reasons.join(" ")).toMatch(/isn't claiming eligible briefs fast enough/i)
   })
   it("does NOT alert below the minimum sample", () => {
     expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 5 * 3_600_000, briefDrainsSampled: 2 }), NOW).status).toBe("ok")
@@ -198,6 +198,45 @@ describe("evaluatePipelineHealth — brief queue drain stretch (the throughput c
   it("fires at the threshold boundary (2h)", () => {
     expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 7_200_000, briefDrainsSampled: 3 }), NOW).status).toBe("degraded")
     expect(evaluatePipelineHealth(healthy({ briefDrainP95Ms: 7_199_999, briefDrainsSampled: 3 }), NOW).status).toBe("ok")
+  })
+})
+
+describe("computeBriefDrainP95Ms — eligible→done, excludes intentional jitter", () => {
+  const BASE = Date.parse("2026-07-19T07:00:00Z")
+  const row = (createdMin: number, scheduledMin: number | null, doneMin: number) => ({
+    created_at: new Date(BASE + createdMin * 60_000).toISOString(),
+    scheduled_for: scheduledMin == null ? null : new Date(BASE + scheduledMin * 60_000).toISOString(),
+    updated_at: new Date(BASE + doneMin * 60_000).toISOString(),
+  })
+
+  it("measures from scheduled_for, not created_at (the 2026-07-19 false-alarm shape)", () => {
+    // All 9 briefs enqueued at once (created 0), then spread by within-zone jitter; each RUNS in minutes.
+    // Measured enqueue→done this p95 is >2h (the false "degraded"); eligible→done it's minutes.
+    const rows = [
+      row(0, 7, 17), row(0, 14, 22), row(0, 28, 35), row(0, 35, 42), row(0, 42, 49),
+      row(0, 49, 56), row(0, 50, 61), row(0, 97, 101), row(0, 112, 125),
+    ]
+    const { p95Ms, sampled } = computeBriefDrainP95Ms(rows)
+    expect(sampled).toBe(9)
+    expect(p95Ms).toBeLessThan(DEFAULT_THRESHOLDS.briefDrainAlertMs) // would NOT page
+    expect(p95Ms).toBeLessThanOrEqual(15 * 60_000) // minutes, not hours
+  })
+
+  it("falls back to created_at when scheduled_for is null", () => {
+    expect(computeBriefDrainP95Ms([row(0, null, 30)]).p95Ms).toBe(30 * 60_000)
+  })
+
+  it("drops negative drains and returns 0/0 when empty", () => {
+    expect(computeBriefDrainP95Ms([])).toEqual({ p95Ms: 0, sampled: 0 })
+    // scheduled_for after done (clock skew) → dropped, not a negative drain.
+    expect(computeBriefDrainP95Ms([row(0, 40, 30)])).toEqual({ p95Ms: 0, sampled: 0 })
+  })
+
+  it("still fires on a genuine backlog (eligible→done actually long)", () => {
+    const rows = Array.from({ length: 5 }, () => row(0, 0, 180)) // eligible immediately, done 3h later
+    const { p95Ms } = computeBriefDrainP95Ms(rows)
+    expect(p95Ms).toBe(180 * 60_000)
+    expect(p95Ms).toBeGreaterThanOrEqual(DEFAULT_THRESHOLDS.briefDrainAlertMs)
   })
 })
 
