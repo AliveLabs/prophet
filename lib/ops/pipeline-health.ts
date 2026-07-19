@@ -66,7 +66,8 @@ export type PipelineSignals = {
   producerLatencyP95Ms: number
   /** How many producer calls carried elapsedMs (the p95's sample base; gates the alert). */
   latencySamples: number
-  /** p95 enqueue→done ms across brief jobs completed in the window. This is the THROUGHPUT ceiling
+  /** p95 eligible→done ms across brief jobs completed in the window (scheduled_for→done, so intentional
+   *  within-zone jitter is NOT counted — see computeBriefDrainP95Ms). This is the THROUGHPUT ceiling
    *  signal: the worker drains ~2 briefs/invocation, so as the fleet grows, drain time stretches and
    *  the "built overnight, before the operator's morning" promise erodes — long before anything fails. */
   briefDrainP95Ms: number
@@ -107,9 +108,10 @@ export type PipelineHealthThresholds = {
    *  pairing it with real fallbacks turns "the abort ceiling is close" into "and it's already costing
    *  real plays" before paging. Chosen well above the ~11% single-flaky-skill noise floor. */
   producerP95CorroborationFallbackRate: number
-  /** Brief enqueue→done p95 (ms) that escalates to degraded. 2h default: a 3 AM-local enqueue should
+  /** Brief eligible→done p95 (ms) that escalates to degraded. 2h default: once a job is eligible it should
    *  land well before the operator's morning; p95 past 2h means the worker isn't keeping up with the
-   *  fleet (throughput ceiling) even though every individual build still succeeds. */
+   *  fleet (throughput ceiling) even though every individual build still succeeds. Measured from
+   *  scheduled_for (not enqueue) so intentional anti-burst jitter never trips it — see computeBriefDrainP95Ms. */
   briefDrainAlertMs: number
   /** Minimum completed brief jobs before the drain p95 can alert. Small on purpose — drain times are
    *  not noisy like call latencies, and even a few multi-hour drains are a real throughput finding. */
@@ -265,12 +267,12 @@ export function evaluatePipelineHealth(
       warnings.push(`${msg} — elevated but not yet corroborated by fallback impact; worth watching, not paging`)
     }
   }
-  // Queue drain stretch — the THROUGHPUT ceiling. Every build succeeds, but enqueue→done is
+  // Queue drain stretch — the THROUGHPUT ceiling. Every build succeeds, but eligible→done is
   // lengthening: the worker can't keep pace with the fleet, so briefs land later and later into the
   // morning. The growth signal — fires as locations scale, long before anything visibly breaks.
   if (s.briefDrainsSampled >= t.drainMinSample && s.briefDrainP95Ms >= t.briefDrainAlertMs) {
     reasons.push(
-      `brief queue drain p95 is ${(s.briefDrainP95Ms / 3_600_000).toFixed(1)}h across ${s.briefDrainsSampled} recent builds — the worker isn't keeping up with the fleet; briefs are landing late (add worker throughput or spread the schedule further)`,
+      `brief queue drain p95 is ${(s.briefDrainP95Ms / 3_600_000).toFixed(1)}h across ${s.briefDrainsSampled} recent builds — the worker isn't claiming eligible briefs fast enough; briefs are landing late (add worker throughput or reduce per-brief cost)`,
     )
     escalate("degraded")
   }
@@ -325,8 +327,9 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     // Distinct (location, pipeline) failures — fetch the rows and de-dup in JS (PostgREST can't distinct-count).
     sb.from("signal_jobs").select("location_id, pipeline").eq("status", "failed").gte("updated_at", sinceIso),
     sb.from("signal_jobs").select("id", { count: "exact", head: true }).eq("status", "queued").lt("scheduled_for", queuedGraceIso),
-    // Brief jobs completed in the window: enqueue→done duration = the queue drain (throughput signal).
-    sb.from("signal_jobs").select("created_at, updated_at").eq("pipeline", "brief").eq("status", "done").gte("updated_at", sinceIso),
+    // Brief jobs completed in the window: eligible→done duration = the queue drain (throughput signal).
+    // scheduled_for is the ELIGIBLE time (see computeBriefDrainP95Ms) — needed to exclude intentional jitter.
+    sb.from("signal_jobs").select("created_at, scheduled_for, updated_at").eq("pipeline", "brief").eq("status", "done").gte("updated_at", sinceIso),
     detectDataForSeoHealth(sb, { nowMs }),
   ])
 
@@ -384,14 +387,9 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
 
   const failedKeys = new Set((failedRows.data ?? []).map((r) => `${r.location_id}|${r.pipeline}`))
 
-  // Enqueue→done drain per brief job completed in the window; p95 mirrors the latency signal's math.
-  const drains: number[] = []
-  for (const j of doneBriefJobs.data ?? []) {
-    const ms = new Date(j.updated_at).getTime() - new Date(j.created_at).getTime()
-    if (Number.isFinite(ms) && ms >= 0) drains.push(ms)
-  }
-  drains.sort((a, b) => a - b)
-  const briefDrainP95Ms = drains.length > 0 ? drains[Math.max(0, Math.ceil(drains.length * 0.95) - 1)] : 0
+  // Eligible→done drain per brief job completed in the window (see computeBriefDrainP95Ms for why we
+  // measure from scheduled_for, not created_at).
+  const { p95Ms: briefDrainP95Ms, sampled: briefDrainsSampled } = computeBriefDrainP95Ms(doneBriefJobs.data ?? [])
 
   return {
     lastRunAt: (run.data?.finished_at ?? run.data?.started_at) ?? null,
@@ -410,8 +408,33 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     producerLatencyP95Ms,
     latencySamples: latencies.length,
     briefDrainP95Ms,
-    briefDrainsSampled: drains.length,
+    briefDrainsSampled,
   }
+}
+
+/** PURE: p95 of eligible→done drain (ms) across completed brief jobs, plus the sample count.
+ *
+ *  Drain is measured from when a job became ELIGIBLE (`scheduled_for`), NOT when it was enqueued
+ *  (`created_at`). The two diverge by design: build-schedule.ts staggers same-zone builds by
+ *  BRIEF_JITTER_SPACING_SECONDS (7 min default) to avoid an enqueue burst, so a job's scheduled_for
+ *  can sit an hour-plus past its created_at. Measuring enqueue→done would count that intentional spread
+ *  as backlog and page on our own anti-burst jitter (the 2026-07-19 false "degraded"). Eligible→done
+ *  isolates the real throughput signal: "the worker isn't claiming eligible briefs fast enough."
+ *
+ *  Falls back to created_at when scheduled_for is null (a job with no explicit schedule is eligible at
+ *  creation). Negatives (clock skew / scheduled after done) are dropped. p95 index = ceil(0.95n)-1. */
+export function computeBriefDrainP95Ms(
+  rows: Array<{ created_at: string; scheduled_for: string | null; updated_at: string }>,
+): { p95Ms: number; sampled: number } {
+  const drains: number[] = []
+  for (const j of rows) {
+    const eligibleMs = new Date(j.scheduled_for ?? j.created_at).getTime()
+    const ms = new Date(j.updated_at).getTime() - eligibleMs
+    if (Number.isFinite(ms) && ms >= 0) drains.push(ms)
+  }
+  drains.sort((a, b) => a - b)
+  const p95Ms = drains.length > 0 ? drains[Math.max(0, Math.ceil(drains.length * 0.95) - 1)] : 0
+  return { p95Ms, sampled: drains.length }
 }
 
 /** Compose: fetch the signals, then evaluate. Read-only; safe to call from a health probe. */
