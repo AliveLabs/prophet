@@ -13,7 +13,6 @@ import {
   type MarketingSource,
 } from "@/lib/marketing/contacts"
 import { rateLimit, clientIp } from "@/lib/http/rate-limit"
-import { verifyTurnstile, turnstileConfigured } from "@/lib/http/turnstile"
 
 const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
@@ -214,25 +213,19 @@ export async function POST(request: Request) {
       return jsonWithCors(origin, { ok: true })
     }
 
-    // Turnstile gate. Cross-origin marketing POSTs (a known brand origin) must
-    // carry a valid Turnstile token once TURNSTILE_SECRET_KEY is set. This is
-    // the layer that ends the spam: a bot POSTing straight at this endpoint has
-    // no token and is rejected. Same-origin in-app / admin requests
-    // (originBrand === null) are exempt — they render no widget. Env-gated:
-    // with no secret configured, verifyTurnstile() returns true (skip).
+    // The cross-origin marketing waitlist path is RETIRED. useneat.ai and
+    // getticket.ai now post to their own site's /api/waitlist n8n proxy, which
+    // enforces Turnstile + honeypot; those app domains are becoming login-only.
+    // Reject marketing-origin signups here so this endpoint stops being a
+    // direct-to-n8n spam vector. Same-origin in-app / admin requests
+    // (originBrand === null) still work.
     const originBrand = brandFromOrigin(origin)
-    if (originBrand && turnstileConfigured()) {
-      const passedTurnstile = await verifyTurnstile(
-        body.turnstile_token,
-        clientIp(request),
+    if (originBrand) {
+      return jsonWithCors(
+        origin,
+        { ok: false, error: "This signup path has moved." },
+        { status: 410 },
       )
-      if (!passedTurnstile) {
-        return jsonWithCors(
-          origin,
-          { ok: false, error: "Spam check failed. Please try again." },
-          { status: 400 },
-        )
-      }
     }
 
     // SEC-M2: rate-limit per IP and per email so this unauthenticated, service-role-backed endpoint
@@ -255,41 +248,29 @@ export async function POST(request: Request) {
     const fullName =
       [trimmedFirst, trimmedLast].filter(Boolean).join(" ") || null
 
-    // Resolve brand + attribution. Origin is authoritative for the brand
-    // mapping (a Neat marketing form cannot claim a Ticket signup); body
-    // fields provide UTM details and let admin tooling set values explicitly.
-    // `originBrand` was resolved above for the Turnstile gate.
+    // Resolve brand + attribution. Marketing (cross-origin) POSTs are rejected
+    // above, so this only runs for same-origin callers: the in-app landing
+    // page, admin tooling, or localhost dev. Body values, if valid, win;
+    // otherwise default to Ticket because that's the only customer-facing
+    // vertical with a same-origin in-app signup form.
     let resolvedBrand: Brand
     let resolvedIndustry: MarketingIndustryType
     let resolvedSource: MarketingSource
 
-    if (originBrand) {
-      // Cross-origin POST from a known marketing site: brand-driven config wins.
-      // Body-supplied industry_type/source are ignored to prevent attribution
-      // spoofing across verticals.
-      const cfg = BRAND_CONFIG[originBrand]
-      resolvedBrand = originBrand
-      resolvedIndustry = cfg.industryType
-      resolvedSource = cfg.source
+    if (
+      typeof body.industry_type === "string" &&
+      isAllowedIndustryType(body.industry_type)
+    ) {
+      resolvedIndustry = body.industry_type
     } else {
-      // Same-origin (in-app landing page, admin tooling, localhost dev). Body
-      // values, if valid, win; otherwise default to Ticket because that's the
-      // only customer-facing vertical with a same-origin in-app signup form.
-      if (
-        typeof body.industry_type === "string" &&
-        isAllowedIndustryType(body.industry_type)
-      ) {
-        resolvedIndustry = body.industry_type
-      } else {
-        resolvedIndustry = "restaurant"
-      }
-      resolvedBrand = resolvedIndustry === "liquor_store" ? "neat" : "ticket"
+      resolvedIndustry = "restaurant"
+    }
+    resolvedBrand = resolvedIndustry === "liquor_store" ? "neat" : "ticket"
 
-      if (typeof body.source === "string" && isAllowedSource(body.source)) {
-        resolvedSource = body.source
-      } else {
-        resolvedSource = "manual"
-      }
+    if (typeof body.source === "string" && isAllowedSource(body.source)) {
+      resolvedSource = body.source
+    } else {
+      resolvedSource = "manual"
     }
 
     const brandConfig = BRAND_CONFIG[resolvedBrand]
