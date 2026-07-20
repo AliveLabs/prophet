@@ -13,6 +13,7 @@ import {
   type MarketingSource,
 } from "@/lib/marketing/contacts"
 import { rateLimit, clientIp } from "@/lib/http/rate-limit"
+import { verifyTurnstile, turnstileConfigured } from "@/lib/http/turnstile"
 
 const ADMIN_NOTIFY_EMAIL = "chris@alivelabs.io"
 
@@ -124,6 +125,13 @@ interface WaitlistRequestBody {
   utm_content?: string
   // Allows callers to set notes themselves (admin tooling, future use).
   notes?: string
+  // Cloudflare Turnstile token: sent by the marketing forms when the widget
+  // is configured. Required for cross-origin marketing POSTs once
+  // TURNSTILE_SECRET_KEY is set (see anti-spam block in POST).
+  turnstile_token?: string
+  // Honeypot: a hidden field real users leave empty. Any non-empty value means
+  // a bot filled it — we silently return success so the bot doesn't retry.
+  hp?: string
 }
 
 interface UtmStash {
@@ -199,6 +207,34 @@ export async function POST(request: Request) {
       )
     }
 
+    // Honeypot: a hidden field the marketing forms render but keep empty. A
+    // non-empty value means a bot filled every field — return a fake success
+    // so it doesn't retry, and never write the junk row.
+    if (typeof body.hp === "string" && body.hp.trim().length > 0) {
+      return jsonWithCors(origin, { ok: true })
+    }
+
+    // Turnstile gate. Cross-origin marketing POSTs (a known brand origin) must
+    // carry a valid Turnstile token once TURNSTILE_SECRET_KEY is set. This is
+    // the layer that ends the spam: a bot POSTing straight at this endpoint has
+    // no token and is rejected. Same-origin in-app / admin requests
+    // (originBrand === null) are exempt — they render no widget. Env-gated:
+    // with no secret configured, verifyTurnstile() returns true (skip).
+    const originBrand = brandFromOrigin(origin)
+    if (originBrand && turnstileConfigured()) {
+      const passedTurnstile = await verifyTurnstile(
+        body.turnstile_token,
+        clientIp(request),
+      )
+      if (!passedTurnstile) {
+        return jsonWithCors(
+          origin,
+          { ok: false, error: "Spam check failed. Please try again." },
+          { status: 400 },
+        )
+      }
+    }
+
     // SEC-M2: rate-limit per IP and per email so this unauthenticated, service-role-backed endpoint
     // can't be driven for lead-table spam or enumeration. Fail-open when Upstash is unconfigured.
     const ipRl = await rateLimit(clientIp(request), { prefix: "waitlist:ip", limit: 10, windowSeconds: 60 })
@@ -222,8 +258,7 @@ export async function POST(request: Request) {
     // Resolve brand + attribution. Origin is authoritative for the brand
     // mapping (a Neat marketing form cannot claim a Ticket signup); body
     // fields provide UTM details and let admin tooling set values explicitly.
-    const originBrand = brandFromOrigin(origin)
-
+    // `originBrand` was resolved above for the Turnstile gate.
     let resolvedBrand: Brand
     let resolvedIndustry: MarketingIndustryType
     let resolvedSource: MarketingSource
