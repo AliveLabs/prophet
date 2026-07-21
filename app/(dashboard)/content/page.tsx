@@ -71,37 +71,17 @@ export default async function ContentPage({ searchParams }: PageProps) {
   for (const cms of cached.competitorMenuSnaps) {
     const comp = cached.competitors.find((c) => c.id === cms.competitor_id)
     const compMenu = cms.raw_data as MenuSnapshot
-    const prices: number[] = []
-    for (const cat of compMenu.categories ?? []) {
-      for (const item of cat.items ?? []) {
-        if (item.priceValue != null && item.priceValue > 0) {
-          prices.push(item.priceValue)
-        }
-      }
-    }
     competitorMenus.push({
       competitorName: comp?.name ?? "Competitor",
       categories: compMenu.categories ?? [],
-      avgPrice: prices.length > 0 ? prices.reduce((a, b) => a + b, 0) / prices.length : null,
       itemCount: (compMenu.categories ?? []).reduce(
         (s, c) => s + (c.items?.length ?? 0),
         0
       ),
     })
   }
-
-  // Compute location avg price
-  const locPrices: number[] = []
-  for (const cat of menuSnap?.categories ?? []) {
-    for (const item of cat.items ?? []) {
-      if (item.priceValue != null && item.priceValue > 0) {
-        locPrices.push(item.priceValue)
-      }
-    }
-  }
-  const locAvgPrice = locPrices.length > 0
-    ? locPrices.reduce((a, b) => a + b, 0) / locPrices.length
-    : null
+  // Price averages are computed in the board via priceStatsPair (comparable items +
+  // sample-size gate), not as a flat all-item mean here (ALT-297).
 
   const lastRefreshDate = siteContentSnap?.capturedAt
     ? new Date(siteContentSnap.capturedAt).toLocaleDateString("en-US", {
@@ -161,7 +141,6 @@ export default async function ContentPage({ searchParams }: PageProps) {
         menuScreenshotUrl={menuScreenshotUrl}
         siteContent={siteContentSnap}
         menu={menuSnap}
-        locAvgPrice={locAvgPrice}
         competitorMenus={competitorMenus}
       />
     </div>

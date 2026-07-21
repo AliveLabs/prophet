@@ -39,12 +39,12 @@ import type {
   MenuCategory,
   MenuType,
 } from "@/lib/content/types"
+import { priceStatsPair } from "@/lib/content/insights"
 
 /* ── shared bits of derived data the island renders ─────────────────────── */
 export type CompetitorMenuDisplay = {
   competitorName: string
   categories: MenuCategory[]
-  avgPrice: number | null
   itemCount: number
 }
 
@@ -55,7 +55,6 @@ type ContentBoardProps = {
   menuScreenshotUrl: string | null
   siteContent: SiteContentSnapshot | null
   menu: MenuSnapshot | null
-  locAvgPrice: number | null
   competitorMenus: CompetitorMenuDisplay[]
 }
 
@@ -405,15 +404,6 @@ function MenuCard({
 function filterByType(cats: MenuCategory[], mt: MenuType): MenuCategory[] {
   return cats.filter((c) => (c.menuType ?? "dine_in") === mt)
 }
-function avgPrice(cats: MenuCategory[]): number | null {
-  const prices: number[] = []
-  for (const cat of cats) {
-    for (const it of cat.items) {
-      if (it.priceValue != null && it.priceValue > 0) prices.push(it.priceValue)
-    }
-  }
-  return prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null
-}
 function uniqueItems(comp: MenuCategory[], loc: MenuCategory[]): string[] {
   const have = new Set(loc.flatMap((c) => c.items.map((i) => i.name.toLowerCase().trim())))
   const out: string[] = []
@@ -428,12 +418,10 @@ function uniqueItems(comp: MenuCategory[], loc: MenuCategory[]): string[] {
 function CompareBoard({
   locationName,
   locationCategories,
-  locationAvgPrice,
   competitors,
 }: {
   locationName: string
   locationCategories: MenuCategory[]
-  locationAvgPrice: number | null
   competitors: CompetitorMenuDisplay[]
 }) {
   const allTypes = useMemo(() => {
@@ -449,8 +437,12 @@ function CompareBoard({
 
   const locCats = filterByType(locationCategories, compareType)
   const compCats = filterByType(comp.categories, compareType)
-  const locAvg = avgPrice(locCats) ?? locationAvgPrice
-  const compAvg = avgPrice(compCats) ?? comp.avgPrice
+  // Honest price read: compare only meal-comparable items (drinks/sides/add-ons set
+  // aside) and require a minimum sample on both sides, else show nothing rather than a
+  // misleading number. Same gate as the persisted insight rules (PR #69) — a flat
+  // average over every priced line item compared two structurally different menus and
+  // produced the apples-to-oranges numbers Bryan flagged (ALT-297).
+  const priceStats = priceStatsPair(locCats, compCats)
   const locCount = locCats.reduce((s, c) => s + c.items.length, 0)
   const compCount = compCats.reduce((s, c) => s + c.items.length, 0)
 
@@ -470,19 +462,21 @@ function CompareBoard({
     tipValue?: string
   }> = []
 
-  if (locAvg != null && compAvg != null) {
+  if (priceStats) {
+    const locAvg = priceStats.loc.avg
+    const compAvg = priceStats.comp.avg
     const sum = locAvg + compAvg
     // higher avg price => bigger bar; verdict is neutral (neither is "winning" on price)
     const youHigher = locAvg >= compAvg
     h2hRows.push({
-      metric: "Avg published price",
+      metric: "Avg comparable price",
       side: youHigher ? "you" : "them",
       width: sum > 0 ? (Math.abs(locAvg - compAvg) / sum) * 100 + 18 : 18,
       verdict: youHigher
         ? `You +$${(locAvg - compAvg).toFixed(2)}`
         : `Them +$${(compAvg - locAvg).toFixed(2)}`,
-      tip: `You $${locAvg.toFixed(2)} · ${comp.competitorName} $${compAvg.toFixed(2)}`,
-      tipValue: "avg published price",
+      tip: `You $${locAvg.toFixed(2)} (${priceStats.loc.n} items) · ${comp.competitorName} $${compAvg.toFixed(2)} (${priceStats.comp.n} items)`,
+      tipValue: "avg comparable price",
     })
   }
   if (locCount || compCount) {
@@ -536,24 +530,39 @@ function CompareBoard({
         )}
       </div>
 
-      {/* price face-off cards */}
-      <div className="content-faceoff">
-        <div className="content-faceoff-side is-you">
-          <span className="content-fo-lbl">{locationName} · you</span>
-          <span className="content-fo-val">{locAvg != null ? `$${locAvg.toFixed(2)}` : "—"}</span>
-          <span className="content-fo-sub">
-            avg {MENU_TYPE_LABELS[compareType].toLowerCase()} price · {locCount} items
-          </span>
-        </div>
-        <span className="content-faceoff-vs" aria-hidden="true">vs</span>
-        <div className="content-faceoff-side">
-          <span className="content-fo-lbl">{comp.competitorName}</span>
-          <span className="content-fo-val">{compAvg != null ? `$${compAvg.toFixed(2)}` : "—"}</span>
-          <span className="content-fo-sub">
-            avg {MENU_TYPE_LABELS[compareType].toLowerCase()} price · {compCount} items
-          </span>
-        </div>
-      </div>
+      {/* price face-off cards — only when there's a comparable sample on both sides;
+          otherwise an honest "not enough to compare" note (ALT-297). */}
+      {priceStats ? (
+        <>
+          <div className="content-faceoff">
+            <div className="content-faceoff-side is-you">
+              <span className="content-fo-lbl">{locationName} · you</span>
+              <span className="content-fo-val">${priceStats.loc.avg.toFixed(2)}</span>
+              <span className="content-fo-sub">
+                avg comparable {MENU_TYPE_LABELS[compareType].toLowerCase()} price · {priceStats.loc.n} items
+              </span>
+            </div>
+            <span className="content-faceoff-vs" aria-hidden="true">vs</span>
+            <div className="content-faceoff-side">
+              <span className="content-fo-lbl">{comp.competitorName}</span>
+              <span className="content-fo-val">${priceStats.comp.avg.toFixed(2)}</span>
+              <span className="content-fo-sub">
+                avg comparable {MENU_TYPE_LABELS[compareType].toLowerCase()} price · {priceStats.comp.n} items
+              </span>
+            </div>
+          </div>
+          <p className="content-fo-note">
+            <TkConfidence level={priceStats.loc.confidence} />
+            Meal items only, comparing like with like — drinks, sides, and add-ons are set aside.
+          </p>
+        </>
+      ) : (
+        <TkSoftPanel className="content-gap-panel">
+          Not enough comparable {MENU_TYPE_LABELS[compareType].toLowerCase()} items on both menus to
+          put a price side by side yet. We compare meal items (setting drinks, sides, and add-ons
+          aside) and need a solid handful on each side before we&apos;ll show a number.
+        </TkSoftPanel>
+      )}
 
       {/* head-to-head bars */}
       {h2hRows.length > 0 && (
@@ -614,7 +623,6 @@ export default function ContentBoard({
   menuScreenshotUrl,
   siteContent,
   menu,
-  locAvgPrice,
   competitorMenus,
 }: ContentBoardProps) {
   const hasMenuItems = !!menu && menu.categories.length > 0
@@ -676,7 +684,6 @@ export default function ContentBoard({
                 <CompareBoard
                   locationName={locationName}
                   locationCategories={menu!.categories}
-                  locationAvgPrice={locAvgPrice}
                   competitors={competitorMenus}
                 />
               </RevealOnView>
