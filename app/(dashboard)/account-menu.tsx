@@ -143,6 +143,8 @@ export default function AccountMenu({
                       <span className="pv-acct__spin" aria-label="Switching" />
                     ) : l.current ? (
                       <span className="pv-acct__current-tag" aria-hidden>Current</span>
+                    ) : l.building ? (
+                      <span className="pv-acct__building-tag" aria-label="Still building">Building</span>
                     ) : null}
                   </button>
                 )
