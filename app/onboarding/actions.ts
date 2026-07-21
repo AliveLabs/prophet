@@ -28,7 +28,7 @@ import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { rateLimit } from "@/lib/http/rate-limit"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
-import { isTrialActive } from "@/lib/billing/trial"
+import { shouldClaimCurrentOrg } from "@/lib/onboarding/claim-current-org"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
@@ -1086,18 +1086,23 @@ export async function completeOnboardingAction(input: {
     .eq("id", input.orgId)
     .maybeSingle()
 
-  // 1. Claim current_organization_id only on a FIRST org (user has none yet) or
-  // when the target is already trial-active (e.g. admin demo setup). For an
-  // ADDITIONAL not-yet-paid org (multi-location path 2b), keep the user on their
-  // existing org until checkout completes — abandoning setup must not strand a
-  // paying customer on an unpaid org. (checkout-complete switches them in on pay.)
+  // Demo/test orgs are admin-built showcases opened explicitly via the org
+  // detail page ("Open demo dashboard"), not the admin's working org.
+  const isShowcase = org?.org_kind === "demo" || org?.org_kind === "test"
+
+  // 1. Claim current_organization_id per shouldClaimCurrentOrg: first org, or a
+  // real trial-active org. Showcase orgs never hijack an existing current org,
+  // so setting up a second demo while the first's brief is still building can't
+  // silently repoint the admin's /home (ALT-300).
   const { data: existingProfile } = await admin
     .from("profiles")
     .select("current_organization_id")
     .eq("id", user.id)
     .maybeSingle()
-  const claimCurrentOrg =
-    !existingProfile?.current_organization_id || (org ? isTrialActive(org) : false)
+  const claimCurrentOrg = shouldClaimCurrentOrg(
+    existingProfile?.current_organization_id,
+    org
+  )
 
   const profilePayload: {
     id: string
@@ -1175,8 +1180,6 @@ export async function completeOnboardingAction(input: {
 
   // Fire-and-forget welcome email — real customers only. Demo/test orgs are
   // admin-built showcases; don't send the admin a customer "welcome" email.
-  const isShowcase =
-    org?.org_kind === "demo" || org?.org_kind === "test"
   const userEmail = user.email
   if (userEmail && !isShowcase) {
     const { data: locInfo } = await admin
