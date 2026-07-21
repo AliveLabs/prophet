@@ -2,7 +2,7 @@
 // premium spot to cut prices (the Wagyu-$12.99 miss). Only when the location's OWN reviews
 // flag price does a price play stand; otherwise it reframes to positioning.
 
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, beforeEach, afterAll } from "vitest"
 import {
   generateContentInsights,
   canCorroboratePrice,
@@ -55,6 +55,19 @@ function priceShift(locAvg: number, compAvg: number): GeneratedInsight {
     recommendations: [],
   }
 }
+
+// The menu-insight gate (ALT-363) defaults OFF (opt-in via MENU_INSIGHTS=1). Every test
+// below that asserts menu.* EMISSION needs the flag on; enable it per test and restore the
+// original afterward. The gate's own suppression behavior is exercised in its own block,
+// which overrides the flag inside individual tests.
+const ORIGINAL_MENU_FLAG = process.env.MENU_INSIGHTS
+beforeEach(() => {
+  process.env.MENU_INSIGHTS = "1"
+})
+afterAll(() => {
+  if (ORIGINAL_MENU_FLAG === undefined) delete process.env.MENU_INSIGHTS
+  else process.env.MENU_INSIGHTS = ORIGINAL_MENU_FLAG
+})
 
 describe("canCorroboratePrice", () => {
   it("true when a price/value theme is negative", () => {
@@ -233,5 +246,38 @@ describe("generateContentInsights — thin/unstable samples are dropped, not rep
     const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: compMenu, siteContent: null }]
     const out = generateContentInsights(locMenu, compMenus, null, null)
     expect(out.find((i) => i.insight_type === "menu.catering_pricing_gap")).toBeUndefined()
+  })
+})
+
+describe("generateContentInsights — menu-insight gate (ALT-363)", () => {
+  const locMenu = menu(25) // 8 items → clears the coverage floor
+  const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: menu(18), siteContent: null }]
+  const menuOnly = (out: GeneratedInsight[]) => out.filter((i) => i.insight_type.startsWith("menu."))
+
+  it("suppresses ALL menu.* insights when the flag is off (the default), leaving other rules untouched", () => {
+    delete process.env.MENU_INSIGHTS
+    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, null))).toHaveLength(0)
+    // sanity: the SAME inputs DO emit menu.* once the flag is on
+    process.env.MENU_INSIGHTS = "1"
+    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, null)).length).toBeGreaterThan(0)
+  })
+
+  it("even with the flag on, suppresses menu.* when the location scrape is below the coverage floor (<5 items)", () => {
+    const thinLoc = menu(25, "dine_in", 4)
+    expect(menuOnly(generateContentInsights(thinLoc, compMenus, null, null))).toHaveLength(0)
+  })
+
+  it("drops menu.menu_change_detected on a >40% run-to-run swing (scrape artifact, not a real change)", () => {
+    const current = menu(20, "dine_in", 10)
+    const previous = menu(20, "dine_in", 30) // 67% drop ⇒ artifact
+    const out = generateContentInsights(current, compMenus, null, previous)
+    expect(out.find((i) => i.insight_type === "menu.menu_change_detected")).toBeUndefined()
+  })
+
+  it("keeps menu.menu_change_detected on a within-band change (a real menu change)", () => {
+    const current = menu(20, "dine_in", 10)
+    const previous = menu(20, "dine_in", 14) // delta 4 (fires) + 29% swing (< 40%) ⇒ real
+    const out = generateContentInsights(current, compMenus, null, previous)
+    expect(out.find((i) => i.insight_type === "menu.menu_change_detected")).toBeDefined()
   })
 })

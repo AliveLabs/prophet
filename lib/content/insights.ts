@@ -18,6 +18,36 @@ type CompetitorMenu = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Menu-insight gate (ALT-363). Menu claims are built on scraped menus that are often
+// partial or unstable run-to-run, so until real acquisition + coverage instrumentation
+// land (Layer 2) we (a) keep menu.* insights OFF by default behind an opt-in flag, and
+// (b) even when on, suppress claims whose underlying scrape looks untrustworthy. Set
+// MENU_INSIGHTS=1 to re-enable — only once menu reads are actually trustworthy.
+export function isMenuInsightsEnabled(): boolean {
+  return process.env.MENU_INSIGHTS === "1"
+}
+
+// A scrape with fewer than this many items can't ground any menu claim. Deliberately low:
+// with today's signals we can only catch NEAR-EMPTY scrapes. A confidently-incomplete read
+// (a 40-item menu scraped as 11) looks fine to every signal we store and needs crawl-breadth
+// instrumentation we don't have yet — that's the Layer 2 work, not this gate.
+const MIN_MENU_ITEMS_FOR_CLAIMS = 5
+// A run-to-run item-count swing beyond this fraction reads as a scrape artifact, not a real
+// menu change — the "your menu shrank by 18 items" false positive. Gates menu_change_detected.
+const MENU_STABILITY_MAX_SWING = 0.4
+
+function menuHasCoverage(menu: MenuSnapshot | null): boolean {
+  return !!menu && menu.parseMeta.itemsTotal >= MIN_MENU_ITEMS_FOR_CLAIMS
+}
+
+function menuCountUnstable(current: MenuSnapshot | null, previous: MenuSnapshot | null): boolean {
+  if (!current || !previous) return false
+  const a = current.parseMeta.itemsTotal
+  const b = previous.parseMeta.itemsTotal
+  const base = Math.max(a, b)
+  return base > 0 && Math.abs(a - b) / base > MENU_STABILITY_MAX_SWING
+}
+
 function filterByMenuType(categories: MenuCategory[], menuType: MenuType): MenuCategory[] {
   return categories.filter((c) => (c.menuType ?? "dine_in") === menuType)
 }
@@ -542,5 +572,20 @@ export function generateContentInsights(
     }
   }
 
-  return insights
+  // Menu-insight gate (ALT-363) — single choke point for all menu.* claims. content.*
+  // and non-menu rules pass through untouched. This also covers the skills, which only
+  // narrate what this function emits, so a suppressed menu.* insight can't be re-surfaced
+  // as a "positioning"-labeled play.
+  return insights.filter((ins) => {
+    if (!ins.insight_type.startsWith("menu.")) return true
+    if (!isMenuInsightsEnabled()) return false
+    if (!menuHasCoverage(locationMenu)) return false
+    if (
+      ins.insight_type === "menu.menu_change_detected" &&
+      menuCountUnstable(locationMenu, previousLocationMenu)
+    ) {
+      return false
+    }
+    return true
+  })
 }
