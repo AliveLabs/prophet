@@ -476,10 +476,10 @@ export function buildContentSteps(
     name: "generate_insights",
     label: "Generating content insights",
     run: async (c) => {
-      // ALT-380 #4: this run's fresh snapshot is already stored (merge_save_menu),
-      // so union the recent window (fresh + prior weeks) into a stable current
-      // menu instead of trusting this single run. previousMenu is the prior-window
-      // union, keeping the count-delta change rule comparing like with like.
+      // ALT-380: this run's fresh snapshot is already stored (merge_save_menu), so it's the
+      // newest row here. `locMenu` is the cross-run UNION (#4) — coverage/price claims can't
+      // be collapsed by one thin scrape. Sustained-change detection (#2) runs on the RAW
+      // per-run reads: the raw latest (menuHistory[0]) plus the raw prior history.
       const { data: menuSnaps } = await c.supabase
         .from("location_snapshots")
         .select("raw_data")
@@ -490,13 +490,15 @@ export function buildContentSteps(
 
       const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
       const locMenu = unionRecentMenus(menuHistory) ?? c.state.locationMenu
-      const previousMenu = unionRecentMenus(menuHistory.slice(1))
+      const rawCurrentMenu = menuHistory[0] ?? c.state.locationMenu
+      const previousMenus = menuHistory.slice(1)
 
       const contentInsights = generateContentInsights(
         locMenu,
         c.state.competitorMenus,
         c.state.locationSiteContent,
-        previousMenu
+        previousMenus,
+        rawCurrentMenu
       )
 
       if (contentInsights.length > 0) {

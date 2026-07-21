@@ -461,10 +461,11 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       name: "content_insights",
       label: "Generating content & menu insights",
       run: async (c) => {
-        // ALT-380 #4: union recent weekly captures so one thin scrape can't
-        // collapse the menu. `previousMenu` is the prior-window union too, so the
-        // count-delta change rule compares two stable reads (fires only on a
-        // sustained multi-week shift, not scrape noise).
+        // ALT-380: load the recent weekly captures once (newest-first). `locMenu` is their
+        // cross-run UNION (#4) so one thin scrape can't collapse the menu for coverage/price
+        // claims. Sustained-change detection (#2), however, runs on the RAW per-run reads —
+        // its thin-read / one-run-blip guards are meaningless against a smoothed union — so it
+        // gets the raw latest (menuHistory[0]) plus the raw prior history.
         const { data: menuSnaps } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_menu").order("date_key", { ascending: false }).limit(MENU_UNION_WINDOW)
         const { data: locSiteSnap } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_site_content").order("date_key", { ascending: false }).limit(1).maybeSingle()
         const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
@@ -472,7 +473,8 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         const locSiteContent = locSiteSnap?.raw_data as SiteContentSnapshot | null
         if (!locMenu && !locSiteContent) return { contentInsights: 0 }
 
-        const previousMenu = unionRecentMenus(menuHistory.slice(1))
+        const rawCurrentMenu = menuHistory[0] ?? null
+        const previousMenus = menuHistory.slice(1)
 
         type CompMenu = { competitorId: string; competitorName: string; menu: MenuSnapshot; siteContent: SiteContentSnapshot | null }
         const compMenus: CompMenu[] = []
@@ -483,7 +485,7 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
           if (s) compMenus.push({ competitorId: comp.id, competitorName: comp.name ?? "Competitor", menu: s.raw_data as MenuSnapshot, siteContent: null })
         })
 
-        const rawInsights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenu)
+        const rawInsights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenus, rawCurrentMenu)
         // P4.1: corroborate price plays against our own reviews at WRITE time, so the persisted
         // rows every surface reads (brief, /insights Feed, /social) are already corrected.
         const insights = corroboratePriceInsights(rawInsights, c.state.locationReviews)
