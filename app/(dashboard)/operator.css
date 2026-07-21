@@ -132,6 +132,12 @@
 .pv-acct__loc-name span{ display:block; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:10px; color:var(--ash); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* "Current" tag — fixed-size, never pushes/wraps the name */
 .pv-acct__current-tag{ flex:0 0 auto; margin-left:auto; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:9px; font-weight:700; color:var(--rust); }
+/* "Building" tag — same fixed-size slot as the current tag (no layout shift), a calm
+   gold pulse to read as in-progress, not alarming (ALT-300 follow-on). */
+.pv-acct__building-tag{ flex:0 0 auto; margin-left:auto; display:inline-flex; align-items:center; gap:5px; font-family:var(--font-cond); text-transform:uppercase; letter-spacing:.06em; font-size:9px; font-weight:700; color:var(--ash); }
+.pv-acct__building-tag::before{ content:""; width:5px; height:5px; border-radius:50%; background:var(--gold); animation:pv-acct-pulse 1.6s ease-in-out infinite; }
+@keyframes pv-acct-pulse{ 0%,100%{ opacity:.35 } 50%{ opacity:1 } }
+@media (prefers-reduced-motion: reduce){ .pv-acct__building-tag::before{ animation:none } }
 /* Inline spinner shown the moment a location is clicked (ALT-162b) */
 .pv-acct__spin{ flex:0 0 auto; margin-left:auto; width:14px; height:14px; border-radius:50%; border:2px solid color-mix(in srgb, var(--rust) 30%, transparent); border-top-color:var(--rust); animation:pv-acct-spin .6s linear infinite; }
 @keyframes pv-acct-spin{ to{ transform:rotate(360deg); } }

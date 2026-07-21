@@ -940,6 +940,9 @@ export type AccountLocation = {
   city: string | null
   current: boolean
   organizationId: string
+  /** First brief not landed yet AND a first-run is in flight — selecting this entry lands
+   *  on the build-progress screen, so the switcher flags it (ALT-300 follow-on). */
+  building: boolean
 }
 
 /** Humanize a stored organization_members.role value (owner / admin / member / …) into a
@@ -1000,8 +1003,29 @@ export async function loadOperatorAccount(): Promise<OperatorAccount> {
         city: l.city ?? null,
         current: l.id === op.locationId,
         organizationId: l.organization_id,
+        building: false,
       })
     }
+  }
+  // "Still building" flag for the switcher: a location with NO brief yet AND an in-flight
+  // first-run (queued/running signal_jobs). Mirrors what /home shows (FirstRunState when
+  // getBrief is null), so the marker means "selecting this lands on the build screen" —
+  // never a routine daily refresh (those have a brief) or a dead/never-started org (no
+  // active jobs). Only worth the two reads when there's more than one location to switch
+  // between; single-location operators skip it entirely.
+  if (locations.length > 1) {
+    const locIds = locations.map((l) => l.id)
+    const [{ data: briefed }, { data: active }] = await Promise.all([
+      sb.from("daily_briefs").select("location_id").in("location_id", locIds),
+      sb
+        .from("signal_jobs")
+        .select("location_id")
+        .in("location_id", locIds)
+        .in("status", ["queued", "running"]),
+    ])
+    const hasBrief = new Set((briefed ?? []).map((r) => r.location_id as string))
+    const activeLocs = new Set((active ?? []).map((r) => r.location_id as string))
+    for (const l of locations) l.building = !hasBrief.has(l.id) && activeLocs.has(l.id)
   }
   // STABLE alphabetical order — the current location is MARKED, not floated to the top
   // (ALT-162c: a list that reorders under the cursor is disorienting).
