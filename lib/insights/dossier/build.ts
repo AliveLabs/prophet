@@ -33,7 +33,7 @@ import { generateOwnTrafficInsights } from "@/lib/insights/own-traffic-insights"
 import { corroboratePriceInsights } from "@/lib/content/insights"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
-import { classifyNow, isUsable } from "@/lib/freshness/contract"
+import { classifyNow, isUsable, THRESHOLDS, type SignalKind } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { loadPartnerCatalog, PARTNER_TYPE_LABELS, type PartnerType } from "@/lib/local/partner-catalog"
 
@@ -714,12 +714,21 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   }))
 
   // ── coverage: per-signal health (present/stale/missing + as-of) for the panel + resilience ──
-  const mk = (label: string, present: boolean, detail: string, asOf: string | null): BriefCoverage => ({
+  // Staleness uses each signal's OWN freshness threshold — a menu scraped weekly (Sunday)
+  // isn't "stale" after 3 days (ALT-380). Rows without a signal kind fall back to the
+  // conservative default.
+  const mk = (
+    label: string,
+    present: boolean,
+    detail: string,
+    asOf: string | null,
+    kind?: SignalKind,
+  ): BriefCoverage => ({
     label,
     present,
     detail,
     asOf,
-    stale: present && ageDays(asOf, dateKey) > STALE_AFTER_DAYS,
+    stale: present && ageDays(asOf, dateKey) > (kind ? THRESHOLDS[kind].freshDays : STALE_AFTER_DAYS),
   })
   const scraped = competitors.filter((c) => c.listing || c.menu).length
   const reviewThemes = location.reviews?.themes?.length ?? 0
@@ -727,13 +736,13 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // Customer-plain language (no dev/designer jargon: no "parsed"/"scraped"/"themes"/"profiles").
   // First-pass copy — flagged for a dedicated UX-writer pass before this ever faces customers.
   const coverage: BriefCoverage[] = [
-    mk("Local events", events.length > 0, events.length ? `${events.length} coming up` : "none coming up", events.length ? eventsMeta.dateKey : null),
-    mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "not available", weatherAsOf),
-    mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} topic${reviewThemes === 1 ? "" : "s"}` : "none yet", reviewThemes ? dateKey : null),
-    mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null),
-    mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey),
-    mk("Competitors", scraped > 0, `${scraped} of ${competitors.length} checked`, seoAsOf),
-    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null),
+    mk("Local events", events.length > 0, events.length ? `${events.length} coming up` : "none coming up", events.length ? eventsMeta.dateKey : null, "events"),
+    mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "not available", weatherAsOf, "weather"),
+    mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} topic${reviewThemes === 1 ? "" : "s"}` : "none yet", reviewThemes ? dateKey : null, "reviews"),
+    mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null, "traffic"),
+    mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey, "menu"),
+    mk("Competitors", scraped > 0, `${scraped} of ${competitors.length} checked`, seoAsOf, "seo"),
+    mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null, "social"),
     mk("Nearby partners", partnerEntities.length > 0, partnerEntities.length ? `${partnerEntities.length} nearby` : "not mapped yet", partnerEntities.length ? dateKey : null),
   ]
 
