@@ -55,15 +55,19 @@ function normalizeSpan(raw: string): string {
 }
 
 /** Parse a clock time ("10:00 AM", "9 PM", "10:30 am") into minutes-of-day 0..1439,
- *  or null when it isn't a time. 24-hour times ("13:00") are accepted too. */
-function parseClock(raw: string): number | null {
+ *  or null when it isn't a time. 24-hour times ("13:00") are accepted too.
+ *  `inferMer` supplies a meridiem the source omitted on this end of a range (Google
+ *  and Outscraper write it once: "5:00 - 10:30 PM"). It applies ONLY to an ambiguous
+ *  12-hour value (1..12); a real 24-hour time (13:00, 0:00) is never reinterpreted. */
+function parseClock(raw: string, inferMer?: "am" | "pm"): number | null {
   const s = raw.trim().toLowerCase()
   const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?$/)
   if (!m) return null
   let hour = Number(m[1])
   const min = m[2] ? Number(m[2]) : 0
   if (min > 59) return null
-  const mer = m[3]?.replace(/\./g, "")
+  let mer = m[3]?.replace(/\./g, "")
+  if (!mer && inferMer && hour >= 1 && hour <= 12) mer = inferMer
   if (mer === "am") {
     if (hour === 12) hour = 0
     if (hour > 12) return null
@@ -74,6 +78,14 @@ function parseClock(raw: string): number | null {
     return null
   }
   return hour * 60 + min
+}
+
+/** The meridiem explicitly present on a clock string ("10:30 PM" -> "pm"), or null.
+ *  Lets a bare end of a range inherit the meridiem the source stated only once. */
+function clockMeridiem(raw: string): "am" | "pm" | null {
+  const m = raw.trim().toLowerCase().match(/(a\.?m\.?|p\.?m\.?)$/)
+  if (!m) return null
+  return m[1].startsWith("a") ? "am" : "pm"
 }
 
 /** Turn one open–close pair (in minutes) into a same-day hour interval, or null.
@@ -132,9 +144,26 @@ function parseSpanWithSpill(spanRaw: string | null | undefined): {
   for (const part of span.split(",")) {
     const [from, to] = part.split("-").map((p) => p.trim())
     if (!from || !to) continue
-    const openMin = parseClock(from)
     const closeMin = parseClock(to)
-    if (openMin == null || closeMin == null) continue
+    if (closeMin == null) continue
+    // Google/Outscraper share one meridiem across a range ("5:00 - 10:30 PM",
+    // "5-10:30PM"), leaving the opening time bare — which would default to AM
+    // (a dinner-only "5:00 - 10:30 PM" read as 5 AM). Inherit the close's
+    // meridiem for a bare open, choosing whichever keeps open before close:
+    // "5 - 10:30 PM" is 5 PM, but "11 - 2 PM" is 11 AM (not 11 PM). (ALT-367)
+    const fromMer = clockMeridiem(from)
+    const toMer = clockMeridiem(to)
+    let openMin: number | null
+    if (!fromMer && toMer) {
+      const sameSide = parseClock(from, toMer)
+      openMin =
+        sameSide != null && sameSide < closeMin
+          ? sameSide
+          : parseClock(from, toMer === "pm" ? "am" : "pm")
+    } else {
+      openMin = parseClock(from)
+    }
+    if (openMin == null) continue
     const parsed = toInterval(openMin, closeMin)
     if (!parsed) continue
     intervals.push(parsed.interval)

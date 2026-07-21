@@ -90,6 +90,62 @@ describe("competitors/open-hours · parseSpan", () => {
   })
 })
 
+// ALT-367 — Google and Outscraper state a single meridiem for a whole range, so the
+// opening time arrives bare and used to default to AM (a dinner-only "5:00 - 10:30 PM"
+// read as 5 AM, painting the wrong bar). The bare open must inherit the range meridiem.
+describe("competitors/open-hours · shared-meridiem ranges (bare opening time)", () => {
+  it("infers PM for a bare open when the close is PM (the Harvest dinner-only case)", () => {
+    // Google weekdayDescriptions: "Tuesday: 5:00 – 10:30 PM" ⇒ 5 PM, not 5 AM.
+    expect(parseSpan("5:00 – 10:30 PM").intervals).toEqual([{ start: 17, end: 23 }])
+    expect(openLabel(parseSpan("5:00 – 10:30 PM"))).toBe("5 PM - 11 PM")
+  })
+
+  it("handles Outscraper's compact single-meridiem range", () => {
+    // "5-10:30PM" ⇒ 5 PM - 10:30 PM.
+    expect(parseSpan("5-10:30PM").intervals).toEqual([{ start: 17, end: 23 }])
+    // "11AM-11PM" already has both meridiems and is unchanged.
+    expect(parseSpan("11AM-11PM").intervals).toEqual([{ start: 11, end: 23 }])
+  })
+
+  it("picks the meridiem that keeps open before close (does NOT blindly copy the close)", () => {
+    // "11 - 2 PM" is 11 AM - 2 PM (11 PM would be after the close).
+    expect(parseSpan("11 - 2 PM").intervals).toEqual([{ start: 11, end: 14 }])
+    // "9 - 5 PM" is 9 AM - 5 PM.
+    expect(parseSpan("9 - 5 PM").intervals).toEqual([{ start: 9, end: 17 }])
+  })
+
+  it("still reads a true morning window when the close is AM", () => {
+    // "6 - 11 AM" (breakfast) stays 6 AM - 11 AM.
+    expect(parseSpan("6 - 11 AM").intervals).toEqual([{ start: 6, end: 11 }])
+  })
+
+  it("infers PM open for a bare overnight range ('5 - 2 AM' ⇒ 5 PM - 2 AM)", () => {
+    // Bare open, AM close, open-after-close ⇒ open is PM; clipped to end-of-day here.
+    expect(parseSpan("5 - 2 AM").intervals).toEqual([{ start: 17, end: 24 }])
+  })
+
+  it("leaves 24-hour times untouched (no false meridiem inference)", () => {
+    // "13:00 - 22:00" is already unambiguous; must stay 13..22.
+    expect(parseSpan("13:00 - 22:00").intervals).toEqual([{ start: 13, end: 22 }])
+  })
+
+  it("end-to-end: a full Harvest weekday line resolves to a PM dinner window", () => {
+    const byDay = parseWeekdayDescriptions([
+      "Monday: Closed",
+      "Tuesday: 5:00 – 10:30 PM",
+      "Friday: 5:00 PM – 12:00 AM",
+      "Saturday: 10:30 AM – 2:30 PM, 5:00 PM – 12:00 AM",
+    ])
+    expect(byDay[2].intervals).toEqual([{ start: 17, end: 23 }]) // Tuesday 5 PM - 10:30 PM
+    expect(openLabel(byDay[2])).toBe("5 PM - 11 PM")
+    expect(byDay[5].intervals).toEqual([{ start: 17, end: 24 }]) // Friday explicit, unchanged
+    expect(byDay[6].intervals).toEqual([
+      { start: 10, end: 15 },
+      { start: 17, end: 24 },
+    ]) // Saturday split shift, both explicit
+  })
+})
+
 describe("competitors/open-hours · parseDayLine", () => {
   it("splits on the FIRST colon only, keeping the time's own colon", () => {
     const { dow, hours } = parseDayLine("Monday: 10:00 AM – 11:00 PM")
