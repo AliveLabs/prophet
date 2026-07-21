@@ -9,11 +9,48 @@ import { generateStructured, type Transport } from "@/lib/ai/provider"
 import { humanizeRef } from "@/lib/skills/evidence-format"
 
 export type AskInsight = { type: string; title: string; summary: string; dateKey: string }
+/** A spot's busy rhythm read from Google popular times — the "who's busy when" data,
+ *  carried in the Ask context so the answerer can speak to it without the chart on screen. */
+export type AskBusyProfile = { name: string; busiestDay: string | null; peakHour: string | null }
 export type AskContext = {
   restaurantName: string
   competitors: string[]
   insights: AskInsight[]
   brief: { headline: string; deck: string; plays: string[] } | null
+  /** Own + competitor busy patterns (Google popular times). Null entries mean no readable
+   *  curve on file. Included so Ask can answer who's-busy-when regardless of what the
+   *  operator is currently looking at (ALT-368). */
+  busy: { you: AskBusyProfile | null; competitors: AskBusyProfile[] }
+}
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+function formatHour(h: number): string {
+  if (h === 0) return "12am"
+  if (h === 12) return "12pm"
+  return h < 12 ? `${h}am` : `${h - 12}pm`
+}
+
+/** Reduce a spot's per-day peak rows to its single busiest day + peak hour. Rows with no
+ *  positive peak score yield a null profile (we don't invent a pattern from empty data). */
+export function busiestProfile(
+  name: string,
+  rows: Array<{ day_of_week: number; peak_hour: number | null; peak_score: number | null }>,
+): AskBusyProfile {
+  const best = [...rows].sort((a, b) => (b.peak_score ?? 0) - (a.peak_score ?? 0))[0]
+  if (!best || (best.peak_score ?? 0) <= 0) return { name, busiestDay: null, peakHour: null }
+  return {
+    name,
+    busiestDay: DAY_NAMES[best.day_of_week] ?? null,
+    peakHour: best.peak_hour != null ? formatHour(best.peak_hour) : null,
+  }
+}
+
+function describeBusy(p: AskBusyProfile): string {
+  const bits: string[] = []
+  if (p.busiestDay) bits.push(`busiest on ${p.busiestDay}`)
+  if (p.peakHour) bits.push(`peaks around ${p.peakHour}`)
+  return bits.length ? bits.join(", ") : "no clear busy pattern on file"
 }
 
 export type AskAnswer = {
@@ -47,6 +84,12 @@ export function buildAskPrompt(ctx: AskContext, question: string): { system: str
     if (ctx.brief.plays.length) lines.push(`Current recommendations: ${ctx.brief.plays.join("; ")}`)
   } else {
     lines.push("Latest brief: (none yet)")
+  }
+  if (ctx.busy && (ctx.busy.you || ctx.busy.competitors.length)) {
+    lines.push("")
+    lines.push("Busy patterns (Google popular times):")
+    if (ctx.busy.you) lines.push(`- You (${ctx.busy.you.name}): ${describeBusy(ctx.busy.you)}`)
+    for (const c of ctx.busy.competitors) lines.push(`- ${c.name}: ${describeBusy(c)}`)
   }
   lines.push("")
   lines.push(ctx.insights.length ? "Recent signals:" : "Recent signals: (none on file)")
