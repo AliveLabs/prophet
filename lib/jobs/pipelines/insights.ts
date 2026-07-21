@@ -13,6 +13,7 @@ import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
+import { unionRecentMenus, MENU_UNION_WINDOW } from "@/lib/content/menu-parse"
 import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { scoreLocationReviews } from "@/lib/reviews/scoring"
@@ -460,14 +461,18 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       name: "content_insights",
       label: "Generating content & menu insights",
       run: async (c) => {
-        const { data: locMenuSnap } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_menu").order("date_key", { ascending: false }).limit(1).maybeSingle()
+        // ALT-380 #4: union recent weekly captures so one thin scrape can't
+        // collapse the menu. `previousMenu` is the prior-window union too, so the
+        // count-delta change rule compares two stable reads (fires only on a
+        // sustained multi-week shift, not scrape noise).
+        const { data: menuSnaps } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_menu").order("date_key", { ascending: false }).limit(MENU_UNION_WINDOW)
         const { data: locSiteSnap } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_site_content").order("date_key", { ascending: false }).limit(1).maybeSingle()
-        const locMenu = locMenuSnap?.raw_data as MenuSnapshot | null
+        const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+        const locMenu = unionRecentMenus(menuHistory)
         const locSiteContent = locSiteSnap?.raw_data as SiteContentSnapshot | null
         if (!locMenu && !locSiteContent) return { contentInsights: 0 }
 
-        const { data: prevMenuSnaps } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_menu").order("date_key", { ascending: false }).range(1, 1)
-        const previousMenu = prevMenuSnaps?.[0]?.raw_data as MenuSnapshot | null
+        const previousMenu = unionRecentMenus(menuHistory.slice(1))
 
         type CompMenu = { competitorId: string; competitorName: string; menu: MenuSnapshot; siteContent: SiteContentSnapshot | null }
         const compMenus: CompMenu[] = []

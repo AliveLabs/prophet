@@ -22,6 +22,8 @@ import {
   normalizeExtractedMenu,
   normalizeGoogleMenuData,
   mergeExtractedMenus,
+  unionRecentMenus,
+  MENU_UNION_WINDOW,
 } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
@@ -474,18 +476,24 @@ export function buildContentSteps(
     name: "generate_insights",
     label: "Generating content insights",
     run: async (c) => {
-      const { data: prevMenuSnap } = await c.supabase
+      // ALT-380 #4: this run's fresh snapshot is already stored (merge_save_menu),
+      // so union the recent window (fresh + prior weeks) into a stable current
+      // menu instead of trusting this single run. previousMenu is the prior-window
+      // union, keeping the count-delta change rule comparing like with like.
+      const { data: menuSnaps } = await c.supabase
         .from("location_snapshots")
         .select("raw_data")
         .eq("location_id", c.locationId)
         .eq("provider", "firecrawl_menu")
         .order("date_key", { ascending: false })
-        .range(1, 1)
+        .limit(MENU_UNION_WINDOW)
 
-      const previousMenu = prevMenuSnap?.[0]?.raw_data as MenuSnapshot | null
+      const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+      const locMenu = unionRecentMenus(menuHistory) ?? c.state.locationMenu
+      const previousMenu = unionRecentMenus(menuHistory.slice(1))
 
       const contentInsights = generateContentInsights(
-        c.state.locationMenu,
+        locMenu,
         c.state.competitorMenus,
         c.state.locationSiteContent,
         previousMenu

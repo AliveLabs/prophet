@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
 import { normalizeSiteContentFromExtraction, buildMenuSnapshot, computeContentDiffHash, computeMenuDiffHash } from "@/lib/content/normalize"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_UNION_WINDOW } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
@@ -414,19 +414,24 @@ export async function refreshContentAction(formData: FormData) {
   // STEP 5: Generate content insights
   // =========================================================================
   try {
-    // Fetch previous location menu for change detection
-    const { data: prevMenuSnap } = await supabase
+    // ALT-380 #4: this run's fresh snapshot is already stored above, so union the
+    // recent window (fresh + prior weeks) into a stable current menu rather than
+    // trusting this single run. previousMenu is the prior-window union so the
+    // count-delta change rule compares two stable reads, not scrape noise.
+    const { data: menuSnaps } = await supabase
       .from("location_snapshots")
       .select("raw_data")
       .eq("location_id", locationId)
       .eq("provider", "firecrawl_menu")
       .order("date_key", { ascending: false })
-      .range(1, 1)
+      .limit(MENU_UNION_WINDOW)
 
-    const previousMenu = prevMenuSnap?.[0]?.raw_data as MenuSnapshot | null
+    const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+    const locMenu = unionRecentMenus(menuHistory) ?? locationMenu
+    const previousMenu = unionRecentMenus(menuHistory.slice(1))
 
     const contentInsights = generateContentInsights(
-      locationMenu,
+      locMenu,
       competitorMenus,
       locationSiteContent,
       previousMenu
