@@ -810,7 +810,9 @@ export async function discoverCompetitorsForLocation(
       onConflict: "provider,provider_entity_id,location_id",
     })
     if (error) {
-      return { ok: false, error: error.message }
+      // ALT-299: never leak a raw DB error to the onboarding UI — log it, show friendly copy.
+      console.error("[discovery] competitor upsert failed:", error.message)
+      return { ok: false, error: "Something went wrong saving your competitors. Try again in a moment." }
     }
   }
 
