@@ -67,6 +67,9 @@ export type { VizContext, VizDomain } from "./viz-tbubble"
 // competitor "sonar" motif (server-safe SVG) — ALT-241
 export { TkSonar } from "./sonar"
 
+// social channel badge for insight cards (server-safe) — ALT-372
+export { SocialChannelChip } from "./social-channel-chip"
+
 // toast (client)
 export { TkToast, TkToastProvider, useTkToast } from "./toast"
 

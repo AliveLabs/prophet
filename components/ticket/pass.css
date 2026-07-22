@@ -89,6 +89,10 @@
 .tk-chip-social      { background: var(--gold-tint);  color: var(--gold-deep); }
 .tk-chip-menu        { background: var(--teal-tint);  color: var(--teal-deep); }
 .tk-chip-grassroots  { background: var(--slate-tint); color: var(--slate-deep); }
+/* ALT-372: channel sub-tag on social insight cards — neutral/outlined so it reads as a
+   secondary badge next to the tinted category chip, not a competing category. */
+.tk-chip-net { background: var(--card-2); color: var(--ink-2); border: 1px solid var(--line-2); font-weight: 600; }
+.tk-chip-net svg { opacity: .8; }
 
 /* legacy "led-dot" confidence pill (kept for the drawer chip text "· High"); the
    primary product-wide encoding is the SEGMENTED PIPS below. */
