@@ -37,29 +37,33 @@ const IMPACT_ON: Record<TkImpactLevel, number> = {
 export function TkImpactTag({
   level,
   label,
+  name,
   className,
   ...props
 }: {
   level: TkImpactLevel
   /** override the default label text */
   label?: ReactNode
+  /** When set, render this metric NAME to the LEFT of the meter and DROP the level word — the
+   *  three pips carry the level (ALT card labels). The level stays in the accessible name. */
+  name?: string
 } & HTMLAttributes<HTMLSpanElement>) {
   const on = IMPACT_ON[level]
+  const levelWord = label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")
   return (
     <span
-      className={cx("tk-impact", `tk-impact-${level}`, className)}
+      className={cx("tk-impact", `tk-impact-${level}`, name && "tk-metric", className)}
       role="img"
-      aria-label={`${label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}`}
+      aria-label={name ? `${name}: ${typeof levelWord === "string" ? levelWord : level}` : `${levelWord}`}
       {...props}
     >
+      {name ? <span className="tk-metric-name" aria-hidden="true">{name}</span> : null}
       <span className="tk-pips" aria-hidden="true">
         {[0, 1, 2].map((i) => (
           <span key={i} className={cx("tk-pip", i < on ? "tk-pip-on" : "tk-pip-off")} />
         ))}
       </span>
-      <span className="tk-impact-label">
-        {label ?? (level === "high" ? "High impact" : level === "medium" ? "Medium impact" : "Low impact")}
-      </span>
+      {!name ? <span className="tk-impact-label">{levelWord}</span> : null}
     </span>
   )
 }

@@ -116,6 +116,7 @@ export function TkConfidence({
   level,
   label,
   showLabel = true,
+  name,
   className,
   ...props
 }: {
@@ -123,15 +124,20 @@ export function TkConfidence({
   /** override the default label text ("High" / "Medium" / "Directional") */
   label?: string
   showLabel?: boolean
+  /** When set, render this metric NAME to the LEFT of the meter and DROP the level word — the
+   *  three pips carry the level (ALT card labels). The level stays in the accessible name. */
+  name?: string
 } & HTMLAttributes<HTMLSpanElement>) {
   const on = CONF_ON[level]
+  const levelWord = label ?? CONF_LABEL[level]
   return (
     <span
-      className={cx("tk-conf-pips", `tk-conf-${level}`, className)}
+      className={cx("tk-conf-pips", `tk-conf-${level}`, name && "tk-metric", className)}
       role="img"
-      aria-label={`${label ?? CONF_LABEL[level]} confidence`}
+      aria-label={name ? `${name}: ${levelWord}` : `${levelWord} confidence`}
       {...props}
     >
+      {name ? <span className="tk-metric-name" aria-hidden="true">{name}</span> : null}
       <span className="tk-pips" aria-hidden="true">
         {[0, 1, 2].map((i) => (
           <span
@@ -140,9 +146,7 @@ export function TkConfidence({
           />
         ))}
       </span>
-      {showLabel && (
-        <span className="tk-conf-label">{label ?? CONF_LABEL[level]}</span>
-      )}
+      {!name && showLabel && <span className="tk-conf-label">{levelWord}</span>}
     </span>
   )
 }
