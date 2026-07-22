@@ -494,3 +494,51 @@
 .pv-ac__list{ position:absolute; top:100%; left:0; right:0; z-index:30; margin:4px 0 0; padding:4px; list-style:none; background:var(--card, #fff); border:1px solid var(--rule-strong); border-radius:var(--radius-card); box-shadow:var(--shadow-chit); }
 .pv-ac__item{ display:block; width:100%; text-align:left; padding:9px 11px; font-size:14px; color:var(--print); background:transparent; border:0; border-radius:var(--radius); cursor:pointer; }
 .pv-ac__item:hover{ background:var(--bond, #f3efe8); color:var(--ink); }
+
+/* ── ALT-371 beta feedback affordance ───────────────────────────────────── */
+/* Sidebar trigger: a full-width, nav-item-styled button that sits just above the
+   account row. Compact variant is an icon square for the mobile header. */
+.pv-fb-btn{
+  display:flex; align-items:center; gap:12px; width:100%;
+  padding:10px 12px; border:0; border-radius:12px; background:transparent;
+  font-family:var(--font-sans); font-weight:500; font-size:14px; color:var(--ink-3);
+  text-align:left; cursor:pointer;
+  transition:background var(--t-fast), color var(--t-fast);
+}
+.pv-fb-btn svg{ width:18px; height:18px; flex:0 0 auto; opacity:.7; transition:opacity var(--t-fast); }
+.pv-fb-btn:hover{ background:var(--bond); color:var(--ink); }
+.pv-fb-btn:hover svg{ opacity:1; }
+.pv-fb-btn:active{ transform:scale(.985); }
+.pv-fb-btn:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+
+.pv-fb-btn--compact{
+  width:38px; height:38px; padding:0; justify-content:center; gap:0; border-radius:11px;
+  border:1px solid var(--line-2); background:var(--card); color:var(--ink-2);
+  box-shadow:var(--shadow-sm);
+  transition:transform var(--t-fast), background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.pv-fb-btn--compact svg{ opacity:.85; }
+.pv-fb-btn--compact:hover{ transform:translateY(-1px); background:var(--bond); color:var(--ink); border-color:var(--ink-3); }
+.pv-fb-btn--compact:hover svg{ opacity:1; }
+.pv-fb-btn--compact:active{ transform:translateY(0); }
+
+/* Drawer form */
+.pv-fb__lead{ margin:0 0 14px; font-size:14px; line-height:1.5; color:var(--ink-2); }
+.pv-fb__chips{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.pv-fb__chip{
+  padding:7px 13px; border:1px solid var(--line-2); border-radius:999px;
+  background:transparent; font-family:var(--font-sans); font-size:13px; font-weight:500;
+  color:var(--ink-2); cursor:pointer;
+  transition:background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.pv-fb__chip:hover{ background:var(--bond); color:var(--ink); }
+.pv-fb__chip.is-on{ background:var(--rust); border-color:var(--rust); color:#fff; }
+.pv-fb__chip:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+.pv-fb__text{
+  width:100%; box-sizing:border-box; resize:vertical; min-height:120px;
+  padding:12px 14px; border:1px solid var(--line-2); border-radius:var(--radius);
+  background:var(--card); color:var(--ink); font-family:var(--font-sans); font-size:14px; line-height:1.5;
+}
+.pv-fb__text:focus{ outline:none; border-color:var(--rust); }
+.pv-fb__text::placeholder{ color:var(--ink-3); }
+.pv-fb__hint{ margin:8px 0 4px; font-size:12px; color:var(--ink-3); }
