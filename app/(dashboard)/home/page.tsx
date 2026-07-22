@@ -7,13 +7,14 @@ import { loadPipelineChecks } from "../proof-data"
 import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
 import BriefView from "./brief-view"
+import FirstRunPanel from "./first-run-panel"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
 import { competitorCoversFrom } from "./hero-covers"
 import "./brief.css"
 
 // Loose read for the location row — `brand_tolerance` lands with the engine-rewrite
 // migration and isn't in the generated DB types yet (same pattern as the lib layer).
-type LocRow = { id: string; name: string | null; brand_tolerance: number | null; primary_place_id: string | null }
+type LocRow = { id: string; name: string | null; city: string | null; brand_tolerance: number | null; primary_place_id: string | null }
 type LocQuery = {
   from: (t: string) => {
     select: (c: string) => {
@@ -45,7 +46,7 @@ export default async function HomePage() {
   // Settings page (explicit refresh), not the brief rail.
   const { data: locRow } = await (supabase as unknown as LocQuery)
     .from("locations")
-    .select("id, name, brand_tolerance, primary_place_id")
+    .select("id, name, city, brand_tolerance, primary_place_id")
     .eq("organization_id", organizationId)
     .order("created_at", { ascending: true })
     .limit(1)
@@ -70,22 +71,16 @@ export default async function HomePage() {
   const competitors = approvedComps.map((c) => c.name).slice(0, 6)
 
   if (!brief) {
-    // FAILSAFE (2026-06-12 Raising Cane's hang): a location with data but no
-    // brief means the build never ran or died — heal it on sight instead of
-    // stranding the user on an infinite loading state. Idempotent: skips when
-    // a brief job is already queued/running or was created in the last 2h.
-    const repair = await ensureBriefQueued(locRow.id, organizationId)
-    const watching =
-      competitors.length > 0
-        ? ` ${competitors.length} competitor${competitors.length === 1 ? " is" : "s are"} already being watched — browse Competitors while you wait.`
-        : ""
+    // FAILSAFE (2026-06-12 Raising Cane's hang): a location with data but no brief means the
+    // build never ran or died — heal it on sight. Idempotent: skips when a brief job is already
+    // queued/running or was created in the last 2h. ALT-301: the panel then shows honest live
+    // per-pipeline progress and auto-swaps into the real brief the moment it lands.
+    await ensureBriefQueued(locRow.id, organizationId)
     return (
-      <FirstRunState
-        message={
-          repair === "error"
-            ? "Your brief hit a snag on our side. We're on it — check back soon, and your data keeps collecting in the meantime."
-            : `Your brief is being built right now — it usually lands within ten minutes of this page telling you so.${watching}`
-        }
+      <FirstRunPanel
+        locationId={locRow.id}
+        city={locRow.city}
+        competitorCount={approvedComps.length}
       />
     )
   }
