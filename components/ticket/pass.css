@@ -740,3 +740,10 @@ button.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28
   .tk-sonar-sweep, .tk-sonar-ping, .tk-sonar-blip, .tk-sonar-core-ring { animation: none; }
   .tk-sonar-ping { opacity: .16; }
 }
+
+/* Evidence block inside the play drawer (ALT-369 follow-up): the drawer portals into
+   .ticket-app, outside the brief's .ticket-brief scope, so this wrapper is kit-level.
+   The reused TkWhy / TkQuote / TkSentimentRows carry their own kit styles. */
+.pass-drawer-evidence { display: flex; flex-direction: column; gap: 12px; margin: 14px 0 18px; }
+.pass-drawer-evidence .tk-why,
+.pass-drawer-evidence .pass-quotes { margin-top: 0; }
