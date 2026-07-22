@@ -74,14 +74,20 @@ export function ensureCompetitorLimit(
 // Competitor swap cooldown (ALT-195)
 // ---------------------------------------------------------------------------
 // One swap (remove + add a competitor) per 30 days, location-wide (NOT per slot).
-// We derive the cooldown from existing competitor timestamps — no new column /
-// migration: the most recent operator add (competitors.created_at) or removal
-// (competitors.updated_at when status flips to "ignored") marks the last swap.
-// If that moment is within 30 days, the next swap is locked until it clears.
+// Derived from existing competitor timestamps — no new column / migration: the window
+// is anchored on the most recent REMOVAL (competitors.updated_at of a row whose
+// metadata.status flipped to "ignored"), i.e. the swap-OUT half of a swap. If that
+// moment is within 30 days, the next swap is locked until it clears.
 //
-// Adding to fill an EMPTY slot (still under the plan's competitor count) is not a
-// swap and isn't gated here — the caller only consults this when the set is full,
-// so removing-to-make-room then re-adding is what the cooldown governs.
+// ALT-261: anchor on a REMOVAL, never on adds. Onboarding auto-approves the initial
+// competitor set (adds, status "approved" — never "ignored"), so it must not start the
+// window: an operator who just accepted the auto-picks can still swap during their trial.
+// (Don't "reconcile" this by also reading competitors.created_at — that would start the
+// window at onboarding and re-introduce the exact bug ALT-261 fixed.)
+//
+// Adding to fill an EMPTY slot (still under the plan's competitor count) is not a swap
+// and isn't gated here — the caller only consults this when the set is full, so
+// removing-to-make-room then re-adding is what the cooldown governs.
 
 export const COMPETITOR_SWAP_COOLDOWN_DAYS = 30
 const DAY_MS = 24 * 60 * 60 * 1000
