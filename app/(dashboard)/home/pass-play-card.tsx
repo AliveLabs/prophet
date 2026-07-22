@@ -406,6 +406,20 @@ export function PassPlayCard({
           >
             {KEEP_ICON} Keep this play
           </TkButton>
+          {/* ALT-169: Dismiss belongs in the drawer alongside Keep, same as the card. Close the
+              drawer and open the card's existing dismiss-reason popover so the reason-capture flow
+              (and its positioning) is reused rather than duplicated inside the portaled drawer. */}
+          <TkButton
+            variant="dismiss"
+            disabled={pending}
+            onClick={() => {
+              setDrawerOpen(false)
+              setReasonOpen(true)
+            }}
+            aria-label="Dismiss this play"
+          >
+            {DISMISS_ICON} Dismiss
+          </TkButton>
         </TkActions>
       ) : null}
     </TkDrawer>
