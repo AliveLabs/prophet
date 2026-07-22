@@ -23,6 +23,7 @@ import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
 import { Toaster } from "sonner"
 import ShellNav from "./shell-nav"
 import AccountMenu from "./account-menu"
+import FeedbackLauncher from "./feedback-launcher"
 import MobileTabBar from "./mobile-tabbar"
 import NewBriefNotice from "./new-brief-notice"
 import ThemeToggle from "@/components/ui/theme-toggle"
@@ -283,6 +284,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           <div className="pv-brand"><TicketMark /> TICKET</div>
           <ShellNav />
           <div className="pv-spacer" />
+          <FeedbackLauncher locationId={currentLoc?.id ?? null} />
           <div className="pv-foot">
             <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} />
             <ThemeToggle className="pv-theme-btn" />
@@ -292,6 +294,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
           <header className="pv-mobilebar">
             <span className="pv-mobilebar__brand"><TicketMark /> TICKET</span>
             <div className="pv-mobilebar__actions">
+              <FeedbackLauncher locationId={currentLoc?.id ?? null} compact />
               <ThemeToggle className="pv-theme-btn" />
               <AccountMenu userName={account.userName} locations={account.locations} currentRole={account.currentRole} isPlatformAdmin={account.isPlatformAdmin} />
             </div>
