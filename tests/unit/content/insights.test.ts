@@ -9,6 +9,7 @@ import {
   corroboratePriceInsights,
   comparableItems,
   priceStatsPair,
+  detectSustainedMenuChange,
 } from "@/lib/content/insights"
 import type { MenuItem, MenuCategory, MenuSnapshot, MenuType } from "@/lib/content/types"
 import type { GeneratedInsight } from "@/lib/insights/types"
@@ -35,6 +36,20 @@ function menu(avg: number, menuType: MenuType = "dine_in", count = 8): MenuSnaps
 function categoriesOf(items: MenuItem[], menuType: MenuType = "dine_in"): MenuCategory[] {
   return [{ name: "Entrees", menuType, items }]
 }
+// A menu with specific item NAMES — content-based change detection keys on names, not counts.
+function menuNamed(itemNames: string[]): MenuSnapshot {
+  const items = itemNames.map((n) => item(10, n))
+  return {
+    menuUrl: null,
+    capturedAt: "2026-06-19",
+    screenshot: null,
+    currency: "USD",
+    categories: [{ name: "Menu", menuType: "dine_in", items }],
+    parseMeta: { itemsTotal: items.length, confidence: "high", notes: [] },
+  }
+}
+// n distinct item names, e.g. names(3) → ["d0","d1","d2"].
+const names = (n: number, prefix = "d"): string[] => Array.from({ length: n }, (_, i) => `${prefix}${i}`)
 function reviews(themes: ReviewSentiment["themes"]): ReviewSentiment {
   return { themes, source: "google_places", windowDays: 90 }
 }
@@ -150,17 +165,17 @@ describe("generateContentInsights price rule → corroboration (end to end)", ()
   const priceFor = (out: GeneratedInsight[]) => out.find((i) => i.insight_type === "menu.price_positioning_shift")
 
   it("emits menu.price_positioning_shift on a >=15% gap", () => {
-    expect(priceFor(generateContentInsights(locMenu, compMenus, null, null))).toBeDefined()
+    expect(priceFor(generateContentInsights(locMenu, compMenus, null, []))).toBeDefined()
   })
   it("without review corroboration, the play is positioning-framed (kills the Wagyu-$12.99 miss)", () => {
-    const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, null), null)
+    const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, []), null)
     const price = priceFor(out)
     expect(price?.evidence.corroboration).toBe("unknown")
     expect(price?.title.toLowerCase()).toContain("position on value")
   })
   it("with corroboration, the price play stands (strong)", () => {
     const pricedOut = reviews([{ theme: "price", sentiment: "negative", mentions: 6, examples: ["overpriced for what it is"] }])
-    const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, null), pricedOut)
+    const out = corroboratePriceInsights(generateContentInsights(locMenu, compMenus, null, []), pricedOut)
     expect(priceFor(out)?.evidence.corroboration).toBe("strong")
   })
 })
@@ -226,14 +241,14 @@ describe("generateContentInsights — thin/unstable samples are dropped, not rep
   it("does NOT emit menu.price_positioning_shift when the comparable sample is below the minimum (was: always emitted at hardcoded 'high' confidence)", () => {
     const locMenu = menu(25, "dine_in", 2) // the old fixture size — exactly what broke on live data
     const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: menu(18, "dine_in", 2), siteContent: null }]
-    const out = generateContentInsights(locMenu, compMenus, null, null)
+    const out = generateContentInsights(locMenu, compMenus, null, [])
     expect(out.find((i) => i.insight_type === "menu.price_positioning_shift")).toBeUndefined()
   })
   it("menu.catering_pricing_gap: emits with a healthy sample, confidence reflects sample size (never a hardcoded literal)", () => {
     const locMenu: MenuSnapshot = { ...menu(90, "catering", 10), categories: [{ name: "Catering", menuType: "catering", items: Array.from({ length: 10 }, (_, i) => item(90 + i, `Tray ${i}`)) }] }
     const compMenu: MenuSnapshot = { ...menu(60, "catering", 10), categories: [{ name: "Catering", menuType: "catering", items: Array.from({ length: 10 }, (_, i) => item(60 + i, `Tray ${i}`)) }] }
     const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: compMenu, siteContent: null }]
-    const out = generateContentInsights(locMenu, compMenus, null, null)
+    const out = generateContentInsights(locMenu, compMenus, null, [])
     const gap = out.find((i) => i.insight_type === "menu.catering_pricing_gap")
     expect(gap).toBeDefined()
     expect(gap?.confidence).toBe("medium") // 10 items/side → medium band, not a hardcoded "high"
@@ -244,7 +259,7 @@ describe("generateContentInsights — thin/unstable samples are dropped, not rep
     const locMenu: MenuSnapshot = { ...menu(95.99, "catering", 2), categories: [{ name: "Catering", menuType: "catering", items: [item(95.99, "Family Pack"), item(89.99, "Party Box")] }] }
     const compMenu: MenuSnapshot = { ...menu(65, "catering", 3), categories: [{ name: "Catering", menuType: "catering", items: [item(65.32, "Bag Meal"), item(58, "Party Pack"), item(72.65, "Big Box")] }] }
     const compMenus = [{ competitorId: "c1", competitorName: "Rival", menu: compMenu, siteContent: null }]
-    const out = generateContentInsights(locMenu, compMenus, null, null)
+    const out = generateContentInsights(locMenu, compMenus, null, [])
     expect(out.find((i) => i.insight_type === "menu.catering_pricing_gap")).toBeUndefined()
   })
 })
@@ -256,28 +271,74 @@ describe("generateContentInsights — menu-insight gate (ALT-363)", () => {
 
   it("suppresses ALL menu.* insights when the flag is off (the default), leaving other rules untouched", () => {
     delete process.env.MENU_INSIGHTS
-    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, null))).toHaveLength(0)
+    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, []))).toHaveLength(0)
     // sanity: the SAME inputs DO emit menu.* once the flag is on
     process.env.MENU_INSIGHTS = "1"
-    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, null)).length).toBeGreaterThan(0)
+    expect(menuOnly(generateContentInsights(locMenu, compMenus, null, [])).length).toBeGreaterThan(0)
   })
 
   it("even with the flag on, suppresses menu.* when the location scrape is below the coverage floor (<5 items)", () => {
     const thinLoc = menu(25, "dine_in", 4)
-    expect(menuOnly(generateContentInsights(thinLoc, compMenus, null, null))).toHaveLength(0)
+    expect(menuOnly(generateContentInsights(thinLoc, compMenus, null, []))).toHaveLength(0)
   })
 
-  it("drops menu.menu_change_detected on a >40% run-to-run swing (scrape artifact, not a real change)", () => {
-    const current = menu(20, "dine_in", 10)
-    const previous = menu(20, "dine_in", 30) // 67% drop ⇒ artifact
-    const out = generateContentInsights(current, compMenus, null, previous)
+  it("emits menu.menu_change_detected only when the change has PERSISTED across scrapes", () => {
+    const base = menuNamed(names(10)) // baseline S2
+    const changed = menuNamed([...names(10), "special1", "special2", "special3"]) // +3, held S0≈S1
+    const out = generateContentInsights(changed, compMenus, null, [changed, base])
+    const chg = out.find((i) => i.insight_type === "menu.menu_change_detected")
+    expect(chg).toBeDefined()
+    expect(chg?.evidence.addedCount).toBe(3)
+  })
+
+  it("does NOT emit menu.menu_change_detected on a one-run blip (a thin scrape that didn't persist)", () => {
+    const base = menuNamed(names(10))
+    const blip = menuNamed(names(6)) // this run dropped 4 items, but prior run was the full 10
+    const out = generateContentInsights(blip, compMenus, null, [base, base])
     expect(out.find((i) => i.insight_type === "menu.menu_change_detected")).toBeUndefined()
   })
+})
 
-  it("keeps menu.menu_change_detected on a within-band change (a real menu change)", () => {
-    const current = menu(20, "dine_in", 10)
-    const previous = menu(20, "dine_in", 14) // delta 4 (fires) + 29% swing (< 40%) ⇒ real
-    const out = generateContentInsights(current, compMenus, null, previous)
-    expect(out.find((i) => i.insight_type === "menu.menu_change_detected")).toBeDefined()
+describe("detectSustainedMenuChange (ALT-380) — content-based persistence, not count noise", () => {
+  it("returns null without enough history to establish a baseline + one persisted prior", () => {
+    const m = menuNamed(names(10))
+    expect(detectSustainedMenuChange(m, [])).toBeNull()
+    expect(detectSustainedMenuChange(m, [menuNamed(names(8))])).toBeNull() // only S1, no baseline S2
+  })
+
+  it("confirms a change only when the new item set held across the two latest scrapes", () => {
+    const base = menuNamed(names(10))
+    const added = [...names(10), "n1", "n2", "n3"]
+    // S0 ≈ S1 (both the new state), differ from baseline S2 by +3 → confirmed
+    const change = detectSustainedMenuChange(menuNamed(added), [menuNamed(added), base])
+    expect(change).not.toBeNull()
+    expect(change?.added.sort()).toEqual(["n1", "n2", "n3"])
+    expect(change?.removed).toEqual([])
+  })
+
+  it("ignores a one-run blip: latest differs from BOTH recent scrapes (not persisted)", () => {
+    const base = menuNamed(names(10))
+    const blip = menuNamed(names(10).slice(0, 6)) // lost 4 this run only
+    expect(detectSustainedMenuChange(blip, [base, base])).toBeNull()
+  })
+
+  it("ignores a drop-that-recovers: the bad scrape was the PRIOR run, not a real change", () => {
+    const full = menuNamed(names(10))
+    const badPrior = menuNamed(names(4)) // S1 was a failed thin read
+    // S0 recovered to full; must NOT read as 'menu grew 6 items'
+    expect(detectSustainedMenuChange(full, [badPrior, full])).toBeNull()
+  })
+
+  it("treats an anomalously thin latest read as a scrape failure, never a shrink", () => {
+    const full = menuNamed(names(20))
+    const thin = menuNamed(names(6)) // <50% of recent max (20) → failed read
+    expect(detectSustainedMenuChange(thin, [full, full])).toBeNull()
+  })
+
+  it("absorbs minor scrape jitter (1-2 item wobble) without claiming a change", () => {
+    const base = menuNamed(names(10))
+    const jitterA = menuNamed([...names(10), "maybe1"]) // +1 vs baseline, within tolerance
+    // S0 vs S1 differ by 1 (jitter), and the move vs baseline is only 1 item (< min 3) → null
+    expect(detectSustainedMenuChange(jitterA, [base, base])).toBeNull()
   })
 })

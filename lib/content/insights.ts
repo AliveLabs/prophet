@@ -32,20 +32,78 @@ export function isMenuInsightsEnabled(): boolean {
 // (a 40-item menu scraped as 11) looks fine to every signal we store and needs crawl-breadth
 // instrumentation we don't have yet — that's the Layer 2 work, not this gate.
 const MIN_MENU_ITEMS_FOR_CLAIMS = 5
-// A run-to-run item-count swing beyond this fraction reads as a scrape artifact, not a real
-// menu change — the "your menu shrank by 18 items" false positive. Gates menu_change_detected.
-const MENU_STABILITY_MAX_SWING = 0.4
 
 function menuHasCoverage(menu: MenuSnapshot | null): boolean {
   return !!menu && menu.parseMeta.itemsTotal >= MIN_MENU_ITEMS_FOR_CLAIMS
 }
 
-function menuCountUnstable(current: MenuSnapshot | null, previous: MenuSnapshot | null): boolean {
-  if (!current || !previous) return false
-  const a = current.parseMeta.itemsTotal
-  const b = previous.parseMeta.itemsTotal
-  const base = Math.max(a, b)
-  return base > 0 && Math.abs(a - b) / base > MENU_STABILITY_MAX_SWING
+// ── Sustained menu-change detection (ALT-380) ──────────────────────────────
+// Real menus change RARELY (roughly annually, a few seasonal swaps). A signal that a menu
+// "changed" every week is almost always a SCRAPE FAILURE, not reality — the scraper read a
+// different subset of the same menu. So we never claim a change from a single run's delta.
+// A change must PERSIST BY CONTENT: the same item-name set must hold across the two most
+// recent scrapes (S0≈S1) and differ from the prior baseline (S2). A one-run blip, a
+// drop-that-recovers, or an anomalously thin read is treated as a scrape failure and ignored.
+
+// Item-name set for a menu (normalized), across all categories.
+function menuItemNames(menu: MenuSnapshot): Set<string> {
+  const names = new Set<string>()
+  for (const cat of menu.categories) {
+    for (const it of cat.items) {
+      const n = it.name?.trim().toLowerCase()
+      if (n) names.add(n)
+    }
+  }
+  return names
+}
+
+function symmetricDiffSize(a: Set<string>, b: Set<string>): number {
+  let d = 0
+  for (const x of a) if (!b.has(x)) d++
+  for (const x of b) if (!a.has(x)) d++
+  return d
+}
+
+// Two scrapes "agree" (same menu state) when their item sets differ by at most this many
+// names — absorbs minor scrape jitter without treating it as a real change.
+const MENU_AGREE_TOLERANCE = 2
+// A confirmed change must move at least this many items (added + removed) vs the baseline.
+const MENU_CHANGE_MIN_ITEMS = 3
+// The latest scrape is treated as a failed read (not a shrink) if it captured less than this
+// fraction of the recent max item count.
+const MENU_FAILURE_DROP_RATIO = 0.5
+
+// Confirmed added/removed item names when a menu change has held across the two most recent
+// scrapes vs the prior baseline; null when there isn't enough history, the change hasn't
+// persisted (likely scrape noise), or the latest scrape looks like a failed read.
+// `previous` is prior snapshots, newest-first (previous[0] = the scrape before `current`).
+export function detectSustainedMenuChange(
+  current: MenuSnapshot,
+  previous: MenuSnapshot[],
+): { added: string[]; removed: string[] } | null {
+  const s1 = previous[0]
+  const s2 = previous[1]
+  // Need a baseline (s2) plus one persisted prior (s1) before we can trust a change.
+  if (!s1 || !s2) return null
+
+  const cur = menuItemNames(current)
+  const prev1 = menuItemNames(s1)
+  const prev2 = menuItemNames(s2)
+
+  // Scrape-failure guard: an anomalously thin latest read is a bad scrape, not a shrink.
+  const recentMax = Math.max(prev1.size, prev2.size)
+  if (recentMax > 0 && cur.size < recentMax * MENU_FAILURE_DROP_RATIO) return null
+
+  // Persistence: the new state must hold across the two latest scrapes (S0 ≈ S1). A one-run
+  // blip or a drop-that-recovers fails here.
+  if (symmetricDiffSize(cur, prev1) > MENU_AGREE_TOLERANCE) return null
+
+  // Change vs the prior baseline (S2), by item name.
+  const added = [...cur].filter((n) => !prev2.has(n))
+  const removed = [...prev2].filter((n) => !cur.has(n))
+  if (added.length + removed.length < MENU_CHANGE_MIN_ITEMS) return null
+
+  return { added, removed }
 }
 
 function filterByMenuType(categories: MenuCategory[], menuType: MenuType): MenuCategory[] {
@@ -264,7 +322,15 @@ export function generateContentInsights(
   locationMenu: MenuSnapshot | null,
   competitorMenus: CompetitorMenu[],
   locationSiteContent: SiteContentSnapshot | null,
-  previousLocationMenu: MenuSnapshot | null
+  // Prior menu snapshots, newest-first (previousMenus[0] = the scrape before the current one).
+  // A history (not a single prior) so change detection can require a change to PERSIST
+  // across scrapes rather than fire on one run's noise (ALT-380).
+  previousMenus: MenuSnapshot[] = [],
+  // The RAW latest scrape (ALT-380 #4). `locationMenu` is a cross-run union used for
+  // coverage/price claims, but sustained-change detection must run on the true per-run
+  // reads — its thin-read / one-run-blip guards are meaningless against a smoothed union.
+  // Defaults to locationMenu for callers that don't distinguish (e.g. unit tests).
+  rawCurrentMenu: MenuSnapshot | null = null
 ): GeneratedInsight[] {
   const insights: GeneratedInsight[] = []
 
@@ -425,24 +491,32 @@ export function generateContentInsights(
   // -----------------------------------------------------------------------
   // 5. menu.menu_change_detected
   // -----------------------------------------------------------------------
-  if (locationMenu && previousLocationMenu) {
-    const currentItems = locationMenu.parseMeta.itemsTotal
-    const previousItems = previousLocationMenu.parseMeta.itemsTotal
-    const delta = currentItems - previousItems
-
-    if (Math.abs(delta) >= 3) {
+  // Only fire when a change has PERSISTED by content across recent scrapes (see
+  // detectSustainedMenuChange) — never on a single run's item-count delta, which is almost
+  // always a scrape artifact rather than a real menu change (ALT-380).
+  const currentRaw = rawCurrentMenu ?? locationMenu
+  if (currentRaw) {
+    const change = detectSustainedMenuChange(currentRaw, previousMenus)
+    if (change) {
+      const { added, removed } = change
+      const examples = (added.length >= removed.length ? added : removed).slice(0, 3)
+      const title =
+        added.length && removed.length
+          ? `Your menu changed: ${added.length} added, ${removed.length} removed`
+          : added.length
+            ? `Your menu added ${added.length} item${added.length === 1 ? "" : "s"}`
+            : `Your menu dropped ${removed.length} item${removed.length === 1 ? "" : "s"}`
       insights.push({
         insight_type: "menu.menu_change_detected",
-        title: delta > 0
-          ? `Your menu grew by ${delta} items`
-          : `Your menu shrank by ${Math.abs(delta)} items`,
-        summary: `Your menu changed from ${previousItems} to ${currentItems} items. ${delta > 0 ? "New additions detected." : "Some items appear to have been removed."}`,
+        title,
+        summary: `A menu update has held across recent checks${examples.length ? ` (e.g. ${examples.join(", ")})` : ""}. Make sure your Google, website, and delivery menus all match.`,
         confidence: "high",
         severity: "info",
         evidence: {
-          previousItemCount: previousItems,
-          currentItemCount: currentItems,
-          delta,
+          addedItems: added.slice(0, 20),
+          removedItems: removed.slice(0, 20),
+          addedCount: added.length,
+          removedCount: removed.length,
         },
         recommendations: [
           {
@@ -580,12 +654,8 @@ export function generateContentInsights(
     if (!ins.insight_type.startsWith("menu.")) return true
     if (!isMenuInsightsEnabled()) return false
     if (!menuHasCoverage(locationMenu)) return false
-    if (
-      ins.insight_type === "menu.menu_change_detected" &&
-      menuCountUnstable(locationMenu, previousLocationMenu)
-    ) {
-      return false
-    }
+    // Stability for menu_change_detected is now enforced at the source via
+    // detectSustainedMenuChange (content-based persistence), so no extra gate here.
     return true
   })
 }

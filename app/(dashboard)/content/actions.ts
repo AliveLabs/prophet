@@ -414,10 +414,9 @@ export async function refreshContentAction(formData: FormData) {
   // STEP 5: Generate content insights
   // =========================================================================
   try {
-    // ALT-380 #4: this run's fresh snapshot is already stored above, so union the
-    // recent window (fresh + prior weeks) into a stable current menu rather than
-    // trusting this single run. previousMenu is the prior-window union so the
-    // count-delta change rule compares two stable reads, not scrape noise.
+    // ALT-380: this run's fresh snapshot is already stored above (newest row). `locMenu` is
+    // the cross-run UNION (#4) for coverage/price claims; sustained-change detection (#2)
+    // runs on the RAW per-run reads — the raw latest plus the raw prior history.
     const { data: menuSnaps } = await supabase
       .from("location_snapshots")
       .select("raw_data")
@@ -428,13 +427,15 @@ export async function refreshContentAction(formData: FormData) {
 
     const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
     const locMenu = unionRecentMenus(menuHistory) ?? locationMenu
-    const previousMenu = unionRecentMenus(menuHistory.slice(1))
+    const rawCurrentMenu = menuHistory[0] ?? locationMenu
+    const previousMenus = menuHistory.slice(1)
 
     const contentInsights = generateContentInsights(
       locMenu,
       competitorMenus,
       locationSiteContent,
-      previousMenu
+      previousMenus,
+      rawCurrentMenu
     )
 
     if (contentInsights.length > 0) {
