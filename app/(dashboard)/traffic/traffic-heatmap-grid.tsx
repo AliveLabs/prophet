@@ -9,6 +9,7 @@
 
 import { useState, useSyncExternalStore } from "react"
 import { useInView } from "@/components/ticket"
+import { busyLevel, BUSY_LEVEL_LABEL, BUSY_LEVEL_REP } from "@/lib/traffic/busy-level"
 import type { TrafficData } from "./traffic-types"
 
 const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -95,23 +96,24 @@ export default function TrafficHeatmapGrid({ data }: { data: TrafficData[] }) {
                   </th>
                   {HOURS.map((h) => {
                     const score = dayInfo?.hourly_scores[h] ?? 0
-                    const style = heatStyle(score)
+                    // ALT-286: categorical, not a raw %. Color by busy level; the specific
+                    // "% of peak" stays as supporting detail in the tooltip only.
+                    const lvl = busyLevel(score)
+                    const background =
+                      lvl === -1 ? "var(--paper-2)" : heatStyle(BUSY_LEVEL_REP[lvl]).background
                     return (
                       <td key={h} className="tk-trf-cellwrap">
                         <span
                           className="tk-trf-cell"
                           data-tip={`${dayLabel} ${formatHour(h)}`}
-                          data-tipv={`${score}% of peak`}
+                          data-tipv={lvl === -1 ? "Closed" : `${BUSY_LEVEL_LABEL[lvl]} · ${score}% of peak`}
                           style={{
-                            background: style.background,
-                            color: style.color,
+                            background,
                             opacity: inView ? 1 : 0,
                             transform: inView ? "scale(1)" : "scale(.6)",
                             transitionDelay: `${Math.min(dow * 18 + h * 4, 420)}ms`,
                           }}
-                        >
-                          {score > 0 ? score : ""}
-                        </span>
+                        />
                       </td>
                     )
                   })}
@@ -122,15 +124,14 @@ export default function TrafficHeatmapGrid({ data }: { data: TrafficData[] }) {
         </table>
       </div>
 
+      {/* ALT-286: legend speaks the four levels (no raw %); the exact % is tooltip-only. */}
       <div className="tk-trf-heatleg">
-        <span>Quieter</span>
-        <div className="tk-trf-ramp">
-          {[0, 20, 40, 60, 80, 100].map((s) => (
-            <i key={s} style={{ background: heatStyle(s).background }} />
-          ))}
-        </div>
-        <span>Busier</span>
-        <span className="tk-trf-heatleg-note">% of that spot&apos;s typical peak</span>
+        {([0, 1, 2, 3] as const).map((lvl) => (
+          <span className="tk-trf-lv" key={lvl}>
+            <i style={{ background: heatStyle(BUSY_LEVEL_REP[lvl]).background }} />
+            {BUSY_LEVEL_LABEL[lvl]}
+          </span>
+        ))}
       </div>
     </div>
   )
