@@ -11,6 +11,8 @@
 // (POST /api/waitlist) and the sign-in/request-access CTAs route as before.
 
 import type { Metadata } from "next"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import "@/components/ticket/pass.css"
 import "./landing.css"
 
@@ -29,7 +31,15 @@ export const metadata: Metadata = {
     "Read the ticket. Ticket watches competitor menus, pricing, reviews, and social — every shift scored by confidence, so you move first, not last.",
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // ALT-364: the app subdomains (app.getticket.ai / app.useneat.ai) serve LOGIN as their
+  // default page — marketing lives on the separate marketing site now. /login itself
+  // forwards an already-signed-in user on to /home (or /onboarding), so this single
+  // temporary redirect covers both auth states. Any other host (local/preview, or a
+  // marketing apex if one ever points here) still gets the landing below.
+  const host = (await headers()).get("host") ?? ""
+  if (/^app\./i.test(host)) redirect("/login")
+
   return (
     <div className="ticket-chrome tk-kit lp-root">
       <div className="lp-atmos" aria-hidden="true" />
