@@ -49,6 +49,19 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl
   const method = req.method
 
+  // ── ALT-364: app subdomains serve login as the front door ────────────────────
+  // On app.getticket.ai / app.useneat.ai, "/" redirects to /login (marketing lives on the
+  // separate marketing site now). /login itself forwards an already-signed-in user on to
+  // /home (or /onboarding), so this one redirect covers both auth states. Host-gated to app.*
+  // so any other host — a marketing apex, local, or a Vercel preview — still gets the landing.
+  // Done here (edge) rather than in app/page.tsx so the landing route stays statically
+  // prerenderable (reading headers() in the page breaks Next 16 Cache Components).
+  if (pathname === "/" && /^app\./i.test(req.headers.get("host") ?? "")) {
+    const url = req.nextUrl.clone()
+    url.pathname = "/login"
+    return NextResponse.redirect(url)
+  }
+
   // ── Impersonation (all routes) ──────────────────────────────────────────────
   const imp = verifyImpersonationCookie(req.cookies.get(IMPERSONATION_COOKIE)?.value)
   if (imp && pathname !== EXIT_PATH) {
