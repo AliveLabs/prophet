@@ -376,6 +376,13 @@ export function PassPlayCard({
       title={play.title}
     >
       <p className="tk-muted">{play.rationale}</p>
+      {/* Evidence — the SAME grounding shown on the card, surfaced here (expanded) so the
+          drawer is a complete "why + how" on every surface. Matters most on the pool, whose
+          cards have no /home/[rank] detail page: the drawer is their full evidence view. */}
+      <div className="pass-drawer-evidence">
+        {reinforcing}
+        <TkWhy label={whyLabel(play)} points={whyPoints} source={whySource} defaultOpen />
+      </div>
       {play.recipe?.length ? (
         <div className="pass-plan-steps">
           {play.recipe.map((step, i) => (
@@ -383,9 +390,7 @@ export function PassPlayCard({
           ))}
         </div>
       ) : (
-        <p className="tk-muted">
-          The full play unlocks as we gather more on this signal. The evidence below is what it&apos;s built on.
-        </p>
+        <p className="tk-muted">The full step-by-step unlocks as we gather more on this signal.</p>
       )}
       {draftStep?.copy ? <DraftCopyBox label="Customer copy — your voice" text={draftStep.copy} /> : null}
       {!readOnly && !current ? (
