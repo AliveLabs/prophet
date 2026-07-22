@@ -6,10 +6,14 @@ import { describe, it, expect } from "vitest"
 import {
   isWeeklyFullBuildDay,
   localHourInZone,
+  localDateInZone,
   isLocalBuildHour,
+  shouldEnqueueBriefNow,
   resolveBuildHour,
+  resolveCatchupHours,
   briefJitterSeconds,
   DEFAULT_BUILD_LOCAL_HOUR,
+  DEFAULT_CATCHUP_WINDOW_HOURS,
   DEFAULT_JITTER_SPACING_SECONDS,
 } from "@/lib/jobs/build-schedule"
 
@@ -99,5 +103,72 @@ describe("isWeeklyFullBuildDay — the Sunday-local full-refresh gate", () => {
   it("invalid/missing tz falls back to the default zone", () => {
     expect(isWeeklyFullBuildDay(null, new Date("2026-07-05T12:00:00Z"))).toBe(true)
     expect(isWeeklyFullBuildDay("Junk/Zone", new Date("2026-07-06T12:00:00Z"))).toBe(false)
+  })
+})
+
+describe("localDateInZone", () => {
+  it("returns the local calendar date (YYYY-MM-DD), which can differ from the UTC date", () => {
+    // 03:30 EDT on 07-22 is still 07:30 UTC same day.
+    expect(localDateInZone("America/New_York", new Date("2026-07-22T07:30:00Z"))).toBe("2026-07-22")
+    // 22:00 PT on 07-21 is 05:00 UTC on 07-22 — local date is the 21st, not the 22nd.
+    expect(localDateInZone("America/Los_Angeles", new Date("2026-07-22T05:00:00Z"))).toBe("2026-07-21")
+  })
+  it("returns null for an invalid timezone", () => {
+    expect(localDateInZone("Not/AZone", new Date("2026-07-22T07:30:00Z"))).toBeNull()
+  })
+})
+
+describe("resolveCatchupHours", () => {
+  it("defaults, honors env override, clamps out-of-range", () => {
+    expect(resolveCatchupHours(undefined)).toBe(DEFAULT_CATCHUP_WINDOW_HOURS)
+    expect(resolveCatchupHours("6")).toBe(6)
+    expect(resolveCatchupHours("0")).toBe(DEFAULT_CATCHUP_WINDOW_HOURS) // <1 → default
+    expect(resolveCatchupHours("99")).toBe(DEFAULT_CATCHUP_WINDOW_HOURS) // >24 → default
+    expect(resolveCatchupHours("abc")).toBe(DEFAULT_CATCHUP_WINDOW_HOURS)
+  })
+})
+
+describe("shouldEnqueueBriefNow (self-heal gate)", () => {
+  const tz = "America/New_York" // EDT (UTC-4) in July; build hour 3 AM == 07:00 UTC
+  const opts = (lastBriefDateKey: string | null, catchupHours = 4) => ({
+    buildHour: 3,
+    catchupHours,
+    lastBriefDateKey,
+  })
+
+  it("enqueues at the build hour when today's brief is missing", () => {
+    // 03:00 EDT, local date 07-22, last brief was 07-21 → enqueue.
+    expect(shouldEnqueueBriefNow(tz, new Date("2026-07-22T07:00:00Z"), opts("2026-07-21"))).toBe(true)
+  })
+
+  it("skips once today's brief exists (later ticks in the window)", () => {
+    // 05:00 EDT, but a brief with today's local date_key already exists → skip.
+    expect(shouldEnqueueBriefNow(tz, new Date("2026-07-22T09:00:00Z"), opts("2026-07-22"))).toBe(false)
+  })
+
+  it("CATCHES UP a missed build-hour tick later the same day (the bug this fixes)", () => {
+    // 06:00 EDT (3h after build hour), no brief today → still enqueue.
+    expect(shouldEnqueueBriefNow(tz, new Date("2026-07-22T10:00:00Z"), opts("2026-07-21"))).toBe(true)
+  })
+
+  it("stops catching up once the window closes (bounded, so persistent failure surfaces)", () => {
+    // 07:00 EDT = 4h after build hour = window edge (catchup 4) → skip.
+    expect(shouldEnqueueBriefNow(tz, new Date("2026-07-22T11:00:00Z"), opts("2026-07-21"))).toBe(false)
+  })
+
+  it("does not enqueue before the build hour", () => {
+    // 02:00 EDT (before 3 AM) → skip.
+    expect(shouldEnqueueBriefNow(tz, new Date("2026-07-22T06:00:00Z"), opts("2026-07-21"))).toBe(false)
+  })
+
+  it("handles a build hour that wraps past midnight", () => {
+    // buildHour 23, catchup 4; 00:30 local is 1h after → enqueue.
+    const t = new Date("2026-07-22T04:30:00Z") // 00:30 EDT
+    expect(shouldEnqueueBriefNow(tz, t, { buildHour: 23, catchupHours: 4, lastBriefDateKey: "2026-07-21" })).toBe(true)
+  })
+
+  it("force path is handled by the caller, not here — a missing tz still evaluates via fallback", () => {
+    // Invalid tz → FALLBACK_ZONE (America/New_York). At 07:00 UTC that's 03:00, build hour → enqueue.
+    expect(shouldEnqueueBriefNow("Bad/Zone", new Date("2026-07-22T07:00:00Z"), opts(null))).toBe(true)
   })
 })

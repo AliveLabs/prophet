@@ -25,7 +25,7 @@ import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
 import { isTrialActive } from "@/lib/billing/trial"
-import { isLocalBuildHour, resolveBuildHour, briefJitterSeconds } from "@/lib/jobs/build-schedule"
+import { shouldEnqueueBriefNow, resolveBuildHour, resolveCatchupHours, briefJitterSeconds } from "@/lib/jobs/build-schedule"
 
 export const maxDuration = 800 // inline single-location mode still does LLM work
 
@@ -83,11 +83,27 @@ export async function GET(req: Request) {
   const force = url.searchParams.get("force") === "1"
   const now = new Date()
   const buildHour = resolveBuildHour()
+  const catchupHours = resolveCatchupHours()
   const { data: locations, error: locErr } = await sb
     .from("locations")
     .select("id, organization_id, timezone")
   if (locErr || !locations) {
     return Response.json({ error: "Failed to list locations", details: locErr?.message }, { status: 500 })
+  }
+
+  // Most recent brief date_key per location (self-heal gate reads this to skip locations already
+  // built for their local "today"). 36h back covers every timezone's current local day.
+  const sinceDate = new Date(now.getTime() - 36 * 3600 * 1000).toISOString().slice(0, 10)
+  const { data: briefRows } = await sb
+    .from("daily_briefs")
+    .select("location_id, date_key")
+    .gte("date_key", sinceDate)
+  const lastBriefByLoc = new Map<string, string>()
+  for (const r of briefRows ?? []) {
+    const loc = r.location_id as string
+    const dk = r.date_key as string
+    const cur = lastBriefByLoc.get(loc)
+    if (!cur || dk > cur) lastBriefByLoc.set(loc, dk)
   }
 
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
@@ -117,9 +133,19 @@ export async function GET(req: Request) {
       inactive++
       continue
     }
-    // Timezone stagger: only enqueue when it's this location's local build hour (unless forced).
-    // The gate is 1 hour wide and the cron fires hourly, so each location enqueues exactly once/day.
-    if (!force && !isLocalBuildHour(loc.timezone, now, buildHour)) {
+    // Timezone stagger + self-heal: enqueue when the location's local clock is within the catch-up
+    // window opening at its build hour AND it hasn't built for its local "today" yet (unless forced).
+    // Normal day: the build-hour tick enqueues, later ticks skip (already built). Missed/blipped tick:
+    // the next tick in the window catches it up SAME day, instead of the whole zone skipping until
+    // tomorrow (the recurring "no brief in 26h" page).
+    if (
+      !force &&
+      !shouldEnqueueBriefNow(loc.timezone, now, {
+        buildHour,
+        catchupHours,
+        lastBriefDateKey: lastBriefByLoc.get(loc.id) ?? null,
+      })
+    ) {
       offHour++
       continue
     }
