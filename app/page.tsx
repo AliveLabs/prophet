@@ -7,6 +7,10 @@
 // resolves and light + warm-dark both work for free. A pearlescent
 // atmospheric canvas (`.lp-atmos`) supplies the premium light-depth.
 //
+// ALT-364: on the app.* subdomains this route is never reached — proxy.ts
+// redirects "/" to /login there (login is the app's front door; marketing lives
+// on the separate marketing site). This landing still renders on any other host.
+//
 // Presentation only — the waitlist form keeps its original business logic
 // (POST /api/waitlist) and the sign-in/request-access CTAs route as before.
 
