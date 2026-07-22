@@ -695,3 +695,37 @@
 }
 .ticket-brief .pass-pool-link:hover { color: var(--ink); }
 .ticket-brief .pass-pool-link-top { margin-top: 0; margin-bottom: 22px; }
+
+/* ── ALT-301: /home first-run state — live per-pipeline progress while the first brief builds.
+   Mirrors the onboarding Build step's .ob-status treatment so the two read as one language. ── */
+.fr-panel { max-width: 620px; margin: 0 auto; padding: 48px 24px 64px; }
+.fr-kicker { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--rust); margin-bottom: 12px; }
+.fr-head { font-size: clamp(26px, 4vw, 34px); line-height: 1.1; margin: 0 0 10px; color: var(--ink); }
+.fr-sub { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 0; }
+
+.fr-status { list-style: none; margin: 24px 0 0; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--card-2); overflow: hidden; }
+.fr-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+.fr-row:last-child { border-bottom: 0; }
+.fr-mark { width: 11px; height: 11px; flex: 0 0 auto; border-radius: 50%; background: var(--ledger); border: 1px solid var(--line-2); }
+.fr-row.is-ready  .fr-mark { background: var(--teal);  border-color: transparent; box-shadow: 0 0 0 3px var(--teal-tint); }
+.fr-row.is-doing  .fr-mark { background: var(--rust);  border-color: transparent; box-shadow: 0 0 0 3px var(--rust-tint); }
+.fr-row.is-failed .fr-mark { background: var(--alert); border-color: transparent; }
+.fr-label { flex: 1; font-size: 14px; color: var(--ink); }
+.fr-when { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
+.fr-row.is-ready  .fr-when { color: var(--teal-deep); }
+.fr-row.is-doing  .fr-when { color: var(--rust-deep); }
+.fr-row.is-failed .fr-when { color: var(--alert-deep); }
+@media (prefers-reduced-motion: no-preference) {
+  .fr-row.is-doing .fr-mark { animation: fr-pulse 1.8s var(--ease) infinite; }
+  @keyframes fr-pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--rust-tint); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--rust) 14%, transparent); } }
+}
+
+.fr-sweep { height: 3px; border-radius: 2px; margin: 22px 0 0; background: linear-gradient(90deg, transparent, var(--rust), transparent); background-size: 38% 100%; background-repeat: no-repeat; }
+@media (prefers-reduced-motion: no-preference) {
+  .fr-sweep { animation: fr-sw 1.8s linear infinite; }
+  @keyframes fr-sw { from { background-position: -38% 0; } to { background-position: 138% 0; } }
+}
+
+.fr-hint { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin: 18px 0 0; }
+.fr-elapsed { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
+.fr-elapsed .tk-mono, .fr-hint .tk-mono { font-family: var(--font-mono); }
