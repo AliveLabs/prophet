@@ -23,6 +23,32 @@ export const DEFAULT_BUILD_LOCAL_HOUR = 3
  *  (never silently skipped forever). */
 export const FALLBACK_ZONE = "America/New_York"
 
+/** How many hourly ticks AFTER the build hour a location may still catch up its daily brief. The
+ *  timezone gate used to be a single exact-hour tick (localHour === buildHour), so ONE missed or
+ *  delayed hourly cron run — a Vercel cron hiccup, or a redeploy landing on that tick — silently
+ *  dropped the whole zone's briefs for the day (the recurring "no brief in 26h" watchdog page).
+ *  With a catch-up window, a location that hasn't built today stays eligible for the next few
+ *  hourly ticks, so a missed tick self-heals within the hour instead of skipping a full day.
+ *  Bounded (not "all day") so a persistently FAILING build surfaces to the watchdog rather than
+ *  retrying silently every hour until midnight. Override via BRIEF_CATCHUP_WINDOW_HOURS. */
+export const DEFAULT_CATCHUP_WINDOW_HOURS = 4
+
+/** The current local calendar date (YYYY-MM-DD) in an IANA timezone, or null if invalid. Matches
+ *  the `daily_briefs.date_key` a build writes, so it's the key for "already built today, locally". */
+export function localDateInZone(timezone: string, now: Date): string | null {
+  try {
+    // en-CA renders ISO-style YYYY-MM-DD.
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now)
+  } catch {
+    return null // invalid time zone
+  }
+}
+
 /** The current local hour (0-23) in an IANA timezone, or null if the timezone string is invalid. */
 export function localHourInZone(timezone: string, now: Date): number | null {
   try {
@@ -55,6 +81,38 @@ export function isLocalBuildHour(
 export function resolveBuildHour(env: string | undefined = process.env.BRIEF_BUILD_LOCAL_HOUR): number {
   const n = Number(env)
   return Number.isInteger(n) && n >= 0 && n <= 23 ? n : DEFAULT_BUILD_LOCAL_HOUR
+}
+
+/** Resolve the catch-up window (hours after the build hour a location may still be enqueued). Env
+ *  override BRIEF_CATCHUP_WINDOW_HOURS, else the 4-hour default. Clamped to 1-24 (>=1 so the build
+ *  hour itself is always eligible). */
+export function resolveCatchupHours(env: string | undefined = process.env.BRIEF_CATCHUP_WINDOW_HOURS): number {
+  const n = Number(env)
+  return Number.isInteger(n) && n >= 1 && n <= 24 ? n : DEFAULT_CATCHUP_WINDOW_HOURS
+}
+
+/** Should this location be enqueued for a daily brief on THIS hourly tick? Self-healing replacement
+ *  for the exact-hour gate: a location is eligible when its local clock is within the catch-up window
+ *  that opens at the build hour AND it has no brief for its local "today" yet. So the build-hour tick
+ *  enqueues it; once built, later ticks in the window skip it (its date_key now matches today); and if
+ *  the build-hour tick was missed, the next tick in the window catches it up — same day, not the next.
+ *  `lastBriefDateKey` is the location's most recent daily_briefs.date_key (YYYY-MM-DD) or null. */
+export function shouldEnqueueBriefNow(
+  timezone: string | null | undefined,
+  now: Date,
+  opts: { buildHour?: number; catchupHours?: number; lastBriefDateKey?: string | null } = {},
+): boolean {
+  const buildHour = opts.buildHour ?? DEFAULT_BUILD_LOCAL_HOUR
+  const catchupHours = opts.catchupHours ?? DEFAULT_CATCHUP_WINDOW_HOURS
+  const tz = timezone && timezone.trim() ? timezone : FALLBACK_ZONE
+  const hour = localHourInZone(tz, now) ?? localHourInZone(FALLBACK_ZONE, now)
+  const localDate = localDateInZone(tz, now) ?? localDateInZone(FALLBACK_ZONE, now)
+  if (hour === null) return false
+  // Already built for the local day → nothing to do (the common case after the first tick).
+  if (localDate !== null && opts.lastBriefDateKey === localDate) return false
+  // Within [buildHour, buildHour + catchupHours) in local time, wrap-safe.
+  const hoursSinceBuildHour = (hour - buildHour + 24) % 24
+  return hoursSinceBuildHour < catchupHours
 }
 
 /** Seconds between same-zone build starts (env BRIEF_JITTER_SPACING_SECONDS, default 7 min). A build
