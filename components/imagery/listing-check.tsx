@@ -3,39 +3,12 @@
 // asymmetry + a short "fix next" to-do. Reusable: drop it anywhere with the
 // location's own-listing photo rows. Server component — pure render from data.
 
-import { buildListingAudit, type PhotoRow, type GalleryPhoto } from "@/lib/places/listing-audit"
+import { buildListingAudit, type PhotoRow } from "@/lib/places/listing-audit"
 import { TkCard, TkSectionHead, RevealOnView } from "@/components/ticket"
+import { PhotoGallery } from "./photo-lightbox"
 import "./imagery.css"
 
 const STATE_LABEL = { covered: "Covered", thin: "Thin", missing: "Missing" } as const
-
-// A labeled row of listing-photo thumbnails, capped with a "+N" overflow tile.
-// Server-rendered (plain img) — segments the gallery into owner vs customer.
-function PhotoGroup({ title, photos, tone }: { title: string; photos: GalleryPhoto[]; tone: "own" | "cust" }) {
-  const CAP = 8
-  const shown = photos.slice(0, CAP)
-  const overflow = photos.length - shown.length
-  return (
-    <div className={`img-gallery-group img-gallery-${tone}`}>
-      <div className="img-gallery-head">
-        <span>{title}</span>
-        <span className="img-gallery-n">{photos.length}</span>
-      </div>
-      <div className="img-thumbs">
-        {shown.map((p, i) => {
-          const label = p.category ? p.category.replace(/_/g, " ") : "Listing photo"
-          return (
-            <div className="img-thumb" key={`${p.url}-${i}`} title={label}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt={label} loading="lazy" />
-            </div>
-          )
-        })}
-        {overflow > 0 && <div className="img-thumb img-thumb-more">+{overflow}</div>}
-      </div>
-    </div>
-  )
-}
 
 export default function ListingCheck({
   photos,
@@ -159,10 +132,10 @@ export default function ListingCheck({
         {(a.ownerPhotos.length > 0 || a.customerPhotos.length > 0) && (
           <div className="img-gallery">
             {a.ownerPhotos.length > 0 && (
-              <PhotoGroup title="Your photos" photos={a.ownerPhotos} tone="own" />
+              <PhotoGallery title="Your photos" photos={a.ownerPhotos} tone="own" />
             )}
             {a.customerPhotos.length > 0 && (
-              <PhotoGroup title="What customers posted" photos={a.customerPhotos} tone="cust" />
+              <PhotoGallery title="What customers posted" photos={a.customerPhotos} tone="cust" />
             )}
           </div>
         )}
