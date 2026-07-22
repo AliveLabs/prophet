@@ -175,7 +175,10 @@
   .tk-trf-cell { opacity: 1 !important; transform: none !important; transition: none !important; }
 }
 
-.tk-trf-heatleg { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
+.tk-trf-heatleg { display: flex; align-items: center; gap: 14px; margin-top: 14px; font-size: 11px; color: var(--ink-3); flex-wrap: wrap; }
+/* ALT-286: four discrete busy-level swatches (Quiet / Steady / Busy / Their peak). */
+.tk-trf-lv { display: inline-flex; align-items: center; gap: 6px; }
+.tk-trf-lv i { width: 16px; height: 11px; border-radius: 3px; display: block; }
 .tk-trf-ramp { display: flex; gap: 2px; }
 .tk-trf-ramp i { width: 20px; height: 11px; border-radius: 3px; display: block; }
 .tk-trf-heatleg-note { margin-left: auto; font-family: var(--font-mono); }

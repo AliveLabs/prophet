@@ -20,6 +20,7 @@
 // activity paints its curve on a dashed "observed" window, labeled as such.
 
 import { useEffect, useId, useMemo, useState } from "react"
+import { busyLevel, BUSY_LEVEL_LABEL as LEVEL_LABEL } from "@/lib/traffic/busy-level"
 import { RevealOnView, TkCard, TkSectionHead, TkEmptyState } from "@/components/ticket"
 import { VizTBubble, type VizContext } from "@/components/ticket/viz-tbubble"
 import { tkcx as cx } from "@/components/ticket/primitives"
@@ -64,17 +65,8 @@ const CLOCK_ICON = (
   </svg>
 )
 
-/* ── Busy levels: the ONE user-facing encoding of the relative busy score.
-      Words, not percentages (see header comment). Thresholds tuned so "Their
-      peak" only claims the top of a spot's own curve. ── */
-const LEVEL_LABEL = ["Quiet", "Steady", "Busy", "Their peak"] as const
-function busyLevel(score: number): -1 | 0 | 1 | 2 | 3 {
-  if (score <= 0) return -1
-  if (score < 40) return 0
-  if (score < 70) return 1
-  if (score < 90) return 2
-  return 3
-}
+/* Busy levels now live in a shared module so Competitors + Traffic (ALT-286) categorize
+   identically — imported at the top as busyLevel + LEVEL_LABEL. */
 
 function hourTick(h: number): string {
   const hh = h % 24
