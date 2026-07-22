@@ -100,7 +100,7 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   },
   {
     kicker: "Found for you",
-    head: <>Here&apos;s who <em>we'd watch.</em></>,
+    head: <>Here&apos;s who <em>we&apos;d watch.</em></>,
     sub: "We scanned your neighborhood and picked the spots your customers would actually choose instead — each with the reason why.",
   },
   {
@@ -413,6 +413,37 @@ function ProcessingStep({
         </>
       )}
     </>
+  )
+}
+
+// ALT-299: competitor discovery grounds a Gemini call with Maps + Search and legitimately
+// runs 30–90s. Instead of one static line for the whole wait, rotate through what's actually
+// happening so the wait reads as deliberate work, not a hang. Plain language (no chef lingo).
+const DISCOVERY_STATUS_LINES = [
+  "Searching maps and the web for who's really competing with you…",
+  "Reading their menus, hours, and photos…",
+  "Checking their reviews and how busy they get…",
+  "Sorting the real rivals from the noise…",
+  "Lining up your set…",
+]
+
+function DiscoveryWait() {
+  const [i, setI] = useState(0)
+  useEffect(() => {
+    const id = setInterval(
+      () => setI((n) => (n + 1) % DISCOVERY_STATUS_LINES.length),
+      4200,
+    )
+    return () => clearInterval(id)
+  }, [])
+  return (
+    // Rotating line is decorative (aria-hidden); screen readers get the one calm, stable
+    // hint below via aria-live, so they aren't spammed with a new string every few seconds.
+    <div className="ob-discovering" aria-live="polite">
+      <p className="ob-discovering__line" aria-hidden="true">{DISCOVERY_STATUS_LINES[i]}</p>
+      <div className="ob-sweep" />
+      <p className="ob-discovering__hint">Finding competitors near you. This usually takes up to a minute.</p>
+    </div>
   )
 }
 
@@ -960,14 +991,15 @@ export default function OnboardingWizardPass({
               <>
                 <span className="ob-panel-eyebrow">Competitors</span>
                 <h2 className="ob-panel-title">Here&apos;s who we&apos;d watch</h2>
-                <p className="ob-panel-lede">
-                  {discovering
-                    ? "Scanning your neighborhood for similar spots…"
-                    : selected.length
+                {discovering ? (
+                  <DiscoveryWait />
+                ) : (
+                  <p className="ob-panel-lede">
+                    {selected.length
                       ? "Remove any that aren't real competitors, or add your own. Keep at least one and we'll start tracking them."
                       : "Add the competitors you want us to watch. Keep at least one."}
-                </p>
-                {discovering ? <div className="ob-sweep" /> : null}
+                  </p>
+                )}
                 {/* Once the operator has picks (retry worked, or they added their
                     own), a lingering discovery error would contradict the state. */}
                 {discoveryError && selected.length === 0 ? (
