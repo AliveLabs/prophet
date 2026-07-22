@@ -40,12 +40,41 @@ export type SiteContentSnapshot = {
 // Menu snapshot (provider = "firecrawl_menu")
 // ---------------------------------------------------------------------------
 
+// Per-item type, classified at menu-PARSE time so price comparisons can be made
+// like-to-like (combo-vs-combo, entree-vs-entree, family_pack-vs-family_pack) instead of
+// flat-averaging a combo-driven concept against an à-la-carte one (ALT-296 / root cause of
+// ALT-290). OPTIONAL: legacy snapshots captured before this field existed have no itemKind —
+// classification accrues on new scrapes, and comparison code falls back to a name heuristic
+// for unclassified items, so absence is expected and safe.
+export type ItemKind =
+  | "combo_meal"   // a bundled meal (entree + side + drink, "combo", "meal deal", value meal)
+  | "entree"       // a standalone main dish (sandwich, plate, bowl, pizza, entree salad)
+  | "side"         // a standalone side (fries, slaw, chips, side salad)
+  | "drink"        // a beverage (soda, tea, coffee, shake, bottled)
+  | "dessert"      // a standalone sweet (cookie, pie slice, sundae)
+  | "condiment"    // a sauce/dip/dressing/add-on sold on its own
+  | "family_pack"  // a multi-serving catering/party pack, bundle, or platter
+  | "other"        // anything that doesn't fit above (merch, gift card, unclear)
+
+export const ITEM_KINDS: readonly ItemKind[] = [
+  "combo_meal", "entree", "side", "drink", "dessert", "condiment", "family_pack", "other",
+] as const
+
+/** Validate an extractor-supplied itemKind, returning undefined for anything not in the
+ *  taxonomy (so a hallucinated/blank value degrades to "unclassified", not a bad bucket). */
+export function coerceItemKind(raw: unknown): ItemKind | undefined {
+  return typeof raw === "string" && (ITEM_KINDS as readonly string[]).includes(raw)
+    ? (raw as ItemKind)
+    : undefined
+}
+
 export type MenuItem = {
   name: string
   description: string | null
   price: string | null       // raw price string e.g. "$12.99"
   priceValue: number | null  // numeric value e.g. 12.99
   tags: string[]             // e.g. ["vegan", "spicy", "gluten-free"]
+  itemKind?: ItemKind        // parse-time item classification (ALT-296); absent on legacy snapshots
 }
 
 export type MenuType = "dine_in" | "catering" | "banquet" | "happy_hour" | "kids" | "other"

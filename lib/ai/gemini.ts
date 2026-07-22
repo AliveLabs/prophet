@@ -1,4 +1,5 @@
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
+import { coerceItemKind } from "@/lib/content/types"
 
 const GEMINI_INSIGHTS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
@@ -100,6 +101,7 @@ export type GoogleMenuCategory = {
     price: string | null
     priceValue: number | null
     tags: string[]
+    itemKind: string | null
   }>
 }
 
@@ -118,6 +120,7 @@ For each menu item, provide:
 - price: the price as displayed (e.g. "$12.99"), or null if unknown
 - priceValue: the numeric price value (e.g. 12.99), or null if unknown
 - tags: dietary tags like "vegan", "vegetarian", "gluten-free", "spicy" if applicable
+- itemKind: what KIND of item this is, based on what it IS (not the section heading), so meal prices can be compared like-to-like. One of: "combo_meal" (a bundled meal: entree+side+drink, "combo", "meal", value meal), "entree" (a standalone main dish: sandwich, plate, bowl, pizza, entree salad), "side" (fries, slaw, chips, side salad), "drink" (soda, tea, coffee, shake, bottled), "dessert" (cookie, pie slice, sundae), "condiment" (a sauce/dip/dressing sold on its own), "family_pack" (a multi-serving catering/party pack, platter, or bundle feeding several people), or "other". Use null only when genuinely unclear.
 
 For each category, classify menuType as one of:
 - "dine_in" for regular menu categories (appetizers, entrees, desserts, drinks, etc.)
@@ -134,7 +137,7 @@ Return a JSON object with this exact structure:
       "name": "Category Name",
       "menuType": "dine_in",
       "items": [
-        { "name": "Item", "description": "...", "price": "$12.99", "priceValue": 12.99, "tags": ["vegan"] }
+        { "name": "Item", "description": "...", "price": "$12.99", "priceValue": 12.99, "tags": ["vegan"], "itemKind": "entree" }
       ]
     }
   ],
@@ -207,6 +210,7 @@ export async function fetchGoogleMenuData(
             tags: Array.isArray(i.tags)
               ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
               : [],
+            itemKind: coerceItemKind(i.itemKind) ?? null,
           })),
       }))
 

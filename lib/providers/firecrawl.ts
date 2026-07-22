@@ -43,6 +43,7 @@ export type ExtractedMenu = {
       price: string | null
       priceValue: number | null
       tags: string[]
+      itemKind: string | null
     }>
   }>
 }
@@ -91,6 +92,12 @@ const MENU_SCHEMA = {
                   items: { type: "string" },
                   description: "Dietary tags: vegan, vegetarian, gluten-free, spicy, organic, new, popular",
                 },
+                itemKind: {
+                  type: ["string", "null"],
+                  enum: ["combo_meal", "entree", "side", "drink", "dessert", "condiment", "family_pack", "other", null],
+                  description:
+                    "What KIND of item this is, so prices are compared like-to-like: 'combo_meal' (a bundled meal: entree+side+drink, 'combo', 'meal', value meal), 'entree' (a standalone main: sandwich, plate, bowl, pizza, entree salad), 'side' (fries, slaw, chips, side salad), 'drink' (soda, tea, coffee, shake, bottled), 'dessert' (cookie, pie slice, sundae), 'condiment' (sauce/dip/dressing sold alone), 'family_pack' (a multi-serving catering/party pack, platter, or bundle that feeds several people), or 'other'.",
+                },
               },
               required: ["name"],
             },
@@ -108,6 +115,7 @@ const MENU_EXTRACT_PROMPT = `Extract the COMPLETE restaurant menu from this page
 - If an item has multiple price options (e.g. glass/bottle, small/large, lunch/dinner), create one entry per variant with the variant in the name (e.g. "Pinot Noir (Glass)", "Pinot Noir (Bottle)").
 - Group items into natural categories (Appetizers, Entrees, Desserts, Wine, Cocktails, etc.).
 - Include dietary tags where detectable.
+- Classify each item's itemKind so meal prices can be compared like-to-like: combo_meal (a bundled meal: entree+side+drink, "combo", "meal", value meal), entree (a standalone main dish), side, drink, dessert, condiment (a sauce/dip/dressing sold on its own), family_pack (a multi-serving catering/party pack, platter, or bundle feeding several people), or other. Base it on what the item IS, not the menu section heading. Use null only when genuinely unclear.
 - If no menu items are found, return empty categories array.`
 
 // ---------------------------------------------------------------------------
