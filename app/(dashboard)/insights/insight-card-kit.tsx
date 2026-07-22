@@ -26,6 +26,7 @@ import {
   TkActions,
   TkDismissReason,
   TkCompetitorLink,
+  SocialChannelChip,
   useTkToast,
 } from "@/components/ticket"
 import { updateInsightStatusAction } from "./actions"
@@ -138,6 +139,9 @@ export function InsightCardKit({
         <span className="ins-cleared-tag ins-justgen">Just generated</span>
       ) : null}
       <TkChip family={family}>{insightChipLabel(insight)}</TkChip>
+      {/* ALT-372: for social insights, show which channel at a glance. Renders only when
+          evidence carries a known platform (per-platform social rules stamp it). */}
+      <SocialChannelChip platform={(insight.evidence?.platform as string | undefined) ?? null} />
       {insight.subjectLabel ? (
         <span className="ins-subject">
           {/* ALT-192: when the subject is a watched competitor, link the name to its detail page. */}
