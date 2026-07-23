@@ -57,9 +57,18 @@ create table if not exists location_weather (
 
 create index if not exists idx_location_weather_location_date on location_weather(location_id, date);
 
-alter table refresh_jobs drop constraint if exists refresh_jobs_job_type_check;
-alter table refresh_jobs add constraint refresh_jobs_job_type_check
-  check (job_type in ('content','visibility','events','insights','photos','busy_times','weather'));
+-- ALT-453 replay repair: refresh_jobs is created later (20260209), but on prod it
+-- already existed when this ran. Guard so a clean linear replay skips this until the
+-- table exists; 20260228 sets the final job_type constraint regardless. This migration
+-- never re-runs on prod, so the guard is a no-op there.
+do $$
+begin
+  if to_regclass('public.refresh_jobs') is not null then
+    alter table refresh_jobs drop constraint if exists refresh_jobs_job_type_check;
+    alter table refresh_jobs add constraint refresh_jobs_job_type_check
+      check (job_type in ('content','visibility','events','insights','photos','busy_times','weather'));
+  end if;
+end $$;
 
 alter table competitor_photos enable row level security;
 alter table busy_times enable row level security;
