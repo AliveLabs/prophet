@@ -26,6 +26,9 @@ import {
   TkDrawer,
   TkDismissReason,
   TkActions,
+  AskTicket,
+  askStepQuestion,
+  askEvidenceQuestion,
   useTkToast,
 } from "@/components/ticket"
 import type { EnrichedRecommendation, RecipeStep } from "@/lib/skills/types"
@@ -51,7 +54,7 @@ import {
 } from "./pass-map"
 
 /* ── The drawer body: the real recipe steps + any drafted customer copy ── */
-function RecipeStepView({ step, n }: { step: RecipeStep; n: number }) {
+function RecipeStepView({ step, n, playTitle }: { step: RecipeStep; n: number; playTitle: string }) {
   const channelLine = step.channel
     ? `${humanizeLabel(step.channel)}${step.platforms?.length ? ` · ${step.platforms.map(humanizeLabel).join(", ")}` : ""}`
     : null
@@ -59,7 +62,11 @@ function RecipeStepView({ step, n }: { step: RecipeStep; n: number }) {
     <div className="tk-plan-step">
       <span className="tk-pn">{n}</span>
       <div className="tk-pb">
-        {step.audience ? <h5>{step.audience}</h5> : <h5>Step {n}</h5>}
+        <div className="pass-step-head">
+          {step.audience ? <h5>{step.audience}</h5> : <h5>Step {n}</h5>}
+          {/* ALT-259: step-level Ask — someone running a step may have a question about it */}
+          <AskTicket variant="icon" question={askStepQuestion(playTitle, n, step.audience)} />
+        </div>
         {step.window?.note ? <p>{step.window.note}</p> : null}
         {channelLine ? <p className="pass-step-meta">{channelLine}</p> : null}
         {step.offer ? <p className="pass-step-meta">Offer · {step.offer}</p> : null}
@@ -382,11 +389,15 @@ export function PassPlayCard({
       <div className="pass-drawer-evidence">
         {reinforcing}
         <TkWhy label={whyLabel(play)} points={whyPoints} source={whySource} defaultOpen />
+        {/* ALT-259: ONE section-level Ask about the evidence (never per-signal — avoids clutter) */}
+        <div className="pass-ask-evidence">
+          <AskTicket variant="inline" label="Ask about this evidence" question={askEvidenceQuestion(play.title)} />
+        </div>
       </div>
       {play.recipe?.length ? (
         <div className="pass-plan-steps">
           {play.recipe.map((step, i) => (
-            <RecipeStepView key={i} step={step} n={i + 1} />
+            <RecipeStepView key={i} step={step} n={i + 1} playTitle={play.title} />
           ))}
         </div>
       ) : (

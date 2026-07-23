@@ -655,6 +655,38 @@ button.tk-tbub { position: absolute; top: 8px; right: 8px; z-index: 4; width: 28
   .tk-tbub:hover, .tk-tbub:focus-visible, .tk-tbub.tk-tbub-open { opacity: 1; }
 }
 
+/* ── "Ask Ticket about this" ask-only ingress (ALT-259) ─────────────────────
+   Same copper chat glyph as the T-bubble, no popover. `button.` selectors win over
+   the kit button reset (matches the tk-tbub specificity note above). */
+button.tk-ask-icon {
+  flex: none; display: grid; place-items: center; width: 26px; height: 26px;
+  padding: 0; border: 0; border-radius: 8px; background: none; box-shadow: none;
+  color: var(--rust); cursor: pointer; opacity: .8;
+  transition: transform var(--t-fast), background var(--t-fast), color var(--t-fast), opacity var(--t-fast);
+}
+.tk-ask-icon svg { width: 18px; height: auto; }
+.tk-ask-icon:hover { background: var(--rust-tint); color: var(--rust-deep); transform: translateY(-1px); opacity: 1; }
+.tk-ask-icon:focus-visible { outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px; opacity: 1; }
+
+button.tk-ask-inline {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px 6px 10px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--rust) 30%, var(--line-2));
+  background: none; color: var(--rust); cursor: pointer;
+  font-family: var(--font-cond); font-size: 12px; font-weight: 700;
+  letter-spacing: .02em; box-shadow: none;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.tk-ask-inline svg { width: 16px; height: auto; }
+.tk-ask-inline:hover { background: var(--rust-tint); color: var(--rust-deep); border-color: color-mix(in srgb, var(--rust) 50%, var(--line-2)); }
+.tk-ask-inline:focus-visible { outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px; }
+
+/* recipe-step header row: title on the left, the Ask icon pinned right */
+.pass-step-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.pass-step-head h5 { margin: 0; }
+/* the evidence-section Ask sits under the signals, right-aligned, quiet */
+.pass-ask-evidence { display: flex; justify-content: flex-end; margin-top: 12px; }
+
 .tk-tbub-pop { position: fixed; z-index: 85; width: 272px; max-width: calc(100vw - 16px); background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: 12px; display: flex; flex-direction: column; gap: 8px; opacity: 0; transform: translateY(6px) scale(.98); transform-origin: top right; pointer-events: none; transition: opacity var(--t-fast), transform var(--t-fast); }
 .tk-tbub-pop.tk-open { opacity: 1; transform: none; pointer-events: auto; }
 .tk-tbub-ctx { display: flex; flex-direction: column; gap: 2px; padding: 2px 4px 8px; border-bottom: 1px solid var(--line); }
