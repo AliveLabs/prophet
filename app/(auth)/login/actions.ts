@@ -5,10 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/send"
 import { MagicLinkEmail } from "@/lib/email/templates/magic-link"
-
-function getRedirectUrl() {
-  return `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/auth/callback`
-}
+import { getAuthCallbackUrl } from "@/lib/auth/app-url"
 
 function safeRedirectPath(input: string | null) {
   if (!input) {
@@ -31,7 +28,7 @@ export async function sendMagicLinkAction(formData: FormData) {
   }
 
   const supabase = createAdminSupabaseClient()
-  const redirectTo = getRedirectUrl()
+  const redirectTo = getAuthCallbackUrl()
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "magiclink",
@@ -62,7 +59,7 @@ export async function sendMagicLinkAction(formData: FormData) {
 }
 
 export async function signInWithGoogleAction() {
-  const redirectUrl = getRedirectUrl()
+  const redirectUrl = getAuthCallbackUrl()
 
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.signInWithOAuth({
