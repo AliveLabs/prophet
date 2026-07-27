@@ -1224,6 +1224,13 @@ export async function completeOnboardingAction(input: {
  * Conversion still happens through Stripe checkout later (banner + paywall both link to
  * /settings/billing); unlike a card-backed trial there is no automatic charge, so the
  * day 10 / 13 reminders carry "add a card" copy instead (see lib/billing/trial-reminders).
+ *
+ * COST NOTE (decided 2026-07-24, deliberate): card-less orgs still get the full REAL
+ * first-run data pull — live Places/DataForSEO/Firecrawl/AI spend — because the product is
+ * worth nothing without real data. That is accepted CAC, not an oversight. If usage data
+ * shows it's a bad call, tighten in this order: email verification before the first run →
+ * shorter card-less trial → queue/throttle the pull → reduced first run → re-gate on a
+ * card. Rationale + the metrics to watch: vault brain/decisions/cardless-signup-first-run-data-pull.md
  */
 export async function startTrialWithoutCardAction() {
   const user = await requireUser()
