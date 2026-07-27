@@ -148,7 +148,7 @@ export default async function TrialPage({
               <span className="ob-accent-ic"><IconShield /></span>
               <div className="ob-accent-body">
                 <h5>$0 today</h5>
-                <p>Add a card and nothing is charged until your trial ends — we&apos;ll remind you first. Not ready? Start without one.</p>
+                <p>Add a card and nothing is charged until your trial ends, and we&apos;ll remind you first. Not ready? Start without one.</p>
               </div>
             </div>
           </aside>
@@ -186,7 +186,7 @@ export default async function TrialPage({
               <ul className="ob-trialfacts">
                 <li>
                   <IconCheck />
-                  <span><strong>$0 today.</strong> Nothing is charged until your trial ends — and only if you added a card.</span>
+                  <span><strong>$0 today.</strong> Nothing is charged until your trial ends, and only if you added a card.</span>
                 </li>
                 <li>
                   <IconCheck />

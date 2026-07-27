@@ -10,7 +10,7 @@ interface TrialDay10Props {
   /**
    * True when a card is on file and Stripe will charge it at trial end. False for
    * card-less trials ("skip for now"), where nothing is charged and the trial simply
-   * ends unless they add a card — promising a charge there would be false.
+   * ends unless they add a card. Promising a charge there would be false.
    */
   hasCard?: boolean
 }
@@ -41,7 +41,7 @@ export function TrialDay10({
           ) : (
             <>
               You&rsquo;re 10 days into your {brand} {tierDisplayName} trial. In 4
-              days it ends — there&rsquo;s no card on file, so nothing will be
+              days it ends. There&rsquo;s no card on file, so nothing will be
               charged and your briefs will simply stop. Add a card to keep them
               coming.
             </>
@@ -72,7 +72,7 @@ export function TrialDay10({
           </Text>
         ) : (
           <Text style={emailStyles.paragraph}>
-            If {brand} isn&rsquo;t a fit, do nothing — the trial ends on its own and
+            If {brand} isn&rsquo;t a fit, do nothing: the trial ends on its own and
             you&rsquo;re never charged.
           </Text>
         )}

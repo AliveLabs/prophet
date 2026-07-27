@@ -41,7 +41,7 @@ export function TrialDay13({
             </>
           ) : (
             <>
-              Hey {userName} — tomorrow your {tierDisplayName} trial ends. There&rsquo;s
+              Hey {userName}, tomorrow your {tierDisplayName} trial ends. There&rsquo;s
               no card on file, so you won&rsquo;t be charged anything: your briefs
               just stop. Add a card today to keep them running without a gap.
             </>
@@ -65,7 +65,7 @@ export function TrialDay13({
           </Text>
         ) : (
           <Text style={emailStyles.paragraph}>
-            Not for you? Nothing happens — you&rsquo;re never charged, and your data
+            Not for you? Nothing happens: you&rsquo;re never charged, and your data
             stays available for 30 days in case you change your mind.
           </Text>
         )}
