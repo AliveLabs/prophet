@@ -5,7 +5,7 @@
 
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
-import type { MenuSnapshot, SiteContentSnapshot, MenuCategory, MenuType } from "./types"
+import type { MenuSnapshot, SiteContentSnapshot, MenuCategory, MenuType, MenuItem, ItemKind } from "./types"
 
 type CompetitorMenu = {
   competitorId: string
@@ -173,10 +173,129 @@ export function priceStatsPair(locCategories: MenuCategory[], compCategories: Me
 // PRICE_COMPARISON_LIMITATION: excluding non-meal add-ons + requiring a minimum sample
 // narrows, but does not eliminate, the comparability gap — a combo-only concept's "meal"
 // items (bundled: entree+side+drink) are still structurally different from an à la carte
-// concept's individual entree prices. True fix is per-category / per-item-type matching,
-// which needs menu-parse-time item classification we don't have yet (tracked as a
-// follow-up). This is a bounded improvement: fewer wild swings, no insight from noise-level
-// samples, confidence that reflects real data volume — not a claim of full comparability.
+// concept's individual entree prices. comparableItems()/priceStatsPair() are the earlier
+// (ALT-290 / PR #69) whole-bucket approach, kept for the /content menu-compare widget; the
+// menu price RULES below now compare per item KIND (ALT-296) via comparePriceByKind().
+
+// ── Like-to-like price comparison by item kind (ALT-296) ───────────────────
+// The real fix for the apples-to-oranges bug (ALT-290): compare a competitor's combo meals
+// to OUR combo meals, their entrees to our entrees, their family packs to our family packs —
+// never one menu-wide average that lumps a combo-driven concept in with an à-la-carte one.
+// We only price-compare "meal unit" kinds; sides/drinks/desserts/condiments/other are not
+// the meal and are excluded from positioning entirely.
+const COMPARABLE_KINDS: readonly ItemKind[] = ["combo_meal", "entree", "family_pack"] as const
+
+const KIND_LABELS: Record<ItemKind, string> = {
+  combo_meal: "combo meal",
+  entree: "entree",
+  family_pack: "family-size pack",
+  side: "side",
+  drink: "drink",
+  dessert: "dessert",
+  condiment: "condiment",
+  other: "item",
+}
+
+// Per-KIND minimum on the smaller side before a bucket is trustworthy. Same "a thin read is
+// worse than none" philosophy as MIN_COMPARABLE_ITEMS, applied per bucket — a 3-item bucket
+// swings on which items a scrape happened to catch (the live-data instability behind ALT-290).
+const MIN_ITEMS_PER_BUCKET = 5
+// Smaller side >= this in a bucket → "high"; between MIN and this → "medium".
+const HIGH_CONFIDENCE_ITEMS_PER_BUCKET = 12
+// At least this many comparable kinds must overlap before we emit anything. One genuine
+// like-to-like bucket already beats the old whole-menu average, so the floor is 1.
+const MIN_COMPARABLE_BUCKETS = 1
+
+// Resolve an item's kind for price comparison. Classified items (ALT-296) use their itemKind;
+// legacy/unclassified items fall back to the NON_MEAL_ITEM heuristic — a clear standalone
+// add-on is dropped, everything else counts as a generic entree (reproducing the pre-ALT-296
+// whole-bucket behavior until classification accrues). Returns null when the item should not
+// participate in price positioning (an add-on, or a non-meal kind like side/drink/dessert).
+function resolveComparableKind(item: MenuItem): ItemKind | null {
+  const kind = item.itemKind
+  if (kind) return COMPARABLE_KINDS.includes(kind) ? kind : null
+  return NON_MEAL_ITEM.test(item.name) ? null : "entree"
+}
+
+// Group a bucket's priced items by comparable kind → list of prices.
+function pricesByKind(categories: MenuCategory[]): Map<ItemKind, number[]> {
+  const byKind = new Map<ItemKind, number[]>()
+  for (const cat of categories) {
+    for (const item of cat.items) {
+      if (item.priceValue == null || item.priceValue <= 0) continue
+      const kind = resolveComparableKind(item)
+      if (!kind) continue
+      const list = byKind.get(kind)
+      if (list) list.push(item.priceValue)
+      else byKind.set(kind, [item.priceValue])
+    }
+  }
+  return byKind
+}
+
+export type KindPriceStat = {
+  kind: ItemKind
+  locAvg: number
+  compAvg: number
+  locN: number
+  compN: number
+  pctDiff: number // absolute fractional gap vs the location's average
+}
+
+export type KindPriceComparison = {
+  headline: KindPriceStat // the most material comparable bucket (largest gap)
+  buckets: KindPriceStat[] // every kind compared, for evidence/transparency
+  confidence: "high" | "medium"
+}
+
+/** Compare two menu-type buckets WITHIN matching item kinds. Returns null when no kind
+ *  overlaps with enough items on both sides to trust — the caller then skips the insight
+ *  rather than fall back to a whole-menu average (ALT-296). */
+export function comparePriceByKind(
+  locCategories: MenuCategory[],
+  compCategories: MenuCategory[],
+): KindPriceComparison | null {
+  const locByKind = pricesByKind(locCategories)
+  const compByKind = pricesByKind(compCategories)
+  const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+
+  const buckets: KindPriceStat[] = []
+  for (const kind of COMPARABLE_KINDS) {
+    const locPrices = locByKind.get(kind) ?? []
+    const compPrices = compByKind.get(kind) ?? []
+    if (Math.min(locPrices.length, compPrices.length) < MIN_ITEMS_PER_BUCKET) continue
+    const locAvg = avg(locPrices)
+    const compAvg = avg(compPrices)
+    buckets.push({
+      kind,
+      locAvg,
+      compAvg,
+      locN: locPrices.length,
+      compN: compPrices.length,
+      pctDiff: Math.abs(compAvg - locAvg) / locAvg,
+    })
+  }
+
+  if (buckets.length < MIN_COMPARABLE_BUCKETS) return null
+
+  // Headline on the largest gap — the most decision-relevant like-to-like difference.
+  const headline = buckets.reduce((a, b) => (b.pctDiff > a.pctDiff ? b : a))
+  const minN = Math.min(headline.locN, headline.compN)
+  const confidence = minN >= HIGH_CONFIDENCE_ITEMS_PER_BUCKET ? "high" : "medium"
+  return { headline, buckets, confidence }
+}
+
+// Evidence-friendly per-bucket breakdown (rounded pct) for insight transparency.
+function bucketEvidence(buckets: KindPriceStat[]) {
+  return buckets.map((b) => ({
+    kind: b.kind,
+    locationAvgPrice: b.locAvg,
+    competitorAvgPrice: b.compAvg,
+    locationSampleSize: b.locN,
+    competitorSampleSize: b.compN,
+    priceDiffPct: Math.round(b.pctDiff * 100),
+  }))
+}
 
 function categoryNames(categories: MenuCategory[]): Set<string> {
   return new Set(categories.map((c) => c.name.toLowerCase().trim()))
@@ -345,27 +464,35 @@ export function generateContentInsights(
     for (const comp of competitorMenus) {
       const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
       if (compDineIn.length === 0) continue
-      const stats = priceStatsPair(locDineIn, compDineIn)
-      if (!stats) continue // too few comparable items on either side to trust the average
-      const { loc, comp: compStats } = stats
-      const diff = compStats.avg - loc.avg
-      const pctDiff = Math.abs(diff) / loc.avg
+      // Compare like-to-like by item kind (ALT-296) — never a whole-menu flat average.
+      const cmp = comparePriceByKind(locDineIn, compDineIn)
+      if (!cmp) continue // no item kind overlaps with enough items on both sides to trust
+      const { headline: h, buckets, confidence } = cmp
+      const diff = h.compAvg - h.locAvg
+      const pctDiff = h.pctDiff
+      const label = KIND_LABELS[h.kind]
+      const pct = Math.round(pctDiff * 100)
 
       if (pctDiff >= 0.15) {
+        const alsoNote = buckets.length > 1 ? ` (compared across ${buckets.length} item types)` : ""
         insights.push({
           insight_type: "menu.price_positioning_shift",
           title: diff > 0
-            ? `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% higher`
-            : `${comp.competitorName} dine-in prices are ${Math.round(pctDiff * 100)}% lower`,
-          summary: `Your average dine-in price ($${loc.avg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compStats.avg.toFixed(2)}), based on ${loc.n} of your comparable items vs ${compStats.n} of theirs. ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
-          confidence: loc.confidence,
-          severity: Math.abs(pctDiff) >= 0.3 ? "warning" : "info",
+            ? `${comp.competitorName} ${label} prices are ${pct}% higher`
+            : `${comp.competitorName} ${label} prices are ${pct}% lower`,
+          summary: `Your average ${label} price ($${h.locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${h.compAvg.toFixed(2)}), comparing ${h.locN} of your ${label} items to ${h.compN} of theirs${alsoNote}. ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
+          confidence,
+          severity: pctDiff >= 0.3 ? "warning" : "info",
           evidence: {
-            locationAvgPrice: loc.avg,
-            competitorAvgPrice: compStats.avg,
-            locationSampleSize: loc.n,
-            competitorSampleSize: compStats.n,
-            priceDiffPct: Math.round(pctDiff * 100),
+            // Headline-bucket figures kept under the original keys so downstream corroboration
+            // (corroboratePriceInsights) and existing consumers keep working unchanged.
+            locationAvgPrice: h.locAvg,
+            competitorAvgPrice: h.compAvg,
+            locationSampleSize: h.locN,
+            competitorSampleSize: h.compN,
+            priceDiffPct: pct,
+            comparedItemKind: h.kind,
+            comparedBuckets: bucketEvidence(buckets),
             competitor: comp.competitorName,
             menuType: "dine_in",
           },
@@ -373,8 +500,8 @@ export function generateContentInsights(
             {
               title: diff > 0 ? "Evaluate a price increase" : "Review your pricing strategy",
               rationale: diff > 0
-                ? `${comp.competitorName} charges ${Math.round(pctDiff * 100)}% more for dine-in. Test raising prices on high-margin items.`
-                : `${comp.competitorName} is ${Math.round(pctDiff * 100)}% cheaper for dine-in. Ensure your value proposition justifies the premium.`,
+                ? `${comp.competitorName} charges ${pct}% more for a comparable ${label}. Test raising prices on high-margin items.`
+                : `${comp.competitorName} is ${pct}% cheaper for a comparable ${label}. Ensure your value proposition justifies the premium.`,
             },
           ],
         })
@@ -606,30 +733,34 @@ export function generateContentInsights(
     for (const comp of competitorMenus) {
       const compCatering = filterByMenuType(comp.menu.categories, "catering")
       if (compCatering.length === 0) continue
-      // Catering menus are inherently SMALL (a handful of tray/package options) — the
-      // same minimum-sample gate applies, so a catering comparison built from 3-5 items
-      // (confirmed unstable run-to-run against live data) is dropped rather than reported.
-      const stats = priceStatsPair(locCatering, compCatering)
-      if (!stats) continue
-      const { loc, comp: compStats } = stats
-      const diff = compStats.avg - loc.avg
-      const pctDiff = Math.abs(diff) / loc.avg
+      // Catering menus are inherently SMALL (a handful of package/family-pack options) and
+      // structurally mixed. Compare within item kind (family_pack-vs-family_pack, etc.) and
+      // require the per-kind minimum, so a 3-5 item bucket (confirmed unstable run-to-run
+      // against live data) is dropped rather than reported (ALT-296 + ALT-290).
+      const cmp = comparePriceByKind(locCatering, compCatering)
+      if (!cmp) continue
+      const { headline: h, buckets, confidence } = cmp
+      const diff = h.compAvg - h.locAvg
+      const pctDiff = h.pctDiff
+      const pct = Math.round(pctDiff * 100)
 
       if (pctDiff >= 0.10) {
         insights.push({
           insight_type: "menu.catering_pricing_gap",
           title: diff > 0
-            ? `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% higher`
-            : `${comp.competitorName} catering prices are ${Math.round(pctDiff * 100)}% lower`,
-          summary: `Your average catering price ($${loc.avg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${compStats.avg.toFixed(2)}), based on ${loc.n} of your comparable items vs ${compStats.n} of theirs. Catering margins are typically high — pricing accurately matters.`,
-          confidence: loc.confidence,
-          severity: Math.abs(pctDiff) >= 0.25 ? "warning" : "info",
+            ? `${comp.competitorName} catering prices are ${pct}% higher`
+            : `${comp.competitorName} catering prices are ${pct}% lower`,
+          summary: `Your average catering price ($${h.locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${h.compAvg.toFixed(2)}), comparing ${h.locN} of your comparable catering items to ${h.compN} of theirs. Catering margins are typically high — pricing accurately matters.`,
+          confidence,
+          severity: pctDiff >= 0.25 ? "warning" : "info",
           evidence: {
-            locationCateringAvgPrice: loc.avg,
-            competitorCateringAvgPrice: compStats.avg,
-            locationSampleSize: loc.n,
-            competitorSampleSize: compStats.n,
-            priceDiffPct: Math.round(pctDiff * 100),
+            locationCateringAvgPrice: h.locAvg,
+            competitorCateringAvgPrice: h.compAvg,
+            locationSampleSize: h.locN,
+            competitorSampleSize: h.compN,
+            priceDiffPct: pct,
+            comparedItemKind: h.kind,
+            comparedBuckets: bucketEvidence(buckets),
             competitor: comp.competitorName,
             menuType: "catering",
           },
@@ -637,8 +768,8 @@ export function generateContentInsights(
             {
               title: diff > 0 ? "Review catering price opportunity" : "Audit catering pricing competitiveness",
               rationale: diff > 0
-                ? `${comp.competitorName} charges ${Math.round(pctDiff * 100)}% more for catering. You may be leaving revenue on the table.`
-                : `${comp.competitorName} undercuts your catering prices by ${Math.round(pctDiff * 100)}%. Evaluate your catering value proposition.`,
+                ? `${comp.competitorName} charges ${pct}% more for comparable catering. You may be leaving revenue on the table.`
+                : `${comp.competitorName} undercuts your catering prices by ${pct}%. Evaluate your catering value proposition.`,
             },
           ],
         })
