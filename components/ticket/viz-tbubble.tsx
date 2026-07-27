@@ -57,7 +57,7 @@ export type VizContext = {
   entityId?: string
   /** human timeframe, e.g. "this week", "12 days history + 1 day forecast" */
   timeframe?: string
-  /** where the data came from, e.g. "OpenWeatherMap" */
+  /** what KIND of data this is, e.g. "Weather data" — never the vendor (see lib/ops/provenance-copy) */
   source?: string
   /** the location this viz belongs to (the generate endpoint validates + falls back) */
   locationId?: string

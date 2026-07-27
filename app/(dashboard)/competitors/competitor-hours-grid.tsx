@@ -458,7 +458,7 @@ export default function CompetitorHoursGrid({
     metric: "Who's busy when",
     entityType: "competitor",
     timeframe: dayLabel,
-    source: "Google Maps",
+    source: "Listing data",
     locationId,
   }
 

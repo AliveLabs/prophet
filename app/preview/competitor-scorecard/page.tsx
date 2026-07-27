@@ -31,7 +31,7 @@ const METRICS: ScorecardMetric[] = [
       "Chick-fil-A has 4,870 reviews to your 312 — roughly 16× your base. Review volume compounds local visibility.",
       "A review ask at the register or on receipts is the cheapest way to close a base gap.",
     ],
-    source: "Google listing profiles",
+    source: "Listing data",
     href: null,
   },
   {
@@ -71,7 +71,7 @@ const METRICS: ScorecardMetric[] = [
       "Chick-fil-A holds 4.7★ — you hold 4.6★. Star gaps this size move which listing gets the tap in local results.",
       "Ratings shift slowly: steady review flow and replies are the honest lever, not a sprint.",
     ],
-    source: "Google listing profiles",
+    source: "Listing data",
     href: null,
   },
   {
@@ -87,7 +87,7 @@ const METRICS: ScorecardMetric[] = [
     verdict: "You lead · 6/7 covered vs Chick-fil-A's 5/7 covered",
     confidence: "medium",
     evidence: [],
-    source: "Google listing photos, vision-analyzed",
+    source: "Listing photos, vision-analyzed",
     href: "/photos",
   },
   {

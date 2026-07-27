@@ -1,5 +1,7 @@
 "use client"
 
+import { WeatherGlyph } from "./weather-glyph"
+
 export type LocationWeather = {
   location_id: string
   location_name: string
@@ -16,10 +18,6 @@ export type LocationWeather = {
 
 type Props = {
   locations: LocationWeather[]
-}
-
-function getWeatherIconUrl(icon: string): string {
-  return `https://openweathermap.org/img/wn/${icon}@2x.png`
 }
 
 export default function LocationWeatherCards({ locations }: Props) {
@@ -45,10 +43,9 @@ export default function LocationWeatherCards({ locations }: Props) {
                   {new Date(loc.date + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </p>
               </div>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={getWeatherIconUrl(loc.weather_icon)}
-                alt={loc.weather_condition}
+              <WeatherGlyph
+                code={loc.weather_icon}
+                label={loc.weather_condition}
                 className="h-10 w-10"
               />
             </div>

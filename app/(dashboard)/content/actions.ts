@@ -240,7 +240,7 @@ export async function refreshContentAction(formData: FormData) {
       }
     } catch (err) {
       console.warn("[Content] Gemini Google menu fetch error:", err)
-      warnings.push("Google menu data fetch failed – using Firecrawl data only")
+      warnings.push("Supplemental menu lookup failed; used the primary read only")
     }
 
     if (allParsedResults.length > 0) {
