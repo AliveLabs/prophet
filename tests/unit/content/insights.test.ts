@@ -9,9 +9,10 @@ import {
   corroboratePriceInsights,
   comparableItems,
   priceStatsPair,
+  comparePriceByKind,
   detectSustainedMenuChange,
 } from "@/lib/content/insights"
-import type { MenuItem, MenuCategory, MenuSnapshot, MenuType } from "@/lib/content/types"
+import type { MenuItem, MenuCategory, MenuSnapshot, MenuType, ItemKind } from "@/lib/content/types"
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 
@@ -340,5 +341,100 @@ describe("detectSustainedMenuChange (ALT-380) — content-based persistence, not
     const jitterA = menuNamed([...names(10), "maybe1"]) // +1 vs baseline, within tolerance
     // S0 vs S1 differ by 1 (jitter), and the move vs baseline is only 1 item (< min 3) → null
     expect(detectSustainedMenuChange(jitterA, [base, base])).toBeNull()
+  })
+})
+
+// ── Like-to-like comparison by item kind (ALT-296) — the structural fix for the ALT-290
+// apples-to-oranges bug. A combo-driven concept's combos must be compared to the other side's
+// combos, entrees to entrees, family packs to family packs — never one whole-menu average. ──
+
+// A classified item (has itemKind). `count` copies at one price keep the bucket average exact.
+function kItem(priceValue: number, kind: ItemKind, name = `${kind}-${priceValue}`): MenuItem {
+  return { name, description: null, price: `$${priceValue}`, priceValue, tags: [], itemKind: kind }
+}
+function kItems(count: number, priceValue: number, kind: ItemKind): MenuItem[] {
+  return Array.from({ length: count }, (_, i) => kItem(priceValue, kind, `${kind}-${i}`))
+}
+function catsOf(items: MenuItem[], menuType: MenuType = "dine_in"): MenuCategory[] {
+  return [{ name: "Menu", menuType, items }]
+}
+function kMenu(items: MenuItem[], menuType: MenuType = "dine_in"): MenuSnapshot {
+  return {
+    menuUrl: null, capturedAt: "2026-06-19", screenshot: null, currency: "USD",
+    categories: [{ name: "Menu", menuType, items }],
+    parseMeta: { itemsTotal: items.length, confidence: "high", notes: [] },
+  }
+}
+
+describe("comparePriceByKind — compares within matching item kinds only", () => {
+  it("compares entree-to-entree and ignores a kind the other side lacks", () => {
+    const loc = catsOf([...kItems(6, 12, "entree"), ...kItems(6, 20, "combo_meal")])
+    const comp = catsOf(kItems(6, 10, "entree")) // no combos
+    const cmp = comparePriceByKind(loc, comp)
+    expect(cmp).not.toBeNull()
+    expect(cmp?.buckets).toHaveLength(1)
+    expect(cmp?.headline.kind).toBe("entree")
+    expect(cmp?.headline.locAvg).toBe(12) // NOT dragged toward the $20 combos
+    expect(cmp?.headline.compAvg).toBe(10)
+  })
+
+  it("excludes non-meal kinds (drinks/sides) from the averaged basket entirely", () => {
+    const loc = catsOf([...kItems(6, 12, "entree"), ...kItems(10, 2, "drink"), ...kItems(10, 3, "side")])
+    const comp = catsOf([...kItems(6, 10, "entree"), ...kItems(10, 2, "drink")])
+    const cmp = comparePriceByKind(loc, comp)
+    expect(cmp?.buckets.map((b) => b.kind)).toEqual(["entree"])
+    expect(cmp?.headline.locAvg).toBe(12) // drinks/sides didn't pull the average down
+  })
+
+  it("headlines the kind with the LARGEST gap when multiple kinds overlap", () => {
+    const loc = catsOf([...kItems(6, 12, "entree"), ...kItems(6, 20, "combo_meal")])
+    const comp = catsOf([...kItems(6, 11, "entree"), ...kItems(6, 28, "combo_meal")]) // combos gap ~40% > entrees ~8%
+    const cmp = comparePriceByKind(loc, comp)
+    expect(cmp?.buckets).toHaveLength(2)
+    expect(cmp?.headline.kind).toBe("combo_meal")
+  })
+
+  it("returns null when the only shared kind is below the per-bucket minimum", () => {
+    const loc = catsOf(kItems(3, 12, "entree"))
+    const comp = catsOf(kItems(3, 10, "entree"))
+    expect(comparePriceByKind(loc, comp)).toBeNull()
+  })
+
+  it("legacy items (no itemKind) fall back to the name heuristic → one 'entree' bucket", () => {
+    const loc = catsOf([item(12, "Grilled Chicken Sandwich"), item(12, "Club Sandwich"), item(12, "Cheeseburger"), item(12, "BLT"), item(12, "Turkey Wrap"), item(12, "Cobb Salad")])
+    const comp = catsOf([item(10, "Patty Melt"), item(10, "Reuben"), item(10, "Chicken Wrap"), item(10, "Veggie Burger"), item(10, "Steak Sandwich"), item(10, "Fish Sandwich")])
+    const cmp = comparePriceByKind(loc, comp)
+    expect(cmp?.headline.kind).toBe("entree")
+    expect(cmp?.headline.locAvg).toBe(12)
+    expect(cmp?.headline.compAvg).toBe(10)
+  })
+
+  it("confidence reflects the smaller side of the headline bucket (medium 5-11, high >=12)", () => {
+    const medium = comparePriceByKind(catsOf(kItems(8, 12, "entree")), catsOf(kItems(20, 10, "entree")))
+    expect(medium?.confidence).toBe("medium")
+    const high = comparePriceByKind(catsOf(kItems(12, 12, "entree")), catsOf(kItems(20, 10, "entree")))
+    expect(high?.confidence).toBe("high")
+  })
+})
+
+describe("generateContentInsights — kind-aware price positioning (ALT-296)", () => {
+  const compOf = (menu: MenuSnapshot) => [{ competitorId: "c1", competitorName: "Rival", menu, siteContent: null }]
+  const priceFor = (out: GeneratedInsight[]) => out.find((i) => i.insight_type === "menu.price_positioning_shift")
+
+  it("does NOT compare a combo-only concept against an à-la-carte one (the ALT-290 bug) — no shared kind, no insight", () => {
+    const loc = kMenu(kItems(6, 20, "combo_meal")) // combo-driven, no standalone entrees
+    const comp = kMenu(kItems(6, 10, "entree")) // à la carte, no combos
+    const out = generateContentInsights(loc, compOf(comp), null, [])
+    expect(priceFor(out)).toBeUndefined()
+  })
+
+  it("emits a like-to-like combo-vs-combo comparison and records the compared kind in evidence", () => {
+    const loc = kMenu(kItems(6, 20, "combo_meal"))
+    const comp = kMenu(kItems(6, 28, "combo_meal")) // 40% higher combos
+    const price = priceFor(generateContentInsights(loc, compOf(comp), null, []))
+    expect(price).toBeDefined()
+    expect(price?.evidence.comparedItemKind).toBe("combo_meal")
+    expect(Array.isArray(price?.evidence.comparedBuckets)).toBe(true)
+    expect(price?.title.toLowerCase()).toContain("combo meal")
   })
 })

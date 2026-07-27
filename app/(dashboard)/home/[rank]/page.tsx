@@ -33,6 +33,9 @@ import {
   TkWhy,
   TkH2HBars,
   TkSentimentRows,
+  AskTicket,
+  askStepQuestion,
+  askEvidenceQuestion,
 } from "@/components/ticket"
 import { PlayProofGrid } from "./play-proof-grid"
 import { FAMILY_ICON } from "../pass-icons"
@@ -210,7 +213,11 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
                     <div className="tk-plan-step">
                       <span className="tk-pn">{i + 1}</span>
                       <div className="tk-pb pd-pb">
-                        <h5>{step.audience || `Step ${i + 1}`}</h5>
+                        <div className="pass-step-head">
+                          <h5>{step.audience || `Step ${i + 1}`}</h5>
+                          {/* ALT-259: step-level Ask */}
+                          <AskTicket variant="icon" question={askStepQuestion(play.title, i + 1, step.audience)} />
+                        </div>
                         {step.window?.note ? <p className="pd-step-when">{step.window.note}</p> : null}
                         {channelLine ? <p className="pd-step-meta">{channelLine}</p> : null}
                         {step.offer ? <p className="pd-step-meta">Offer · {step.offer}</p> : null}
@@ -340,6 +347,11 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
         <RevealOnView className="pd-why-wrap">
           <TkWhy label={whyLabel(play)} points={whyPoints} source={whySource} defaultOpen />
         </RevealOnView>
+
+        {/* ALT-259: ONE section-level Ask about the evidence (never per-signal — avoids clutter) */}
+        <div className="pass-ask-evidence">
+          <AskTicket variant="inline" label="Ask about this evidence" question={askEvidenceQuestion(play.title)} />
+        </div>
       </section>
 
       {/* ── WHAT THE RIVALS ARE RUNNING — their real posts + why they worked ── */}

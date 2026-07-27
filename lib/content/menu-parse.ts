@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource } from "./types"
+import { coerceItemKind } from "./types"
 import type { ExtractedMenu } from "@/lib/providers/firecrawl"
 import type { GoogleMenuResult } from "@/lib/ai/gemini"
 
@@ -90,6 +91,7 @@ export function normalizeExtractedMenu(
             tags: Array.isArray(i.tags)
               ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
               : [],
+            itemKind: coerceItemKind(i.itemKind),
           })),
       }
     })
@@ -132,6 +134,7 @@ export function normalizeGoogleMenuData(
           tags: Array.isArray(i.tags)
             ? i.tags.map((t) => String(t).toLowerCase().trim()).filter(Boolean)
             : [],
+          itemKind: coerceItemKind(i.itemKind),
         })),
     }))
 
@@ -160,7 +163,9 @@ function normalizeKey(text: string): string {
 }
 
 function itemRichness(item: MenuItem): number {
-  return (item.price ? 1 : 0) + (item.description ? 1 : 0) + (item.tags.length > 0 ? 1 : 0)
+  // itemKind is a low-weight tiebreaker so a classified occurrence is preferred over an
+  // otherwise-equal unclassified one when the same dish appears in two sources (ALT-296).
+  return (item.price ? 1 : 0) + (item.description ? 1 : 0) + (item.tags.length > 0 ? 1 : 0) + (item.itemKind ? 1 : 0)
 }
 
 export function mergeExtractedMenus(
