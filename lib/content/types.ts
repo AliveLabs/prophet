@@ -92,6 +92,20 @@ export type ParseMeta = {
   confidence: "high" | "medium" | "low"
   notes: string[]
   sources?: MenuSource[]
+  /**
+   * Best item count we have ever credibly read for this menu (high outliers excluded).
+   * Our only available proxy for "how big is this menu really" — see
+   * menuCoverage() in menu-parse.ts. Absent when there isn't enough history to judge.
+   */
+  historicalHighItems?: number
+  /**
+   * itemsTotal / historicalHighItems, clamped to 1. Below ~0.85 the read is
+   * CONFIDENTLY INCOMPLETE: enough items to look fine to every other signal, but
+   * materially short of what this same menu has yielded before. That is the exact
+   * failure mode that made menu claims untrustworthy (ALT-363/380), so insights gate
+   * on it. Absent when historicalHighItems is.
+   */
+  coverageRatio?: number
 }
 
 export type MenuSnapshot = {

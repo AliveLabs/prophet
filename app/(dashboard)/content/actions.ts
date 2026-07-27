@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
 import { normalizeSiteContentFromExtraction, buildMenuSnapshot, computeContentDiffHash, computeMenuDiffHash } from "@/lib/content/normalize"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_UNION_WINDOW } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
@@ -423,7 +423,7 @@ export async function refreshContentAction(formData: FormData) {
       .eq("location_id", locationId)
       .eq("provider", "firecrawl_menu")
       .order("date_key", { ascending: false })
-      .limit(MENU_UNION_WINDOW)
+      .limit(MENU_HISTORY_WINDOW)
 
     const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
     const locMenu = unionRecentMenus(menuHistory) ?? locationMenu

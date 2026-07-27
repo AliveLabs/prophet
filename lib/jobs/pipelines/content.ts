@@ -23,7 +23,7 @@ import {
   normalizeGoogleMenuData,
   mergeExtractedMenus,
   unionRecentMenus,
-  MENU_UNION_WINDOW,
+  MENU_HISTORY_WINDOW,
 } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
@@ -486,7 +486,7 @@ export function buildContentSteps(
         .eq("location_id", c.locationId)
         .eq("provider", "firecrawl_menu")
         .order("date_key", { ascending: false })
-        .limit(MENU_UNION_WINDOW)
+        .limit(MENU_HISTORY_WINDOW)
 
       const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
       const locMenu = unionRecentMenus(menuHistory) ?? c.state.locationMenu

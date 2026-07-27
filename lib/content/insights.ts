@@ -33,8 +33,33 @@ export function isMenuInsightsEnabled(): boolean {
 // instrumentation we don't have yet — that's the Layer 2 work, not this gate.
 const MIN_MENU_ITEMS_FOR_CLAIMS = 5
 
+// Minimum share of this menu's OWN best-known size before we'll ground a claim on it.
+// MIN_MENU_ITEMS_FOR_CLAIMS only catches near-empty reads; the dangerous case is the
+// confidently-incomplete one (a 68-item menu read as 10 clears the item floor easily).
+// Measured 2026-07-27: the 4-capture union holds a median 96% of best-known, so 0.85 keeps
+// the healthy majority and mutes the tail that produces wrong claims.
+const MENU_MIN_COVERAGE_RATIO = 0.85
+
+/**
+ * Is this menu read complete enough to ground a claim?
+ *
+ * Two independent gates: an absolute item floor, and coverage against the best read we've
+ * had for this same menu. Coverage is only enforced when we HAVE that history —
+ * `coverageRatio` is undefined for new or thinly-sampled locations, and a missing baseline
+ * must not silently mute them.
+ */
 function menuHasCoverage(menu: MenuSnapshot | null): boolean {
-  return !!menu && menu.parseMeta.itemsTotal >= MIN_MENU_ITEMS_FOR_CLAIMS
+  if (!menu) return false
+  if (menu.parseMeta.itemsTotal < MIN_MENU_ITEMS_FOR_CLAIMS) return false
+  const ratio = menu.parseMeta.coverageRatio
+  if (typeof ratio === "number" && ratio < MENU_MIN_COVERAGE_RATIO) return false
+  return true
+}
+
+/** True when coverage is known AND strong — the bar for asserting "high" confidence. */
+function menuCoverageIsStrong(menu: MenuSnapshot | null): boolean {
+  const ratio = menu?.parseMeta.coverageRatio
+  return typeof ratio === "number" && ratio >= MENU_MIN_COVERAGE_RATIO
 }
 
 // ── Sustained menu-change detection (ALT-380) ──────────────────────────────
@@ -637,7 +662,11 @@ export function generateContentInsights(
         insight_type: "menu.menu_change_detected",
         title,
         summary: `A menu update has held across recent checks${examples.length ? ` (e.g. ${examples.join(", ")})` : ""}. Make sure your Google, website, and delivery menus all match.`,
-        confidence: "high",
+        // ALT-290: was hardcoded "high". Sustained detection proves the change PERSISTED,
+        // not that we read the whole menu — on a partially-read menu an "added"/"removed"
+        // item is as likely a scrape artifact. Assert "high" only with a strong coverage
+        // baseline; otherwise the claim stands but stops overstating its own certainty.
+        confidence: menuCoverageIsStrong(currentRaw) ? "high" : "medium",
         severity: "info",
         evidence: {
           addedItems: added.slice(0, 20),
