@@ -218,8 +218,8 @@ export function PassPlayCard({
   // vanished from the card entirely). Order: confidence · impact · (win-flag when ahead).
   const status = (
     <>
-      <TkConfidence level={confLevel(play.confidence)} />
-      <TkImpactTag level={impactLevel(play)} />
+      <TkConfidence level={confLevel(play.confidence)} name="Confidence" />
+      <TkImpactTag level={impactLevel(play)} name="Impact" />
       {advantage ? <TkWinFlag /> : null}
     </>
   )
@@ -228,8 +228,8 @@ export function PassPlayCard({
   const chips = (
     <>
       <TkChip family={family}>{playChipLabel(play)}</TkChip>
-      <TkConfidence level={confLevel(play.confidence)} />
-      <TkImpactTag level={impactLevel(play)} />
+      <TkConfidence level={confLevel(play.confidence)} name="Confidence" />
+      <TkImpactTag level={impactLevel(play)} name="Impact" />
       {advantage ? <TkWinFlag /> : null}
     </>
   )

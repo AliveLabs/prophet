@@ -127,8 +127,8 @@ export function InsightCardKit({
   //    insight never claims an edge it can't back. ──
   const statusEl = (
     <>
-      <TkConfidence level={level} showLabel={false} />
-      <TkImpactTag level={impact} />
+      <TkConfidence level={level} name="Confidence" />
+      <TkImpactTag level={impact} name="Impact" />
     </>
   )
 
