@@ -13,7 +13,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { getImpersonation } from "@/lib/auth/impersonation"
 import { ImpersonationBanner } from "@/components/impersonation-banner"
-import { isTrialActive, isTrialing, getTrialDaysRemaining } from "@/lib/billing/trial"
+import { isTrialActive, isTrialing, getTrialDaysRemaining, TRIAL_BANNER_WINDOW_DAYS } from "@/lib/billing/trial"
 import { asSubscriptionTier, TIER_PRICING } from "@/lib/billing/tiers"
 import { AccountHeldPanel } from "@/components/billing/account-held-panel"
 import { TrialBanner } from "@/components/billing/trial-banner"
@@ -91,7 +91,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("name, display_name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id, deleted_at")
+    .select("name, display_name, subscription_tier, trial_started_at, trial_ends_at, industry_type, payment_state, stripe_customer_id, deleted_at, org_kind")
     .eq("id", profile.current_organization_id)
     .maybeSingle()
 
@@ -230,11 +230,15 @@ async function OperatorShell({ children }: { children: ReactNode }) {
   }
 
   const daysRemaining = orgRow ? getTrialDaysRemaining({ trial_ends_at: orgRow.trial_ends_at }) : 0
-  // Show for the WHOLE trial (the in-app side of the notification cadence);
-  // the banner itself escalates tone at T-4 / T-1 to mirror the reminder emails.
+  // Only real paying-path trials, and only inside the final TRIAL_BANNER_WINDOW_DAYS —
+  // NOT for the whole trial, and never for demo/test orgs (beta testers run as
+  // org_kind='demo' with long trials, and a "your trial is ending" nag is wrong for
+  // them). The banner still escalates tone at T-4 / T-1 to mirror the reminder emails.
   const showTrialBanner =
     daysRemaining > 0 &&
+    daysRemaining <= TRIAL_BANNER_WINDOW_DAYS &&
     !!orgRow &&
+    orgRow.org_kind === "real" &&
     isTrialing({
       trial_ends_at: orgRow.trial_ends_at,
       subscription_tier: orgRow.subscription_tier,

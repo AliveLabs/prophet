@@ -1,5 +1,13 @@
 export const TRIAL_DURATION_DAYS = 14
 
+/**
+ * How many days before trial_ends_at the in-app trial banner starts showing.
+ * Deliberately NOT the whole trial: the banner is a conversion nudge for real
+ * trials in their final stretch, not ambient chrome. Beta/demo orgs (org_kind
+ * 'demo'/'test') are excluded by the caller regardless of this window.
+ */
+export const TRIAL_BANNER_WINDOW_DAYS = 10
+
 interface TrialOrg {
   trial_ends_at: string | null
   subscription_tier: string

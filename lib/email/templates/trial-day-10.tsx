@@ -7,6 +7,12 @@ interface TrialDay10Props {
   tierDisplayName: string
   portalUrl: string
   cancelUrl: string
+  /**
+   * True when a card is on file and Stripe will charge it at trial end. False for
+   * card-less trials ("skip for now"), where nothing is charged and the trial simply
+   * ends unless they add a card. Promising a charge there would be false.
+   */
+  hasCard?: boolean
 }
 
 // Day 10 of a mid-tier trial: T minus 4 days. The goal is encouragement +
@@ -17,6 +23,7 @@ export function TrialDay10({
   tierDisplayName,
   portalUrl,
   cancelUrl,
+  hasCard = true,
 }: TrialDay10Props) {
   const subject = `${userName}, 4 days left in your ${brand} trial`
   return (
@@ -25,9 +32,20 @@ export function TrialDay10({
         <Text style={emailStyles.heading}>{userName}, 4 days left in your trial.</Text>
 
         <Text style={emailStyles.paragraph}>
-          You&rsquo;re 10 days into your {brand} {tierDisplayName} trial. In 4
-          days your card will be charged and your subscription continues
-          uninterrupted. No action needed if you want to keep going.
+          {hasCard ? (
+            <>
+              You&rsquo;re 10 days into your {brand} {tierDisplayName} trial. In 4
+              days your card will be charged and your subscription continues
+              uninterrupted. No action needed if you want to keep going.
+            </>
+          ) : (
+            <>
+              You&rsquo;re 10 days into your {brand} {tierDisplayName} trial. In 4
+              days it ends. There&rsquo;s no card on file, so nothing will be
+              charged and your briefs will simply stop. Add a card to keep them
+              coming.
+            </>
+          )}
         </Text>
 
         <Text style={emailStyles.heading2}>What&rsquo;s working so far</Text>
@@ -40,17 +58,24 @@ export function TrialDay10({
 
         <Section style={emailStyles.ctaContainer}>
           <Link href={portalUrl} style={emailStyles.ctaButton}>
-            Manage subscription
+            {hasCard ? "Manage subscription" : "Add a card"}
           </Link>
         </Section>
 
-        <Text style={emailStyles.paragraph}>
-          If {brand} isn&rsquo;t a fit,{" "}
-          <Link href={cancelUrl} style={emailStyles.inlineLink}>
-            cancel anytime
-          </Link>{" "}
-          — we won&rsquo;t charge you a cent.
-        </Text>
+        {hasCard ? (
+          <Text style={emailStyles.paragraph}>
+            If {brand} isn&rsquo;t a fit,{" "}
+            <Link href={cancelUrl} style={emailStyles.inlineLink}>
+              cancel anytime
+            </Link>{" "}
+            — we won&rsquo;t charge you a cent.
+          </Text>
+        ) : (
+          <Text style={emailStyles.paragraph}>
+            If {brand} isn&rsquo;t a fit, do nothing: the trial ends on its own and
+            you&rsquo;re never charged.
+          </Text>
+        )}
 
         <Text style={emailStyles.signoff}>— The {brand} Team</Text>
       </Section>

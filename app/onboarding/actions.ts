@@ -28,6 +28,7 @@ import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { rateLimit } from "@/lib/http/rate-limit"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
+import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { shouldClaimCurrentOrg } from "@/lib/onboarding/claim-current-org"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
@@ -1209,4 +1210,84 @@ export async function completeOnboardingAction(input: {
   }
 
   return { ok: true }
+}
+
+/**
+ * "Skip for now" on the onboarding card step — start the trial WITHOUT a card.
+ *
+ * Grants the org a platform-managed trial clock (trial_started_at / trial_ends_at) and
+ * leaves payment_state null. That is the long-standing card-less trial state the access
+ * rule already understands (isTrialActive: payment_state null -> gate on the clock), so
+ * nothing downstream needs a new branch: the trial banner already renders "no card on
+ * file" copy, and the day-14 paywall already handles an org that never had a card.
+ *
+ * Conversion still happens through Stripe checkout later (banner + paywall both link to
+ * /settings/billing); unlike a card-backed trial there is no automatic charge, so the
+ * day 10 / 13 reminders carry "add a card" copy instead (see lib/billing/trial-reminders).
+ *
+ * COST NOTE (decided 2026-07-24, deliberate): card-less orgs still get the full REAL
+ * first-run data pull — live Places/DataForSEO/Firecrawl/AI spend — because the product is
+ * worth nothing without real data. That is accepted CAC, not an oversight. If usage data
+ * shows it's a bad call, tighten in this order: email verification before the first run →
+ * shorter card-less trial → queue/throttle the pull → reduced first run → re-gate on a
+ * card. Rationale + the metrics to watch: vault brain/decisions/cardless-signup-first-run-data-pull.md
+ */
+export async function startTrialWithoutCardAction() {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("current_organization_id")
+    .eq("id", user.id)
+    .maybeSingle()
+
+  const orgId = profile?.current_organization_id
+  if (!orgId) {
+    redirect("/onboarding?error=No%20organization%20found")
+  }
+
+  // Only an owner/admin of THIS org may start its trial (never trust the caller's org).
+  const { data: membership } = await admin
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", orgId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (!membership || !["owner", "admin"].includes(membership.role)) {
+    redirect("/onboarding?error=Unauthorized")
+  }
+
+  const { data: org } = await admin
+    .from("organizations")
+    .select("payment_state, trial_ends_at")
+    .eq("id", orgId)
+    .maybeSingle()
+
+  // Idempotent: if Stripe already owns this org's clock, or a live clock already exists,
+  // this is a double-submit / back-button replay. Don't extend or overwrite either one.
+  if (org?.payment_state != null) {
+    redirect("/home")
+  }
+  if (org?.trial_ends_at && new Date(org.trial_ends_at) > new Date()) {
+    redirect("/home")
+  }
+
+  const startedAt = new Date()
+  const endsAt = new Date(startedAt.getTime() + TRIAL_DURATION_DAYS * 86_400_000)
+
+  const { error } = await admin
+    .from("organizations")
+    .update({
+      trial_started_at: startedAt.toISOString(),
+      trial_ends_at: endsAt.toISOString(),
+    })
+    .eq("id", orgId)
+
+  if (error) {
+    redirect(`/onboarding/trial?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect("/home")
 }
