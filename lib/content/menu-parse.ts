@@ -282,6 +282,50 @@ export function mergeExtractedMenus(
 export const MENU_UNION_WINDOW = 4
 const UNION_OUTLIER_FACTOR = 2
 
+// How many captures back to look when establishing "how big is this menu really".
+// Wider than the union window on purpose: the union answers "what do we have right now",
+// this answers "what is the best this menu has ever given us". Measured 2026-07-27 across
+// 43 competitors: a single capture holds a median 60% of the best-known menu while the
+// 4-capture union holds 96%, so the union is doing real work — but 14 of 43 competitors
+// still sat below 85% even unioned, and those are the ones that produce confidently wrong
+// claims. This is what lets insights tell those two groups apart.
+export const MENU_HISTORY_WINDOW = 12
+
+/**
+ * Coverage of a unioned menu against the best read we have ever had for it.
+ *
+ * `historicalHigh` deliberately excludes HIGH outliers the same way the union does (a
+ * hallucinated 300-item run must not permanently gate a real 60-item menu). Returns nulls
+ * when there is too little history to make a claim — absence of evidence must not read as
+ * evidence of a bad scrape, or a brand-new location would be gated forever.
+ */
+export function menuCoverage(
+  itemsTotal: number,
+  historyCounts: number[]
+): { historicalHighItems?: number; coverageRatio?: number } {
+  const usable = historyCounts.filter((n) => Number.isFinite(n) && n > 0)
+  // Need at least two credible reads before "best ever" means anything. Returning the
+  // fields ABSENT (not null) is deliberate: it spreads into ParseMeta cleanly and reads
+  // as "no verdict", which menuHasCoverage treats as "don't suppress".
+  if (usable.length < 2) return {}
+
+  // SECOND-highest, not max-under-a-median-cap. The union's median cap is right for building
+  // a union (one padded run must not poison it) but wrong for a high-water mark: when most
+  // recent reads are DEGRADED the median is low, so the median cap throws away the very
+  // reads that prove how big the menu really is. Second-highest drops exactly one extreme
+  // run (a hallucinated 300-item read) while keeping a legitimate cluster of larger reads.
+  const desc = [...usable].sort((a, b) => b - a)
+  const best = desc.length >= 3 ? desc[1] : desc[0]
+
+  const historicalHighItems = Math.max(best, itemsTotal)
+  if (historicalHighItems <= 0) return {}
+
+  return {
+    historicalHighItems,
+    coverageRatio: Math.min(1, itemsTotal / historicalHighItems),
+  }
+}
+
 function median(values: number[]): number {
   if (values.length === 0) return 0
   const sorted = [...values].sort((a, b) => a - b)
@@ -298,7 +342,9 @@ function snapshotToResult(snap: MenuSnapshot): NormalizedMenuResult {
   }
 }
 
-// snapshots: the location's recent firecrawl_menu snapshots, NEWEST-FIRST.
+// snapshots: the location's recent firecrawl_menu snapshots, NEWEST-FIRST. Pass up to
+// MENU_HISTORY_WINDOW of them: the newest `windowSize` are UNIONED, and the whole array
+// establishes the coverage baseline stamped onto parseMeta.
 // Returns a single MenuSnapshot representing the unioned menu, or null if none.
 export function unionRecentMenus(
   snapshots: (MenuSnapshot | null | undefined)[],
@@ -309,6 +355,8 @@ export function unionRecentMenus(
 
   const window = usable.slice(0, Math.max(1, windowSize))
   const newest = window[0]
+  // History spans everything handed to us, not just the unioned window.
+  const historyCounts = usable.map((s) => s.parseMeta?.itemsTotal ?? 0)
 
   // Drop clear HIGH outliers (likely a padded/hallucinated run) once we have
   // enough runs to judge a median. Never drop everything.
@@ -321,10 +369,18 @@ export function unionRecentMenus(
     if (kept.length > 0) considered = kept
   }
 
-  if (considered.length === 1) return considered[0]
+  if (considered.length === 1) {
+    const only = considered[0]
+    const cov = menuCoverage(only.parseMeta?.itemsTotal ?? 0, historyCounts)
+    // Pass a lone snapshot through UNTOUCHED when there's no coverage verdict to add:
+    // callers rely on that identity, and there's nothing to stamp.
+    if (cov.coverageRatio === undefined) return only
+    return { ...only, parseMeta: { ...only.parseMeta, ...cov } }
+  }
 
   const merged = mergeExtractedMenus(considered.map(snapshotToResult))
   const itemsTotal = merged.categories.reduce((s, c) => s + c.items.length, 0)
+  const coverage = menuCoverage(itemsTotal, historyCounts)
 
   const sources = new Set<MenuSource>()
   for (const s of considered) for (const src of s.parseMeta?.sources ?? []) sources.add(src)
@@ -344,6 +400,7 @@ export function unionRecentMenus(
         } outlier run(s) dropped`,
       ],
       sources: Array.from(sources),
+      ...coverage,
     },
   }
 }
