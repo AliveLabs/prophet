@@ -64,6 +64,10 @@ export { TkDismissReason, TK_DEFAULT_DISMISS_REASONS } from "./dismiss-reason"
 export { VizTBubble, buildAskQuestion } from "./viz-tbubble"
 export type { VizContext, VizDomain } from "./viz-tbubble"
 
+// "Ask Ticket about this" ask-only ingress for play detail (ALT-259)
+export { AskTicket } from "./ask-ticket" // client component (node)
+export { askStepQuestion, askEvidenceQuestion } from "./ask-question" // server-safe helpers
+
 // competitor "sonar" motif (server-safe SVG) — ALT-241
 export { TkSonar } from "./sonar"
 
