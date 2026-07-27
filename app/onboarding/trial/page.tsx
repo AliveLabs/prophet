@@ -165,7 +165,7 @@ export default async function TrialPage({
                 </p>
               </div>
 
-              <span className="ob-panel-eyebrow">No card required · cancel anytime</span>
+              <span className="ob-panel-eyebrow">Card optional · cancel anytime</span>
               <h2 className="ob-panel-title">Here&apos;s exactly what happens</h2>
 
               {canceled ? (
