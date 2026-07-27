@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "alive-labs": {
+      "source": { "source": "github", "repo": "AliveLabs/claude-plugins" }
+    }
+  },
+  "enabledPlugins": {
+    "no-ai-slop@alive-labs": true
+  }
+}

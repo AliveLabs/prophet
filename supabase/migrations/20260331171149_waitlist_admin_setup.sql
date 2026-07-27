@@ -1,3 +1,25 @@
+-- ALT-453 replay repair: waitlist_signups was created out-of-band on prod and never
+-- captured as a migration, so a clean linear replay failed here ("relation
+-- waitlist_signups does not exist"). Recreate its pre-Step-1 shape so the steps below
+-- transform it to the current state. No-op on prod (table already exists); this
+-- migration never re-runs there. Columns/constraints mirror prod introspection.
+CREATE TABLE IF NOT EXISTS public.waitlist_signups (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL UNIQUE,
+  business_name text,
+  city text,
+  source text NOT NULL DEFAULT 'landing_page',
+  referred_by text,
+  status text NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'invited', 'converted', 'unsubscribed')),
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  first_name text,
+  last_name text
+);
+ALTER TABLE public.waitlist_signups ENABLE ROW LEVEL SECURITY;
+
 -- Step 1: Drop existing CHECK constraint first (it only allows pending/invited/converted/unsubscribed)
 ALTER TABLE public.waitlist_signups
   DROP CONSTRAINT IF EXISTS waitlist_signups_status_check;
