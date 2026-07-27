@@ -10,6 +10,7 @@ import {
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
 import { BrandProvider } from "@/components/brand-provider"
 import StartTrialButton from "./start-trial-button"
+import SkipCardButton from "./skip-card-button"
 import "../onboarding.css"
 
 // The card step of onboarding. The wizard's processing step lands here once
@@ -147,7 +148,7 @@ export default async function TrialPage({
               <span className="ob-accent-ic"><IconShield /></span>
               <div className="ob-accent-body">
                 <h5>$0 today</h5>
-                <p>Card required to start — we won&apos;t charge until your trial ends, and we&apos;ll remind you first.</p>
+                <p>Add a card and nothing is charged until your trial ends, and we&apos;ll remind you first. Not ready? Start without one.</p>
               </div>
             </div>
           </aside>
@@ -164,7 +165,7 @@ export default async function TrialPage({
                 </p>
               </div>
 
-              <span className="ob-panel-eyebrow">Card required · cancel anytime</span>
+              <span className="ob-panel-eyebrow">Card optional · cancel anytime</span>
               <h2 className="ob-panel-title">Here&apos;s exactly what happens</h2>
 
               {canceled ? (
@@ -185,7 +186,7 @@ export default async function TrialPage({
               <ul className="ob-trialfacts">
                 <li>
                   <IconCheck />
-                  <span><strong>$0 today.</strong> Your card isn&apos;t charged until the trial ends.</span>
+                  <span><strong>$0 today.</strong> Nothing is charged until your trial ends, and only if you added a card.</span>
                 </li>
                 <li>
                   <IconCheck />
@@ -202,6 +203,7 @@ export default async function TrialPage({
               </ul>
 
               <StartTrialButton />
+              <SkipCardButton />
             </section>
           </main>
         </div>
