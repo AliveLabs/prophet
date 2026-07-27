@@ -171,7 +171,7 @@ export default function CompetitorScorecard({
     value: `${leads} of ${withYou.length}`,
     unit: " measures ahead",
     entityType: "competitor",
-    source: "Google, search and social profiles",
+    source: "Listing, search, and social data",
     locationId,
   }
 

@@ -10,6 +10,7 @@ import { socialContentAsOf } from "@/lib/freshness/extract"
 import type { SocialSnapshotData, NormalizedSocialPost, SocialPostAnalysis } from "@/lib/social/types"
 import type { PhotoAnalysis } from "@/lib/providers/photos"
 import { resolveOperator } from "./operator-data"
+import { operatorSafeReason, safePipelineLabel } from "@/lib/ops/provenance-copy"
 
 export type ProofPost = {
   id: string
@@ -308,9 +309,12 @@ export async function loadPipelineChecks(): Promise<PipelineCheck[]> {
     if (latest.has(pipeline)) continue
     latest.set(pipeline, {
       pipeline,
-      label: PIPELINE_LABELS[pipeline] ?? pipeline.replace(/_/g, " "),
+      label: safePipelineLabel(pipeline, PIPELINE_LABELS),
       outcome: r.outcome as string,
-      reason: (r.reason as string | null) ?? null,
+      // NEVER pass reason through raw: it carries vendor names, HTTP status codes, raw
+      // JSON and internal function names straight from the pipeline. operatorSafeReason
+      // allowlists the useful shapes and generalizes everything else.
+      reason: operatorSafeReason(r.outcome as string | null, r.reason as string | null),
       at: (r.finished_at as string | null) ?? (r.started_at as string),
     })
   }

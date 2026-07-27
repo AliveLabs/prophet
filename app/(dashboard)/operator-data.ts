@@ -604,7 +604,7 @@ export async function loadCompetitorScorecard(
         `${leader.name} holds ${leader.display} — you hold ${you.display}. Star gaps this size move which listing gets the tap in local results.`,
         `Ratings shift slowly: steady review flow and replies are the honest lever, not a sprint.`,
       ],
-      source: "Google listing profiles",
+      source: "Listing data",
       href: null,
     }),
   )
@@ -635,7 +635,7 @@ export async function loadCompetitorScorecard(
         `${leader.name} has ${leader.display} reviews to your ${you.display} — roughly ${Math.max(1, Math.round(leader.value / Math.max(1, you.value)))}× your base. Review volume compounds local visibility.`,
         `A review ask at the register or on receipts is the cheapest way to close a base gap.`,
       ],
-      source: "Google listing profiles",
+      source: "Listing data",
       href: null,
     }),
   )
@@ -692,7 +692,7 @@ export async function loadCompetitorScorecard(
           }
           return bits
         },
-        source: "Google listing photos, vision-analyzed",
+        source: "Listing photos, vision-analyzed",
         href: "/photos",
       }),
     )

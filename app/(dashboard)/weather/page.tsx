@@ -312,7 +312,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                           value: avgTemp,
                           unit: "°F",
                           timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
+                          source: "Weather data",
                           locationId: selectedLocationId ?? undefined,
                         }}
                       />
@@ -333,7 +333,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                           value: totalPrecip.toFixed(2),
                           unit: '"',
                           timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
+                          source: "Weather data",
                           locationId: selectedLocationId ?? undefined,
                         }}
                       />
@@ -353,7 +353,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                           metric: "Severe days",
                           value: severeCount,
                           timeframe: kpiDaysLabel,
-                          source: "OpenWeatherMap",
+                          source: "Weather data",
                           locationId: selectedLocationId ?? undefined,
                         }}
                       />
@@ -390,7 +390,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                         metric: "This week's outlook",
                         value: `${avgTemp}°`,
                         timeframe: kpiDaysLabel,
-                        source: "OpenWeatherMap",
+                        source: "Weather data",
                         locationId: selectedLocationId ?? undefined,
                       }}
                     />

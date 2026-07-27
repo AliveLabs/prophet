@@ -14,6 +14,7 @@ import {
   ReferenceLine,
 } from "recharts"
 import { useChartColors } from "@/lib/hooks/use-chart-colors"
+import { WeatherGlyph } from "./weather-glyph"
 
 export type WeatherDay = {
   date: string
@@ -70,12 +71,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   return (
     <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-xl">
       <div className="flex items-center gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={`https://openweathermap.org/img/wn/${row.icon}@2x.png`}
-          alt={row.condition}
-          className="h-8 w-8"
-        />
+        <WeatherGlyph code={row.icon} label={row.condition} className="h-8 w-8" />
         <div>
           <p className="text-xs font-bold text-foreground">
             {new Date(row.date + "T12:00:00").toLocaleDateString("en-US", {

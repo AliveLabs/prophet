@@ -40,7 +40,7 @@ export default function TBubblePreview() {
                   metric: "This week's outlook",
                   value: "72°",
                   timeframe: "12 days history + 1 day forecast",
-                  source: "OpenWeatherMap",
+                  source: "Weather data",
                 }}
               />
             }

@@ -1,3 +1,4 @@
+import { WeatherGlyph } from "@/components/weather/weather-glyph"
 type WeatherData = {
   date: string
   temp_high_f: number
@@ -12,10 +13,6 @@ type Props = {
   weather: WeatherData | null
 }
 
-function getWeatherIconUrl(icon: string): string {
-  return `https://openweathermap.org/img/wn/${icon}@2x.png`
-}
-
 export default function WeatherBadge({ weather }: Props) {
   if (!weather) return null
 
@@ -25,10 +22,9 @@ export default function WeatherBadge({ weather }: Props) {
         ? "border border-destructive/30 bg-destructive/10"
         : "border border-border bg-card"
     }`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={getWeatherIconUrl(weather.weather_icon)}
-        alt={weather.weather_condition}
+      <WeatherGlyph
+        code={weather.weather_icon}
+        label={weather.weather_condition}
         className="h-8 w-8"
       />
       <div>
