@@ -56,6 +56,10 @@
 .tk-btn-act { background: linear-gradient(145deg, var(--rust), var(--rust-2)); color: #fff; box-shadow: var(--shadow-sm); }
 .tk-btn-act:hover { transform: translateY(-1.5px); box-shadow: var(--shadow-md); }
 .tk-btn-act:active { transform: translateY(0); }
+/* A disabled primary must READ disabled — it's used for "fill the required field first"
+   (e.g. the team invite form), so it must not lift or glow on hover. */
+.tk-btn-act[disabled] { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.tk-btn-act[disabled]:hover { transform: none; box-shadow: none; }
 .tk-btn-keep { background: var(--card); color: var(--ink); border: 1.5px solid var(--line-2); }
 .tk-btn-keep:hover { background: var(--paper-2); border-color: var(--ink-3); }
 .tk-btn-keep.tk-is-kept { background: var(--teal-tint); color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 40%, transparent); }

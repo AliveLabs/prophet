@@ -7,6 +7,9 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { TkButton } from "@/components/ticket"
+// Same pure rule the server action applies, so the button enables exactly when the submit
+// would be accepted — no "looks fine, gets rejected" gap.
+import { normalizeInviteEmail } from "@/lib/team/guards"
 import { inviteTeamMemberAction, removeTeamMemberAction } from "./actions"
 
 export interface TeamMemberRow {
@@ -38,6 +41,10 @@ export default function TeamClient({
   const [pending, startTransition] = useTransition()
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [email, setEmail] = useState("")
+
+  // Email is the only required field; name is optional and role defaults to Member.
+  const canSubmit = normalizeInviteEmail(email) !== null
 
   const isOwner = actorRole === "owner"
   const canManage = isOwner || actorRole === "admin"
@@ -48,7 +55,10 @@ export default function TeamClient({
     startTransition(async () => {
       const res = await inviteTeamMemberAction(formData)
       setFeedback({ ok: res.ok, msg: res.ok ? (res.message ?? "Invited.") : (res.error ?? "Something went wrong.") })
-      if (res.ok) router.refresh()
+      if (res.ok) {
+        setEmail("")
+        router.refresh()
+      }
     })
   }
 
@@ -122,6 +132,8 @@ export default function TeamClient({
                 required
                 placeholder="name@restaurant.com"
                 autoComplete="off"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </label>
             <label className="tk-set-field">
@@ -138,7 +150,7 @@ export default function TeamClient({
               </select>
             </label>
           </div>
-          <TkButton type="submit" variant="add" disabled={pending}>
+          <TkButton type="submit" variant="act" disabled={pending || !canSubmit}>
             {pending ? "Sending invite…" : "Invite member"}
           </TkButton>
           <p className="tk-set-invitehint">
