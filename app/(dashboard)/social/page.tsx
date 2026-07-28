@@ -26,6 +26,14 @@ import SocialInsightsPass from "./social-insights-pass"
 import type { SocialPlatform } from "@/lib/social/types"
 import "./social.css"
 
+// ALT-270: platform names are spelled out in the counts rather than reduced to a
+// bare number, so "Platforms 2" can never be read as two of something else.
+const PLATFORM_NAME: Record<string, string> = {
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+}
+
 type SocialPageProps = {
   searchParams?: Promise<{
     location_id?: string
@@ -171,6 +179,46 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
     .filter(([key]) => key.startsWith("competitor:"))
     .map(([, handles]) => handles)
 
+  // -------------------------------------------------------------------------
+  // ALT-270: the WATCHED SET, not just the accounts we happen to read.
+  //
+  // "Watched competitors" used to show the number of competitor social PROFILES,
+  // so a set of 4 competitors with 6 tracked profiles read as "6 watched" while the
+  // comparison below named one of them. Worse, a competitor with no tracked handle
+  // vanished from this page with no explanation. We load the set itself so the counts
+  // can distinguish competitors from profiles from platforms, and so the ones with
+  // nothing tracked can be named with a way to fix it.
+  //
+  // Same definition of "watched" as loadOperatorContext: active + metadata.status
+  // approved. Kept as its own narrow query rather than calling loadOperatorContext,
+  // which also pulls the brief, insights and snapshots this page has no use for.
+  // -------------------------------------------------------------------------
+
+  const { data: watchedRows } = selectedLocationId
+    ? await supabase
+        .from("competitors")
+        .select("id, name, display_label, metadata")
+        .eq("location_id", selectedLocationId)
+        .eq("is_active", true)
+    : { data: null }
+
+  const trackedCompetitorIds = new Set(
+    socialData.handles.filter((h) => h.entityType === "competitor").map((h) => h.entityId),
+  )
+
+  const watchedCompetitors = (watchedRows ?? [])
+    .filter((c) => (c.metadata as Record<string, unknown> | null)?.status === "approved")
+    .map((c) => ({
+      id: c.id,
+      name: (c.display_label as string | null) ?? c.name,
+      hasSocial: trackedCompetitorIds.has(c.id),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const competitorsWithSocial = watchedCompetitors.filter((c) => c.hasSocial)
+  const competitorsWithoutSocial = watchedCompetitors.filter((c) => !c.hasSocial)
+  const compPlatforms = PLATFORM_ORDER.filter((p) => compProfiles.some((cp) => cp.platform === p))
+
   const hasProfiles = socialData.profiles.length > 0
   const hasOwnProfiles = locProfiles.length > 0
   const hasCompetitorProfiles = compProfiles.length > 0
@@ -296,35 +344,84 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
           <>
             <TkSectionHead
               title="Competitors"
-              sub="The accounts you measure against — you vs them, and their recent posts"
+              sub="The accounts you measure against, where you stand against them, and their recent posts"
               className="sp-sec sp-sec-comp"
             />
 
+            {/* ── ALT-270: three counts that can't be confused for each other — how many
+                competitors are in your set, how many of those have a social account we
+                track, and which networks those accounts are on. The old single
+                "Watched competitors" widget showed the PROFILE count under a competitor
+                label, which is why a set of four could read as six. ── */}
             <RevealOnView>
               <TkWidgetGrid>
                 <TkWidget
                   tone="slate"
-                  label="Watched competitors"
-                  value={String(compProfiles.length)}
-                  sub={compProfiles.length === 1 ? "profile being watched" : "profiles being watched"}
-                  data-tip="Competitor social profiles in your watched set"
-                  data-tipv={`${compProfiles.length} watched`}
+                  label="Competitors in your set"
+                  value={String(watchedCompetitors.length)}
+                  sub={watchedCompetitors.length === 1 ? "place you watch" : "places you watch"}
+                  data-tip="Competitors on your watch list, whether or not we track their social accounts"
+                  data-tipv={`${watchedCompetitors.length} watched`}
+                  data-tip-anchor=""
+                />
+                <TkWidget
+                  tone={competitorsWithoutSocial.length > 0 ? "gold" : "teal"}
+                  label="With social tracked"
+                  value={`${competitorsWithSocial.length} of ${watchedCompetitors.length}`}
+                  sub={
+                    competitorsWithoutSocial.length > 0
+                      ? `${competitorsWithoutSocial.length} still need a handle`
+                      : "every competitor covered"
+                  }
+                  data-tip="Competitors with at least one social handle we read. The rest can't appear in the comparison below."
+                  data-tipv={`${compProfiles.length} profile${compProfiles.length === 1 ? "" : "s"} across ${competitorsWithSocial.length} competitor${competitorsWithSocial.length === 1 ? "" : "s"}`}
                   data-tip-anchor=""
                 />
                 <TkWidget
                   tone="gold"
-                  label="Platforms"
-                  value={String(new Set(compProfiles.map((p) => p.platform)).size)}
-                  sub="networks they're on"
-                  data-tip="Distinct platforms where we read a competitor profile"
-                  data-tipv={`${new Set(compProfiles.map((p) => p.platform)).size} platform${new Set(compProfiles.map((p) => p.platform)).size === 1 ? "" : "s"}`}
+                  label="Their networks"
+                  value={String(compPlatforms.length)}
+                  sub={
+                    compPlatforms.length
+                      ? compPlatforms.map((p) => PLATFORM_NAME[p] ?? p).join(", ")
+                      : "none tracked yet"
+                  }
+                  data-tip="The networks where we read at least one competitor account"
+                  data-tipv={`${compPlatforms.length} network${compPlatforms.length === 1 ? "" : "s"}`}
                   data-tip-anchor=""
                 />
               </TkWidgetGrid>
             </RevealOnView>
 
-            {/* You vs the set — head-to-head on the honest signals */}
+            {/* Where you stand — every tracked account, ranked (ALT-270) */}
             <SocialStandingPass profiles={socialData.profiles} section="h2h" />
+
+            {/* ── ALT-270: name the competitors that CAN'T appear above, so a short
+                comparison reads as an explained gap rather than missing data. Each name
+                links to its own detail page, where its handles are managed (ALT-234). ── */}
+            {competitorsWithoutSocial.length > 0 && (
+              <RevealOnView>
+                <TkSoftPanel className="sp-nosocial">
+                  <p className="sp-nosocial-lead">
+                    {competitorsWithoutSocial.length} of your {watchedCompetitors.length}{" "}
+                    competitors {competitorsWithoutSocial.length === 1 ? "has" : "have"} no social
+                    account tracked yet, so {competitorsWithoutSocial.length === 1 ? "it" : "they"}{" "}
+                    can&apos;t show up in the standing above.
+                  </p>
+                  <ul className="sp-nosocial-list">
+                    {competitorsWithoutSocial.map((c) => (
+                      <li key={c.id}>
+                        <Link href={`/competitors/${c.id}`}>{c.name}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="sp-nosocial-cta">
+                    Not seeing a competitor?{" "}
+                    <Link href="/competitors">Manage social accounts →</Link>
+                  </p>
+                </TkSoftPanel>
+              </RevealOnView>
+            )}
 
             {/* Their recent posts — more columns to scan the set (ALT-201) */}
             {hasCompetitorPosts && (

@@ -64,6 +64,72 @@
 .sp-h2h-empty p { margin-top: 8px; line-height: 1.5; }
 .sp-h2h-empty a, .sp-handles-sub a, .sp-noposts a, .sp-cta a { color: var(--rust-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
+/* ── ALT-270: the standing LADDER — every tracked account on one signal, ranked, with
+   your own row lifted out of the list. Replaced a you-vs-the-strongest bar pair that
+   could only ever name one competitor. All `sp-l*` names are new to the repo. ── */
+.sp-ladders { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sp-ladder { display: flex; flex-direction: column; gap: 10px; }
+.sp-ladder-head { display: flex; align-items: center; }
+.sp-ladder-head h4 {
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  letter-spacing: -.01em; color: var(--ink);
+}
+.sp-ladder-verdict { font-size: 12.5px; font-weight: 600; color: var(--ink-2); line-height: 1.4; }
+.sp-ladder-note { font-size: 11.5px; color: var(--ink-3); line-height: 1.45; }
+
+.sp-ladder-rows { display: flex; flex-direction: column; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.sp-lrow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) minmax(56px, 120px) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 7px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+}
+.sp-lrank {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  color: var(--ink-3); text-align: right;
+}
+.sp-lname {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0;
+  font-size: 12.5px; font-weight: 600; color: var(--ink);
+}
+.sp-lname { overflow-wrap: anywhere; }
+.sp-lplats { font-size: 10.5px; font-weight: 500; color: var(--ink-3); }
+.sp-lbar { height: 7px; border-radius: 99px; background: var(--paper-2); overflow: hidden; }
+.sp-lbar i { display: block; height: 100%; border-radius: 99px; background: var(--slate); }
+.sp-lval {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums;
+}
+/* Your own row: the one the operator is looking for, so it reads first without
+   needing a legend. */
+.sp-lrow-you {
+  border-color: color-mix(in srgb, var(--teal) 40%, var(--line));
+  background: color-mix(in srgb, var(--teal) 7%, var(--card-2));
+}
+.sp-lrow-you .sp-lname, .sp-lrow-you .sp-lval, .sp-lrow-you .sp-lrank { color: var(--teal-deep, var(--teal)); }
+.sp-lrow-you .sp-lbar i { background: var(--teal); }
+
+/* ── ALT-270: the competitors that CAN'T appear in the standing above, named, with the
+   route to fix it. Without this a 2-row ladder over a 5-competitor set looked broken. ── */
+.sp-nosocial { display: flex; flex-direction: column; gap: 10px; }
+.sp-nosocial-lead { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.sp-nosocial-list { display: flex; flex-wrap: wrap; gap: 7px; list-style: none; margin: 0; padding: 0; }
+.sp-nosocial-list a {
+  display: inline-flex; align-items: center; min-height: 30px;
+  padding: 4px 11px; border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--gold) 38%, var(--line));
+  background: color-mix(in srgb, var(--gold) 9%, var(--card-2));
+  font-family: var(--font-cond); font-size: 12px; font-weight: 600;
+  color: var(--gold-deep); text-decoration: none;
+  transition: background 0.18s var(--ease);
+}
+.sp-nosocial-list a:hover { background: color-mix(in srgb, var(--gold) 18%, var(--card-2)); }
+.sp-nosocial-cta { font-size: 12.5px; color: var(--ink-2); }
+.sp-nosocial-cta a { color: var(--rust-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+
 /* ── recent posts grid (TkSocialEmbed centerpiece) ──────────── */
 .sp-posts { display: flex; flex-direction: column; gap: 16px; }
 .sp-postbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
@@ -256,6 +322,11 @@
 /* ── responsive ─────────────────────────────────────────────── */
 @media (max-width: 760px) {
   .sp-presence { grid-template-columns: 1fr; }
+  .sp-ladders { grid-template-columns: 1fr; }
+  /* The bar is the first thing worth dropping on a narrow screen: rank, name and value
+     are all still readable, and a 30px bar would read as noise. */
+  .sp-lrow { grid-template-columns: 16px minmax(0, 1fr) auto; }
+  .sp-lrow .sp-lbar { display: none; }
   .sp-sec { margin-top: 30px; }
   .sp-postbar { gap: 10px; }
   .sp-entsel, .sp-entsel select { width: 100%; }
