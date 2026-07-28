@@ -28,6 +28,13 @@ import {
   type SourceCategory,
 } from "@/lib/insights/scoring"
 import { InsightCardKit } from "./insight-card-kit"
+import {
+  INSIGHT_RECENT_WINDOW_DAYS,
+  defaultRevealCount,
+  revealPlan,
+  splitByRecency,
+  type RevealPlan,
+} from "./insights-reveal"
 
 export type FeedInsight = {
   id: string
@@ -94,6 +101,45 @@ type Props = {
    *  the generate endpoint, show a spinner at the top of the pool, then pin the
    *  resulting insight there with a "Just generated" marker. */
   generateRequest?: string | null
+  /** ALT-292: `YYYY-MM-DD` boundary of the recent window, computed on the server so
+   *  SSR and hydration agree. A category defaults to insights on/after this date. */
+  recentCutoff: string
+}
+
+/** ALT-292: the reveal footer every section shares. One batch per click (never the
+ *  whole remainder), an honest count of what is still unloaded, and a way back to the
+ *  default view once the operator has expanded past it. */
+function RevealFooter({
+  plan: { nextCount, remaining, olderNext },
+  fullWidth = false,
+  onMore,
+  onCollapse,
+}: {
+  plan: RevealPlan
+  fullWidth?: boolean
+  onMore: () => void
+  onCollapse: (() => void) | null
+}) {
+  if (remaining <= 0 && !onCollapse) return null
+  return (
+    <div className={`ins-morerow${fullWidth ? " ins-morerow-wide" : ""}`}>
+      {remaining > 0 ? (
+        <button
+          type="button"
+          className={`ins-more${fullWidth ? " ins-more-col" : ""}`}
+          onClick={onMore}
+        >
+          {olderNext ? `Show ${nextCount} older` : `Show ${nextCount} more`}
+          <span className="ins-more-n">{remaining} left</span>
+        </button>
+      ) : null}
+      {onCollapse ? (
+        <button type="button" className="ins-less" onClick={onCollapse}>
+          Show less
+        </button>
+      ) : null}
+    </div>
+  )
 }
 
 export default function InsightsFeedKit({
@@ -102,13 +148,16 @@ export default function InsightsFeedKit({
   learningDays,
   learningTarget,
   generateRequest,
+  recentCutoff,
 }: Props) {
   const [activeTab, setActiveTab] = useState("")
   const [viewMode, setViewMode] = useState<"feed" | "board">("feed")
   const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map())
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
-  const [expandedColumns, setExpandedColumns] = useState<Set<string>>(new Set())
-  const [pinnedExpanded, setPinnedExpanded] = useState(false)
+  // ALT-292: how many cards each section has revealed so far, keyed by section
+  // ("cat:social", "col:inbox", "pinned"). An absent key means "still at its default",
+  // so a collapse is a delete and a new category needs no seeding. This replaces the
+  // old boolean expand flags, which jumped straight from 6 to the whole remainder.
+  const [revealCounts, setRevealCounts] = useState<Map<string, number>>(new Map())
 
   // ── ALT-230: live "Generate insight" from a viz card. We POST the carried-in viz
   //    context once, show a placeholder at the top of the pool, then pin the result. ──
@@ -251,14 +300,34 @@ export default function InsightsFeedKit({
     [insightsByCategory],
   )
 
-  const toggleCategory = useCallback((cat: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(cat)) next.delete(cat)
-      else next.add(cat)
+  // ── ALT-292: incremental reveal. `revealMore` adds ONE batch (never the remainder);
+  //    `collapse` drops the key so the section falls back to its default count. ──
+  const revealMore = useCallback(
+    (key: string, from: number, batch: number, max: number) => {
+      setRevealCounts((prev) =>
+        new Map(prev).set(key, Math.min((prev.get(key) ?? from) + batch, max)),
+      )
+    },
+    [],
+  )
+
+  const collapse = useCallback((key: string) => {
+    setRevealCounts((prev) => {
+      const next = new Map(prev)
+      next.delete(key)
       return next
     })
   }, [])
+
+  // Per category: recent-window items first, then older ones, each keeping the
+  // relevance order the server sent. `recentCount` is where the older run starts.
+  const categoryBuckets = useMemo(() => {
+    const map = new Map<SourceCategory, { ordered: FeedInsight[]; recentCount: number }>()
+    for (const [cat, list] of insightsByCategory) {
+      map.set(cat, splitByRecency(list, recentCutoff))
+    }
+    return map
+  }, [insightsByCategory, recentCutoff])
 
   // ── Board view: group by status column ──
   const columnInsights = useMemo(() => {
@@ -275,16 +344,21 @@ export default function InsightsFeedKit({
     return map
   }, [filteredInsights])
 
-  const toggleColumn = useCallback((key: string) => {
-    setExpandedColumns((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  }, [])
-
   const hasAnyInsights = filteredInsights.length > 0
+
+  // Pinned and the board columns have no recency notion (a kept insight or an open
+  // to-do doesn't stop mattering after a week), so they pass `recentCount: 0` and get
+  // plain batch reveal off the same planner the categories use.
+  const pinnedShown = Math.min(
+    revealCounts.get("pinned") ?? PINNED_PREVIEW_COUNT,
+    pinnedInsights.length,
+  )
+  const pinnedPlan = revealPlan({
+    shown: pinnedShown,
+    recentCount: 0,
+    total: pinnedInsights.length,
+    batch: PINNED_PREVIEW_COUNT,
+  })
 
   // Only pin the generated card while it isn't yet in the server feed. Once a refresh
   // (e.g. a status action's router.refresh, or a later navigation) pulls it in, it shows
@@ -383,17 +457,19 @@ export default function InsightsFeedKit({
               sub={`${pinnedInsights.length} kept insight${pinnedInsights.length === 1 ? "" : "s"}`}
             />
             <RevealOnView className="tk-grid ins-grid" stagger>
-              {(pinnedExpanded ? pinnedInsights : pinnedInsights.slice(0, PINNED_PREVIEW_COUNT)).map((insight, i) => (
+              {pinnedInsights.slice(0, pinnedShown).map((insight, i) => (
                 <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
                   <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
                 </div>
               ))}
             </RevealOnView>
-            {pinnedInsights.length > PINNED_PREVIEW_COUNT ? (
-              <button type="button" className="ins-more" onClick={() => setPinnedExpanded((v) => !v)}>
-                {pinnedExpanded ? "Show less" : `Show ${pinnedInsights.length - PINNED_PREVIEW_COUNT} more`}
-              </button>
-            ) : null}
+            <RevealFooter
+              plan={pinnedPlan}
+              onMore={() =>
+                revealMore("pinned", PINNED_PREVIEW_COUNT, PINNED_PREVIEW_COUNT, pinnedInsights.length)
+              }
+              onCollapse={pinnedShown > PINNED_PREVIEW_COUNT ? () => collapse("pinned") : null}
+            />
           </section>
         ) : null}
 
@@ -402,11 +478,26 @@ export default function InsightsFeedKit({
         {viewMode === "feed" && hasAnyInsights ? (
           <div className="ins-cats">
             {orderedCategories.map((cat) => {
-              const catInsights = insightsByCategory.get(cat) ?? []
-              const isExpanded = expandedCategories.has(cat)
-              const limit = isExpanded ? catInsights.length : CARDS_PER_CATEGORY
-              const visible = catInsights.slice(0, limit)
-              const remaining = catInsights.length - limit
+              // ALT-292: `ordered` is the recent window followed by everything older.
+              // The default view stops at the end of the recent window (capped at one
+              // batch); a category with nothing recent still opens with a batch of its
+              // older items rather than rendering as an empty section.
+              const { ordered, recentCount } = categoryBuckets.get(cat) ?? {
+                ordered: [],
+                recentCount: 0,
+              }
+              const olderCount = ordered.length - recentCount
+              const key = `cat:${cat}`
+              const initial = defaultRevealCount(recentCount, ordered.length, CARDS_PER_CATEGORY)
+              const shown = Math.min(revealCounts.get(key) ?? initial, ordered.length)
+              const visibleRecent = ordered.slice(0, Math.min(shown, recentCount))
+              const visibleOlder = ordered.slice(recentCount, shown)
+              const plan = revealPlan({
+                shown,
+                recentCount,
+                total: ordered.length,
+                batch: CARDS_PER_CATEGORY,
+              })
 
               return (
                 <section key={cat} className="ins-cat">
@@ -416,24 +507,46 @@ export default function InsightsFeedKit({
                         <TkChip family={CAT_FAMILY[cat]}>{SOURCE_LABELS[cat]}</TkChip>
                       </span>
                     }
-                    sub={`${catInsights.length} insight${catInsights.length === 1 ? "" : "s"}`}
+                    sub={
+                      olderCount === 0
+                        ? `${recentCount} insight${recentCount === 1 ? "" : "s"} in the last ${INSIGHT_RECENT_WINDOW_DAYS} days`
+                        : recentCount === 0
+                          ? `Nothing in the last ${INSIGHT_RECENT_WINDOW_DAYS} days, ${olderCount} older`
+                          : `${recentCount} in the last ${INSIGHT_RECENT_WINDOW_DAYS} days, ${olderCount} older`
+                    }
                   />
-                  <RevealOnView className="tk-grid ins-grid" stagger>
-                    {visible.map((insight, i) => (
-                      <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
-                        <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
-                      </div>
-                    ))}
-                  </RevealOnView>
-                  {remaining > 0 ? (
-                    <button type="button" className="ins-more" onClick={() => toggleCategory(cat)}>
-                      Show {remaining} more
-                    </button>
-                  ) : isExpanded && catInsights.length > CARDS_PER_CATEGORY ? (
-                    <button type="button" className="ins-more" onClick={() => toggleCategory(cat)}>
-                      Show less
-                    </button>
+                  {visibleRecent.length ? (
+                    <RevealOnView className="tk-grid ins-grid" stagger>
+                      {visibleRecent.map((insight, i) => (
+                        <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
+                          <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                        </div>
+                      ))}
+                    </RevealOnView>
                   ) : null}
+                  {/* The older run gets its own labelled band so revealing it never
+                      quietly mixes month-old signal into this week's read. Skipped when
+                      the category has no recent items at all: the section sub already
+                      says so, and a lone divider over the whole list would just be noise. */}
+                  {visibleOlder.length && recentCount > 0 ? (
+                    <div className="ins-olderrule">
+                      <span>Older than {INSIGHT_RECENT_WINDOW_DAYS} days</span>
+                    </div>
+                  ) : null}
+                  {visibleOlder.length ? (
+                    <RevealOnView className="tk-grid ins-grid" stagger>
+                      {visibleOlder.map((insight, i) => (
+                        <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
+                          <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                        </div>
+                      ))}
+                    </RevealOnView>
+                  ) : null}
+                  <RevealFooter
+                    plan={plan}
+                    onMore={() => revealMore(key, initial, plan.nextCount, ordered.length)}
+                    onCollapse={shown > initial ? () => collapse(key) : null}
+                  />
                 </section>
               )
             })}
@@ -445,10 +558,18 @@ export default function InsightsFeedKit({
           <div className="ins-board">
             {KANBAN_COLUMNS.map((col) => {
               const colInsights = columnInsights.get(col.key) ?? []
-              const isExpanded = expandedColumns.has(col.key)
-              const limit = isExpanded ? colInsights.length : CARDS_PER_COLUMN
-              const visible = colInsights.slice(0, limit)
-              const remaining = colInsights.length - limit
+              // ALT-292: same incremental reveal as the feed. No recent window here:
+              // a board column is a workflow queue, so hiding older to-dos by date
+              // would hide work the operator still owes themselves.
+              const key = `col:${col.key}`
+              const shown = Math.min(revealCounts.get(key) ?? CARDS_PER_COLUMN, colInsights.length)
+              const visible = colInsights.slice(0, shown)
+              const plan = revealPlan({
+                shown,
+                recentCount: 0,
+                total: colInsights.length,
+                batch: CARDS_PER_COLUMN,
+              })
               return (
                 <div key={col.key} className={`ins-col ins-col-${col.key}`}>
                   <div className="ins-col-head">
@@ -483,15 +604,12 @@ export default function InsightsFeedKit({
                         }
                       />
                     )}
-                    {remaining > 0 ? (
-                      <button type="button" className="ins-more ins-more-col" onClick={() => toggleColumn(col.key)}>
-                        {remaining} more
-                      </button>
-                    ) : isExpanded && colInsights.length > CARDS_PER_COLUMN ? (
-                      <button type="button" className="ins-more ins-more-col" onClick={() => toggleColumn(col.key)}>
-                        Show less
-                      </button>
-                    ) : null}
+                    <RevealFooter
+                      plan={plan}
+                      fullWidth
+                      onMore={() => revealMore(key, CARDS_PER_COLUMN, CARDS_PER_COLUMN, colInsights.length)}
+                      onCollapse={shown > CARDS_PER_COLUMN ? () => collapse(key) : null}
+                    />
                   </div>
                 </div>
               )
