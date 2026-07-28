@@ -321,8 +321,11 @@
 .tk-set-feedback.is-err { color: var(--rust-deep); }
 
 .tk-set-inviteform { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line-2); }
-.tk-set-invitefields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
-.tk-set-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 180px; min-width: 0; }
+/* Single column on purpose: side-by-side fields squeezed the email input below a usable
+   width and left the labels vertically staggered. Capped so the inputs don't stretch to a
+   silly length on a wide screen. */
+.tk-set-invitefields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; max-width: 420px; }
+.tk-set-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .tk-set-field > span {
   font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-3);
