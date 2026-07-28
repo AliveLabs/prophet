@@ -17,6 +17,7 @@ import { TkSoftPanel, TkTooltipLayer } from "@/components/ticket"
 import InsightsBriefingSection, { InsightsBriefingSkeleton } from "./insights-briefing-section"
 import InsightsGlance, { type GlanceData } from "./insights-glance"
 import InsightsFeedKit, { type FeedInsight } from "./insights-feed-kit"
+import { recentCutoffDateKey } from "./insights-reveal"
 import "./insights.css"
 
 type InsightsPageProps = {
@@ -280,6 +281,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
 
   const todayDate = new Date().toISOString().slice(0, 10)
 
+  // ALT-292: the feed defaults each category to a RECENT WINDOW rather than every
+  // insight ever generated (a mature category was showing 6 of 70 behind one button
+  // that dumped the other 64 at once). The boundary is resolved here, on the server, so
+  // SSR and hydration agree on it and a day rollover can never split the two.
+  const recentCutoff = recentCutoffDateKey(todayDate)
+
   const latestWeather = cachedData.weather.find(w => w.date === todayDate) ?? cachedData.weather[0] ?? null
   const weatherForBadge = latestWeather ? {
     date: latestWeather.date,
@@ -509,6 +516,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
             learningDays={streamsPresent}
             learningTarget={streamsTotal}
             generateRequest={resolvedSearchParams?.generate ?? null}
+            recentCutoff={recentCutoff}
           />
         </div>
       </div>
