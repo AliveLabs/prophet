@@ -4,20 +4,24 @@
 //
 // Replaces the shared <SocialDashboard/> (recharts bars + matrix) with the kit:
 //   • a platform-presence row of TkSoftPanels (you / competitors-only / untracked)
-//   • a you-vs-the-set head-to-head (TkH2HBars) on the two honest signals we have:
-//     followers and per-post engagement. We compare YOUR profile to the strongest
-//     competitor in the set, framed as "you vs them" with a half-width-from-center
-//     bar — no invented $/covers, no fabricated trend lines.
+//   • a standing LADDER on the two honest signals we have: followers and per-post
+//     engagement. No invented $/covers, no fabricated trend lines.
+//
+// ALT-270: the ladder replaced a you-vs-the-STRONGEST head-to-head. That comparison
+// only ever named one competitor, so a set of four read as a set of one and the
+// operator could not tell whether the others were missing or just not shown. Every
+// tracked account is now a row, with your own highlighted and your rank stated.
 //
 // Same ProfileData shape the server already builds. Presentation only.
 
 import { useMemo, type CSSProperties, type ReactNode } from "react"
+import Link from "next/link"
 import {
   TkSoftPanel,
-  TkH2HBars,
   TkChip,
   TkConfidence,
   RevealOnView,
+  tkcx,
 } from "@/components/ticket"
 import type { SocialPlatform } from "@/lib/social/types"
 
@@ -65,6 +69,12 @@ function formatNumber(n: number): string {
   return String(n)
 }
 
+function ordinal(n: number): string {
+  const rem100 = n % 100
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`
+  return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`
+}
+
 export default function SocialStandingPass({
   profiles,
   section = "both",
@@ -86,61 +96,103 @@ export default function SocialStandingPass({
     }))
   }, [profiles])
 
-  // You vs the set — strongest competitor on each honest signal.
   const me = useMemo(() => profiles.find((p) => p.entityType === "location") ?? null, [profiles])
   const comps = useMemo(() => profiles.filter((p) => p.entityType === "competitor"), [profiles])
 
-  const h2hRows = useMemo(() => {
-    if (!me || comps.length === 0) return []
-    const rows: Array<{
-      metric: ReactNode
-      side: "you" | "them"
-      width: number
-      verdict: ReactNode
-      tip?: string
-      tipValue?: string
-    }> = []
+  // ── ALT-270: one standing per ACCOUNT, not per profile row. A competitor we read on
+  //    both Instagram and Facebook is two `profiles` but one account, so followers sum
+  //    across their tracked networks and engagement is the mean of their profiles. The
+  //    tracked networks ride along on each row, because summing means an account we read
+  //    on more networks looks bigger, and the operator should be able to see that. ──
+  const standings = useMemo(() => {
+    const byAccount = new Map<
+      string,
+      { name: string; isYou: boolean; followers: number; rates: number[]; platforms: string[] }
+    >()
+    for (const p of profiles) {
+      const key = `${p.entityType}:${p.entityName}`
+      const row =
+        byAccount.get(key) ??
+        {
+          name: p.entityName,
+          isYou: p.entityType === "location",
+          followers: 0,
+          rates: [] as number[],
+          platforms: [] as string[],
+        }
+      row.followers += p.followerCount
+      if (p.engagementRate > 0) row.rates.push(p.engagementRate)
+      if (!row.platforms.includes(p.platform)) row.platforms.push(p.platform)
+      byAccount.set(key, row)
+    }
+    return [...byAccount.entries()].map(([key, r]) => ({
+      key,
+      name: r.name,
+      isYou: r.isYou,
+      followers: r.followers,
+      engagement: r.rates.length ? r.rates.reduce((s, v) => s + v, 0) / r.rates.length : 0,
+      platforms: r.platforms.filter((p) => PLATFORM_LABEL[p]).sort(),
+    }))
+  }, [profiles])
 
-    // Followers: who has more, scaled by the larger of the two.
-    const topFollow = comps.reduce((a, b) => (b.followerCount > a.followerCount ? b : a))
-    if (me.followerCount > 0 || topFollow.followerCount > 0) {
-      const meWins = me.followerCount >= topFollow.followerCount
-      const hi = Math.max(me.followerCount, topFollow.followerCount, 1)
-      const lo = Math.min(me.followerCount, topFollow.followerCount)
-      const gap = Math.round((1 - lo / hi) * 100)
-      rows.push({
-        metric: "Audience size",
-        side: meWins ? "you" : "them",
-        width: Math.min(100, 30 + gap),
-        verdict: meWins
-          ? `You lead · ${formatNumber(me.followerCount)}`
-          : `${topFollow.entityName} · ${formatNumber(topFollow.followerCount)}`,
-        tip: "Follower counts, you vs the strongest competitor we track. Bar grows with the gap.",
-        tipValue: `You ${formatNumber(me.followerCount)} · them ${formatNumber(topFollow.followerCount)}`,
-      })
+  // Each ladder ranks only accounts we actually have a reading for on that signal: a 0
+  // usually means "not read yet", not "zero followers", and ranking an account last on
+  // missing data would be a claim we cannot support. The unread ones are counted in the
+  // note instead, so the row count is never quietly short.
+  const ladders = useMemo(() => {
+    const build = (
+      key: string,
+      title: string,
+      value: (s: (typeof standings)[number]) => number,
+      display: (n: number) => string,
+      unit: string,
+      note: string,
+    ) => {
+      const rated = standings.filter((s) => value(s) > 0).sort((a, b) => value(b) - value(a))
+      if (rated.length < 2) return null
+      const max = value(rated[0])
+      const yourIndex = rated.findIndex((s) => s.isYou)
+      return {
+        key,
+        title,
+        rows: rated.map((s) => ({
+          key: s.key,
+          name: s.name,
+          isYou: s.isYou,
+          platforms: s.platforms,
+          width: Math.max(3, Math.round((value(s) / max) * 100)),
+          display: display(value(s)),
+        })),
+        verdict:
+          yourIndex >= 0
+            ? `You rank ${ordinal(yourIndex + 1)} of ${rated.length} on ${unit}.`
+            : `We have no ${unit} reading for your own account yet.`,
+        note:
+          standings.length > rated.length
+            ? `${note} ${standings.length - rated.length} tracked account${standings.length - rated.length === 1 ? " has" : "s have"} no reading yet.`
+            : note,
+      }
     }
 
-    // Per-post engagement rate: who converts attention better.
-    const topEng = comps.reduce((a, b) => (b.engagementRate > a.engagementRate ? b : a))
-    if (me.engagementRate > 0 || topEng.engagementRate > 0) {
-      const meWins = me.engagementRate >= topEng.engagementRate
-      const hi = Math.max(me.engagementRate, topEng.engagementRate, 0.01)
-      const lo = Math.min(me.engagementRate, topEng.engagementRate)
-      const gap = Math.round((1 - lo / hi) * 100)
-      rows.push({
-        metric: "Engagement / post",
-        side: meWins ? "you" : "them",
-        width: Math.min(100, 30 + gap),
-        verdict: meWins
-          ? `You lead · ${me.engagementRate.toFixed(1)}%`
-          : `${topEng.entityName} · ${topEng.engagementRate.toFixed(1)}%`,
-        tip: "Average engagement when a post goes out (interactions ÷ followers) — not a measure of how often you post.",
-        tipValue: `You ${me.engagementRate.toFixed(1)}% · them ${topEng.engagementRate.toFixed(1)}%`,
-      })
-    }
-
-    return rows
-  }, [me, comps])
+    return [
+      build(
+        "audience",
+        "Audience size",
+        (s) => s.followers,
+        formatNumber,
+        "audience size",
+        "Followers, summed across the networks we track for each account.",
+      ),
+      build(
+        "engagement",
+        "Engagement / post",
+        (s) => s.engagement,
+        (n) => `${n.toFixed(1)}%`,
+        "engagement per post",
+        "Average interactions per post divided by followers, not how often an account posts.",
+      ),
+    ].filter((l): l is NonNullable<typeof l> => l !== null)
+  }, [standings])
 
   if (profiles.length === 0) return null
 
@@ -182,30 +234,63 @@ export default function SocialStandingPass({
       </RevealOnView>
       )}
 
-      {/* You vs the set */}
-      {showH2H && (h2hRows.length > 0 ? (
-        <RevealOnView className="sp-h2h-wrap">
-          <TkH2HBars
-            title={
-              <>
-                You vs your set
-                <TkConfidence level="directional" showLabel={false} className="sp-h2h-conf" />
-              </>
-            }
-            rows={h2hRows}
-            note="Compared against the strongest competitor on each signal. Followers and engagement are the two we can read honestly today."
-          />
+      {/* ── ALT-270: the standing ladder — every tracked account, your own highlighted ── */}
+      {showH2H && (ladders.length > 0 ? (
+        <RevealOnView className="sp-ladders" stagger>
+          {ladders.map((l, li) => (
+            <div key={l.key} style={{ "--tk-i": li } as CSSProperties}>
+              <TkSoftPanel className="sp-ladder">
+                <div className="sp-ladder-head">
+                  <h4>{l.title}</h4>
+                  <TkConfidence level="directional" showLabel={false} className="sp-h2h-conf" />
+                </div>
+                <p className="sp-ladder-verdict">{l.verdict}</p>
+                <ol className="sp-ladder-rows">
+                  {l.rows.map((r, i) => (
+                    <li key={r.key} className={tkcx("sp-lrow", r.isYou && "sp-lrow-you")}>
+                      <span className="sp-lrank">{i + 1}</span>
+                      <span className="sp-lname">
+                        {r.isYou ? "You" : r.name}
+                        {r.platforms.length ? (
+                          <span className="sp-lplats">
+                            {r.platforms.map((p) => PLATFORM_LABEL[p]).join(" · ")}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="sp-lbar" aria-hidden="true">
+                        <i style={{ width: `${r.width}%` }} />
+                      </span>
+                      <span className="sp-lval">{r.display}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="sp-ladder-note">{l.note}</p>
+              </TkSoftPanel>
+            </div>
+          ))}
         </RevealOnView>
       ) : me && comps.length === 0 ? (
         <TkSoftPanel className="sp-h2h-empty">
           <TkChip family="social">Just you so far</TkChip>
           <p>
             Add the competitors you want to measure against on{" "}
-            <a href="/competitors">Competitors</a> — we&apos;ll line up followers and engagement
-            side by side once we&apos;re watching their accounts.
+            <Link href="/competitors">Competitors</Link>, and we&apos;ll line up followers and
+            engagement side by side once we&apos;re watching their accounts.
           </p>
         </TkSoftPanel>
-      ) : null)}
+      ) : (
+        // ALT-270: accounts are tracked but fewer than two have a reading on either
+        // signal, so there is nothing we can rank yet. Say that plainly instead of
+        // rendering an empty gap or a comparison against a missing number.
+        <TkSoftPanel className="sp-h2h-empty">
+          <TkChip family="social">Still reading their accounts</TkChip>
+          <p>
+            We&apos;re watching {comps.length} competitor account
+            {comps.length === 1 ? "" : "s"} here but don&apos;t have enough follower or engagement
+            readings yet to rank anyone. This fills in as their posts come through.
+          </p>
+        </TkSoftPanel>
+      ))}
     </div>
   )
 }
