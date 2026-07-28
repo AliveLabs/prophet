@@ -13,8 +13,23 @@
 }
 .img-lead strong { color: var(--rust-deep, var(--rust)); font-weight: 700; }
 
-/* Header stat tiles. */
-.img-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+/* ── ALT-257 — the lead line and the module's Ask Ticket ingress share a row, so the
+   affordance sits on the sentence it would answer instead of floating in a corner. ── */
+.img-leadrow { display: flex; align-items: flex-start; gap: 10px; }
+.img-leadrow .img-lead { flex: 1 1 auto; min-width: 0; }
+/* The kit pins `button.tk-tbub` to a card's top-right corner. Here it rides inline at
+   the end of the sentence, so the absolute positioning is switched off. The extra class
+   in the selector beats the kit's own `button.tk-tbub` without needing !important. */
+.img-leadrow button.tk-tbub.img-tbub { position: static; flex: none; margin-top: -3px; }
+/* Match the kit's card-hover reveal: on a pointer device the bubble brightens when the
+   row it belongs to is hovered, the same way it does inside a card. */
+@media (hover: hover) {
+  .img-leadrow:hover .img-tbub { opacity: 1; }
+}
+
+/* Header stat tiles. ALT-257 put the galleries above these, so they need the same
+   breathing room on top that they already had underneath. */
+.img-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; margin-bottom: 16px; }
 .img-stat {
   flex: 1 1 120px; min-width: 110px;
   display: flex; flex-direction: column; gap: 3px;
