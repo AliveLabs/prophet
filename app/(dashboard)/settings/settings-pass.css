@@ -301,6 +301,41 @@
   color: var(--teal-deep); background: var(--teal-tint); padding: 5px 11px; border-radius: 999px;
 }
 
+/* ── team invite + remove (ALT-457) ───────────────────────── */
+/* "Invited" (not yet signed in) reads quieter than "Active" so the roster shows at a
+   glance who is actually in. */
+.tk-set-member-tag.is-pending { color: var(--ink-2); background: var(--paper-2); }
+
+.tk-set-memberx {
+  flex: none; background: none; border: 0; cursor: pointer; padding: 4px 2px;
+  font: inherit; font-size: 12.5px; color: var(--ink-3);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-2);
+  transition: color .18s ease, text-decoration-color .18s ease;
+}
+.tk-set-memberx:hover { color: var(--rust-deep); text-decoration-color: var(--rust); }
+.tk-set-memberx:disabled { opacity: .5; cursor: not-allowed; text-decoration: none; }
+.tk-set-memberx:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; border-radius: 4px; }
+
+.tk-set-feedback { margin: 12px 0 0; font-size: 13px; line-height: 1.5; }
+.tk-set-feedback.is-ok { color: var(--teal-deep); }
+.tk-set-feedback.is-err { color: var(--rust-deep); }
+
+.tk-set-inviteform { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line-2); }
+.tk-set-invitefields { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
+.tk-set-field { display: flex; flex-direction: column; gap: 6px; flex: 1 1 180px; min-width: 0; }
+.tk-set-field > span {
+  font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+.tk-set-field input, .tk-set-field select {
+  width: 100%; padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink);
+  background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r-sm);
+}
+.tk-set-field input:focus-visible, .tk-set-field select:focus-visible {
+  outline: 2.5px solid var(--rust); outline-offset: 1px; border-color: var(--rust);
+}
+.tk-set-invitehint { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); }
+
 /* ── responsive ──────────────────────────────────────────── */
 @media (max-width: 720px) {
   .tk-set-field { grid-template-columns: 1fr; gap: 8px; padding: 14px 0; }
