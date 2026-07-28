@@ -28,3 +28,23 @@ export function shouldClaimCurrentOrg(
   const isShowcase = org.org_kind === "demo" || org.org_kind === "test"
   return isTrialActive(org) && !isShowcase
 }
+
+/**
+ * Whether an ADMIN OWNERSHIP TRANSFER should point the new owner's
+ * current_organization_id at the org they just received.
+ *
+ * Transfer used to only write organization_members, which stranded the new owner: both
+ * /auth/callback and resolveOperator() read ONLY profiles.current_organization_id and
+ * redirect to /onboarding when it's null — with no membership fallback. So a freshly
+ * invited owner was asked to onboard a restaurant from scratch while already owning one
+ * with full history, and couldn't reach it even by typing /home.
+ *
+ * Rule is narrower than shouldClaimCurrentOrg on purpose: point them at it only when they
+ * have nowhere else to be. Someone who already operates another restaurant must not have
+ * their dashboard silently repointed by an admin action; they can switch accounts in-app.
+ */
+export function shouldPointNewOwnerAtOrg(
+  existingCurrentOrgId: string | null | undefined
+): boolean {
+  return !existingCurrentOrgId
+}

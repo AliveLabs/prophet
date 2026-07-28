@@ -268,6 +268,9 @@ export const sendUserMagicLink = withAdminAction(
       react: WaitlistInvitation({
         name: fullName,
         magicLinkUrl,
+        // Existing user asking for a fresh link — not a welcome, and definitely not a
+        // "your spot is ready" (which is what this used to say).
+        variant: "signin",
       }),
       clientFacing: true,
       overrideClientEmailPause: true,

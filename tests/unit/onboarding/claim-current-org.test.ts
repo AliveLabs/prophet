@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest"
-import { shouldClaimCurrentOrg, type ClaimOrg } from "@/lib/onboarding/claim-current-org"
+import {
+  shouldClaimCurrentOrg,
+  shouldPointNewOwnerAtOrg,
+  type ClaimOrg,
+} from "@/lib/onboarding/claim-current-org"
 
 const future = new Date(Date.now() + 7 * 86_400_000).toISOString()
 
@@ -50,5 +54,23 @@ describe("shouldClaimCurrentOrg", () => {
 
   it("does not claim when the org row could not be loaded and a current org exists", () => {
     expect(shouldClaimCurrentOrg("existing-org", null)).toBe(false)
+  })
+})
+
+// Admin ownership transfer used to only write organization_members, which stranded the new
+// owner: /auth/callback and resolveOperator() read ONLY profiles.current_organization_id and
+// send a null to /onboarding, with no membership fallback. So a transferred owner was asked
+// to set up a restaurant from scratch while already owning one with full history.
+describe("shouldPointNewOwnerAtOrg", () => {
+  it("points a brand-new owner at the org (no current org, or no profiles row at all)", () => {
+    expect(shouldPointNewOwnerAtOrg(null)).toBe(true)
+    expect(shouldPointNewOwnerAtOrg(undefined)).toBe(true)
+    expect(shouldPointNewOwnerAtOrg("")).toBe(true)
+  })
+
+  it("never repoints someone who already operates a restaurant", () => {
+    // An admin transferring a second org must not silently move an existing operator's
+    // dashboard out from under them; they switch accounts in-app instead.
+    expect(shouldPointNewOwnerAtOrg("another-org-id")).toBe(false)
   })
 })

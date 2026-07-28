@@ -15,6 +15,7 @@ import { createOrgWithOwner } from "@/lib/admin/org-factory"
 import { getStripeClient } from "@/lib/stripe/client"
 import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
 import { isValidIndustryType } from "@/lib/verticals"
+import { shouldPointNewOwnerAtOrg } from "@/lib/onboarding/claim-current-org"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -639,6 +640,41 @@ export const transferOrgOwnership = withAdminAction(
       .eq("role", "owner")
       .neq("user_id", toUserId)
     if (demoteErr) return { ok: false, error: demoteErr.message }
+
+    // Point the new owner AT the org they just received. Membership alone isn't enough:
+    // /auth/callback and resolveOperator() both read only profiles.current_organization_id
+    // and send a null straight to /onboarding, so without this the new owner is asked to
+    // set up a restaurant from scratch while already owning one. An invited user may have
+    // no profiles row at all yet (nothing creates one on signup), hence the upsert.
+    const { data: targetProfile } = await supabase
+      .from("profiles")
+      .select("id, current_organization_id")
+      .eq("id", toUserId)
+      .maybeSingle()
+
+    if (shouldPointNewOwnerAtOrg(targetProfile?.current_organization_id)) {
+      const { error: profileErr } = await supabase
+        .from("profiles")
+        .upsert({ id: toUserId, current_organization_id: orgId }, { onConflict: "id" })
+      // Non-fatal: the transfer itself succeeded, and the owner can still be pointed at the
+      // org by opening it in-app. Surfacing it beats silently leaving them in onboarding.
+      if (profileErr) {
+        console.error("[transferOrgOwnership] could not set current org:", profileErr.message)
+        await logAdminAction({
+          adminId: ctx.adminId,
+          adminEmail: ctx.adminEmail,
+          action: "org.transfer_ownership",
+          targetType: "org",
+          targetId: orgId,
+          details: { orgName: org.name, fromUserId, toUserId, currentOrgSetFailed: profileErr.message },
+        })
+        revalidatePath(`/admin/organizations/${orgId}`)
+        return {
+          ok: true,
+          message: `Transferred ownership of ${org.name}, but couldn't set their starting dashboard — they may land in onboarding.`,
+        }
+      }
+    }
 
     await logAdminAction({
       adminId: ctx.adminId,
