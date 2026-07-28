@@ -124,7 +124,7 @@ export default function TeamClient({
       {canManage && canInvite ? (
         <form action={submitInvite} className="tk-set-inviteform">
           <div className="tk-set-invitefields">
-            <label className="tk-set-field">
+            <label className="tk-set-invitefield">
               <span>Email</span>
               <input
                 type="email"
@@ -136,11 +136,11 @@ export default function TeamClient({
                 onChange={(e) => setEmail(e.target.value)}
               />
             </label>
-            <label className="tk-set-field">
+            <label className="tk-set-invitefield">
               <span>Name (optional)</span>
               <input type="text" name="fullName" placeholder="First Last" autoComplete="off" />
             </label>
-            <label className="tk-set-field">
+            <label className="tk-set-invitefield">
               <span>Role</span>
               {/* Only an owner may mint an admin — otherwise admin self-propagates and the
                   owner loses track of who holds elevated access. */}

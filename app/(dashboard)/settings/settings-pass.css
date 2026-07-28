@@ -325,16 +325,21 @@
    width and left the labels vertically staggered. Capped so the inputs don't stretch to a
    silly length on a wide screen. */
 .tk-set-invitefields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; max-width: 420px; }
-.tk-set-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.tk-set-field > span {
+/* NAMED -invitefield, not -field. `.tk-set-field` is a SHARED settings wrapper used all
+   over app/(dashboard)/settings/page.tsx and settings-refresh-pass.tsx, so a
+   `.tk-set-field input` rule here leaked across Settings: identical specificity to
+   `.tk-set-check input` but later in the file, so it won and stretched the boldness
+   checkbox to 100% width, collapsing its label to one character per line. */
+.tk-set-invitefield { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tk-set-invitefield > span {
   font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-3);
 }
-.tk-set-field input, .tk-set-field select {
+.tk-set-invitefield input, .tk-set-invitefield select {
   width: 100%; padding: 10px 12px; font: inherit; font-size: 14px; color: var(--ink);
   background: var(--card); border: 1px solid var(--line-2); border-radius: var(--r-sm);
 }
-.tk-set-field input:focus-visible, .tk-set-field select:focus-visible {
+.tk-set-invitefield input:focus-visible, .tk-set-invitefield select:focus-visible {
   outline: 2.5px solid var(--rust); outline-offset: 1px; border-color: var(--rust);
 }
 .tk-set-invitehint { margin: 10px 0 0; font-size: 12.5px; color: var(--ink-3); }
