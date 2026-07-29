@@ -205,8 +205,11 @@ export default function BriefView({
           <>
             {/* ── See-all-insights link (ALT-184a) — moved to the TOP of the brief's insights
                 list so it's discoverable immediately instead of buried at the bottom. ── */}
+            {/* "Pool" is internal vocabulary that told the operator nothing, so it is gone
+                from the label. The route keeps its path for now; the destination itself is
+                still being settled. */}
             <Link className="pass-pool-link pass-pool-link-top" href="/home/pool">
-              See all insights in your pool &rarr;
+              See all insights &rarr;
             </Link>
 
             {/* ── FALLBACK BANNER (last-good brief; honest, not faked) ── */}

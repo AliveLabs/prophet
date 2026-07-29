@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest"
-import { shouldRevealStartHidden } from "@/components/ticket/reveal-logic"
+import {
+  effectiveRevealThreshold,
+  shouldRevealStartHidden,
+} from "@/components/ticket/reveal-logic"
 
 // ALT-149 regression guard.
 //
@@ -63,5 +66,54 @@ describe("shouldRevealStartHidden", () => {
     expect(
       shouldRevealStartHidden({ reduceMotion: false, hasIntersectionObserver: true, rect: null, viewportHeight: VPH })
     ).toBe(false)
+  })
+})
+
+// ── Blank-page regression guard (the /home/pool report) ──────────────────────
+//
+// An IntersectionObserver threshold is a share of the TARGET'S OWN area, so the most
+// that can ever intersect an element taller than the viewport is vh / elementHeight.
+// At the 0.2 default, anything over ~5 viewports tall can never satisfy it: the
+// callback never reports isIntersecting and the subtree stays at opacity 0 forever.
+// Measured in a browser: a 12,000px element in a 720px viewport tops out at ratio
+// 0.043, so 0.2 reported isIntersecting:false while 0.01 fired normally.
+
+describe("effectiveRevealThreshold", () => {
+  it("leaves a normal-sized block's threshold alone (entrance animations unchanged)", () => {
+    expect(effectiveRevealThreshold(0.2, 200, VPH)).toBe(0.2)
+    expect(effectiveRevealThreshold(0.2, VPH, VPH)).toBe(0.2)
+  })
+
+  it("keeps the requested threshold while it is still reachable", () => {
+    // 1600px tall in an 800px viewport: ceiling is 0.5, so 0.2 is fine.
+    expect(effectiveRevealThreshold(0.2, 1600, VPH)).toBe(0.2)
+  })
+
+  it("drops to first-contact once the requested threshold is unreachable", () => {
+    // The real bug: a long uncapped feed. Ceiling here is 800/12000 = 0.067 < 0.2.
+    expect(effectiveRevealThreshold(0.2, 12_000, VPH)).toBe(0)
+  })
+
+  it("drops at the exact boundary where the threshold equals the ceiling", () => {
+    // 4000px in an 800px viewport: ceiling is exactly 0.2, which is not > 0.2.
+    expect(effectiveRevealThreshold(0.2, 4000, VPH)).toBe(0)
+  })
+
+  it("never returns a threshold the element cannot reach", () => {
+    for (const height of [900, 1200, 2500, 4000, 8000, 40_000]) {
+      const t = effectiveRevealThreshold(0.2, height, VPH)
+      expect(t).toBeLessThan(VPH / height)
+    }
+  })
+
+  it("leaves the caller's intent alone when the element is not laid out yet", () => {
+    expect(effectiveRevealThreshold(0.2, 0, VPH)).toBe(0.2)
+    expect(effectiveRevealThreshold(0.2, -1, VPH)).toBe(0.2)
+  })
+
+  it("survives a nonsense viewport without hiding content", () => {
+    expect(effectiveRevealThreshold(0.2, 12_000, 0)).toBe(0.2)
+    expect(effectiveRevealThreshold(0.2, Number.NaN, VPH)).toBe(0.2)
+    expect(effectiveRevealThreshold(0.2, 12_000, Number.POSITIVE_INFINITY)).toBe(0.2)
   })
 })

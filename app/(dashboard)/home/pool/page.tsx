@@ -70,13 +70,15 @@ export default async function InsightPoolPage() {
         Back to your brief
       </Link>
       <RevealOnView as="header" className="pv-page-head">
-        <div className="pv-kicker">Insight pool</div>
+        {/* "Insight pool" was internal vocabulary on a customer-facing page. The kicker now
+            says what the page is: everything the brief has recommended. */}
+        <div className="pv-kicker">All insights</div>
         <h1 className="pv-h1">
           All your insights{locRow.name ? <span className="pool-h1-loc"> · {locRow.name}</span> : null}
         </h1>
         <p className="pv-sub">
-          Every insight from your recent briefs accumulates here. The top few surface on your brief
-          each morning; the rest stay in the pool, filterable by type
+          Every insight from your recent briefs collects here. The top few surface on your brief
+          each morning; the rest stay here, filterable by type
           {entries.length ? (
             <>
               {" "}
