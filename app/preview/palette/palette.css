@@ -1,0 +1,115 @@
+/* DEV/REVIEW-ONLY scaffolding for the palette page. Pulls the kit stylesheet so the
+   tokens resolve inside `.pal-scope` and the page can read real values back. */
+@import "../../../components/ticket/pass.css";
+@import "../../../components/insights/unified-insight-card.css";
+
+.pal-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.pal { display: flex; flex-direction: column; }
+.pal-group { display: flex; flex-direction: column; gap: 14px; margin-top: 38px; }
+.pal-grouphead { display: flex; flex-direction: column; gap: 5px; padding-bottom: 9px; border-bottom: 1px solid var(--rule); }
+.pal-grouphead h2 { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); }
+.pal-grouphead p { font-size: 13px; line-height: 1.6; color: var(--ink-3); max-width: 80ch; }
+.pal-grouphead b, .pal-axisnote b { color: var(--ink-2); font-weight: 700; }
+
+/* ── swatches ── */
+.pal-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.pal-sw { display: flex; flex-direction: column; gap: 8px; }
+.pal-chip {
+  height: 62px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-sm);
+}
+/* Alpha tokens need a backdrop to be legible, so show them over a split field. */
+.pal-chip-line {
+  background-image:
+    linear-gradient(90deg, var(--paper) 50%, var(--ink) 50%) !important;
+  position: relative;
+}
+.pal-chip-line::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: inherit;
+  border-radius: inherit;
+}
+
+.pal-meta { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pal-name { font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+.pal-val { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.pal-note { font-size: 11.5px; line-height: 1.45; color: var(--ink-3); }
+.pal-alias {
+  align-self: flex-start;
+  font-family: var(--font-cond); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--gold-deep);
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--line));
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  padding: 2px 7px; border-radius: 999px;
+}
+
+/* ── contrast badges ── */
+.pal-ratios { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.pal-ratio {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 5px;
+  border: 1px solid var(--line-2); color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.pal-ratio-aaa { color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 45%, var(--line)); background: color-mix(in srgb, var(--teal) 10%, transparent); }
+.pal-ratio-aa { color: var(--teal-deep); border-color: color-mix(in srgb, var(--teal) 30%, var(--line)); }
+.pal-ratio-fail { color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 45%, var(--line)); background: color-mix(in srgb, var(--alert) 10%, transparent); }
+.pal-ratio-na { opacity: 0.6; }
+
+/* ── applied axes ── */
+.pal-axes { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.pal-axis { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--card); }
+.pal-axis > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.pal-axis b { font-family: var(--font-cond); font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); }
+.pal-axis span { font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
+.pal-axis code, .pal-axisnote code, .pal-issues code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
+.pal-axisnote { font-size: 13px; line-height: 1.6; color: var(--ink-3); max-width: 80ch; }
+
+.pal-demo-tag {
+  flex: none;
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid;
+  font-family: var(--font-cond); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap;
+}
+.pal-demo-what   { border-color: var(--line-2); background: transparent; color: var(--ink-3); }
+.pal-demo-when   { border-color: color-mix(in srgb, var(--slate) 45%, var(--line)); background: color-mix(in srgb, var(--slate) 10%, transparent); color: var(--slate-deep); }
+.pal-demo-state  { border-color: color-mix(in srgb, var(--teal) 40%, var(--line)); background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--teal-deep); }
+.pal-demo-urgent { background: var(--alert); border-color: var(--alert); color: #fff; }
+
+/* ── elevation + radii ── */
+.pal-elev { display: flex; flex-wrap: wrap; gap: 22px; padding: 8px 4px 14px; }
+.pal-elevbox { flex: 1 1 180px; min-height: 78px; display: grid; place-items: center; border-radius: var(--r-md); background: var(--card); border: 1px solid var(--line); }
+.pal-radii { display: flex; flex-wrap: wrap; gap: 14px; }
+.pal-radbox { flex: 1 1 150px; min-height: 66px; display: grid; place-items: center; background: var(--card-2); border: 1.5px solid var(--line-2); }
+.pal-elevbox code, .pal-radbox code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
+
+/* ── issues ── */
+.pal-issues { display: flex; flex-direction: column; gap: 13px; margin: 0; padding-left: 22px; }
+.pal-issues li { font-size: 13px; line-height: 1.6; color: var(--ink-2); max-width: 88ch; }
+.pal-issues b { color: var(--ink); font-weight: 700; }
+
+/* ── button + chip spec, one panel per theme ── */
+.pal-themes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.bcs { border: 1px solid var(--line-2); border-radius: var(--r-lg); background: var(--paper); overflow: hidden; }
+.bcs-inner { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.bcs-head {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  font-family: var(--font-display); font-size: 14px; font-weight: 700; color: var(--ink);
+  padding-bottom: 10px; border-bottom: 1px solid var(--rule);
+}
+.bcs-head span { font-family: var(--font-cond); font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-3); }
+.bcs-block { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: var(--r-md); background: var(--card); border: 1px solid var(--line); }
+.bcs-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.bcs-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bcs-label b { font-family: var(--font-cond); font-size: 11.5px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--ink-2); }
+.bcs-label code { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); }
+.bcs-chiprow { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.pal-dev { margin-top: 6px; }
+
+@media (max-width: 1000px) { .pal-themes { grid-template-columns: 1fr; } }
