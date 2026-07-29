@@ -8,7 +8,7 @@ import {
   type ElementType,
   type HTMLAttributes,
 } from "react"
-import { shouldRevealStartHidden } from "./reveal-logic"
+import { effectiveRevealThreshold, shouldRevealStartHidden } from "./reveal-logic"
 
 // IntersectionObserver wrapper that adds `tk-in-view` to its element when it
 // scrolls into view, driving the entrance fade-up and any data-reveal inside.
@@ -66,13 +66,22 @@ export function RevealOnView({
     // content starts hidden (the hide is never seen) and fades up on scroll-in.
     // We still observe either way so below-fold reveal and once=false re-hide work.
     setArmed(true)
+    const rect = el.getBoundingClientRect()
     const startHidden = shouldRevealStartHidden({
       reduceMotion: !!reduce,
       hasIntersectionObserver: hasIO,
-      rect: el.getBoundingClientRect(),
+      rect,
       viewportHeight: window.innerHeight,
     })
     if (startHidden) setInView(false)
+
+    // A tall subtree can never satisfy a fractional threshold — see the comment on
+    // effectiveRevealThreshold for the measurement and the /home/pool bug it fixes.
+    const effectiveThreshold = effectiveRevealThreshold(
+      threshold,
+      rect.height,
+      window.innerHeight,
+    )
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -83,7 +92,7 @@ export function RevealOnView({
           setInView(false)
         }
       },
-      { threshold }
+      { threshold: effectiveThreshold }
     )
     io.observe(el)
     return () => io.disconnect()

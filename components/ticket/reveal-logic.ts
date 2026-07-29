@@ -27,3 +27,31 @@ export function shouldRevealStartHidden({
   const inViewport = rect.top < viewportHeight && rect.bottom > 0
   return !inViewport
 }
+
+// An IntersectionObserver threshold is a share of THE TARGET'S OWN area, not of the
+// viewport. So the most that can ever intersect a target taller than the viewport is
+// viewportHeight / elementHeight — and at the 0.2 default, anything over ~5 viewports
+// tall can NEVER satisfy it. The callback never reports isIntersecting and the subtree
+// stays at opacity 0 forever.
+//
+// That was the /home/pool blank-page bug: the page wraps its whole uncapped feed in one
+// <RevealOnView>, which on a real pool is tens of thousands of pixels tall. Measured in
+// a browser: a 12,000px element against a 720px viewport tops out at ratio 0.043, so a
+// 0.2 threshold reported isIntersecting:false, while 0.01 fired normally.
+//
+// For an element taller than the viewport, "20% of it is showing" is not a meaningful
+// trigger anyway; first contact is. Normal-sized blocks keep the requested threshold, so
+// every existing entrance animation is untouched.
+export function effectiveRevealThreshold(
+  requested: number,
+  elementHeight: number,
+  viewportHeight: number,
+): number {
+  if (!Number.isFinite(elementHeight) || !Number.isFinite(viewportHeight)) return requested
+  // Not laid out yet (height 0) or a nonsense viewport → leave the caller's intent alone.
+  if (elementHeight <= 0 || viewportHeight <= 0) return requested
+  if (elementHeight <= viewportHeight) return requested
+  // Reachable ceiling for this element. If the request is already under it, honor it.
+  const maxReachable = viewportHeight / elementHeight
+  return requested < maxReachable ? requested : 0
+}

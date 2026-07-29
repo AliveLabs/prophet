@@ -123,8 +123,8 @@ export default function PoolFeedPass({
       <RevealOnView className="pool-empty-wrap">
         <TkEmptyState
           icon={POOL_EMPTY_ICON}
-          title="Your pool is still filling in"
-          description="As your briefs build over the coming days, every insight accumulates here — the top few surface on your brief each morning, the rest stay filterable by type."
+          title="This is still filling in"
+          description="As your briefs build over the coming days, every insight collects here. The top few surface on your brief each morning; the rest stay filterable by type."
         />
       </RevealOnView>
     )
@@ -231,7 +231,7 @@ export default function PoolFeedPass({
           <RevealOnView className="pool-empty-wrap">
             <TkEmptyState
               title="Nothing matches this filter"
-              description="No insights in your pool match the current type or “top only” filter. Clear it to see everything."
+              description="No insights match the current type or “top only” filter. Clear it to see everything."
               action={
                 <button
                   type="button"
