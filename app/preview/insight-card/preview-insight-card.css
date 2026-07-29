@@ -1,0 +1,66 @@
+/* DEV/REVIEW-ONLY scaffolding for the unified-insight-card proposal page. This is the
+   harness around the card, not the card: nothing here ships with it. */
+
+.pic { display: flex; flex-direction: column; }
+
+/* Kicker on the left, theme toggle pinned right on the same line. */
+.pic-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pic-sec { display: flex; flex-direction: column; gap: 14px; margin-top: 38px; }
+.pic-h2 {
+  font-family: var(--font-display);
+  font-size: 17px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink);
+  padding-bottom: 9px; border-bottom: 1px solid var(--rule);
+}
+.pic-note { font-size: 13px; line-height: 1.6; color: var(--ink-2); max-width: 78ch; }
+.pic-note b { color: var(--ink); font-weight: 700; }
+
+/* tier walkthrough: label on the left, the real card on the right */
+.pic-tier { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 22px; align-items: start; }
+.pic-tier-label { display: flex; flex-direction: column; gap: 5px; padding-top: 2px; }
+.pic-tier-label b { font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rust-deep); }
+.pic-tier-label span { font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
+
+.pic-one { max-width: 620px; }
+.pic-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.pic-home { display: flex; flex-direction: column; gap: 16px; }
+
+.pic-seeall {
+  align-self: flex-start;
+  font-family: var(--font-cond); font-size: 13px; font-weight: 700;
+  color: var(--rust-deep); text-decoration: underline; text-underline-offset: 3px;
+}
+
+.pic-allsec { display: flex; flex-direction: column; gap: 13px; margin-top: 8px; }
+.pic-sechead { display: flex; flex-direction: column; gap: 3px; }
+.pic-sechead h3 { font-family: var(--font-display); font-size: 15px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); }
+.pic-sechead span { font-size: 12.5px; color: var(--ink-3); }
+
+.pic-more {
+  align-self: flex-start;
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 38px; padding: 8px 15px;
+  border-radius: var(--r-md); border: 1px solid var(--line-2);
+  background: var(--card); color: var(--ink-2);
+  font-family: var(--font-cond); font-size: 12.5px; font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.pic-more span { font-size: 11.5px; font-weight: 500; color: var(--ink-3); opacity: 0.72; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 900px) {
+  .pic-tier { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .pic-two { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* button spec table */
+.pic-btnspec { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.pic-btnrow { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 20px; align-items: center; padding: 14px 16px; background: var(--card); border-bottom: 1px solid var(--rule); }
+.pic-btnrow:last-child { border-bottom: 0; }
+.pic-btnlabel { display: flex; flex-direction: column; gap: 4px; }
+.pic-btnlabel b { font-family: var(--font-cond); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--rust-deep); }
+.pic-btnlabel span { font-size: 12.5px; line-height: 1.5; color: var(--ink-3); }
+.pic-btnset { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pic-arrow { color: var(--ink-3); font-size: 15px; }
+
+@media (max-width: 900px) {
+  .pic-btnrow { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+}

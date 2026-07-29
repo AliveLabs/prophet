@@ -1,0 +1,255 @@
+/* The card composes the kit's primitives, so it pulls the kit's stylesheet itself rather
+   than depending on whichever surface mounts it. pass.css @imports the token SSOT, and
+   duplicate @imports dedupe, so this is safe on a page that already loads it. */
+@import "../ticket/pass.css";
+
+/* ════════════════════════════════════════════════════════════════════════
+   BUTTON FRAMEWORK (ALT-252 pulled forward)
+   Three tiers, each with rest / hover / active. Scoped to `.uic` for now so it can be
+   judged here before it reskins the whole app.
+
+   primary    rust fill, deepens on hover, presses to --press.
+   secondary  neutral --ledger fill, walks down the ink ramp on hover then press.
+   tertiary   NO fill, inherits the container. Colour arrives only on hover.
+   toggle-on  frame two of a two-frame control (Keep → Kept). Filled, inverted.
+
+   Selectors are `button.uic-btn-*`, NOT bare classes, on purpose: the kit reset
+   `.tk-kit button { background: none; color: inherit }` is (0,1,1) and silently outranks
+   a bare `.uic-btn-primary` (0,1,0), which drops every tier back to transparent with
+   inherited ink. Same workaround the kit uses for `button.tk-tbub`.
+
+   Shapes are deliberately split from chips so the two never read as each other:
+     chips    fully round (999px), never interactive
+     buttons  --r-sm
+   ════════════════════════════════════════════════════════════════════════ */
+button.uic-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 9px 16px;
+  /* --r-md (16px) read too round at this button height, so ALL buttons take --r-sm. */
+  border-radius: var(--r-sm);
+  border: 1.5px solid transparent;
+  background: none;
+  font-family: var(--font-cond);
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.16s var(--ease), color 0.16s var(--ease),
+    border-color 0.16s var(--ease), box-shadow 0.16s var(--ease);
+}
+button.uic-btn:focus-visible { outline: 2.5px solid var(--focus, var(--rust)); outline-offset: 2px; }
+
+/* PRIMARY — rust fill, --card text. `--card` is the right token precisely because it
+   FLIPS: white in light, near-black in dark, so the label stays legible in both without
+   a theme override. Measured: 4.54 light, 5.17 dark. */
+button.uic-btn-primary { background: var(--rust); color: var(--card); }
+button.uic-btn-primary:hover { background: var(--rust-deep); }
+button.uic-btn-primary:active { background: var(--press); }
+
+/* SECONDARY — a neutral fill that deepens through the ink ramp on press. */
+button.uic-btn-secondary { background: var(--ledger); color: var(--ink); }
+button.uic-btn-secondary:hover { background: var(--ash-2); }
+/* DEVIATION: the spec gave no text colour for this state, and keeping --ink on --ink-2
+   measures 2.16, a hard fail. The press INVERTS the label, which is the same move the
+   tertiary press already makes, so the pattern stays consistent. Now 7.61. */
+button.uic-btn-secondary:active { background: var(--ink-2); color: var(--card); }
+
+/* TERTIARY — no fill AND no outline at rest, so it is text until you touch it. That is
+   also what keeps it unmistakable from secondary, which owns the neutral filled look. */
+button.uic-btn-tertiary { background: color-mix(in srgb, var(--press) 0%, transparent); color: var(--ink-2); border-color: transparent; }
+button.uic-btn-tertiary:hover { background: color-mix(in srgb, var(--press) 15%, transparent); }
+button.uic-btn-tertiary:active { background: var(--press); color: var(--card); }
+
+/* Danger flavour of tertiary (Dismiss): no colour until hover, so a destructive verb
+   never shouts at rest. */
+button.uic-btn-danger { color: var(--ink-3); border-color: transparent; }
+button.uic-btn-danger:hover { background: var(--alert-wash); color: var(--alert-deep); border-color: color-mix(in srgb, var(--alert) 30%, transparent); }
+button.uic-btn-danger:active { background: var(--alert); color: var(--card); border-color: var(--alert); }
+
+/* TOGGLE, frame two. Committed state: filled, inverted label. */
+button.uic-btn-toggle-on { background: var(--teal); border-color: var(--teal); color: var(--card); }
+button.uic-btn-toggle-on:hover { background: var(--teal-deep); border-color: var(--teal-deep); }
+button.uic-btn-toggle-on:active { background: var(--press); border-color: var(--press); }
+
+/* ── DARK ────────────────────────────────────────────────────────────────────
+   Two hover fixes, then ONE press state shared by every tier.
+
+   HOVERS. Applied mechanically, two dark hovers break:
+     secondary:hover  --ink on --ash-2 is 4.04, large-text only  ->  --line-2 gives 8.70
+     tertiary :hover  `--press @15%` DARKENS, which is invisible on an already dark
+                      card, so dark lightens by the same amount instead. Not a contrast
+                      problem, a visibility one.
+
+   PRESS. Primary's own rest pair, inverted: fill becomes --card and the label becomes
+   --rust. Contrast is symmetric, so this is the same 5.17 as primary at rest, and it
+   replaces the three separate per-tier dark press rules this block used to carry.
+   Declared AFTER the tier rules because it matches their specificity and has to win.
+
+   Trade-off worth knowing: on a --card surface the fill equals the ground, so for the
+   moment the button is held it loses its silhouette and reads as rust text alone. Adding
+   `border-color: var(--rust)` here would keep the outline if that turns out to matter. ── */
+.dark button.uic-btn-secondary:hover { background: var(--line-2); }
+.dark button.uic-btn-tertiary:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.dark button.uic-btn:active {
+  background: var(--card);
+  color: var(--rust);
+  border-color: transparent;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   THE CARD
+   ════════════════════════════════════════════════════════════════════════ */
+.uic {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.18s var(--ease);
+}
+.uic:hover { box-shadow: var(--shadow-md); }
+.uic-main { display: flex; flex-direction: column; gap: 10px; }
+
+/* The hero. Same anatomy, more air, plus the photo canvas. */
+.uic-lead { padding: 0; overflow: hidden; border-color: var(--line-2); box-shadow: var(--shadow-md); }
+.uic-lead .uic-main { padding: 20px 24px 22px; gap: 12px; }
+.uic-photo { position: relative; width: 100%; aspect-ratio: 16 / 7; overflow: hidden; background: var(--paper-2); }
+.uic-photo > * { width: 100%; height: 100%; }
+.uic-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* An observation gets NO different ground: it is a lesser thing, not a different kind of
+   thing, and tinting it made the all-insights list look striped. */
+.uic-dismissed { opacity: 0.62; }
+
+/* ── Meta: a GRID, so the scores are anchored and can never be pushed down ──
+   Column one holds the tags and is allowed to wrap. Column two is sized to its content
+   and holds confidence + impact with nowrap. A third chip or a long label makes the TAGS
+   wrap; the scores do not move. */
+.uic-meta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: start; }
+.uic-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.uic-scores { display: flex; align-items: center; gap: 10px; flex: none; white-space: nowrap; padding-top: 2px; }
+
+/* ── Tags: the AXIS picks the colour, one family per axis ──
+   what = slate, when = teal, soonest = alert, state = gold. All four are the family TINT,
+   so they read as one set rather than four unrelated badges. */
+.uic-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-family: var(--font-cond);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* Fills are Bryan's mapping. Text is each family's own `-deep`, which is the only
+   choice that clears AA on its own tint in BOTH themes: measured 9.25 / 5.09 / 5.10 /
+   4.69 in light and 7.57 / 7.13 / 5.91 / 8.50 in dark. Borders are a slightly stronger
+   mix of the same family, so a chip still has an edge on a card of similar value. */
+.uic-tag-what   { background: var(--slate-tint);  border-color: color-mix(in srgb, var(--slate-deep) 22%, transparent); color: var(--slate-deep); }
+.uic-tag-when   { background: var(--teal-tint);   border-color: color-mix(in srgb, var(--teal-deep) 22%, transparent);  color: var(--teal-deep); }
+.uic-tag-urgent { background: var(--alert-wash);  border-color: color-mix(in srgb, var(--alert-deep) 26%, transparent); color: var(--alert-deep); }
+.uic-tag-state  { background: var(--gold-tint);   border-color: color-mix(in srgb, var(--gold-deep) 22%, transparent);  color: var(--gold-deep); }
+
+/* ── Scores: neutralised ──
+   The kit colours pips by level (teal / gold / grey). Gold reads as caution, implying a
+   problem where none exists, so every level renders in the same ink here and the LEVEL
+   WORD does the work. Structure and labels stay the kit's. */
+.uic .tk-conf-pips .tk-pip-on,
+.uic .tk-impact .tk-pip-on { background: var(--ink-2); }
+.uic .tk-conf-pips .tk-conf-label,
+.uic .tk-impact .tk-impact-label { color: var(--ink-2); }
+.uic .tk-conf-pips.tk-conf-directional .tk-pip-off { background: transparent; border: 1px dashed var(--line-2); }
+
+/* ── Body ── */
+.uic-title { font-family: var(--font-display); font-size: 16.5px; line-height: 1.28; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); }
+.uic-lead .uic-title { font-size: 24px; line-height: 1.18; }
+.uic-validation { font-family: var(--font-cond); font-size: 12px; font-weight: 600; line-height: 1.45; color: var(--teal-deep); }
+.uic-why { font-size: 13.5px; line-height: 1.55; color: var(--ink-2); }
+.uic-lead .uic-why { font-size: 15px; }
+.uic-region-label { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); }
+
+/* ── What to do. ONE container for both a plan summary and a suggestion, so the two
+      tiers read as the same kind of thing. The button sits INSIDE it, pinned right, so
+      it is visibly tied to the line it opens. ── */
+.uic-do {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding: 11px 13px;
+  border-radius: var(--r-md);
+  background: var(--card-2);
+  border: 1px solid var(--line);
+}
+.uic-do-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 260px; }
+.uic-do-line { font-size: 13px; line-height: 1.5; color: var(--ink-2); }
+.uic-do-btn { flex: none; }
+
+/* ── Card actions ── */
+.uic-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 3px; }
+.uic-state-dismissed { font-family: var(--font-cond); font-size: 12px; font-weight: 700; color: var(--ink-3); }
+
+/* ── Footer ── */
+.uic-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 5px; padding-top: 11px; border-top: 1px solid var(--rule); }
+.uic-detail-link { font-family: var(--font-cond); font-size: 12px; font-weight: 700; color: var(--rust-deep); text-decoration: underline; text-underline-offset: 3px; }
+.uic-detail-link:hover { color: var(--rust-2); }
+
+/* ── Thumbs. Own styling, because the brief's `.fb-*` rules are scoped to
+      `.ticket-brief` and this card has to work on every surface. ── */
+.uic-fb { display: inline-flex; align-items: center; gap: 7px; }
+.uic-fb-label { font-family: var(--font-cond); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.uic-fb-btn {
+  display: inline-grid; place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color 0.16s var(--ease), border-color 0.16s var(--ease), background 0.16s var(--ease);
+}
+.uic-fb-btn:hover { color: var(--ink); border-color: var(--ink-3); background: var(--paper-2); }
+.uic-fb-btn:active { background: var(--ledger); }
+.uic-fb-sent { font-family: var(--font-cond); font-size: 11.5px; font-weight: 700; color: var(--teal-deep); }
+
+/* ── Cited evidence ── */
+.uic-evidence { display: flex; flex-direction: column; gap: 9px; }
+.uic-cite { border-left: 2px solid var(--line-2); padding: 2px 0 2px 12px; margin: 0; }
+.uic-cite p { font-size: 13px; line-height: 1.5; color: var(--ink); font-style: italic; }
+.uic-cite cite { display: block; margin-top: 3px; font-family: var(--font-cond); font-size: 11px; font-weight: 600; font-style: normal; color: var(--ink-3); }
+
+/* ── The plan, inside the side sheet ── */
+.uic-sheet-plan { display: flex; flex-direction: column; gap: 10px; }
+.uic-steps { display: flex; flex-direction: column; gap: 14px; list-style: none; margin: 0; padding: 0; }
+.uic-step { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 11px; }
+.uic-step-i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--rust); color: #fff; font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+.uic-step-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.uic-step-head { font-family: var(--font-display); font-size: 13.5px; font-weight: 700; color: var(--ink); display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+.uic-step-plats { font-family: var(--font-cond); font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.uic-step-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; margin: 0; }
+.uic-step-fields dt { font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-3); padding-top: 2px; }
+.uic-step-fields dd { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.uic-copy { border-left: 2px solid var(--rust); padding: 2px 0 2px 10px; display: flex; flex-direction: column; gap: 3px; }
+.uic-copy-label { font-family: var(--font-cond); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.uic-copy p { font-size: 12.5px; line-height: 1.5; color: var(--ink); font-style: italic; }
+
+/* Narrow cards (the two-up all-insights grid, phones): stack the two score axes so they
+   stay anchored right without squeezing the tags to one chip per line. */
+@media (max-width: 820px) {
+  .uic-scores { flex-direction: column; align-items: flex-end; gap: 4px; }
+}
+@media (max-width: 620px) {
+  .uic { padding: 14px 15px; }
+  .uic-lead .uic-main { padding: 16px 16px 18px; }
+  .uic-lead .uic-title { font-size: 20px; }
+  .uic-step-fields { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .uic-step-fields dd { margin-bottom: 4px; }
+}
