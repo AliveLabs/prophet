@@ -53,7 +53,7 @@ describe("insightTier", () => {
 describe("planSummary", () => {
   it("names the step count as a word, never a numeral", () => {
     const s = planSummary([{ channel: "Review replies" }, { channel: "In-store" }])
-    expect(s).toBe("Two steps: Review replies and in-store.")
+    expect(s).toBe("Two steps: Review replies and In-store.")
     expect(s).not.toMatch(/\d/)
   })
 
@@ -70,7 +70,7 @@ describe("planSummary", () => {
         { channel: "Your Google Business Profile" },
         { channel: "In-store" },
       ]),
-    ).toBe("Three steps: Paid social, your Google Business Profile and in-store.")
+    ).toBe("Three steps: Paid social, Your Google Business Profile and In-store.")
   })
 
   it("collapses duplicate channels but still counts every step", () => {
@@ -80,14 +80,21 @@ describe("planSummary", () => {
       { channel: "Review replies" },
       { channel: "In-store" },
     ])
-    expect(s).toBe("Three steps: Review replies and in-store.")
+    expect(s).toBe("Three steps: Review replies and In-store.")
   })
 
-  it("keeps the first channel's capitalisation and lowercases the rest", () => {
-    // "Paid social, your listing and in-store" reads as prose; "Paid social, Your listing"
-    // reads as a list of proper nouns.
+  it("keeps EVERY channel's capitalisation verbatim, brand names included", () => {
+    // REVERSED from the original rule, which lowercased the first letter of every channel
+    // after the first so the list read as prose ("Paid social and your listing"). That rule
+    // also turned "Google Business Profile" into "google Business Profile", which is a
+    // visible defect on a brand name, and no rule short of a proper-noun list can tell
+    // "Your" from "Google". A slightly listy "and In-store" is never WRONG; a lowercased
+    // brand always is. So channels are verbatim.
     expect(planSummary([{ channel: "Paid social" }, { channel: "Your listing" }])).toBe(
-      "Two steps: Paid social and your listing.",
+      "Two steps: Paid social and Your listing.",
+    )
+    expect(planSummary([{ channel: "Paid social" }, { channel: "Google Business Profile" }])).toBe(
+      "Two steps: Paid social and Google Business Profile.",
     )
   })
 
