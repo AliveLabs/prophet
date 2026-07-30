@@ -37,6 +37,7 @@ import { HeroImage } from "../hero-image"
 import ListingCheck from "@/components/imagery/listing-check"
 import TheShelf from "@/components/imagery/the-shelf"
 import type { PhotoRow, CompetitorPhotoGroup } from "@/lib/places/listing-audit"
+import { accentize } from "@/components/ticket/accentize"
 
 function fmtDateline(dateKey: string): string {
   const d = new Date(`${dateKey}T12:00:00`)
@@ -166,7 +167,7 @@ export default function BriefView({
           <div className="pass-brief-head-body">
             <div className="pass-brief-head-text">
               {/* The ONE editorial flourish (Fraunces) — the lead headline only. */}
-              <h1 className="pass-headline">{brief.headline}</h1>
+              <h1 className="pass-headline">{accentize(brief.headline)}</h1>
               {brief.deck ? <p className="pass-deck">{brief.deck}</p> : null}
               <p className="pass-synth">
                 Synthesized from <b>{signalCount} signal{signalCount === 1 ? "" : "s"}</b>

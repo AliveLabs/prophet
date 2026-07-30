@@ -10,6 +10,7 @@ import { isTrialActive } from "@/lib/billing/trial"
 import { getBrief } from "@/lib/insights/daily-brief"
 import { sendEmail } from "@/lib/email/send"
 import { WeeklyDigest } from "@/lib/email/templates/weekly-digest"
+import { stripAccents } from "@/lib/text/accents"
 
 export const maxDuration = 300
 
@@ -73,10 +74,10 @@ export async function GET(req: Request) {
 
     const res = await sendEmail({
       to: emails,
-      subject: `This week at ${loc.name ?? "your restaurant"}: ${brief.headline}`,
+      subject: `This week at ${loc.name ?? "your restaurant"}: ${stripAccents(brief.headline)}`,
       react: WeeklyDigest({
         locationName: loc.name ?? "your restaurant",
-        headline: brief.headline,
+        headline: stripAccents(brief.headline),
         deck: brief.deck,
         plays: brief.plays.slice(0, 3).map((p) => ({ title: p.title, kind: p.kind })),
         briefUrl: `${appUrl}/home`,

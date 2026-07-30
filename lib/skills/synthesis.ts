@@ -206,6 +206,10 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     // ONLY when genuinely high-impact + time-sensitive this week — ordinary seasonal heat is not a headline.
     "Order them best-first BY MERIT: _meritScore is a strong prior — a higher-scored play should lead unless you have a specific reason to override. A high-confidence, ACTIONABLE move the owner can actually run this week (a competitive, menu, reputation, social, or operations play) should anchor the top. Forward demand (events/weather) leads ONLY when it is genuinely high-impact and time-sensitive THIS week — a real, unusual event or a real weather swing — NOT merely because it is weather or events (ordinary seasonal heat in a hot climate is not a headline). Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
     "Write a 3-8 word headline and a 140-250 character deck that frame the week as a whole. Plain language, no em dashes, no chef/kitchen industry jargon — write for an operator who doesn't know the lingo (no \"covers\" [say guests], no \"the floor\"/\"front of house\"/\"back of house\", no \"knock-on\", no \"kickoff\" for a time window [say start]).",
+    // ALT-266: the UI renders [[...]] as the rust keyword accent (accentize.tsx). The renderer
+    // is fail-soft (stray brackets stripped; unmarked headlines get a deterministic fallback),
+    // so this instruction can degrade but never break display.
+    "In the HEADLINE, wrap the 1-2 words that carry the week's point in double brackets, like: A [[quiet]] week. Hold your ground. Mark only genuinely pivotal words (a day, a number, a competitor, the verb that matters) — never more than two, never the whole line. No brackets in the deck.",
     "Do NOT edit the plays. Only select and order them, and state any number ONLY if it appears in the plays.",
     'Return JSON: { "headline": string, "deck": string, "order": number[] (indices into the candidates array, best first) }.',
   ].join("\n")
