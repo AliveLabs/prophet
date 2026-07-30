@@ -122,6 +122,9 @@
 .pv-acct__filter::placeholder{ color:var(--ash); }
 .pv-acct__loclist{ max-height:280px; overflow-y:auto; margin:0 -2px; padding:0 2px; }
 .pv-acct__empty{ padding:10px 8px; font-size:12.5px; color:var(--ash); }
+/* A failed location switch. The old flow had no failure state at all: the spinner just kept
+   spinning, so a real error was indistinguishable from a slow network. */
+.pv-acct__error{ margin:6px 8px 2px; padding:7px 9px; border-radius:8px; background:var(--alert-wash); color:var(--alert-deep); font-size:12px; font-weight:600; line-height:1.4; }
 .pv-acct__loc{ display:flex; align-items:center; gap:10px; width:100%; border:0; background:transparent; cursor:pointer; padding:8px; border-radius:var(--radius); text-align:left; }
 .pv-acct__loc:hover{ background:var(--bond); }
 .pv-acct__loc:disabled{ cursor:default; }
