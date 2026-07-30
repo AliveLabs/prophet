@@ -18,8 +18,13 @@
 import { config } from "dotenv"
 config({ path: ".env.local" })
 
-import { fetchGroundedEvents } from "../../lib/providers/gemini/google-events"
-import { normalizeGroundedEvents } from "../../lib/events/normalize-grounded"
+// DYNAMIC imports on purpose. package.json has no `"type"` field, so `.ts` compiles to
+// CommonJS while a `.mts` entry is always ESM. A STATIC `import { x } from "…ts"` then asks
+// Node's cjs-module-lexer to detect named exports and it fails, giving the misleading
+// "does not provide an export named fetchGroundedEvents" even though the export exists.
+// Dynamic import goes through the interop path, which resolves the named exports correctly.
+const { fetchGroundedEvents } = await import("../../lib/providers/gemini/google-events")
+const { normalizeGroundedEvents } = await import("../../lib/events/normalize-grounded")
 
 async function main() {
   const [locationName, latRaw, lngRaw] = process.argv.slice(2)
