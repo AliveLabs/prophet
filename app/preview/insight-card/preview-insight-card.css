@@ -64,3 +64,8 @@
 @media (max-width: 900px) {
   .pic-btnrow { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 }
+
+/* Section 5's verification checklist — a list, because each line is a separate claim the
+   page is asserting about the wired card and they should be scannable one by one. */
+.pic-checklist { display: flex; flex-direction: column; gap: 7px; margin: 10px 0 16px; padding-left: 18px; }
+.pic-checklist li { list-style: disc; }
