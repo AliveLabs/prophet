@@ -47,6 +47,8 @@ export default function AccountMenu({
   // The org we're switching TO while the transition resolves — drives the inline spinner
   // so a click shows immediate feedback (ALT-162b: users were clicking repeatedly).
   const [switchingTo, setSwitchingTo] = useState<string | null>(null)
+  // A failed switch has to say so. Previously it just left the spinner running.
+  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
   const router = useRouter()
   const ref = useRef<HTMLDivElement>(null)
@@ -76,11 +78,24 @@ export default function AccountMenu({
 
   function switchTo(l: AccountLocation) {
     if (l.current) { setOpenState(false); return }
-    // Close immediately + flag the spinner so the click reads as "doing something".
-    setOpenState(false)
+    // Keep the flyout OPEN while the switch runs, so the spinner it shows is actually
+    // visible and the row it belongs to is still on screen.
     setSwitchingTo(l.organizationId)
+    setError(null)
     startTransition(async () => {
-      await switchOrganizationAction(l.organizationId)
+      try {
+        await switchOrganizationAction(l.organizationId)
+      } catch {
+        // The action no longer redirects, so a rejection here is a REAL failure. Surface it
+        // and clear the spinner: the old shape left it spinning forever with no explanation.
+        setSwitchingTo(null)
+        setError("Couldn't switch location. Try again.")
+        return
+      }
+      setOpenState(false)
+      // push THEN refresh, and both inside the transition: the action revalidated the server
+      // layout, but the client Router Cache still holds the previous org's payload for
+      // /home, so a bare push would re-serve the old location. refresh() busts that.
       router.push("/home")
       router.refresh()
     })
@@ -151,6 +166,7 @@ export default function AccountMenu({
               })
             )}
           </div>
+          {error ? <div className="pv-acct__error" role="alert">{error}</div> : null}
           <div className="pv-acct__divider" />
           {!locked && (
             <>

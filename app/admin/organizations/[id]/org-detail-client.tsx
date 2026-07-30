@@ -20,7 +20,7 @@ import {
 } from "@/app/actions/org-management"
 import { impersonateUser } from "@/app/actions/user-management"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
-import { unstable_rethrow, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { RevealOnView, TkButton } from "@/components/ticket"
 
 interface OrgDetail {
@@ -507,6 +507,7 @@ function DemoSetupBanner({
   onFeedback: (msg: string) => void
 }) {
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   const hasLocation = org.locations.length > 0
   const hasCompetitors = org.locations.some((l) => l.competitorCount > 0)
@@ -514,15 +515,21 @@ function DemoSetupBanner({
   const kindLabel = org.orgKind === "test" ? "Test" : "Demo"
 
   const handleOpen = () => {
-    // Switches the admin's current org to this one + redirects to /home, where
-    // social setup and the brief live. The admin is already an owner-member.
+    // Switches the admin's current org to this one, then navigates to /home where social
+    // setup and the brief live. The admin is already an owner-member.
+    //
+    // The action no longer redirects (it threw NEXT_REDIRECT, which left every caller's
+    // transition pending forever), so navigation is ours and `unstable_rethrow` is no
+    // longer needed to let a "success" throw through. A rejection here is a real failure.
     startTransition(async () => {
       try {
         await switchOrganizationAction(org.id)
       } catch (err) {
-        unstable_rethrow(err) // let Next's success redirect propagate
         onFeedback(err instanceof Error ? err.message : "Couldn't open the demo.")
+        return
       }
+      router.push("/home")
+      router.refresh()
     })
   }
 
