@@ -16,7 +16,7 @@
 // Pure functions, unit-tested; thresholds tunable in one place.
 // ---------------------------------------------------------------------------
 
-import type { NormalizedEvent } from "./types"
+import type { NormalizedEvent, EventType } from "./types"
 import type { DensityClass } from "@/lib/local/census-density"
 
 export const PROXIMITY = {
@@ -73,6 +73,32 @@ export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue
   if (MAJOR_VENUE.test(venue) && ticketed) return "major"
   if (MODERATE_EVENT.test(title) || MODERATE_EVENT.test(venue) || ticketed) return "moderate"
   return "minor"
+}
+
+// ── Event TYPE classifier (Events source migration · P0 step 7) ─────────────
+// A CORROBORATING fallback: a grounded source returns the closed-enum type directly;
+// for the DataForSEO path (and as a backstop when a grounded type is missing) we derive
+// it from the title/venue. Ordered — first match wins; conservative → "other" when unsure.
+// Pure + deterministic + unit-tested. Never keyed into a differential-build hash.
+const TYPE_SPORTS = /\b(nfl|nba|mlb|nhl|mls|ncaa|fifa|game|match|vs\.?|versus|playoff|championship|tournament|baseball|basketball|football|hockey|soccer|rodeo|nascar|grand prix|formula 1|speedway|monster jam|wrestling|boxing|ufc)\b/i
+const TYPE_RACE = /\b(marathon|half[- ]?marathon|10k|5k|fun run|road race|triathlon|bike race|cycling|relay race|criterium)\b/i
+const TYPE_CONCERT = /\b(concert|tour|live music|symphony|orchestra|dj set|acoustic|recital|in concert)\b/i
+const TYPE_FESTIVAL = /\b(festival|fest|carnival|state fair|county fair|block party)\b/i
+const TYPE_CONFERENCE = /\b(conference|convention|summit|symposium|trade show|expo|conf\b)\b/i
+const TYPE_THEATER = /\b(theater|theatre|broadway|musical|ballet|opera|comedy|stand[- ]?up|improv|play\b|the play)\b/i
+const TYPE_FAMILY = /\b(circus|kids|children|family[- ]friendly|petting zoo|disney on ice|sesame)\b/i
+const TYPE_COMMUNITY = /\b(parade|farmers?[- ]?market|craft fair|charity|fundraiser|community|holiday lighting|tree lighting)\b/i
+
+export function classifyEventType(e: Pick<NormalizedEvent, "title" | "venue">): EventType {
+  const hay = `${e.title ?? ""} ${e.venue?.name ?? ""}`
+  if (TYPE_SPORTS.test(hay) || TYPE_RACE.test(hay)) return "sports"
+  if (TYPE_CONCERT.test(hay)) return "concert"
+  if (TYPE_FESTIVAL.test(hay)) return "festival"
+  if (TYPE_CONFERENCE.test(hay)) return "conference"
+  if (TYPE_THEATER.test(hay)) return "theater"
+  if (TYPE_FAMILY.test(hay)) return "family"
+  if (TYPE_COMMUNITY.test(hay)) return "community"
+  return "other"
 }
 
 export function classifyEventRole(
