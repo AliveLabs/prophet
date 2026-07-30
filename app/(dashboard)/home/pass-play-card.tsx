@@ -37,7 +37,8 @@ import { DISMISS_REASONS, dismissReasonCode } from "@/lib/skills/feedback-signal
 import { setPlayAction } from "./brief-actions"
 import BriefFeedback from "./brief-feedback"
 import { humanizeLabel } from "@/lib/skills/evidence-format"
-import { ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON, COPY_ICON, CHECK_ICON } from "./pass-icons"
+import { DraftCopyBox } from "./draft-copy-box"
+import { ACT_ICON, KEEP_ICON, DISMISS_ICON, UNDO_ICON } from "./pass-icons"
 import { accentize } from "@/components/ticket/accentize"
 import {
   playFamily,
@@ -82,37 +83,6 @@ function RecipeStepView({ step, n, playTitle }: { step: RecipeStep; n: number; p
           <p className="pass-step-meta">Direction · {step.creativeDirection}</p>
         ) : null}
       </div>
-    </div>
-  )
-}
-
-function DraftCopyBox({ label, text }: { label: string; text: string }) {
-  const toast = useTkToast()
-  const [copied, setCopied] = useState(false)
-  function copy() {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(text)
-    }
-    setCopied(true)
-    toast("Copied to clipboard.")
-    window.setTimeout(() => setCopied(false), 1600)
-  }
-  return (
-    <div className="tk-draft-box">
-      <div className="tk-db-head">
-        {label}
-        {/* Two-overlapping-squares copy glyph (Claude-desktop style), top-right (ALT-168c). */}
-        <button
-          type="button"
-          className={`tk-copy-btn${copied ? " tk-copied" : ""}`}
-          onClick={copy}
-          aria-label={copied ? "Copied" : "Copy to clipboard"}
-        >
-          {copied ? CHECK_ICON : COPY_ICON}
-          <span>{copied ? "Copied" : "Copy"}</span>
-        </button>
-      </div>
-      <div className="tk-db-body">{text}</div>
     </div>
   )
 }

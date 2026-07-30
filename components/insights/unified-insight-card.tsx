@@ -22,11 +22,20 @@
 // because the brief's `.fb-*` rules are scoped to `.ticket-brief` and a card that only
 // works inside one surface is not a unified card.
 //
-// Local state stands in for the two server writes (keep/dismiss, thumbs) so this can be
-// reviewed with no backend. Wiring swaps the setters; the markup does not change.
+// CONTROLLED, with an uncontrolled fallback. Pass `actions`/`vote` and the card drives the
+// real server writes through the surface that mounted it; omit them and it falls back to
+// local state, which is what `/preview/insight-card` uses to be reviewable with no backend.
+//
+// SLOTS, because the EVIDENCE a card can show depends on the record behind it. A play
+// carries breakout quotes and sentiment-by-category; a raw insights row carries a metric
+// row and a sentiment split. One chrome, one hierarchy, one action framework, one
+// vocabulary — and each surface passes the evidence its own data actually supports through
+// `support` / `sheetSupport` / `sheetExtras`. That is what keeps this a unified card
+// instead of a lowest-common-denominator one.
 
 import { useState, type ReactNode } from "react"
 import { TkChip, TkConfidence, TkImpactTag, TkDrawer, TkDismissReason, TkWhy, tkcx as cx } from "@/components/ticket"
+import { accentize } from "@/components/ticket/accentize"
 import { DISMISS_REASONS } from "@/lib/skills/feedback-signals"
 import "./unified-insight-card.css"
 
@@ -57,6 +66,8 @@ export type InsightPlanStep = {
   creativeDirection?: string
   /** Customer-facing copy, in the operator's voice, never Ticket's. */
   copy?: string
+  /** What has to be true before the step can run ("a wallet pass exists"). */
+  dependencies?: string[]
 }
 
 export type InsightEvidence = { label: string; text: string }
@@ -97,19 +108,40 @@ function countWord(n: number): string {
  */
 export function planSummary(plan: InsightPlanStep[]): string {
   const channels = [...new Set(plan.map((s) => s.channel.trim()).filter(Boolean))]
-  const lower = channels.map((c, i) => (i === 0 ? c : c.charAt(0).toLowerCase() + c.slice(1)))
+  // Channel labels are kept VERBATIM. An earlier version lowercased the first letter of
+  // every channel after the first, to read more like a sentence, and turned "Google
+  // Business Profile" into "google Business Profile". A brand name mid-sentence keeps its
+  // capital, and no rule short of a proper-noun list can tell the two cases apart.
   const list =
-    lower.length <= 1
-      ? lower[0] ?? "one channel"
-      : `${lower.slice(0, -1).join(", ")} and ${lower[lower.length - 1]}`
+    channels.length <= 1
+      ? channels[0] ?? "one channel"
+      : `${channels.slice(0, -1).join(", ")} and ${channels[channels.length - 1]}`
   const step = plan.length === 1 ? "step" : "steps"
   return `${countWord(plan.length)} ${step}: ${list}.`
 }
 
+export type InsightVerdict = "good" | "bad"
+
+/** The two server writes a surface owns. Omit to run the card uncontrolled (preview). */
+export type InsightCardActions = {
+  /** true = kept · false = dismissed · null = untouched. */
+  kept: boolean | null
+  pending?: boolean
+  onKeep: () => void
+  onDismiss: (reason: string, note?: string) => void
+  onUndo: () => void
+  /** Reasons that open the optional free-text note step before confirming (ALT-172). */
+  noteReasons?: string[]
+}
+
+export type InsightCardVote = {
+  picked: InsightVerdict | null
+  onVote: (verdict: InsightVerdict) => void
+}
+
 /* ── Thumbs. On EVERY tier: this is the signal that tunes insight scope and
    preferences, so it cannot be something only actionable cards carry. ── */
-function Thumbs() {
-  const [picked, setPicked] = useState<"good" | "bad" | null>(null)
+function Thumbs({ picked, onVote }: { picked: InsightVerdict | null; onVote: (v: InsightVerdict) => void }) {
   if (picked) {
     return (
       <span className="uic-fb-sent">
@@ -120,7 +152,7 @@ function Thumbs() {
   return (
     <span className="uic-fb">
       <span className="uic-fb-label">Helpful?</span>
-      <button type="button" className="uic-fb-btn" aria-label="Helpful" onClick={() => setPicked("good")}>
+      <button type="button" className="uic-fb-btn" aria-label="Helpful" onClick={() => onVote("good")}>
         {/* Explicit width/height: the kit reset sets svg display:block with no size, so an
             attribute-less icon collapses to 0 by 0. */}
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -128,7 +160,7 @@ function Thumbs() {
           <path d="M7 10l4.2-7.1a1.6 1.6 0 0 1 2.9 1.2L13.3 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7z" />
         </svg>
       </button>
-      <button type="button" className="uic-fb-btn" aria-label="Not helpful" onClick={() => setPicked("bad")}>
+      <button type="button" className="uic-fb-btn" aria-label="Not helpful" onClick={() => onVote("bad")}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M7 14V3H4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1z" />
           <path d="M7 14l4.2 7.1a1.6 1.6 0 0 0 2.9-1.2L13.3 15H19a2 2 0 0 0 2-2.3l-1.2-7A2 2 0 0 0 17.8 4H7z" />
@@ -136,6 +168,12 @@ function Thumbs() {
       </button>
     </span>
   )
+}
+
+/** Uncontrolled thumbs, for the preview route: same markup, local state. */
+function LocalThumbs() {
+  const [picked, setPicked] = useState<InsightVerdict | null>(null)
+  return <Thumbs picked={picked} onVote={setPicked} />
 }
 
 function StepDetail({ step, n }: { step: InsightPlanStep; n: number }) {
@@ -152,6 +190,16 @@ function StepDetail({ step, n }: { step: InsightPlanStep; n: number }) {
           {step.window && (<><dt>When</dt><dd>{step.window}</dd></>)}
           {step.offer && (<><dt>Offer</dt><dd>{step.offer}</dd></>)}
           {step.creativeDirection && (<><dt>Look</dt><dd>{step.creativeDirection}</dd></>)}
+          {step.dependencies?.length ? (
+            <>
+              <dt>Needs</dt>
+              <dd>
+                <ul className="uic-step-deps">
+                  {step.dependencies.map((d, i) => <li key={i}>{d}</li>)}
+                </ul>
+              </dd>
+            </>
+          ) : null}
         </dl>
         {step.copy && (
           <div className="uic-copy">
@@ -169,17 +217,47 @@ export default function UnifiedInsightCard({
   variant = "default",
   photo,
   initialKept = null,
+  actions,
+  vote,
+  readOnly = false,
+  flag,
+  support,
+  sheetSupport,
+  sheetExtras,
 }: {
   insight: UnifiedInsight
   variant?: "lead" | "default"
   /** lead-only: the hero image canvas. The brief's only visual relief, so it stays. */
   photo?: ReactNode
+  /** Uncontrolled seed. Ignored once `actions` is passed. */
   initialKept?: boolean | null
+  /** The wired keep/dismiss/undo writes. Omit → local state (preview). */
+  actions?: InsightCardActions
+  /** The wired thumbs write. Omit → local state (preview). */
+  vote?: InsightCardVote
+  /** Read-only surfaces (marketing preview) drop the card verbs but keep the plan. */
+  readOnly?: boolean
+  /** Additive framing beside the two scores, e.g. the win-flag. NEVER replaces a score. */
+  flag?: ReactNode
+  /** Rich evidence for THIS record, rendered on the card under the action region. */
+  support?: ReactNode
+  /** Rich evidence inside the side sheet, expanded. */
+  sheetSupport?: ReactNode
+  /** Anything the sheet needs after the evidence, e.g. drafted copy or a keep/dismiss pair. */
+  sheetExtras?: ReactNode
 }) {
-  const [kept, setKept] = useState<boolean | null>(initialKept)
+  const [localKept, setLocalKept] = useState<boolean | null>(initialKept)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [reasonOpen, setReasonOpen] = useState(false)
   const tier = insightTier(insight)
+
+  const kept = actions ? actions.kept : localKept
+  const pending = actions?.pending ?? false
+  const keep = actions ? actions.onKeep : () => setLocalKept((v) => (v === true ? null : true))
+  const undo = actions ? actions.onUndo : () => setLocalKept(null)
+  const dismiss = actions
+    ? actions.onDismiss
+    : (_reason: string, _note?: string) => setLocalKept(false)
 
   /* Order: soonest timing, then timing, then what, then state.
      The four chip fills sit inside a narrow luminance band, so colour alone was not
@@ -230,12 +308,16 @@ export default function UnifiedInsightCard({
               ))}
             </div>
             <div className="uic-scores">
+              {/* Both axes ALWAYS render. `flag` is additive framing beside them, never a
+                  substitute for one — the prior bug on the brief was an advantage play
+                  showing only the flag, so its two scores vanished from the card. */}
               <TkConfidence level={insight.confidence} name="Confidence" />
               <TkImpactTag level={insight.impact} name="Impact" />
+              {flag}
             </div>
           </div>
 
-          <h3 className="uic-title">{insight.title}</h3>
+          <h3 className="uic-title">{accentize(insight.title)}</h3>
 
           {insight.validation && <p className="uic-validation">{insight.validation}</p>}
 
@@ -271,55 +353,71 @@ export default function UnifiedInsightCard({
             </div>
           )}
 
-          {/* ── Support, BELOW what to do. Corroboration, not the point. ── */}
+          {/* ── Support, BELOW what to do. Corroboration, not the point.
+                 `support` is the surface's own evidence for this record (review quotes, a
+                 sentiment breakdown, a rival's post); the why-rolldown closes the block. ── */}
+          {support}
           {insight.whyPoints?.length ? (
             <TkWhy label="Why we believe this" points={insight.whyPoints} />
           ) : null}
 
-          {/* ── Card actions. Keep is a toggle; Dismiss leaves the row once resolved. ── */}
-          <div className="uic-actions">
-            <button
-              type="button"
-              className={cx("uic-btn", kept === true ? "uic-btn-toggle-on" : "uic-btn-tertiary")}
-              aria-pressed={kept === true}
-              onClick={() => setKept((v) => (v === true ? null : true))}
-            >
-              {kept === true ? "Kept" : "Keep"}
-            </button>
-            {kept === true ? null : kept === false ? (
-              <>
-                <span className="uic-state-dismissed">Dismissed</span>
-                <button type="button" className="uic-btn uic-btn-tertiary" onClick={() => setKept(null)}>
-                  Undo
-                </button>
-              </>
-            ) : (
+          {/* ── Card actions. Keep is a two-frame toggle; Dismiss leaves the row once
+                 resolved. A read-only surface drops both — there is nothing to write. ── */}
+          {readOnly ? null : (
+            <div className="uic-actions">
               <button
                 type="button"
-                className="uic-btn uic-btn-tertiary uic-btn-danger"
-                onClick={() => setReasonOpen(true)}
-                aria-expanded={reasonOpen}
+                className={cx("uic-btn", kept === true ? "uic-btn-toggle-on" : "uic-btn-tertiary")}
+                aria-pressed={kept === true}
+                disabled={pending}
+                onClick={kept === true ? undo : keep}
               >
-                Dismiss
+                {kept === true ? "Kept" : "Keep"}
               </button>
-            )}
-          </div>
+              {kept === true ? null : kept === false ? (
+                <>
+                  <span className="uic-state-dismissed">Dismissed</span>
+                  <button type="button" className="uic-btn uic-btn-tertiary" disabled={pending} onClick={undo}>
+                    Undo
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="uic-btn uic-btn-tertiary uic-btn-danger"
+                  disabled={pending}
+                  onClick={() => setReasonOpen(true)}
+                  aria-expanded={reasonOpen}
+                >
+                  Dismiss
+                </button>
+              )}
+            </div>
+          )}
 
-          {/* ── Footer: details link left, thumbs right. Both on every tier. ── */}
+          {/* ── Footer: details link left, thumbs right. Both on every tier.
+                 No href ⇒ no link. A dead `#` anchor is a promise the card can't keep. ── */}
           <div className="uic-foot">
-            <a className="uic-detail-link" href={insight.detailHref ?? "#"}>
-              {detailsLabel} &rarr;
-            </a>
-            <Thumbs />
+            {insight.detailHref ? (
+              <a className="uic-detail-link" href={insight.detailHref}>
+                {detailsLabel} &rarr;
+              </a>
+            ) : (
+              <span />
+            )}
+            {vote ? <Thumbs picked={vote.picked} onVote={vote.onVote} /> : <LocalThumbs />}
           </div>
         </div>
 
-        <TkDismissReason
-          open={reasonOpen}
-          reasons={DISMISS_REASONS.map((r) => r.label)}
-          onSelect={() => { setReasonOpen(false); setKept(false) }}
-          onCancel={() => setReasonOpen(false)}
-        />
+        {readOnly ? null : (
+          <TkDismissReason
+            open={reasonOpen}
+            reasons={DISMISS_REASONS.map((r) => r.label)}
+            noteReasons={actions?.noteReasons ?? []}
+            onSelect={(reason, note) => { setReasonOpen(false); dismiss(reason, note) }}
+            onCancel={() => setReasonOpen(false)}
+          />
+        )}
       </article>
 
       {tier === "plan" && (
@@ -329,7 +427,10 @@ export default function UnifiedInsightCard({
           wide
           portal
           chip={<TkChip family="competitive">{orderedTags[0]?.label ?? "Insight"}</TkChip>}
-          title={insight.title}
+          // accentize HERE too, not only on the card face. The sheet is a SECOND place the
+          // title renders, and passing it raw leaks the synthesis prompt's `[[markup]]`
+          // brackets straight to the operator. Caught by opening the sheet in review.
+          title={accentize(insight.title)}
         >
           <p className="tk-muted">{insight.why}</p>
           {insight.validation && <p className="uic-validation">{insight.validation}</p>}
@@ -339,10 +440,12 @@ export default function UnifiedInsightCard({
               {insight.plan!.map((s, i) => <StepDetail key={i} step={s} n={i + 1} />)}
             </ol>
           </div>
+          {sheetSupport}
           {evidenceBlock}
           {insight.whyPoints?.length ? (
             <TkWhy label="Why we believe this" points={insight.whyPoints} defaultOpen />
           ) : null}
+          {sheetExtras}
         </TkDrawer>
       )}
     </>

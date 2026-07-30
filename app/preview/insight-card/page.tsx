@@ -3,15 +3,84 @@
 // data for all three tiers, then shows the two contexts it has to work in: the home
 // brief and the all-insights view.
 //
-// Nothing here is wired. Keep/Dismiss and the plan disclosure hold local state so the
-// card can be judged as an interaction, not a screenshot.
+// Sections 1-4 are hand-written fixtures with nothing wired: Keep/Dismiss and the plan
+// disclosure hold local state, so the card can be judged as an interaction rather than a
+// screenshot.
+//
+// Section 5 is different and is the one to trust. It renders the REAL <BriefInsightCard/>
+// that /home now mounts, driving a fixture `EnrichedRecommendation` through the REAL
+// adapter. So it exercises the wired path end to end: the play → UnifiedInsight
+// translation, the derived tier, the evidence slots, and the win-flag. Only the server
+// writes are inert here, because there is no session.
 
 import ThemeToggle from "@/components/ui/theme-toggle"
 import { PassHeroCanvas } from "@/app/(dashboard)/home/pass-hero-canvas"
+import { BriefInsightCard } from "@/app/(dashboard)/home/brief-insight-card"
+import { TkToastProvider, TkTooltipLayer } from "@/components/ticket"
+import type { EnrichedRecommendation } from "@/lib/skills/types"
 import UnifiedInsightCard, {
   type UnifiedInsight,
 } from "@/components/insights/unified-insight-card"
 import "./preview-insight-card.css"
+
+/* ── A fixture play, shaped exactly like what the skills engine persists. Section 5 runs
+      this through the real adapter, so anything the adapter drops or mis-derives shows up
+      on the page instead of in production. The title carries `[[markup]]` so the accent
+      renderer is exercised too. ── */
+const FIXTURE_PLAY: EnrichedRecommendation = {
+  title: "Open a pre-show window [[Saturday]] before the arena crowd walks past you",
+  rationale:
+    "There is a 7:30pm show 0.6 miles away and your Saturday covers drop off after 6pm. The crowd walks your block on the way in, and nothing on your listing tells them you are open and quick.",
+  skillId: "local-demand",
+  ownerRole: "marketing",
+  kind: "capitalize",
+  confidence: "high",
+  stance: "capture",
+  category: "demand",
+  knowledgeVersion: "v1",
+  severity: 1,
+  evidenceRefs: ["events.nearby:arena-show", "review.theme:wait-times"],
+  leverage: { label: "high", basisInternal: "internal only" },
+  evidence: [
+    {
+      source: "review.theme:wait-times",
+      quote: "Waited almost forty minutes for a table on a Friday with half the dining room empty.",
+      rate: { numerator: 3, denominator: 20, pct: 15 },
+      asOf: "2026-07-26",
+    },
+  ],
+  presentation: {
+    advantage: true,
+    sentimentByCategory: [
+      { category: "wait", pct: 38, direction: "negative" },
+      { category: "price", pct: 21, direction: "negative" },
+      { category: "food", pct: 9, direction: "negative" },
+    ],
+    confidenceBasis: [
+      { source: "Events", whatWeSaw: "One ticketed event inside a mile, doors before your dinner peak." },
+      { source: "Foot traffic", whatWeSaw: "Your Saturday traffic falls off after six on your last six Saturdays." },
+    ],
+  },
+  recipe: [
+    {
+      channel: "PAID_SOCIAL",
+      platforms: ["INSTAGRAM", "META_ADS"],
+      audience: "Adults within 1 mile of the arena, 4pm to 7pm Saturday",
+      window: { start: "2026-08-01", end: "2026-08-01", note: "Set live Friday, runs Saturday 4pm to 7pm" },
+      offer: "Two courses in 45 minutes, $32",
+      creativeDirection: "A tight crop of the sear, warm side light, no people in frame",
+      copy: "Doors at 7:30? You have time. Two courses, 45 minutes, three blocks from the show.",
+      dependencies: ["the kitchen can hold a 45-minute ticket", "the $32 pairing is ringable on the POS"],
+    },
+    {
+      channel: "GOOGLE_BUSINESS_PROFILE",
+      platforms: ["GOOGLE_BUSINESS"],
+      audience: "Anyone searching nearby that afternoon",
+      window: { start: "2026-07-31", note: "Update Friday so it is live before the search spike" },
+      copy: "Pre-show seating until 7pm Saturday. Walk-ins welcome.",
+    },
+  ],
+}
 
 /* ── Tier 1: a real plan. What the skills engine already produces today. ── */
 const PLAN_LEAD: UnifiedInsight = {
@@ -448,6 +517,78 @@ export default function UnifiedInsightCardPreview() {
           </div>
           <button type="button" className="pic-more">Show 6 more<span>212 left</span></button>
         </div>
+      </section>
+
+      {/* ═══ 5. THE WIRED CARD ═══ */}
+      <section className="pic-sec">
+        <h2 className="pic-h2">5 · The wired card, as /home now renders it</h2>
+        <p className="pic-note">
+          Everything above is a fixture typed by hand. <b>This section is the real thing</b>: one
+          fixture play from the engine, run through the real adapter into the real{" "}
+          <code>&lt;BriefInsightCard/&gt;</code> that the daily brief mounts. So it shows what
+          actually ships, including the parts a hand-written fixture cannot prove.
+        </p>
+        <ul className="pic-note pic-checklist">
+          <li>
+            <b>Nothing was lost in the swap.</b> The sentiment bars, the verbatim review quote, the
+            win-flag beside both scores, the drafted copy with its copy button and every recipe-step
+            field including <i>Needs</i> all survive. Open the plan to see them.
+          </li>
+          <li>
+            <b>The timing chip is derived from a real date.</b> The first step carries a window that
+            starts Saturday, so the card says so. A step with only a prose note gets no timing chip
+            at all, because there would be no date behind it.
+          </li>
+          <li>
+            <b>The validation line is denominated.</b> &ldquo;3 of 20 reviews&rdquo; comes from the
+            cited evidence rate, not from a confidence score.
+          </li>
+          <li>
+            <b>The title renders its accent.</b> The fixture title carries model markup, and the
+            card runs it through <code>accentize</code> rather than printing the brackets.
+          </li>
+        </ul>
+        <TkToastProvider>
+          <div className="ticket-brief tk-kit pic-home">
+            <TkTooltipLayer />
+            <BriefInsightCard
+              play={FIXTURE_PLAY}
+              isLead
+              locationId="preview"
+              dateKey="2026-07-30"
+              playKey="preview:lead"
+              current={null}
+              detailHref="#"
+              heroPhoto={<PassHeroCanvas family="competitive" label="Your location" />}
+            />
+            <div className="pic-two">
+              <BriefInsightCard
+                play={FIXTURE_PLAY}
+                isLead={false}
+                locationId="preview"
+                dateKey="2026-07-30"
+                playKey="preview:grid"
+                current={null}
+                detailHref="#"
+              />
+              <BriefInsightCard
+                play={{ ...FIXTURE_PLAY, recipe: [], presentation: undefined, evidence: [] }}
+                isLead={false}
+                locationId="preview"
+                dateKey="2026-07-30"
+                playKey="preview:norecipe"
+                current="saved"
+                detailHref="#"
+              />
+            </div>
+          </div>
+        </TkToastProvider>
+        <p className="pic-note">
+          The second grid card is the honest-degradation case: same play with its recipe, evidence
+          and presentation stripped. It drops to an observation with no action region, no timing
+          chip and no validation line, rather than showing an empty &ldquo;The plan&rdquo; box. It
+          is also already kept, which is the second frame of that toggle.
+        </p>
       </section>
     </div>
   )

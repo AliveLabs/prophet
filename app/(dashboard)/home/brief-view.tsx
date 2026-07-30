@@ -1,14 +1,21 @@
 // The Pass — the flagship daily brief, REBUILT to Concept A's structure.
 //
-// This is a STRUCTURE rebuild (not a reskin): a brief header → a 2-col HERO for
-// the #1 play → a grid of play CARDS → weighted WIDGETS → a credibility right-rail,
-// all composed from the shared `components/ticket` kit. The REAL engine Brief is
-// mapped HONESTLY (no POS/$/covers — %/estimated/"you vs competitor" language).
+// This is a STRUCTURE rebuild (not a reskin): a brief header → a HERO for the #1
+// insight → a grid of CARDS → weighted WIDGETS → a credibility right-rail, all
+// composed from the shared `components/ticket` kit. The REAL engine Brief is mapped
+// HONESTLY (no POS/$/covers — %/estimated/"you vs competitor" language).
+//
+// ONE NOUN: the operator-facing copy on this page says "insight" throughout. "Play",
+// "move" and "action" as customer-facing nouns are retired — the brief, the all-insights
+// view and /insights now describe the same object with the same word. The engine's
+// internal type is still `EnrichedRecommendation` and the variables still read `play`;
+// that is deliberate, since renaming the data contract is not a copy change.
 //
 // Server component: it pulls no new data (page.tsx owns fetching) and keeps the same
-// prop signature. Interactivity (ACT drawer, dismiss-reason popover, keep/dismiss/
-// thumbs) lives in the <PassPlayCard/> client island, which reuses the SAME wired
-// server actions (setPlayAction / submitPlayFeedback) — the learning loop is intact.
+// prop signature. Interactivity (the side sheet, the dismiss-reason popover, keep/
+// dismiss/thumbs) lives in the <BriefInsightCard/> client island, which wraps the shared
+// <UnifiedInsightCard/> and reuses the SAME wired server actions (setPlayAction /
+// submitPlayFeedback) — the learning loop is intact.
 
 import type { CSSProperties } from "react"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
@@ -27,7 +34,7 @@ import {
   TkToastProvider,
   TkTooltipLayer,
 } from "@/components/ticket"
-import { PassPlayCard } from "./pass-play-card"
+import { BriefInsightCard } from "./brief-insight-card"
 import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
@@ -132,10 +139,9 @@ export default function BriefView({
   }
 
   const card = (play: EnrichedRecommendation, rank: number, action: PlayAction | null, isLead: boolean) => (
-    <PassPlayCard
+    <BriefInsightCard
       key={playKey(play)}
       play={play}
-      rank={rank}
       isLead={isLead}
       locationId={locationId}
       dateKey={brief.dateKey}
@@ -180,7 +186,7 @@ export default function BriefView({
             <span className="pass-count-badge">
               <span className="pass-count-n">{active.length}</span>
               <span className="pass-count-lbl">
-                Play{active.length === 1 ? "" : "s"}
+                Insight{active.length === 1 ? "" : "s"}
                 <br />
                 today
               </span>
@@ -197,8 +203,8 @@ export default function BriefView({
               title="Still reading your market"
               description={
                 brief.fallback
-                  ? "We're holding your last good brief while tonight's data lands — fresh plays return on the next sweep."
-                  : "We're gathering enough signal to be honest about your standing. Your first plays land as the picture fills in."
+                  ? "We're holding your last good brief while tonight's data lands — fresh insights return on the next sweep."
+                  : "We're gathering enough signal to be honest about your standing. Your first insights land as the picture fills in."
               }
             />
           </RevealOnView>
@@ -217,7 +223,7 @@ export default function BriefView({
             {isFallback ? (
               <div className="pass-fallback-banner" role="status">
                 <span className="pass-dot" aria-hidden="true" />
-                Holding your last good brief while tonight&apos;s data lands — fresh plays return on the next sweep.
+                Holding your last good brief while tonight&apos;s data lands — fresh insights return on the next sweep.
               </div>
             ) : null}
 
@@ -228,11 +234,11 @@ export default function BriefView({
               </RevealOnView>
             ) : null}
 
-            {/* ── PLAY GRID (remaining plays) ── */}
+            {/* ── GRID (the remaining insights) ── */}
             {gridPlays.length ? (
               <>
                 <TkSectionHead
-                  title="More plays today"
+                  title="More insights today"
                   sub="Ranked by relevance"
                   className="pass-sec"
                 />
@@ -246,12 +252,12 @@ export default function BriefView({
               </>
             ) : null}
 
-            {/* ── "N more moves" collapse ── */}
+            {/* ── "N more insights" collapse ── */}
             {rest.length ? (
               <details className="pass-more">
                 <summary>
                   <span className="pass-more-car" aria-hidden="true">▸</span>{" "}
-                  {rest.length} more move{rest.length === 1 ? "" : "s"} this week
+                  {rest.length} more insight{rest.length === 1 ? "" : "s"} this week
                 </summary>
                 <div className="tk-grid pass-grid pass-more-grid">
                   {rest.map(({ play, rank, action }) => (
@@ -296,11 +302,11 @@ export default function BriefView({
                   size="wide"
                   label="Signals read"
                   value={String(signalCount)}
-                  sub="distinct sources behind today's plays — tap to see them"
+                  sub="distinct sources behind today's insights — tap to see them"
                   expand={
                     <>
                       <p className="pass-sig-why">
-                        Every play today is grounded in these live sources. More distinct sources means a
+                        Every insight today is grounded in these live sources. More distinct sources means a
                         wider read of your market — fewer means we leaned on what was fresh this sweep.
                       </p>
                       {signalSources.length ? (
@@ -328,17 +334,17 @@ export default function BriefView({
                 <TkWidget
                   tone="teal"
                   label="You're winning"
-                  value={wonCount > 0 ? `${wonCount} play${wonCount === 1 ? "" : "s"}` : "—"}
+                  value={wonCount > 0 ? `${wonCount} insight${wonCount === 1 ? "" : "s"}` : "—"}
                   sub={wonCount > 0 ? "advantages to press" : "no clear edge yet"}
-                  data-tip="Plays where you lead the set"
+                  data-tip="Insights where you lead the set"
                   data-tipv={`${wonCount} advantage${wonCount === 1 ? "" : "s"}`}
                 />
                 <TkWidget
                   tone="slate"
                   label="Acted this week"
                   value={String(weeklyMomentum)}
-                  sub={weeklyMomentum > 0 ? "plays you're on" : "kept or acted — none yet"}
-                  data-tip="Plays you kept or acted on in the last 7 days"
+                  sub={weeklyMomentum > 0 ? "insights you're on" : "kept or acted — none yet"}
+                  data-tip="Insights you kept or acted on in the last 7 days"
                   data-tipv={`${weeklyMomentum} this week`}
                 />
                 <TkWidget

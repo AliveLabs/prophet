@@ -216,19 +216,23 @@ export function playWhyPoints(play: EnrichedRecommendation): string[] {
   if (basis?.length) {
     return basis.map((b) => `${b.source}: ${b.whatWeSaw}`)
   }
+  // No em dashes in any of these: they are customer-facing copy, and the house rule is a
+  // colon, paired commas, parentheses or a new sentence instead. The `source: what we saw`
+  // shape also matches the confidenceBasis branch above, so the rolldown reads consistently
+  // whichever branch produced it.
   const points: string[] = []
   for (const e of play.evidence ?? []) {
     if (e.relativeStat) {
-      points.push(e.soWhat ? `${e.relativeStat} — ${e.soWhat}` : e.relativeStat)
+      points.push(e.soWhat ? `${e.relativeStat}, ${e.soWhat}` : e.relativeStat)
     } else if (e.rate) {
-      points.push(`${e.rate.numerator} of ${e.rate.denominator} (${e.rate.pct}%) — ${humanizeRef(e.source)}`)
+      points.push(`${humanizeRef(e.source)}: ${e.rate.numerator} of ${e.rate.denominator} (${e.rate.pct}%)`)
     }
   }
   if (points.length) return points
   // Last resort: name the distinct sources the play is grounded in.
   const domains = distinctDomains(play.evidenceRefs)
   if (domains.length) {
-    return [`Grounded in ${domains.join(", ")} — refreshed in last night's sweep.`]
+    return [`Grounded in ${domains.join(", ")}, refreshed in last night's sweep.`]
   }
   return ["Built from your live market signals, refreshed overnight."]
 }

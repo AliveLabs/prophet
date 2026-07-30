@@ -49,21 +49,6 @@ export function TkDrawer({
   const autoId = useId()
   const titleId = titleIdProp ?? `${autoId}-title`
 
-  // remember the opener, restore on close
-  useEffect(() => {
-    if (open) {
-      openerRef.current = (document.activeElement as HTMLElement) ?? null
-      // defer to allow the panel to mount/transition in
-      const t = window.setTimeout(() => closeRef.current?.focus(), 30)
-      document.body.style.overflow = "hidden"
-      return () => {
-        window.clearTimeout(t)
-        document.body.style.overflow = ""
-      }
-    }
-    return undefined
-  }, [open])
-
   // restore focus when fully closed
   useEffect(() => {
     if (!open && openerRef.current) {
@@ -79,14 +64,44 @@ export function TkDrawer({
   // sticky sidebar (z-index:30). It also inherits the design tokens + dark-mode class
   // already scoped to .ticket-app. Deferred to a frame so setState isn't synchronous in
   // the effect body (matches useReveal); the drawer starts closed, so there's no flash.
+  //
+  // HARDENING, not a fix for an observed failure: `document.querySelector(".ticket-app")`
+  // takes the FIRST match, and under streaming SSR two `.ticket-app` roots can coexist with
+  // the first one inside a `<div hidden>` (observed in dev on /preview/insight-card). Landing
+  // the portal there would render the drawer inside a hidden subtree. Same family as the
+  // querySelectorAll-counts-hidden-nodes trap. So: prefer a candidate outside `[hidden]`.
+  //
+  // NOTE the rAF: it does not fire while the document is hidden, so `host` stays null in a
+  // backgrounded tab. That is why the scroll-lock effect below is gated on `host` — otherwise
+  // opening a drawer in a hidden tab freezes body scroll with nothing rendered.
   const [host, setHost] = useState<HTMLElement | null>(null)
   useEffect(() => {
     if (!portal || typeof document === "undefined") return
-    const id = requestAnimationFrame(() =>
-      setHost(document.querySelector<HTMLElement>(".ticket-app") ?? document.body)
-    )
+    const id = requestAnimationFrame(() => {
+      const candidates = [...document.querySelectorAll<HTMLElement>(".ticket-app")]
+      const live = candidates.find((el) => !el.closest("[hidden]")) ?? candidates[0]
+      setHost(live ?? document.body)
+    })
     return () => cancelAnimationFrame(id)
   }, [portal])
+
+  // remember the opener, restore on close.
+  // Gated on `portal ? host : true`: locking body scroll while the panel has nowhere to
+  // render leaves the page frozen with nothing on screen, which is worse than a drawer that
+  // opens a frame late.
+  useEffect(() => {
+    if (open && (!portal || host)) {
+      openerRef.current = (document.activeElement as HTMLElement) ?? null
+      // defer to allow the panel to mount/transition in
+      const t = window.setTimeout(() => closeRef.current?.focus(), 30)
+      document.body.style.overflow = "hidden"
+      return () => {
+        window.clearTimeout(t)
+        document.body.style.overflow = ""
+      }
+    }
+    return undefined
+  }, [open, portal, host])
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
