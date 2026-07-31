@@ -348,6 +348,16 @@ export type Brief = {
      *  Non-zero means the build completed but degraded — visible rather than silent, by design. */
     spendDegradedCalls?: number
   }
+  /** Deterministic eval result for THIS served brief (lib/eval/record). Observation only — the
+   *  checks never blocked or altered the brief. ABSENT means "not evaluated" (pre-step-3 briefs, or
+   *  the recorder threw), never "clean": read `ok` explicitly. Queryable as `brief->evalCheck`. */
+  evalCheck?: {
+    ok: boolean
+    violationCount: number
+    byCode: Record<string, number>
+    violations: { code: string; recIndex: number; detail: string }[]
+    truncated?: boolean
+  }
   /** Differential builds: each producer's RAW grounded plays from this build, keyed by skillId.
    *  Brief.plays only holds the post-synthesis survivors, so reuse (Phase 1) carries these forward
    *  when a skill's inputHash matches. Fallback-served skills are stored too but NEVER reused
