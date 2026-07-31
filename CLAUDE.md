@@ -85,6 +85,14 @@ params with a 400, so the non-thinking branch's `temperature` is a live blocker 
 effort 400s the call and degrades it silently. A skill may pin its own `effort` for a **latency**
 constraint, and that wins over the fleet dial.
 
+**Spend has a per-brief ceiling, and it degrades rather than aborts.**
+`ANTHROPIC_PER_BRIEF_CEILING_USD` (unset = disabled) is enforced in `lib/ai/spend-budget.ts`, scoped
+per build via `AsyncLocalStorage` because Fluid co-locates builds and a global counter would let one
+location degrade another. Over the ceiling, remaining calls step down one effort notch; nothing
+aborts, because aborting lands in the deterministic-fallback path. Crossings log and land on
+`providerStats.spendDegradedCalls`. Every build records `providerStats.estimatedUsd` regardless, and
+that is the data that should set the ceiling — not a guessed number.
+
 **Prompt caching is a prefix match.** `systemCached` is the stable, byte-identical prefix; volatile
 per-location context goes in `system`, after the breakpoint. Interpolating anything per-request
 (timestamps, ids) into the cached prefix silently zeroes the cache and shows up only on the bill.

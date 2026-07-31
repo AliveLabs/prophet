@@ -338,6 +338,15 @@ export type Brief = {
       string,
       { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }
     >
+    /** Estimated USD for THIS build (lib/ai/pricing rates — estimate, not billing truth). Recorded on
+     *  every build so a week of figures can set the per-brief ceiling and the fleet daily cap to a
+     *  multiple of observed spend rather than to an invented number. */
+    estimatedUsd?: number
+    /** The per-brief ceiling that was in force, present only when one was configured. */
+    spendCeilingUsd?: number
+    /** How many model calls ran one effort notch cheaper because the ceiling was already crossed.
+     *  Non-zero means the build completed but degraded — visible rather than silent, by design. */
+    spendDegradedCalls?: number
   }
   /** Differential builds: each producer's RAW grounded plays from this build, keyed by skillId.
    *  Brief.plays only holds the post-synthesis survivors, so reuse (Phase 1) carries these forward
