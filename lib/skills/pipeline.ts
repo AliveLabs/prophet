@@ -8,6 +8,7 @@ import type { Transport } from "@/lib/ai/provider"
 import { anthropicCallStats } from "@/lib/ai/provider"
 import { deltaTokensByModel, estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricing"
 import { PER_BRIEF_CEILING_USD, currentSpendBudget, runWithSpendBudget } from "@/lib/ai/spend-budget"
+import { logEvalRecord, recordBriefEval } from "@/lib/eval/record"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
@@ -153,7 +154,14 @@ async function runBriefBudgeted(
   }
 
   const presented = presentBrief(written, dossier)
-  const brief: Brief = { ...(await voicePass(presented)), skillHealth, skillOutputs, providerStats }
+  const voiced: Brief = { ...(await voicePass(presented)), skillHealth, skillOutputs, providerStats }
+
+  // Eval recorder (step 3): run the deterministic anti-fabrication checks over the FINAL brief —
+  // what the operator actually reads, after presenter + voice. Observation only: never throws, never
+  // mutates plays, costs no model call. Absence of the field means "not evaluated", not "clean".
+  const evalCheck = recordBriefEval(voiced, dossier)
+  logEvalRecord(dossier.profile.locationId, evalCheck)
+  const brief: Brief = { ...voiced, ...(evalCheck ? { evalCheck } : {}) }
 
   return { brief, skillResults, dropped }
 }

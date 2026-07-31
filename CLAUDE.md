@@ -97,6 +97,14 @@ that is the data that should set the ceiling — not a guessed number.
 per-location context goes in `system`, after the breakpoint. Interpolating anything per-request
 (timestamps, ids) into the cached prefix silently zeroes the cache and shows up only on the bill.
 
+**Eval violations are recorded on every brief, and absence is not innocence.**
+`lib/eval/record.ts` runs the deterministic anti-fabrication checks over the FINAL brief (post
+presenter, post voice) and stores the result at `brief->evalCheck` in the `daily_briefs` jsonb. It is
+observation only: it never throws, never mutates plays, and costs no model call. **An absent
+`evalCheck` means "not evaluated", never "clean"** — read `ok` explicitly. Runtime *enforcement*
+already exists separately (`run.ts` ground-filters plays whose refs do not resolve); making these a
+hard gate is a later decision that needs a baseline violation rate first.
+
 **Timeouts are per-tier and deliberate.** `ANTHROPIC_PRODUCER_TIMEOUT_MS` (300s) is larger than the
 deep pass's 240s because rich producer prompts genuinely need it. Raising quality by raising the
 ceiling is preferred over lowering effort.
