@@ -11,7 +11,7 @@
 //   skill never aborts the brief (the fan-out uses Promise.all of these).
 // ---------------------------------------------------------------------------
 
-import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
+import { generateStructured, DEEP_MODEL, DEEP_EFFORT, PRODUCER_EFFORT, type Transport } from "@/lib/ai/provider"
 import { skillInputHash } from "@/lib/skills/input-hash"
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
@@ -91,9 +91,14 @@ export async function runProducerSkill(
     // the deep pass's headroom. The provider omits temperature on any thinking path. COST DIAL-DOWN:
     // if spend threatens the model, drop producers back to no-thinking + temperature (remove
     // thinking/effort here) — that's the "like-for-like" 4.6 baseline.
+    // EFFORT (2026-07-31): both levels now come from the environment (ANTHROPIC_DEEP_EFFORT /
+    // ANTHROPIC_PRODUCER_EFFORT, defaulting to the previous "high"/"medium"), so the fleet-wide
+    // cost/quality dial can be swept against evals without a deploy. A skill that PINS its own
+    // effort still wins — guerrilla-marketing and marketing pin "low" to stay under the abort
+    // ceiling, and that is a per-skill latency constraint, not a fleet cost preference.
     const reqTuning = skill.deep
-      ? { model: DEEP_MODEL, thinking: true as const, effort: "high" as const }
-      : { thinking: true as const, effort: skill.effort ?? ("medium" as const), maxOutputTokens: 32000 }
+      ? { model: DEEP_MODEL, thinking: true as const, effort: DEEP_EFFORT }
+      : { thinking: true as const, effort: skill.effort ?? PRODUCER_EFFORT, maxOutputTokens: 32000 }
 
     // OBSERVABILITY (2026-07-03): a producer that serves its deterministic fallback used to be
     // INDISTINGUISHABLE from a real generation (both come back status "ok"). Capture it so the brief
