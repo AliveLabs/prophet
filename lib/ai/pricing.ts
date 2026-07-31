@@ -29,6 +29,29 @@ const DEFAULT_RATE = { input: 3, output: 15 }
 const CACHE_READ_MULTIPLIER = 0.1
 const CACHE_WRITE_MULTIPLIER = 2 // 1h-TTL ephemeral writes only
 
+/** Per-model token DELTA between two `anthropicCallStats()` snapshots — i.e. one build's usage out of
+ *  process-lifetime counters. Models with no movement are omitted. Extracted so the per-brief spend
+ *  ceiling and the brief's own telemetry compute "this build's tokens" the same way. */
+export function deltaTokensByModel(
+  start: Record<string, ModelTokenTotals>,
+  end: Record<string, ModelTokenTotals>,
+): Record<string, ModelTokenTotals> {
+  const out: Record<string, ModelTokenTotals> = {}
+  for (const [model, e] of Object.entries(end)) {
+    const s = start[model]
+    const delta: ModelTokenTotals = {
+      inputTokens: e.inputTokens - (s?.inputTokens ?? 0),
+      outputTokens: e.outputTokens - (s?.outputTokens ?? 0),
+      cacheWriteTokens: e.cacheWriteTokens - (s?.cacheWriteTokens ?? 0),
+      cacheReadTokens: e.cacheReadTokens - (s?.cacheReadTokens ?? 0),
+    }
+    if (delta.inputTokens || delta.outputTokens || delta.cacheWriteTokens || delta.cacheReadTokens) {
+      out[model] = delta
+    }
+  }
+  return out
+}
+
 /** Estimated USD for a per-model token breakdown (Brief.providerStats.tokensByModel shape). */
 export function estimateAnthropicCostUsd(tokensByModel: Record<string, ModelTokenTotals>): number {
   let usd = 0

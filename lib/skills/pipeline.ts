@@ -6,6 +6,8 @@
 
 import type { Transport } from "@/lib/ai/provider"
 import { anthropicCallStats } from "@/lib/ai/provider"
+import { deltaTokensByModel, estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricing"
+import { PER_BRIEF_CEILING_USD, currentSpendBudget, runWithSpendBudget } from "@/lib/ai/spend-budget"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
@@ -49,12 +51,23 @@ export type BriefResult = {
 }
 
 export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Promise<BriefResult> {
+  // Snapshot provider counters BEFORE anything else: this build's spend (and its telemetry) is the
+  // DELTA from here, and the per-brief ceiling needs the same baseline. Inert under a mock transport.
+  const providerAtStart = anthropicCallStats()
+  // Per-brief spend ceiling (step 2). Build-scoped via AsyncLocalStorage so co-located builds on one
+  // Fluid instance cannot degrade each other. A null ceiling (the default) opens no context at all.
+  return runWithSpendBudget(PER_BRIEF_CEILING_USD, providerAtStart.tokensByModel, () =>
+    runBriefBudgeted(dossier, opts, providerAtStart),
+  )
+}
+
+async function runBriefBudgeted(
+  dossier: Dossier,
+  opts: RunBriefOptions,
+  providerAtStart: { requests: number; rateLimited: number; tokensByModel: Record<string, ModelTokenTotals> },
+): Promise<BriefResult> {
   const skills = opts.skills ?? PRODUCER_SKILLS
   const t = opts.transport ? { transport: opts.transport } : {}
-
-  // Snapshot provider counters so we can record THIS build's Anthropic requests + rate-limits on the
-  // brief (→ fleet rateLimitedRate health signal). Inert under a mock transport (tests don't hit the API).
-  const providerAtStart = anthropicCallStats()
 
   const skillResults = await runProducerSkills(skills, dossier, { ...t, previous: opts.previous })
   const candidates = skillResults.flatMap((r) => r.plays)
@@ -110,19 +123,7 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
   const providerAtEnd = anthropicCallStats()
   // Token telemetry (2026-07-16): per-model delta between the two snapshots — THIS build's tokens.
   // Same cross-build-approximate caveat as `requests` on a shared Fluid instance; fine for a trend.
-  const tokensByModel: NonNullable<Brief["providerStats"]>["tokensByModel"] = {}
-  for (const [model, end] of Object.entries(providerAtEnd.tokensByModel)) {
-    const start = providerAtStart.tokensByModel[model]
-    const delta = {
-      inputTokens: end.inputTokens - (start?.inputTokens ?? 0),
-      outputTokens: end.outputTokens - (start?.outputTokens ?? 0),
-      cacheWriteTokens: end.cacheWriteTokens - (start?.cacheWriteTokens ?? 0),
-      cacheReadTokens: end.cacheReadTokens - (start?.cacheReadTokens ?? 0),
-    }
-    if (delta.inputTokens || delta.outputTokens || delta.cacheWriteTokens || delta.cacheReadTokens) {
-      tokensByModel[model] = delta
-    }
-  }
+  const tokensByModel = deltaTokensByModel(providerAtStart.tokensByModel, providerAtEnd.tokensByModel)
   const tokenTotals = Object.values(tokensByModel).reduce(
     (acc, t) => ({
       inputTokens: acc.inputTokens + t.inputTokens,
@@ -132,10 +133,23 @@ export async function runBrief(dossier: Dossier, opts: RunBriefOptions = {}): Pr
     }),
     { inputTokens: 0, outputTokens: 0, cacheWriteTokens: 0, cacheReadTokens: 0 },
   )
+  // Spend for this build, priced with the same table /admin/health uses. Recorded unconditionally:
+  // a week of these figures is what lets the per-brief ceiling and the fleet daily cap be set to a
+  // multiple of observed spend instead of to an invented number.
+  const estimatedUsd = estimateAnthropicCostUsd(tokensByModel)
+  const budget = currentSpendBudget()
+  if (budget && budget.degradedCalls > 0) {
+    console.warn(
+      `[runBrief] ${dossier.profile.locationId}: spend ceiling degraded ${budget.degradedCalls} call(s) ` +
+        `(peak≈$${budget.peakSpendUsd.toFixed(4)} vs ceiling $${budget.ceilingUsd.toFixed(4)}, final≈$${estimatedUsd.toFixed(4)})`,
+    )
+  }
   const providerStats: Brief["providerStats"] = {
     requests: providerAtEnd.requests - providerAtStart.requests,
     rateLimited: providerAtEnd.rateLimited - providerAtStart.rateLimited,
     ...(Object.keys(tokensByModel).length > 0 ? { ...tokenTotals, tokensByModel } : {}),
+    ...(estimatedUsd > 0 ? { estimatedUsd } : {}),
+    ...(budget ? { spendCeilingUsd: budget.ceilingUsd, spendDegradedCalls: budget.degradedCalls } : {}),
   }
 
   const presented = presentBrief(written, dossier)

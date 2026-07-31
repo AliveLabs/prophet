@@ -12,6 +12,8 @@
 // ---------------------------------------------------------------------------
 
 import { generateGeminiJson } from "@/lib/ai/gemini"
+import { deltaTokensByModel, estimateAnthropicCostUsd } from "@/lib/ai/pricing"
+import { currentSpendBudget, effortForNextCall } from "@/lib/ai/spend-budget"
 import { withAnthropicSlot } from "@/lib/ai/concurrency"
 import type { ModelTokenTotals } from "@/lib/ai/pricing"
 
@@ -42,7 +44,10 @@ export type GenerateRequest = {
    *  Producers leave these unset (Sonnet + temperature, as before). */
   model?: string
   thinking?: boolean
-  effort?: "low" | "medium" | "high" | "xhigh" | "max"
+  /** Adaptive-thinking effort. Narrowed to the set the runtime validator accepts (see the EFFORT
+   *  DIALS block): the producer tier runs on Sonnet 4.6, which has no "xhigh", so allowing it here
+   *  would let a 400 through the type system. Widen alongside the model swap, not before. */
+  effort?: Effort
   /** Observability only (e.g. the skill id). Named in the truncation/fallback logs so a degraded
    *  call points at the culprit skill. NEVER sent to the API. */
   label?: string
@@ -160,6 +165,18 @@ const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 529])
 // Rate-limit / overloaded statuses specifically (429 = rate limit, 529 = overloaded). Tracked as the
 // leading indicator of the account's rate ceiling: under scale these rise FIRST, then (once retries are
 // exhausted) turn into latency/timeouts/fallbacks. See the fleet rateLimitedRate health signal.
+/** Effort for this call, after the per-brief spend ceiling has its say (see lib/ai/spend-budget).
+ *  Outside a budgeted build this is just `req.effort ?? "high"`, so the non-budgeted path costs one
+ *  undefined check. Inside one, spend-so-far is the delta between the build's opening token snapshot
+ *  and the live counters, priced with the same table /admin/health uses. */
+function effortFor(req: GenerateRequest): Effort {
+  const requested = req.effort ?? "high"
+  const budget = currentSpendBudget()
+  if (!budget) return requested
+  const spentUsd = estimateAnthropicCostUsd(deltaTokensByModel(budget.startTokens, anthropicTokensByModel))
+  return effortForNextCall(requested, spentUsd, req.label)
+}
+
 const RATE_LIMIT_STATUS = new Set([429, 529])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -247,7 +264,7 @@ async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: numb
           max_tokens: req.maxOutputTokens ?? (req.thinking ? 32000 : 8192),
           // Opus 4.8 + adaptive thinking REJECTS temperature (400); producers (Sonnet) keep it.
           ...(req.thinking
-            ? { thinking: { type: "adaptive" }, output_config: { effort: req.effort ?? "high" } }
+            ? { thinking: { type: "adaptive" }, output_config: { effort: effortFor(req) } }
             : { temperature: req.temperature ?? 0.4 }),
           ...(system ? { system } : {}),
           messages: [{ role: "user", content: req.prompt }],
