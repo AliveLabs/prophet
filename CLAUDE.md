@@ -75,10 +75,15 @@ indistinguishable from a real generation (both return `status: "ok"`). `skillHea
 `usedFallback` and a `FallbackReason`, and the watchdog alerts on fleet-wide fallback rate. Any new
 failure path must classify itself into `FallbackReason`.
 
-**Thinking and temperature are mutually exclusive.** When `thinking` is set the provider omits
-`temperature` and sends `output_config.effort`. Sonnet 5 and Opus 5 reject non-default sampling
-params with a 400, so the non-thinking branch's `temperature` is a live blocker on any move to the
-5 family. See the model-swap ticket before touching model IDs.
+**Thinking and temperature are mutually exclusive, and temperature is model-gated.** When
+`thinking` is set the provider omits `temperature` and sends `output_config.effort`. On the
+non-thinking branch, `temperature` is sent only when `acceptsTemperature(model)` says the model still
+takes sampling params: Opus 4.7+, Sonnet 5, Opus 5, Fable 5 and Mythos 5 all removed them and 400.
+That gate is an **allowlist**, so an unrecognised model id omits temperature. Keep that polarity: on
+this codebase's non-thinking path a 400 degrades the call to a deterministic fallback, which is
+invisible without reading `skillHealth`. Do not "simplify" it into a denylist, and do not strip
+`temperature` from the call sites instead — several sit at 0.1 for determinism (`safety-review`,
+`judge`) and stripping it would change their behaviour on the models we run today.
 
 **Effort is an env dial, not a literal.** `ANTHROPIC_PRODUCER_EFFORT`, `_DEEP_`, `_SYNTHESIS_`,
 `_FUSION_`, `_WRITE_` (see `.env.example`). Only `low|medium|high` are accepted, because an invalid

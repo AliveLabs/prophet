@@ -177,6 +177,37 @@ function effortFor(req: GenerateRequest): Effort {
   return effortForNextCall(requested, spentUsd, req.label)
 }
 
+// ---------------------------------------------------------------------------
+// SAMPLING-PARAM COMPATIBILITY (ALT-544). Claude Opus 4.7 and later, Claude Sonnet 5, Claude Opus 5,
+// Fable 5 and Mythos 5 all REMOVED `temperature` / `top_p` / `top_k`: sending one returns a 400. On
+// this codebase's non-thinking path that 400 is especially nasty — it degrades the call to a
+// deterministic fallback, and a producer fallback is indistinguishable from a real generation
+// without reading skillHealth. Flipping ANTHROPIC_MODEL to a 5-family id would have done that to
+// eight call sites at once, including safety-review (anti-fabrication) and the eval judge.
+//
+// POLARITY MATTERS: this is an ALLOWLIST of models known to ACCEPT temperature, so an unrecognised
+// id omits it. Worst case on an unknown model is the provider's own sampling default; the opposite
+// default would be a fleet-wide 400. Omitting temperature is a soft, recoverable wrong; sending it
+// to a 5-family model is a hard one.
+//
+// We deliberately did NOT strip temperature from the call sites instead. Several sit at 0.1 for
+// determinism (safety-review, judge) and stripping it would change their behaviour on Sonnet 4.6
+// today. Gating by model keeps today byte-identical and makes the swap a config change.
+const TEMPERATURE_OK = [
+  /sonnet-4-6/i,
+  /sonnet-4-5/i,
+  /opus-4-6/i,
+  /opus-4-5/i,
+  /opus-4-1/i,
+  /haiku/i,
+  /claude-3/i,
+]
+
+/** Does this model still accept sampling parameters? Unknown ids answer NO, on purpose. */
+export function acceptsTemperature(model: string): boolean {
+  return TEMPERATURE_OK.some((re) => re.test(model))
+}
+
 const RATE_LIMIT_STATUS = new Set([429, 529])
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -265,7 +296,9 @@ async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: numb
           // Opus 4.8 + adaptive thinking REJECTS temperature (400); producers (Sonnet) keep it.
           ...(req.thinking
             ? { thinking: { type: "adaptive" }, output_config: { effort: effortFor(req) } }
-            : { temperature: req.temperature ?? 0.4 }),
+            : acceptsTemperature(req.model ?? ANTHROPIC_MODEL)
+              ? { temperature: req.temperature ?? 0.4 }
+              : {}),
           ...(system ? { system } : {}),
           messages: [{ role: "user", content: req.prompt }],
         }),
