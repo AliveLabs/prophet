@@ -366,10 +366,21 @@ export function defaultTransport(req: GenerateRequest): Promise<unknown> {
   return req.tier === "reasoning" ? claudeTransport(req) : geminiTransport(req)
 }
 
-// PROD ROUTING: in production these adapters should sit behind the Vercel AI Gateway
-// (OIDC auth, provider routing, failover, cost telemetry). Because the transport is
-// swappable, a `gatewayTransport` drops in here later WITHOUT changing generateStructured
-// or any skill. Kept as direct REST for now to stay dependency-free and headless-testable.
+// PROD ROUTING — DECIDED 2026-07-31: direct REST stays. Do NOT route these adapters through the
+// Vercel AI Gateway, and do NOT migrate this file to the Vercel AI SDK.
+//
+// This comment previously said the adapters "should sit behind the Vercel AI Gateway (OIDC auth,
+// provider routing, failover, cost telemetry)". That was never a product decision — it echoed an
+// editor-plugin recommendation, and it then read to every later session as intent. Bryan confirmed
+// he never asked for it. The Gateway is not a markup problem (it bills at provider list price), it
+// is a fit problem: we use two providers behind two small adapters, we already have per-skill cost
+// telemetry (pricing.ts + providerStats → /admin/health) and per-skill deterministic fallbacks, and
+// the things a proxy would put at risk are the two we can least afford to destabilise — the
+// timeout-critical hot path and Anthropic 1h prompt-cache hit rates, which are the engine's unit
+// economics. A cache regression shows up as a bill, not an error.
+//
+// The transport stays injectable because that is what makes the engine headless-testable. Revisit
+// only with a ticket, a cache-hit-rate comparison, and an eval run. See CLAUDE.md §1.
 
 /** Why a call degraded to its deterministic fallback — carried into the log line and the
  *  per-skill health signal so a fleet-wide degrade names its cause instead of hiding. */
