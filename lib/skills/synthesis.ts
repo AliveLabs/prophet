@@ -9,7 +9,7 @@
 // Deterministic fallback guarantees a brief even on model failure.
 // ---------------------------------------------------------------------------
 
-import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
+import { generateStructured, DEEP_MODEL, SYNTHESIS_EFFORT, type Transport } from "@/lib/ai/provider"
 import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { SkillResult } from "@/lib/skills/skill-types"
 import type { Brief, BriefCoverage, EnrichedRecommendation, RecKind, Category } from "@/lib/skills/types"
@@ -231,7 +231,7 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // P5: the Chief-of-Staff synthesis runs on the DEEP pass (Opus + adaptive thinking) — the
   // ranking/selection across the whole pool (now including convergence plays) is where depth pays.
   const selection = await generateStructured<{ headline: string; deck: string; order: number[] }>(
-    { tier: "reasoning", system, prompt, model: DEEP_MODEL, thinking: true, effort: "high" },
+    { tier: "reasoning", system, prompt, model: DEEP_MODEL, thinking: true, effort: SYNTHESIS_EFFORT },
     {
       transport: opts.transport,
       validate: (raw) => {

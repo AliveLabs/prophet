@@ -82,6 +82,49 @@ const REQUEST_TIMEOUT_MS = Number(process.env.ANTHROPIC_REQUEST_TIMEOUT_MS) || 6
 // (2026-07-07) also means these skills increasingly only run fresh when their inputs actually moved.
 const PRODUCER_TIMEOUT_MS = Number(process.env.ANTHROPIC_PRODUCER_TIMEOUT_MS) || 300_000
 
+// ---------------------------------------------------------------------------
+// EFFORT DIALS (2026-07-31) — adaptive-thinking effort per pipeline pass, read from the
+// environment so the fleet-wide cost/quality lever is a DIAL rather than a deploy. Sweeping
+// effort against evals was previously a code change, which is part of why the decision stayed
+// open. Every default below is the value that was hardcoded at its call site before this change,
+// so an UNSET environment is byte-identical to the previous behaviour.
+//
+// DELIBERATELY NARROW: only "low" | "medium" | "high" are accepted. The producer tier runs on
+// Sonnet 4.6, which has no "xhigh" (that arrived with Opus 4.7), so a stray
+// ANTHROPIC_PRODUCER_EFFORT=xhigh would 400 EVERY producer call → every producer serves its
+// deterministic fallback → precisely the silent "samey insights" failure that took two weeks to
+// diagnose in 2026-06. An unrecognised value therefore warns and falls back instead of reaching
+// the API. Widen this set as part of the model swap, not before.
+const EFFORT_VALUES = ["low", "medium", "high"] as const
+export type Effort = (typeof EFFORT_VALUES)[number]
+
+/** Exported for unit tests only — the dials below are module-level constants, so testing the
+ *  fallback behaviour through them would need module-registry resets. */
+export function parseEffort(raw: string | undefined, envName: string, fallback: Effort): Effort {
+  if (raw === undefined || raw.trim() === "") return fallback
+  const value = raw.trim().toLowerCase()
+  if ((EFFORT_VALUES as readonly string[]).includes(value)) return value as Effort
+  console.warn(
+    `[effort] ${envName}="${raw}" is not one of ${EFFORT_VALUES.join("|")} — falling back to "${fallback}". ` +
+      `An invalid effort 400s the call, which degrades it to a deterministic fallback SILENTLY.`,
+  )
+  return fallback
+}
+
+/** Producer skills (the expert fan-out). The dominant cost in a build: parallel calls at 32k output
+ *  each, so this is the highest-leverage dial. A skill that pins its own `effort` still wins over
+ *  this default (see ProducerSkill.effort — two skills pin "low" to stay under the abort ceiling). */
+export const PRODUCER_EFFORT = parseEffort(process.env.ANTHROPIC_PRODUCER_EFFORT, "ANTHROPIC_PRODUCER_EFFORT", "medium")
+/** The deep producer pass (cross-domain convergence) on DEEP_MODEL. */
+export const DEEP_EFFORT = parseEffort(process.env.ANTHROPIC_DEEP_EFFORT, "ANTHROPIC_DEEP_EFFORT", "high")
+/** Chief-of-Staff synthesis: ranking and selection across the whole play pool, on DEEP_MODEL. */
+export const SYNTHESIS_EFFORT = parseEffort(process.env.ANTHROPIC_SYNTHESIS_EFFORT, "ANTHROPIC_SYNTHESIS_EFFORT", "high")
+/** Pairwise fusion — a bounded merge on the base reasoning tier (the keep-best fallback makes a
+ *  cheaper setting safe here). */
+export const FUSION_EFFORT = parseEffort(process.env.ANTHROPIC_FUSION_EFFORT, "ANTHROPIC_FUSION_EFFORT", "medium")
+/** Per-play rewrite pass on DEEP_MODEL. */
+export const WRITE_EFFORT = parseEffort(process.env.ANTHROPIC_WRITE_EFFORT, "ANTHROPIC_WRITE_EFFORT", "medium")
+
 export function extractJson(text: string): unknown {
   // strip markdown code fences, then try whole-string parse
   const t = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim()

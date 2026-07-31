@@ -18,7 +18,7 @@
 // cluster (usually 0). clusterPlays() is PURE (unit-tested); fuseNearDuplicates() does I/O.
 // ---------------------------------------------------------------------------
 
-import { generateStructured, type Transport } from "@/lib/ai/provider"
+import { generateStructured, FUSION_EFFORT, type Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
@@ -152,7 +152,7 @@ async function fuseCluster(
   const outcome = await generateStructured<FuseOutcome>(
     // Base reasoning tier (Sonnet + adaptive thinking, medium) — fusion is a bounded merge, not the
     // whole-dossier convergence pass; the keep-best fallback makes a cheaper model safe.
-    { tier: "reasoning", system: FUSE_SYSTEM, prompt, thinking: true, effort: "medium", maxOutputTokens: 4000 },
+    { tier: "reasoning", system: FUSE_SYSTEM, prompt, thinking: true, effort: FUSION_EFFORT, maxOutputTokens: 4000 },
     {
       transport: opts.transport,
       validate: (raw): FuseOutcome | null => {

@@ -16,7 +16,7 @@
 // Model failure → keep-original. This NEVER drops or reorders a play.
 // ---------------------------------------------------------------------------
 
-import { generateStructured, DEEP_MODEL, type Transport } from "@/lib/ai/provider"
+import { generateStructured, DEEP_MODEL, WRITE_EFFORT, type Transport } from "@/lib/ai/provider"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { dedupeRefs } from "@/lib/skills/evidence-format"
@@ -68,7 +68,7 @@ async function writeOne(
   )
 
   const rewritten = await generateStructured<{ title: string; rationale: string } | null>(
-    { tier: "reasoning", system: WRITE_SYSTEM, prompt, model: DEEP_MODEL, thinking: true, effort: "medium", maxOutputTokens: 2000 },
+    { tier: "reasoning", system: WRITE_SYSTEM, prompt, model: DEEP_MODEL, thinking: true, effort: WRITE_EFFORT, maxOutputTokens: 2000 },
     {
       transport,
       validate: (raw) => {
