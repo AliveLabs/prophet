@@ -47,6 +47,10 @@
     {
       "path": "/api/cron/ask-mining?mode=weekly",
       "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/eval-judge",
+      "schedule": "30 3 * * *"
     }
   ]
 }

@@ -9,6 +9,7 @@ import { anthropicCallStats } from "@/lib/ai/provider"
 import { deltaTokensByModel, estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricing"
 import { PER_BRIEF_CEILING_USD, currentSpendBudget, runWithSpendBudget } from "@/lib/ai/spend-budget"
 import { logEvalRecord, recordBriefEval } from "@/lib/eval/record"
+import { briefGroundTruth } from "@/lib/eval/ground-truth"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
@@ -161,7 +162,14 @@ async function runBriefBudgeted(
   // mutates plays, costs no model call. Absence of the field means "not evaluated", not "clean".
   const evalCheck = recordBriefEval(voiced, dossier)
   logEvalRecord(dossier.profile.locationId, evalCheck)
-  const brief: Brief = { ...voiced, ...(evalCheck ? { evalCheck } : {}) }
+  // Ground truth for the nightly judge, captured HERE because the dossier is not persisted and
+  // rebuilding it later would hit paid vendors. Fail-soft: a capture failure just omits the field.
+  const gt = briefGroundTruth(dossier)
+  const brief: Brief = {
+    ...voiced,
+    ...(evalCheck ? { evalCheck } : {}),
+    ...(gt ? { judgeGroundTruth: gt.summary, ...(gt.truncated ? { judgeGroundTruthTruncated: true } : {}) } : {}),
+  }
 
   return { brief, skillResults, dropped }
 }
