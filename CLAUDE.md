@@ -98,6 +98,16 @@ aborts, because aborting lands in the deterministic-fallback path. Crossings log
 `providerStats.spendDegradedCalls`. Every build records `providerStats.estimatedUsd` regardless, and
 that is the data that should set the ceiling — not a guessed number.
 
+**The fleet daily cap is a HARD STOP and it fails open.**
+`ANTHROPIC_FLEET_DAILY_CAP_USD` (unset = disabled) is checked in `/api/cron/build-brief` before any
+build starts, summing today's `providerStats.estimatedUsd` across `daily_briefs` — the DB is the
+cross-instance ledger, since Fluid means no in-process counter can see fleet spend. Once tripped it
+refuses to start builds for the rest of the UTC day and alerts; `?ignoreCap=1` is the deliberate
+human override. Gated at the entry point rather than inside the pipeline because the build step is
+`critical: true`, so throwing there would retry forever against a cap that will not move until
+tomorrow. It **fails open** on any query error: a cost guard that halts the product because a SELECT
+failed is a worse outage than the overspend it prevents. Do not "harden" that into fail-closed.
+
 **Prompt caching is a prefix match.** `systemCached` is the stable, byte-identical prefix; volatile
 per-location context goes in `system`, after the breakpoint. Interpolating anything per-request
 (timestamps, ids) into the cached prefix silently zeroes the cache and shows up only on the bill.
