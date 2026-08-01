@@ -26,6 +26,8 @@ import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
 import { isTrialActive } from "@/lib/billing/trial"
 import { shouldEnqueueBriefNow, resolveBuildHour, resolveCatchupHours, briefJitterSeconds } from "@/lib/jobs/build-schedule"
+import { checkFleetSpend, describeFleetSpend, type FleetBudgetStore } from "@/lib/ai/fleet-budget"
+import { postSlackAlert } from "@/lib/ops/slack"
 
 export const maxDuration = 800 // inline single-location mode still does LLM work
 
@@ -38,6 +40,27 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const single = url.searchParams.get("location_id")
   const sb = createAdminSupabaseClient()
+
+  // ── Fleet daily spend cap (ALT-543 step 7) ───────────────────────────────
+  // Gated HERE, where builds are started, rather than inside the pipeline: the build step is
+  // `critical: true`, so throwing there would fail the job and retry it forever against a cap that
+  // is not going to move until tomorrow. Refusing to start is the clean hard stop.
+  //
+  // A hard stop, unlike the per-brief ceiling's degrade: fleet-wide, something is already wrong, and
+  // the useful behaviour is to stop digging and tell a human. Disabled unless the env var is set,
+  // and fails OPEN on any query problem (see lib/ai/fleet-budget.ts).
+  // `?ignoreCap=1` is a deliberate human override, kept separate from `?force=1` so a routine fleet
+  // re-render cannot silently blow through the tripwire.
+  if (url.searchParams.get("ignoreCap") !== "1") {
+    const spend = await checkFleetSpend(sb as unknown as FleetBudgetStore)
+    if (spend.exceeded) {
+      const msg = `Ticket build-brief HALTED for today: ${describeFleetSpend(spend)}. No briefs will build until the UTC day rolls over or the cap is raised (ANTHROPIC_FLEET_DAILY_CAP_USD), or re-run with ?ignoreCap=1.`
+      console.error(`[build-brief] ${msg}`)
+      await postSlackAlert(msg)
+      return Response.json({ halted: "fleet_daily_cap", spentUsd: spend.spentUsd, capUsd: spend.capUsd, briefs: spend.briefs }, { status: 200 })
+    }
+    if (spend.capUsd !== null) console.log(`[build-brief] ${describeFleetSpend(spend)}`)
+  }
 
   // ── Inline mode: build one location now ──────────────────────────────────
   if (single) {
