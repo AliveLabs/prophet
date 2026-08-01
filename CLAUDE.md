@@ -110,6 +110,15 @@ observation only: it never throws, never mutates plays, and costs no model call.
 already exists separately (`run.ts` ground-filters plays whose refs do not resolve); making these a
 hard gate is a later decision that needs a baseline violation rate first.
 
+**The nightly judge scores REAL served briefs, never a rebuilt dossier.**
+`/api/cron/eval-judge` samples briefs that carry `brief->judgeGroundTruth` (captured at build time by
+`lib/eval/ground-truth.ts`) and writes a verdict to `brief->judge`. **Never make it call
+`buildDossier`**: that hits paid vendors (`fetchForecast`, `fetchBusyTimes`, `fetchPlaceDetails`), and
+rebuilding nightly would multiply the most expensive part of the system. `EVAL_JUDGE_SAMPLE` is the
+spend dial: one model call per brief. Briefs whose ground truth was truncated are **skipped**, because
+the judge penalises claims it cannot find and would record a falsely low score. A frozen golden-set
+rig that does rebuild is ticketed separately, scoped to sweep windows.
+
 **Timeouts are per-tier and deliberate.** `ANTHROPIC_PRODUCER_TIMEOUT_MS` (300s) is larger than the
 deep pass's 240s because rich producer prompts genuinely need it. Raising quality by raising the
 ceiling is preferred over lowering effort.

@@ -358,6 +358,23 @@ export type Brief = {
     violations: { code: string; recIndex: number; detail: string }[]
     truncated?: boolean
   }
+  /** Compact dossier ground truth (lib/eval/gate.ts `dossierSummary`), persisted at build time so
+   *  the nightly judge can score THIS served brief without rebuilding the dossier. Rebuilding would
+   *  hit paid vendors (buildDossier calls fetchForecast/fetchBusyTimes/fetchPlaceDetails), which is
+   *  the whole reason the judge scores real briefs instead of a frozen golden set. */
+  judgeGroundTruth?: string
+  /** Set when the summary exceeded the size cap. A truncated ground truth would make the judge score
+   *  real claims as ungrounded, so the nightly judge SKIPS these rather than recording a false low. */
+  judgeGroundTruthTruncated?: boolean
+  /** Nightly judge verdict for this served brief, written back after the fact by the eval-judge cron.
+   *  Absent = not yet judged (the cron samples), never "scored zero". */
+  judge?: {
+    overall: number
+    scores: { specificity: number; nonObviousness: number; actionableSmallBudget: number; groundingFaithfulness: number }
+    toneDeaf: string[]
+    judgedAt: string
+    model: string
+  }
   /** Differential builds: each producer's RAW grounded plays from this build, keyed by skillId.
    *  Brief.plays only holds the post-synthesis survivors, so reuse (Phase 1) carries these forward
    *  when a skill's inputHash matches. Fallback-served skills are stored too but NEVER reused
