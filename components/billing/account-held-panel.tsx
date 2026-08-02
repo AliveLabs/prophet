@@ -2,6 +2,7 @@ import { getTierDisplayName } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
 import { UpgradeButtons } from "@/app/(dashboard)/settings/billing/upgrade-buttons"
 import { ManageBillingButton } from "@/app/(dashboard)/settings/billing/manage-billing-button"
+import StartTrialWithoutCardButton from "./start-trial-without-card-button"
 
 interface AccountHeldPanelProps {
   orgName: string
@@ -47,8 +48,8 @@ export function AccountHeldPanel({
           {neverStarted ? (
             <>
               {orgName}&rsquo;s setup is saved and the first data pull is in. Start
-              with 14 days free on the {midName} tier — card required, $0 today,
-              cancel anytime.
+              with 14 days free on the {midName} tier — $0 today, cancel anytime.
+              Add a card now, or start without one.
             </>
           ) : (
             <>
@@ -91,6 +92,23 @@ export function AccountHeldPanel({
         </div>
         <UpgradeButtons industry={industry} showFeatures />
       </div>
+
+      {/* An org that never had a clock hasn't used its free trial yet — offer it
+          here, not just on the onboarding card step. Gated on `neverStarted`, so
+          an expired trial can't be restarted this way. */}
+      {neverStarted && (
+        <div className="pv-section">
+          <div className="pv-section-head">
+            Not ready to add a card?
+            <span className="pv-section-sub">
+              Start the same 14-day trial now and add a card whenever you like.
+            </span>
+          </div>
+          <div className="pv-card">
+            <StartTrialWithoutCardButton />
+          </div>
+        </div>
+      )}
 
       {hasStripeCustomer && (
         <div className="pv-section">

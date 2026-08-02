@@ -23,8 +23,18 @@ export interface CreateOrgInput {
   industryType?: "restaurant" | "liquor_store"
   /** 'real' (default, normal signup) | 'demo' | 'test'. */
   orgKind?: OrgKind
-  /** Trial length in days. Default 14 (real). Demo/test pass 365 (overridable later via setTrialEndsAt). */
-  trialDays?: number
+  /**
+   * Trial length in days, or `null` for NO clock at creation.
+   *
+   * Demo/test orgs pass 365 (overridable later via setTrialEndsAt). Real orgs
+   * should pass null: a clock that starts the moment an admin approves someone
+   * burns down while the invitation sits unread, and it makes the org read as
+   * trial-active — which sends the operator straight past /onboarding/trial, so
+   * they never see the card step OR the card-less "skip for now" option. Self-serve
+   * signup has always created orgs with no clock for exactly this reason; the trial
+   * starts when the operator starts it.
+   */
+  trialDays?: number | null
   /** Set when this org is created from a waitlist signup, for dedupe + provenance. */
   waitlistSignupId?: string | null
 }
@@ -59,7 +69,15 @@ export async function createOrgWithOwner(
 
   const baseSlug = slugify(orgName) || "org"
   const now = new Date()
-  const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000)
+  const trialClock =
+    trialDays === null
+      ? {}
+      : {
+          trial_started_at: now.toISOString(),
+          trial_ends_at: new Date(
+            now.getTime() + trialDays * 24 * 60 * 60 * 1000
+          ).toISOString(),
+        }
 
   let orgId: string | null = null
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -68,8 +86,7 @@ export async function createOrgWithOwner(
       slug: attempt === 0 ? baseSlug : `${baseSlug}-${attempt + 1}`,
       billing_email: billingEmail,
       org_kind: orgKind,
-      trial_started_at: now.toISOString(),
-      trial_ends_at: trialEnd.toISOString(),
+      ...trialClock,
       waitlist_signup_id: waitlistSignupId,
     }
     if (industryType) row.industry_type = industryType
