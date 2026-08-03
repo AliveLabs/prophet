@@ -60,3 +60,10 @@ scripts/stripe/.e2e-screenshots
 
 # track the ops-env TEMPLATE (the real .env.ops.local stays ignored by .env*.local)
 !.env.ops.local.example
+
+# Claude Code personal overrides. .claude/settings.json IS shared and stays tracked;
+# settings.local.json is per-machine and must not land in the repo next to it.
+.claude/settings.local.json
+
+# Supabase CLI scratch (linked-project ref, cached version check)
+supabase/.temp/
