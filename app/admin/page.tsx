@@ -70,7 +70,7 @@ async function fetchPlatformMetrics() {
       .select("id, status, job_type, created_at"),
     supabase
       .from("profiles")
-      .select("id, email, full_name, current_organization_id, created_at"),
+      .select("id, email, full_name, current_organization_id, created_at, last_seen_at"),
   ])
 
   let authUserCount = 0
@@ -85,8 +85,11 @@ async function fetchPlatformMetrics() {
 
     const now = Date.now()
     const weekAgo = now - 7 * 24 * 60 * 60 * 1000
-    recentlyActive = (authData?.users ?? []).filter(
-      (u) => u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() > weekAgo
+    // "Recently active" means they were IN the product, not that they re-authenticated. On a
+    // magic-link product last_sign_in_at only moves when a session lapses, so it under-counted
+    // daily users badly.
+    recentlyActive = (profiles ?? []).filter(
+      (p) => p.last_seen_at && new Date(p.last_seen_at).getTime() > weekAgo
     ).length
 
     const allProfiles = profiles ?? []

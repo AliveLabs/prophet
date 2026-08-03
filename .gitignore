@@ -67,3 +67,4 @@ scripts/stripe/.e2e-screenshots
 
 # Supabase CLI scratch (linked-project ref, cached version check)
 supabase/.temp/
+.claude/launch.json

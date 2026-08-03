@@ -10,6 +10,9 @@ interface UserRow {
   email: string
   fullName: string | null
   createdAt: string
+  /** Last time the user was actually IN the product (profiles.last_seen_at). */
+  lastSeenAt: string | null
+  /** Auth event. Kept because "has never signed in" is still a real state worth showing. */
   lastSignInAt: string | null
   isBanned: boolean
   orgCount: number
@@ -31,7 +34,7 @@ async function fetchUsers(): Promise<{
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, current_organization_id")
+    .select("id, full_name, current_organization_id, last_seen_at")
 
   const { data: memberships } = await supabase
     .from("organization_members")
@@ -61,6 +64,9 @@ async function fetchUsers(): Promise<{
         (u.user_metadata?.full_name as string | undefined) ??
         null,
       createdAt: u.created_at,
+      // Fall back to the auth timestamp only until the touch path has seen them once —
+      // the migration seeds last_seen_at from it, so this is a belt-and-braces default.
+      lastSeenAt: profile?.last_seen_at ?? u.last_sign_in_at ?? null,
       lastSignInAt: u.last_sign_in_at ?? null,
       isBanned: !!u.banned_until && new Date(u.banned_until) > now,
       orgCount: orgCountMap.get(u.id) ?? 0,
@@ -71,8 +77,9 @@ async function fetchUsers(): Promise<{
 
   const stats = {
     total: users.length,
+    // Active = actually used the product in the last 7 days, not "re-authenticated".
     active7d: users.filter(
-      (u) => u.lastSignInAt && new Date(u.lastSignInAt) > weekAgo
+      (u) => u.lastSeenAt && new Date(u.lastSeenAt) > weekAgo
     ).length,
     deactivated: users.filter((u) => u.isBanned).length,
     neverOnboarded: users.filter((u) => !u.hasOnboarded).length,
