@@ -20,6 +20,7 @@ interface UserDetail {
   fullName: string | null
   avatarUrl: string | null
   createdAt: string
+  lastSeenAt: string | null
   lastSignInAt: string | null
   isBanned: boolean
   provider: string
@@ -150,8 +151,8 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
               <div className="ap-info">
                 <InfoItem label="Created" value={new Date(user.createdAt).toLocaleDateString()} />
                 <InfoItem
-                  label="Last sign in"
-                  value={user.lastSignInAt ? new Date(user.lastSignInAt).toLocaleString() : "Never"}
+                  label="Last seen"
+                  value={user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString() : "Never"}
                 />
                 <InfoItem label="Provider" value={user.provider} />
                 <InfoItem label="Onboarded" value={user.hasOnboarded ? "Yes" : "No"} />

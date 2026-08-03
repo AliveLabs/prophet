@@ -18,7 +18,7 @@ export async function GET() {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, current_organization_id")
+    .select("id, full_name, current_organization_id, last_seen_at")
 
   const { data: memberships } = await supabase
     .from("organization_members")
@@ -30,7 +30,7 @@ export async function GET() {
     orgCountMap.set(m.user_id, (orgCountMap.get(m.user_id) ?? 0) + 1)
   }
 
-  const header = "Email,Name,Created,Last Sign In,Org Count,Status"
+  const header = "Email,Name,Created,Last Seen,Last Sign In,Org Count,Status"
   const rows = (authData?.users ?? []).map((u) => {
     const profile = profileMap.get(u.id)
     const name = profile?.full_name ?? (u.user_metadata?.full_name as string) ?? ""
@@ -40,6 +40,7 @@ export async function GET() {
       csvEscape(u.email ?? ""),
       csvEscape(name),
       u.created_at ?? "",
+      profile?.last_seen_at ?? u.last_sign_in_at ?? "",
       u.last_sign_in_at ?? "",
       orgCountMap.get(u.id) ?? 0,
       isBanned ? "deactivated" : "active",

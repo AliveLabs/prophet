@@ -14,6 +14,7 @@ interface UserRow {
   email: string
   fullName: string | null
   createdAt: string
+  lastSeenAt: string | null
   lastSignInAt: string | null
   isBanned: boolean
   orgCount: number
@@ -131,7 +132,7 @@ export function UsersTable({ users }: { users: UserRow[] }) {
                 <th>Email</th>
                 <th>Name</th>
                 <th>Status</th>
-                <th>Last sign in</th>
+                <th>Last seen</th>
                 <th>Orgs</th>
                 <th>Created</th>
                 <th>Actions</th>
@@ -252,7 +253,7 @@ function UserTableRow({
         <StatusPill banned={user.isBanned} />
       </td>
       <td className="ap-cell-mono">
-        {user.lastSignInAt ? timeAgo(user.lastSignInAt) : "Never"}
+        {user.lastSeenAt ? timeAgo(user.lastSeenAt) : user.lastSignInAt ? "Signed in, not seen since" : "Never"}
       </td>
       <td className="ap-cell-mono">{user.orgCount}</td>
       <td className="ap-cell-mono">{new Date(user.createdAt).toLocaleDateString()}</td>
@@ -287,7 +288,7 @@ function UserCard({
         <StatusPill banned={user.isBanned} />
       </div>
       <div className="ap-rowcard-meta">
-        <span>Last <b>{user.lastSignInAt ? timeAgo(user.lastSignInAt) : "never"}</b></span>
+        <span>Seen <b>{user.lastSeenAt ? timeAgo(user.lastSeenAt) : "never"}</b></span>
         <span>Orgs <b>{user.orgCount}</b></span>
         <span>Joined <b>{new Date(user.createdAt).toLocaleDateString()}</b></span>
       </div>

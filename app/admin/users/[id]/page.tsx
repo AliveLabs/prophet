@@ -19,7 +19,7 @@ async function fetchUserDetail(userId: string) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, full_name, avatar_url, current_organization_id, created_at")
+    .select("id, email, full_name, avatar_url, current_organization_id, created_at, last_seen_at")
     .eq("id", userId)
     .maybeSingle()
 
@@ -61,6 +61,7 @@ async function fetchUserDetail(userId: string) {
       null,
     avatarUrl: profile?.avatar_url ?? null,
     createdAt: user.created_at,
+    lastSeenAt: profile?.last_seen_at ?? user.last_sign_in_at ?? null,
     lastSignInAt: user.last_sign_in_at ?? null,
     isBanned: !!user.banned_until && new Date(user.banned_until) > new Date(),
     provider: user.app_metadata?.provider ?? "email",
