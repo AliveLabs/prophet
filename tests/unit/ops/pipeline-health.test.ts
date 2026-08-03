@@ -13,6 +13,7 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   lastDataAt: hoursAgo(2),
   lastBriefAt: hoursAgo(3),
   staleLocations: 0,
+  billingDarkLocations: 0,
   stuckJobs: 0,
   failedJobsRecent: 0,
   staleQueuedJobs: 0,
@@ -97,6 +98,29 @@ describe("evaluatePipelineHealth — DEGRADED (running but not finishing cleanly
   })
   it("does NOT alert on a single stale location (below the partial-stall threshold)", () => {
     expect(evaluatePipelineHealth(healthy({ staleLocations: 1 }), NOW).status).toBe("ok")
+  })
+
+  // 2026-08-03: two operators finished onboarding, abandoned Stripe checkout, and so had no trial
+  // clock. cron/daily and cron/build-brief both skip a non-trial-active org, so their locations went
+  // dark BY DESIGN — and paged the on-call as a "partial stall" while the pipeline was working.
+  it("reports billing-dark locations as a warning and never pages on them", () => {
+    const v = evaluatePipelineHealth(healthy({ billingDarkLocations: 4 }), NOW)
+    expect(v.status).toBe("ok")
+    expect(v.reasons).toEqual([])
+    expect(v.warnings.join(" ")).toMatch(/not trial-active/)
+  })
+
+  it("keeps the two causes separate: a real stall still pages while billing-dark only warns", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ staleLocations: 2, billingDarkLocations: 3 }),
+      NOW,
+    )
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.join(" ")).toMatch(/partial stall/)
+    // The paging channel carries reasons only, so the billing note must not leak into it.
+    expect(v.reasons.join(" ")).not.toMatch(/trial-active/)
+    expect(v.warnings.join(" ")).toMatch(/not trial-active/)
+    expect(v.billingDarkLocations).toBe(3)
   })
 })
 

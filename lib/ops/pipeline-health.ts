@@ -20,6 +20,7 @@
 // ---------------------------------------------------------------------------
 
 import { detectDataForSeoHealth } from "@/lib/jobs/vendor-health"
+import { isTrialActive } from "@/lib/billing/trial"
 import type { SB } from "@/lib/jobs/queue"
 
 export type PipelineHealthStatus = "ok" | "degraded" | "down"
@@ -33,8 +34,15 @@ export type PipelineSignals = {
   /** Most recent daily_briefs row (a brief built). */
   lastBriefAt: string | null
   /** Recently-active locations (built a brief within the active window) whose NEWEST brief is now
-   *  older than the stale threshold — i.e. a partial-fleet stall that the fleet-wide MAX hides. */
+   *  older than the stale threshold — i.e. a partial-fleet stall that the fleet-wide MAX hides.
+   *  EXCLUDES locations we are deliberately not building (see billingDarkLocations). */
   staleLocations: number
+  /** Recently-active locations that stopped getting briefs because their org is no longer
+   *  trial-active — cron/daily and cron/build-brief both skip a gated org, so the location goes
+   *  dark BY DESIGN. Counted separately because it is a billing outcome, not a pipeline fault:
+   *  it used to land in staleLocations and page as a "partial stall" (2026-08-03: two abandoned
+   *  checkouts pages the on-call). Reported, never escalated. */
+  billingDarkLocations: number
   /** signal_jobs stuck in 'running' past the zombie window (timed out mid-job). */
   stuckJobs: number
   /** DISTINCT (location, pipeline) terminal failures within the stale window. Distinct so one
@@ -68,8 +76,9 @@ export type PipelineSignals = {
   latencySamples: number
   /** p95 eligible→done ms across brief jobs completed in the window (scheduled_for→done, so intentional
    *  within-zone jitter is NOT counted — see computeBriefDrainP95Ms). This is the THROUGHPUT ceiling
-   *  signal: the worker drains ~2 briefs/invocation, so as the fleet grows, drain time stretches and
-   *  the "built overnight, before the operator's morning" promise erodes — long before anything fails. */
+   *  signal: job STARTS per worker tick are capped by the batch size, so as the fleet grows the daily
+   *  burst takes longer to drain and the "built overnight, before the operator's morning" promise
+   *  erodes — long before anything fails. */
   briefDrainP95Ms: number
   /** How many completed brief jobs the drain p95 was computed over (gates the alert). */
   briefDrainsSampled: number
@@ -153,6 +162,8 @@ export type PipelineHealthVerdict = {
   hoursSinceLastData: number | null
   hoursSinceLastBrief: number | null
   staleLocations: number
+  /** Locations dark because their org is not trial-active (billing, not pipeline). Never escalates. */
+  billingDarkLocations: number
   stuckJobs: number
   failedJobsRecent: number
   staleQueuedJobs: number
@@ -216,6 +227,14 @@ export function evaluatePipelineHealth(
     reasons.push(`${s.staleLocations} recently-active location(s) have no fresh brief in ${t.staleHours}h (partial stall)`)
     escalate("degraded")
   }
+  // Billing-gated locations are reported, never escalated: the pipeline is behaving correctly by
+  // skipping them. Surfacing the count still matters — it is how we notice an operator who
+  // finished onboarding and then stalled at the card step.
+  if (s.billingDarkLocations > 0) {
+    warnings.push(
+      `${s.billingDarkLocations} location(s) are dark because their org is not trial-active (expired or never-started trial) — a billing state, not a pipeline fault; check /admin/organizations`,
+    )
+  }
   if (s.staleQueuedJobs > 0) {
     reasons.push(`${s.staleQueuedJobs} job(s) queued but not draining — the worker may be stalled`)
     escalate("degraded")
@@ -272,7 +291,7 @@ export function evaluatePipelineHealth(
   // morning. The growth signal — fires as locations scale, long before anything visibly breaks.
   if (s.briefDrainsSampled >= t.drainMinSample && s.briefDrainP95Ms >= t.briefDrainAlertMs) {
     reasons.push(
-      `brief queue drain p95 is ${(s.briefDrainP95Ms / 3_600_000).toFixed(1)}h across ${s.briefDrainsSampled} recent builds — the worker isn't claiming eligible briefs fast enough; briefs are landing late (add worker throughput or reduce per-brief cost)`,
+      `brief queue drain p95 is ${(s.briefDrainP95Ms / 3_600_000).toFixed(1)}h across ${s.briefDrainsSampled} recent builds — the worker isn't claiming eligible briefs fast enough; briefs are landing late (check the worker batch size and cron cadence against the daily job count before adding infrastructure — measure run time vs queue wait first)`,
     )
     escalate("degraded")
   }
@@ -289,6 +308,7 @@ export function evaluatePipelineHealth(
     hoursSinceLastData: dataAge,
     hoursSinceLastBrief: briefAge,
     staleLocations: s.staleLocations,
+    billingDarkLocations: s.billingDarkLocations,
     stuckJobs: s.stuckJobs,
     failedJobsRecent: s.failedJobsRecent,
     staleQueuedJobs: s.staleQueuedJobs,
@@ -315,7 +335,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   const queuedGraceIso = new Date(nowMs - 120 * 60_000).toISOString()
   const recentActiveIso = new Date(nowMs - RECENT_ACTIVE_DAYS * 24 * 3_600_000).toISOString()
 
-  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, doneBriefJobs, vendor] = await Promise.all([
+  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, doneBriefJobs, vendor, locationRows, orgRows] = await Promise.all([
     sb.from("pipeline_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("location_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("daily_briefs").select("generated_at").order("generated_at", { ascending: false }).limit(1).maybeSingle(),
@@ -331,6 +351,11 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     // scheduled_for is the ELIGIBLE time (see computeBriefDrainP95Ms) — needed to exclude intentional jitter.
     sb.from("signal_jobs").select("created_at, scheduled_for, updated_at").eq("pipeline", "brief").eq("status", "done").gte("updated_at", sinceIso),
     detectDataForSeoHealth(sb, { nowMs }),
+    // Billing state per location, so a deliberately-skipped (non-trial-active) org isn't counted as
+    // a pipeline stall. Two flat reads + a JS join: PostgREST embeds would need the FK alias and
+    // this runs on an ops path where an explicit query is easier to reason about than a nested select.
+    sb.from("locations").select("id, organization_id"),
+    sb.from("organizations").select("id, subscription_tier, trial_ends_at, payment_state").is("deleted_at", null),
   ])
 
   // Newest brief per location (rows are ordered newest-first, so first seen per location wins).
@@ -343,9 +368,36 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
       newestBriefByLocation.set(r.location_id, { generatedAt: r.generated_at, skillHealth: r.skillHealth, providerStats: r.providerStats })
     }
   }
+  // Split stale locations by CAUSE. A location whose org is not trial-active is skipped by both
+  // cron/daily and cron/build-brief, so it goes dark deliberately — counting it as a partial stall
+  // pages the on-call for a billing outcome (2026-08-03: two operators who abandoned Stripe
+  // checkout produced a "degraded" page while the pipeline was working perfectly).
+  const gatedLocationIds = new Set<string>()
+  const orgByLocation = new Map<string, string>()
+  for (const l of locationRows.data ?? []) {
+    if (l.id && l.organization_id) orgByLocation.set(l.id, l.organization_id)
+  }
+  const activeOrgIds = new Set(
+    (orgRows.data ?? [])
+      .filter((o) =>
+        isTrialActive({
+          subscription_tier: o.subscription_tier ?? "entry",
+          trial_ends_at: o.trial_ends_at,
+          payment_state: o.payment_state ?? null,
+        }),
+      )
+      .map((o) => o.id),
+  )
+  for (const [locationId, orgId] of orgByLocation) {
+    if (!activeOrgIds.has(orgId)) gatedLocationIds.add(locationId)
+  }
+
   let staleLocations = 0
-  for (const b of newestBriefByLocation.values()) {
-    if (new Date(b.generatedAt).getTime() < staleCutoffMs) staleLocations++
+  let billingDarkLocations = 0
+  for (const [locationId, b] of newestBriefByLocation) {
+    if (new Date(b.generatedAt).getTime() >= staleCutoffMs) continue
+    if (gatedLocationIds.has(locationId)) billingDarkLocations++
+    else staleLocations++
   }
 
   // Fleet-wide fallback rate over the newest brief per location that CARRIES per-skill health.
@@ -396,6 +448,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     lastDataAt: data.data?.created_at ?? null,
     lastBriefAt: brief.data?.generated_at ?? null,
     staleLocations,
+    billingDarkLocations,
     stuckJobs: stuck.count ?? 0,
     failedJobsRecent: failedKeys.size,
     staleQueuedJobs: staleQ.count ?? 0,

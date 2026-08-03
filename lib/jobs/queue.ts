@@ -169,18 +169,32 @@ export function backoffSeconds(attempt: number): number {
 export const WORKER_BUDGET_MS = 800_000
 export const WORKER_SAFETY_MARGIN_MS = 90_000
 
-// Conservative per-pipeline runtime estimates — above observed averages, with
-// tail headroom (a job runs longer on a signal-rich location than the mean).
+// Per-pipeline runtime estimates. These exist for ONE decision: shouldDeferJob asking
+// "can this job finish in the budget I have left?" So the right value is a pessimistic
+// bound (observed max + headroom), NOT an average — an estimate below the real tail lets
+// the worker start a job that overruns maxDuration, which leaves the row 'running', waits
+// out the 20-minute zombie reclaim, and re-runs the whole pipeline. That is wasted spend
+// and a brief that lands late.
+//
+// Recalibrated 2026-08-03 against 36h of prod signal_jobs (118 completed jobs, 0 retries),
+// measuring claimed_at -> updated_at. Observed avg / max per pipeline:
+//   brief 409s / 719s · content 302s / 425s · visibility 277s / 389s · insights 118s / 302s
+//   photos 85s / 173s · events 79s / 380s · social 79s / 265s · busy_times 76s / 341s
+//   weather 50s / 196s
+// Note how far the tails sit above the means (events 79s avg, 380s max) — the means are
+// useless for this decision. `brief` was the dangerous one: estimated at 380s against a
+// real 719s max, so the guard would happily start a brief with ~400s left and overrun.
+// Re-derive with that query rather than nudging these by feel.
 const PIPELINE_TIME_ESTIMATE_MS: Record<string, number> = {
-  content: 450_000,
-  insights: 420_000,
-  photos: 420_000,
-  brief: 380_000,
-  visibility: 280_000,
-  social: 220_000,
-  events: 200_000,
-  busy_times: 150_000,
-  weather: 90_000,
+  brief: 780_000,
+  content: 480_000,
+  visibility: 440_000,
+  events: 430_000,
+  busy_times: 390_000,
+  insights: 350_000,
+  social: 310_000,
+  weather: 240_000,
+  photos: 220_000,
 }
 const DEFAULT_PIPELINE_TIME_ESTIMATE_MS = 320_000
 
