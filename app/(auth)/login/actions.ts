@@ -18,59 +18,17 @@ function safeRedirectPath(input: string | null) {
   return "/login"
 }
 
+// `generateLink` type 'magiclink' only signs a link for an EXISTING auth user, and the
+// only paths that create one are waitlist Approve and the team invite. So an address
+// with no account cannot be sent a link, and no email is sent either — which reads to
+// the operator as "nothing happened". Say so plainly instead of surfacing the raw
+// GoTrue error, and don't reveal whether we hold the address.
+//
+// Provisioning an account here (for waitlist members) was prototyped and pulled back
+// out: it changes WHO gets an account, no one in the 2026-08 beta cohort actually hit
+// this path, and it deserves its own review rather than riding along with a UI fix.
 const NO_ACCOUNT_MESSAGE =
   "We couldn't find an account for that email. Use the address you signed up with, or contact us and we'll get you set up."
-
-/**
- * Create the auth account for someone who is already on the waitlist but has no
- * account yet, so a magic link has something to sign.
- *
- * This closes the gap the 2026-08 beta cohort fell into: they were emailed a link
- * to /login directly, without anyone clicking Approve in /admin/waitlist. Approve
- * is the ONLY path that calls auth.admin.createUser, so `generateLink` had no user
- * to issue a link for and the sign-in form could not succeed no matter how many
- * times they tried.
- *
- * Deliberately narrow: an email already on the waitlist and not declined. This is
- * not open signup — a stranger still gets NO_ACCOUNT_MESSAGE. The marketing site's
- * waitlist form remains the front door.
- */
-async function provisionWaitlistUser(
-  admin: ReturnType<typeof createAdminSupabaseClient>,
-  email: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  // waitlist_signups stores emails lower-cased + trimmed (app/api/waitlist/route.ts).
-  const { data: signup } = await admin
-    .from("waitlist_signups")
-    .select("status, first_name, last_name")
-    .eq("email", email.toLowerCase().trim())
-    .maybeSingle()
-
-  // Same copy for "not on the list" and "declined" — a sign-in form should not
-  // report which addresses we hold or what we decided about them.
-  if (!signup || signup.status === "declined") {
-    return { ok: false, error: NO_ACCOUNT_MESSAGE }
-  }
-
-  const fullName =
-    [signup.first_name, signup.last_name].filter(Boolean).join(" ") || null
-
-  const { error } = await admin.auth.admin.createUser({
-    email,
-    email_confirm: true,
-    user_metadata: fullName ? { full_name: fullName } : undefined,
-  })
-
-  if (error) {
-    console.error("[auth] waitlist user provisioning failed:", error.message)
-    return {
-      ok: false,
-      error: "We couldn't set up your account just now. Try again in a moment.",
-    }
-  }
-
-  return { ok: true }
-}
 
 export async function sendMagicLinkAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim()
@@ -98,35 +56,19 @@ export async function sendMagicLinkAction(formData: FormData) {
   const supabase = createAdminSupabaseClient()
   const redirectTo = getAuthCallbackUrl()
 
-  let { data, error } = await supabase.auth.admin.generateLink({
+  const { data, error } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email,
     options: { redirectTo },
   })
 
-  // `generateLink` type 'magiclink' signs a link for an EXISTING user. If there is
-  // none, provision the account (waitlist members only) and retry once.
   if (error || !data?.properties?.action_link) {
-    const provisioned = await provisionWaitlistUser(supabase, email)
-    if (!provisioned.ok) {
-      redirect(`${redirectPath}?error=${encodeURIComponent(provisioned.error)}`)
-    }
-
-    ;({ data, error } = await supabase.auth.admin.generateLink({
-      type: "magiclink",
-      email,
-      options: { redirectTo },
-    }))
-  }
-
-  if (error || !data?.properties?.action_link) {
+    // Log the real reason for us; show the operator copy they can act on.
     console.error(
-      "[auth] magic link generation failed after provisioning:",
+      "[auth] magic link generation failed:",
       error?.message ?? "no action_link"
     )
-    redirect(
-      `${redirectPath}?error=${encodeURIComponent("We couldn't send a sign-in link just now. Try again in a moment.")}`
-    )
+    redirect(`${redirectPath}?error=${encodeURIComponent(NO_ACCOUNT_MESSAGE)}`)
   }
 
   const result = await sendEmail({
