@@ -12,7 +12,7 @@ export default function SkipCardButton() {
   const [pending, startTransition] = useTransition()
 
   return (
-    <div className="ob-skip">
+    <div className="ob-cardskip">
       <button
         type="button"
         className="ob-skipbtn"

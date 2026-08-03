@@ -221,12 +221,19 @@
 
 /* "Skip for now" on the card step — deliberately quiet text, not a second button,
    so the card path stays the visual default (it converts far better). */
-.ob-skip { margin-top: 14px; }
+/* The card-less trial start on /onboarding/trial. Named apart from the wizard's
+   footer `.ob-skip` button — the two used to share a class name, so the footer
+   rule further down this file silently applied here too. */
+.ob-cardskip { margin-top: 14px; }
 .ob-skipbtn {
   background: none; border: 0; padding: 2px 0; cursor: pointer;
-  font: inherit; font-size: 13px; color: var(--ink-3);
+  /* 14px, not 13: --ink-3 is only AA at >=14px (see editorial-tokens.css), and
+     the underline now uses the text colour. At --line-2 it scored 1.35:1 against
+     the panel, so the one affordance marking this as clickable was invisible and
+     the whole control read as fine print under the primary CTA. */
+  font: inherit; font-size: 14px; color: var(--ink-3);
   text-decoration: underline; text-underline-offset: 3px;
-  text-decoration-color: var(--line-2);
+  text-decoration-color: var(--ink-3);
   transition: color .18s ease, text-decoration-color .18s ease;
 }
 .ob-skipbtn:hover { color: var(--ink); text-decoration-color: var(--ink-3); }
@@ -390,7 +397,10 @@
 .ob-btn--ghost { background: var(--card); color: var(--ink); border-color: var(--line-2); box-shadow: var(--shadow-sm); }
 .ob-btn--ghost:hover { background: var(--paper-2); border-color: var(--ink-3); }
 .ob-btn--sm { padding: 9px 15px; font-size: 12.5px; min-height: 40px; }
+/* The wizard's step-footer "Skip" button. margin-top was previously inherited
+   from the card-step rule that shared this class name; it is explicit now. */
 .ob-skip {
+  margin-top: 14px;
   margin-left: auto; border: 0; background: none; cursor: pointer; min-height: 44px; padding: 0 6px;
   font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .06em; font-size: 12.5px; color: var(--ink-3);
 }

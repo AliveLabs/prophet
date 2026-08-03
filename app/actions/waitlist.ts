@@ -96,11 +96,18 @@ export const approveWaitlistSignup = withAdminAction(
       }
     } else {
       try {
+        // No trial clock at approval. It used to start here, which meant the
+        // 14 days burned down while the invitation sat unread, and an approved
+        // operator who signed in inside that window was treated as trial-active
+        // and skipped past /onboarding/trial entirely — never seeing the card
+        // step or the card-less "skip for now" option. The trial now starts when
+        // they start it, same as self-serve signup.
         const created = await createOrgWithOwner(supabase, {
           ownerUserId: userId,
           orgName,
           billingEmail: signup.email,
           orgKind: "real",
+          trialDays: null,
           waitlistSignupId: signup.id,
         })
         orgId = created.orgId
