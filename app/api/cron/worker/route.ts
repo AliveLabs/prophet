@@ -33,9 +33,19 @@ export async function GET(req: Request) {
   }
 
   const url = new URL(req.url)
-  // Small batch so each job gets a real slice of the 300s budget. The slowest
-  // pipelines self-chunk via the job cursor (Phase 3b); for now 1–2 per invocation.
-  const batch = Math.min(Math.max(Number(url.searchParams.get("batch") ?? 2) || 2, 1), 4)
+  // Batch size is the fleet's throughput ceiling: cron runs every 5 minutes, so this many
+  // job STARTS per 5 minutes is all the queue gets. At 2 that was 24/hour against ~120 jobs
+  // that all become eligible inside the 06:00-07:00 window, so the daily burst took ~5 hours
+  // to drain and every job sat 57-96 minutes waiting (measured 2026-08-03). Actual work is
+  // only ~5.6 hours/day fleet-wide; the wait was almost entirely queueing, not job cost.
+  //
+  // 4 doubles the ceiling to 48/hour. It is safe because shouldDeferJob still refuses to
+  // START a job that cannot finish in the remaining budget, so a fat batch degrades into
+  // defers (requeued due-now, no attempt burned) rather than zombies — and the estimates it
+  // consults were recalibrated against real tails in the same pass. The cost of a larger
+  // batch is blast radius: an invocation that dies mid-batch leaves up to `batch` rows
+  // 'running' until the 20-minute zombie reclaim above.
+  const batch = Math.min(Math.max(Number(url.searchParams.get("batch") ?? 4) || 4, 1), 8)
 
   try {
     const sb = admin()
