@@ -54,6 +54,7 @@ import {
   severityToConfidence,
   eventInsightImpactLevel,
   isInTradeArea,
+  isInDateWindow,
   pickEventDeepLink,
   impactLabel,
   eventImpact,
@@ -61,6 +62,10 @@ import {
   eventLocalHour,
   TRADE_AREA_MAX_MILES,
 } from "./events-map"
+// Shared weekend classifier — venue-local day-of-week, already unit-tested
+// (tests/unit/events/dow-local.test.ts). Imported rather than reimplemented so
+// the page and the insight engine can never drift apart on what "weekend" means.
+import { isWeekendEvent } from "@/lib/events/insights"
 
 type EventsPageProps = {
   searchParams: Promise<{
@@ -266,11 +271,13 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
 
   let events: NormalizedEvent[] = snapshot?.events ?? []
 
+  // Filter on the event's REAL local date, never on `dateRange` (which is the
+  // QUERY's horizon, not the event's date — see isInDateWindow for the full
+  // three-part bug that hid every stadium-probe result behind a "month" stamp).
+  const todayKey = new Date().toISOString().slice(0, 10)
   events = events.filter((e) => {
-    if (activeTab === "weekend") {
-      return e.dateRange === "weekend" || e.dateRange === "all"
-    }
-    return e.dateRange === "week" || e.dateRange === "all"
+    if (!isInDateWindow(e, todayKey)) return false
+    return activeTab === "weekend" ? isWeekendEvent(e) : true
   })
 
   // ALT-215: enforce the largest distance bubble (~5mi). The snapshot stores every
