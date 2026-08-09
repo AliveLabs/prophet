@@ -33,7 +33,13 @@ export type ImpactInputs = {
   // ── Event ──
   capacityLow: number | null
   capacityHigh: number | null
+  /** Geo role. Governs ELIGIBILITY and how the event may be FRAMED to the operator
+   *  (an unresolved venue may never claim "nearby"). Distance weighting no longer
+   *  keys off this — see `distanceMiles`. */
   role: EventRole
+  /** Measured miles from the restaurant to the venue. This is what now scales impact,
+   *  continuously. null (never geocoded) contributes no draw. */
+  distanceMiles: number | null
   isRoute: boolean
   ticketSourceCount: number
   soldOut?: boolean
@@ -88,15 +94,100 @@ export type ImpactResult = {
 
 // ── Tunable weights (0..100 scale where relevant; defaults, nudged from feedback) ──
 
-/** Fraction of attendees who could plausibly visit, by geo role. */
-export const BASE_CAPTURE: Record<EventRole, number> = {
-  local_foot: 0.05,
-  local_traffic: 0.012,
-  metro_hook: 0.0015,
-  route_corridor: 0, // route events don't add covers — they disrupt access
-  out_of_area: 0,
-  ungeocoded: 0,
+/* ── Distance as a CONTINUOUS reduction, not a cutoff (Bryan, 2026-08-09) ─────
+   The old model keyed capture off the geo ROLE, which is itself a step function of
+   distance. That was wrong in two ways:
+
+     1. A 4x cliff across an arbitrary boundary: a restaurant at 0.49mi got 0.05
+        capture, one at 0.51mi got 0.012, for two hundredths of a mile.
+     2. Everything past ~3mi scored EXACTLY ZERO regardless of size, so a sold-out
+        80,000-seat stadium show 4 miles away was modeled as no impact at all.
+
+   Distance should REDUCE impact smoothly, and how far an event reaches should scale
+   with how many people it draws. A stadium show pulls from across the metro; a
+   300-person club night does not. That is what these two functions encode. The geo
+   ROLE keeps its separate job: gating what we may CLAIM (an event we can't place
+   may never be described as nearby). Weighting and framing are now distinct. */
+
+/** Capture at the door (distance 0) — the share of a crowd that could plausibly walk
+ *  in when the restaurant is AT the venue. */
+export const PEAK_CAPTURE = 0.055
+
+/** Anchors for the reach curve, solved so that a 1,200-person event (the "moderate"
+ *  attendance prior) reproduces the OLD capture values at the typical distance of each
+ *  old role band: ~0.05 at 0.25mi (old local_foot) and ~0.012 at 1.5mi (old
+ *  local_traffic). The common case is therefore unchanged; only the cliffs move. */
+// NOTE: this is a post-fill ATTENDANCE, not a raw capacity. A "moderate" 1,200-capacity
+// event with a typical fill signal lands near 850 actual attendees, and anchoring on the
+// capacity number instead made every event reach ~25% short of the old model.
+const REFERENCE_ATTENDANCE = 850
+const REFERENCE_DECAY_MILES = 0.79
+const DECAY_EXPONENT = 0.5
+const MIN_DECAY_MILES = 0.3
+const MAX_DECAY_MILES = 8
+
+/** How far people habitually travel, by how spread out the area is. A rural diner's
+ *  customers routinely drive 15 minutes; a dense-urban one's do not. These mirror the
+ *  ratios already calibrated in relevance.ts DENSITY_RINGS (rural 5.0mi vs suburban
+ *  3.0mi ≈ 1.67x), so the two models agree about what "far" means. */
+const DENSITY_REACH: Record<DensityTier, number> = {
+  dense_urban: 0.55,
+  urban: 0.8,
+  suburban: 1.0,
+  rural: 1.67,
 }
+
+/** How far an event's pull REACHES, in miles: square-root scaling in attendance (a 16x
+ *  bigger crowd reaches 4x farther), scaled by how far people in this area normally
+ *  travel. Clamped at both ends so neither a tiny event nor an arena-sized one runs away. */
+export function decayLengthMiles(attendance: number, densityTier: DensityTier = "suburban"): number {
+  const a = Math.max(1, attendance)
+  const l =
+    REFERENCE_DECAY_MILES *
+    Math.pow(a / REFERENCE_ATTENDANCE, DECAY_EXPONENT) *
+    DENSITY_REACH[densityTier]
+  return Math.min(MAX_DECAY_MILES, Math.max(MIN_DECAY_MILES, l))
+}
+
+/** Fraction of an event's crowd that could plausibly visit, as a smooth function of
+ *  distance, draw size, and how far people here travel. Replaces the BASE_CAPTURE role
+ *  lookup.
+ *
+ *  Shape is a GRAVITY kernel — peak / (1 + (d/L)^2) — not an exponential. Retail trade
+ *  areas have a fat tail: a plateau near the venue, then a steady fall, rather than the
+ *  near-vanishing tail an exponential gives. An exponential fit to the same two anchors
+ *  under-credited small events at a mile or two badly enough to stop a small-town game
+ *  from surfacing at the diner across the road, which is a case the engine is meant to
+ *  catch.
+ *
+ *  A null distance returns 0: we cannot model a distance we never measured. */
+export function captureAt(
+  distanceMiles: number | null,
+  attendance: number,
+  densityTier: DensityTier = "suburban",
+): number {
+  if (distanceMiles == null || !Number.isFinite(distanceMiles)) return 0
+  const d = Math.max(0, distanceMiles)
+  const l = decayLengthMiles(attendance, densityTier)
+  return PEAK_CAPTURE / (1 + Math.pow(d / l, 2))
+}
+
+/** Captivity: a captive egress path past the door concentrates a crowd; a diffuse far
+ *  venue does not. Was a role step (2.0 / 1.4 / 1.3 / 1.1 / 1.0), which re-introduced
+ *  the exact cliff the capture curve removes, so it now decays continuously over a short
+ *  walk-by length scale. Calibrated to land on the old values at their typical distances
+ *  (~1.8 at 0.25mi and ~1.3 at 1.5mi for a big venue). */
+const CAPTIVITY_DECAY_MILES = 1.25
+
+export function captivityAt(distanceMiles: number | null, capacityHigh: number | null): number {
+  if (distanceMiles == null || !Number.isFinite(distanceMiles)) return 1
+  const peak = (capacityHigh ?? 0) >= 20000 ? 2.0 : 1.4
+  return 1 + (peak - 1) * Math.exp(-Math.max(0, distanceMiles) / CAPTIVITY_DECAY_MILES)
+}
+
+/** Roles that may never contribute draw regardless of distance. Route events disrupt
+ *  access rather than adding covers; an ungeocoded event has no measured distance at all. */
+const NO_DRAW_ROLES = new Set<EventRole>(["route_corridor", "ungeocoded"])
 
 /** Egress window (hours) the incremental demand spreads over. */
 const DRAW_WINDOW_HOURS = 2
@@ -117,15 +208,6 @@ export function fillSignal(ticketSourceCount: number, soldOut?: boolean): number
   if (ticketSourceCount >= 2) return 0.85
   if (ticketSourceCount === 1) return 0.6
   return 0.35
-}
-
-/** Captivity: a captive egress path past the door (stadium a block away) concentrates
- *  the crowd; a diffuse far venue does not. Keyed off role + draw size. */
-export function captivity(role: EventRole, capacityHigh: number | null): number {
-  const big = (capacityHigh ?? 0) >= 20000
-  if (role === "local_foot") return big ? 2.0 : 1.4
-  if (role === "local_traffic") return big ? 1.3 : 1.1
-  return 1.0
 }
 
 /** Peak covers/hour the restaurant can turn — a throughput prior by service model
@@ -181,9 +263,13 @@ export function scoreEventImpact(input: ImpactInputs): ImpactResult {
   const capBase = input.capacityLow ?? input.capacityHigh ?? 0
   const attendance = Math.round(capBase * fs)
 
-  const cap = BASE_CAPTURE[input.role] ?? 0
+  // Distance reduces draw smoothly and reach scales with the crowd size, so a huge event
+  // a few miles out is modeled as a real (smaller) effect instead of a hard zero.
+  const cap = NO_DRAW_ROLES.has(input.role)
+    ? 0
+    : captureAt(input.distanceMiles, attendance, input.densityTier)
   const fit = input.fit ?? 1
-  const capt = captivity(input.role, input.capacityHigh)
+  const capt = captivityAt(input.distanceMiles, input.capacityHigh)
   const absoluteIncremental = Math.round(attendance * cap * fit * capt * input.daypartOverlap)
   const incrementalPerHour = absoluteIncremental / DRAW_WINDOW_HOURS
 
