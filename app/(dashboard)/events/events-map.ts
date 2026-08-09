@@ -39,6 +39,60 @@ export function eventLocalDate(ev: NormalizedEvent): string | null {
 const LOCAL_DATE_RE = /^(\d{4}-\d{2}-\d{2})/
 const WALL_CLOCK_RE = /[T ](\d{1,2}):(\d{2})/
 
+/* ── Forward date window (replaces the `dateRange` horizon filter) ────────────
+   `NormalizedEvent.dateRange` is the QUERY's horizon ("week" | "weekend" |
+   "month"), stamped by normalize.ts from whichever query FOUND the event. It is
+   provenance, NOT the event's own date, and filtering the page by it was wrong
+   in three compounding ways:
+
+     1. The marquee-venue probes that exist specifically to catch stadium
+        mega-events are issued on the "month" horizon (keywords.ts), so every
+        stadium-probe result was discarded before render. A sold-out 80,000-seat
+        show at AT&T Stadium surfaced as "0 events".
+     2. Nothing in the query plan ever writes "weekend" (asserted by
+        tests/unit/events/keywords.test.ts), so the weekend tab was permanently
+        empty for every location.
+     3. Nothing anywhere writes "all", so both `|| dateRange === "all"` escape
+        hatches were dead code.
+
+   Filtering on the event's REAL local date fixes all three and is source
+   agnostic: a grounded/hybrid snapshot (normalize-grounded stamps every event
+   "month") now renders identically instead of blanking the page. */
+export const WEEK_WINDOW_DAYS = 7
+
+/** Small lookback so an event happening TONIGHT doesn't vanish when the server's
+ *  UTC date rolls over ahead of the venue's local date. A US-Central 8pm show is
+ *  02:00 UTC the next day, so a strict `>= todayKey` bound would drop it hours
+ *  before it starts. Showing last night's event is harmless; losing tonight's
+ *  80,000-person concert is not. */
+export const WINDOW_LOOKBACK_DAYS = 1
+
+/** Shift a "YYYY-MM-DD" key by `days`, anchored at UTC noon so a DST boundary
+ *  can never roll the result onto the wrong day. */
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  const [y, m, d] = dateKey.split("-").map(Number)
+  const t = new Date(Date.UTC(y, m - 1, d, 12))
+  t.setUTCDate(t.getUTCDate() + days)
+  return t.toISOString().slice(0, 10)
+}
+
+/** Is the event inside the forward window around `todayKey`?
+ *  Events with NO parseable date are KEPT (they render as "Date TBD") — dropping
+ *  them would lose real events to a scrape gap, which is the class of silent loss
+ *  this filter replaces. */
+export function isInDateWindow(
+  ev: NormalizedEvent,
+  todayKey: string,
+  days: number = WEEK_WINDOW_DAYS,
+): boolean {
+  const eventDate = eventLocalDate(ev)
+  if (!eventDate) return true
+  return (
+    eventDate >= addDaysToDateKey(todayKey, -WINDOW_LOOKBACK_DAYS) &&
+    eventDate <= addDaysToDateKey(todayKey, days)
+  )
+}
+
 /** Pull {hour, minute} from a wall-clock datetime string, ignoring any timezone
  *  offset so the value is the same regardless of where the code runs. */
 export function parseWallClock(

@@ -130,7 +130,13 @@ export function generateEventInsights(input: {
 // 0. events.major_lobby_surge / events.access_suppression — the impact model
 // ---------------------------------------------------------------------------
 
-const IMPACT_ROLES = new Set(["local_foot", "local_traffic", "route_corridor"])
+// Roles ELIGIBLE for impact scoring. metro_hook is included as of 2026-08-09: distance is
+// now a continuous reduction inside the model (captureAt), not a membership test out here,
+// so a big draw across the metro is scored small rather than scored zero. `ungeocoded` and
+// `out_of_area` stay out: the first has no measured distance to reason from, and the second
+// is far AND minor, which the curve would score at ~0 anyway. Framing is handled separately
+// in the copy builders — an event past the local ring is never called "nearby".
+const IMPACT_ROLES = new Set(["local_foot", "local_traffic", "route_corridor", "metro_hook"])
 
 /** Score every local/route event against the restaurant's own baseline; surface the
  *  single biggest demand-surge and the single biggest access-disruption (top-K=1 per
@@ -157,6 +163,7 @@ function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): 
       capacityLow: capLow,
       capacityHigh: capHigh,
       role: e.role as Parameters<typeof scoreEventImpact>[0]["role"],
+      distanceMiles: e.distanceMiles ?? null,
       isRoute: e.isRouteEvent ?? false,
       ticketSourceCount: e.ticketsAndInfo?.length ?? 0,
       daypartOverlap: overlap,
@@ -182,6 +189,24 @@ function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): 
   return out
 }
 
+/** Distance-honest framing for surge copy.
+ *
+ *  The impact model now scores events beyond the local ring (a stadium draw genuinely
+ *  reaches across a metro), so the copy can no longer hardcode proximity language. An
+ *  event eight miles out may be real demand, but it is NOT "nearby" and we are NOT "the
+ *  closest option". Framing keys off the VALIDATED role, so an event we couldn't place
+ *  can never talk its way into a proximity claim. */
+function proximityFraming(e: NormalizedEvent): {
+  headline: string
+  nearPhrase: string
+  isLocal: boolean
+} {
+  const isLocal = e.role === "local_foot" || e.role === "local_traffic"
+  return isLocal
+    ? { headline: "Major event nearby", nearPhrase: "near", isLocal: true }
+    : { headline: "Major event across the metro", nearPhrase: "within driving distance of", isLocal: false }
+}
+
 function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightContext): GeneratedInsight {
   const channel = r.channels.find((c) => c.direction === "up")
   const isLobby = channel?.channel === "lobby"
@@ -191,7 +216,8 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
   const when = validatedWhen(e)
   const eventLabel = validatedEventLabel(e)
   const crowd = describeCrowd(e, r)
-  const dist = e.distanceMiles != null ? `${e.distanceMiles}mi from` : "near"
+  const framing = proximityFraming(e)
+  const dist = e.distanceMiles != null ? `${e.distanceMiles}mi from` : framing.nearPhrase
   const surfaceLabel = isLobby ? "walk-in/lobby" : "dining-room"
   // Confidence reflects BOTH capacity grounding AND the R3 baseline gate: if we couldn't
   // relativize to this restaurant's own curve (baseline missing), cap at the model's lower read
@@ -203,7 +229,7 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
 
   return {
     insight_type: "events.major_lobby_surge",
-    title: `Major event nearby: ${eventLabel}`,
+    title: `${framing.headline}: ${eventLabel}`,
     summary: `${eventLabel} at ${venue} (${when}) draws ${crowd} ${dist} ${ctx.locationName}. Expect a ${surfaceLabel} surge${e.isRouteEvent ? "" : " around the start and let-out"} — well above your typical volume for that window.`,
     confidence,
     severity,
@@ -233,11 +259,15 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
     recommendations: [
       {
         title: isLobby ? `Staff the counter for a lobby rush` : `Add seating/turn capacity`,
-        rationale: `${venue} brings ${crowd} near ${ctx.locationName} around ${when}. Schedule extra hands and pre-stage high-volume items so the ${surfaceLabel} surge doesn't overwhelm service.`,
+        rationale: `${venue} brings ${crowd} ${framing.nearPhrase} ${ctx.locationName} around ${when}. Schedule extra hands and pre-stage high-volume items so the ${surfaceLabel} surge doesn't overwhelm service.`,
       },
       {
         title: `Capture the crowd before it arrives`,
-        rationale: `Post your proximity and an event-day offer ahead of ${when}; attendees searching nearby convert fast when you're the closest option.`,
+        // Only a genuinely local venue may claim the closest-option advantage. Past the local
+        // ring the honest play is intercepting the drive, not asserting proximity we lack.
+        rationale: framing.isLocal
+          ? `Post your proximity and an event-day offer ahead of ${when}; attendees searching nearby convert fast when you're the closest option.`
+          : `Post an event-day offer ahead of ${when} aimed at the drive in and out; attendees heading to ${venue} plan a stop before they leave home.`,
       },
     ],
   }
