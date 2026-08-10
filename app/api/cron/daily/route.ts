@@ -10,7 +10,7 @@ import { isWeeklyFullBuildDay } from "@/lib/jobs/build-schedule"
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isTrialActive, isTrialing } from "@/lib/billing/trial"
-import { enqueueRun } from "@/lib/jobs/queue"
+import { enqueueRun, DAILY_PIPELINES } from "@/lib/jobs/queue"
 
 export const maxDuration = 300
 
@@ -34,9 +34,44 @@ export async function GET(req: Request) {
   const dateKey = new Date().toISOString().slice(0, 10)
   const runId = crypto.randomUUID() // groups this pass across signal_jobs + pipeline_runs
 
-  const { data: locations, error: locErr } = await supabase
+  // ── Manual scoping levers (2026-08-10) ────────────────────────────────────
+  // This route used to be all-or-nothing: it enqueued every active location's full
+  // pipeline set, with no way to refresh ONE restaurant. During the events-source
+  // outage that meant the only way to recover a single location was a fleet-wide run.
+  // It is also the shape real per-client work needs ("re-pull just this store").
+  //
+  //   ?location_id=<uuid>          scope to one location
+  //   ?pipelines=events,weather    scope which pipelines run (comma-separated)
+  //
+  // An explicitly requested single location BYPASSES the weekly-tier cadence gate:
+  // asking for a named location by hand is a deliberate act, not the nightly sweep.
+  // Unknown pipeline names are rejected rather than silently dropped, so a typo
+  // cannot quietly produce a no-op run that looks like a success.
+  const url = new URL(req.url)
+  const singleLocationId = url.searchParams.get("location_id")
+  const pipelinesParam = url.searchParams.get("pipelines")
+  const pipelineOverride = pipelinesParam
+    ? pipelinesParam.split(",").map((p) => p.trim()).filter(Boolean)
+    : null
+
+  if (pipelineOverride) {
+    const unknown = pipelineOverride.filter(
+      (p) => !(DAILY_PIPELINES as readonly string[]).includes(p) && p !== "photos" && p !== "busy_times",
+    )
+    if (unknown.length > 0) {
+      return Response.json(
+        { error: "Unknown pipeline(s)", unknown, allowed: [...DAILY_PIPELINES, "photos", "busy_times"] },
+        { status: 400 },
+      )
+    }
+  }
+
+  let locationQuery = supabase
     .from("locations")
     .select("id, name, organization_id, timezone")
+  if (singleLocationId) locationQuery = locationQuery.eq("id", singleLocationId)
+
+  const { data: locations, error: locErr } = await locationQuery
 
   if (locErr || !locations) {
     return Response.json(
@@ -104,7 +139,9 @@ export async function GET(req: Request) {
     // evaluator who sees data move only on Mondays churns. (Trials are of the mid
     // tier, which is daily anyway; this keeps legacy clock-trials on lower tiers daily.)
     const inActiveTrial = orgTrial ? isTrialing(orgTrial) : false
-    const isWeeklyOnly = limits.eventsCadence === "weekly" && !inActiveTrial
+    // An explicitly named single location skips the cadence gate: that request is a
+    // deliberate human/ops action, not the nightly sweep deciding whose turn it is.
+    const isWeeklyOnly = limits.eventsCadence === "weekly" && !inActiveTrial && !singleLocationId
     if (isWeeklyOnly && !isMonday) {
       jobs.push({
         location_id: location.id,
@@ -139,24 +176,47 @@ export async function GET(req: Request) {
     // implicitly; the durable queue only runs what is enqueued, so list social here.
     pipelines.push("social")
 
+    // `?pipelines=` replaces the computed set entirely, so a targeted refresh runs ONLY
+    // what was asked for (e.g. `events` alone) instead of dragging the full daily sweep
+    // along with it. `insights` is handled separately below and is filtered out here.
+    const effectivePipelines = pipelineOverride
+      ? pipelineOverride.filter((p) => p !== "insights")
+      : pipelines
+    const wantsInsights = pipelineOverride ? pipelineOverride.includes("insights") : true
+    if (effectivePipelines.length === 0 && !wantsInsights) {
+      jobs.push({
+        location_id: location.id,
+        location_name: location.name,
+        pipelines: [],
+        skipped_reason: "Pipeline filter matched nothing for this location",
+      })
+      continue
+    }
+
     // Durable enqueue — replaces the fire-and-forget refresh_all that ran all 8
     // pipelines sequentially in one 300s function and was killed mid-run. The worker
     // (/api/cron/worker) drains the queue one pipeline at a time and records honest
     // pipeline_runs outcomes. `insights` is delayed so its data inputs land first.
     try {
-      await enqueueRun(supabase, {
-        runId,
-        organizationId: location.organization_id,
-        locationId: location.id,
-        pipelines,
-      })
-      await enqueueRun(supabase, {
-        runId,
-        organizationId: location.organization_id,
-        locationId: location.id,
-        pipelines: ["insights"],
-        delaySeconds: 15 * 60,
-      })
+      if (effectivePipelines.length > 0) {
+        await enqueueRun(supabase, {
+          runId,
+          organizationId: location.organization_id,
+          locationId: location.id,
+          pipelines: effectivePipelines,
+        })
+      }
+      if (wantsInsights) {
+        await enqueueRun(supabase, {
+          runId,
+          organizationId: location.organization_id,
+          locationId: location.id,
+          pipelines: ["insights"],
+          // A targeted single-location refresh should not wait 15 minutes for its
+          // insights; the data pipelines ahead of it are a handful of jobs, not a fleet.
+          delaySeconds: singleLocationId ? 60 : 15 * 60,
+        })
+      }
     } catch (err) {
       console.warn(`[Cron] Enqueue failed for ${location.name}:`, err)
     }
@@ -164,7 +224,7 @@ export async function GET(req: Request) {
     jobs.push({
       location_id: location.id,
       location_name: location.name,
-      pipelines: [...pipelines, "insights"],
+      pipelines: wantsInsights ? [...effectivePipelines, "insights"] : [...effectivePipelines],
     })
   }
 
