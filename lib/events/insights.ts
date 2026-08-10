@@ -14,6 +14,8 @@ import {
   type DensityTier,
   type ImpactResult,
 } from "./impact"
+import { isScheduledLeagueTitle } from "./validate"
+import { isSafeEventTitle, hasUnverifiedStartTime } from "./title-safety"
 
 // ---------------------------------------------------------------------------
 // Config thresholds
@@ -138,6 +140,29 @@ export function generateEventInsights(input: {
 // in the copy builders — an event past the local ring is never called "nearby".
 const IMPACT_ROLES = new Set(["local_foot", "local_traffic", "route_corridor", "metro_hook"])
 
+/** Is `a` a better surge pick than the incumbent `b`?
+ *
+ *  `score` saturates at 100 (every door is `Math.min(100, …)`), so with a bare
+ *  `a.score > b.score` any two big events tie and the winner is simply whichever appeared
+ *  FIRST in the array. Observed in prod 2026-08-10: a sold-out 80,000-seat concert 0.6mi
+ *  away lost the single surge slot to a baseball game 1mi away, purely on array order.
+ *
+ *  Tie-break on raw incremental covers (the uncapped magnitude), then on proximity. */
+export function beatsSurge(
+  a: ImpactResult,
+  aEvent: NormalizedEvent,
+  b: ImpactResult,
+  bEvent: NormalizedEvent,
+): boolean {
+  if (a.score !== b.score) return a.score > b.score
+  if (a.absoluteIncremental !== b.absoluteIncremental) {
+    return a.absoluteIncremental > b.absoluteIncremental
+  }
+  const aDist = aEvent.distanceMiles ?? Infinity
+  const bDist = bEvent.distanceMiles ?? Infinity
+  return aDist < bDist
+}
+
 /** Score every local/route event against the restaurant's own baseline; surface the
  *  single biggest demand-surge and the single biggest access-disruption (top-K=1 per
  *  channel — also respects the (loc,comp,date,type) upsert key). Channel-split so a
@@ -177,7 +202,9 @@ function detectImpactfulEvents(events: NormalizedEvent[], ctx: InsightContext): 
 
     const up = result.channels.find((c) => c.direction === "up")
     const down = result.channels.find((c) => c.channel === "drive_thru" && c.direction === "down")
-    if (up && (!bestSurge || result.score > bestSurge.result.score)) bestSurge = { event: e, result }
+    if (up && (!bestSurge || beatsSurge(result, e, bestSurge.result, bestSurge.event))) {
+      bestSurge = { event: e, result }
+    }
     if (down && (!bestDisruption || result.accessDisruption > bestDisruption.result.accessDisruption)) {
       bestDisruption = { event: e, result }
     }
@@ -229,7 +256,7 @@ function buildSurgeInsight(e: NormalizedEvent, r: ImpactResult, ctx: InsightCont
 
   return {
     insight_type: "events.major_lobby_surge",
-    title: `${framing.headline}: ${eventLabel}`,
+    title: insightHeadline(e, framing),
     summary: `${eventLabel} at ${venue} (${when}) draws ${crowd} ${dist} ${ctx.locationName}. Expect a ${surfaceLabel} surge${e.isRouteEvent ? "" : " around the start and let-out"} — well above your typical volume for that window.`,
     confidence,
     severity,
@@ -342,12 +369,50 @@ function fmtLocalDateParts(year: number, month: number, day: number): string {
 /** A safe event LABEL templated only from validated fields. For a cross-checked league fixture
  *  we name the COMPETITION (from fixtureRef) + venue — never the scraped match pairing/title.
  *  For a resolved non-league event we describe it generically by its canonical venue. */
-function validatedEventLabel(e: NormalizedEvent): string {
+/** The event's name for customer copy.
+ *
+ *  P13 originally suppressed ALL names ("A major event") after a scraped title caused a
+ *  mis-located World Cup claim. Bryan decided on 2026-07-09 to drop that suppression and
+ *  name events, because an unnamed insight is close to worthless to an operator: "a major
+ *  event at Globe Life Field" tells them nothing they cannot see out the window. That was
+ *  deferred through the migration and is being done here now that the grounded source
+ *  supplies verified names.
+ *
+ *  Suppression is replaced by three specific gates rather than removed outright:
+ *    1. LEAGUE VETO — a scheduled-league listing that did NOT clear its authoritative
+ *       fixture cross-check keeps the generic label. This is the actual World Cup fix;
+ *       it is the reason the gate existed and it stays.
+ *    2. VENUE IDENTITY — an event we could not place may never be named. Naming implies
+ *       "we know what and where this is."
+ *    3. TITLE SAFETY — a generated title carrying a placeholder ("vs. [Opponent Not
+ *       Specified]") is a half-answer. Naming without this gate would put that string
+ *       straight in front of an operator. */
+export function eventNameOrNull(e: NormalizedEvent): string | null {
   if (e.leagueValidated && e.fixtureRef) {
     const competition = competitionDisplayFromRef(e.fixtureRef)
     return competition ? `A ${competition} match` : "A scheduled match"
   }
-  return "A major event"
+  // Gate 1: a league listing that failed (or never ran) its cross-check stays generic.
+  if (isScheduledLeagueTitle(e.title) && !e.leagueValidated) return null
+  // Gate 2: no resolved venue identity, no name.
+  if (!e.venueConfidence || e.venueConfidence === "unresolved") return null
+  // Gate 3: no placeholder text in front of an operator.
+  if (!isSafeEventTitle(e.title)) return null
+  return (e.title ?? "").trim()
+}
+
+function validatedEventLabel(e: NormalizedEvent): string {
+  return eventNameOrNull(e) ?? "A major event"
+}
+
+/** Headline for an insight card. When we have a real name, lead with it. When we do not,
+ *  lead with the VENUE rather than stuttering "Major event nearby: A major event", which
+ *  is what operators were actually seeing. */
+function insightHeadline(e: NormalizedEvent, framing: { headline: string }): string {
+  const name = eventNameOrNull(e)
+  if (name) return `${framing.headline}: ${name}`
+  const venue = validatedVenue(e)
+  return venue === "a nearby venue" ? framing.headline : `${framing.headline} at ${venue}`
 }
 
 const COMPETITION_DISPLAY: Record<string, string> = {
@@ -414,6 +479,11 @@ function eventLocalHour(e: NormalizedEvent): number | null {
     const m = e.authoritativeLocalStart.match(/[ T](\d{2}):/)
     if (m) return parseInt(m[1], 10)
   }
+  // A `T00:00` start means the grounded source could not verify the time. Treating it as
+  // hour 0 would look up the restaurant's midnight baseline (near zero for most concepts)
+  // and daypart-gate against a time nobody asserted. Return null so the model falls back
+  // to the curve's peak hour and skips the daypart gate, which is the honest read.
+  if (hasUnverifiedStartTime(e.startDatetime)) return null
   const m = (e.startDatetime ?? "").match(/T(\d{2}):/)
   if (m) return parseInt(m[1], 10)
   return null
