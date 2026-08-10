@@ -12,6 +12,7 @@ import type { NormalizedEvent } from "./types"
 import { geocodeVenueDetailed, resolveVenueWebsite, haversineMiles } from "./geo"
 import { classifyEventMagnitude, classifyEventRole, isRouteEventTitle, classifyEventType } from "./relevance"
 import { matchEventToCatalog, isMajorCapacity, type CatalogVenue } from "./venue-catalog"
+import { venueNameDiverges } from "./validate"
 import type { DensityClass } from "@/lib/local/census-density"
 
 const GEO_BATCH = 5
@@ -55,6 +56,18 @@ export async function annotateEventsGeo(
             e.capacityLow = match.capacityLow
             e.capacityHigh = match.capacityHigh
             e.capacityConfidence = match.capacityConfidence
+
+            // RENAME DETECTOR. The catalog name is a snapshot taken at sweep time and never
+            // re-read; the live source reports the venue's name today. When they disagree for
+            // the SAME coordinates, that is a rename, and the evidence is free — both strings
+            // are already in hand here. A catalog swept during the 2026 World Cup held
+            // "Dallas Stadium" for AT&T Stadium and nothing noticed for two months.
+            if (venueNameDiverges(e.venue?.name, match.name)) {
+              console.warn(
+                `[events] venue name divergence: source says "${e.venue?.name}", catalog says "${match.name}" ` +
+                  `(place_id ${match.placeId ?? "?"}). Catalog row is stale — schedule a name refresh.`,
+              )
+            }
           }
         } else {
           e.distanceMiles = null
