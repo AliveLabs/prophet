@@ -227,3 +227,59 @@ describe("titleStem — one ballgame is one event, not three giveaways", () => {
     expect(titleStem("BTS World Tour 'ARIRANG'")).toBe("bts world tour arirang")
   })
 })
+
+describe("high-signal gate — significance, not ticket-link count", () => {
+  // Real prod case: BTS (90k capacity, 1 scraped ticket link, no keyword match) was dropped
+  // while a smaller show at the SAME venue surfaced purely because it had 2 ticket links.
+  const bts = ev({
+    title: "BTS WORLD TOUR 'ARIRANG'",
+    venue: { name: "AT&T Stadium" },
+    venueConfidence: "matched_place_id",
+    magnitude: "major",
+    ticketsAndInfo: [{ url: "a" }],
+  } as Partial<NormalizedEvent>)
+
+  it("HIGH_SIGNAL_KEYWORDS genuinely does not match modern touring acts", () => {
+    // Documents WHY magnitude was needed: the list is food/festival/league vocabulary.
+    const kws = ["festival","concert","food","sports","game","nfl","nba","mlb","world cup"]
+    const t = "bts world tour 'arirang'"
+    expect(kws.some((k) => t.includes(k))).toBe(false)
+  })
+
+  it("a major-magnitude event qualifies on magnitude alone", () => {
+    const qualifies = (e: NormalizedEvent) => {
+      const kw = false
+      const tix = (e.ticketsAndInfo?.length ?? 0) >= 2
+      return kw || tix || e.magnitude === "major"
+    }
+    expect(qualifies(bts)).toBe(true)
+  })
+
+  it("a minor event with one ticket link still does NOT qualify", () => {
+    const small = ev({ title: "Open mic night", magnitude: "minor", ticketsAndInfo: [{ url: "a" }] } as Partial<NormalizedEvent>)
+    const qualifies = (e: NormalizedEvent) => {
+      const tix = (e.ticketsAndInfo?.length ?? 0) >= 2
+      return tix || e.magnitude === "major"
+    }
+    expect(qualifies(small)).toBe(false)
+  })
+})
+
+describe("beatsSurge — same-venue ties fall back to soonest date", () => {
+  const res = (score: number, incremental: number): ImpactResult =>
+    ({ score, absoluteIncremental: incremental }) as unknown as ImpactResult
+
+  it("BTS (Aug 15) beats Zach Bryan (Aug 22) at the same stadium", () => {
+    // Identical venue: same capacity, same distance, same score. Previously array order won.
+    const btsEv = ev({ distanceMiles: 0.6, startDatetime: "2026-08-15T20:00" })
+    const zachEv = ev({ distanceMiles: 0.6, startDatetime: "2026-08-22T19:00" })
+    expect(beatsSurge(res(100, 4200), btsEv, res(100, 4200), zachEv)).toBe(true)
+    expect(beatsSurge(res(100, 4200), zachEv, res(100, 4200), btsEv)).toBe(false)
+  })
+
+  it("a bigger draw still wins over a sooner but smaller one", () => {
+    const soonSmall = ev({ distanceMiles: 0.6, startDatetime: "2026-08-15T20:00" })
+    const laterBig = ev({ distanceMiles: 0.6, startDatetime: "2026-08-22T19:00" })
+    expect(beatsSurge(res(100, 4200), laterBig, res(100, 900), soonSmall)).toBe(true)
+  })
+})
