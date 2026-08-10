@@ -93,6 +93,38 @@ function errMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
+// Grounded generation fails transiently: a truncated or unparseable completion showed up in
+// roughly 1 call in 8 when probed on 2026-08-10, and a retry cleared it every time. One cheap
+// retry before falling back is worth far more than a fallback to a source that is currently dark.
+// Quota and HTTP errors are deliberately NOT retried: fetchWithRetry already covers 5xx, and a
+// 429 means the grounding quota is gone, so retrying only burns it further.
+export const RETRYABLE_GROUNDED_CODES = new Set(["parse_error", "empty_content"])
+
+/** Injectable fetcher so the retry policy is unit-testable with no network (same reason
+ *  `lib/ai/provider.ts` injects its Transport — see CLAUDE.md §1). */
+export async function fetchGroundedEventsWithRetry(
+  input: Parameters<typeof fetchGroundedEvents>[0],
+  fetcher: typeof fetchGroundedEvents = fetchGroundedEvents,
+): Promise<Awaited<ReturnType<typeof fetchGroundedEvents>>> {
+  try {
+    return await fetcher(input)
+  } catch (e) {
+    const code = e instanceof GroundedEventsError ? e.code : "unknown"
+    if (!RETRYABLE_GROUNDED_CODES.has(code)) throw e
+    console.warn(`[events] grounded ${code} for ${input.locationName} — retrying once`)
+    return await fetcher(input)
+  }
+}
+
+/** THE INVARIANT: when the primary source FAILED, an empty fallback is an outage being
+ *  laundered into a success, not "nothing on". DataForSEO answers a dead events endpoint with
+ *  status 40102, which the provider returns as a benign `[]` WITHOUT throwing, so "the fallback
+ *  threw" was never the only path to empty. Five days of the 2026-08-05 blackout wrote empty
+ *  snapshots while logging `outcome: "fresh"` precisely because nothing checked this. */
+export function shouldRefuseEmptyFallback(primaryFailed: boolean, fallbackEventCount: number): boolean {
+  return primaryFailed && fallbackEventCount === 0
+}
+
 // ---------------------------------------------------------------------------
 // Step builders
 // ---------------------------------------------------------------------------
@@ -178,7 +210,7 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
             }
           }
           try {
-            const grounded = await fetchGroundedEvents({
+            const grounded = await fetchGroundedEventsWithRetry({
               locationName,
               lat: c.location.geo_lat,
               lng: c.location.geo_lng,
@@ -203,8 +235,21 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
             c.state.warnings.push(`[events] grounded fetch failed (${code}) — falling back to DataForSEO: ${errMessage(gErr)}`)
             console.warn(`[events] grounded fetch failed for ${c.location.name ?? c.locationId}`, gErr)
             // Hybrid: reuse the breadth base if we got one. Grounded: fetch DataForSEO now. If THAT
-            // also throws it propagates → step fails → (critical) → retry, never a silent empty.
-            c.state.snapshot = dfSnapshot ?? (await fetchDataForSeoSnapshot())
+            // also throws it propagates → step fails → (critical) → retry.
+            const fallback = dfSnapshot ?? (await fetchDataForSeoSnapshot())
+            // A THROWING fallback was never the only way to end up empty. DataForSEO answers a dead
+            // events endpoint with task status 40102 ("No Search Results"), which the provider treats
+            // as a benign empty and returns [] WITHOUT throwing. So the primary can fail, the fallback
+            // can return nothing, and the step still reports success while writing an empty snapshot
+            // over good data. That is exactly how the fleet-wide blackout from 2026-08-05 ran for five
+            // days logging `outcome: "fresh"`. When the primary FAILED, an empty fallback is an outage,
+            // not "nothing on" — fail the (critical) step so it retries and alerts.
+            if (shouldRefuseEmptyFallback(true, fallback.events.length)) {
+              throw new Error(
+                `[events] grounded failed (${code}) and the DataForSEO fallback returned 0 events — refusing to write an empty snapshot for ${c.location.name ?? c.locationId}`,
+              )
+            }
+            c.state.snapshot = fallback
           }
         }
 
