@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import { createClient } from "@supabase/supabase-js"
-import { isWeeklyFullBuildDay } from "@/lib/jobs/build-schedule"
+import { isWeeklyFullBuildDay, isSeoDue } from "@/lib/jobs/build-schedule"
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isTrialActive, isTrialing } from "@/lib/billing/trial"
@@ -152,8 +152,27 @@ export async function GET(req: Request) {
       continue
     }
 
+    // SEO/visibility ran DAILY for every location while every tier declared it weekly, and while
+    // the cost model priced it weekly. `seoCadence` existed in TIER_LIMITS and was read by exactly
+    // one thing: lib/billing/cost-model.ts, to PROJECT cost. No pipeline code enforced it, so the
+    // projection and the bill were describing different systems.
+    //
+    // Measured 2026-08-10: 127 snapshots per SEO provider across ~9 days for 14 locations, i.e. one
+    // per location per day, against RUNS_PER_MONTH { daily: 30, weekly: 4.3 }. Roughly 7x the
+    // modelled rate on the largest vendor line, which is what a $50 balance recharging every 3-5
+    // days was actually paying for.
+    //
+    // Honor the tier here. Nothing customer-facing reads DataForSEO live: the /visibility page and
+    // the seo_* insight rules both read stored snapshots, so this changes freshness, not features.
+    //   weekly   → Mondays
+    //   biweekly → "2x / week" per the type comment: Mondays + Thursdays
+    // Trials and an explicitly requested single location bypass, exactly like the events gate above.
+    const seoDue = isSeoDue(limits.seoCadence, dayOfWeek, {
+      force: inActiveTrial || !!singleLocationId,
+    })
+
     const pipelines = [
-      "visibility",
+      ...(seoDue ? ["visibility"] : []),
       "events",
       "weather",
     ]
