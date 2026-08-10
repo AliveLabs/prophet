@@ -492,6 +492,26 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
           allEvents: c.state.snapshot.events,
         })
 
+        // REPLACE this run's event insights rather than upserting them.
+        //
+        // The upsert key is (location_id, competitor_id, date_key, insight_type), and
+        // competitor_id is NULL on every event insight. In Postgres NULL is never equal to
+        // NULL in a unique index, so `onConflict` NEVER matched and each run INSERTED a
+        // fresh copy. Observed in prod 2026-08-10: one location accumulated 23 event
+        // insights for a single day, 14 of them stale duplicates of the other 9. Operators
+        // read the same event several times over, which is a large part of why the feed
+        // felt noisy and low-value.
+        //
+        // Delete-then-insert scoped to (location, date, events.*) mirrors what
+        // `match_competitors` already does for event_matches above. Non-event insight types
+        // written by other pipelines for the same day are untouched.
+        await c.supabase
+          .from("insights")
+          .delete()
+          .eq("location_id", c.locationId)
+          .eq("date_key", c.dateKey)
+          .like("insight_type", "events.%")
+
         if (insights.length > 0) {
           const insightsPayload = insights.map((insight) => ({
             location_id: c.locationId,
@@ -509,9 +529,7 @@ export function buildEventsSteps(): PipelineStepDef<EventsPipelineCtx>[] {
             status: "new",
           }))
 
-          await c.supabase.from("insights").upsert(insightsPayload, {
-            onConflict: "location_id,competitor_id,date_key,insight_type",
-          })
+          await c.supabase.from("insights").insert(insightsPayload)
         }
 
         return { insights: insights.length }

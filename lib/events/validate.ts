@@ -87,6 +87,27 @@ export function localDateOf(iso: string | null | undefined): string | null {
   return m ? m[1] : null
 }
 
+/** Dedupe stem for a title: `normalizeTitle`, but with a trailing promo qualifier removed.
+ *
+ *  Ticketed sports listings arrive once per giveaway, all for the SAME game:
+ *    "Texas Rangers vs Los Angeles Angels: Block Captain Bobblehead"
+ *    "Texas Rangers vs Los Angeles Angels: 1996 Rangers Team Baseball Card Button-Down"
+ *    "Texas Rangers vs Washington Nationals: All for Texas Football Jersey"
+ *  Each became its own "notable event" once copy started naming events, turning one
+ *  ballgame into three insights.
+ *
+ *  Only strips when the text BEFORE the colon is substantial, so a leading qualifier is
+ *  preserved: "PRESEASON: New Orleans Saints vs. Dallas Cowboys" keeps its full stem
+ *  rather than collapsing to "preseason". */
+const MIN_STEM_LENGTH = 12
+
+export function titleStem(title: string | null | undefined): string {
+  const raw = (title ?? "").trim()
+  const idx = raw.indexOf(":")
+  const head = idx > 0 ? raw.slice(0, idx).trim() : raw
+  return normalizeTitle(head.length >= MIN_STEM_LENGTH ? head : raw)
+}
+
 /** A title-derived key for dedupe (lowercased, whitespace-collapsed, punctuation-light). */
 export function normalizeTitle(title: string | null | undefined): string {
   return (title ?? "")
@@ -174,7 +195,7 @@ export function validateEvent(
 ): ValidatedEvent {
   const { confidence, canonicalVenue, venueId } = resolveVenueConfidence(e, catalog)
   const localDate = localDateOf(e.startDatetime)
-  const normTitle = normalizeTitle(e.title)
+  const normTitle = titleStem(e.title)
   const isLeague = isScheduledLeagueTitle(e.title)
 
   // ── Base role: an unresolved venue may NEVER claim local impact. ──

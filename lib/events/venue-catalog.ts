@@ -18,6 +18,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { fetchNearbyPlaces } from "@/lib/places/google"
+import { isNonDrawVenueName } from "./title-safety"
 import { haversineMiles } from "./geo"
 
 export type CapacityConfidence = "measured" | "prior"
@@ -131,17 +132,32 @@ export function matchEventToCatalog(
   catalog: CatalogVenue[],
 ): CatalogVenue | null {
   if (eventLat == null || eventLng == null) return null
-  let best: CatalogVenue | null = null
-  let bestDist = Infinity
-  for (const v of catalog) {
-    if (v.lat == null || v.lng == null) continue
-    const d = haversineMiles(eventLat, eventLng, v.lat, v.lng)
-    if (d <= MATCH_TOLERANCE_MI && d < bestDist) {
-      best = v
-      bestDist = d
-    }
-  }
-  return best
+
+  // Everything inside the tolerance (~200m) is the SAME venue complex, so "nearest" is the
+  // wrong tiebreak: a stadium's tours desk, team store, and parking lots all sit within a
+  // couple hundred metres of the bowl itself. Picking the nearest handed a sold-out 90,000
+  // seat concert the capacity of "AT&T Stadium Tours" (500) because that entry geocoded
+  // 0.013mi closer than "Dallas Stadium" (90,000). A 180x understatement, which is why the
+  // biggest event in the metro never cleared the surfacing bar.
+  //
+  // Rank instead by: real venue over ancillary facility, then larger capacity, then nearer.
+  const candidates = catalog
+    .filter((v) => v.lat != null && v.lng != null)
+    .map((v) => ({ v, d: haversineMiles(eventLat, eventLng, v.lat as number, v.lng as number) }))
+    .filter((c) => c.d <= MATCH_TOLERANCE_MI)
+
+  if (candidates.length === 0) return null
+
+  candidates.sort((a, b) => {
+    const aFacility = isNonDrawVenueName(a.v.name) ? 1 : 0
+    const bFacility = isNonDrawVenueName(b.v.name) ? 1 : 0
+    if (aFacility !== bFacility) return aFacility - bFacility // real venue first
+    const capDiff = effectiveCapacity(b.v) - effectiveCapacity(a.v)
+    if (capDiff !== 0) return capDiff // then the bigger room
+    return a.d - b.d // then the nearer one
+  })
+
+  return candidates[0].v
 }
 
 // ---------------------------------------------------------------------------

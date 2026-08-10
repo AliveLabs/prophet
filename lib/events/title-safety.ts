@@ -46,6 +46,21 @@ export function isSafeEventTitle(title: string | null | undefined): boolean {
   return !PLACEHOLDER_PATTERNS.some((re) => re.test(t))
 }
 
+/** Ancillary facilities that share a venue's name and coordinates but are not the thing
+ *  that fills it: the tours desk, the team store, a fan zone, an overflow parking lot.
+ *
+ *  Lives here rather than in relevance.ts because BOTH the magnitude classifier and the
+ *  venue-catalog coordinate matcher need it, and this module imports nothing (no cycle).
+ *  Real prod damage from not having it: the catalog entry "AT&T Stadium Tours" (capacity
+ *  500) sat 0.013mi from "Dallas Stadium" (capacity 90,000), so a nearest-wins coordinate
+ *  match handed a sold-out stadium concert the gift shop's capacity. */
+const NON_DRAW_VENUE_NAME =
+  /\b(tours?|fan zone|fan viewing zone|viewing zone|watch party|box office|ticket office|gift shop|pro shop|team store|museum|lot \d+|parking)\b/i
+
+export function isNonDrawVenueName(name: string | null | undefined): boolean {
+  return NON_DRAW_VENUE_NAME.test(name ?? "")
+}
+
 /** A midnight start is the generative source's way of saying "I don't know the time".
  *  Real events at exactly 00:00 are vanishingly rare compared to unverified ones, so we
  *  treat `T00:00` as an ABSENT time rather than assert it. */

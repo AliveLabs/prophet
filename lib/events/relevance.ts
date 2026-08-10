@@ -18,6 +18,7 @@
 
 import type { NormalizedEvent, EventType } from "./types"
 import type { DensityClass } from "@/lib/local/census-density"
+import { isNonDrawVenueName } from "./title-safety"
 
 export const PROXIMITY = {
   footMiles: 0.5,
@@ -77,13 +78,12 @@ export function isRouteEventTitle(title: string | null | undefined): boolean {
 // "AT&T Stadium" stays major, while the same title at "AT&T Stadium Tours" does not.
 // Deliberately NOT matching bare "tour" in the title, since stadium tours by artists are
 // exactly the marquee case this engine exists to catch.
-const NON_DRAW_VENUE = /\b(tours?|fan zone|fan viewing zone|viewing zone|watch party|box office|ticket office|gift shop|pro shop|team store|museum)\b/i
 const NON_DRAW_TITLE = /\b(stadium tour|venue tour|guided tour|self[- ]guided|behind[- ]the[- ]scenes)\b/i
 
 export function isNonDrawListing(
   e: Pick<NormalizedEvent, "title" | "venue">,
 ): boolean {
-  return NON_DRAW_VENUE.test(e.venue?.name ?? "") || NON_DRAW_TITLE.test(e.title ?? "")
+  return isNonDrawVenueName(e.venue?.name) || NON_DRAW_TITLE.test(e.title ?? "")
 }
 
 export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue" | "ticketsAndInfo">): EventMagnitude {
