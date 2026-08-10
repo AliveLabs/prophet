@@ -201,10 +201,21 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
     "You are the Chief of Staff assembling a restaurant's WEEKLY brief from candidate plays produced by expert skills.",
     `Select the strongest plays that genuinely matter this week, up to ${max}. Each candidate carries a _meritScore (0-100 = impact × confidence × fit) and its _meritRank. Cover the DISTINCT kinds of opportunity that are real for this place — competitive positioning, reputation, menu, marketing/social, grassroots, operations, and forward demand (events/weather) — WITHOUT privileging any kind by default.`,
     "Quality bar stays high: drop weak, generic, or near-duplicate plays, and never pad to hit the number. A calm week may have few; a busy one more.",
-    // Ranking is BY MERIT (the score), not by a fixed category order. Ticket is marketed as a COMPETITIVE
-    // insights tool: high-confidence, actionable moves the owner can run anchor the top. Weather/events lead
-    // ONLY when genuinely high-impact + time-sensitive this week — ordinary seasonal heat is not a headline.
-    "Order them best-first BY MERIT: _meritScore is a strong prior — a higher-scored play should lead unless you have a specific reason to override. A high-confidence, ACTIONABLE move the owner can actually run this week (a competitive, menu, reputation, social, or operations play) should anchor the top. Forward demand (events/weather) leads ONLY when it is genuinely high-impact and time-sensitive THIS week — a real, unusual event or a real weather swing — NOT merely because it is weather or events (ordinary seasonal heat in a hot climate is not a headline). Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
+    // Ranking is BY MERIT (the score), with NO category thumb on the scale.
+    //
+    // This instruction used to read: "a competitive, menu, reputation, social, or operations play
+    // should anchor the top. Forward demand (events/weather) leads ONLY when genuinely high-impact
+    // and time-sensitive." That was written to stop ordinary seasonal weather headlining every
+    // brief, which was a real problem. But it is a CATEGORY rule standing in for a magnitude
+    // judgement, and it cannot tell 102-degree heat apart from 80,000 people arriving half a mile
+    // away. On 2026-08-10 a sold-out stadium concert 0.6mi from a Raising Cane's ranked below
+    // "push lemonade, it's hot" for exactly this reason.
+    //
+    // The real distinction is not the category, it is whether a play brings demand that would not
+    // otherwise exist (a crowd arriving) or optimizes demand you already have (selling a different
+    // drink to the same guests). That is what `stance` encodes, and it is now enforced
+    // deterministically after selection (enforceStanceOrdering) rather than argued for in a prompt.
+    "Order them best-first BY MERIT: _meritScore is a strong prior — a higher-scored play should lead unless you have a specific reason to override. Judge each play on the size and certainty of the difference it makes to this restaurant this week, not on which category it came from. Ordinary conditions are not a headline: routine seasonal weather, a normal week of trading, or a habit worth maintaining should not lead over a specific, time-boxed opportunity or a real problem. Do NOT force variety, but do not collapse to a single play when several distinct, strong opportunities exist.",
     "Write a 3-8 word headline and a 140-250 character deck that frame the week as a whole. Plain language, no em dashes, no chef/kitchen industry jargon — write for an operator who doesn't know the lingo (no \"covers\" [say guests], no \"the floor\"/\"front of house\"/\"back of house\", no \"knock-on\", no \"kickoff\" for a time window [say start]).",
     // ALT-266: the UI renders [[...]] as the rust keyword accent (accentize.tsx). The renderer
     // is fail-soft (stray brackets stripped; unmarked headlines get a deterministic fallback),
@@ -271,7 +282,15 @@ export async function synthesize(d: Dossier, results: SkillResult[], opts: Synth
   // generated), there is nothing to surface — correct. The play is appended (lowest position): a floor,
   // not a promotion. Tunable: drop this block to go flat, or add a min-quality gate if it ever surfaces
   // a weak one. (Every pooled play is already grounded — named anchor + real signal + not generic.)
-  const chosenFinal = applyGrassrootsFloor(chosen, rankedPlays, max, scoreByPlay, d)
+  // GRASSROOTS FLOOR KEPT (re-examined 2026-08-10). It looks like a compensating hack for a
+  // ranking that cannot express why a play matters, and the plan was to retire it alongside the
+  // category thumb below. It stays because it is not a hack: Bryan required it explicitly on
+  // 2026-06-25, and the reason still holds. Grassroots plays score mid-pack on CONFIDENCE
+  // (medium/directional against high/high convergence, menu and social plays), and stance ordering
+  // does nothing about confidence. Removing the floor would quietly drop them again.
+  //
+  // Retiring it needs confidence calibration to land first, not a reordering rule.
+  const chosenFinal = applyStanceOrdering(applyGrassrootsFloor(chosen, rankedPlays, max, scoreByPlay, d))
 
   // ALT-167: enforce the served-order rules as a PURE, deterministic pass — AFTER the model's order AND
   // the grassroots floor — because neither the score nor the model selection guarantees them. (1) a
@@ -376,6 +395,48 @@ function applyGrassrootsFloor(
     `[synthesis] grassroots floor: surfaced "${bestGrass.title}" (natural rank #${naturalRank}, score ${score}) (${d.locationId} ${d.dateKey})`,
   )
   return chosenFinal
+}
+
+/**
+ * STANCE ORDERING (2026-08-10, Bryan). An OPTIMIZATION play must never outrank an INCREMENTAL one.
+ *
+ * The problem this replaces: ranking compared plays across channels using numbers that were never
+ * calibrated against each other. `impact` is a producer-declared label, `severity` (in the other
+ * scorer) is a per-author label, and the category priors are near-flat by design. So the only thing
+ * actually separating "80,000 people arrive Saturday" from "push lemonade, it's 102 degrees" was a
+ * sentence in the selector prompt naming preferred categories.
+ *
+ * Bryan's framing, and the reason this is a tier and not a weight: those two plays are not the same
+ * quantity at different sizes. Selling a different drink to guests already walking in optimizes
+ * demand you have. A crowd arriving half a mile away is demand that otherwise does not exist. You
+ * cannot put them on one axis, so do not try — order the KINDS, and compare magnitude only WITHIN
+ * a kind, where the units are actually commensurable.
+ *
+ * `stance` already encodes this and is already produced by every skill:
+ *   capture  — go get demand that does not exist yet          → act
+ *   fix      — repair something that is costing you            → act
+ *   maintain — keep doing what already works                   → optimize
+ *
+ * DELIBERATELY NOT a full four-tier system. Bryan's taxonomy tops out at a CONTINUITY tier (severe
+ * weather, a closure — threats to trading at all), which outranks everything. No signal for that
+ * exists today, and inventing one from `severity` would repeat the exact mistake this replaces. So
+ * this implements the part the data supports and leaves the top tier for when there is a real
+ * signal to hang it on.
+ *
+ * `capture` and `fix` deliberately share a band. Whether a repair should outrank an opportunity is
+ * a genuine product question Bryan has not answered, so they compete on merit rather than having a
+ * policy silently baked in here.
+ *
+ * Minimal + stable: a stable partition, so within each band the model's chosen order survives
+ * untouched. Unknown stance is treated as `act` — never demote a play for missing metadata.
+ */
+const STANCE_BAND: Record<string, number> = { capture: 0, fix: 0, maintain: 1 }
+
+export function applyStanceOrdering(plays: EnrichedRecommendation[]): EnrichedRecommendation[] {
+  const band = (p: EnrichedRecommendation) => STANCE_BAND[p.stance ?? ""] ?? 0
+  // Stable sort: Array.prototype.sort is stable in every runtime we target, so equal-band plays
+  // keep the selector's order.
+  return [...plays].sort((a, b) => band(a) - band(b))
 }
 
 /**
