@@ -6,9 +6,11 @@
 // and the copy refused to use it.
 
 import { describe, it, expect } from "vitest"
-import { isSafeEventTitle, hasUnverifiedStartTime, dropUnverifiedTime } from "@/lib/events/title-safety"
+import { isSafeEventTitle, hasUnverifiedStartTime, dropUnverifiedTime, isNonDrawVenueName } from "@/lib/events/title-safety"
 import { eventNameOrNull, beatsSurge } from "@/lib/events/insights"
 import { classifyEventMagnitude, isNonDrawListing } from "@/lib/events/relevance"
+import { matchEventToCatalog } from "@/lib/events/venue-catalog"
+import { titleStem } from "@/lib/events/validate"
 import type { NormalizedEvent } from "@/lib/events/types"
 import type { ImpactResult } from "@/lib/events/impact"
 
@@ -175,5 +177,53 @@ describe("beatsSurge — the biggest event wins, not the first one listed", () =
 
   it("an unmeasured distance never beats a measured one on the tie-break", () => {
     expect(beatsSurge(res(100, 500), ev({}), res(100, 500), ev({ distanceMiles: 2 }))).toBe(false)
+  })
+})
+
+describe("catalog match — the main venue wins, not its gift shop", () => {
+  // The real prod catalog around AT&T Stadium. "AT&T Stadium Tours" geocoded 0.013mi
+  // closer than the stadium itself, so nearest-wins handed a sold-out 90,000-seat concert
+  // a capacity of 500. That 180x understatement is why BTS never cleared the bar.
+  const catalog = [
+    { name: "Dallas Stadium", lat: 32.7473, lng: -97.0945, capacityLow: 90000, capacityHigh: 90000, capacityConfidence: "prior", placeId: "stadium" },
+    { name: "AT&T Stadium Tours", lat: 32.7474, lng: -97.0943, capacityLow: 500, capacityHigh: 5000, capacityConfidence: "prior", placeId: "tours" },
+    { name: "Lot 15 AT&T Stadium", lat: 32.7472, lng: -97.0944, capacityLow: 500, capacityHigh: 8000, capacityConfidence: "prior", placeId: "lot" },
+  ] as unknown as Parameters<typeof matchEventToCatalog>[2]
+
+  it("picks the stadium, not the tours desk sitting closer", () => {
+    const m = matchEventToCatalog(32.74741, -97.09431, catalog)
+    expect(m?.name).toBe("Dallas Stadium")
+    expect(m?.capacityLow).toBe(90000)
+  })
+
+  it("identifies the ancillary facilities by name", () => {
+    expect(isNonDrawVenueName("AT&T Stadium Tours")).toBe(true)
+    expect(isNonDrawVenueName("Lot 15 AT&T Stadium")).toBe(true)
+    expect(isNonDrawVenueName("FIFA World Cup Fan Viewing Zone")).toBe(true)
+    expect(isNonDrawVenueName("AT&T Stadium")).toBe(false)
+    expect(isNonDrawVenueName("Globe Life Field")).toBe(false)
+  })
+
+  it("returns null when nothing is inside the tolerance", () => {
+    expect(matchEventToCatalog(33.5, -97.5, catalog)).toBeNull()
+  })
+})
+
+describe("titleStem — one ballgame is one event, not three giveaways", () => {
+  it("collapses promo variants of the same game", () => {
+    const a = titleStem("Texas Rangers vs Los Angeles Angels: Block Captain Bobblehead")
+    const b = titleStem("Texas Rangers vs Los Angeles Angels: 1996 Rangers Team Baseball Card Button-Down")
+    expect(a).toBe(b)
+    expect(a).toBe("texas rangers vs los angeles angels")
+  })
+
+  it("keeps a LEADING qualifier rather than collapsing to it", () => {
+    // Would otherwise become just "preseason" and merge unrelated games.
+    expect(titleStem("PRESEASON: New Orleans Saints vs. Dallas Cowboys"))
+      .toBe("preseason new orleans saints vs dallas cowboys")
+  })
+
+  it("leaves colon-free titles alone", () => {
+    expect(titleStem("BTS World Tour 'ARIRANG'")).toBe("bts world tour arirang")
   })
 })
