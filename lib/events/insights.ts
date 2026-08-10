@@ -160,7 +160,13 @@ export function beatsSurge(
   }
   const aDist = aEvent.distanceMiles ?? Infinity
   const bDist = bEvent.distanceMiles ?? Infinity
-  return aDist < bDist
+  if (aDist !== bDist) return aDist < bDist
+  // Two events at the SAME venue tie on all of the above (same capacity, same distance),
+  // which is exactly the BTS-vs-Zach-Bryan case at AT&T Stadium. Fall back to whichever
+  // happens first: the operator can still act on it.
+  const aWhen = aEvent.startDatetime ?? "9999"
+  const bWhen = bEvent.startDatetime ?? "9999"
+  return aWhen < bWhen
 }
 
 /** Score every local/route event against the restaurant's own baseline; surface the
@@ -728,7 +734,24 @@ function detectHighSignalEvents(
     const matchedKeywords = HIGH_SIGNAL_KEYWORDS.filter((kw) => titleLower.includes(kw))
     const hasMultipleTicketSources = (ev.ticketsAndInfo?.length ?? 0) >= 2
 
-    if (matchedKeywords.length === 0 && !hasMultipleTicketSources) continue
+    // A MAJOR-magnitude event is high-signal by definition, whatever its title says.
+    //
+    // Without this the gate was "matches a keyword substring OR has >=2 ticket links",
+    // and neither measures significance. Observed in prod 2026-08-10: a sold-out
+    // 90,000-seat BTS stadium concert 0.6mi away was dropped because it had ONE scraped
+    // ticket link and its title matched no keyword, while a smaller show at the same venue
+    // surfaced purely because it had two. HIGH_SIGNAL_KEYWORDS is a food/festival/league
+    // list (festival, concert, food, nfl, nba…) with nothing that matches a modern touring
+    // act: "BTS WORLD TOUR 'ARIRANG'", "Zach Bryan - With Heaven On Tour" and "Texas
+    // Rangers vs. Washington Nationals" all score zero against it.
+    //
+    // Magnitude is the structured signal we already compute from venue capacity and the
+    // catalog, so it is a far better gate than substring matching. Mirrors the escape
+    // hatch `upcoming_dense_day` has had all along. Non-draw facilities are already capped
+    // to minor upstream, so this cannot let the tours desk back in.
+    const isMajorDraw = ev.magnitude === "major"
+
+    if (matchedKeywords.length === 0 && !hasMultipleTicketSources && !isMajorDraw) continue
 
     // VALIDATED FIELDS ONLY (P13 §3.3 R1) — copy is templated strictly from validated fields
     // (canonical venue + authoritative local start + competition label), NEVER the raw scraped
