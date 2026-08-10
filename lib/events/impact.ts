@@ -203,11 +203,27 @@ export const DENSITY_BARS: Record<DensityTier, { pctBar: number; absBar: number 
 /** Access-disruption severity (0..1) considered "material" enough to surface. */
 const DISRUPTION_MATERIAL = 0.4
 
+/** How full the venue is likely to be, 0..1.
+ *
+ *  `ticketSourceCount` is how many ticket URLs the SOURCE happened to emit. On the scraped
+ *  DataForSEO path that loosely tracked how heavily an event was being sold, so it was a
+ *  usable proxy. On the grounded path it is just how many links the model chose to include,
+ *  which carries no demand information at all.
+ *
+ *  It was doing real damage: at AT&T Stadium a sold-out BTS show (1 emitted link) modeled at
+ *  54,000 attendees while another show at the SAME 90,000-seat venue (2 emitted links)
+ *  modeled at 76,500, and won the single surge slot on that basis. The sold-out one lost.
+ *
+ *  So the link count only moves the estimate when we have MORE than one, and even then only
+ *  modestly. A genuine `soldOut` signal still pins it to 1.0; absent that, two shows at the
+ *  same venue now get the same prior instead of differing on a scrape artifact. */
+const FILL_PRIOR = 0.7
+
 export function fillSignal(ticketSourceCount: number, soldOut?: boolean): number {
   if (soldOut) return 1.0
-  if (ticketSourceCount >= 2) return 0.85
-  if (ticketSourceCount === 1) return 0.6
-  return 0.35
+  // Multiple independent ticket sources is weak corroboration of real selling; one versus
+  // zero is not, because a generative source emitting a single link means nothing.
+  return ticketSourceCount >= 2 ? 0.85 : FILL_PRIOR
 }
 
 /** Peak covers/hour the restaurant can turn — a throughput prior by service model

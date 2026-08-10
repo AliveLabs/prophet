@@ -29,6 +29,7 @@ import type { NormalizedEvent } from "./types"
 import type { EventRole } from "./relevance"
 import type { CatalogVenue } from "./venue-catalog"
 import { matchEventToCatalog, normalizeVenueName } from "./venue-catalog"
+import { isNonDrawVenueName } from "./title-safety"
 import type { FixtureIndex } from "./fixtures/loader"
 import type { FixtureMatch } from "./fixtures/wc2026"
 
@@ -124,6 +125,54 @@ function capToMetroHook(role: EventRole | undefined): EventRole {
   return role ?? "ungeocoded"
 }
 
+/** The venue NAME to show an operator, given a catalog entry we already matched.
+ *
+ *  P13 said never use the source's venue name, always the canonical catalog one. That rule
+ *  was written against a scraped title causing a mis-LOCATION, and it conflated two
+ *  different things:
+ *
+ *    IDENTITY  — which place this is. Established by COORDINATE match against the catalog,
+ *                keyed on a stable `place_id`. Immune to renames. Still authoritative.
+ *    THE NAME  — a mutable string snapshotted from Places at sweep time and never re-read.
+ *
+ *  A venue catalog swept during the 2026 World Cup captured AT&T Stadium as "Dallas
+ *  Stadium", the tournament rebrand. Two months later, with the tournament over, briefs were
+ *  still telling Arlington operators about "Dallas Stadium" while the live event source was
+ *  correctly reporting "AT&T Stadium" in the very same record. We had the right answer in
+ *  hand and displayed the stale one.
+ *
+ *  So: identity from the catalog, NAME from the freshest attestation. Safe because we only
+ *  reach here once the coordinate match already succeeded, so the live string is a label on
+ *  an already-established place, never the thing that locates it. Placeholder-guarded so a
+ *  half-generated name can't win. */
+export function preferLiveVenueName(
+  e: Pick<NormalizedEvent, "venue">,
+  catalogName: string | null,
+): string | null {
+  const live = e.venue?.name?.trim()
+  if (!live || live.length < 3) return catalogName
+  if (isNonDrawVenueName(live)) return catalogName // "…Tours" is a facility, not the venue
+  return live
+}
+
+/** Do the live source and the catalog disagree about this venue's name?
+ *
+ *  THIS IS THE RENAME DETECTOR. Nothing in the system currently re-reads a venue's name for
+ *  a known place_id, so a rename is invisible until the next quarterly re-sweep happens to
+ *  pick it up. But the evidence is already sitting in memory on every single run: the live
+ *  source says one thing, the cached catalog says another, for the same coordinates.
+ *
+ *  Comparing them costs nothing and would have flagged "Dallas Stadium" on day one. */
+export function venueNameDiverges(live: string | null | undefined, catalog: string | null | undefined): boolean {
+  const a = normalizeVenueName(live ?? "")
+  const b = normalizeVenueName(catalog ?? "")
+  if (!a || !b) return false
+  if (a === b) return false
+  // Sub-string containment is a formatting difference, not a rename ("AT&T Stadium" vs
+  // "AT&T Stadium, Arlington"). Only flag genuinely different strings.
+  return !a.includes(b) && !b.includes(a)
+}
+
 /** Resolve the venue identity confidence for a single event. */
 function resolveVenueConfidence(
   e: NormalizedEvent,
@@ -136,13 +185,17 @@ function resolveVenueConfidence(
     const matched = matchEventToCatalog(lat, lng, catalog)
     return {
       confidence: "matched_place_id",
-      canonicalVenue: e.catalogVenueName,
+      canonicalVenue: preferLiveVenueName(e, e.catalogVenueName),
       venueId: matched?.placeId ?? e.catalogVenueName,
     }
   }
   const matched = matchEventToCatalog(lat, lng, catalog)
   if (matched) {
-    return { confidence: "matched_place_id", canonicalVenue: matched.name, venueId: matched.placeId ?? matched.name }
+    return {
+      confidence: "matched_place_id",
+      canonicalVenue: preferLiveVenueName(e, matched.name),
+      venueId: matched.placeId ?? matched.name,
+    }
   }
   if (lat != null && lng != null && e.distanceMiles != null) {
     // Geocoded to a point but not onto a known venue: identity is the geocode itself.

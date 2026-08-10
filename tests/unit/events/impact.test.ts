@@ -33,10 +33,20 @@ const CANES: Pick<ImpactInputs, "serviceModel" | "seats" | "densityTier" | "base
 }
 
 describe("fillSignal + attendancePrior", () => {
-  it("ramps with ticketing evidence", () => {
-    expect(fillSignal(0)).toBe(0.35)
-    expect(fillSignal(1)).toBe(0.6)
+  // CHANGED 2026-08-10. This used to assert a 3-step ramp (0 -> 0.35, 1 -> 0.6, 2 -> 0.85),
+  // which treated "how many ticket URLs the source emitted" as a demand signal. That held
+  // loosely for the scraped DataForSEO path but carries no information on the grounded path,
+  // where it is just how many links the model chose to include. It cost us a real miss: a
+  // sold-out BTS show (1 emitted link) modeled at 54,000 attendees while another show at the
+  // SAME 90,000-seat venue (2 links) modeled at 76,500 and took the surge slot.
+  it("does not let a single emitted ticket link move the estimate", () => {
+    expect(fillSignal(1)).toBe(fillSignal(0))
+  })
+  it("still treats multiple independent sources as weak corroboration", () => {
+    expect(fillSignal(2)).toBeGreaterThan(fillSignal(1))
     expect(fillSignal(2)).toBe(0.85)
+  })
+  it("a real sold-out signal still pins fill to 1.0", () => {
     expect(fillSignal(0, true)).toBe(1.0)
   })
   it("magnitude prior scales", () => {
