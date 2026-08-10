@@ -61,6 +61,28 @@ export function isNonDrawVenueName(name: string | null | undefined): boolean {
   return NON_DRAW_VENUE_NAME.test(name ?? "")
 }
 
+/** Display form of an event title: drops a trailing promo qualifier while preserving the
+ *  original casing.
+ *
+ *  Ticketed sports listings carry the giveaway in the title, one per game:
+ *    "Texas Rangers vs. Los Angeles Angels: Block Captain Bobblehead"
+ *    "Texas Rangers vs. Oakland Athletics: Rangers Shoe Charms"
+ *  These are genuinely DIFFERENT games on different dates, so dedupe correctly keeps them
+ *  all. The problem is only the copy: an operator cares that the Rangers are home, not
+ *  which bobblehead is being handed out.
+ *
+ *  Mirrors `titleStem`'s rule (only strip when the head is substantial) so a leading
+ *  qualifier survives: "PRESEASON: Saints vs. Cowboys" is left whole. */
+const MIN_DISPLAY_HEAD = 12
+
+export function displayEventTitle(title: string | null | undefined): string {
+  const raw = (title ?? "").trim()
+  const idx = raw.indexOf(":")
+  if (idx <= 0) return raw
+  const head = raw.slice(0, idx).trim()
+  return head.length >= MIN_DISPLAY_HEAD ? head : raw
+}
+
 /** A midnight start is the generative source's way of saying "I don't know the time".
  *  Real events at exactly 00:00 are vanishingly rare compared to unverified ones, so we
  *  treat `T00:00` as an ABSENT time rather than assert it. */

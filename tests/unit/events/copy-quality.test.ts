@@ -6,7 +6,7 @@
 // and the copy refused to use it.
 
 import { describe, it, expect } from "vitest"
-import { isSafeEventTitle, hasUnverifiedStartTime, dropUnverifiedTime, isNonDrawVenueName } from "@/lib/events/title-safety"
+import { isSafeEventTitle, hasUnverifiedStartTime, dropUnverifiedTime, isNonDrawVenueName, displayEventTitle } from "@/lib/events/title-safety"
 import { eventNameOrNull, beatsSurge } from "@/lib/events/insights"
 import { classifyEventMagnitude, isNonDrawListing } from "@/lib/events/relevance"
 import { matchEventToCatalog } from "@/lib/events/venue-catalog"
@@ -281,5 +281,31 @@ describe("beatsSurge — same-venue ties fall back to soonest date", () => {
     const soonSmall = ev({ distanceMiles: 0.6, startDatetime: "2026-08-15T20:00" })
     const laterBig = ev({ distanceMiles: 0.6, startDatetime: "2026-08-22T19:00" })
     expect(beatsSurge(res(100, 4200), laterBig, res(100, 900), soonSmall)).toBe(true)
+  })
+})
+
+describe("displayEventTitle — drop the giveaway, keep the game", () => {
+  it("strips the promo suffix from real prod titles", () => {
+    expect(displayEventTitle("Texas Rangers vs. Los Angeles Angels: Block Captain Bobblehead"))
+      .toBe("Texas Rangers vs. Los Angeles Angels")
+    expect(displayEventTitle("Texas Rangers vs. Oakland Athletics: Rangers Shoe Charms"))
+      .toBe("Texas Rangers vs. Oakland Athletics")
+  })
+
+  it("keeps a LEADING qualifier whole", () => {
+    expect(displayEventTitle("PRESEASON: New Orleans Saints vs. Dallas Cowboys"))
+      .toBe("PRESEASON: New Orleans Saints vs. Dallas Cowboys")
+  })
+
+  it("leaves colon-free titles untouched, casing preserved", () => {
+    expect(displayEventTitle("BTS World Tour \"ARIRANG\"")).toBe("BTS World Tour \"ARIRANG\"")
+    expect(displayEventTitle("Concert by Candlelight - Classic Rock Reimagined"))
+      .toBe("Concert by Candlelight - Classic Rock Reimagined")
+  })
+
+  it("different games keep their own identity (dedupe is by date, not title)", () => {
+    const a = displayEventTitle("Texas Rangers vs. Los Angeles Angels: Block Captain Bobblehead")
+    const b = displayEventTitle("Texas Rangers vs. Washington Nationals: All for Texas Football Jersey")
+    expect(a).not.toBe(b)
   })
 })
