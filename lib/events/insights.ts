@@ -15,7 +15,7 @@ import {
   type ImpactResult,
 } from "./impact"
 import { isScheduledLeagueTitle } from "./validate"
-import { isSafeEventTitle, hasUnverifiedStartTime } from "./title-safety"
+import { isSafeEventTitle, hasUnverifiedStartTime, displayEventTitle } from "./title-safety"
 
 // ---------------------------------------------------------------------------
 // Config thresholds
@@ -404,7 +404,9 @@ export function eventNameOrNull(e: NormalizedEvent): string | null {
   if (!e.venueConfidence || e.venueConfidence === "unresolved") return null
   // Gate 3: no placeholder text in front of an operator.
   if (!isSafeEventTitle(e.title)) return null
-  return (e.title ?? "").trim()
+  // Drop the giveaway suffix: the operator needs "the Rangers are home", not which
+  // bobblehead is being handed out at the gate.
+  return displayEventTitle(e.title)
 }
 
 function validatedEventLabel(e: NormalizedEvent): string {
