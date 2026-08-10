@@ -111,7 +111,15 @@ export function parseWallClock(
 
 /** Human 12-hour label from the wall-clock, e.g. "11:00 AM". Server-TZ-safe.
  *  Returns "" when no parseable time. */
+/** A `T00:00` start is the grounded source saying "I could not verify the time", not a
+ *  midnight event. Rendering it as "12:00 AM" puts a fabricated time in front of an
+ *  operator, so we show no time at all and let the date stand on its own. */
+function isUnverifiedMidnight(iso: string | null | undefined): boolean {
+  return !!iso && /T00:00(:00)?/.test(iso)
+}
+
 export function eventTimeLabel(iso: string | null | undefined): string {
+  if (isUnverifiedMidnight(iso)) return ""
   const wc = parseWallClock(iso)
   if (!wc) return ""
   const period = wc.hour >= 12 ? "PM" : "AM"

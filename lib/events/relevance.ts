@@ -65,10 +65,33 @@ export function isRouteEventTitle(title: string | null | undefined): boolean {
   return ROUTE_EVENT.test(title ?? "")
 }
 
+// ── Non-draw facilities (2026-08-10) ────────────────────────────────────────
+// A big-venue NAME is not the same as a big-venue EVENT. The grounded source returns
+// facility listings alongside real events, and because they carry a stadium-class venue
+// string they were being scored as major draws. Observed in prod: "AT&T Stadium Tours"
+// and a "FIFA World Cup Fan Viewing Zone" (a tournament that ended in July) both surfaced
+// to an operator as major events.
+//
+// These are ancillary facilities at a venue, not the thing that fills it. Matched on the
+// VENUE name so a legitimate stadium concert is untouched: "BTS World Tour" at venue
+// "AT&T Stadium" stays major, while the same title at "AT&T Stadium Tours" does not.
+// Deliberately NOT matching bare "tour" in the title, since stadium tours by artists are
+// exactly the marquee case this engine exists to catch.
+const NON_DRAW_VENUE = /\b(tours?|fan zone|fan viewing zone|viewing zone|watch party|box office|ticket office|gift shop|pro shop|team store|museum)\b/i
+const NON_DRAW_TITLE = /\b(stadium tour|venue tour|guided tour|self[- ]guided|behind[- ]the[- ]scenes)\b/i
+
+export function isNonDrawListing(
+  e: Pick<NormalizedEvent, "title" | "venue">,
+): boolean {
+  return NON_DRAW_VENUE.test(e.venue?.name ?? "") || NON_DRAW_TITLE.test(e.title ?? "")
+}
+
 export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue" | "ticketsAndInfo">): EventMagnitude {
   const venue = e.venue?.name ?? ""
   const title = e.title ?? ""
   const ticketed = (e.ticketsAndInfo?.length ?? 0) >= 2
+  // A facility listing can never be a major draw, however stadium-shaped its venue string.
+  if (isNonDrawListing(e)) return "minor"
   if (MAJOR_EVENT.test(title) && (MAJOR_VENUE.test(venue) || ticketed)) return "major"
   if (MAJOR_VENUE.test(venue) && ticketed) return "major"
   if (MODERATE_EVENT.test(title) || MODERATE_EVENT.test(venue) || ticketed) return "moderate"
