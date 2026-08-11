@@ -27,6 +27,12 @@ import {
 //   3. Dispatched to a per-type handler
 //   4. Marked processed (or processed-with-error) at the end
 //
+// Subscription events additionally guard against OUT-OF-ORDER and CONCURRENT
+// delivery: canonical state is re-fetched from Stripe before applying, and the
+// org write is conditional on event.created being >= the last applied event
+// (organizations.stripe_event_created), so a late redelivery can never clobber
+// newer billing state. See applySubscriptionToOrg in lib/stripe/helpers.ts.
+//
 // Handlers update public.organizations and best-effort mirror into
 // marketing.contacts. Failures in handlers throw -> we return 500 so Stripe
 // retries; failures in the marketing mirror are swallowed so the billing
@@ -82,8 +88,10 @@ export async function POST(req: Request) {
       case "customer.subscription.trial_will_end":
         await handleSubscriptionEvent(
           admin,
+          stripe,
           event.data.object as Stripe.Subscription,
-          event.type
+          event.type,
+          event.created
         )
         break
 
@@ -191,31 +199,62 @@ async function handleCustomerDeleted(
 
 async function handleSubscriptionEvent(
   admin: ReturnType<typeof createAdminSupabaseClient>,
-  subscription: Stripe.Subscription,
+  stripe: Stripe,
+  eventSubscription: Stripe.Subscription,
   eventType:
     | "customer.subscription.created"
     | "customer.subscription.updated"
     | "customer.subscription.deleted"
-    | "customer.subscription.trial_will_end"
+    | "customer.subscription.trial_will_end",
+  eventCreated: number
 ): Promise<void> {
   const customerId =
-    typeof subscription.customer === "string"
-      ? subscription.customer
-      : (subscription.customer?.id ?? null)
+    typeof eventSubscription.customer === "string"
+      ? eventSubscription.customer
+      : (eventSubscription.customer?.id ?? null)
 
   const orgId = await resolveOrganizationId(admin, {
-    clientReferenceId: subscription.metadata?.organization_id ?? null,
+    clientReferenceId: eventSubscription.metadata?.organization_id ?? null,
     stripeCustomerId: customerId,
-    stripeSubscriptionId: subscription.id,
+    stripeSubscriptionId: eventSubscription.id,
   })
   if (!orgId) {
-    console.warn(`${eventType}: could not resolve org`, subscription.id)
+    console.warn(`${eventType}: could not resolve org`, eventSubscription.id)
     return
   }
 
-  const { tier } = await applySubscriptionToOrg(admin, orgId, subscription, {
+  // The event payload is a snapshot from when the event was EMITTED; by
+  // delivery time (retries can land minutes later) it may be stale. Re-fetch
+  // the canonical current state and apply that instead. Skip on 'deleted':
+  // the payload is final there, and the DB write is driven by opts.deleted
+  // anyway. If the re-fetch fails, fall back to the payload (with the
+  // event.created guard below a stale fallback still can't clobber newer
+  // state) rather than 500-looping the delivery on a Stripe outage.
+  let subscription = eventSubscription
+  if (eventType !== "customer.subscription.deleted") {
+    try {
+      subscription = await stripe.subscriptions.retrieve(eventSubscription.id)
+    } catch (err) {
+      console.warn(
+        `${eventType}: canonical re-fetch failed for ${eventSubscription.id}, applying event payload:`,
+        err
+      )
+    }
+  }
+
+  const { tier, applied } = await applySubscriptionToOrg(admin, orgId, subscription, {
     deleted: eventType === "customer.subscription.deleted",
+    eventCreated,
   })
+
+  // Out-of-order delivery: a newer subscription event already wrote this org.
+  // The write was skipped; don't audit-log or mirror stale state either.
+  if (!applied) {
+    console.warn(
+      `${eventType}: skipped stale event for org ${orgId} (event.created=${eventCreated} older than last applied)`
+    )
+    return
+  }
 
   // Audit the billing state change (Phase 6b — system actor). Best-effort; never blocks the
   // ack. Skip trial_will_end: it's a no-op for our DB sync and fires recurrently, so logging

@@ -180,12 +180,22 @@ export function readSubscriptionPeriodEnd(
   return typeof item?.current_period_end === "number" ? item.current_period_end : null
 }
 
+// Ordering/concurrency guard: Stripe does not guarantee webhook delivery
+// order, and two deliveries for the same org can run concurrently. When
+// `eventCreated` (the Stripe event.created, unix seconds) is provided, the
+// UPDATE is made conditional on organizations.stripe_event_created being NULL
+// or <= eventCreated, and stamps the new value. Postgres serializes the two
+// UPDATEs on the row lock and the stale one matches zero rows, so the newest
+// event always wins regardless of arrival order. `applied: false` means the
+// write was skipped as stale — callers should not act on the event further.
+// Callers without an event (checkout-complete return path, cancel/change-plan
+// direct sync) omit it and keep today's unguarded write.
 export async function applySubscriptionToOrg(
   admin: SupabaseClient,
   orgId: string,
   subscription: Stripe.Subscription,
-  opts?: { deleted?: boolean }
-): Promise<{ tier: SubscriptionTier; paymentState: string | null }> {
+  opts?: { deleted?: boolean; eventCreated?: number }
+): Promise<{ tier: SubscriptionTier; paymentState: string | null; applied: boolean }> {
   const customerId =
     typeof subscription.customer === "string"
       ? subscription.customer
@@ -252,7 +262,27 @@ export async function applySubscriptionToOrg(
   }
   if (paymentState !== null) updates.payment_state = paymentState
 
+  if (typeof opts?.eventCreated === "number") {
+    updates.stripe_event_created = opts.eventCreated
+    const { data, error } = await admin
+      .from("organizations")
+      .update(updates)
+      .eq("id", orgId)
+      .or(
+        `stripe_event_created.is.null,stripe_event_created.lte.${opts.eventCreated}`
+      )
+      .select("id")
+    if (error) {
+      // Throw so the webhook returns 500 and Stripe retries — a swallowed
+      // error here would silently drop an access-gating billing update.
+      throw new Error(
+        `applySubscriptionToOrg: guarded update failed for org ${orgId}: ${error.message}`
+      )
+    }
+    return { tier, paymentState, applied: (data?.length ?? 0) > 0 }
+  }
+
   await admin.from("organizations").update(updates).eq("id", orgId)
 
-  return { tier, paymentState }
+  return { tier, paymentState, applied: true }
 }
