@@ -78,12 +78,20 @@ export default function SettingsCategoryPriors({
     setSaveError(null)
     if (locationId) {
       startSaving(async () => {
-        const res = await setCategoryPriors(locationId, values)
-        if (!res.ok) {
-          setSaveError(res.error ?? "Could not save — try again.")
-          return
+        // A thrown action (proxy 403 while impersonating, deploy skew, network) must surface
+        // exactly like a returned failure. Before this catch, a throw left the sliders showing
+        // unsaved values with no error, which read as saved until the next full page load
+        // (the "my sliders reset overnight" report, ALT-581).
+        try {
+          const res = await setCategoryPriors(locationId, values)
+          if (!res.ok) {
+            setSaveError(res.error ?? "Could not save. Try again.")
+            return
+          }
+          setApplied(values)
+        } catch {
+          setSaveError("Could not save. Try again.")
         }
-        setApplied(values)
       })
     } else {
       setApplied(values)
@@ -128,18 +136,21 @@ export default function SettingsCategoryPriors({
         })}
       </div>
 
+      {/* ALT-581: the apply button used to be a quiet keep-variant that only APPEARED once a
+          slider moved, left of the hint. Bryan overlooked it dozens of times, so the priors were
+          never saved and every "overnight reset" traced back to this. It is now always present
+          (disabled until dirty), primary, and rightmost; the hint anchors left (CSS). Keep it
+          that way: a pop-in save button on a settings surface is invisible. */}
       <div className="tk-set-apply-foot">
-        {dirty && (
-          <TkButton variant="keep" disabled={saving} onClick={apply}>
-            {saving ? "Saving…" : "Update my recommendations"}
-          </TkButton>
-        )}
-        <TkButton variant="keep" disabled={!customized || saving} onClick={reset}>
-          Reset to defaults
-        </TkButton>
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
           {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
         </span>
+        <TkButton variant="keep" disabled={!customized || saving} onClick={reset}>
+          Reset to defaults
+        </TkButton>
+        <TkButton variant="act" disabled={!dirty || saving} onClick={apply}>
+          {saving ? "Saving…" : "Update my recommendations"}
+        </TkButton>
       </div>
     </div>
   )

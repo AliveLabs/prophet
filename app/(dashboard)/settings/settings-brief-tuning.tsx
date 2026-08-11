@@ -35,13 +35,18 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
     const toSave = showAll ? 100 : value
     if (locationId) {
       startSaving(async () => {
-        const res = await setBrandTolerance(locationId, toSave)
-        if (!res.ok) {
-          setSaveError(res.error ?? "Could not save — try again.")
-          return
+        // Thrown actions surface like returned failures (ALT-581; see settings-category-priors).
+        try {
+          const res = await setBrandTolerance(locationId, toSave)
+          if (!res.ok) {
+            setSaveError(res.error ?? "Could not save. Try again.")
+            return
+          }
+          setAppliedValue(value)
+          setAppliedAll(showAll)
+        } catch {
+          setSaveError("Could not save. Try again.")
         }
-        setAppliedValue(value)
-        setAppliedAll(showAll)
       })
     } else {
       setAppliedValue(value)
@@ -84,15 +89,15 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
           ones. This ignores the slider thresholds entirely.
         </span>
       </label>
+      {/* ALT-581: always-visible primary apply, right-aligned; hint anchors left. See
+          settings-category-priors.tsx for why the pop-in keep-variant button must not return. */}
       <div className="tk-set-apply-foot">
-        {dirty && (
-          <TkButton variant="keep" disabled={saving} onClick={apply}>
-            {saving ? "Saving…" : "Update my recommendations"}
-          </TkButton>
-        )}
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
           {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
         </span>
+        <TkButton variant="act" disabled={!dirty || saving} onClick={apply}>
+          {saving ? "Saving…" : "Update my recommendations"}
+        </TkButton>
       </div>
     </div>
   )

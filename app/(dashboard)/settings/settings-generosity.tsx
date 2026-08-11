@@ -48,12 +48,17 @@ export default function SettingsGenerosity({ initial, locationId }: { initial: n
   function apply() {
     setSaveError(null)
     startSaving(async () => {
-      const res = await setGenerosityThreshold(locationId, value)
-      if (!res.ok) {
-        setSaveError(res.error ?? "Could not save. Try again.")
-        return
+      // Thrown actions surface like returned failures (ALT-581; see settings-category-priors).
+      try {
+        const res = await setGenerosityThreshold(locationId, value)
+        if (!res.ok) {
+          setSaveError(res.error ?? "Could not save. Try again.")
+          return
+        }
+        setAppliedValue(value)
+      } catch {
+        setSaveError("Could not save. Try again.")
       }
-      setAppliedValue(value)
     })
   }
 
@@ -75,15 +80,15 @@ export default function SettingsGenerosity({ initial, locationId }: { initial: n
       />
       <div className="tk-set-range-ends"><span>Respond first</span><span>Generous</span></div>
       <p className="tk-set-range-note">{band.desc}</p>
+      {/* ALT-581: always-visible primary apply, right-aligned; hint anchors left. See
+          settings-category-priors.tsx for why the pop-in keep-variant button must not return. */}
       <div className="tk-set-apply-foot">
-        {dirty && (
-          <TkButton variant="keep" disabled={saving} onClick={apply}>
-            {saving ? "Saving…" : "Update my recommendations"}
-          </TkButton>
-        )}
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
           {saveError ?? (dirty ? "Applies to new suggestions, nothing is sent to customers." : "Up to date.")}
         </span>
+        <TkButton variant="act" disabled={!dirty || saving} onClick={apply}>
+          {saving ? "Saving…" : "Update my recommendations"}
+        </TkButton>
       </div>
     </div>
   )
