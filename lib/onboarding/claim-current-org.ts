@@ -5,6 +5,7 @@ export interface ClaimOrg {
   trial_ends_at: string | null
   subscription_tier: string
   payment_state?: string | null
+  deleted_at?: string | null
 }
 
 // Whether completing onboarding for `org` should point the user's
@@ -19,10 +20,15 @@ export interface ClaimOrg {
 //   - Additional not-yet-paid real org (multi-location path 2b) -> keep the
 //     user on their existing org until checkout completes; abandoning setup
 //     must not strand a paying customer on an unpaid org.
+//   - Soft-deleted org (deleted_at set) -> NEVER claim, not even as a first org.
+//     current_organization_id is what every authed surface resolves from, so pointing a user
+//     at a deleted org is pointing them at a dead end. Checked before the no-current-org
+//     shortcut, which would otherwise claim it unconditionally.
 export function shouldClaimCurrentOrg(
   existingCurrentOrgId: string | null | undefined,
   org: ClaimOrg | null
 ): boolean {
+  if (org?.deleted_at) return false
   if (!existingCurrentOrgId) return true
   if (!org) return false
   const isShowcase = org.org_kind === "demo" || org.org_kind === "test"
@@ -42,6 +48,12 @@ export function shouldClaimCurrentOrg(
  * Rule is narrower than shouldClaimCurrentOrg on purpose: point them at it only when they
  * have nowhere else to be. Someone who already operates another restaurant must not have
  * their dashboard silently repointed by an admin action; they can switch accounts in-app.
+ *
+ * NOTE ON SOFT-DELETE: unlike shouldClaimCurrentOrg this takes no org row, so it cannot check
+ * deleted_at itself. Its two callers (transferOrgOwnership in app/actions/org-management.ts and
+ * inviteTeamMemberAction in app/(dashboard)/settings/team/actions.ts) refuse outright on a
+ * soft-deleted org before reaching this, which is stricter: they block the whole grant, not just
+ * the repoint. Any NEW caller must do the same; this predicate is not the gate.
  */
 export function shouldPointNewOwnerAtOrg(
   existingCurrentOrgId: string | null | undefined

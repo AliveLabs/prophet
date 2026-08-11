@@ -603,10 +603,17 @@ export const transferOrgOwnership = withAdminAction(
 
     const { data: org } = await supabase
       .from("organizations")
-      .select("id, name")
+      .select("id, name, deleted_at")
       .eq("id", orgId)
       .maybeSingle()
     if (!org) return { ok: false, error: "Organization not found." }
+    // A soft-deleted org must not be handed to anyone: the transfer below GRANTS access
+    // (owner membership) and can repoint the recipient's current_organization_id at it, which
+    // would hand a live dashboard to a member of an org that was switched off. Restore it first
+    // if the transfer is genuinely intended.
+    if (org.deleted_at) {
+      return { ok: false, error: "This organization is deleted. Restore it before transferring ownership." }
+    }
 
     // Promote the target to owner (insert if not yet a member).
     const { data: targetMember } = await supabase

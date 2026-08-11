@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { isOrgActive } from "@/lib/auth/org-access"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 export type JobAuthContext = {
@@ -34,6 +35,12 @@ export async function getJobAuthContext(): Promise<JobAuthContext | null> {
     .maybeSingle()
 
   if (!membership || !["owner", "admin"].includes(membership.role)) return null
+
+  // Soft-deleted org ⇒ no job context. The (dashboard) layout's deleted_at gate covers PAGE
+  // renders only; route handlers never pass through a layout, so without this an owner of a
+  // deleted org could still enqueue refresh jobs and stream their results. Returning null lands
+  // on each route's existing unauthorized branch, so no new failure shape for callers to handle.
+  if (!(await isOrgActive(supabase, profile.current_organization_id))) return null
 
   return {
     userId: user.id,
