@@ -23,15 +23,26 @@ export function ensureLocationLimit(
 // one-location rule and the tier cap, so demos can stage multi-location
 // stories freely. Real orgs are unaffected; callers that don't select
 // org_kind simply keep the strict behavior.
+//
+// SOFT-DELETE (2026-08-10): a deleted org must not GROW, so deleted_at is checked ahead of
+// everything else, including the demo exemption, which otherwise returns before any gate runs.
+// This is a second line behind lib/auth/org-access.ts: server actions resolve the org inline and
+// never pass through the (dashboard) layout's deleted_at gate, so the add-location action is
+// reachable on a deleted org. Optional on purpose: a caller whose select omits deleted_at keeps
+// the previous behavior rather than throwing on an absent field.
 export function ensureCanAddLocation(
   org: {
     subscription_tier: string
     trial_ends_at: string | null
     payment_state?: string | null
     org_kind?: string | null
+    deleted_at?: string | null
   },
   currentCount: number
 ): void {
+  if (org.deleted_at) {
+    throw new Error("This organization is no longer active.")
+  }
   if (org.org_kind === "demo") return
   if (currentCount >= 1 && isTrialing(org)) {
     throw new Error(
@@ -49,6 +60,7 @@ export function canAddLocationHere(
     trial_ends_at: string | null
     payment_state?: string | null
     org_kind?: string | null
+    deleted_at?: string | null
   },
   currentCount: number
 ): boolean {

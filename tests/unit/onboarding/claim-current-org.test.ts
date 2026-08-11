@@ -55,6 +55,21 @@ describe("shouldClaimCurrentOrg", () => {
   it("does not claim when the org row could not be loaded and a current org exists", () => {
     expect(shouldClaimCurrentOrg("existing-org", null)).toBe(false)
   })
+
+  // current_organization_id is what every authed surface resolves from, so claiming a
+  // soft-deleted org points the user at a dead end. Beats the first-org shortcut, which
+  // would otherwise claim unconditionally.
+  it("NEVER claims a soft-deleted org, including as the user's first org", () => {
+    const deleted = { deleted_at: "2026-08-10T00:00:00Z" }
+    expect(shouldClaimCurrentOrg(null, org({ trial_ends_at: future, ...deleted }))).toBe(false)
+    expect(shouldClaimCurrentOrg(undefined, org({ trial_ends_at: future, ...deleted }))).toBe(false)
+    expect(shouldClaimCurrentOrg("existing-org", org({ trial_ends_at: future, ...deleted }))).toBe(false)
+  })
+
+  it("still claims when deleted_at is null or absent", () => {
+    expect(shouldClaimCurrentOrg(null, org({ trial_ends_at: future, deleted_at: null }))).toBe(true)
+    expect(shouldClaimCurrentOrg("existing-org", org({ trial_ends_at: future }))).toBe(true)
+  })
 })
 
 // Admin ownership transfer used to only write organization_members, which stranded the new

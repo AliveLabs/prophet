@@ -38,6 +38,14 @@ export type CachedHomeResult = {
   }>
 }
 
+// ACCESS IS THE CALLER'S JOB. This runs on the admin client (RLS bypassed) and trusts the
+// organizationId it is handed, so the caller must already have established that the user may read
+// this org, including that the org is not soft-deleted (lib/auth/org-access.ts).
+//
+// Do NOT "fix" that by adding a deleted_at check in here: this is a `"use cache"` function with a
+// 7-day revalidate, so the check's verdict would be cached alongside the data. An org soft-deleted
+// after a cache write would keep serving "active" until the entry expired: a slower, harder-to-see
+// version of the bug. The gate belongs upstream, on the request path.
 export async function fetchHomePageData(
   organizationId: string,
 ): Promise<CachedHomeResult> {

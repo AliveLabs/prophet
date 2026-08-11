@@ -1,4 +1,12 @@
-# Ticket — Primary Worklist (combined)
+# Ticket — Primary Worklist (HISTORICAL: superseded by the Notion ticket queue)
+
+> **⚠️ STALE AS OF 2026-08-11.** This document is a snapshot of the 2026-06 build push and is no
+> longer the source of truth. Day-to-day work is tracked in the Notion **"Alive Labs — Tickets"**
+> database (Project = Ticket); narrative handoff lives in the latest `~/vault/logs/sessions/` logs.
+> The "essentially COMPLETE" headline below described the June cutover scope, not the product:
+> since then the queue has kept moving (the events/synthesis fix series merged as PRs #191-#195,
+> pipeline drain ALT-555, soft-delete access hardening ALT-577 to ALT-580, and more). Kept for the
+> June context only.
 
 **Updated 2026-06-26.** Single at-a-glance source of truth across the two tracks (A = admin/onboarding
 tool, B = customer-facing insight engine). Narrative handoff: `docs/SESSION-HANDOFF.md` + the latest
