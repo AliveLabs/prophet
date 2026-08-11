@@ -162,8 +162,11 @@
 .tk-set-info:hover, .tk-set-info:focus-visible { color: var(--rust-deep); }
 .tk-set-info:focus-visible { outline: 2.5px solid var(--rust); outline-offset: 2px; }
 
-/* the apply foot row shared by the slider islands */
-.tk-set-apply-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+/* The apply foot row shared by the slider islands. Buttons right-aligned with the primary
+   apply rightmost; the hint takes the leading space so it hugs the left edge (ALT-581: the
+   apply used to sit quietly on the left and only render when dirty, and went unseen). */
+.tk-set-apply-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 14px; justify-content: flex-end; }
+.tk-set-apply-foot .tk-set-apply-hint { margin-right: auto; }
 .tk-set-apply-hint { font-size: 12px; color: var(--ink-3); }
 .tk-set-apply-hint.tk-set-apply-err { color: var(--alert-deep); }
 
