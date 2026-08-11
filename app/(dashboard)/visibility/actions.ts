@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
-import { requireUser } from "@/lib/auth/server"
+import { resolveOrgActor, isOrgAdmin } from "@/lib/auth/actor"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import {
@@ -69,30 +69,18 @@ function getPreviousDateKey(dateKey: string, days: number): string {
 // ---------------------------------------------------------------------------
 
 export async function refreshSeoAction(formData: FormData) {
-  const user = await requireUser()
   const locationId = String(formData.get("location_id") ?? "")
   if (!locationId) redirect("/visibility?error=No+location+selected")
 
   const supabase = await createServerSupabaseClient()
 
-  // Auth & permission
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-  const organizationId = profile?.current_organization_id
-  if (!organizationId) redirect("/visibility?error=No+organization+found")
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organizationId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
+  // ALT-577: session → org actor via the ONE resolver (membership + soft-delete gate).
+  const actor = await resolveOrgActor()
+  if (!actor) redirect("/visibility?error=No+organization+found")
+  if (!isOrgAdmin(actor)) {
     redirect("/visibility?error=Insufficient+permissions")
   }
+  const organizationId = actor.organizationId
 
   const { data: org } = await supabase
     .from("organizations")

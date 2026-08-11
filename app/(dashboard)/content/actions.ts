@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
-import { requireUser } from "@/lib/auth/server"
+import { resolveOrgActor, isOrgAdmin } from "@/lib/auth/actor"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
@@ -41,32 +41,19 @@ function ensureUrl(url: string): string {
 // ---------------------------------------------------------------------------
 
 export async function refreshContentAction(formData: FormData) {
-  const user = await requireUser()
   const locationId = String(formData.get("location_id") ?? "")
   if (!locationId) redirect("/content?error=No+location+selected")
 
   const supabase = await createServerSupabaseClient()
   const warnings: string[] = []
 
-  // Auth & permission check
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-  const organizationId = profile?.current_organization_id
-  if (!organizationId) redirect("/content?error=Organization+not+found")
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organizationId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
+  // ALT-577: session → org actor via the ONE resolver (membership + soft-delete gate).
+  const actor = await resolveOrgActor()
+  if (!actor) redirect("/content?error=Organization+not+found")
+  if (!isOrgAdmin(actor)) {
     redirect("/content?error=Only+admins+can+refresh+content")
   }
+  const organizationId = actor.organizationId
 
   const { data: location } = await supabase
     .from("locations")

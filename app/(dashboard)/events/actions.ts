@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
-import { requireUser } from "@/lib/auth/server"
+import { resolveOrgActor, isOrgAdmin } from "@/lib/auth/actor"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import {
@@ -50,7 +50,6 @@ function getDateKey(): string {
 // ---------------------------------------------------------------------------
 
 export async function fetchEventsAction(formData: FormData) {
-  const user = await requireUser()
   const locationId = String(formData.get("location_id") ?? "")
 
   if (!locationId) {
@@ -59,29 +58,15 @@ export async function fetchEventsAction(formData: FormData) {
 
   const supabase = await createServerSupabaseClient()
 
-  // Get profile → org
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const organizationId = profile?.current_organization_id
-  if (!organizationId) {
+  // ALT-577: session → org actor via the ONE resolver (membership + soft-delete gate).
+  const actor = await resolveOrgActor()
+  if (!actor) {
     redirect("/events?error=No+organization+found")
   }
-
-  // Authorization check: must be owner or admin
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organizationId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
+  if (!isOrgAdmin(actor)) {
     redirect("/events?error=Insufficient+permissions")
   }
+  const organizationId = actor.organizationId
 
   // Fetch org tier
   const { data: org } = await supabase

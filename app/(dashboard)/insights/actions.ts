@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
+import { requireOrgMembership } from "@/lib/auth/org-access"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { updateWeight } from "@/lib/insights/scoring"
 import {
@@ -45,6 +46,9 @@ export async function updateInsightStatusAction(formData: FormData) {
 
   if (!insight) return
 
+  // ALT-577: this action is keyed on the INSIGHT's org (via its location), not the caller's
+  // current org, so it cannot use resolveOrgActor. requireOrgMembership carries the same
+  // guarantees (member AND the org is not soft-deleted) for an explicit orgId.
   if (insight.location_id) {
     const { data: loc } = await supabase
       .from("locations")
@@ -53,14 +57,11 @@ export async function updateInsightStatusAction(formData: FormData) {
       .maybeSingle()
 
     if (loc?.organization_id) {
-      const { data: membership } = await supabase
-        .from("organization_members")
-        .select("id")
-        .eq("organization_id", loc.organization_id)
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (!membership) return
+      try {
+        await requireOrgMembership(supabase, user.id, loc.organization_id)
+      } catch {
+        return
+      }
     }
   }
 

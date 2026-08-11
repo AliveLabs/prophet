@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { isOrgActive } from "@/lib/auth/org-access"
+import { resolveOrgActorWith, isOrgAdmin } from "@/lib/auth/actor"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 export type JobAuthContext = {
@@ -17,34 +17,19 @@ export async function getJobAuthContext(): Promise<JobAuthContext | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  // getUser (not requireUser): these are API routes, so a signed-out caller must land on the
+  // route's 401 branch, never a redirect.
   if (!user) return null
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  if (!profile?.current_organization_id) return null
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", profile.current_organization_id)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) return null
-
-  // Soft-deleted org ⇒ no job context. The (dashboard) layout's deleted_at gate covers PAGE
-  // renders only; route handlers never pass through a layout, so without this an owner of a
-  // deleted org could still enqueue refresh jobs and stream their results. Returning null lands
-  // on each route's existing unauthorized branch, so no new failure shape for callers to handle.
-  if (!(await isOrgActive(supabase, profile.current_organization_id))) return null
+  // ALT-577: session → org actor via the ONE resolver. Carries the membership check AND the
+  // soft-delete gate (route handlers never pass through the (dashboard) layout's deleted_at
+  // gate, so this is theirs). Null lands on each route's existing unauthorized branch.
+  const actor = await resolveOrgActorWith(supabase, user.id)
+  if (!actor || !isOrgAdmin(actor)) return null
 
   return {
-    userId: user.id,
-    organizationId: profile.current_organization_id,
+    userId: actor.userId,
+    organizationId: actor.organizationId,
     supabase,
   }
 }
