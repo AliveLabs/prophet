@@ -142,3 +142,31 @@ export function briefJitterSeconds(index: number, spacingEnv: string | undefined
   const spacing = Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_JITTER_SPACING_SECONDS
   return Math.min(Math.max(0, index) * spacing, 3000)
 }
+
+/** Is the SEO/visibility pull due today for a tier's cadence?
+ *
+ *  SEO ran DAILY for every location while every tier declared it weekly, and while the cost model
+ *  priced it weekly. `seoCadence` lived in TIER_LIMITS and was read by exactly one thing:
+ *  lib/billing/cost-model.ts, to PROJECT cost. Nothing enforced it, so the projection and the bill
+ *  described different systems.
+ *
+ *  Measured 2026-08-10: 127 snapshots per SEO provider across ~9 days for 14 locations — one per
+ *  location per day — against RUNS_PER_MONTH { daily: 30, weekly: 4.3 }. Roughly 7x the modelled
+ *  rate on the largest vendor line.
+ *
+ *  `dayOfWeek` is 0=Sun..6=Sat (UTC, matching the daily cron's own clock).
+ *    weekly   → Mondays
+ *    biweekly → "2x / week" per the SeoCadence type comment: Mondays + Thursdays
+ *
+ *  `force` covers an active trial (an evaluator watching stale data churns) and an explicitly
+ *  requested single location (a deliberate ops action, not the nightly sweep taking its turn).
+ */
+export function isSeoDue(
+  cadence: "weekly" | "biweekly",
+  dayOfWeek: number,
+  opts: { force?: boolean } = {},
+): boolean {
+  if (opts.force) return true
+  const isMonday = dayOfWeek === 1
+  return cadence === "biweekly" ? isMonday || dayOfWeek === 4 : isMonday
+}

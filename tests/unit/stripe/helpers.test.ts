@@ -20,11 +20,15 @@ import {
 //   .from().insert().select()                 -> insertResult   (isWebhookEventNew)
 //   .from().select().eq()[.eq()].maybeSingle() -> selectResult   (resolve / role / unknown-price)
 //   .from().update().eq()                      -> captured via onUpdate, resolves { error: null }
+//   .from().update().eq().or().select()        -> guarded write; filter captured via onUpdateFilter,
+//                                                 resolves updateSelectResult (rows actually updated)
 type Term = { data?: unknown; error?: unknown }
 function makeClient(opts: {
   selectResult?: Term
   insertResult?: Term
+  updateSelectResult?: Term
   onUpdate?: (table: string, vals: Record<string, unknown>) => void
+  onUpdateFilter?: (filter: string) => void
 } = {}): SupabaseClient {
   const eqChain: Record<string, unknown> = {
     eq: () => eqChain,
@@ -40,7 +44,19 @@ function makeClient(opts: {
       update: (vals: Record<string, unknown>) => ({
         eq: () => {
           opts.onUpdate?.(table, vals)
-          return Promise.resolve({ error: null })
+          const done = Promise.resolve({ error: null })
+          return {
+            then: done.then.bind(done),
+            or: (filter: string) => {
+              opts.onUpdateFilter?.(filter)
+              return {
+                select: () =>
+                  Promise.resolve(
+                    opts.updateSelectResult ?? { data: [{ id: "org_1" }], error: null }
+                  ),
+              }
+            },
+          }
         },
       }),
     }),
@@ -201,6 +217,73 @@ describe("applySubscriptionToOrg — subscription -> org state (the access-gatin
     expect(tier).toBe("mid") // accepted, never black-holed
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("MISMATCH"))
     spy.mockRestore()
+  })
+})
+
+describe("applySubscriptionToOrg — event-ordering guard (out-of-order / concurrent webhooks)", () => {
+  const ENV = process.env
+  beforeEach(() => {
+    process.env = { ...ENV, STRIPE_PRICE_ID_TICKET_MID_MONTHLY: "price_mid" }
+  })
+  afterEach(() => {
+    process.env = ENV
+  })
+
+  const sub = () =>
+    ({
+      id: "sub_1",
+      customer: "cus_1",
+      status: "active",
+      cancel_at_period_end: false,
+      trial_end: null,
+      items: { data: [{ price: { id: "price_mid" } }] },
+    }) as unknown as Stripe.Subscription
+
+  it("stamps stripe_event_created and guards the UPDATE on event.created when eventCreated is given", async () => {
+    let vals: Record<string, unknown> | undefined
+    let filter: string | undefined
+    const admin = makeClient({
+      onUpdate: (_t, v) => (vals = v),
+      onUpdateFilter: (f) => (filter = f),
+    })
+    const { applied } = await applySubscriptionToOrg(admin, "org_1", sub(), {
+      eventCreated: 1_700_000_100,
+    })
+    expect(applied).toBe(true)
+    expect(vals?.stripe_event_created).toBe(1_700_000_100)
+    expect(filter).toContain("stripe_event_created.is.null")
+    expect(filter).toContain("stripe_event_created.lte.1700000100")
+  })
+
+  it("returns applied=false when a newer event already landed (stale write matches 0 rows)", async () => {
+    const admin = makeClient({ updateSelectResult: { data: [], error: null } })
+    const { applied } = await applySubscriptionToOrg(admin, "org_1", sub(), {
+      eventCreated: 1_700_000_050,
+    })
+    expect(applied).toBe(false)
+  })
+
+  it("THROWS when the guarded UPDATE errors so Stripe retries (never silently drops)", async () => {
+    const admin = makeClient({
+      updateSelectResult: { data: null, error: { message: "conn reset" } },
+    })
+    await expect(
+      applySubscriptionToOrg(admin, "org_1", sub(), { eventCreated: 1_700_000_100 })
+    ).rejects.toThrow(/conn reset/)
+  })
+
+  it("callers without eventCreated keep the unguarded write and never touch stripe_event_created", async () => {
+    let vals: Record<string, unknown> | undefined
+    let filter: string | undefined
+    const admin = makeClient({
+      onUpdate: (_t, v) => (vals = v),
+      onUpdateFilter: (f) => (filter = f),
+    })
+    const { applied } = await applySubscriptionToOrg(admin, "org_1", sub())
+    expect(applied).toBe(true)
+    expect(vals).toBeDefined()
+    expect(vals && "stripe_event_created" in vals).toBe(false)
+    expect(filter).toBeUndefined()
   })
 })
 

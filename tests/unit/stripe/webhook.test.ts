@@ -33,20 +33,38 @@ import {
   applySubscriptionToOrg,
   resolveOrganizationId,
 } from "@/lib/stripe/helpers"
+import { logAdminAction } from "@/lib/admin/activity-log"
 
 const constructEvent = vi.fn()
+const retrieveSubscription = vi.fn()
+
+const payloadSub = () => ({
+  id: "sub_1",
+  customer: "cus_1",
+  status: "active",
+  cancel_at_period_end: false,
+  metadata: { organization_id: "org_1" },
+  items: { data: [{ price: { id: "price_x" } }] },
+})
 
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(getStripeClient).mockReturnValue({
     webhooks: { constructEvent },
+    subscriptions: { retrieve: retrieveSubscription },
   } as unknown as ReturnType<typeof getStripeClient>)
   vi.mocked(headers).mockResolvedValue(
     new Map([["stripe-signature", "sig_ok"]]) as unknown as Awaited<ReturnType<typeof headers>>
   )
   vi.mocked(isWebhookEventNew).mockResolvedValue(true)
   vi.mocked(resolveOrganizationId).mockResolvedValue("org_1")
-  vi.mocked(applySubscriptionToOrg).mockResolvedValue({ tier: "mid", paymentState: "active" })
+  vi.mocked(applySubscriptionToOrg).mockResolvedValue({
+    tier: "mid",
+    paymentState: "active",
+    applied: true,
+  })
+  // Default: canonical re-fetch returns the same shape as the payload.
+  retrieveSubscription.mockResolvedValue(payloadSub())
 })
 
 const req = (body = "{}") =>
@@ -55,16 +73,8 @@ const req = (body = "{}") =>
 const subEvent = (type = "customer.subscription.updated", id = "evt_1") => ({
   id,
   type,
-  data: {
-    object: {
-      id: "sub_1",
-      customer: "cus_1",
-      status: "active",
-      cancel_at_period_end: false,
-      metadata: { organization_id: "org_1" },
-      items: { data: [{ price: { id: "price_x" } }] },
-    },
-  },
+  created: 1_700_000_100,
+  data: { object: payloadSub() },
 })
 
 describe("POST /api/stripe/webhook — security + idempotency contract", () => {
@@ -102,7 +112,7 @@ describe("POST /api/stripe/webhook — security + idempotency contract", () => {
       expect.anything(),
       "org_1",
       expect.objectContaining({ id: "sub_1" }),
-      { deleted: false }
+      { deleted: false, eventCreated: 1_700_000_100 }
     )
     expect(markWebhookEventProcessed).toHaveBeenCalledWith(expect.anything(), "evt_1")
   })
@@ -114,7 +124,7 @@ describe("POST /api/stripe/webhook — security + idempotency contract", () => {
       expect.anything(),
       "org_1",
       expect.anything(),
-      { deleted: true }
+      { deleted: true, eventCreated: 1_700_000_100 }
     )
   })
 
@@ -132,5 +142,58 @@ describe("POST /api/stripe/webhook — security + idempotency contract", () => {
     expect(res.status).toBe(200)
     expect(applySubscriptionToOrg).not.toHaveBeenCalled()
     expect(markWebhookEventProcessed).toHaveBeenCalledWith(expect.anything(), "evt_x")
+  })
+})
+
+describe("POST /api/stripe/webhook — out-of-order + concurrent delivery contract", () => {
+  it("re-fetches canonical subscription state from Stripe and applies THAT, not the event payload", async () => {
+    constructEvent.mockReturnValue(subEvent())
+    // Canonical state has moved on since the event was emitted.
+    retrieveSubscription.mockResolvedValue({ ...payloadSub(), status: "past_due", cancel_at_period_end: true })
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(retrieveSubscription).toHaveBeenCalledWith("sub_1")
+    expect(applySubscriptionToOrg).toHaveBeenCalledWith(
+      expect.anything(),
+      "org_1",
+      expect.objectContaining({ status: "past_due", cancel_at_period_end: true }),
+      { deleted: false, eventCreated: 1_700_000_100 }
+    )
+  })
+
+  it("falls back to the event payload when the canonical re-fetch fails (never drops the event)", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    constructEvent.mockReturnValue(subEvent())
+    retrieveSubscription.mockRejectedValue(new Error("stripe down"))
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(applySubscriptionToOrg).toHaveBeenCalledWith(
+      expect.anything(),
+      "org_1",
+      expect.objectContaining({ status: "active" }),
+      { deleted: false, eventCreated: 1_700_000_100 }
+    )
+    warn.mockRestore()
+  })
+
+  it("does NOT re-fetch on subscription.deleted (payload is final; retrieve could resurrect state)", async () => {
+    constructEvent.mockReturnValue(subEvent("customer.subscription.deleted", "evt_del"))
+    await POST(req())
+    expect(retrieveSubscription).not.toHaveBeenCalled()
+  })
+
+  it("acks a stale event 200 (applied=false) but skips the audit log and marketing mirror", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    constructEvent.mockReturnValue(subEvent())
+    vi.mocked(applySubscriptionToOrg).mockResolvedValue({
+      tier: "mid",
+      paymentState: "active",
+      applied: false,
+    })
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(logAdminAction).not.toHaveBeenCalled()
+    expect(markWebhookEventProcessed).toHaveBeenCalledWith(expect.anything(), "evt_1")
+    warn.mockRestore()
   })
 })
