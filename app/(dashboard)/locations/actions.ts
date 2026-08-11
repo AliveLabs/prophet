@@ -39,7 +39,7 @@ export async function createLocationFromPlaceAction(formData: FormData) {
 
   const { data: orgRow } = await supabase
     .from("organizations")
-    .select("subscription_tier, trial_ends_at, payment_state, org_kind")
+    .select("subscription_tier, trial_ends_at, payment_state, org_kind, deleted_at")
     .eq("id", organizationId)
     .maybeSingle()
 

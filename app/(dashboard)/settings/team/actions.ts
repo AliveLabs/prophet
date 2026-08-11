@@ -74,10 +74,17 @@ export async function inviteTeamMemberAction(formData: FormData): Promise<TeamAc
   // Tier gate, enforced server-side so a disabled button can't be bypassed.
   const { data: org } = await admin
     .from("organizations")
-    .select("id, name, subscription_tier, trial_ends_at, payment_state")
+    .select("id, name, subscription_tier, trial_ends_at, payment_state, deleted_at")
     .eq("id", actor.organizationId)
     .maybeSingle()
   if (!org) return { ok: false, error: "Organization not found." }
+  // Soft-deleted org ⇒ no new members. This action GRANTS access: it creates an auth user, an
+  // organization_members row, and (via shouldPointNewOwnerAtOrg below) may set the invitee's
+  // current_organization_id. resolveActor() above resolves the org inline and server actions
+  // never pass through the (dashboard) layout's deleted_at gate, so this is the gate.
+  if (org.deleted_at) {
+    return { ok: false, error: "This organization is no longer active." }
+  }
 
   try {
     ensureCanInviteTeamMember({

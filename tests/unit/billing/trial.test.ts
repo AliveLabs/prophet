@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { ensureCanAddLocation } from "@/lib/billing/limits"
+import { ensureCanAddLocation, canAddLocationHere } from "@/lib/billing/limits"
 import {
   isTrialActive,
   isTrialing,
@@ -116,5 +116,53 @@ describe("ensureCanAddLocation — trials cover one location", () => {
     expect(() => ensureCanAddLocation(paid("mid"), 1)).toThrow(/Location limit/)
     expect(() => ensureCanAddLocation(paid("top"), 2)).not.toThrow()
     expect(() => ensureCanAddLocation(paid("top"), 3)).toThrow(/Location limit/)
+  })
+})
+
+// A soft-deleted org must not GROW. The add-location server action resolves the org inline and
+// never passes through the (dashboard) layout's deleted_at gate, so this is a real second line.
+describe("ensureCanAddLocation: soft-deleted orgs (2026-08-10)", () => {
+  const deleted = "2026-08-10T00:00:00Z"
+
+  it("refuses a paid org under its cap once deleted_at is set", () => {
+    expect(() =>
+      ensureCanAddLocation(
+        { subscription_tier: "top", trial_ends_at: null, payment_state: "active", deleted_at: deleted },
+        0
+      )
+    ).toThrow(/no longer active/i)
+  })
+
+  // Checked ahead of the demo exemption, which returns before every other gate.
+  it("refuses even a demo org, whose org_kind otherwise short-circuits all limits", () => {
+    expect(() =>
+      ensureCanAddLocation(
+        { subscription_tier: "entry", trial_ends_at: null, org_kind: "demo", deleted_at: deleted },
+        5
+      )
+    ).toThrow(/no longer active/i)
+    expect(() =>
+      ensureCanAddLocation({ subscription_tier: "entry", trial_ends_at: null, org_kind: "demo" }, 5)
+    ).not.toThrow()
+  })
+
+  // Optional field: a caller whose select omits deleted_at keeps the old behavior rather than
+  // throwing on an absent column. The four real call sites all select it.
+  it("is inert for null/absent deleted_at", () => {
+    expect(() =>
+      ensureCanAddLocation({ subscription_tier: "top", trial_ends_at: null, payment_state: "active", deleted_at: null }, 0)
+    ).not.toThrow()
+    expect(() =>
+      ensureCanAddLocation({ subscription_tier: "top", trial_ends_at: null, payment_state: "active" }, 0)
+    ).not.toThrow()
+  })
+
+  it("canAddLocationHere mirrors it without throwing", () => {
+    expect(
+      canAddLocationHere(
+        { subscription_tier: "top", trial_ends_at: null, payment_state: "active", deleted_at: deleted },
+        0
+      )
+    ).toBe(false)
   })
 })
