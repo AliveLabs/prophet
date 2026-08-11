@@ -12,9 +12,8 @@
 // Phase 1 grants ORG-WIDE access. Per-location scoping is the next phase.
 
 import { revalidatePath } from "next/cache"
-import { requireUser } from "@/lib/auth/server"
+import { resolveOrgActor } from "@/lib/auth/actor"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { ensureCanInviteTeamMember } from "@/lib/billing/limits"
@@ -32,29 +31,11 @@ export interface TeamActionResult {
   error?: string
 }
 
-/** The caller's org + their role in it, resolved from the session (never from the client). */
+/** The caller's org + their role in it, resolved from the session (never from the client).
+ *  ALT-577: delegates to the shared resolver, which also refuses soft-deleted orgs. This
+ *  makes the deleted_at guard inside inviteTeamMemberAction a second line, not the only one. */
 async function resolveActor() {
-  const user = await requireUser()
-  const supabase = await createServerSupabaseClient()
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const organizationId = profile?.current_organization_id
-  if (!organizationId) return null
-
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", organizationId)
-    .eq("user_id", user.id)
-    .maybeSingle()
-
-  if (!membership) return null
-  return { userId: user.id, organizationId, role: membership.role as string }
+  return resolveOrgActor()
 }
 
 export async function inviteTeamMemberAction(formData: FormData): Promise<TeamActionResult> {
