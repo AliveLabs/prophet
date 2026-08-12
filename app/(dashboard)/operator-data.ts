@@ -57,7 +57,17 @@ export type Operator = {
 }
 
 /** Logged-in user → current org → its primary location. Redirects to onboarding when
- *  the account has no org/location yet (same behavior as the dashboard shell). */
+ *  the account has no org/location yet (same behavior as the dashboard shell).
+ *
+ *  ALT-580: deliberately does NOT check organizations.deleted_at itself. Every caller of
+ *  this function is a Server Component rendered under app/(dashboard)/layout.tsx, and that
+ *  layout already calls loadOperatorAccount() -> resolveOperator() BEFORE its own explicit
+ *  deleted_at branch (which renders a locked "no longer active" shell instead of the page).
+ *  Adding a redirect here would fire first and loop, since current_organization_id still
+ *  points at the deleted org. Route handlers and server actions are NOT under this layout —
+ *  they must resolve through lib/auth/actor.ts's resolveOrgActorWith/resolveOrgActor, which
+ *  does carry the deleted_at gate (ALT-577/578). Do not add page-render callers of this
+ *  function outside the (dashboard) tree without re-deriving that gate. */
 export async function resolveOperator(): Promise<Operator> {
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()

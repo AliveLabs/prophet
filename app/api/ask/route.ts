@@ -3,6 +3,7 @@
 // session (never trusted from the client); cost-bounded in answerQuestion.
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { resolveOrgActorWith } from "@/lib/auth/actor"
 import { gatherAskContext } from "@/lib/ask/gather"
 import { answerQuestion, MAX_QUESTION_LEN } from "@/lib/ask/answer"
 import { isHowToQuestion, answerHowTo } from "@/lib/ask/how-to"
@@ -16,19 +17,19 @@ export async function POST(req: Request) {
   const user = auth?.user
   if (!user) return Response.json({ error: "unauthorized" }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-  if (!profile?.current_organization_id) {
-    return Response.json({ error: "no organization" }, { status: 400 })
+  // ALT-578: session → org actor via the shared resolver (lib/auth/actor.ts). Route handlers
+  // never pass through the (dashboard) layout's deleted_at gate, and this route reaches the
+  // paid model layer, so a soft-deleted org's members could keep spending here. Any member may
+  // still ask; no admin gate added (same as before).
+  const actor = await resolveOrgActorWith(supabase, user.id)
+  if (!actor) {
+    return Response.json({ error: "This organization is no longer active." }, { status: 403 })
   }
 
   const { data: loc } = await supabase
     .from("locations")
     .select("id")
-    .eq("organization_id", profile.current_organization_id)
+    .eq("organization_id", actor.organizationId)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle()
