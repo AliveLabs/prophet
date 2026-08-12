@@ -14,6 +14,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { resolveOrgActorWith, isOrgAdmin } from "@/lib/auth/actor"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { generateGeminiJson } from "@/lib/ai/gemini"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { computeRelevanceScore, getUrgencyLevel } from "@/lib/insights/scoring"
 import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
 import { scrubTicket } from "@/lib/skills/voice"
@@ -117,6 +118,16 @@ export async function POST(req: Request) {
         // and bound thinking so both fit (ALT-294).
         maxOutputTokens: 4096,
         thinkingBudget: 1024,
+        onUsage: (usage) =>
+          void recordSpendEvent({
+            surface: "insights_generate",
+            provider: "gemini",
+            model: usage.model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            locationId,
+          }),
       })
       if (parsed) llm = coerceLlmInsight(parsed, viz)
     } catch (err) {

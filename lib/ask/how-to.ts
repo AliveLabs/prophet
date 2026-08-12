@@ -11,6 +11,7 @@
 // the same generateStructured contract, so it degrades honestly when there's no match.
 
 import { generateStructured, type Transport } from "@/lib/ai/provider"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { HOW_TO_KB, type HowToEntry } from "./how-to-kb"
 import type { AskAnswer } from "./answer"
 import { MAX_QUESTION_LEN } from "./answer"
@@ -133,7 +134,7 @@ function validateAnswer(raw: unknown): AskAnswer | null {
  */
 export async function answerHowTo(
   question: string,
-  opts: { transport?: Transport } = {},
+  opts: { transport?: Transport; locationId?: string | null } = {},
 ): Promise<AskAnswer> {
   const matches = matchHowTo(question, 3)
   if (!matches.length) {
@@ -147,7 +148,26 @@ export async function answerHowTo(
   }
   const { system, prompt } = buildHowToPrompt(question, matches)
   return generateStructured<AskAnswer>(
-    { tier: "reasoning", system, prompt, temperature: 0.2, maxOutputTokens: 768 },
+    {
+      tier: "reasoning",
+      system,
+      prompt,
+      temperature: 0.2,
+      maxOutputTokens: 768,
+      label: "ask-howto",
+      onUsage: (usage) =>
+        void recordSpendEvent({
+          surface: "ask",
+          provider: "anthropic",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
+          locationId: opts.locationId,
+          metadata: { path: "howto" },
+        }),
+    },
     {
       transport: opts.transport,
       validate: validateAnswer,

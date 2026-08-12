@@ -10,6 +10,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { resolveOrgActorWith } from "@/lib/auth/actor"
 import { clampQuickTipContext } from "@/lib/ai/quick-tip"
 import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
@@ -75,6 +76,20 @@ export async function POST(req: Request) {
         ?.map((p: { text?: string }) => p.text ?? "")
         .join("")
         .trim() ?? null
+
+    // Spend telemetry (beta rescue 2.3): fire-and-forget, never awaited so it can't add latency
+    // to this latency-sensitive overlay call. No location on this endpoint (context is a caller-
+    // supplied string, not a location id).
+    const um = data.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } | undefined
+    if (um) {
+      void recordSpendEvent({
+        surface: "quick_tip",
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        inputTokens: um.promptTokenCount ?? 0,
+        outputTokens: (um.candidatesTokenCount ?? 0) + (um.thoughtsTokenCount ?? 0),
+      })
+    }
 
     return Response.json({ tip })
   } catch {

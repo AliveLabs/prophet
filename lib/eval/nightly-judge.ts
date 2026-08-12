@@ -20,6 +20,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
 import type { Brief } from "@/lib/skills/types"
 import { judgeBrief, overallScore, defaultJudgeGenerate, type GenerateFn } from "@/lib/eval/judge"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 
 export type JudgeStore = SupabaseClient<Database>
 
@@ -124,7 +125,24 @@ export async function runNightlyJudge(opts: {
     if (!groundTruth || !Array.isArray(brief.plays) || brief.plays.length === 0) continue
 
     try {
-      const verdict = await judgeBrief(brief, groundTruth, generate)
+      // Spend telemetry (beta rescue 2.3): wrap the shared `generate` fn per row so the recorded
+      // event carries THIS brief's location. Harmless when `generate` is a test mock that ignores
+      // the second (onUsage) param: it's just never invoked, so no event is recorded.
+      const rowGenerate: GenerateFn = (prompt) =>
+        generate(prompt, (usage) =>
+          void recordSpendEvent({
+            surface: "eval_judge",
+            provider: "anthropic",
+            model: usage.model,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            cacheReadTokens: usage.cacheReadTokens,
+            cacheWriteTokens: usage.cacheWriteTokens,
+            locationId: row.location_id,
+            metadata: { dateKey: row.date_key },
+          }),
+        )
+      const verdict = await judgeBrief(brief, groundTruth, rowGenerate)
       const overall = overallScore(verdict.scores)
       judged.push({ locationId: row.location_id, dateKey: row.date_key, overall })
 

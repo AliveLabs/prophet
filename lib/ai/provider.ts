@@ -409,7 +409,16 @@ export async function claudeTransport(req: GenerateRequest): Promise<unknown> {
 export async function geminiTransport(req: GenerateRequest): Promise<unknown> {
   const system = [req.systemCached, req.system].filter(Boolean).join("\n")
   const prompt = system ? `${system}\n\n${req.prompt}` : req.prompt
-  return generateGeminiJson(prompt, { maxOutputTokens: req.maxOutputTokens, temperature: req.temperature })
+  return generateGeminiJson(prompt, {
+    maxOutputTokens: req.maxOutputTokens,
+    temperature: req.temperature,
+    // Forward to the same onUsage contract the Anthropic path uses, so a "cheap" tier caller of
+    // generateStructured gets spend telemetry for free (cacheWriteTokens: Gemini has no separate
+    // cache-write signal on this endpoint, always 0).
+    onUsage: req.onUsage
+      ? (usage) => req.onUsage?.({ ...usage, cacheWriteTokens: 0 })
+      : undefined,
+  })
 }
 
 export function defaultTransport(req: GenerateRequest): Promise<unknown> {
