@@ -139,6 +139,54 @@ export function generateSeoInsights(input: SeoInsightInput): GeneratedInsight[] 
 }
 
 // ---------------------------------------------------------------------------
+// No-diff-safe insight types (beta rescue 2.4)
+// ---------------------------------------------------------------------------
+
+/**
+ * `generateSeoInsights` is called from two pipeline steps: `visibility.ts`'s `seo_insights`
+ * step (which plumbs a real 7-day-prior snapshot into every `previous*` field, but only runs
+ * on SEO-due days per `isSeoDue`) and `insights.ts`'s `enriched_seo_insights` step (which runs
+ * every day but hardcodes `previous*` to `null`/`[]` — it has no prior snapshot to diff
+ * against).
+ *
+ * Several detectors have no guard against an empty/null "previous" and will flag the ENTIRE
+ * current set as new/changed every single day when called with no real diff data:
+ * `detectNewCompetitorAds` (every current competitor ad reads as "new") and
+ * `detectPaidOverlapSpike` (any nonzero overlap reads as a "spike"). The rest correctly return
+ * nothing when `previous` is missing or empty, but they are still diff-branded types that
+ * should stay attributed to a real diff, not a no-diff call site that happens to produce an
+ * empty result today and could produce a false positive tomorrow if its inputs ever change.
+ *
+ * This is the allowlist of insight types a NO-DIFF call site may persist: everything else here
+ * is either false-positive-prone or semantically a week-over-week diff that only
+ * `visibility.ts`'s real-snapshot call site should own. Allowlist, not denylist, on purpose
+ * (see CLAUDE.md's `acceptsTemperature` precedent) — a new diff-dependent insight_type added to
+ * `generateSeoInsights` later defaults to EXCLUDED here until someone deliberately adds it,
+ * rather than defaulting to a silent false-positive risk in a no-diff caller.
+ */
+export const NO_DIFF_SAFE_SEO_INSIGHT_TYPES: ReadonlySet<string> = new Set([
+  "seo_keyword_opportunity_gap",
+  "seo_historical_traffic_trend",
+  "seo_competitor_keyword_portfolio",
+  "seo_competitor_top_page_threat",
+  "seo_competitor_growth_trend",
+])
+
+/**
+ * Filters a `generateSeoInsights` result down to the types safe to persist from a call site
+ * that has no real prior-snapshot data. Pure and side-effect free so the decision logic is
+ * unit-testable without a DB. See `NO_DIFF_SAFE_SEO_INSIGHT_TYPES` for why each type is in or
+ * out.
+ */
+export function filterNoDiffSafeSeoInsights(
+  insights: GeneratedInsight[]
+): GeneratedInsight[] {
+  return insights.filter((insight) =>
+    NO_DIFF_SAFE_SEO_INSIGHT_TYPES.has(insight.insight_type)
+  )
+}
+
+// ---------------------------------------------------------------------------
 // 1. seo_organic_visibility_up / seo_organic_visibility_down
 // ---------------------------------------------------------------------------
 

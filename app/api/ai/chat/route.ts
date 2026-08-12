@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { resolveOrgActorWith } from "@/lib/auth/actor"
 import { buildVaticPrompt } from "@/lib/ai/prompts/prophet-chat"
 
 export async function POST(req: Request) {
@@ -20,18 +21,18 @@ export async function POST(req: Request) {
     })
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("current_organization_id")
-    .eq("id", user.id)
-    .maybeSingle()
-
-  const organizationId = profile?.current_organization_id
-  if (!organizationId) {
-    return new Response(JSON.stringify({ ok: false, message: "Organization not set" }), {
-      status: 400,
-    })
+  // ALT-578: session → org actor via the shared resolver (lib/auth/actor.ts) — adds the
+  // membership check this route never had (it leaned on locations RLS) plus the soft-delete
+  // gate route handlers otherwise lack. Currently a stub (no model call below), but it reads
+  // org data and the LLM wiring lands here, so it gets the same gate as its siblings.
+  const actor = await resolveOrgActorWith(supabase, user.id)
+  if (!actor) {
+    return new Response(
+      JSON.stringify({ ok: false, message: "This organization is no longer active." }),
+      { status: 403 },
+    )
   }
+  const organizationId = actor.organizationId
 
   const { data: locations } = await supabase
     .from("locations")

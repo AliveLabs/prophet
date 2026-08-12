@@ -20,7 +20,7 @@ import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store
 import { scoreLocationReviews } from "@/lib/reviews/scoring"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
-import { generateSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
+import { generateSeoInsights, filterNoDiffSafeSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
 import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
 import type {
   DomainRankSnapshot,
@@ -456,14 +456,22 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         })
 
         const seoCtx: SeoInsightContext = { locationName: c.location.name ?? "Your location", locationDomain, competitors: compMetas }
-        const seoInsights = generateSeoInsights({
+        // beta rescue 2.4: this call site has no real prior-snapshot data (previous* below are
+        // hardcoded null/[] because this step has none to diff against — see visibility.ts's
+        // `seo_insights` step for the real 7-day-prior diff, which only runs on SEO-due days).
+        // filterNoDiffSafeSeoInsights() drops every insight_type that either needs a real diff
+        // to mean anything or has no guard against an empty "previous" and would otherwise flag
+        // today's entire snapshot as "new"/"changed". Without this filter, this daily step can
+        // upsert a false, no-diff row onto the exact (location_id, competitor_id, date_key,
+        // insight_type) key visibility.ts already wrote a correctly diffed row to today.
+        const seoInsights = filterNoDiffSafeSeoInsights(generateSeoInsights({
           currentRank, previousRank: null, currentKeywords: locationKeywords, previousKeywords: [],
           serpEntries, previousSerpEntries: [], intersectionRows: allIntersectionRows, previousIntersectionRows: [],
           adCreatives, previousAdCreatives: [], currentBacklinks: null, previousBacklinks: null,
           currentPages, previousPages: [], historicalTraffic,
           competitorRankedKeywords, competitorRelevantPages, competitorHistoricalTraffic,
           context: seoCtx,
-        })
+        }))
         for (const ins of seoInsights) {
           c.state.insightsPayload.push({ location_id: c.locationId, competitor_id: ins.evidence?.competitor_id ? String(ins.evidence.competitor_id) : null, date_key: c.dateKey, ...ins, status: "new" })
         }

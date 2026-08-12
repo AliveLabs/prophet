@@ -6,6 +6,8 @@
 // ---------------------------------------------------------------------------
 
 import { getUser } from "@/lib/auth/server"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { resolveOrgActorWith } from "@/lib/auth/actor"
 import { clampQuickTipContext } from "@/lib/ai/quick-tip"
 import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
 import { recordSpendEvent } from "@/lib/ai/spend-events"
@@ -18,6 +20,16 @@ export async function POST(req: Request) {
     const user = await getUser()
     if (!user) {
       return Response.json({ tip: null }, { status: 401 })
+    }
+    // ALT-578: session → org actor via the shared resolver (lib/auth/actor.ts). This route has
+    // no org context in its body (it takes free-text `context` from the caller) but it does
+    // spend GOOGLE_AI_API_KEY on behalf of the signed-in user's org, and route handlers never
+    // pass through the (dashboard) layout's deleted_at gate — so a soft-deleted org's member
+    // could otherwise keep calling this after the org was switched off.
+    const supabase = await createServerSupabaseClient()
+    const actor = await resolveOrgActorWith(supabase, user.id)
+    if (!actor) {
+      return Response.json({ tip: null }, { status: 403 })
     }
     // Per-user rate limit: this spends GOOGLE_AI_API_KEY, so cap burst abuse even for a signed-in
     // caller. Fail-open when Upstash is unconfigured (see lib/http/rate-limit).
