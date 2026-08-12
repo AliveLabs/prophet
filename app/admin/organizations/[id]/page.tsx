@@ -39,7 +39,7 @@ async function fetchOrgDetail(orgId: string) {
 
   const { data: locations } = await supabase
     .from("locations")
-    .select("id, name, city, created_at")
+    .select("id, name, city, created_at, daily_runs_enabled")
     .eq("organization_id", orgId)
 
   const locationIds = (locations ?? []).map((l) => l.id)
@@ -118,6 +118,7 @@ async function fetchOrgDetail(orgId: string) {
       city: l.city,
       competitorCount: competitorCounts.get(l.id) ?? 0,
       createdAt: l.created_at,
+      dailyRunsEnabled: l.daily_runs_enabled,
     })),
     activityLog: (activityLogs ?? []).map((log) => ({
       id: log.id,

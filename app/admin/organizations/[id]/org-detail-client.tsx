@@ -18,6 +18,7 @@ import {
   purgeOrg,
   restoreOrg,
   mergeOrganizations,
+  setLocationDailyRunsEnabled,
 } from "@/app/actions/org-management"
 import { impersonateUser } from "@/app/actions/user-management"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
@@ -52,6 +53,7 @@ interface OrgDetail {
     city: string | null
     competitorCount: number
     createdAt: string
+    dailyRunsEnabled: boolean
   }>
   activityLog: Array<{
     id: string
@@ -157,6 +159,26 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
       } else {
         setFeedback(result.error)
       }
+    })
+  }
+
+  // Per-location pause: turns off the daily machine (data-pull cron + brief cron) for one
+  // location without deleting it (mainly for demo orgs between demos). An explicit
+  // ?location_id= cron request still overrides the pause (see lib/jobs/build-schedule.ts).
+  const handleToggleDailyRuns = (locationId: string, locationName: string, currentlyEnabled: boolean) => {
+    const next = !currentlyEnabled
+    if (
+      !confirm(
+        next
+          ? `Resume daily runs for ${locationName}?`
+          : `Pause daily runs for ${locationName}? No data pulls or brief builds until resumed.`
+      )
+    )
+      return
+    startTransition(async () => {
+      const result = await setLocationDailyRunsEnabled(org.id, locationId, next)
+      setFeedback(result.ok ? result.message : result.error)
+      if (result.ok) router.refresh()
     })
   }
 
@@ -473,6 +495,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                       <th>City</th>
                       <th>Competitors</th>
                       <th>Created</th>
+                      <th>Daily runs</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -485,6 +508,21 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                         <td className="ao-cell-num">{l.competitorCount}</td>
                         <td className="ao-cell-num">
                           {new Date(l.createdAt).toLocaleDateString()}
+                        </td>
+                        <td>
+                          <span
+                            className={`ao-badge ${l.dailyRunsEnabled ? "ao-badge-ink" : "ao-badge-gold"}`}
+                            style={{ marginRight: 8 }}
+                          >
+                            {l.dailyRunsEnabled ? "On" : "Paused"}
+                          </span>
+                          <TkButton
+                            variant="keep"
+                            onClick={() => handleToggleDailyRuns(l.id, l.name, l.dailyRunsEnabled)}
+                            disabled={isPending}
+                          >
+                            {l.dailyRunsEnabled ? "Pause" : "Resume"}
+                          </TkButton>
                         </td>
                       </tr>
                     ))}

@@ -336,6 +336,65 @@ export const updateOrgInfo = withAdminAction(
   }
 )
 
+// Per-location pause (beta-rescue 1.1): a non-destructive on/off switch for the daily
+// machine (data-pull cron + brief cron), mainly for demo orgs: pause them without deleting
+// the org so they stop costing money on data pulls and brief builds. See
+// lib/jobs/build-schedule.ts#shouldRunDailyForLocation for how the crons read the flag, and
+// migration 20260812130000 for the column itself (`locations.daily_runs_enabled`, default
+// true). Scoped to the org's OWN locations so an id from another org can't be toggled through
+// this org's admin page.
+export const setLocationDailyRunsEnabled = withAdminAction(
+  "org.manage",
+  async (
+    ctx,
+    orgId: string,
+    locationId: string,
+    enabled: boolean
+  ): Promise<ActionResult> => {
+    const supabase = createAdminSupabaseClient()
+
+    const { data: location } = await supabase
+      .from("locations")
+      .select("id, name, organization_id, daily_runs_enabled")
+      .eq("id", locationId)
+      .eq("organization_id", orgId)
+      .maybeSingle()
+    if (!location) return { ok: false, error: "Location not found on this organization." }
+
+    const { error } = await supabase
+      .from("locations")
+      .update({ daily_runs_enabled: enabled, updated_at: new Date().toISOString() })
+      .eq("id", locationId)
+
+    if (error) return { ok: false, error: error.message }
+
+    // targetType/targetId "org"/orgId (not "location") so this shows up in the org detail
+    // page's own activity feed alongside its siblings (that feed filters on target_type=org,
+    // target_id=orgId), so the locationId/locationName live in details instead.
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: enabled ? "location.daily_runs.enable" : "location.daily_runs.disable",
+      targetType: "org",
+      targetId: orgId,
+      details: {
+        locationId,
+        locationName: location.name,
+        previousValue: location.daily_runs_enabled,
+        newValue: enabled,
+      },
+    })
+
+    revalidatePath(`/admin/organizations/${orgId}`)
+    return {
+      ok: true,
+      message: enabled
+        ? `Daily runs resumed for ${location.name}.`
+        : `Daily runs paused for ${location.name}: no data pulls or brief builds until resumed.`,
+    }
+  }
+)
+
 const VALID_ORG_KINDS = ["real", "demo", "test"] as const
 
 // SOFT-delete an org (Phase 6c): set deleted_at so it's hidden from every list / count /

@@ -170,3 +170,23 @@ export function isSeoDue(
   const isMonday = dayOfWeek === 1
   return cadence === "biweekly" ? isMonday || dayOfWeek === 4 : isMonday
 }
+
+/** Should the daily machine (data-pull cron + brief cron) run for this location today?
+ *  `locations.daily_runs_enabled` is a non-destructive pause lever, mainly for demo orgs,
+ *  so a location can stop costing money on data pulls and brief builds without deleting the
+ *  org. Defaults true (a location with no explicit opt-out keeps running); `null`/`undefined`
+ *  is treated the same as true so a stale client type or a not-yet-selected column never
+ *  silently pauses a location that was never asked to pause.
+ *
+ *  `opts.explicitLocationId` mirrors the weekly-tier and SEO-cadence bypasses above: an
+ *  explicit `?location_id=` request to either cron is a deliberate admin/manual action
+ *  (re-pull one restaurant, force a build), not the nightly sweep deciding whose turn it is,
+ *  so it overrides the pause. onboarding's enqueueFirstRun never calls this at all: a new
+ *  signup always gets its first run regardless of this flag. */
+export function shouldRunDailyForLocation(
+  dailyRunsEnabled: boolean | null | undefined,
+  opts: { explicitLocationId?: boolean } = {},
+): boolean {
+  if (opts.explicitLocationId) return true
+  return dailyRunsEnabled !== false
+}
