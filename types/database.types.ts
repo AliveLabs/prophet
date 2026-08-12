@@ -1002,6 +1002,7 @@ export type Database = {
           city: string | null
           country: string | null
           created_at: string
+          daily_runs_enabled: boolean
           geo_lat: number | null
           geo_lng: number | null
           id: string
@@ -1024,6 +1025,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          daily_runs_enabled?: boolean
           geo_lat?: number | null
           geo_lng?: number | null
           id?: string
@@ -1046,6 +1048,7 @@ export type Database = {
           city?: string | null
           country?: string | null
           created_at?: string
+          daily_runs_enabled?: boolean
           geo_lat?: number | null
           geo_lng?: number | null
           id?: string

@@ -25,7 +25,7 @@ import { runStandingQuestion } from "@/lib/ask/history"
 import { enqueueBriefIfMissing } from "@/lib/jobs/queue"
 import type { SB } from "@/lib/jobs/queue"
 import { isTrialActive } from "@/lib/billing/trial"
-import { shouldEnqueueBriefNow, resolveBuildHour, resolveCatchupHours, briefJitterSeconds } from "@/lib/jobs/build-schedule"
+import { shouldEnqueueBriefNow, resolveBuildHour, resolveCatchupHours, briefJitterSeconds, shouldRunDailyForLocation } from "@/lib/jobs/build-schedule"
 import { checkFleetSpend, describeFleetSpend, type FleetBudgetStore } from "@/lib/ai/fleet-budget"
 import { postSlackAlert } from "@/lib/ops/slack"
 
@@ -109,7 +109,7 @@ export async function GET(req: Request) {
   const catchupHours = resolveCatchupHours()
   const { data: locations, error: locErr } = await sb
     .from("locations")
-    .select("id, organization_id, timezone")
+    .select("id, organization_id, timezone, daily_runs_enabled")
   if (locErr || !locations) {
     return Response.json({ error: "Failed to list locations", details: locErr?.message }, { status: 500 })
   }
@@ -151,9 +151,18 @@ export async function GET(req: Request) {
   let skipped = 0
   let inactive = 0
   let offHour = 0
+  let paused = 0
   for (const loc of locations) {
     if (!activeOrgs.has(loc.organization_id)) {
       inactive++
+      continue
+    }
+    // Per-location pause (beta-rescue 1.1): scheduled mode honors it so a paused demo
+    // location stops costing brief-build spend. `force=1` (fleet re-render) is a scoped
+    // scheduling bypass, not a per-location one, so it does NOT override the pause.
+    // Only an explicit `?location_id=` inline build (handled above, before this loop) does.
+    if (!shouldRunDailyForLocation(loc.daily_runs_enabled)) {
+      paused++
       continue
     }
     // Timezone stagger + self-heal: enqueue when the location's local clock is within the catch-up
@@ -191,5 +200,5 @@ export async function GET(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, mode: force ? "enqueue-forced" : "enqueue", buildHour, enqueued, skipped, offHour, inactive })
+  return Response.json({ ok: true, mode: force ? "enqueue-forced" : "enqueue", buildHour, enqueued, skipped, offHour, inactive, paused })
 }
