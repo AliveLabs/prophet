@@ -56,8 +56,10 @@ const RESURFACE_KINDS = new Set<RecKind>(["reputation", "positioning", "ops"])
 // distinct kinds of opportunity. A daily glance can pass a smaller maxPlays.
 const WEEKLY_MAX = 7
 
-/** What the engine checked for this location — fired vs missing — for the "what we checked" view. */
-function buildCoverage(d: Dossier): BriefCoverage[] {
+/** What the engine checked for this location — fired vs missing — for the "what we checked" view.
+ *  Exported for the Phase 2 downstream-reuse branch in pipeline.ts, which skips synthesize entirely
+ *  but must still stamp fresh coverage on the carried brief. */
+export function buildCoverage(d: Dossier): BriefCoverage[] {
   const events = d.demandCalendar.events ?? []
   const wx = d.demandCalendar.weather ?? []
   const comps = d.competitors ?? []
@@ -84,7 +86,9 @@ const CATEGORY_BY_SKILL: Record<string, Category> = Object.fromEntries(
 
 // P15: each skill's declared lead-domain for the play_type_key (its learning hook). Preferred over
 // deriving the domain from evidenceRefs because it's stable + intentional. Absent → derived per-play.
-const LEAD_DOMAIN_BY_SKILL: Record<string, string> = Object.fromEntries(
+// Exported so the Phase 2 downstream fingerprint (pipeline.ts) probes multipliers on the SAME keys
+// this ranking actually uses.
+export const LEAD_DOMAIN_BY_SKILL: Record<string, string> = Object.fromEntries(
   PRODUCER_SKILLS.filter((s) => s.learning?.playTypeLeadDomain).map((s) => [s.id, s.learning!.playTypeLeadDomain]),
 )
 
