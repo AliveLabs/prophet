@@ -23,18 +23,23 @@ export type ModelTokenTotals = {
 //
 // ALT-544: the family regexes alone MISPRICE the Claude 5 family. `/opus/i` happens to be right for
 // Opus 5 (same $5/$25 list price as Opus 4.8), but Fable/Mythos 5 fell through to the Sonnet-tier
-// default ($3/$15 instead of $10/$50), and Sonnet 5 carries INTRODUCTORY pricing that expires. Left
-// alone, a model sweep would have produced a $/brief figure that looked plausible and was wrong.
+// default ($3/$15 instead of $10/$50). Left alone, a model sweep would have produced a $/brief
+// figure that looked plausible and was wrong.
+//
+// SONNET 5 IS $2/$10 PER MTOK, STANDING — NOT an expiring "intro" rate (2026-08-10 Anthropic
+// announcement, verified): the previously-planned 2026-09-01 step-up to $3/$15 was cancelled.
+// This file used to carry a date-gated introUntil/introInput/introOutput branch for that step-up;
+// removed here because there is no longer a second rate to step up to. If Anthropic ever does
+// reprice Sonnet 5, that is a new standing price, not a resurrection of the expiry mechanism.
 //
 // NOT corrected for here, deliberately: Sonnet 5's tokenizer emits roughly 30% more tokens for the
 // same text. We price the token counts the API actually reports, so that shows up as real (higher)
 // token volume rather than a rate adjustment. Do not "fix" it twice.
-const SONNET_5_INTRO_ENDS = "2026-08-31"
-const PER_MTOK_USD: Array<{ match: RegExp; input: number; output: number; introUntil?: string; introInput?: number; introOutput?: number }> = [
+const PER_MTOK_USD: Array<{ match: RegExp; input: number; output: number }> = [
   // Fable / Mythos tier — above Opus, and invisible to every family regex below.
   { match: /fable|mythos/i, input: 10, output: 50 },
-  // Sonnet 5: $3/$15 list, $2/$10 introductory through SONNET_5_INTRO_ENDS.
-  { match: /sonnet-5/i, input: 3, output: 15, introUntil: SONNET_5_INTRO_ENDS, introInput: 2, introOutput: 10 },
+  // Sonnet 5: $2/$10 per MTok, standing (see the comment above the table).
+  { match: /sonnet-5/i, input: 2, output: 10 },
   { match: /opus/i, input: 5, output: 25 },
   { match: /haiku/i, input: 1, output: 5 },
   { match: /sonnet/i, input: 3, output: 15 },
@@ -66,24 +71,18 @@ export function deltaTokensByModel(
   return out
 }
 
-/** Per-MTok rate for a model id, honouring any introductory-pricing window still in force.
- *  `asOf` is injectable so the window is testable and so a backfill can price historical usage at
- *  the rate that actually applied. Defaults to today. */
-export function rateFor(model: string, asOf?: string): { input: number; output: number } {
+/** Per-MTok rate for a model id. No date parameter — every row above is a standing price (see the
+ *  comment above PER_MTOK_USD for why Sonnet 5's $2/$10 is standing, not an expiring window). */
+export function rateFor(model: string): { input: number; output: number } {
   const row = PER_MTOK_USD.find((r) => r.match.test(model))
-  if (!row) return DEFAULT_RATE
-  const onDate = asOf ?? new Date().toISOString().slice(0, 10)
-  if (row.introUntil && row.introInput !== undefined && row.introOutput !== undefined && onDate <= row.introUntil) {
-    return { input: row.introInput, output: row.introOutput }
-  }
-  return { input: row.input, output: row.output }
+  return row ? { input: row.input, output: row.output } : DEFAULT_RATE
 }
 
 /** Estimated USD for a per-model token breakdown (Brief.providerStats.tokensByModel shape). */
-export function estimateAnthropicCostUsd(tokensByModel: Record<string, ModelTokenTotals>, asOf?: string): number {
+export function estimateAnthropicCostUsd(tokensByModel: Record<string, ModelTokenTotals>): number {
   let usd = 0
   for (const [model, t] of Object.entries(tokensByModel)) {
-    const rate = rateFor(model, asOf)
+    const rate = rateFor(model)
     usd +=
       ((t.inputTokens ?? 0) / 1e6) * rate.input +
       ((t.outputTokens ?? 0) / 1e6) * rate.output +

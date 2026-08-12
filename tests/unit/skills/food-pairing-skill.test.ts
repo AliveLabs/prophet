@@ -89,6 +89,12 @@ describe("food-pairing skill — wiring/identity (unchanged from v1.1 except the
     expect(foodPairingSkill.temperature).toBe(0.5)
     expect(foodPairingSkill.knowledgeVersion).toBe(KNOWLEDGE_VERSION)
   })
+  // Pinned 2026-08-12 (cost rescue, Bryan) — a fleet spend cut, not a re-diagnosis of this
+  // skill's prompt size or abort risk. Pending a pairing-quality evaluation that decides
+  // kill-or-keep; don't silently change this back without that evaluation landing first.
+  test("effort is pinned to low (2026-08-12 cost rescue) — never silently change it either way", () => {
+    expect(foodPairingSkill.effort).toBe("low")
+  })
   test("menu carries a neutral scoring prior (earned from evidence later, not asserted)", () => {
     expect(CATEGORY_PRIORS.menu).toBe(1.0)
   })
