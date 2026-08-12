@@ -78,8 +78,10 @@
 //
 // TOKEN BUDGET: the menu is already DISTILLED to names+tags (summarizeMenu, kept
 // from v1.1) and every signal family is capped — the prompt stays far under the
-// ~40k-char size that once forced guerrilla to "low". Effort stays default
-// (medium); flip `effort: "low"` if p95 ever nears the 120s abort.
+// ~40k-char size that once forced guerrilla to "low". Effort was pinned to "low"
+// anyway on 2026-08-12 (see the `effort` field below) — that pin is a COST cut, not
+// a latency/quality finding about this skill; the prompt-size headroom described
+// here is unrelated and still true.
 // ---------------------------------------------------------------------------
 
 import type { Dossier } from "@/lib/insights/dossier/types"
@@ -350,6 +352,12 @@ export const foodPairingSkill: ProducerSkill = {
   kind: "capitalize",
   category: "menu",
   tier: "reasoning",
+  // PIN TO "low" (Bryan, 2026-08-12, cost rescue). Not a quality finding about this skill's
+  // prompt or its abort risk (unlike marketing/guerrilla-marketing above) — this is a fleet
+  // spend cut, done ahead of the pairing-quality evaluation that will decide kill-or-keep for
+  // this skill. If the eval says keep, re-canary at medium/default before unpinning; if it says
+  // kill, this line goes away with the skill.
+  effort: "low",
   // temperature 0.5 kept from v1.1: features need some creative dish-picking, but
   // they sit against real menus, dayparts, and weather where drift is costly (the
   // same setting local-demand@v2 uses — between marketing's 0.6 and operations'/

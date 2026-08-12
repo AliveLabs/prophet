@@ -12,8 +12,8 @@
 // temperature. Omitting is a soft wrong (provider's sampling default); sending is a hard one (400).
 // ---------------------------------------------------------------------------
 
-import { describe, expect, it } from "vitest"
-import { acceptsTemperature } from "@/lib/ai/provider"
+import { describe, expect, it, vi, afterEach } from "vitest"
+import { acceptsTemperature, claudeRaw } from "@/lib/ai/provider"
 import { estimateAnthropicCostUsd, rateFor, type ModelTokenTotals } from "@/lib/ai/pricing"
 
 const tok = (o: Partial<ModelTokenTotals> = {}): ModelTokenTotals => ({
@@ -53,6 +53,55 @@ describe("acceptsTemperature", () => {
   })
 })
 
+// Request-shape level (not just the pure acceptsTemperature function): a non-thinking call on a
+// 5-family model must never put `temperature` on the wire, and a non-thinking call on a 4.x model
+// must keep sending it exactly as before (behavior on today's models stays byte-identical).
+describe("claudeRaw request shape — temperature by model generation", () => {
+  const realFetch = global.fetch
+  const hadKey = process.env.ANTHROPIC_API_KEY
+  afterEach(() => {
+    global.fetch = realFetch
+    if (hadKey === undefined) delete process.env.ANTHROPIC_API_KEY
+    else process.env.ANTHROPIC_API_KEY = hadKey
+    vi.restoreAllMocks()
+  })
+
+  function mockFetch(): { body: () => Record<string, unknown> } {
+    let captured: Record<string, unknown> = {}
+    global.fetch = vi.fn(async (_url: unknown, init: { body: string }) => {
+      captured = JSON.parse(init.body)
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: "{}" }] }) } as unknown as Response
+    }) as unknown as typeof fetch
+    return { body: () => captured }
+  }
+
+  it("strips temperature for a non-thinking call on a 5-family model", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-5", temperature: 0.4 })
+    expect(f.body().temperature).toBeUndefined()
+  })
+
+  it("preserves temperature for a non-thinking call on a 4.x model (today's behavior, unchanged)", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-4-6", temperature: 0.4 })
+    expect(f.body().temperature).toBe(0.4)
+  })
+
+  it("strips temperature whenever thinking is enabled, regardless of model generation", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    // claude-sonnet-4-6 accepts temperature on its OWN non-thinking branch (see the test above) —
+    // but thinking and temperature are mutually exclusive on every model, 4.x included.
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-4-6", thinking: true, effort: "medium", temperature: 0.4 })
+    const b = f.body()
+    expect(b.temperature).toBeUndefined()
+    expect(b.thinking).toEqual({ type: "adaptive" })
+    expect(b.output_config).toEqual({ effort: "medium" })
+  })
+})
+
 describe("pricing: the 5 family", () => {
   it("prices Opus 5 at the Opus rate (unchanged from 4.8)", () => {
     expect(rateFor("claude-opus-5")).toEqual({ input: 5, output: 25 })
@@ -64,14 +113,15 @@ describe("pricing: the 5 family", () => {
     expect(rateFor("claude-mythos-5")).toEqual({ input: 10, output: 50 })
   })
 
-  it("honours Sonnet 5 introductory pricing inside the window and list price after", () => {
-    expect(rateFor("claude-sonnet-5", "2026-08-15")).toEqual({ input: 2, output: 10 })
-    expect(rateFor("claude-sonnet-5", "2026-08-31")).toEqual({ input: 2, output: 10 }) // inclusive
-    expect(rateFor("claude-sonnet-5", "2026-09-01")).toEqual({ input: 3, output: 15 })
+  // 2026-08-10 Anthropic announcement (verified): Sonnet 5's $2/$10 per MTok is the STANDING
+  // price. The previously-planned 2026-09-01 step-up to $3/$15 was cancelled — this is not an
+  // expiring "intro" rate, so there is no date at which the rate changes.
+  it("prices Sonnet 5 at its standing $2/$10 rate", () => {
+    expect(rateFor("claude-sonnet-5")).toEqual({ input: 2, output: 10 })
   })
 
-  it("keeps Sonnet 4.6 on list price regardless of date (the intro window is Sonnet 5 only)", () => {
-    expect(rateFor("claude-sonnet-4-6", "2026-08-15")).toEqual({ input: 3, output: 15 })
+  it("keeps Sonnet 4.6 on its own list price, distinct from Sonnet 5's", () => {
+    expect(rateFor("claude-sonnet-4-6")).toEqual({ input: 3, output: 15 })
   })
 
   it("still falls back to Sonnet-tier for a genuinely unknown id rather than $0", () => {
@@ -81,16 +131,15 @@ describe("pricing: the 5 family", () => {
 
   it("specific ids win over family regexes (order dependence is load-bearing)", () => {
     // "claude-sonnet-5" also matches /sonnet/i; the specific row must be found first.
-    expect(rateFor("claude-sonnet-5", "2026-09-01")).toEqual({ input: 3, output: 15 })
+    expect(rateFor("claude-sonnet-5")).not.toEqual({ input: 3, output: 15 })
     expect(rateFor("claude-fable-5")).not.toEqual({ input: 3, output: 15 })
   })
 })
 
 describe("estimateAnthropicCostUsd", () => {
-  it("threads asOf through, so a sweep during the intro window is not over-estimated by a third", () => {
+  it("prices Sonnet 5 usage at its standing rate — no intro-window math to thread through", () => {
     const usage = { "claude-sonnet-5": tok({ inputTokens: 1_000_000, outputTokens: 1_000_000 }) }
-    expect(estimateAnthropicCostUsd(usage, "2026-08-15")).toBeCloseTo(12, 6) // 2 + 10 intro
-    expect(estimateAnthropicCostUsd(usage, "2026-09-01")).toBeCloseTo(18, 6) // 3 + 15 list
+    expect(estimateAnthropicCostUsd(usage)).toBeCloseTo(12, 6) // 2 + 10
   })
 
   it("prices cache reads at 0.1x input and 1h-TTL writes at 2x", () => {
