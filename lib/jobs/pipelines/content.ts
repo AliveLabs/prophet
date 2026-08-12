@@ -29,6 +29,11 @@ import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
+import {
+  newMenuObservation,
+  recordMenuIngestEvent,
+  type MenuStageObservation,
+} from "@/lib/content/menu-telemetry"
 import type {
   MenuSnapshot,
   SiteContentSnapshot,
@@ -78,6 +83,9 @@ export type ContentPipelineCtx = {
       siteContent: SiteContentSnapshot | null
     }>
     warnings: string[]
+    // ALT-363 menu reliability telemetry for the org's OWN menu. Observation only: the menu
+    // steps mutate this as they run, and merge_save_menu records it. Never influences flow.
+    menuObservation: MenuStageObservation
   }
 }
 
@@ -102,92 +110,132 @@ type CompetitorInput = { id: string; name: string | null; website: string | null
  * the sequential per-competitor loop was the content pipeline's main 300s-timeout driver.
  */
 async function processCompetitorMenu(c: ContentPipelineCtx, comp: CompetitorInput): Promise<void> {
-  const compWebsite =
-    comp.website ??
-    extractDomain((comp.metadata?.placeDetails as Record<string, unknown>)?.websiteUri as string)
-  if (!compWebsite) return
-
-  const compUrl = ensureUrl(compWebsite)
+  // ALT-363: observation only — recorded in the finally so every exit path (no website,
+  // nothing found, save error, thrown) produces exactly one event. Never alters behaviour.
+  const obs = newMenuObservation()
   const compSources: MenuSource[] = []
+  try {
+    const compWebsite =
+      comp.website ??
+      extractDomain((comp.metadata?.placeDetails as Record<string, unknown>)?.websiteUri as string)
+    if (!compWebsite) {
+      obs.hasWebsite = false
+      return
+    }
 
-  let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
-  if (compMenuUrls.length === 0) compMenuUrls = [compUrl]
+    const compUrl = ensureUrl(compWebsite)
 
-  const compParsedResults: NormalizedMenuResult[] = []
-  let compScreenshotPath: string | null = null
-  let compScreenshotSourceUrl: string | null = null
+    let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
+    obs.urlsDiscovered = compMenuUrls.length
+    if (compMenuUrls.length === 0) compMenuUrls = [compUrl]
 
-  for (const compTargetUrl of compMenuUrls) {
-    try {
-      const compMenuResult = await scrapeMenuPage(compTargetUrl)
-      if (compMenuResult) {
-        if (!compScreenshotPath && compMenuResult.screenshot) {
-          const path = buildScreenshotPath(c.organizationId, "competitors", comp.id, "menu.png")
-          compScreenshotPath = await uploadScreenshot(compMenuResult.screenshot, path)
-          compScreenshotSourceUrl = compTargetUrl
+    const compParsedResults: NormalizedMenuResult[] = []
+    let compScreenshotPath: string | null = null
+    let compScreenshotSourceUrl: string | null = null
+
+    for (const compTargetUrl of compMenuUrls) {
+      obs.scrapeAttempts++
+      try {
+        const compMenuResult = await scrapeMenuPage(compTargetUrl)
+        if (compMenuResult) {
+          if (!compScreenshotPath && compMenuResult.screenshot) {
+            const path = buildScreenshotPath(c.organizationId, "competitors", comp.id, "menu.png")
+            compScreenshotPath = await uploadScreenshot(compMenuResult.screenshot, path)
+            compScreenshotSourceUrl = compTargetUrl
+          }
+          const parsed = normalizeExtractedMenu(compMenuResult.menu)
+          if (parsed.categories.length > 0) {
+            compParsedResults.push(parsed)
+            obs.scrapesWithItems++
+          }
+        } else {
+          obs.scrapeErrors++
         }
-        const parsed = normalizeExtractedMenu(compMenuResult.menu)
-        if (parsed.categories.length > 0) compParsedResults.push(parsed)
+      } catch {
+        obs.scrapeErrors++
+        /* continue */
+      }
+    }
+
+    if (compParsedResults.length > 0) compSources.push("firecrawl")
+
+    try {
+      const compAddress =
+        ((comp.metadata?.placeDetails as Record<string, unknown>)?.formattedAddress as string) ?? null
+      const compFallback =
+        process.env.VERTICALIZATION_ENABLED === "true"
+          ? getVerticalConfig().labels.businessLabelCapitalized
+          : "Restaurant"
+      const googleCompMenu = await fetchGoogleMenuData(comp.name ?? compFallback, compAddress)
+      if (googleCompMenu && googleCompMenu.categories.length > 0) {
+        compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
+        compSources.push("gemini_google_search")
+        obs.enrichment = "items"
+      } else {
+        // fetchGoogleMenuData returns null on any error and zero categories on a clean miss.
+        obs.enrichment = googleCompMenu ? "empty" : "error"
       }
     } catch {
-      /* continue */
+      obs.enrichment = "error"
+      /* non-fatal */
     }
+
+    if (compParsedResults.length === 0) return
+
+    const merged = mergeExtractedMenus(compParsedResults)
+    const compMenu = buildMenuSnapshot(
+      compMenuUrls[0],
+      merged.categories,
+      merged.confidence,
+      merged.notes,
+      compScreenshotPath
+        ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
+        : null,
+      merged.currency
+    )
+    compMenu.parseMeta.sources = compSources
+    obs.mergedItems = compMenu.parseMeta.itemsTotal
+
+    const compSiteContent = normalizeSiteContentFromExtraction(compUrl, null, null)
+    const menuHash = computeMenuDiffHash(compMenu)
+    const { error: saveError } = await c.supabase.from("snapshots").upsert(
+      {
+        competitor_id: comp.id,
+        date_key: c.dateKey,
+        snapshot_type: "web_menu_weekly",
+        captured_at: new Date().toISOString(),
+        provider: "firecrawl_menu",
+        raw_data: compMenu as unknown as Record<string, unknown>,
+        diff_hash: menuHash,
+      },
+      { onConflict: "competitor_id,date_key,snapshot_type" }
+    )
+    // Upsert errors were (and remain) non-fatal here; the observation just notes them.
+    if (saveError) obs.saveError = saveError.message
+
+    c.state.competitorMenus.push({
+      competitorId: comp.id,
+      competitorName: comp.name ?? "Competitor",
+      menu: compMenu,
+      siteContent: compSiteContent,
+    })
+  } catch (err) {
+    obs.pipelineError = err instanceof Error ? err.message : String(err)
+    // Rethrow so the caller's existing warning behaviour is unchanged.
+    throw err
+  } finally {
+    // Background job: awaiting is safe and lands the write before the function suspends.
+    // recordMenuIngestEvent never throws.
+    await recordMenuIngestEvent({
+      runSource: "content_pipeline",
+      target: "competitor",
+      locationId: c.locationId,
+      competitorId: comp.id,
+      dateKey: c.dateKey,
+      observation: obs,
+      sources: compSources,
+    })
   }
-
-  if (compParsedResults.length > 0) compSources.push("firecrawl")
-
-  try {
-    const compAddress =
-      ((comp.metadata?.placeDetails as Record<string, unknown>)?.formattedAddress as string) ?? null
-    const compFallback =
-      process.env.VERTICALIZATION_ENABLED === "true"
-        ? getVerticalConfig().labels.businessLabelCapitalized
-        : "Restaurant"
-    const googleCompMenu = await fetchGoogleMenuData(comp.name ?? compFallback, compAddress)
-    if (googleCompMenu && googleCompMenu.categories.length > 0) {
-      compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
-      compSources.push("gemini_google_search")
-    }
-  } catch {
-    /* non-fatal */
-  }
-
-  if (compParsedResults.length === 0) return
-
-  const merged = mergeExtractedMenus(compParsedResults)
-  const compMenu = buildMenuSnapshot(
-    compMenuUrls[0],
-    merged.categories,
-    merged.confidence,
-    merged.notes,
-    compScreenshotPath
-      ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
-      : null,
-    merged.currency
-  )
-  compMenu.parseMeta.sources = compSources
-
-  const compSiteContent = normalizeSiteContentFromExtraction(compUrl, null, null)
-  const menuHash = computeMenuDiffHash(compMenu)
-  await c.supabase.from("snapshots").upsert(
-    {
-      competitor_id: comp.id,
-      date_key: c.dateKey,
-      snapshot_type: "web_menu_weekly",
-      captured_at: new Date().toISOString(),
-      provider: "firecrawl_menu",
-      raw_data: compMenu as unknown as Record<string, unknown>,
-      diff_hash: menuHash,
-    },
-    { onConflict: "competitor_id,date_key,snapshot_type" }
-  )
-
-  c.state.competitorMenus.push({
-    competitorId: comp.id,
-    competitorName: comp.name ?? "Competitor",
-    menu: compMenu,
-    siteContent: compSiteContent,
-  })
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +358,7 @@ export function buildContentSteps(
             c.state.menuUrls.push(posUrl)
           }
         }
+        c.state.menuObservation.urlsDiscovered = c.state.menuUrls.length
         if (c.state.menuUrls.length === 0) {
           c.state.menuUrls.push(c.websiteUrl)
         }
@@ -319,6 +368,7 @@ export function buildContentSteps(
         let firstScreenshotSourceUrl: string | null = null
 
         for (const targetUrl of c.state.menuUrls) {
+          c.state.menuObservation.scrapeAttempts++
           try {
             const menuResult = await scrapeMenuPage(targetUrl)
             if (menuResult) {
@@ -338,9 +388,13 @@ export function buildContentSteps(
               const parsed = normalizeExtractedMenu(menuResult.menu)
               if (parsed.categories.length > 0) {
                 c.state.allParsedResults.push(parsed)
+                c.state.menuObservation.scrapesWithItems++
               }
+            } else {
+              c.state.menuObservation.scrapeErrors++
             }
           } catch (err) {
+            c.state.menuObservation.scrapeErrors++
             c.state.warnings.push(`Could not scrape: ${targetUrl}`)
             console.warn(`[Content] Menu scrape error for ${targetUrl}:`, err)
           }
@@ -391,12 +445,15 @@ export function buildContentSteps(
           const normalizedGoogle = normalizeGoogleMenuData(googleMenu)
           c.state.allParsedResults.push(normalizedGoogle)
           c.state.sources.push("gemini_google_search")
+          c.state.menuObservation.enrichment = "items"
           const itemCount = normalizedGoogle.categories.reduce(
             (s, cat) => s + cat.items.length,
             0
           )
           return { additionalItems: itemCount }
         }
+        // fetchGoogleMenuData returns null on any error and zero categories on a clean miss.
+        c.state.menuObservation.enrichment = googleMenu ? "empty" : "error"
         return { additionalItems: 0 }
       },
     },
@@ -406,6 +463,16 @@ export function buildContentSteps(
       run: async (c) => {
         if (c.state.allParsedResults.length === 0) {
           c.state.warnings.push("No menu content found")
+          // ALT-363: record the nothing-found run — this is exactly the case that used to
+          // leave no trace (no snapshot row is written below). Awaited: background job.
+          await recordMenuIngestEvent({
+            runSource: "content_pipeline",
+            target: "location",
+            locationId: c.locationId,
+            dateKey: c.dateKey,
+            observation: c.state.menuObservation,
+            sources: c.state.sources,
+          })
           return { totalItems: 0 }
         }
 
@@ -430,9 +497,10 @@ export function buildContentSteps(
           merged.currency
         )
         c.state.locationMenu.parseMeta.sources = c.state.sources
+        c.state.menuObservation.mergedItems = c.state.locationMenu.parseMeta.itemsTotal
 
         const menuHash = computeMenuDiffHash(c.state.locationMenu)
-        await c.supabase.from("location_snapshots").upsert(
+        const { error: saveError } = await c.supabase.from("location_snapshots").upsert(
           {
             location_id: c.locationId,
             provider: "firecrawl_menu",
@@ -443,6 +511,18 @@ export function buildContentSteps(
           },
           { onConflict: "location_id,provider,date_key" }
         )
+        // Upsert errors were (and remain) non-fatal here; the observation just notes them.
+        if (saveError) c.state.menuObservation.saveError = saveError.message
+
+        // ALT-363: one event per run for the org's own menu. Awaited: background job.
+        await recordMenuIngestEvent({
+          runSource: "content_pipeline",
+          target: "location",
+          locationId: c.locationId,
+          dateKey: c.dateKey,
+          observation: c.state.menuObservation,
+          sources: c.state.sources,
+        })
 
         return {
           categories: merged.categories.length,
@@ -569,7 +649,20 @@ export async function buildContentContext(
     }
   }
 
-  if (!website) throw new Error("No website configured for this location")
+  if (!website) {
+    // ALT-363: this abort is a real menu-reliability failure mode — record it, then throw
+    // exactly as before. Awaited so the write lands before the route rejects.
+    const obs = newMenuObservation()
+    obs.hasWebsite = false
+    await recordMenuIngestEvent({
+      runSource: "content_pipeline",
+      target: "location",
+      locationId,
+      dateKey: new Date().toISOString().slice(0, 10),
+      observation: obs,
+    })
+    throw new Error("No website configured for this location")
+  }
 
   const websiteUrl = website.startsWith("http") ? website : `https://${website}`
 
@@ -622,6 +715,7 @@ export async function buildContentContext(
       sources: [],
       competitorMenus: [],
       warnings: [],
+      menuObservation: newMenuObservation(),
     },
   }
 
