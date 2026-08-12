@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 
 import { createClient } from "@supabase/supabase-js"
-import { isWeeklyFullBuildDay, isSeoDue } from "@/lib/jobs/build-schedule"
+import { isWeeklyFullBuildDay, isSeoDue, shouldRunDailyForLocation } from "@/lib/jobs/build-schedule"
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isTrialActive, isTrialing } from "@/lib/billing/trial"
@@ -68,7 +68,7 @@ export async function GET(req: Request) {
 
   let locationQuery = supabase
     .from("locations")
-    .select("id, name, organization_id, timezone")
+    .select("id, name, organization_id, timezone, daily_runs_enabled")
   if (singleLocationId) locationQuery = locationQuery.eq("id", singleLocationId)
 
   const { data: locations, error: locErr } = await locationQuery
@@ -109,6 +109,21 @@ export async function GET(req: Request) {
   }> = []
 
   for (const location of locations) {
+    // Per-location pause (ALT: beta-rescue 1.1). Mainly for demo orgs: turns off the daily
+    // machine without deleting the location/org, so it stops costing money on data pulls.
+    // An explicit `?location_id=` request overrides the pause: a deliberate ops action
+    // beats the nightly sweep's own opinion, same polarity as the weekly-tier/SEO bypasses
+    // below.
+    if (!shouldRunDailyForLocation(location.daily_runs_enabled, { explicitLocationId: !!singleLocationId })) {
+      jobs.push({
+        location_id: location.id,
+        location_name: location.name,
+        pipelines: [],
+        skipped_reason: "Daily runs disabled for this location",
+      })
+      continue
+    }
+
     const orgTrial = orgTrialMap.get(location.organization_id)
     // Allowlist: the orgs query excludes soft-deleted (deleted_at) orgs, so an absent entry
     // means "don't process". Without this guard a deleted org would fall through to the
