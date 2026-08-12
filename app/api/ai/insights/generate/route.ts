@@ -11,6 +11,7 @@
 
 import { getUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { resolveOrgActorWith, isOrgAdmin } from "@/lib/auth/actor"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { generateGeminiJson } from "@/lib/ai/gemini"
 import { computeRelevanceScore, getUrgencyLevel } from "@/lib/insights/scoring"
@@ -89,27 +90,16 @@ export async function POST(req: Request) {
     // so it doubles as the membership check. We then write with the admin client
     // because INSERT on insights is org-admin-only under RLS.
     const supabase = await createServerSupabaseClient()
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("current_organization_id")
-      .eq("id", user.id)
-      .maybeSingle()
-    const orgId = profile?.current_organization_id
-    if (!orgId) return Response.json({ insight: null }, { status: 403 })
-
-    // We INSERT via the service-role admin client (insights INSERT is RLS-gated to
-    // owner/admin). Mirror that policy in the app layer instead of silently bypassing
-    // it — a member-role user can't create insights. (RLS "org members can read
-    // membership" lets us read our own role here.)
-    const { data: membership } = await supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", orgId)
-      .eq("user_id", user.id)
-      .maybeSingle()
-    if (!membership || !["owner", "admin"].includes(membership.role)) {
+    // ALT-578: session → org actor via the shared resolver (membership + soft-delete gate;
+    // route handlers never pass through the layout's deleted_at gate, and this route makes a
+    // paid model call). We INSERT via the service-role admin client below (insights INSERT is
+    // RLS-gated to owner/admin), so mirror that policy here with isOrgAdmin instead of
+    // silently bypassing it — a member-role user can't create insights.
+    const actor = await resolveOrgActorWith(supabase, user.id)
+    if (!actor || !isOrgAdmin(actor)) {
       return Response.json({ insight: null }, { status: 403 })
     }
+    const orgId = actor.organizationId
 
     const { data: locs } = await supabase
       .from("locations")

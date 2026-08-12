@@ -345,10 +345,17 @@
 .bt__note{ font-size:13px; line-height:1.45; color:var(--print); margin:10px 0 0; }
 .bt__all{ display:flex; align-items:center; gap:9px; margin-top:14px; cursor:pointer; font-size:13.5px; color:var(--ink); }
 .bt__all input{ accent-color:var(--rust); width:15px; height:15px; flex:0 0 auto; }
-.bt__foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:16px; }
-.bt__apply{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; padding:9px 16px; border-radius:var(--radius); border:1px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer; transition:opacity .15s ease; }
-.bt__apply:hover{ opacity:.86; }
-.bt__apply:disabled{ background:transparent; color:var(--ash-2); border-color:var(--rule); cursor:not-allowed; }
+/* ALT-583 follow-through: match the authed settings apply treatment (tk-btn-act) — rust
+   primary, right-aligned, and a disabled state that still READS as the same button (45%
+   wash, hover suppressed). The old ink/transparent styling looked tertiary and, in dark
+   mode, disabled was literally invisible. */
+.bt__foot{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:16px; justify-content:flex-end; }
+.bt__foot .bt__hint{ margin-right:auto; }
+.bt__apply{ font-family:var(--font-cond); font-weight:600; text-transform:uppercase; letter-spacing:.06em; font-size:12.5px; padding:9px 16px; border-radius:var(--radius); border:1px solid transparent; background:linear-gradient(145deg, var(--rust), var(--rust-2)); color:#fff; box-shadow:var(--shadow-sm); cursor:pointer; transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.bt__apply:hover{ transform:translateY(-1.5px); box-shadow:var(--shadow-md); }
+.bt__apply:active{ transform:translateY(0); }
+.bt__apply:disabled{ opacity:.45; box-shadow:none; cursor:not-allowed; }
+.bt__apply:disabled:hover{ transform:none; box-shadow:none; }
 .bt__hint{ font-family:var(--font-mono); font-size:10px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash); }
 
 /* P8 — per-operator category priors (Settings → "What to prioritize") */

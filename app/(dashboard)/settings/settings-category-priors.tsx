@@ -81,7 +81,7 @@ export default function SettingsCategoryPriors({
         // A thrown action (proxy 403 while impersonating, deploy skew, network) must surface
         // exactly like a returned failure. Before this catch, a throw left the sliders showing
         // unsaved values with no error, which read as saved until the next full page load
-        // (the "my sliders reset overnight" report, ALT-581).
+        // (the "my sliders reset overnight" report, ALT-583).
         try {
           const res = await setCategoryPriors(locationId, values)
           if (!res.ok) {
@@ -136,7 +136,7 @@ export default function SettingsCategoryPriors({
         })}
       </div>
 
-      {/* ALT-581: the apply button used to be a quiet keep-variant that only APPEARED once a
+      {/* ALT-583: the apply button used to be a quiet keep-variant that only APPEARED once a
           slider moved, left of the hint. Bryan overlooked it dozens of times, so the priors were
           never saved and every "overnight reset" traced back to this. It is now always present
           (disabled until dirty), primary, and rightmost; the hint anchors left (CSS). Keep it

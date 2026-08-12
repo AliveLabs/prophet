@@ -57,7 +57,18 @@ export type Operator = {
 }
 
 /** Logged-in user → current org → its primary location. Redirects to onboarding when
- *  the account has no org/location yet (same behavior as the dashboard shell). */
+ *  the account has no org/location yet (same behavior as the dashboard shell).
+ *
+ *  ALT-580 — SOFT-DELETE IS NOT CHECKED HERE, AND MUST NOT BE. Access for a soft-deleted org
+ *  is gated by the (dashboard) layout, which renders a terminal notice instead of children
+ *  (layout.tsx, `orgRow?.deleted_at`). Every current caller of this function is a page or
+ *  loader under that layout, so the notice is the user-visible gate. Do NOT "harden" this
+ *  with an isOrgActive redirect: the layout itself calls loadOperatorAccount() → HERE before
+ *  its deleted_at branch, so a redirect fired from this function loops on every dashboard
+ *  route for a deleted org's member (and /onboarding loops too, since
+ *  current_organization_id still points at the org). If you add a caller OUTSIDE the
+ *  (dashboard) layout (a route handler, a cron, a non-dashboard page), that caller must gate
+ *  itself: use resolveOrgActor()/resolveOrgActorWith() from lib/auth/actor.ts instead. */
 export async function resolveOperator(): Promise<Operator> {
   const user = await requireUser()
   const supabase = await createServerSupabaseClient()

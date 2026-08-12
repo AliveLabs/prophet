@@ -77,13 +77,15 @@ export default function BriefTuning({ initial, locationId }: { initial: number; 
         <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
         <span>Show everything — surface every recommendation, no threshold</span>
       </label>
+      {/* ALT-583 follow-through: hint left, primary apply rightmost (matches the authed
+          settings islands; .bt__apply now carries the rust treatment in operator.css). */}
       <div className="bt__foot">
-        <button type="button" className="bt__apply" disabled={!dirty || saving} onClick={apply}>
-          {saving ? "Saving…" : "Update my recommendations"}
-        </button>
         <span className="bt__hint">
           {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
         </span>
+        <button type="button" className="bt__apply" disabled={!dirty || saving} onClick={apply}>
+          {saving ? "Saving…" : "Update my recommendations"}
+        </button>
       </div>
     </div>
   )

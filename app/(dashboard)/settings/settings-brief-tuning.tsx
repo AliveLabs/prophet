@@ -35,7 +35,7 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
     const toSave = showAll ? 100 : value
     if (locationId) {
       startSaving(async () => {
-        // Thrown actions surface like returned failures (ALT-581; see settings-category-priors).
+        // Thrown actions surface like returned failures (ALT-583; see settings-category-priors).
         try {
           const res = await setBrandTolerance(locationId, toSave)
           if (!res.ok) {
@@ -89,7 +89,7 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
           ones. This ignores the slider thresholds entirely.
         </span>
       </label>
-      {/* ALT-581: always-visible primary apply, right-aligned; hint anchors left. See
+      {/* ALT-583: always-visible primary apply, right-aligned; hint anchors left. See
           settings-category-priors.tsx for why the pop-in keep-variant button must not return. */}
       <div className="tk-set-apply-foot">
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
