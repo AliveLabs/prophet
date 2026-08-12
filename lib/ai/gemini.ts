@@ -13,8 +13,27 @@ type GeminiCandidate = {
   finishReason?: string
 }
 
+type GeminiUsageMetadata = {
+  promptTokenCount?: number
+  candidatesTokenCount?: number
+  // Thinking tokens count against the output budget, same as Anthropic's adaptive thinking
+  // (see provider.ts's max_tokens invariant): folded into outputTokens below, not dropped.
+  thoughtsTokenCount?: number
+  cachedContentTokenCount?: number
+}
+
 type GeminiResponse = {
   candidates?: GeminiCandidate[]
+  usageMetadata?: GeminiUsageMetadata
+}
+
+/** Per-call token usage for spend telemetry (lib/ai/spend-events.ts). Mirrors provider.ts's
+ *  TokenUsage shape for Anthropic so both providers' onUsage callbacks look the same. */
+export type GeminiUsage = {
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
 }
 
 function getGeminiKey() {
@@ -45,7 +64,16 @@ function parseJson(text: string) {
 
 export async function generateGeminiJson(
   prompt: string,
-  options?: { maxOutputTokens?: number; temperature?: number; thinkingBudget?: number }
+  options?: {
+    maxOutputTokens?: number
+    temperature?: number
+    thinkingBudget?: number
+    /** Observability only (spend telemetry, ALT beta-rescue 2.3): receives the per-call token
+     *  usage so callers can attribute non-brief Gemini spend. Fires on any 200 response that
+     *  carries usageMetadata, INCLUDING one whose content ends up empty (still billed). A throw
+     *  inside the callback is swallowed: telemetry must never break the call. NEVER sent to the API. */
+    onUsage?: (usage: GeminiUsage) => void
+  }
 ) {
   const response = await fetchWithRetry(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
     method: "POST",
@@ -76,6 +104,22 @@ export async function generateGeminiJson(
   }
 
   const data = (await response.json()) as GeminiResponse
+  // Usage fires BEFORE the empty-content check, on purpose: a call that came back empty (thinking
+  // ate the whole budget) still billed real tokens, same "runs before the truncation guard"
+  // ordering provider.ts uses for Anthropic.
+  const um = data.usageMetadata
+  if (um && options?.onUsage) {
+    try {
+      options.onUsage({
+        model: "gemini-2.5-pro",
+        inputTokens: um.promptTokenCount ?? 0,
+        outputTokens: (um.candidatesTokenCount ?? 0) + (um.thoughtsTokenCount ?? 0),
+        cacheReadTokens: um.cachedContentTokenCount ?? 0,
+      })
+    } catch (usageErr) {
+      console.warn("[Gemini] onUsage callback threw (ignored):", usageErr)
+    }
+  }
   const candidate = data.candidates?.[0]
   const text = candidate?.content?.parts?.map((part) => part.text ?? "").join("") ?? ""
   // A 200 with empty parts means the model produced no output — almost always

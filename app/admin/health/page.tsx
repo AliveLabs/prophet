@@ -54,15 +54,19 @@ type DayTrend = {
 }
 
 const TREND_DAYS = 7
+// Non-brief AI spend (beta rescue 2.3): a separate, shorter window from the brief trend above.
+// This is a "is anything non-brief spending real money" glance, not a day-by-day trend.
+const NON_BRIEF_SPEND_DAYS = 7
 
 export default async function PipelineHealthPage() {
   await connection()
   await requirePlatformAdmin()
 
   const supabase = createAdminSupabaseClient()
-  const [verdict, { locations, trend }] = await Promise.all([
+  const [verdict, { locations, trend }, nonBriefSpend] = await Promise.all([
     detectPipelineHealth(supabase),
     loadFleetDetail(supabase),
+    loadNonBriefSpend(supabase),
   ])
 
   return (
@@ -183,6 +187,47 @@ export default async function PipelineHealthPage() {
           </tbody>
         </table>
       </div>
+
+      <h2 className="ph-h2">Non-brief AI spend ({NON_BRIEF_SPEND_DAYS}d)</h2>
+      <p className="ph-sub">
+        Every model call OUTSIDE the brief pipeline (Priority Briefing, Ask, quick-tip, the
+        nightly judge, weekly knowledge ingestion, on-demand insight generation, the insights
+        pipeline&rsquo;s own Gemini calls). Estimates only, not billing truth. Absent here means
+        not yet applied in this environment, not zero spend.
+      </p>
+      <div className="ph-table-wrap">
+        <table className="ph-table">
+          <thead>
+            <tr>
+              <th>Surface</th>
+              <th>Calls</th>
+              <th>Est. cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {nonBriefSpend === null && (
+              <tr><td colSpan={3} className="ph-empty">ai_spend_events not available yet in this environment.</td></tr>
+            )}
+            {nonBriefSpend !== null && nonBriefSpend.bySurface.length === 0 && (
+              <tr><td colSpan={3} className="ph-empty">No non-brief AI calls recorded in the last {NON_BRIEF_SPEND_DAYS} days.</td></tr>
+            )}
+            {nonBriefSpend?.bySurface.map((row) => (
+              <tr key={row.surface}>
+                <td className="is-strong">{row.surface}</td>
+                <td>{row.calls}</td>
+                <td>{usd(row.usd)}</td>
+              </tr>
+            ))}
+            {nonBriefSpend !== null && nonBriefSpend.bySurface.length > 0 && (
+              <tr>
+                <td className="is-strong">Total</td>
+                <td>{nonBriefSpend.bySurface.reduce((s, r) => s + r.calls, 0)}</td>
+                <td className="is-strong">{usd(nonBriefSpend.totalUsd)}</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -258,6 +303,55 @@ async function loadFleetDetail(
 }
 
 type RawBriefRow = { location_id: string | null; generated_at: string; date_key: string | null; skillHealth: unknown; providerStats: unknown }
+
+// ── non-brief AI spend (beta rescue 2.3) ────────────────────────────────────────────────────────
+
+type SpendEventRow = { surface: string; estimated_usd: number | string | null }
+
+/** `ai_spend_events` isn't in the generated DB types yet (its migration hasn't been applied), so
+ *  this uses the same loose-client cast the rest of the app uses for a not-yet-regenerated table
+ *  (see app/(dashboard)/feedback-actions.ts for the beta_feedback precedent). */
+type SpendEventsReadClient = {
+  from: (table: string) => {
+    select: (cols: string) => {
+      gte: (col: string, val: string) => Promise<{ data: SpendEventRow[] | null; error: { message: string } | null }>
+    }
+  }
+}
+
+export type NonBriefSpendSummary = {
+  bySurface: Array<{ surface: string; usd: number; calls: number }>
+  totalUsd: number
+}
+
+/** Sum estimated_usd by surface over the trailing window. Returns null (not an empty summary)
+ *  when the table itself isn't queryable yet: that environment hasn't had the migration applied,
+ *  which is a materially different state from "queried fine, zero rows". */
+async function loadNonBriefSpend(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+): Promise<NonBriefSpendSummary | null> {
+  const sinceIso = new Date(Date.now() - NON_BRIEF_SPEND_DAYS * 86_400_000).toISOString()
+  const client = supabase as unknown as SpendEventsReadClient
+  const { data, error } = await client.from("ai_spend_events").select("surface, estimated_usd").gte("created_at", sinceIso)
+  if (error) {
+    console.warn("[admin/health] ai_spend_events query failed (migration likely not applied yet):", error.message)
+    return null
+  }
+  const bySurfaceMap = new Map<string, { usd: number; calls: number }>()
+  let totalUsd = 0
+  for (const row of data ?? []) {
+    const rowUsd = Number(row.estimated_usd) || 0
+    totalUsd += rowUsd
+    const entry = bySurfaceMap.get(row.surface) ?? { usd: 0, calls: 0 }
+    entry.usd += rowUsd
+    entry.calls += 1
+    bySurfaceMap.set(row.surface, entry)
+  }
+  const bySurface = [...bySurfaceMap.entries()]
+    .map(([surface, v]) => ({ surface, ...v }))
+    .sort((a, b) => b.usd - a.usd)
+  return { bySurface, totalUsd }
+}
 
 // ── presentation helpers ────────────────────────────────────────────────────────────────────
 

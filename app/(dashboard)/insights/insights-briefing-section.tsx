@@ -16,6 +16,8 @@ type Props = {
   locationName: string
   cacheKey?: string | null
   context?: BusinessContext | null
+  /** For spend telemetry only (beta rescue 2.3): never sent to the model. */
+  locationId?: string | null
 }
 
 export default async function InsightsBriefingSection({
@@ -24,6 +26,7 @@ export default async function InsightsBriefingSection({
   locationName,
   cacheKey,
   context,
+  locationId,
 }: Props) {
   const priorities = await generatePriorityBriefing(
     insights,
@@ -31,6 +34,7 @@ export default async function InsightsBriefingSection({
     locationName,
     cacheKey,
     context,
+    locationId,
   )
 
   if (priorities.length === 0) return null

@@ -502,6 +502,7 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                 locationName={selectedLocation?.name ?? "Your location"}
                 cacheKey={briefingCacheKey}
                 context={briefingContext}
+                locationId={selectedLocationId}
               />
             </Suspense>
           )}

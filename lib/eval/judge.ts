@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import type { Brief } from "@/lib/skills/types"
-import { claudeRaw, extractJson } from "@/lib/ai/provider"
+import { claudeRaw, extractJson, type TokenUsage } from "@/lib/ai/provider"
 
 /** 1-5 on each axis; the gate is defined over these. */
 export type JudgeScores = {
@@ -36,8 +36,10 @@ export const JUDGE_AXES: (keyof JudgeScores)[] = [
   "groundingFaithfulness",
 ]
 
-/** A model-call function the judge depends on. Wired to lib/ai/provider.ts in Phase 2. */
-export type GenerateFn = (prompt: string) => Promise<string>
+/** A model-call function the judge depends on. Wired to lib/ai/provider.ts in Phase 2. The optional
+ *  second param is spend-telemetry-only (beta rescue 2.3, ALT non-brief spend audit): existing
+ *  mocks that take just `(prompt)` remain assignable to this type. */
+export type GenerateFn = (prompt: string, onUsage?: (usage: TokenUsage) => void) => Promise<string>
 
 export function buildJudgePrompt(brief: Brief, dossierSummary: string): string {
   return [
@@ -90,8 +92,8 @@ export function passesGate(input: GateInput, cfg: GateConfig = DEFAULT_GATE): { 
 }
 
 /** Live judge generate fn — Claude reasoning tier, low temperature for consistent scoring. */
-export const defaultJudgeGenerate: GenerateFn = (prompt) =>
-  claudeRaw({ tier: "reasoning", prompt, temperature: 0.1, maxOutputTokens: 2048 })
+export const defaultJudgeGenerate: GenerateFn = (prompt, onUsage) =>
+  claudeRaw({ tier: "reasoning", prompt, temperature: 0.1, maxOutputTokens: 2048, label: "eval-judge", onUsage })
 
 function clampScore(n: unknown): number {
   const v = typeof n === "number" ? n : 0

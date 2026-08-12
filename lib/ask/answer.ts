@@ -6,6 +6,7 @@
 // Supabase read that assembles the context lives in lib/ask/gather.ts.
 
 import { generateStructured, type Transport } from "@/lib/ai/provider"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { humanizeRef } from "@/lib/skills/evidence-format"
 
 export type AskInsight = { type: string; title: string; summary: string; dateKey: string }
@@ -116,15 +117,34 @@ export function validateAnswer(raw: unknown): AskAnswer | null {
   }
 }
 
-/** Answer a bounded question over the location's own data. Transport injectable for tests. */
+/** Answer a bounded question over the location's own data. Transport injectable for tests.
+ *  `locationId` is spend-telemetry-only (beta rescue 2.3): never sent to the model. */
 export async function answerQuestion(
   ctx: AskContext,
   question: string,
-  opts: { transport?: Transport } = {},
+  opts: { transport?: Transport; locationId?: string | null } = {},
 ): Promise<AskAnswer> {
   const { system, prompt } = buildAskPrompt(ctx, question)
   return generateStructured<AskAnswer>(
-    { tier: "reasoning", system, prompt, temperature: 0.2, maxOutputTokens: 1024 },
+    {
+      tier: "reasoning",
+      system,
+      prompt,
+      temperature: 0.2,
+      maxOutputTokens: 1024,
+      label: "ask",
+      onUsage: (usage) =>
+        void recordSpendEvent({
+          surface: "ask",
+          provider: "anthropic",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
+          locationId: opts.locationId,
+        }),
+    },
     {
       transport: opts.transport,
       validate: validateAnswer,

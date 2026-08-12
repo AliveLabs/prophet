@@ -11,6 +11,7 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { diffSnapshots, buildInsights, buildOwnInsights, buildWeeklyInsights } from "@/lib/insights"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import { generateGeminiJson } from "@/lib/ai/gemini"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
 import { unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
@@ -354,7 +355,19 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
                 reviewSnippets,
               }
               const prompt = buildInsightNarrativePrompt(promptInput)
-              const llm = (await generateGeminiJson(prompt)) as { summary?: string; recommendations?: Array<{ title?: string; rationale?: string }>; reviewThemes?: Array<{ theme?: string; sentiment?: string; examples?: string[] }> } | null
+              const llm = (await generateGeminiJson(prompt, {
+                onUsage: (usage) =>
+                  void recordSpendEvent({
+                    surface: "insights_pipeline",
+                    provider: "gemini",
+                    model: usage.model,
+                    inputTokens: usage.inputTokens,
+                    outputTokens: usage.outputTokens,
+                    cacheReadTokens: usage.cacheReadTokens,
+                    locationId: c.locationId,
+                    metadata: { competitorId: competitor.id },
+                  }),
+              })) as { summary?: string; recommendations?: Array<{ title?: string; rationale?: string }>; reviewThemes?: Array<{ theme?: string; sentiment?: string; examples?: string[] }> } | null
               const summary = llm?.summary && llm.summary.length > 40 ? llm.summary : buildDeterministicSummary(promptInput)
               const recs = llm?.recommendations?.length ? llm.recommendations : buildDeterministicRecommendations(promptInput)
               c.state.insightsPayload.push({ location_id: c.locationId, competitor_id: competitor.id, date_key: c.dateKey, insight_type: "competitive_summary", title: `Competitive summary: ${competitor.name}`, summary, confidence: "medium", severity: "info", evidence: { field: "summary" }, recommendations: recs.map((r) => ({ title: r.title ?? "Action", rationale: r.rationale ?? "" })), status: "new" })

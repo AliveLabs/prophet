@@ -21,6 +21,7 @@
 // ---------------------------------------------------------------------------
 
 import { generateStructured, type Transport } from "@/lib/ai/provider"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 
 // ── Registry + fetched-item shapes ────────────────────────────────────────────────────────────────
 export type SourceRow = {
@@ -387,7 +388,27 @@ export async function distillItem(
     item: { title: item.title, body: item.body.slice(0, 4000), url: item.url },
   })
   const verdict = await generateStructured<DistillVerdict | null>(
-    { tier: "reasoning", system: DISTILL_SYSTEM, prompt, temperature: 0.2, maxOutputTokens: 1200 },
+    {
+      tier: "reasoning",
+      system: DISTILL_SYSTEM,
+      prompt,
+      temperature: 0.2,
+      maxOutputTokens: 1200,
+      label: "knowledge-ingest",
+      // Spend telemetry (beta rescue 2.3): no single location, this is a fleet-wide weekly
+      // ingestion, not per-operator content. sourceId/skillIds land in metadata for attribution.
+      onUsage: (usage) =>
+        void recordSpendEvent({
+          surface: "knowledge_ingest",
+          provider: "anthropic",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
+          metadata: { sourceId: source.id, skillIds: source.skillIds },
+        }),
+    },
     {
       // Forward the injectable transport so distill is deterministic in tests (the docstring promises
       // this, and runIngestion's write-path tests depend on it). In prod opts.transport is undefined →

@@ -50,8 +50,8 @@ export async function POST(req: Request) {
     // Everything else stays on the market-data answerer, unchanged. The guardrails
     // (domain-lock, cost bound) hold on both paths.
     const answer = isHowToQuestion(question)
-      ? await answerHowTo(question)
-      : await answerQuestion(await gatherAskContext(loc.id), question)
+      ? await answerHowTo(question, { locationId: loc.id })
+      : await answerQuestion(await gatherAskContext(loc.id), question, { locationId: loc.id })
     await saveAsk(loc.id, question, answer, "user", user.id) // non-fatal on failure
     return Response.json(answer)
   } catch (err) {

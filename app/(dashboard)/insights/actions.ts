@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { requireOrgMembership } from "@/lib/auth/org-access"
 import { generateGeminiJson } from "@/lib/ai/gemini"
+import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { updateWeight } from "@/lib/insights/scoring"
 import {
   buildPriorityBriefingPrompt,
@@ -171,7 +172,10 @@ export async function generatePriorityBriefing(
   preferences: InsightPreference[],
   locationName: string,
   cacheKey?: string | null,
-  context?: BusinessContext | null
+  context?: BusinessContext | null,
+  /** For spend telemetry only (beta rescue 2.3): never sent to the model. Optional so existing
+   *  callers keep compiling unchanged; omit it and the recorded event just has no location. */
+  locationId?: string | null
 ): Promise<PriorityItem[]> {
   if (insights.length === 0) return []
 
@@ -184,7 +188,20 @@ export async function generatePriorityBriefing(
 
   try {
     const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName, context)
-    const result = await generateGeminiJson(prompt, { temperature: 0.3, maxOutputTokens: 4096 })
+    const result = await generateGeminiJson(prompt, {
+      temperature: 0.3,
+      maxOutputTokens: 4096,
+      onUsage: (usage) =>
+        void recordSpendEvent({
+          surface: "priority_briefing",
+          provider: "gemini",
+          model: usage.model,
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          locationId,
+        }),
+    })
 
     if (result?.priorities && Array.isArray(result.priorities)) {
       const validSources = ["competitors", "events", "seo", "content", "photos", "traffic"]
