@@ -29,6 +29,7 @@ export type Capability =
   | "user.impersonate" // sign in as a user
   | "org.manage" // edit info / tier / trial / (de)activate / transfer / clear-refresh
   | "org.delete" // hard-delete an org (real orgs additionally require super_admin in-body)
+  | "org.merge" // fold N duplicate orgs into one target, deleting the sources
   | "demo.manage" // create + clear demo/test orgs
   | "email.send" // custom / broadcast email
   | "billing.convert" // generate a paid Stripe checkout for a Customer org
@@ -49,6 +50,10 @@ export const CAPABILITY_MIN_ROLE: Record<Capability, AdminRole> = {
   "user.impersonate": "admin",
   "org.manage": "admin",
   "org.delete": "admin",
+  // Merging deletes the source orgs (a real, if duplicate, org's data) as a side effect of
+  // moving its members — same destructive-and-irreversible bar as billing.convert/user.delete,
+  // regardless of org_kind, so it's not conditional like org.delete's in-body real-org check.
+  "org.merge": "super_admin",
   "demo.manage": "admin",
   "email.send": "admin",
   "billing.convert": "super_admin",

@@ -17,6 +17,7 @@ import {
   deleteOrg,
   purgeOrg,
   restoreOrg,
+  mergeOrganizations,
 } from "@/app/actions/org-management"
 import { impersonateUser } from "@/app/actions/user-management"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
@@ -61,6 +62,13 @@ interface OrgDetail {
     details: Record<string, unknown> | null
     createdAt: string
   }>
+  mergeCandidates: Array<{
+    id: string
+    name: string
+    slug: string
+    orgKind: string
+    memberCount: number
+  }>
 }
 
 export function OrgDetailClient({ org }: { org: OrgDetail }) {
@@ -74,6 +82,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
   const [showClearData, setShowClearData] = useState(false)
   const [showTransfer, setShowTransfer] = useState(false)
   const [showDeleteOrg, setShowDeleteOrg] = useState(false)
+  const [showMerge, setShowMerge] = useState(false)
   const router = useRouter()
 
   const isSuspended = org.tier === "suspended"
@@ -333,6 +342,15 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               <TkButton variant="keep" onClick={() => setShowTransfer(!showTransfer)}>
                 Transfer owner
               </TkButton>
+              {org.mergeCandidates.length > 0 && (
+                <TkButton
+                  variant="keep"
+                  onClick={() => setShowMerge(!showMerge)}
+                  style={{ color: "var(--alert-deep)", borderColor: "color-mix(in srgb, var(--alert) 40%, transparent)" }}
+                >
+                  Merge another org into this one
+                </TkButton>
+              )}
               <TkButton
                 variant="keep"
                 onClick={() => setShowClearData(!showClearData)}
@@ -365,6 +383,19 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                   members={org.members}
                   onClose={() => setShowTransfer(false)}
                   onFeedback={setFeedback}
+                />
+              )}
+              {showMerge && (
+                <MergeOrgPanel
+                  orgId={org.id}
+                  orgName={org.name}
+                  candidates={org.mergeCandidates}
+                  onClose={() => setShowMerge(false)}
+                  onFeedback={setFeedback}
+                  onMerged={() => {
+                    setShowMerge(false)
+                    router.refresh()
+                  }}
                 />
               )}
               {showClearData && (
@@ -1073,6 +1104,123 @@ function TransferOwnerPanel({
         <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
           Cancel
         </TkButton>
+      </form>
+    </div>
+  )
+}
+
+// Folds one or more duplicate orgs INTO the org being viewed (the fixed target). Exactly the
+// Fog Harbor Fish House shape: Bob's org is canonical, Lauren's and Nicki's are duplicates —
+// open Bob's org and merge the other two into it. Members are relocated, never removed;
+// the target's owner is untouched; merged-away orgs (and their briefs/data) are permanently
+// deleted. Guarded server-side to super_admin (a lower role gets a clean error rather than
+// the control being hidden — mirrors DeletedBanner's purge control above, same reasoning:
+// we don't have the viewer's role here).
+function MergeOrgPanel({
+  orgId,
+  orgName,
+  candidates,
+  onClose,
+  onFeedback,
+  onMerged,
+}: {
+  orgId: string
+  orgName: string
+  candidates: Array<{ id: string; name: string; slug: string; orgKind: string; memberCount: number }>
+  onClose: () => void
+  onFeedback: (msg: string) => void
+  onMerged: () => void
+}) {
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [reason, setReason] = useState("")
+  const [confirmText, setConfirmText] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const ready = selected.size > 0 && confirmText === orgName && reason.trim().length > 0
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ready) return
+    startTransition(async () => {
+      const result = await mergeOrganizations(Array.from(selected), orgId, reason)
+      onFeedback(result.ok ? result.message : result.error)
+      if (result.ok) onMerged()
+    })
+  }
+
+  return (
+    <div className="ao-panel" style={{ borderColor: "color-mix(in srgb, var(--alert) 34%, transparent)" }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="ao-hint" style={{ color: "var(--alert-deep)", fontWeight: 600 }}>
+          Moves every member from the selected org(s) into {orgName} (an incoming owner arrives
+          as admin — {orgName}&rsquo;s own owner stays owner) and repoints anyone whose dashboard
+          pointed at a selected org, then permanently deletes the selected org(s) and all their
+          data (locations, competitors, briefs). This cannot be undone.
+        </p>
+        <div className="ao-field">
+          <label>Merge these orgs into {orgName}</label>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 240, overflowY: "auto" }}>
+            {candidates.map((c) => (
+              <label
+                key={c.id}
+                style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}
+              >
+                <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggle(c.id)} />
+                <span className="ao-nm">{c.name}</span>
+                <span className="ao-slug">/{c.slug}</span>
+                <span className="ao-badge ao-badge-ink" style={{ textTransform: "capitalize" }}>
+                  {c.orgKind}
+                </span>
+                <span className="ao-hint" style={{ margin: 0 }}>
+                  {c.memberCount} member{c.memberCount === 1 ? "" : "s"}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (required, recorded in the audit log)"
+          className="ao-input"
+        />
+        <p className="ao-hint">
+          Type <b>{orgName}</b> to confirm.
+        </p>
+        <div className="ao-panel-row">
+          <input
+            type="text"
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={orgName}
+            className="ao-input"
+            style={{ flex: 1 }}
+          />
+          <TkButton
+            type="submit"
+            variant="add"
+            disabled={!ready || isPending}
+            style={{ background: "var(--alert-2)" }}
+          >
+            {isPending ? "Merging…" : `Merge ${selected.size || ""} into ${orgName}`}
+          </TkButton>
+          <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
+            Cancel
+          </TkButton>
+        </div>
       </form>
     </div>
   )

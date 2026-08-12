@@ -66,6 +66,30 @@ async function fetchOrgDetail(orgId: string) {
     .order("created_at", { ascending: false })
     .limit(20)
 
+  // Candidate source orgs for "Merge another org into this one" — every other non-deleted
+  // org. Fine at beta scale; if the org count grows, this becomes a search-as-you-type.
+  const { data: otherOrgs } = await supabase
+    .from("organizations")
+    .select("id, name, slug, org_kind")
+    .neq("id", orgId)
+    .is("deleted_at", null)
+    .order("name", { ascending: true })
+
+  const otherOrgIds = (otherOrgs ?? []).map((o) => o.id)
+  const mergeCandidateMemberCounts = new Map<string, number>()
+  if (otherOrgIds.length > 0) {
+    const { data: otherMembers } = await supabase
+      .from("organization_members")
+      .select("organization_id")
+      .in("organization_id", otherOrgIds)
+    for (const m of otherMembers ?? []) {
+      mergeCandidateMemberCounts.set(
+        m.organization_id,
+        (mergeCandidateMemberCounts.get(m.organization_id) ?? 0) + 1
+      )
+    }
+  }
+
   return {
     id: org.id,
     name: org.name,
@@ -103,6 +127,13 @@ async function fetchOrgDetail(orgId: string) {
       actorType: log.actor_type ?? "admin",
       details: log.details as Record<string, unknown> | null,
       createdAt: log.created_at ?? "",
+    })),
+    mergeCandidates: (otherOrgs ?? []).map((o) => ({
+      id: o.id,
+      name: o.name,
+      slug: o.slug,
+      orgKind: o.org_kind,
+      memberCount: mergeCandidateMemberCounts.get(o.id) ?? 0,
     })),
   }
 }

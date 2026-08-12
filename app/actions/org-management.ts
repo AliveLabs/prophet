@@ -16,6 +16,12 @@ import { getStripeClient } from "@/lib/stripe/client"
 import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
 import { isValidIndustryType } from "@/lib/verticals"
 import { shouldPointNewOwnerAtOrg } from "@/lib/onboarding/claim-current-org"
+import {
+  mergeSourcesIntoTarget,
+  resolveMergedRole,
+  type MergeSourceOutcome,
+  type MergeSourcePorts,
+} from "@/lib/admin/org-merge"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -980,6 +986,273 @@ export const convertOrgToPaid = withAdminAction(
       }
     } catch (e) {
       return { ok: false, error: `Stripe error: ${e instanceof Error ? e.message : "unknown error"}` }
+    }
+  }
+)
+
+type AdminSupabase = ReturnType<typeof createAdminSupabaseClient>
+
+// Wires the pure ordering logic in lib/admin/org-merge.ts to real Supabase reads/writes,
+// closing over the fixed targetOrgId (each source org gets its own ports call).
+function buildMergePorts(supabase: AdminSupabase, targetOrgId: string): MergeSourcePorts {
+  return {
+    async loadSource(sourceOrgId) {
+      const { data } = await supabase
+        .from("organizations")
+        .select("id, name, org_kind, deleted_at")
+        .eq("id", sourceOrgId)
+        .maybeSingle()
+      if (!data) return null
+      return { id: data.id, name: data.name, orgKind: data.org_kind, deletedAt: data.deleted_at }
+    },
+
+    // Move every organization_members row from source into target. Upsert semantics: a user
+    // already a target member keeps the higher of their two roles (resolveMergedRole); an
+    // incoming owner arrives as admin, never owner — the target's real owner is untouched
+    // because it's never in the source's row set for that user_id.
+    async moveMembers(sourceOrgId) {
+      const { data: sourceMembers, error: sourceErr } = await supabase
+        .from("organization_members")
+        .select("user_id, role")
+        .eq("organization_id", sourceOrgId)
+      if (sourceErr) {
+        throw new Error(`org-merge: could not read source members: ${sourceErr.message}`)
+      }
+
+      const { data: targetMembers, error: targetErr } = await supabase
+        .from("organization_members")
+        .select("user_id, role")
+        .eq("organization_id", targetOrgId)
+      if (targetErr) {
+        throw new Error(`org-merge: could not read target members: ${targetErr.message}`)
+      }
+      const targetRoleByUser = new Map((targetMembers ?? []).map((m) => [m.user_id, m.role]))
+
+      let membersMoved = 0
+      for (const member of sourceMembers ?? []) {
+        const existingRole = targetRoleByUser.get(member.user_id) ?? null
+        const resolvedRole = resolveMergedRole(existingRole, member.role)
+
+        if (existingRole == null) {
+          const { error } = await supabase
+            .from("organization_members")
+            .insert({ organization_id: targetOrgId, user_id: member.user_id, role: resolvedRole })
+          if (error) {
+            throw new Error(
+              `org-merge: could not add member ${member.user_id} to target: ${error.message}`
+            )
+          }
+        } else if (resolvedRole !== existingRole) {
+          const { error } = await supabase
+            .from("organization_members")
+            .update({ role: resolvedRole })
+            .eq("organization_id", targetOrgId)
+            .eq("user_id", member.user_id)
+          if (error) {
+            throw new Error(
+              `org-merge: could not update member ${member.user_id} role on target: ${error.message}`
+            )
+          }
+        }
+        membersMoved++
+      }
+      return { membersMoved }
+    },
+
+    // Repoint current_organization_id for anyone whose dashboard pointed at this source —
+    // upsert, per the transferOrgOwnership precedent above, since a member row doesn't
+    // guarantee a profiles row exists yet for an invited-but-never-onboarded user.
+    async repointProfiles(sourceOrgId) {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("current_organization_id", sourceOrgId)
+      if (error) {
+        throw new Error(`org-merge: could not read profiles pointing at source: ${error.message}`)
+      }
+
+      let profilesRepointed = 0
+      for (const p of profiles ?? []) {
+        const { error: upsertErr } = await supabase
+          .from("profiles")
+          .upsert({ id: p.id, current_organization_id: targetOrgId }, { onConflict: "id" })
+        if (upsertErr) {
+          throw new Error(`org-merge: could not repoint profile ${p.id}: ${upsertErr.message}`)
+        }
+        profilesRepointed++
+      }
+      return { profilesRepointed }
+    },
+
+    // The gate before delete: confirm zero profiles still point at the source. Re-checks
+    // rather than trusting the repoint count above, so a race (a profile switched TO the
+    // source between repointProfiles and here) still blocks the delete.
+    async verifyNoDanglingProfiles(sourceOrgId) {
+      const { count, error } = await supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("current_organization_id", sourceOrgId)
+      if (error) {
+        throw new Error(`org-merge: could not verify profile pointers: ${error.message}`)
+      }
+      return (count ?? 0) === 0
+    },
+
+    async deleteSource(sourceOrgId) {
+      await cascadeDeleteOrganization(supabase, sourceOrgId)
+    },
+  }
+}
+
+export type MergeOrganizationsResult =
+  | { ok: true; message: string; results: MergeSourceOutcome[] }
+  | { ok: false; error: string }
+
+// Fold N duplicate orgs into ONE canonical target — the Fog Harbor Fish House problem: one
+// real restaurant, onboarded independently by 3 coworkers (beta rescue 1.2, pairs with
+// ALT-576). super_admin only (this deletes the sources). No member is ever removed, only
+// relocated to the target — anyone might be the one who actually evaluates the product — and
+// the target's existing owner is never displaced.
+//
+// Ordering + idempotency live in lib/admin/org-merge.ts#mergeSourcesIntoTarget: a source's
+// members and profile pointers are moved and CONFIRMED moved before that source is deleted,
+// so a mid-run crash never leaves a user pointing at a deleted org, and re-running with the
+// same sourceOrgIds is safe (an already-merged/missing source is skipped, not re-processed).
+//
+// Data loss: each merged-away source's briefs, snapshots, and other derived data die with it
+// (full cascade delete, not keep_shell) — only its members and current-org pointer survive,
+// moved onto the target.
+export const mergeOrganizations = withAdminAction(
+  "org.merge",
+  async (
+    ctx,
+    sourceOrgIds: string[],
+    targetOrgId: string,
+    reason: string = ""
+  ): Promise<MergeOrganizationsResult> => {
+    const supabase = createAdminSupabaseClient()
+
+    const uniqueSourceIds = Array.from(new Set(sourceOrgIds))
+    if (uniqueSourceIds.length === 0) {
+      return { ok: false, error: "Pick at least one source organization to merge." }
+    }
+    if (uniqueSourceIds.includes(targetOrgId)) {
+      return { ok: false, error: "A source organization cannot be its own merge target." }
+    }
+
+    const { data: target } = await supabase
+      .from("organizations")
+      .select("id, name, org_kind, deleted_at")
+      .eq("id", targetOrgId)
+      .maybeSingle()
+    if (!target) return { ok: false, error: "Target organization not found." }
+    if (target.deleted_at) {
+      return {
+        ok: false,
+        error: "The target organization is deleted. Restore it before merging into it.",
+      }
+    }
+
+    // Load every source up front and validate ALL of them before moving anything — a live
+    // Stripe subscription means real billing history hangs off this org, so refuse the whole
+    // merge rather than cascade-delete it out from under an active subscription. Same LIVE
+    // set deactivateOrg uses above.
+    const LIVE_SUBSCRIPTION_STATES = ["active", "trialing", "past_due", "incomplete"]
+    const { data: sources } = await supabase
+      .from("organizations")
+      .select("id, name, org_kind, deleted_at, stripe_subscription_id, payment_state")
+      .in("id", uniqueSourceIds)
+
+    for (const sourceId of uniqueSourceIds) {
+      const source = (sources ?? []).find((s) => s.id === sourceId)
+      // Missing or already-deleted sources are NOT an error here — they fall through to the
+      // merge step, which treats them as already merged (idempotent re-run).
+      if (!source || source.deleted_at) continue
+      if (
+        source.stripe_subscription_id &&
+        source.payment_state &&
+        LIVE_SUBSCRIPTION_STATES.includes(source.payment_state)
+      ) {
+        return {
+          ok: false,
+          error: `${source.name} has a live Stripe subscription — cancel or transfer its billing before merging it away.`,
+        }
+      }
+    }
+
+    // Org kinds are logged, not enforced: nothing elsewhere in this file treats real/demo/test
+    // as mutually incompatible (only org.delete/clearOrgData gate REAL orgs behind
+    // super_admin, which this action already is). Recorded here so a real+demo merge is
+    // visible in the audit trail, not silently blocked.
+    const kindsInvolved = {
+      targetKind: target.org_kind,
+      sourceKinds: (sources ?? []).map((s) => ({ id: s.id, name: s.name, kind: s.org_kind })),
+    }
+
+    // "no log ⇒ no action": record intent + full context BEFORE any write. Merging deletes
+    // orgs, so it's destructive like deleteOrg/purgeOrg/clearOrgData('all') and needs a reason.
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.merge",
+      targetType: "org",
+      targetId: targetOrgId,
+      reason,
+      before: kindsInvolved,
+      details: { phase: "intent", sourceOrgIds: uniqueSourceIds },
+    })
+    if (!intent.ok) return intent
+
+    const results = await mergeSourcesIntoTarget(
+      uniqueSourceIds,
+      buildMergePorts(supabase, targetOrgId)
+    )
+
+    const merged = results.filter((r) => r.status === "merged")
+    const failed = results.filter((r) => r.status === "failed")
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.merge",
+      targetType: "org",
+      targetId: targetOrgId,
+      reason,
+      details: {
+        phase: "result",
+        targetName: target.name,
+        targetKind: target.org_kind,
+        results: results.map((r) => ({
+          sourceOrgId: r.sourceOrgId,
+          sourceName: r.sourceName,
+          sourceKind: r.sourceKind,
+          status: r.status,
+          membersMoved: r.membersMoved,
+          profilesRepointed: r.profilesRepointed,
+          error: r.error ?? null,
+        })),
+      },
+    })
+
+    revalidatePath("/admin/organizations")
+    revalidatePath(`/admin/organizations/${targetOrgId}`)
+
+    if (failed.length > 0) {
+      const failedNames = failed.map((r) => r.sourceName ?? r.sourceOrgId).join(", ")
+      return {
+        ok: false,
+        error: `Merged ${merged.length} of ${uniqueSourceIds.length} org(s) into ${target.name}. Failed (nothing was left half-moved, safe to retry): ${failedNames}.`,
+      }
+    }
+
+    const totalMembers = merged.reduce((n, r) => n + r.membersMoved, 0)
+    return {
+      ok: true,
+      message:
+        merged.length > 0
+          ? `Merged ${merged.length} org(s) into ${target.name} — ${totalMembers} membership(s) moved, duplicates deleted.`
+          : `Nothing to merge — the selected org(s) were already merged or no longer exist.`,
+      results,
     }
   }
 )
