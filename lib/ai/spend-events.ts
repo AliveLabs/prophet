@@ -54,16 +54,28 @@ export type SpendEventInput = {
 }
 
 // ---------------------------------------------------------------------------
-// Gemini per-MTok USD, ESTIMATES ONLY (dated 2026-08-12, sourced from Google's published Gemini
-// API list prices for the ≤128k-context / text tier; every call site this recorder covers is well
-// under that). No per-token Gemini rate existed anywhere in this codebase before this file.
+// Gemini per-MTok USD, ESTIMATES ONLY (verified against Google's published Gemini API list
+// prices 2026-08-12, text tier). Pro is tiered by prompt size: both input AND output reprice
+// when the prompt exceeds 200k tokens (Google prices output by prompt size, not output size).
+// Our prompts sit far below that, but the tier is modeled so an outlier prices correctly.
+// No per-token Gemini rate existed anywhere in this codebase before this file.
 // lib/billing/cost-model.ts carries flat PER-CALL estimates for a different purpose (onboarding
 // cost projection) and is deliberately NOT reused here: keeping the two independent means a
 // change to one never silently reprices the other. Billing truth is the Google AI Studio /
 // Cloud console, exactly as pricing.ts says the Anthropic console is truth for that provider.
 // ---------------------------------------------------------------------------
-const GEMINI_PER_MTOK_USD: Record<string, { input: number; output: number }> = {
-  "gemini-2.5-pro": { input: 1.25, output: 10 },
+type GeminiRate = {
+  input: number
+  output: number
+  /** Rates applied to the WHOLE call when the prompt exceeds thresholdTokens. */
+  longPrompt?: { thresholdTokens: number; input: number; output: number }
+}
+const GEMINI_PER_MTOK_USD: Record<string, GeminiRate> = {
+  "gemini-2.5-pro": {
+    input: 1.25,
+    output: 10,
+    longPrompt: { thresholdTokens: 200_000, input: 2.5, output: 15 },
+  },
   "gemini-2.5-flash": { input: 0.3, output: 2.5 },
 }
 // Unrecognised Gemini model ids price as -pro (the more expensive tier) so a new model id shows
@@ -71,7 +83,7 @@ const GEMINI_PER_MTOK_USD: Record<string, { input: number; output: number }> = {
 // pricing.ts's unknown-Anthropic-model default.
 const GEMINI_DEFAULT_RATE = GEMINI_PER_MTOK_USD["gemini-2.5-pro"]
 
-function rateForGemini(model: string): { input: number; output: number } {
+function rateForGemini(model: string): GeminiRate {
   for (const [key, rate] of Object.entries(GEMINI_PER_MTOK_USD)) {
     if (model.includes(key)) return rate
   }
@@ -92,8 +104,13 @@ export function estimateSpendUsd(input: SpendEventInput): number {
   // Gemini: these call sites don't use explicit context caching, so there is no separate
   // cache-write rate to model; any cache-read tokens (if ever populated) price at the plain
   // input rate rather than being dropped.
-  const rate = rateForGemini(input.model)
-  return ((inputTokens + cacheReadTokens + cacheWriteTokens) / 1e6) * rate.input + (outputTokens / 1e6) * rate.output
+  const baseRate = rateForGemini(input.model)
+  const promptTokens = inputTokens + cacheReadTokens + cacheWriteTokens
+  const rate =
+    baseRate.longPrompt && promptTokens > baseRate.longPrompt.thresholdTokens
+      ? baseRate.longPrompt
+      : baseRate
+  return (promptTokens / 1e6) * rate.input + (outputTokens / 1e6) * rate.output
 }
 
 type SpendEventsClient = {

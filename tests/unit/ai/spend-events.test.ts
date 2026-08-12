@@ -38,9 +38,41 @@ describe("estimateSpendUsd", () => {
     expect(estimateSpendUsd(input)).toBe(viaPricing)
   })
 
-  it("Gemini: gemini-2.5-pro prices at $1.25 in / $10 out per MTok", () => {
+  it("Gemini: gemini-2.5-pro prices at $1.25 in / $10 out per MTok on prompts <= 200k tokens", () => {
+    const usd = estimateSpendUsd({
+      ...baseInput,
+      provider: "gemini",
+      model: "gemini-2.5-pro",
+      inputTokens: 200_000,
+      outputTokens: 1_000_000,
+    })
+    expect(usd).toBeCloseTo(0.2 * 1.25 + 10, 6)
+  })
+
+  it("Gemini: gemini-2.5-pro reprices the WHOLE call ($2.50 in / $15 out) when the prompt exceeds 200k tokens", () => {
     const usd = estimateSpendUsd({ ...baseInput, provider: "gemini", model: "gemini-2.5-pro" })
-    expect(usd).toBeCloseTo(1.25 + 10, 6)
+    expect(usd).toBeCloseTo(2.5 + 15, 6)
+  })
+
+  it("Gemini: cache tokens count toward the 200k long-prompt threshold (they are prompt tokens)", () => {
+    const under = estimateSpendUsd({
+      surface: "ask",
+      provider: "gemini",
+      model: "gemini-2.5-pro",
+      inputTokens: 150_000,
+      cacheReadTokens: 50_000,
+      outputTokens: 0,
+    })
+    const over = estimateSpendUsd({
+      surface: "ask",
+      provider: "gemini",
+      model: "gemini-2.5-pro",
+      inputTokens: 150_000,
+      cacheReadTokens: 50_001,
+      outputTokens: 0,
+    })
+    expect(under).toBeCloseTo(0.2 * 1.25, 6)
+    expect(over).toBeCloseTo((200_001 / 1e6) * 2.5, 6)
   })
 
   it("Gemini: gemini-2.5-flash is materially cheaper than pro at the same token counts", () => {

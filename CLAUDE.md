@@ -140,8 +140,10 @@ ceiling is preferred over lowering effort.
 - `npm run typecheck` and `npm run test:unit` before any PR. Run the **full** unit suite after
   changing anything shared; do not run a single file.
 - `vitest` collects only `tests/unit/**/*.test.ts` (no `.tsx`). Extract logic to test it.
-- `main` is branch-protected: PR + typecheck/unit + authed Playwright, strict, no auto-merge.
-  Merges are serial, and a stale PR's green means nothing.
+- `main` is branch-protected: PR + typecheck/unit + authed Playwright, strict. Auto-merge is
+  enabled (2026-08-12): `gh pr merge --auto --squash` lands a PR once its checks go green, and the
+  strict up-to-date requirement means it only fires on a current branch. Merges are still serial,
+  and a stale PR's green means nothing.
 - `next build` (or a Vercel preview deploy) is the real gate for page changes.
 - Lint currently reports pre-existing errors unrelated to the engine. Do not treat a red `lint` as
   your regression without diffing against a stashed baseline first.
