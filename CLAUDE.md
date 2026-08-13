@@ -20,8 +20,9 @@ editor keeps recommending changes to it that we have deliberately decided agains
   Gemini `"cheap"` tier was deleted 2026-08-12 (it never gained a call site). The small interactive
   surfaces (quick-tip, on-demand insight, pipeline narratives) run Claude Haiku
   4.5 (`FAST_MODEL`) through this same client. `lib/ai/gemini.ts` still exists but is **Pro, not
-  Flash**, and serves exactly two remaining callers: the Search-grounded menu fetch
-  (`fetchGoogleMenuData`) and the /insights Priority Briefing call (slated for its own rewrite).
+  Flash**, and serves exactly one remaining caller: the Search-grounded menu fetch
+  (`fetchGoogleMenuData`). The /insights Priority Briefing call was its other caller until
+  2026-08-13, when that section was rewritten as a deterministic pick with zero model calls.
 
 The transport is injectable (`Transport`), which is what makes the whole engine headless-testable
 with no network and no API key. **1998 unit tests depend on that.**

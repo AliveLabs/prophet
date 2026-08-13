@@ -1,4 +1,3 @@
-import { Suspense } from "react"
 import AutoFilterForm from "@/components/filters/auto-filter-form"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
@@ -8,13 +7,13 @@ import {
   scoreInsights,
   type InsightPreference,
 } from "@/lib/insights/scoring"
-import type { InsightForBriefing, BusinessContext } from "@/lib/ai/prompts/priority-briefing"
 import { fetchSocialDashboardData } from "./social-actions"
 import { fetchInsightsPageData } from "@/lib/insights/cached-data"
 import { resolveDisplayName } from "../operator-data"
 // ── The Pass — kit-rebuilt presentation (page-local; shared components untouched) ──
 import { TkSoftPanel, TkTooltipLayer } from "@/components/ticket"
-import InsightsBriefingSection, { InsightsBriefingSkeleton } from "./insights-briefing-section"
+import InsightsPrioritySection from "./insights-priority-section"
+import { pickPriorityInsights } from "./insight-row-adapter"
 import InsightsGlance, { type GlanceData } from "./insights-glance"
 import InsightsFeedKit, { type FeedInsight } from "./insights-feed-kit"
 import { recentCutoffDateKey } from "./insights-reveal"
@@ -184,58 +183,6 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
   }
 
   // -------------------------------------------------------------------------
-  // Prepare briefing data (passed to Suspense-wrapped component)
-  // -------------------------------------------------------------------------
-
-  function extractEvidenceHighlights(evidence: Record<string, unknown>, insightType: string): string {
-    const parts: string[] = []
-    try {
-      if (insightType.startsWith("menu.") || insightType.startsWith("content.")) {
-        if (evidence.locationAvgPrice) parts.push(`Your avg: $${evidence.locationAvgPrice}`)
-        if (evidence.competitorAvgPrice) parts.push(`Competitor avg: $${evidence.competitorAvgPrice}`)
-        if (evidence.missingCategory) parts.push(`Missing: ${evidence.missingCategory}`)
-        if (evidence.competitor) parts.push(`vs ${evidence.competitor}`)
-      } else if (insightType.startsWith("seo_") || insightType.startsWith("cross_")) {
-        if (evidence.keyword_gain) parts.push(`+${evidence.keyword_gain} keywords`)
-        if (evidence.traffic_growth_pct) parts.push(`+${evidence.traffic_growth_pct}% traffic`)
-        if (evidence.current_keywords) parts.push(`${evidence.current_keywords} total keywords`)
-        if (evidence.review_count) parts.push(`${evidence.review_count} reviews`)
-      } else if (insightType.includes("weather")) {
-        if (evidence.condition) parts.push(`${evidence.condition}`)
-        if (evidence.temp_high_f) parts.push(`${evidence.temp_high_f}°F`)
-      } else if (insightType.includes("traffic")) {
-        if (evidence.peak_hour != null) parts.push(`Peak: ${evidence.peak_hour}:00`)
-        if (evidence.peak_score) parts.push(`Score: ${evidence.peak_score}`)
-      } else {
-        if (evidence.competitor_name || evidence.competitor) parts.push(`${evidence.competitor_name ?? evidence.competitor}`)
-        if (typeof evidence.rating === "number") parts.push(`Rating: ${evidence.rating}`)
-        if (typeof evidence.reviewCount === "number") parts.push(`${evidence.reviewCount} reviews`)
-      }
-    } catch { /* non-fatal */ }
-    return parts.join(", ").slice(0, 200)
-  }
-
-  // ALT-230: the Priority Briefing is a hero-equivalent surface, so user-generated
-  // viz insights (`user_viz.*`) must NOT feed it (same rule as the home hero/dossier).
-  // They still appear in the feed pool below — this only guards the briefing input.
-  const insightsForBriefing: InsightForBriefing[] = allInsights
-    .filter((i) => !(i.insight_type as string).startsWith("user_viz"))
-    .slice(0, 30)
-    .map((i) => ({
-    insight_type: i.insight_type as string,
-    title: i.title,
-    summary: i.summary,
-    severity: i.severity,
-    confidence: i.confidence,
-    competitorId: i.competitor_id,
-    relevanceScore: scoredMap.get(i.id)?.relevanceScore ?? 0,
-    evidenceHighlights: extractEvidenceHighlights(
-      (i.evidence as Record<string, unknown>) ?? {},
-      i.insight_type as string
-    ),
-  }))
-
-  // -------------------------------------------------------------------------
   // Serialize insights for client-side feed (sorted by relevance)
   // -------------------------------------------------------------------------
 
@@ -339,41 +286,16 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
     ? await fetchSocialDashboardData(selectedLocationId)
     : { profiles: [], handles: [] }
 
-  // Cache key components for the briefing
-  const latestDateKey = allInsights[0]?.date_key as string | undefined
-  const briefingCacheKey = selectedLocationId
-    ? `${selectedLocationId}:${allInsights.length}:${latestDateKey ?? "none"}`
-    : null
+  // -------------------------------------------------------------------------
+  // Deterministic priority pick (zero model calls — replaces the Priority Briefing).
+  // Composed from the SAME scored feed rows the page already has; the picker itself
+  // guards the hero-equivalent rules (no user_viz, no suppressed, no cleared rows).
+  // Only the default and "new" views carry a priority section: a cleared-status
+  // review view should not re-pitch what the operator is reviewing.
+  // -------------------------------------------------------------------------
 
-  // Build rich business context for the priority briefing
-  const briefingContext: BusinessContext = {
-    locationRating: locationRating,
-    locationReviewCount: locationReviewCount,
-    competitorCount: competitors.length,
-    weatherSummary: weatherForBadge
-      ? `${weatherForBadge.weather_condition}, High ${Math.round(weatherForBadge.temp_high_f)}°F / Low ${Math.round(weatherForBadge.temp_low_f)}°F${weatherForBadge.precipitation_in > 0 ? `, ${weatherForBadge.precipitation_in.toFixed(2)}" precipitation` : ""}${weatherForBadge.is_severe ? " (SEVERE)" : ""}`
-      : null,
-    trafficSummary: (() => {
-      if (trafficData.length === 0) return null
-      const allDays = trafficData.flatMap((t) => t.days)
-      if (allDays.length === 0) return null
-      const peakDay = allDays.reduce((best, d) => (d.peak_score > best.peak_score ? d : best), allDays[0])
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-      return `Peak traffic: ${dayNames[peakDay.day_of_week]} at ${peakDay.peak_hour}:00 (score: ${peakDay.peak_score}/100). Tracking ${trafficData.length} competitor(s).`
-    })(),
-    photoSummary: photoItems.length > 0
-      ? `${photoItems.length} photos analyzed. Categories: ${[...new Set(photoItems.map((p) => p.category))].slice(0, 4).join(", ")}. ${photoItems.filter((p) => p.promotional_content).length} promotional.`
-      : null,
-    socialSummary: socialData.profiles.length > 0
-      ? (() => {
-          const locProfiles = socialData.profiles.filter((p) => p.entityType === "location")
-          const compProfiles = socialData.profiles.filter((p) => p.entityType === "competitor")
-          const platforms = [...new Set(socialData.profiles.map((p) => p.platform))].join(", ")
-          const locFollowers = locProfiles.reduce((s, p) => s + p.followerCount, 0)
-          return `Tracking ${socialData.profiles.length} profiles on ${platforms}. Your followers: ${locFollowers.toLocaleString()}. ${compProfiles.length} competitor profiles tracked.`
-        })()
-      : null,
-  }
+  const priorityInsights =
+    !statusFilter || statusFilter === "new" ? pickPriorityInsights(feedInsights) : []
 
   // -------------------------------------------------------------------------
   // At-a-glance data (HONEST: %-share / counts / "you vs competitor" only).
@@ -473,15 +395,15 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
                   ],
                 },
                 {
+                  // Keep/Dismiss vocabulary (the Track menu's read/to-do/done/snoozed
+                  // splits are retired): "Kept" spans every positive status, legacy
+                  // Track-era rows included, so nothing an operator marked disappears.
                   name: "status",
                   defaultValue: statusFilter,
                   options: [
                     { value: "", label: "All active" },
                     { value: "new", label: "New" },
-                    { value: "read", label: "Read" },
-                    { value: "todo", label: "To-Do" },
-                    { value: "actioned", label: "Done" },
-                    { value: "snoozed", label: "Snoozed" },
+                    { value: "kept", label: "Kept" },
                     { value: "dismissed", label: "Dismissed" },
                     { value: "inaccurate", label: "Reported inaccurate" },
                   ],
@@ -493,18 +415,12 @@ export default async function InsightsPage({ searchParams }: InsightsPageProps) 
           {/* Error banner */}
           {error && <div className="ins-error">{decodeURIComponent(error)}</div>}
 
-          {/* Priority Briefing — streamed via Suspense, never blocks the page */}
-          {allInsights.length > 0 && (
-            <Suspense fallback={<InsightsBriefingSkeleton />}>
-              <InsightsBriefingSection
-                insights={insightsForBriefing}
-                preferences={preferences}
-                locationName={selectedLocation?.name ?? "Your location"}
-                cacheKey={briefingCacheKey}
-                context={briefingContext}
-                locationId={selectedLocationId}
-              />
-            </Suspense>
+          {/* Priority — deterministic top picks, composed with zero model calls */}
+          {priorityInsights.length > 0 && (
+            <InsightsPrioritySection
+              insights={priorityInsights}
+              locationName={selectedLocation?.name ?? "your location"}
+            />
           )}
 
           {/* At a glance — weighted widget grid (honest %/counts) */}

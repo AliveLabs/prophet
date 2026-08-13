@@ -1,22 +1,10 @@
 "use server"
 
-import { redirect } from "next/navigation"
 import { updateTag } from "next/cache"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { requireOrgMembership } from "@/lib/auth/org-access"
-import { generateGeminiJson } from "@/lib/ai/gemini"
-import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { updateWeight } from "@/lib/insights/scoring"
-import {
-  buildPriorityBriefingPrompt,
-  buildDeterministicBriefing,
-  type PriorityItem,
-  type InsightForBriefing,
-  type BusinessContext,
-} from "@/lib/ai/prompts/priority-briefing"
-import type { InsightPreference } from "@/lib/insights/scoring"
-import { getCachedBriefing, setCachedBriefing } from "@/lib/insights/briefing-cache"
 
 // ---------------------------------------------------------------------------
 // Unified insight status update action
@@ -39,32 +27,8 @@ export async function updateInsightStatusAction(formData: FormData) {
 
   const supabase = await createServerSupabaseClient()
 
-  const { data: insight } = await supabase
-    .from("insights")
-    .select("insight_type, location_id")
-    .eq("id", insightId)
-    .maybeSingle()
-
+  const insight = await loadAuthorizedInsight(supabase, user.id, insightId)
   if (!insight) return
-
-  // ALT-577: this action is keyed on the INSIGHT's org (via its location), not the caller's
-  // current org, so it cannot use resolveOrgActor. requireOrgMembership carries the same
-  // guarantees (member AND the org is not soft-deleted) for an explicit orgId.
-  if (insight.location_id) {
-    const { data: loc } = await supabase
-      .from("locations")
-      .select("organization_id")
-      .eq("id", insight.location_id)
-      .maybeSingle()
-
-    if (loc?.organization_id) {
-      try {
-        await requireOrgMembership(supabase, user.id, loc.organization_id)
-      } catch {
-        return
-      }
-    }
-  }
 
   const userFeedback = NEGATIVE_STATUSES.has(newStatus)
     ? "not_useful"
@@ -77,14 +41,16 @@ export async function updateInsightStatusAction(formData: FormData) {
     .update({
       status: newStatus,
       ...(userFeedback ? { user_feedback: userFeedback } : {}),
+      // Undo (back to "new") clears the row's feedback rather than leaving a stale
+      // useful/not_useful verdict behind an untouched-looking card.
+      ...(newStatus === "new" ? { user_feedback: null } : {}),
       feedback_at: new Date().toISOString(),
       feedback_by: user.id,
     })
     .eq("id", insightId)
 
-  if (insight && userFeedback) {
-    const feedback = userFeedback === "useful" ? "useful" : "not_useful"
-    await updateOrgPreference(supabase, user.id, insight.insight_type, feedback)
+  if (userFeedback) {
+    await updateOrgPreference(supabase, user.id, insight.insight_type, userFeedback)
   }
 
   updateTag("insights-data")
@@ -92,21 +58,85 @@ export async function updateInsightStatusAction(formData: FormData) {
 }
 
 // ---------------------------------------------------------------------------
-// Legacy actions (kept for backward compat, delegate to unified action)
+// Per-insight thumbs feedback (the unified card's Helpful? vote)
+//
+// The insight-level equivalent of the brief's brief_feedback thumbs, using the
+// storage that ALREADY exists for this surface: insights.user_feedback (+ the
+// insight_preferences weight loop). Deliberately NOT a status change — the old
+// card's ALT-184f note flagged that conflating a rating with a lifecycle write
+// pollutes the learning signal, so this action touches feedback fields only.
 // ---------------------------------------------------------------------------
 
-export async function saveInsightAction(formData: FormData) {
-  formData.set("new_status", "read")
-  formData.set("current_path", "/insights")
-  await updateInsightStatusAction(formData)
-  redirect("/insights")
+export async function submitInsightFeedback(input: {
+  insightId: string
+  verdict: "good" | "bad"
+}): Promise<{ ok: boolean }> {
+  const user = await requireUser()
+  if (!input.insightId || (input.verdict !== "good" && input.verdict !== "bad")) {
+    return { ok: false }
+  }
+
+  const supabase = await createServerSupabaseClient()
+
+  const insight = await loadAuthorizedInsight(supabase, user.id, input.insightId)
+  if (!insight) return { ok: false }
+
+  const userFeedback = input.verdict === "good" ? "useful" : "not_useful"
+
+  const { error } = await supabase
+    .from("insights")
+    .update({
+      user_feedback: userFeedback,
+      feedback_at: new Date().toISOString(),
+      feedback_by: user.id,
+    })
+    .eq("id", input.insightId)
+  if (error) return { ok: false }
+
+  await updateOrgPreference(supabase, user.id, insight.insight_type, userFeedback)
+
+  updateTag("insights-data")
+  updateTag("social-data")
+  return { ok: true }
 }
 
-export async function dismissInsightAction(formData: FormData) {
-  formData.set("new_status", "dismissed")
-  formData.set("current_path", "/insights")
-  await updateInsightStatusAction(formData)
-  redirect("/insights")
+// ---------------------------------------------------------------------------
+// Shared: load an insight and verify the caller may act on it
+// ---------------------------------------------------------------------------
+
+async function loadAuthorizedInsight(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  insightId: string
+): Promise<{ insight_type: string; location_id: string | null } | null> {
+  const { data: insight } = await supabase
+    .from("insights")
+    .select("insight_type, location_id")
+    .eq("id", insightId)
+    .maybeSingle()
+
+  if (!insight) return null
+
+  // ALT-577: these actions are keyed on the INSIGHT's org (via its location), not the
+  // caller's current org, so they cannot use resolveOrgActor. requireOrgMembership carries
+  // the same guarantees (member AND the org is not soft-deleted) for an explicit orgId.
+  if (insight.location_id) {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("organization_id")
+      .eq("id", insight.location_id)
+      .maybeSingle()
+
+    if (loc?.organization_id) {
+      try {
+        await requireOrgMembership(supabase, userId, loc.organization_id)
+      } catch {
+        return null
+      }
+    }
+  }
+
+  return insight
 }
 
 // ---------------------------------------------------------------------------
@@ -153,79 +183,4 @@ async function updateOrgPreference(
   } catch (err) {
     console.error("Failed to update org preference:", err)
   }
-}
-
-// ---------------------------------------------------------------------------
-// Legacy actions kept for backward compatibility (redirect to new ones)
-// ---------------------------------------------------------------------------
-
-export async function markInsightReadAction(formData: FormData) {
-  return saveInsightAction(formData)
-}
-
-// ---------------------------------------------------------------------------
-// Priority Briefing generation (called during page render)
-// ---------------------------------------------------------------------------
-
-export async function generatePriorityBriefing(
-  insights: InsightForBriefing[],
-  preferences: InsightPreference[],
-  locationName: string,
-  cacheKey?: string | null,
-  context?: BusinessContext | null,
-  /** For spend telemetry only (beta rescue 2.3): never sent to the model. Optional so existing
-   *  callers keep compiling unchanged; omit it and the recorded event just has no location. */
-  locationId?: string | null
-): Promise<PriorityItem[]> {
-  if (insights.length === 0) return []
-
-  if (cacheKey) {
-    const cached = getCachedBriefing(cacheKey)
-    if (cached) return cached
-  }
-
-  let result_items: PriorityItem[]
-
-  try {
-    const prompt = buildPriorityBriefingPrompt(insights, preferences, locationName, context)
-    const result = await generateGeminiJson(prompt, {
-      temperature: 0.3,
-      maxOutputTokens: 4096,
-      onUsage: (usage) =>
-        void recordSpendEvent({
-          surface: "priority_briefing",
-          provider: "gemini",
-          model: usage.model,
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          cacheReadTokens: usage.cacheReadTokens,
-          locationId,
-        }),
-    })
-
-    if (result?.priorities && Array.isArray(result.priorities)) {
-      const validSources = ["competitors", "events", "seo", "content", "photos", "traffic"]
-      result_items = (result.priorities as PriorityItem[]).slice(0, 5).map((p) => ({
-        title: String(p.title ?? ""),
-        why: String(p.why ?? ""),
-        urgency: (["critical", "warning", "info"].includes(p.urgency) ? p.urgency : "info") as PriorityItem["urgency"],
-        action: String(p.action ?? ""),
-        source: (validSources.includes(p.source) ? p.source : "competitors") as PriorityItem["source"],
-        relatedInsightTypes: Array.isArray(p.relatedInsightTypes)
-          ? p.relatedInsightTypes.map(String)
-          : [],
-      }))
-    } else {
-      result_items = buildDeterministicBriefing(insights)
-    }
-  } catch (err) {
-    console.warn("[PriorityBriefing] Gemini call failed, using deterministic fallback:", err)
-    result_items = buildDeterministicBriefing(insights)
-  }
-
-  if (cacheKey && result_items.length > 0) {
-    setCachedBriefing(cacheKey, result_items)
-  }
-
-  return result_items
 }

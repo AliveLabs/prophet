@@ -7,33 +7,13 @@
 // $ / covers are invented; everything is %/estimated/"you vs competitor" framing
 // already present in the engine evidence.
 
-import type { TkFamily, TkConfidenceLevel, TkImpactLevel } from "@/components/ticket"
+import type { TkConfidenceLevel, TkImpactLevel } from "@/components/ticket"
 import {
   getSourceCategory,
   SOURCE_LABELS,
   type SourceCategory,
 } from "@/lib/insights/scoring"
 import type { FeedInsight } from "./insights-feed-kit"
-
-/* ── Source category → the 5 visual families the kit tints ──────────────── */
-// The kit chips/icons theme 5 families. We map the engine's source categories
-// honestly: social/photos→social-family hues are too loud, so we collapse to the
-// closest semantic family the kit already styles. (Photos/visual = "menu" reads
-// as content; traffic/events/seo = "competitive" — the compete-with-the-set lane;
-// reviews/GBP = "reputation".)
-const CATEGORY_FAMILY: Record<SourceCategory, TkFamily> = {
-  competitors: "reputation", // GBP / reviews / ratings
-  events: "competitive",
-  seo: "competitive",
-  social: "social",
-  content: "menu", // website & menu
-  photos: "menu", // visual intelligence reads as menu/content
-  traffic: "competitive",
-}
-
-export function insightFamily(i: Pick<FeedInsight, "insightType" | "competitorId">): TkFamily {
-  return CATEGORY_FAMILY[getSourceCategory(i.insightType, i.competitorId)]
-}
 
 export function insightCategory(
   i: Pick<FeedInsight, "insightType" | "competitorId">
@@ -56,22 +36,6 @@ export function insightConfLevel(confidence: string): TkConfidenceLevel {
   if (confidence === "high") return "high"
   if (confidence === "medium") return "medium"
   return "directional"
-}
-
-const CONF_LABEL: Record<TkConfidenceLevel, string> = {
-  high: "High",
-  medium: "Medium",
-  directional: "Directional",
-}
-export function insightConfLabel(confidence: string): string {
-  return CONF_LABEL[insightConfLevel(confidence)]
-}
-
-/* ── Urgency → the small priority tag shown on a card ───────────────────── */
-export const URGENCY_LABEL: Record<FeedInsight["urgencyLevel"], string> = {
-  critical: "High priority",
-  warning: "This week",
-  info: "Plan ahead",
 }
 
 /* ── Verbatim review quotes for the TkQuote evidence block ──────────────── */
@@ -180,16 +144,6 @@ export function insightWhyPoints(i: FeedInsight): string[] {
   return [
     `Read from your ${SOURCE_LABELS[getSourceCategory(i.insightType, i.competitorId)]} signal, refreshed in the latest sweep.`,
   ]
-}
-
-export function insightWhyLabel(i: FeedInsight): string {
-  return insightConfLevel(i.confidence) === "directional"
-    ? "Why this is directional"
-    : "Why we're confident"
-}
-
-export function insightWhySource(i: FeedInsight): string {
-  return `Source: ${SOURCE_LABELS[getSourceCategory(i.insightType, i.competitorId)]}. Refreshed in the latest sweep.`
 }
 
 /* ── Compact metric chips (honest, %/count framing) ─────────────────────── */

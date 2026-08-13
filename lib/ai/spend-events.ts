@@ -2,9 +2,9 @@
 // Non-brief AI spend telemetry (beta rescue Phase 2.3).
 //
 // Brief builds already record token/cost telemetry into daily_briefs.brief->providerStats
-// (2026-07-16, /admin/health). Every OTHER model call (the /insights Priority Briefing call,
-// /api/ai/quick-tip, /api/ai/insights/generate, /api/ask, the nightly eval-judge cron, the
-// weekly ingest-knowledge-feeds cron, and the insights pipeline's own Gemini calls) was
+// (2026-07-16, /admin/health). Every OTHER model call (/api/ai/quick-tip,
+// /api/ai/insights/generate, /api/ask, the nightly eval-judge cron, the weekly
+// ingest-knowledge-feeds cron, and the insights pipeline's own Gemini calls) was
 // invisible to us and only showed up on the provider console after the fact. This module is the
 // one recorder every one of those call sites writes through.
 //
@@ -27,7 +27,6 @@ import { estimateAnthropicCostUsd } from "@/lib/ai/pricing"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 
 export type SpendSurface =
-  | "priority_briefing"
   | "quick_tip"
   | "ask"
   | "eval_judge"
@@ -36,7 +35,9 @@ export type SpendSurface =
   | "insights_pipeline"
 // (A "competitor_brief" surface existed for a few hours on 2026-08-12; the per-competitor intel
 // brief it instrumented was deleted the same day — dead since the June Stage A rework — so nothing
-// records it. The `surface` column is deliberately NOT CHECK-constrained, so no migration either way.)
+// records it. "priority_briefing" retired 2026-08-13 with the /insights Priority Briefing rewrite:
+// the section is deterministic now, so nothing records that surface either. The `surface` column is
+// deliberately NOT CHECK-constrained, so no migration either way; old rows keep their labels.)
 
 export type SpendProvider = "anthropic" | "gemini"
 
