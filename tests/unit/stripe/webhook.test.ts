@@ -27,6 +27,12 @@ vi.mock("@/lib/marketing/contacts", () => ({
 import { POST } from "@/app/api/stripe/webhook/route"
 import { headers } from "next/headers"
 import { getStripeClient } from "@/lib/stripe/client"
+import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import {
+  getOrganizationBillingEmail,
+  isMarketingContactsEnabled,
+  upsertMarketingContact,
+} from "@/lib/marketing/contacts"
 import {
   isWebhookEventNew,
   markWebhookEventProcessed,
@@ -195,5 +201,66 @@ describe("POST /api/stripe/webhook — out-of-order + concurrent delivery contra
     expect(logAdminAction).not.toHaveBeenCalled()
     expect(markWebhookEventProcessed).toHaveBeenCalledWith(expect.anything(), "evt_1")
     warn.mockRestore()
+  })
+})
+
+// ALT-591: the card-backed half of "trials enter the nurture flow". The
+// card-less half lives in tests/unit/onboarding/cardless-trial-marketing-mirror.test.ts;
+// both paths converge on upsertMarketingContact with status 'trial'.
+describe("POST /api/stripe/webhook — marketing mirror (ALT-591)", () => {
+  beforeEach(() => {
+    vi.mocked(createAdminSupabaseClient).mockReturnValue({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { industry_type: "restaurant" }, error: null }),
+          }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof createAdminSupabaseClient>)
+    vi.mocked(isMarketingContactsEnabled).mockReturnValue(true)
+    vi.mocked(getOrganizationBillingEmail).mockResolvedValue("billing@rest.com")
+    vi.mocked(upsertMarketingContact).mockResolvedValue({ ok: true })
+  })
+
+  it("mirrors a card-backed trial ('trialing' subscription) to status 'trial' with the vertical's source", async () => {
+    constructEvent.mockReturnValue(subEvent())
+    retrieveSubscription.mockResolvedValue({ ...payloadSub(), status: "trialing" })
+    vi.mocked(applySubscriptionToOrg).mockResolvedValue({
+      tier: "mid",
+      paymentState: "trialing",
+      applied: true,
+    })
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(upsertMarketingContact).toHaveBeenCalledExactlyOnceWith({
+      email: "billing@rest.com",
+      industryType: "restaurant",
+      status: "trial",
+      source: "getticket.ai",
+      stripeCustomerId: "cus_1",
+    })
+  })
+
+  it("mirrors an active paid subscription to 'paid'", async () => {
+    constructEvent.mockReturnValue(subEvent())
+    await POST(req())
+    expect(upsertMarketingContact).toHaveBeenCalledWith(expect.objectContaining({ status: "paid" }))
+  })
+
+  it("no-ops entirely when MARKETING_CONTACTS_ENABLED is off", async () => {
+    vi.mocked(isMarketingContactsEnabled).mockReturnValue(false)
+    constructEvent.mockReturnValue(subEvent())
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(getOrganizationBillingEmail).not.toHaveBeenCalled()
+    expect(upsertMarketingContact).not.toHaveBeenCalled()
+  })
+
+  it("still acks 200 when the mirror throws (billing already landed; Stripe must not retry)", async () => {
+    vi.mocked(getOrganizationBillingEmail).mockRejectedValue(new Error("marketing down"))
+    constructEvent.mockReturnValue(subEvent())
+    const res = await POST(req())
+    expect(res.status).toBe(200)
   })
 })

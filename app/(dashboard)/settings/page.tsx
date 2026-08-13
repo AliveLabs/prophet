@@ -61,6 +61,20 @@ export default async function SettingsPage() {
   const comms = (locSettings.communications ?? null) as Record<string, boolean> | null
   const generosityThreshold =
     (locRow as { generosity_threshold?: number } | null)?.generosity_threshold ?? 50
+  // D6 digest plumbing — per-USER digest day off the caller's own profile row
+  // (RLS: users can read own profile). `weekly_digest_day` isn't in the
+  // generated DB types until migration 20260813120000 is applied + types
+  // regenerated, so it's read loosely, same convention as generosity_threshold;
+  // a missing column simply yields the Monday default. select("*") on purpose:
+  // naming the column would 400 the whole settings page until the migration is
+  // applied, and this code must be correct in BOTH states.
+  const { data: profileRow } = await sb
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle()
+  const digestDayRaw = (profileRow as { weekly_digest_day?: unknown } | null)?.weekly_digest_day
+  const digestDay = typeof digestDayRaw === "number" ? digestDayRaw : null
   const refreshStatus = await getFullRefreshStatus(ctx.locationId)
 
   // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other
@@ -289,10 +303,12 @@ export default async function SettingsPage() {
         </RevealOnView>
 
         {/* ── COMMUNICATIONS ── */}
-        <RevealOnView className="tk-set-block">
+        {/* id="weekly-digest": anchor target for the digest email footer's
+            "change the day this arrives" deep link (/settings#weekly-digest). */}
+        <RevealOnView className="tk-set-block" id="weekly-digest">
           <TkSectionHead title="Communications" sub="What lands in your inbox" />
           <TkSoftPanel>
-            <CommsPrefsPass email={email} locationId={ctx.locationId} initial={comms} />
+            <CommsPrefsPass email={email} locationId={ctx.locationId} initial={comms} digestDay={digestDay} />
           </TkSoftPanel>
         </RevealOnView>
       </div>

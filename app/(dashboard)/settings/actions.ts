@@ -133,6 +133,32 @@ export async function setCommsPref(
   return { ok: true }
 }
 
+// Weekly-digest day (D6 plumbing) — per-USER preference on profiles
+// (0=Sun..6=Sat, default Monday), read by /api/cron/weekly-digest and deep-
+// linked from the digest email footer ("change the day this arrives" →
+// /settings#weekly-digest). Per-user, unlike the location-scoped comms
+// toggles above: two members of one org can want different days. RLS
+// ("users can update own profile") is the auth check; the id filter keeps it
+// to the caller's own row. `weekly_digest_day` isn't in the generated DB
+// types until the 20260813120000 migration is applied + types regenerated —
+// same loose-cast convention as generosity_threshold below.
+export async function setWeeklyDigestDay(
+  day: number
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser()
+  if (!Number.isInteger(day) || day < 0 || day > 6) {
+    return { ok: false, error: "Invalid day" }
+  }
+  const supabase = await createServerSupabaseClient()
+  const { error } = await (supabase as unknown as LocUpdater)
+    .from("profiles")
+    .update({ weekly_digest_day: day })
+    .eq("id", user.id)
+  if (error) return { ok: false, error: error.message }
+  revalidatePath("/settings")
+  return { ok: true }
+}
+
 // ALT-351 — operator's make-good posture (0 respond-first .. 100 generous), read by
 // lib/reviews/make-good.ts to place the discount/comp cut-points when it maps a scored
 // review to a recommended action. RLS via the user-scoped client is the membership

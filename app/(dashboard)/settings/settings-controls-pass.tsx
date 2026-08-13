@@ -6,7 +6,7 @@
 // and "saved" seams. Only the presentation moves to kit tk-set-* controls.
 
 import { useState, useTransition } from "react"
-import { setVoiceTone, setCommsPref, setOwnSocialNetwork } from "./actions"
+import { setVoiceTone, setCommsPref, setOwnSocialNetwork, setWeeklyDigestDay } from "./actions"
 
 const VOICES = [
   { v: "warm_personal", label: "Warm, personal" },
@@ -123,14 +123,78 @@ const COMMS_DEFAULTS: Record<string, boolean> = {
   product_updates: true,
 }
 
+// D6 digest plumbing: the digest email's footer deep-links here
+// (/settings#weekly-digest — the anchor lives on the wrapper in page.tsx).
+// Per-USER preference (profiles.weekly_digest_day), unlike the location-scoped
+// toggles: two members of one org can want different days. Monday default —
+// operators are often closed Mondays, so it lands on their admin day.
+const DIGEST_DAYS = [
+  { v: 1, label: "Monday" },
+  { v: 2, label: "Tuesday" },
+  { v: 3, label: "Wednesday" },
+  { v: 4, label: "Thursday" },
+  { v: 5, label: "Friday" },
+  { v: 6, label: "Saturday" },
+  { v: 0, label: "Sunday" },
+]
+
+export function DigestDaySelectPass({ initial }: { initial?: number | null }) {
+  const valid = typeof initial === "number" && initial >= 0 && initial <= 6
+  const [day, setDay] = useState<number>(valid ? initial : 1)
+  const [status, setStatus] = useState<string | null>(null)
+  const [err, setErr] = useState(false)
+  const [saving, startSaving] = useTransition()
+
+  function onChange(next: number) {
+    const prev = day
+    setDay(next)
+    setStatus(null)
+    startSaving(async () => {
+      const res = await setWeeklyDigestDay(next)
+      if (res.ok) {
+        setErr(false)
+        setStatus("Saved — your digest lands that morning.")
+      } else {
+        setDay(prev)
+        setErr(true)
+        setStatus(res.error ?? "Could not save.")
+      }
+    })
+  }
+
+  return (
+    <label className="tk-set-toggle">
+      <span className="tk-set-toggle-text">
+        <b>Digest day</b>
+        <span>The morning your weekly digest arrives. Yours alone — teammates pick their own.</span>
+      </span>
+      <span>
+        <select
+          className="tk-set-select"
+          value={day}
+          aria-label="Digest day"
+          disabled={saving}
+          onChange={(e) => onChange(Number(e.target.value))}
+          style={{ maxWidth: 180 }}
+        >
+          {DIGEST_DAYS.map((o) => (<option key={o.v} value={o.v}>{o.label}</option>))}
+        </select>
+        {status ? <span className={`tk-set-status${err ? " tk-set-status-err" : ""}`} style={{ display: "block", marginTop: 6 }}>{status}</span> : null}
+      </span>
+    </label>
+  )
+}
+
 export function CommsPrefsPass({
   email,
   locationId,
   initial,
+  digestDay,
 }: {
   email: string
   locationId?: string
   initial?: Record<string, boolean> | null
+  digestDay?: number | null
 }) {
   const [prefs, setPrefs] = useState<Record<string, boolean>>({ ...COMMS_DEFAULTS, ...(initial ?? {}) })
   const [status, setStatus] = useState<string | null>(null)
@@ -164,6 +228,7 @@ export function CommsPrefsPass({
         disabled={saving}
         onChange={(v) => toggle("weekly_digest", v)}
       />
+      <DigestDaySelectPass initial={digestDay} />
       <Switch
         title="New-brief notifications"
         hint="An in-app heads-up when a new brief is ready."
