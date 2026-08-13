@@ -628,6 +628,8 @@ export const positioningSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(positioningSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding.
+  grounding: { kind: "family", matches: isPositioningSignal },
   // P14 learning hook (new in v2, mirrors the exemplars): click feedback becomes
   // learnable per-archetype via POSITIONING_ARCHETYPES keys; external trend/editorial
   // snippets (e.g. fee-law changes, delivery-platform policy shifts, menu-pricing

@@ -28,6 +28,29 @@ export type SkillLearningHook = {
   acceptedLearningKinds: LearningKind[]
 }
 
+// ── What a producer must be able to CITE before it can say anything (beta rescue 3.1) ────────────
+// Every producer's `parse()` already enforces a grounding rule, and every producer's deterministic
+// `fallback()` returns [] when the same evidence is missing. Together those two facts mean a
+// producer whose grounding family is absent from the dossier CANNOT emit a surviving play by any
+// path — the model's output is dropped at parse, the floor declines to fire, and run.ts's ref
+// filter closes the set. `grounding` DECLARES that same rule so a caller can ask "could this skill
+// produce anything from this dossier?" WITHOUT paying for the model call.
+//
+// LOCKSTEP RULE: point this at the SAME predicate the skill's own parse() uses. It is a
+// declaration of existing behaviour, never a second, independent gate — if they ever disagree,
+// parse() is the truth and this is the bug.
+//
+// OPTIONAL, and absence means "always run". A skill that declares nothing is never skipped, which
+// is the conservative direction: the cost of running a producer that could have been skipped is
+// some latency and one model call; the cost of skipping one that could have produced is a missing
+// play, and that is the one we refuse to risk.
+export type SkillGrounding =
+  /** Needs at least one rule output whose insight_type is in this skill's own family. */
+  | { kind: "family"; matches: (insightType: string) => boolean }
+  /** Needs rule outputs spanning at least `min` DISTINCT signal families (convergence: a play that
+   *  cannot cross domains is not a convergence play, and both its parse and its floor say so). */
+  | { kind: "distinct_families"; familyOf: (ref: string) => string | null; min: number }
+
 export type ProducerSkill = {
   id: string
   displayName: string
@@ -65,6 +88,9 @@ export type ProducerSkill = {
   parse: (raw: unknown, d: Dossier) => EnrichedRecommendation[] | null
   /** Deterministic, grounded fallback when the model fails/returns junk. Never fabricates. */
   fallback: (d: Dossier) => EnrichedRecommendation[]
+  /** The evidence this skill must be able to cite before it can produce anything (see
+   *  SkillGrounding). Declared FROM the predicate parse() already enforces. Absent = always run. */
+  grounding?: SkillGrounding
   /** P14: OPT-IN learning hook (which streams/kinds this skill consumes). Absence = today's behavior. */
   learning?: SkillLearningHook
   /** The exact dossier slice this skill reads (the same function buildPrompt uses). Differential

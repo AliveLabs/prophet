@@ -18,7 +18,7 @@ import { estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricin
 import { RevealOnView } from "@/components/ticket"
 import "./health.css"
 
-type SkillHealthRow = { skillId?: string; status?: string; usedFallback?: boolean; reused?: boolean; reason?: string; elapsedMs?: number }
+type SkillHealthRow = { skillId?: string; status?: string; usedFallback?: boolean; reused?: boolean; reason?: string; elapsedMs?: number; skipped?: boolean }
 type ProviderStatsRow = {
   requests?: number
   rateLimited?: number
@@ -129,9 +129,11 @@ export default async function PipelineHealthPage() {
               <tr><td colSpan={8} className="ph-empty">No briefs in the last {RECENT_ACTIVE_DAYS} days.</td></tr>
             )}
             {locations.map((loc) => {
-              const real = loc.skills.filter((s) => s.status === "ok" && !s.usedFallback && !s.reused).length
+              // A first-brief readiness skip made no model call, so it is neither a real
+              // generation nor a reuse nor a degradation — it is not a slot at all.
+              const real = loc.skills.filter((s) => s.status === "ok" && !s.usedFallback && !s.reused && !s.skipped).length
               const reused = loc.skills.filter((s) => s.reused).length
-              const fallback = loc.skills.filter((s) => s.usedFallback || s.status === "failed")
+              const fallback = loc.skills.filter((s) => !s.skipped && (s.usedFallback || s.status === "failed"))
               return (
                 <tr key={loc.locationId}>
                   <td className="is-strong">{loc.name}</td>
@@ -331,6 +333,10 @@ async function loadFleetDetail(
     day.locationsBuilt++
     const skills = Array.isArray(r.skillHealth) ? r.skillHealth : []
     for (const s of skills) {
+      // A first-brief readiness skip (beta rescue 3.1) made no model call, so it is not a slot.
+      // Counting it would pad the denominator and drag both rates toward zero — the same reason
+      // lib/ops/pipeline-health.ts excludes it from the fleet fallback rate.
+      if (s?.skipped === true) continue
       day.totalSlots++
       if (s?.usedFallback || s?.status === "failed") day.fallbackSlots++
       if (s?.reused) day.reusedSlots++

@@ -53,6 +53,10 @@ export function extractPreviousBuild(brief: Brief | null | undefined, todayKey: 
   const hashes: Record<string, string> = {}
   const outputs: Record<string, EnrichedRecommendation[]> = {}
   for (const h of brief.skillHealth) {
+    // A first-brief SKIP never ran, so there is nothing to carry forward. It already fails the
+    // inputHash test below (a skipped slot records none), but state it explicitly: "we did not
+    // call this expert" must never be readable as "this expert had nothing new to say".
+    if (h.skipped) continue
     if (h.status !== "ok" || h.usedFallback || !h.inputHash) continue
     const plays = brief.skillOutputs[h.skillId]
     if (!Array.isArray(plays)) continue // a real run with 0 grounded plays IS reusable (honest quiet)

@@ -65,7 +65,11 @@ export type GenerateRequest = {
 /** A transport returns already-parsed JSON (or null on parse failure). Injectable for tests. */
 export type Transport = (req: GenerateRequest) => Promise<unknown>
 
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6"
+/** The base reasoning model (every producer). EXPORTED (2026-08-13) only so a call site that
+ *  records its OWN spend telemetry can attribute the model without re-reading the env behind this
+ *  module's back — see the first-run starter pipeline. Read-only export: nothing about how the
+ *  model is chosen or sent changed. */
+export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6"
 /** Deep reasoning model for the convergence + synthesis pass (P5): Opus + adaptive thinking. */
 export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-4-8"
 /** Light interactive model (beta rescue 2.2): the small, latency-sensitive surfaces that used to

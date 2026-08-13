@@ -583,6 +583,11 @@ export const socialCounterSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(socialCounterSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding. NOTE buildDossier DROPS
+  // social.* rule outputs when no own/rival account is currently active (keeping only
+  // social.inactive_account), so "no live social" reads here as exactly what it is: nothing to
+  // counter, and no call worth making.
+  grounding: { kind: "family", matches: isSocialCounterSignal },
   // P14 learning hook: social counter-strategy has a clear external benchmark stream
   // (Rival IQ / Socialinsider F&B benchmarks -> external_trend priors). Click feedback
   // is now learnable per-archetype via SOCIAL_COUNTER_ARCHETYPES keys; ask routing for

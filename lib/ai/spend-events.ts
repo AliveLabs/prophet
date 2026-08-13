@@ -33,6 +33,10 @@ export type SpendSurface =
   | "insights_generate"
   | "knowledge_ingest"
   | "insights_pipeline"
+  // The first-run starter insight (beta rescue 3.1): one producer call per new signup, made
+  // before any daily_briefs row exists, so providerStats has nothing to carry it. This is the
+  // only place that spend is visible.
+  | "first_run_starter"
 // (A "competitor_brief" surface existed for a few hours on 2026-08-12; the per-competitor intel
 // brief it instrumented was deleted the same day — dead since the June Stage A rework — so nothing
 // records it. "priority_briefing" retired 2026-08-13 with the /insights Priority Briefing rewrite:

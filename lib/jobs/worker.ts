@@ -7,7 +7,7 @@
 // legacy inline refresh_all used.
 // ---------------------------------------------------------------------------
 
-import { SUB_PIPELINES, type SubPipeline } from "@/lib/jobs/pipelines/refresh-all"
+import { WORKER_PIPELINES, type SubPipeline } from "@/lib/jobs/pipelines/refresh-all"
 import { enqueueRun, finishJob, recordRun, type SB, type SignalJob, type PipelineOutcome } from "./queue"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { classifyNow, type FreshnessStatus } from "@/lib/freshness/contract"
@@ -18,7 +18,7 @@ import { vendorSignalFromError, moreSevereVendorSignal, type VendorSignal } from
 // pattern), so it runs scheduled again. Kept as a mechanism for future escapes.
 const SKIP_STEPS = new Set<string>([])
 
-const PIPELINE_BY_NAME = new Map<string, SubPipeline>(SUB_PIPELINES.map((s) => [s.name, s]))
+const PIPELINE_BY_NAME = new Map<string, SubPipeline>(WORKER_PIPELINES.map((s) => [s.name, s]))
 
 export type WorkerJobResult = {
   jobId: string

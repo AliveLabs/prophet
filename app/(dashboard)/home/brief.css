@@ -703,6 +703,11 @@
 .fr-head { font-size: clamp(26px, 4vw, 34px); line-height: 1.1; margin: 0 0 10px; color: var(--ink); }
 .fr-sub { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 0; }
 
+/* 3.1: the starter insight sits between the landed signals and the pipeline rows — the first
+   thing worth reading, above the machinery that is still running. The card brings its own
+   chrome, so this only owns the spacing. */
+.fr-starter { margin: 22px 0 4px; }
+
 .fr-status { list-style: none; margin: 24px 0 0; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--card-2); overflow: hidden; }
 .fr-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
 .fr-row:last-child { border-bottom: 0; }
