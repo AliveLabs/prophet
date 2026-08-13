@@ -10,7 +10,7 @@
 import { useState } from "react"
 import { TkToastProvider } from "@/components/ticket"
 import { InsightRowCard } from "@/app/(dashboard)/insights/insight-row-card"
-import type { FeedInsight } from "@/app/(dashboard)/insights/insights-feed-kit"
+import type { FeedInsight } from "@/app/(dashboard)/insights/insights-map"
 
 // The freshly generated insight (what the Gemini endpoint returns for a weather card).
 const GENERATED: FeedInsight = {

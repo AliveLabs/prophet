@@ -11,6 +11,13 @@ import { sanitizeCategoryPriors, diffFromDefaults } from "@/lib/skills/category-
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isSocialPlatform } from "@/lib/billing/tiers"
 import { enqueueAdhocPlatform } from "@/lib/jobs/queue"
+import { classifyLocationWrite } from "@/lib/settings/location-write"
+
+// ALT-583: every UPDATE below chains `.select("id")` and runs through
+// classifyLocationWrite. RLS lets any org member READ a location but only
+// owners/admins UPDATE it, and PostgREST reports a zero-row UPDATE as a
+// success. Without the row check, a member-role seat gets `{ ok: true }`
+// while nothing persists, which the UI then presents as "Saved."
 
 const VALID_TONES = new Set(["warm_personal", "professional", "casual", "playful", "upscale"])
 
@@ -21,11 +28,13 @@ export async function setVoiceTone(
   await requireUser()
   if (!VALID_TONES.has(tone)) return { ok: false, error: "Invalid voice" }
   const supabase = await createServerSupabaseClient()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("locations")
     .update({ voice_tone: tone })
     .eq("id", locationId)
-  if (error) return { ok: false, error: error.message }
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
   revalidatePath("/settings")
   return { ok: true }
 }
@@ -58,11 +67,13 @@ export async function setOwnSocialNetwork(
   if (readErr || !loc) return { ok: false, error: readErr?.message ?? "Location not found" }
   const settings = (loc.settings as Record<string, unknown> | null) ?? {}
   if (settings.ownSocialNetwork === network) return { ok: true }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("locations")
     .update({ settings: { ...settings, ownSocialNetwork: network } })
     .eq("id", locationId)
-  if (error) return { ok: false, error: error.message }
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
 
   // Kick a pull for the newly chosen network so the next brief isn't empty there.
   try {
@@ -99,11 +110,13 @@ export async function setCategoryPriors(
     .maybeSingle()
   if (readErr || !loc) return { ok: false, error: readErr?.message ?? "Location not found" }
   const settings = (loc.settings as Record<string, unknown> | null) ?? {}
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("locations")
     .update({ settings: { ...settings, categoryPriors: minimal } })
     .eq("id", locationId)
-  if (error) return { ok: false, error: error.message }
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
   revalidatePath("/settings")
   return { ok: true }
 }
@@ -124,11 +137,48 @@ export async function setCommsPref(
   if (readErr || !loc) return { ok: false, error: readErr?.message ?? "Location not found" }
   const settings = (loc.settings as Record<string, unknown> | null) ?? {}
   const communications = { ...((settings.communications as CommsSettings | undefined) ?? {}), [key]: on }
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("locations")
     .update({ settings: { ...settings, communications } })
     .eq("id", locationId)
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
+  revalidatePath("/settings")
+  return { ok: true }
+}
+
+// Weekly-digest day (D6 plumbing) — per-USER preference on profiles
+// (0=Sun..6=Sat, default Monday), read by /api/cron/weekly-digest and deep-
+// linked from the digest email footer ("change the day this arrives" →
+// /settings#weekly-digest). Per-user, unlike the location-scoped comms
+// toggles above: two members of one org can want different days. RLS
+// ("users can update own profile") is the auth check; the id filter keeps it
+// to the caller's own row. `weekly_digest_day` isn't in the generated DB
+// types until the 20260813120000 migration is applied + types regenerated —
+// same loose-cast convention as generosity_threshold below.
+export async function setWeeklyDigestDay(
+  day: number
+): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser()
+  if (!Number.isInteger(day) || day < 0 || day > 6) {
+    return { ok: false, error: "Invalid day" }
+  }
+  const supabase = await createServerSupabaseClient()
+  // ALT-583 discipline: chain `.select("id")` and treat a zero-row UPDATE as a failure,
+  // because PostgREST reports one as `error: null`. Not routed through
+  // classifyLocationWrite: its message names a seat's location permissions, and this row
+  // is the caller's own profile, so a zero-row result here means the session no longer
+  // matches a profile row rather than a missing owner/admin right.
+  const { data, error } = await (supabase as unknown as LocUpdater)
+    .from("profiles")
+    .update({ weekly_digest_day: day })
+    .eq("id", user.id)
+    .select("id")
   if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Nothing was saved. Sign out, sign back in, and try again." }
+  }
   revalidatePath("/settings")
   return { ok: true }
 }
@@ -142,7 +192,14 @@ export async function setCommsPref(
 type LocUpdater = {
   from: (t: string) => {
     update: (row: Record<string, unknown>) => {
-      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>
+      eq: (
+        col: string,
+        val: string
+      ) => {
+        select: (
+          cols: string
+        ) => Promise<{ data: Array<{ id: string }> | null; error: { message: string } | null }>
+      }
     }
   }
 }
@@ -154,11 +211,13 @@ export async function setGenerosityThreshold(
 ): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
   const supabase = await createServerSupabaseClient()
-  const { error } = await (supabase as unknown as LocUpdater)
+  const { data, error } = await (supabase as unknown as LocUpdater)
     .from("locations")
     .update({ generosity_threshold: clampGenerosity(value) })
     .eq("id", locationId)
-  if (error) return { ok: false, error: error.message }
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
   // Settings shows the current value; /reviews reads it to place the recommendation
   // cut-points — both need the fresh value on the next render.
   revalidatePath("/settings")

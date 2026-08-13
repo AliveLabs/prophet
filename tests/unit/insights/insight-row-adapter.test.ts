@@ -7,11 +7,9 @@ import { describe, it, expect } from "vitest"
 import {
   insightRowToUnifiedInsight,
   insightKeptState,
-  pickPriorityInsights,
-  PRIORITY_COUNT,
 } from "@/app/(dashboard)/insights/insight-row-adapter"
 import { insightTier } from "@/components/insights/unified-insight-card"
-import type { FeedInsight } from "@/app/(dashboard)/insights/insights-feed-kit"
+import type { FeedInsight } from "@/app/(dashboard)/insights/insights-map"
 
 function row(over: Partial<FeedInsight> = {}): FeedInsight {
   return {
@@ -150,72 +148,5 @@ describe("insightKeptState — the Keep/Dismiss read of the lifecycle status", (
   it("reads new (and anything unknown) as untouched", () => {
     expect(insightKeptState("new")).toBeNull()
     expect(insightKeptState("whatever")).toBeNull()
-  })
-})
-
-describe("pickPriorityInsights — the deterministic priority pick", () => {
-  const pool = [
-    row({ id: "comp-hi", insightType: "review.spike", relevanceScore: 90 }),
-    row({ id: "comp-mid", insightType: "review.drop", relevanceScore: 80 }),
-    row({ id: "comp-lo", insightType: "rating.change", relevanceScore: 70 }),
-    row({ id: "social", insightType: "social.follower_spike", relevanceScore: 40 }),
-    row({ id: "events", insightType: "events.upcoming", relevanceScore: 30 }),
-    row({ id: "seo", insightType: "seo_keywords", relevanceScore: 20 }),
-    row({ id: "traffic", insightType: "traffic.peak_shift", relevanceScore: 10 }),
-  ]
-
-  it("caps at PRIORITY_COUNT and covers each present category before repeating one", () => {
-    const picked = pickPriorityInsights(pool)
-    expect(picked).toHaveLength(PRIORITY_COUNT)
-    // Diversity: the three competitor rows outscore everything, but only the best of
-    // them makes round one — the pick can never be five rows of the same stream.
-    const ids = picked.map((p) => p.id)
-    expect(ids).toContain("comp-hi")
-    expect(ids).toContain("social")
-    expect(ids).toContain("events")
-    expect(ids).toContain("seo")
-    expect(ids).toContain("traffic")
-    expect(ids).not.toContain("comp-mid")
-  })
-
-  it("fills by score once every category is represented", () => {
-    const smaller = pool.filter((p) => !["seo", "traffic"].includes(p.id))
-    const ids = pickPriorityInsights(smaller).map((p) => p.id)
-    // 3 categories present → round one picks 3, round two fills with the next best.
-    expect(ids).toEqual(expect.arrayContaining(["comp-hi", "social", "events", "comp-mid"]))
-    expect(ids).toHaveLength(5)
-  })
-
-  it("final order is by relevance score, highest first", () => {
-    const scores = pickPriorityInsights(pool).map((p) => p.relevanceScore)
-    expect(scores).toEqual([...scores].sort((a, b) => b - a))
-  })
-
-  it("excludes user-generated viz insights (the ALT-230 hero-equivalent guard)", () => {
-    const withViz = [row({ id: "viz", insightType: "user_viz.weather.x", relevanceScore: 99 }), ...pool]
-    expect(pickPriorityInsights(withViz).map((p) => p.id)).not.toContain("viz")
-  })
-
-  it("excludes suppressed types — the operator already said less of this", () => {
-    const withSuppressed = [row({ id: "sup", suppressed: true, relevanceScore: 99 }), ...pool]
-    expect(pickPriorityInsights(withSuppressed).map((p) => p.id)).not.toContain("sup")
-  })
-
-  it("excludes cleared rows — a dismissal never gets re-pitched at the top", () => {
-    const cleared = [
-      row({ id: "d", status: "dismissed", relevanceScore: 99 }),
-      row({ id: "s", status: "snoozed", relevanceScore: 98 }),
-      row({ id: "i", status: "inaccurate", relevanceScore: 97 }),
-      ...pool,
-    ]
-    const ids = pickPriorityInsights(cleared).map((p) => p.id)
-    expect(ids).not.toContain("d")
-    expect(ids).not.toContain("s")
-    expect(ids).not.toContain("i")
-  })
-
-  it("returns fewer than the cap when fewer insights exist, and [] for []", () => {
-    expect(pickPriorityInsights([pool[0], pool[3]])).toHaveLength(2)
-    expect(pickPriorityInsights([])).toEqual([])
   })
 })

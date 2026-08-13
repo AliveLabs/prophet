@@ -212,9 +212,10 @@ export default function BriefView({
           <>
             {/* ── See-all-insights link (ALT-184a) — moved to the TOP of the brief's insights
                 list so it's discoverable immediately instead of buried at the bottom. ── */}
-            {/* Points at the all-insights view (the settled destination; /home/pool now
-                redirects there too, so old bookmarks keep working). */}
-            <Link className="pass-pool-link pass-pool-link-top" href="/insights/all">
+            {/* Points at the consolidated /insights page (the canonical destination;
+                /insights/all and /home/pool both redirect there, so old bookmarks keep
+                working). */}
+            <Link className="pass-pool-link pass-pool-link-top" href="/insights">
               See all insights &rarr;
             </Link>
 

@@ -15,9 +15,14 @@ interface WeeklyDigestProps {
   deck: string
   plays: DigestPlay[]
   briefUrl: string
+  /** Settings deep link for the "change the day this arrives" footer line
+   *  (D6 ruling: the digest lands on a per-user preferred day, Monday default,
+   *  and the email itself must offer the dial). Optional so existing preview
+   *  callers keep compiling; omitted -> no footer line. */
+  digestDayUrl?: string
 }
 
-export function WeeklyDigest({ locationName, headline, deck, plays, briefUrl }: WeeklyDigestProps) {
+export function WeeklyDigest({ locationName, headline, deck, plays, briefUrl, digestDayUrl }: WeeklyDigestProps) {
   return (
     <EmailLayout preview={`This week for ${locationName}: ${headline}`}>
       <Section>
@@ -43,6 +48,13 @@ export function WeeklyDigest({ locationName, headline, deck, plays, briefUrl }: 
             Open your brief →
           </Link>
         </Text>
+
+        {digestDayUrl ? (
+          <Text style={emailStyles.mutedText}>
+            This digest arrives on the day you choose.{" "}
+            <Link href={digestDayUrl}>Change the day this arrives</Link>
+          </Text>
+        ) : null}
       </Section>
     </EmailLayout>
   )

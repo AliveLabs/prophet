@@ -48,7 +48,7 @@ export default function SettingsGenerosity({ initial, locationId }: { initial: n
   function apply() {
     setSaveError(null)
     startSaving(async () => {
-      // Thrown actions surface like returned failures (ALT-581; see settings-category-priors).
+      // Thrown actions surface like returned failures (ALT-583; see settings-category-priors).
       try {
         const res = await setGenerosityThreshold(locationId, value)
         if (!res.ok) {
@@ -80,7 +80,7 @@ export default function SettingsGenerosity({ initial, locationId }: { initial: n
       />
       <div className="tk-set-range-ends"><span>Respond first</span><span>Generous</span></div>
       <p className="tk-set-range-note">{band.desc}</p>
-      {/* ALT-581: always-visible primary apply, right-aligned; hint anchors left. See
+      {/* ALT-583: always-visible primary apply, right-aligned; hint anchors left. See
           settings-category-priors.tsx for why the pop-in keep-variant button must not return. */}
       <div className="tk-set-apply-foot">
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
