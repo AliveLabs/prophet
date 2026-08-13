@@ -165,11 +165,20 @@ export async function setWeeklyDigestDay(
     return { ok: false, error: "Invalid day" }
   }
   const supabase = await createServerSupabaseClient()
-  const { error } = await (supabase as unknown as LocUpdater)
+  // ALT-583 discipline: chain `.select("id")` and treat a zero-row UPDATE as a failure,
+  // because PostgREST reports one as `error: null`. Not routed through
+  // classifyLocationWrite: its message names a seat's location permissions, and this row
+  // is the caller's own profile, so a zero-row result here means the session no longer
+  // matches a profile row rather than a missing owner/admin right.
+  const { data, error } = await (supabase as unknown as LocUpdater)
     .from("profiles")
     .update({ weekly_digest_day: day })
     .eq("id", user.id)
+    .select("id")
   if (error) return { ok: false, error: error.message }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Nothing was saved. Sign out, sign back in, and try again." }
+  }
   revalidatePath("/settings")
   return { ok: true }
 }
