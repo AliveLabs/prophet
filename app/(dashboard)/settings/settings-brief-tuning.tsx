@@ -19,7 +19,9 @@ function bandFor(v: number) {
   return BANDS.find((b) => v <= b.max) ?? BANDS[BANDS.length - 1]
 }
 
-export default function SettingsBriefTuning({ initial, locationId }: { initial: number; locationId?: string }) {
+// locationId is REQUIRED (ALT-583): a missing id used to mark the slider applied
+// without ever calling the server, a save that never happened.
+export default function SettingsBriefTuning({ initial, locationId }: { initial: number; locationId: string }) {
   const [value, setValue] = useState(initial)
   const [showAll, setShowAll] = useState(false)
   const [appliedValue, setAppliedValue] = useState(initial)
@@ -33,25 +35,20 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
   function apply() {
     setSaveError(null)
     const toSave = showAll ? 100 : value
-    if (locationId) {
-      startSaving(async () => {
-        // Thrown actions surface like returned failures (ALT-581; see settings-category-priors).
-        try {
-          const res = await setBrandTolerance(locationId, toSave)
-          if (!res.ok) {
-            setSaveError(res.error ?? "Could not save. Try again.")
-            return
-          }
-          setAppliedValue(value)
-          setAppliedAll(showAll)
-        } catch {
-          setSaveError("Could not save. Try again.")
+    startSaving(async () => {
+      // Thrown actions surface like returned failures (ALT-583; see settings-category-priors).
+      try {
+        const res = await setBrandTolerance(locationId, toSave)
+        if (!res.ok) {
+          setSaveError(res.error ?? "Could not save. Try again.")
+          return
         }
-      })
-    } else {
-      setAppliedValue(value)
-      setAppliedAll(showAll)
-    }
+        setAppliedValue(value)
+        setAppliedAll(showAll)
+      } catch {
+        setSaveError("Could not save. Try again.")
+      }
+    })
   }
 
   return (
@@ -89,7 +86,7 @@ export default function SettingsBriefTuning({ initial, locationId }: { initial: 
           ones. This ignores the slider thresholds entirely.
         </span>
       </label>
-      {/* ALT-581: always-visible primary apply, right-aligned; hint anchors left. See
+      {/* ALT-583: always-visible primary apply, right-aligned; hint anchors left. See
           settings-category-priors.tsx for why the pop-in keep-variant button must not return. */}
       <div className="tk-set-apply-foot">
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>

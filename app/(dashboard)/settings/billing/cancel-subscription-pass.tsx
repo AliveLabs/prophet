@@ -8,6 +8,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { TkButton } from "@/components/ticket"
+import { classifyBillingMutation, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 
 export function CancelSubscriptionPass({ cancelAtPeriodEnd }: { cancelAtPeriodEnd: boolean }) {
   const router = useRouter()
@@ -24,16 +25,19 @@ export function CancelSubscriptionPass({ cancelAtPeriodEnd }: { cancelAtPeriodEn
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resume }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setError(data.error ?? "Failed to update subscription")
+      // ALT-551: parse defensively so an HTML error page surfaces as a message
+      // rather than throwing into the catch and hiding the route's own reason.
+      const payload = await res.json().catch(() => null)
+      const outcome = classifyBillingMutation(res.ok, payload)
+      if (outcome.kind === "error") {
+        setError(outcome.message)
         setLoading(false)
         return
       }
       setConfirming(false)
       router.refresh()
     } catch {
-      setError("Failed to update subscription")
+      setError(GENERIC_BILLING_ERROR)
       setLoading(false)
     }
   }
