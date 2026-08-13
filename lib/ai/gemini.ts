@@ -136,6 +136,15 @@ export async function generateGeminiJson(
 // Gemini + Google Search Grounding – fetch menu data from Google's knowledge
 // ---------------------------------------------------------------------------
 
+// Menu enrichment runs on Flash (beta rescue 2.2): it was the single biggest Gemini cost
+// line at Pro rates (~4x more per call), Flash supports google_search grounding (the
+// grounded-events adapter in lib/providers/gemini/google-events.ts is the working proof),
+// and a 5-restaurant Pro-vs-Flash spot check held up on item count / categories / price
+// coverage. Deliberately its OWN constant — generateGeminiJson above keeps its own model.
+const GEMINI_GROUNDED_MENU_MODEL = "gemini-2.5-flash"
+const GEMINI_GROUNDED_MENU_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_GROUNDED_MENU_MODEL}:generateContent`
+
 export type GoogleMenuCategory = {
   name: string
   menuType: "dine_in" | "catering" | "banquet" | "happy_hour" | "kids" | "other"
@@ -207,7 +216,7 @@ export async function fetchGoogleMenuData(
     }
     const prompt = `${contextPrefix}${GOOGLE_MENU_PROMPT}\n\nRestaurant: ${locationInfo}`
 
-    const response = await fetchWithRetry(`${GEMINI_INSIGHTS_URL}?key=${getGeminiKey()}`, {
+    const response = await fetchWithRetry(`${GEMINI_GROUNDED_MENU_URL}?key=${getGeminiKey()}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -215,7 +224,13 @@ export async function fetchGoogleMenuData(
         tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.1,
-          maxOutputTokens: 8192,
+          // Room for large menus: Pro spot-check runs emitted up to ~7.5k combined tokens, and
+          // 8192 minus the thinking cap truncated 2/5 real DFW menus in testing.
+          maxOutputTokens: 16384,
+          // Flash bills thinking against the output budget too; cap it so reasoning can't eat
+          // the whole budget and return empty content (the ALT-294 class; same cap as the
+          // grounded-events adapter). Grounding still runs.
+          thinkingConfig: { thinkingBudget: 2048 },
         },
       }),
     })

@@ -46,7 +46,11 @@ export const UNIT_PRICES = {
   firecrawlScrape: 0.002, // ~VERIFY (map/scrape)
   outscraperRecord: 0.005, // ~VERIFY
   geminiFlashPerImage: 0.0015, // ~image tokens + prompt/out @ $0.30/$2.50 per M (verified rates)
-  geminiFlashPerMenu: 0.002, // menu parse ~VERIFY
+  // Grounded menu fetch, MEASURED on a 5-restaurant spot check (beta rescue 2.2, 2026-08-12):
+  // ~1.5k in (incl. grounded-retrieval tokens) @ $0.30/M + ~9.5k out (incl. thinking) @ $2.50/M.
+  // Old 0.002 predated grounding and understated the call even at Flash rates. Excludes any
+  // grounded-request surcharge beyond the provider's free daily grounding tier.
+  geminiFlashPerMenu: 0.024,
   claudeSonnetPerBriefCall: 0.024, // ~3k in@$3/M + 1k out@$15/M per skill/synthesis call (verified rates)
   openWeatherCall: 0.0, // free tier
 } as const
