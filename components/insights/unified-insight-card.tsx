@@ -405,7 +405,12 @@ export default function UnifiedInsightCard({
             ) : (
               <span />
             )}
-            {vote ? <Thumbs picked={vote.picked} onVote={vote.onVote} /> : <LocalThumbs />}
+            {/* Read-only drops the thumbs too (2026-08-13). The comment above the actions block
+                already stated the rule — "a read-only surface drops both, there is nothing to
+                write" — but the footer's LocalThumbs escaped it, so a read-only card offered a
+                vote that silently went nowhere. That was tolerable on the internal review
+                surfaces; it is not on a customer's FIRST insight (the first-run starter card). */}
+            {readOnly ? <span /> : vote ? <Thumbs picked={vote.picked} onVote={vote.onVote} /> : <LocalThumbs />}
           </div>
         </div>
 

@@ -25,6 +25,10 @@ import {
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
+import FirstRunSignals from "@/components/first-run/first-run-signals"
+import StarterInsightCard from "@/app/(dashboard)/home/starter-insight-card"
+import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
+import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 const TOTAL = 5
 const MAX_TRACKED = 5
@@ -169,6 +173,7 @@ function whyLine(c: OnboardingCandidate): string {
 }
 
 const PIPELINE_ORDER = [
+  "starter",
   "content",
   "visibility",
   "events",
@@ -181,6 +186,7 @@ const PIPELINE_ORDER = [
 ] as const
 
 const PIPELINE_LABELS: Record<string, string> = {
+  starter: "Your first insight",
   content: "Menus & websites",
   visibility: "Search visibility",
   events: "Local events",
@@ -189,8 +195,11 @@ const PIPELINE_LABELS: Record<string, string> = {
   social: "Social media",
   photos: "Photos",
   insights: "First signals",
-  brief: "Your first brief",
+  brief: "Your full brief",
 }
+
+/** Bound on first-run fast-path invocations from one mounted Build step. See FirstRunPanel. */
+const MAX_KICKS = 8
 
 function formatElapsed(ms: number): string {
   const totalSec = Math.floor(ms / 1000)
@@ -248,6 +257,8 @@ function ProcessingStep({
 }) {
   const router = useRouter()
   const [jobs, setJobs] = useState<Array<{ pipeline: string; status: string }> | null>(null)
+  const [signals, setSignals] = useState<FirstRunSignal[]>([])
+  const [starter, setStarter] = useState<{ play: EnrichedRecommendation; generatedAt: string } | null>(null)
   const [completionDone, setCompletionDone] = useState(false)
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [timedOut, setTimedOut] = useState(false)
@@ -278,6 +289,35 @@ function ProcessingStep({
     void runCompletion()
   }, [runCompletion])
 
+  // Beta rescue 3.1 — KICK THE FIRST-RUN FAST PATH once setup has been written. Without this the
+  // queue is drained by a */5 cron whose claim order is fleet-wide and created_at-based, so a new
+  // signup starts behind every job the daily cron enqueued that morning: the first session shows
+  // nothing happening for a long time. The route is first-run only, membership-checked, and claims
+  // atomically, so calling it from here is safe and idempotent.
+  useEffect(() => {
+    if (!completionDone || completionError) return
+    let cancelled = false
+    async function kick() {
+      for (let i = 0; i < MAX_KICKS && !cancelled; i++) {
+        try {
+          const res = await fetch("/api/onboarding/first-run", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ location_id: locationId }),
+          })
+          const data = await res.json()
+          if (cancelled || !data?.ok || data.moreWork !== true) return
+        } catch {
+          return // the cron worker still drains this location; don't retry-storm
+        }
+      }
+    }
+    void kick()
+    return () => {
+      cancelled = true
+    }
+  }, [completionDone, completionError, locationId])
+
   // Poll the authed progress route every ~4s for real job statuses. Stops
   // after 2h: an abandoned tab must not poll forever (a 16h zombie tab was
   // observed in the wild, 2026-06-12) — the email path covers them by then.
@@ -296,7 +336,10 @@ function ProcessingStep({
           `/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`
         )
         const data = await res.json()
-        if (!cancelled && data.ok && Array.isArray(data.jobs)) setJobs(data.jobs)
+        if (cancelled || !data.ok || !Array.isArray(data.jobs)) return
+        setJobs(data.jobs)
+        if (Array.isArray(data.signals)) setSignals(data.signals as FirstRunSignal[])
+        if (data.starter) setStarter(data.starter as { play: EnrichedRecommendation; generatedAt: string })
       } catch {
         // transient — next tick retries
       }
@@ -331,14 +374,16 @@ function ProcessingStep({
     <>
       <span className="ob-panel-eyebrow">{setupMode ? "Demo setup" : "Almost there"}</span>
       <h2 className="ob-panel-title">We&apos;re building your first brief.</h2>
+      {/* No wall-clock promise for the full brief. The old copy quoted 30 to 60 minutes for a busy
+          market, which is not a thing to say to someone who just signed up, and the queue could
+          not hold the number either way. What we CAN stand behind is the order things arrive in. */}
       <p className="ob-panel-lede">
-        Each row below is live status from the pipeline. Most signals land in
-        5–15 minutes; the full first brief can take 30–60 minutes for a busy
-        market.
+        What we find shows up here as it lands. Your first insight comes first, then the rest of
+        your market fills in behind it.
       </p>
       <p className="ob-hint">
-        Elapsed: <span className="tk-mono">{formatElapsed(elapsedMs)}</span> · You
-        can close this tab — we&apos;ll email you the moment your first brief is ready.
+        Elapsed: <span className="tk-mono">{formatElapsed(elapsedMs)}</span>. You
+        can close this tab and we&apos;ll email you the moment your first brief is ready.
       </p>
 
       {completionError ? (
@@ -352,6 +397,16 @@ function ProcessingStep({
         </>
       ) : (
         <>
+          {/* Progressive value. These land one at a time, and each one is real: the competitor set
+              is already chosen so it renders immediately, the rest arrive as their pulls finish. */}
+          {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
+
+          {starter ? (
+            <div className="ob-starter">
+              <StarterInsightCard play={starter.play} todayKey={starter.generatedAt.slice(0, 10)} />
+            </div>
+          ) : null}
+
           <ul className="ob-status">
             {PIPELINE_ORDER.map((pipeline) => {
               const status = statusByPipeline.get(pipeline) ?? "queued"
@@ -389,9 +444,8 @@ function ProcessingStep({
             <>
               {!allDone ? (
                 <p className="ob-hint">
-                  Still working — data keeps landing after you continue. Your brief
-                  fills in as each signal finishes, and we&apos;ll email you when
-                  it&apos;s ready.
+                  Still working. Data keeps landing after you continue, your brief fills in as
+                  each signal finishes, and we&apos;ll email you when it&apos;s ready.
                 </p>
               ) : null}
               <div className="ob-nav">
@@ -410,7 +464,7 @@ function ProcessingStep({
             </>
           ) : (
             <p className="ob-hint">
-              The essentials usually land in a few minutes. Hang tight — or close this
+              The essentials usually land in a few minutes. Hang tight, or close this
               tab and watch for our email.
             </p>
           )}

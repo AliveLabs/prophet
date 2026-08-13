@@ -1,0 +1,103 @@
+/* Progressive first-run signals (beta rescue 3.1).
+
+   Self-sufficient, like the unified card: it pulls the token SSOT itself rather than depending on
+   whichever surface mounts it. Both mount points (`.ob` in onboarding, `.ticket-brief` on /home)
+   already define these tokens, and duplicate @imports dedupe, so this is safe either way. */
+@import "../../app/editorial-tokens.css";
+
+.frs {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 4px;
+}
+
+.frs-row {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 13px 15px;
+  background: var(--card, #fff);
+  border: 1px solid var(--line, #e9e2d7);
+  border-radius: var(--r-sm, 10px);
+}
+
+/* The mark carries the state, and the state word beside the label says it in words too, because
+   colour alone is never the signal. */
+.frs-mark {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--line-2, #dad2c4);
+}
+.frs-row.is-ready .frs-mark { background: var(--teal, #3a8066); }
+.frs-row.is-working .frs-mark {
+  background: var(--gold, #c9942a);
+  animation: frs-pulse 1.6s var(--ease, ease-in-out) infinite;
+}
+.frs-row.is-empty .frs-mark { background: var(--ink-3, #756a5d); }
+.frs-row.is-unavailable .frs-mark {
+  background: none;
+  border: 1.5px solid var(--line-2, #dad2c4);
+}
+
+@keyframes frs-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .frs-row.is-working .frs-mark { animation: none; }
+}
+
+.frs-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.frs-label {
+  font-family: var(--font-cond, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3, #756a5d);
+}
+
+.frs-state {
+  font-family: var(--font-cond, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3, #756a5d);
+}
+.frs-row.is-ready .frs-state { color: var(--teal-deep, #2e6b54); }
+.frs-row.is-working .frs-state { color: var(--gold-deep, #856017); }
+
+.frs-line {
+  margin: 5px 0 0;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink, #241e1a);
+}
+
+.frs-items {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.frs-items li {
+  font-size: 13px;
+  line-height: 1.3;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--paper-2, #f3efe8);
+  color: var(--ink-2, #5c5249);
+}

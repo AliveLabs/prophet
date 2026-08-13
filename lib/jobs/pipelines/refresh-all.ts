@@ -15,6 +15,7 @@ import { buildWeatherContext, buildWeatherSteps } from "./weather"
 import { buildSocialContext, buildSocialSteps } from "./social"
 import { buildInsightsContext, buildInsightsSteps } from "./insights"
 import { buildBriefContext, buildBriefSteps } from "./brief"
+import { buildStarterContext, buildStarterSteps } from "./starter"
 
 export type RefreshAllCtx = {
   supabase: SupabaseClient
@@ -98,6 +99,22 @@ export const SUB_PIPELINES: SubPipeline[] = [
     buildSteps: () => buildBriefSteps(),
   },
 ]
+
+// FIRST-RUN ONLY pipelines. The worker dispatches these by name; `buildRefreshAllSteps` below
+// deliberately does NOT include them, so the manual "refresh everything" route keeps exactly the
+// step list it has today. The starter insight costs a producer call and is meaningless for a
+// location that already has briefs, so a manual refresh must never trigger one.
+const WORKER_ONLY_PIPELINES: SubPipeline[] = [
+  {
+    name: "starter",
+    label: "First insight",
+    buildCtx: buildStarterContext,
+    buildSteps: () => buildStarterSteps(),
+  },
+]
+
+/** Every pipeline the durable worker can dispatch: the scheduled set plus the first-run-only ones. */
+export const WORKER_PIPELINES: SubPipeline[] = [...SUB_PIPELINES, ...WORKER_ONLY_PIPELINES]
 
 export async function buildRefreshAllContext(
   supabase: SupabaseClient,
