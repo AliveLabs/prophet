@@ -8,17 +8,32 @@
 // already present in the engine evidence.
 
 import type { TkConfidenceLevel, TkImpactLevel } from "@/components/ticket"
-import {
-  getSourceCategory,
-  SOURCE_LABELS,
-  type SourceCategory,
-} from "@/lib/insights/scoring"
-import type { FeedInsight } from "./insights-feed-kit"
+import { getSourceCategory, SOURCE_LABELS } from "@/lib/insights/scoring"
 
-export function insightCategory(
-  i: Pick<FeedInsight, "insightType" | "competitorId">
-): SourceCategory {
-  return getSourceCategory(i.insightType, i.competitorId)
+/** A serialized `insights` row, as every insight surface consumes it. Lived in the
+ *  retired insights-feed-kit; this module is its home now because everything that
+ *  reads the shape also reads these mappings. */
+export type FeedInsight = {
+  id: string
+  title: string
+  summary: string
+  insightType: string
+  competitorId: string | null
+  confidence: string
+  severity: string
+  status: string
+  userFeedback: string | null
+  relevanceScore: number
+  urgencyLevel: "critical" | "warning" | "info"
+  suppressed: boolean
+  evidence: Record<string, unknown>
+  recommendations: Array<Record<string, unknown>>
+  subjectLabel: string
+  dateKey: string
+  /** ALT-230: set on a freshly user-generated insight so the feed pins it to the
+   *  top of the pool with a "Just generated" marker (display-only — never affects
+   *  the home hero, which excludes user_viz types). */
+  justGenerated?: boolean
 }
 
 /* ── The chip text: the operator-facing source label ────────────────────── */
