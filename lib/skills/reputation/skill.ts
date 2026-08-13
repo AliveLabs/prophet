@@ -344,6 +344,10 @@ export const reputationSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(reputationSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared: no reputation-family rule output ⇒ every play is
+  // dropped there AND the floor above returns [] ⇒ this skill cannot produce. Same predicate, so
+  // intake, grounding and readiness stay in lockstep.
+  grounding: { kind: "family", matches: isReputationSignal },
   // P14 learning hook (new in v2, mirrors marketing): click feedback becomes learnable
   // per-archetype via REPUTATION_ARCHETYPES keys; external trend/editorial snippets
   // (e.g. platform policy changes) may inform the prompt but never add citable refs.

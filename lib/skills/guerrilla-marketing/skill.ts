@@ -513,6 +513,10 @@ export const guerrillaMarketingSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(guerrillaMarketingSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding. The partner catalog is NOT
+  // part of this: without it the entity-grounded archetypes simply don't fire and the skill still
+  // produces its number-free anchored plays off the events/traffic refs.
+  grounding: { kind: "family", matches: isGrassrootsSignal },
   // P14 learning hook: grassroots consumes LSM / fundraiser-econ sources → external_trend priors
   // (e.g. "spirit-night incremental ~75-90% within 60d" as a PRIOR, never a fabricated figure for
   // this restaurant). CLICK feedback by archetype (lead-domain `grassroots`); ASK partnership/event

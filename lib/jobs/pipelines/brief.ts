@@ -76,6 +76,12 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
           playTypeMultipliers,
           shadowMultipliers: shadow.lookup,
           shadowSignalCount: shadow.signalCount,
+          // THE FIRST-BRIEF BOUNDARY, and the only place it is drawn. `isFirstBrief` is the same
+          // hasAnyBrief read the first-brief email already gates on, taken BEFORE the save, so a
+          // location with any prior brief passes false and runs the full registry exactly as it
+          // does today. Data-driven, not time-driven: a first brief whose pulls all landed skips
+          // nothing (see lib/skills/first-brief-producers.ts).
+          firstBrief: c.state.isFirstBrief,
         })
         await saveBrief(brief)
         c.state.headline = brief.headline ?? null
@@ -94,6 +100,10 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
           headline: c.state.headline,
           plays: brief.plays.length,
           dropped: dropped.length,
+          // Recorded on the pipeline_runs row as well as skillHealth, so the first-run tracker and
+          // the ops view both show WHY a first brief made fewer model calls.
+          producersRun: (brief.skillHealth ?? []).filter((h) => !h.skipped).length,
+          producersSkipped: (brief.skillHealth ?? []).filter((h) => h.skipped).map((h) => h.skillId),
           standing,
         }
       },

@@ -444,6 +444,8 @@ export const localDemandSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(localDemandSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding.
+  grounding: { kind: "family", matches: isLocalDemandSignal },
   // P14 learning hook (new in v2, mirrors the exemplars): click feedback becomes
   // learnable per-archetype via LOCAL_DEMAND_ARCHETYPES keys; external trend/
   // editorial snippets (e.g. event-season patterns, venue calendar changes) may

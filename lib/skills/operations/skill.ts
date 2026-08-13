@@ -311,6 +311,8 @@ export const operationsSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(operationsSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding.
+  grounding: { kind: "family", matches: isOperationsSignal },
   // P14 learning hook (new in v2, mirrors marketing/reputation): click feedback
   // becomes learnable per-archetype via OPERATIONS_ARCHETYPES keys; external trend/
   // editorial snippets (e.g. scheduling-law changes, labor-market shifts) may inform

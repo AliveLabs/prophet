@@ -409,11 +409,14 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   const latencies: number[] = [] // producer elapsedMs samples (p95 watch signal); absent pre-2026-07-04
   for (const b of newestBriefByLocation.values()) {
     const health = Array.isArray(b.skillHealth)
-      ? (b.skillHealth as Array<{ usedFallback?: unknown; status?: unknown; elapsedMs?: unknown }>)
+      ? (b.skillHealth as Array<{ usedFallback?: unknown; status?: unknown; elapsedMs?: unknown; skipped?: unknown }>)
       : null
     if (!health || health.length === 0) continue
     briefsAssessed++
     for (const h of health) {
+      // First-brief readiness skips are not slots: no call was made, so counting them would pad
+      // the denominator and make the fleet look healthier the more producers we skipped.
+      if (h?.skipped === true) continue
       totalSlots++
       if (h?.usedFallback === true || h?.status === "failed") degradedSlots++
       if (typeof h?.elapsedMs === "number" && h.elapsedMs >= 0) latencies.push(h.elapsedMs)

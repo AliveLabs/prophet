@@ -299,6 +299,14 @@ export type SkillHealth = {
   /** Differential builds: this skill's plays were carried forward from the previous real run
    *  (input slice unchanged). Reused ≠ fallback — the fleet fallback-rate signal is unaffected. */
   reused?: boolean
+  /** FIRST BRIEF ONLY (beta rescue 3.1): this producer was not run, because the evidence its own
+   *  parse gate requires had not landed yet — so it could not have produced a surviving play by
+   *  any path. `reason` carries the detail. Skipped ≠ fallback and skipped ≠ failed: no call was
+   *  made, nothing degraded, and the brief's CONTENT is identical to what running it would have
+   *  produced. Never set on a nightly build. Carries no inputHash, so it can never seed a
+   *  differential reuse (see extractPreviousBuild), and it is excluded from the fleet
+   *  fallback-rate denominator (see pipeline-health) — an empty slot is not a healthy slot. */
+  skipped?: boolean
   /** Anthropic token usage for this producer's call (2026-07-16 cost telemetry). Absent on reused
    *  slots (no call) and on timeout-aborted fallbacks (client never sees usage → undercounts). */
   tokens?: { inputTokens: number; outputTokens: number; cacheWriteTokens: number; cacheReadTokens: number }
@@ -353,6 +361,11 @@ export type Brief = {
      *  SkillHealth.reused for producers: reused ≠ degraded — /admin/health and spend analysis
      *  read this to tell a $0 "reused day" apart from a generated one. Absent = generated. */
     downstreamReused?: boolean
+    /** FIRST BRIEF ONLY (beta rescue 3.1): how many producers were skipped because the evidence
+     *  their parse gate requires had not landed. The per-skill detail is on skillHealth; this is
+     *  the roll-up so a first brief's lower call count is explainable from spend analysis alone,
+     *  without joining back to skillHealth. Absent on every nightly build. */
+    producersSkipped?: number
   }
   /** Deterministic eval result for THIS served brief (lib/eval/record). Observation only — the
    *  checks never blocked or altered the brief. ABSENT means "not evaluated" (pre-step-3 briefs, or

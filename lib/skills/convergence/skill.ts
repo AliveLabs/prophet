@@ -497,6 +497,11 @@ export const convergenceSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(convergenceSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // Convergence's gate is a DIFFERENT SHAPE from its siblings': parse (1) and the floor both
+  // require REQUIRED_FAMILIES distinct signal families, because a play that cannot cross domains
+  // is not a convergence play. Declared here so a dossier that carries fewer than three families
+  // skips the deep pass instead of paying Opus to be rejected by its own parse.
+  grounding: { kind: "distinct_families", familyOf: signalFamily, min: REQUIRED_FAMILIES },
   // P14 learning hook (new in v2 — v1 was the only skill without one): click
   // feedback learns which COMBINATION SHAPES operators act on (the archetype
   // keys above are the play_type sub-domain); ask routing catches the questions

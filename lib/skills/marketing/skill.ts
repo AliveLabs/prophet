@@ -396,6 +396,8 @@ export const marketingSkill: ProducerSkill = {
   buildPrompt: (d, k) => buildSkillPrompt(marketingSkill, d, selectInput(d), k),
   parse,
   fallback,
+  // The gate parse() enforces at (1), declared — see SkillGrounding.
+  grounding: { kind: "family", matches: isMarketingSignal },
   // P14 learning hook unchanged: industry/menu-trend sources, click feedback (now
   // learnable per-archetype via MARKETING_ARCHETYPES keys), and ask routing.
   learning: {

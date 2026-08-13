@@ -29,6 +29,7 @@ import { computePlayTypeKey, playKey } from "@/lib/skills/preferences"
 //  lib/insights/evergreen.ts and lib/skills/feedback-rollup.ts)
 import { runProducerSkills } from "@/lib/skills/run"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
+import { selectFirstBriefProducers, type ProducerSkipped } from "@/lib/skills/first-brief-producers"
 import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
 import { synthesize, buildCoverage, LEAD_DOMAIN_BY_SKILL } from "@/lib/skills/synthesis"
 import { synthesisWrite } from "@/lib/skills/synthesis-write"
@@ -54,6 +55,13 @@ export type RunBriefOptions = {
   /** Differential builds: yesterday's reusable per-skill state (extractPreviousBuild). Callers omit
    *  it on full-build days (Sunday local), when DIFFERENTIAL_BUILDS=0, or on ?fullBuild=1. */
   previous?: PreviousBuild
+  /** Beta rescue 3.1: this is the location's FIRST brief, so producers whose grounding evidence has
+   *  not landed yet are skipped instead of called (lib/skills/first-brief-producers.ts — a skipped
+   *  producer provably could not have contributed a play, so the brief's content is unchanged).
+   *  DEFAULT FALSE, and the nightly path never sets it: a location with any prior brief runs the
+   *  full registry exactly as it does today. Ignored when `skills` is supplied explicitly (a caller
+   *  naming its own set has already decided). */
+  firstBrief?: boolean
 }
 
 export type BriefResult = {
@@ -78,24 +86,49 @@ async function runBriefBudgeted(
   opts: RunBriefOptions,
   providerAtStart: { requests: number; rateLimited: number; tokensByModel: Record<string, ModelTokenTotals> },
 ): Promise<BriefResult> {
-  const skills = opts.skills ?? PRODUCER_SKILLS
   const t = opts.transport ? { transport: opts.transport } : {}
+
+  // FIRST BRIEF ONLY: drop the producers that could not have produced anything from this dossier.
+  // Not a quality cut — a producer whose grounding family is absent is rejected by its own parse
+  // gate and declines its own floor, so the brief's plays are identical either way (see
+  // lib/skills/first-brief-producers.ts). An explicit `skills` list always wins.
+  const registry = opts.skills ?? PRODUCER_SKILLS
+  const selection =
+    opts.skills || !opts.firstBrief
+      ? { run: registry, skipped: [] as ProducerSkipped[] }
+      : selectFirstBriefProducers(registry, dossier.ruleOutputs.map((r) => r.insight_type))
+  const skills = selection.run
+  if (selection.skipped.length > 0) {
+    console.log(
+      `[runBrief] ${dossier.profile.locationId}: FIRST brief — running ${skills.length}/${registry.length} producers; ` +
+        `skipped ${selection.skipped.map((s) => `${s.skillId}(${s.reason})`).join(", ")} ` +
+        `(no citable evidence yet ⇒ each would have produced 0 plays)`,
+    )
+  }
 
   const skillResults = await runProducerSkills(skills, dossier, { ...t, previous: opts.previous })
   const candidates = skillResults.flatMap((r) => r.plays)
 
   // Per-producer health, captured BEFORE synthesis flattens the per-skill structure. Recorded onto
   // the brief so the pipeline watchdog can alert on fleet-wide fallback-serving (2026-06 truncation).
-  const skillHealth: SkillHealth[] = skillResults.map((r) => ({
-    skillId: r.skillId,
-    status: r.status,
-    usedFallback: !!r.usedFallback,
-    ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
-    ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
-    ...(r.inputHash ? { inputHash: r.inputHash } : {}),
-    ...(r.reused ? { reused: true } : {}),
-    ...(r.tokens ? { tokens: r.tokens } : {}),
-  }))
+  const skillHealth: SkillHealth[] = [
+    ...skillResults.map((r) => ({
+      skillId: r.skillId,
+      status: r.status,
+      usedFallback: !!r.usedFallback,
+      ...(r.fallbackReason ? { reason: r.fallbackReason } : {}),
+      ...(typeof r.elapsedMs === "number" ? { elapsedMs: r.elapsedMs } : {}),
+      ...(r.inputHash ? { inputHash: r.inputHash } : {}),
+      ...(r.reused ? { reused: true } : {}),
+      ...(r.tokens ? { tokens: r.tokens } : {}),
+    })),
+    // A SKIP IS NEVER SILENT. Same shape as every other slot, plus `skipped` and the reason, so
+    // /admin/health and the watchdog read one uniform list. Deliberately carries no inputHash and
+    // no tokens: nothing ran, so there is nothing to reuse tomorrow and nothing to bill today.
+    ...selection.skipped.map(
+      (s): SkillHealth => ({ skillId: s.skillId, status: "ok", usedFallback: false, skipped: true, reason: `${s.reason}: ${s.detail}` }),
+    ),
+  ]
   const reusedCount = skillResults.filter((r) => r.reused).length
   if (reusedCount > 0) console.log(`[runBrief] ${dossier.profile.locationId}: differential reuse ${reusedCount}/${skillResults.length} skills (input unchanged)`)
   // Differential builds: persist each producer's raw grounded plays so tomorrow's build can carry
@@ -149,7 +182,7 @@ async function runBriefBudgeted(
       coverage: dossier.coverage ?? buildCoverage(dossier),
     }
     const providerStats: Brief["providerStats"] = {
-      ...collectProviderStats(providerAtStart, dossier.profile.locationId),
+      ...collectProviderStats(providerAtStart, dossier.profile.locationId, selection.skipped.length),
       downstreamReused: true,
     }
     const voiced: Brief = {
@@ -191,7 +224,7 @@ async function runBriefBudgeted(
     ...synthesized,
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
-  const providerStats = collectProviderStats(providerAtStart, dossier.profile.locationId)
+  const providerStats = collectProviderStats(providerAtStart, dossier.profile.locationId, selection.skipped.length)
 
   const presented = presentBrief(written, dossier)
   const voiced: Brief = {
@@ -215,6 +248,9 @@ async function runBriefBudgeted(
 function collectProviderStats(
   providerAtStart: { requests: number; rateLimited: number; tokensByModel: Record<string, ModelTokenTotals> },
   locationId: string,
+  /** First-brief readiness gating: how many producers were not called. 0 on every nightly build,
+   *  and omitted from the stamp at 0 so a nightly brief's providerStats is byte-identical. */
+  producersSkipped = 0,
 ): NonNullable<Brief["providerStats"]> {
   const providerAtEnd = anthropicCallStats()
   // Token telemetry (2026-07-16): per-model delta between the two snapshots — THIS build's tokens.
@@ -245,6 +281,7 @@ function collectProviderStats(
     ...(Object.keys(tokensByModel).length > 0 ? { ...tokenTotals, tokensByModel } : {}),
     ...(estimatedUsd > 0 ? { estimatedUsd } : {}),
     ...(budget ? { spendCeilingUsd: budget.ceilingUsd, spendDegradedCalls: budget.degradedCalls } : {}),
+    ...(producersSkipped > 0 ? { producersSkipped } : {}),
   }
 }
 
