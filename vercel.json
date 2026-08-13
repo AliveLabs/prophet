@@ -21,6 +21,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/access-requests",
+      "schedule": "15 9 * * *"
+    },
+    {
       "path": "/api/cron/weekly-digest",
       "schedule": "0 * * * *"
     },

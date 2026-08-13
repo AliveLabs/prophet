@@ -30,9 +30,20 @@ import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/bi
 import { ensureCanAddLocation } from "@/lib/billing/limits"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { shouldClaimCurrentOrg } from "@/lib/onboarding/claim-current-org"
+import {
+  classifyPlaceCollision,
+  type CollisionOrgRow,
+  type PlaceCollision,
+} from "@/lib/onboarding/org-collision"
+import { canRequesterEscalate, type AccessRequestStatus } from "@/lib/onboarding/access-request"
+import {
+  loadOrgManagerRecipients,
+  notifyOps,
+} from "@/lib/onboarding/access-request-notify"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
+import { AccessRequest } from "@/lib/email/templates/access-request"
 import { mirrorLifecycleToMarketing } from "@/lib/marketing/trial-lifecycle"
 
 function slugify(input: string) {
@@ -41,6 +52,86 @@ function slugify(input: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
+}
+
+// ---------------------------------------------------------------------------
+// Duplicate-org prevention (beta rescue phase 3.5, pairs with ALT-576's merge
+// tool, which cleans up existing duplicates; this stops new ones).
+//
+// A signup that picks a place already owned by a live org must NOT create a
+// second org or grant ownership. Classification is pure
+// (lib/onboarding/org-collision.ts); this resolver just loads the rows.
+// ---------------------------------------------------------------------------
+
+/** What the wizard renders instead of proceeding. See classifyPlaceCollision. */
+export type SignupCollisionKind = "real" | "demo" | "already_member"
+
+type ResolvedCollision = {
+  collision: PlaceCollision
+  /** Name of the colliding org (internal alerts only, never shown to the requester). */
+  orgName: string | null
+}
+
+async function resolvePlaceCollision(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  placeId: string,
+  userId: string
+): Promise<ResolvedCollision> {
+  const none: ResolvedCollision = { collision: { kind: "none" }, orgName: null }
+  if (!placeId) return none
+
+  // FAIL OPEN on read errors: blocking every signup because a SELECT failed is a worse
+  // outage than one duplicate org, which the admin merge tool can fold away afterwards
+  // (same posture as the fleet daily cap in /api/cron/build-brief).
+  const { data: locRows, error: locErr } = await admin
+    .from("locations")
+    .select("organization_id")
+    .eq("primary_place_id", placeId)
+  if (locErr) {
+    console.error("[org-collision] locations lookup failed (failing open):", locErr.message)
+    return none
+  }
+
+  const orgIds = Array.from(new Set((locRows ?? []).map((l) => l.organization_id)))
+  if (orgIds.length === 0) return none
+
+  const { data: orgs, error: orgErr } = await admin
+    .from("organizations")
+    .select("id, name, org_kind, deleted_at")
+    .in("id", orgIds)
+  if (orgErr) {
+    console.error("[org-collision] organizations lookup failed (failing open):", orgErr.message)
+    return none
+  }
+
+  // Membership read failing just means "treat as not a member": the request-access
+  // action re-checks membership before writing anything, so this degrades safely.
+  const { data: memberships } = await admin
+    .from("organization_members")
+    .select("organization_id")
+    .eq("user_id", userId)
+    .in("organization_id", orgIds)
+  const memberOrgIds = new Set((memberships ?? []).map((m) => m.organization_id))
+
+  const rows: CollisionOrgRow[] = (orgs ?? []).map((o) => ({
+    orgId: o.id,
+    orgKind: o.org_kind,
+    deletedAt: o.deleted_at,
+    isMember: memberOrgIds.has(o.id),
+  }))
+
+  const collision = classifyPlaceCollision(rows)
+  const orgName =
+    collision.kind === "none"
+      ? null
+      : ((orgs ?? []).find((o) => o.id === collision.orgId)?.name ?? null)
+  return { collision, orgName }
+}
+
+const COLLISION_COPY: Record<SignupCollisionKind, string> = {
+  real: "This restaurant is already set up on Ticket. Ask your team's account owner to add you.",
+  demo: "This restaurant is already connected to Ticket. Leave your details and we will get you set up.",
+  already_member: "You already have access to this restaurant on Ticket.",
 }
 
 export async function createOrganizationAction(formData: FormData) {
@@ -67,6 +158,17 @@ export async function createOrganizationAction(formData: FormData) {
   const slug = organizationSlug ? slugify(organizationSlug) : slugify(organizationName)
   if (!slug) {
     redirect("/onboarding?error=Organization%20slug%20is%20invalid")
+  }
+
+  // Duplicate-org prevention (phase 3.5). This legacy form action has no collision screen,
+  // so it degrades to the error banner; the wizard path renders the full flow.
+  const { collision: legacyCollision } = await resolvePlaceCollision(
+    supabaseAdmin,
+    primaryPlaceId,
+    user.id
+  )
+  if (legacyCollision.kind !== "none") {
+    redirect(`/onboarding?error=${encodeURIComponent(COLLISION_COPY[legacyCollision.kind])}`)
   }
 
   const { data: org, error: orgError } = await supabaseAdmin
@@ -261,10 +363,32 @@ type CreateOrgInput = {
 export async function createOrgAndLocationAction(
   input: CreateOrgInput
 ): Promise<
-  { ok: true; orgId: string; locationId: string } | { ok: false; error: string }
+  | { ok: true; orgId: string; locationId: string }
+  | { ok: false; error: string; collision?: SignupCollisionKind }
 > {
   const user = await requireUser()
   const admin = createAdminSupabaseClient()
+
+  // Duplicate-org prevention: a place that already belongs to a live org never mints a
+  // second org (beta rescue phase 3.5). The wizard reads `collision` and swaps in the
+  // request-access / we'll-set-you-up screen; `error` is the plain-copy fallback.
+  const { collision, orgName } = await resolvePlaceCollision(
+    admin,
+    input.place.primary_place_id,
+    user.id
+  )
+  if (collision.kind !== "none") {
+    if (collision.kind === "demo") {
+      // Sales signal, fired at detection so it exists even if they bounce without
+      // leaving contact details (ruling: alert AND show the contact screen).
+      void notifyOps("Signup collision with a demo org", [
+        `${user.email ?? user.id} tried to set up "${input.businessName}" during onboarding.`,
+        `That place (${input.place.primary_place_id}) belongs to the demo/test org "${orgName ?? "unknown"}" (${collision.orgId}).`,
+        `They were shown the "we'll get you set up" screen; a contact submission may follow.`,
+      ])
+    }
+    return { ok: false, error: COLLISION_COPY[collision.kind], collision: collision.kind }
+  }
 
   const baseSlug = slugify(input.businessName)
   if (!baseSlug) {
@@ -1321,4 +1445,276 @@ export async function startTrialWithoutCardAction() {
   })
 
   redirect("/home")
+}
+
+// ---------------------------------------------------------------------------
+// Access requests: the follow-ups to a signup collision (phase 3.5).
+//
+// All three actions re-resolve the collision from the PLACE ID server-side rather than
+// trusting an orgId from the client, so they can only ever target the org that actually
+// owns the place the requester picked (no spraying requests at arbitrary orgs).
+// Writes use select-then-insert, NOT upsert: the one-open-request guarantee is a partial
+// unique index, and PostgREST onConflict can't address partial indexes (known gotcha).
+// ---------------------------------------------------------------------------
+
+const OPEN_REQUEST_STATUSES: AccessRequestStatus[] = ["pending", "nudged", "escalated"]
+
+function requesterDisplayName(user: { email?: string | null; user_metadata?: Record<string, unknown> }) {
+  const metaName = user.user_metadata?.full_name
+  if (typeof metaName === "string" && metaName.trim()) return metaName.trim()
+  return user.email?.split("@")[0] ?? "A teammate"
+}
+
+/**
+ * "Request access" on the already-on-Ticket screen: records the request and notifies the
+ * org's owner to grant a role via Settings -> Team. The daily access-requests cron nudges
+ * at day 4, escalates to us at day 7, and marks it granted once membership appears.
+ * Idempotent: a second click (or a second signup attempt days later) reuses the open request.
+ */
+export async function requestOrgAccessAction(input: {
+  placeId: string
+}): Promise<{ ok: true; alreadyRequested: boolean } | { ok: false; error: string }> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const rl = await rateLimit(user.id, {
+    prefix: "org-access-request",
+    limit: 5,
+    windowSeconds: 3600,
+  })
+  if (!rl.ok) {
+    return { ok: false, error: "That's a few tries in a row. Give it a minute." }
+  }
+
+  const { collision, orgName } = await resolvePlaceCollision(admin, input.placeId, user.id)
+  if (collision.kind === "already_member") {
+    return { ok: false, error: "You already have access to this restaurant. Head to your dashboard." }
+  }
+  if (collision.kind !== "real") {
+    return { ok: false, error: "We couldn't match that restaurant to an existing account. Try the search again." }
+  }
+
+  const { data: existing } = await admin
+    .from("org_access_requests")
+    .select("id, status")
+    .eq("organization_id", collision.orgId)
+    .eq("requester_user_id", user.id)
+    .eq("kind", "request_access")
+    .in("status", OPEN_REQUEST_STATUSES)
+    .maybeSingle()
+  if (existing) {
+    return { ok: true, alreadyRequested: true }
+  }
+
+  const { error: insertError } = await admin.from("org_access_requests").insert({
+    organization_id: collision.orgId,
+    requester_user_id: user.id,
+    requester_email: user.email ?? null,
+    requester_name: requesterDisplayName(user),
+    place_id: input.placeId,
+    kind: "request_access",
+    status: "pending",
+  })
+  if (insertError) {
+    // 23505 = the partial unique index caught a racing double-submit; treat as already sent.
+    if (insertError.code === "23505") return { ok: true, alreadyRequested: true }
+    console.error("[org-access] request insert failed:", insertError.message)
+    return { ok: false, error: "Something went wrong sending your request. Try again in a moment." }
+  }
+
+  // Notify the owner. Best-effort: a failed send is not a failed request, because the
+  // day-4 cron nudge retries the same notification path.
+  const recipients = await loadOrgManagerRecipients(admin, collision.orgId)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  await Promise.all(
+    recipients.map((r) =>
+      sendEmail({
+        to: r.email,
+        subject: `${requesterDisplayName(user)} is asking to join ${orgName ?? "your account"} on Ticket`,
+        react: AccessRequest({
+          ownerName: r.name,
+          requesterName: requesterDisplayName(user),
+          requesterEmail: user.email ?? "unknown",
+          orgName: orgName ?? "your account",
+          teamUrl: `${appUrl}/settings/team`,
+        }),
+        clientFacing: true,
+        // A person is actively waiting on this, same reasoning as the team-invite email:
+        // it must not sit behind the marketing-email pause.
+        overrideClientEmailPause: true,
+      }).catch((err) => console.error("[org-access] owner notification failed:", err))
+    )
+  )
+  if (recipients.length === 0) {
+    // An org nobody reachable owns is exactly what escalation exists for; surface it to
+    // us now instead of letting the request sit silent until the day-7 escalation.
+    void notifyOps("Access request created for an org with no reachable owner", [
+      `${user.email ?? user.id} asked to join "${orgName ?? "unknown"}" (${collision.orgId}) and no owner/admin has an email on file.`,
+    ])
+  }
+
+  return { ok: true, alreadyRequested: false }
+}
+
+/**
+ * "The owner isn't reachable" on the SAME screen (not just a timeout fallback): the
+ * requester often already knows the owner left. Marks the request escalated and notifies
+ * us with their contact details; we validate before any transfer (the admin side is
+ * convertDemoToCustomer / transferOrgOwnership in app/actions/org-management.ts).
+ */
+export async function escalateOrgAccessAction(input: {
+  placeId: string
+  contact: string
+  message?: string
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const rl = await rateLimit(user.id, {
+    prefix: "org-access-escalate",
+    limit: 3,
+    windowSeconds: 3600,
+  })
+  if (!rl.ok) {
+    return { ok: false, error: "We've got your note. Give us a little time to reach out." }
+  }
+
+  const { collision, orgName } = await resolvePlaceCollision(admin, input.placeId, user.id)
+  if (collision.kind !== "real") {
+    return { ok: false, error: "We couldn't match that restaurant to an existing account. Try the search again." }
+  }
+
+  const contact = input.contact.trim() || user.email || user.id
+  const message = input.message?.trim() || null
+  const now = new Date().toISOString()
+
+  const { data: existing } = await admin
+    .from("org_access_requests")
+    .select("id, status")
+    .eq("organization_id", collision.orgId)
+    .eq("requester_user_id", user.id)
+    .eq("kind", "request_access")
+    .in("status", OPEN_REQUEST_STATUSES)
+    .maybeSingle()
+
+  if (existing) {
+    const patch: Record<string, unknown> = { contact_info: contact, message, updated_at: now }
+    if (canRequesterEscalate(existing.status as AccessRequestStatus)) {
+      patch.status = "escalated"
+      patch.escalated_at = now
+    }
+    const { error } = await admin.from("org_access_requests").update(patch).eq("id", existing.id)
+    if (error) {
+      console.error("[org-access] escalate update failed:", error.message)
+      return { ok: false, error: "Something went wrong. Try again in a moment." }
+    }
+  } else {
+    // Escalating without requesting first is allowed, because the requester may already know
+    // the owner is gone. The record starts life escalated.
+    const { error } = await admin.from("org_access_requests").insert({
+      organization_id: collision.orgId,
+      requester_user_id: user.id,
+      requester_email: user.email ?? null,
+      requester_name: requesterDisplayName(user),
+      place_id: input.placeId,
+      kind: "request_access",
+      status: "escalated",
+      escalated_at: now,
+      contact_info: contact,
+      message,
+    })
+    if (error && error.code !== "23505") {
+      console.error("[org-access] escalate insert failed:", error.message)
+      return { ok: false, error: "Something went wrong. Try again in a moment." }
+    }
+  }
+
+  await notifyOps("Access request escalated by the requester", [
+    `${requesterDisplayName(user)} (${user.email ?? user.id}) says the owner of "${orgName ?? "unknown"}" (${collision.orgId}) is unreachable.`,
+    `Contact: ${contact}`,
+    message ? `Their note: ${message}` : "No note left.",
+    "Validate before any ownership change. Admin tools: transfer ownership / convert demo on the org detail page.",
+  ])
+
+  return { ok: true }
+}
+
+/**
+ * Demo-org collision contact capture ("we'll set you up"): a real operator wants a
+ * location we run as a demo/test showcase. Stores their contact and pages us; nothing is
+ * granted automatically. The handover itself is the packaged convertDemoToCustomer admin
+ * action.
+ */
+export async function submitDemoContactAction(input: {
+  placeId: string
+  contact: string
+  message?: string
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const user = await requireUser()
+  const admin = createAdminSupabaseClient()
+
+  const rl = await rateLimit(user.id, {
+    prefix: "org-demo-contact",
+    limit: 3,
+    windowSeconds: 3600,
+  })
+  if (!rl.ok) {
+    return { ok: false, error: "We've got your details. Give us a little time to reach out." }
+  }
+
+  const { collision, orgName } = await resolvePlaceCollision(admin, input.placeId, user.id)
+  if (collision.kind !== "demo") {
+    return { ok: false, error: "We couldn't match that restaurant. Try the search again." }
+  }
+
+  const contact = input.contact.trim() || user.email || user.id
+  const message = input.message?.trim() || null
+  const now = new Date().toISOString()
+
+  const { data: existing } = await admin
+    .from("org_access_requests")
+    .select("id")
+    .eq("organization_id", collision.orgId)
+    .eq("requester_user_id", user.id)
+    .eq("kind", "demo_contact")
+    .in("status", OPEN_REQUEST_STATUSES)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await admin
+      .from("org_access_requests")
+      .update({ contact_info: contact, message, updated_at: now })
+      .eq("id", existing.id)
+    if (error) {
+      console.error("[org-access] demo contact update failed:", error.message)
+      return { ok: false, error: "Something went wrong. Try again in a moment." }
+    }
+  } else {
+    // Born escalated: a demo collision is ours to act on from the start (no owner to nudge).
+    const { error } = await admin.from("org_access_requests").insert({
+      organization_id: collision.orgId,
+      requester_user_id: user.id,
+      requester_email: user.email ?? null,
+      requester_name: requesterDisplayName(user),
+      place_id: input.placeId,
+      kind: "demo_contact",
+      status: "escalated",
+      escalated_at: now,
+      contact_info: contact,
+      message,
+    })
+    if (error && error.code !== "23505") {
+      console.error("[org-access] demo contact insert failed:", error.message)
+      return { ok: false, error: "Something went wrong. Try again in a moment." }
+    }
+  }
+
+  await notifyOps("Demo-org lead: signup collision contact submitted", [
+    `${requesterDisplayName(user)} (${user.email ?? user.id}) wants "${orgName ?? "unknown"}" (${collision.orgId}), a demo/test org.`,
+    `Contact: ${contact}`,
+    message ? `Their note: ${message}` : "No note left.",
+    "Handover: convertDemoToCustomer on the admin org detail page (transfer + reclassify + trial in one step).",
+  ])
+
+  return { ok: true }
 }
