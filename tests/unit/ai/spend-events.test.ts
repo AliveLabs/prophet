@@ -105,7 +105,7 @@ describe("recordSpendEvent", () => {
 
   it("inserts the expected row shape into ai_spend_events", async () => {
     await recordSpendEvent({
-      surface: "priority_briefing",
+      surface: "insights_generate",
       provider: "gemini",
       model: "gemini-2.5-pro",
       inputTokens: 100,
@@ -118,7 +118,7 @@ describe("recordSpendEvent", () => {
     expect(insertMock).toHaveBeenCalledTimes(1)
     const row = insertMock.mock.calls[0][0]
     expect(row).toMatchObject({
-      surface: "priority_briefing",
+      surface: "insights_generate",
       provider: "gemini",
       model: "gemini-2.5-pro",
       input_tokens: 100,

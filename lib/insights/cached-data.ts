@@ -85,9 +85,12 @@ export async function fetchInsightsPageData(
   if (confidenceFilter) insightQuery = insightQuery.eq("confidence", confidenceFilter)
   if (severityFilter) insightQuery = insightQuery.eq("severity", severityFilter)
 
-  const singleStatuses = ["new", "read", "todo", "actioned", "snoozed", "dismissed"]
-  if (statusFilter === "saved") {
-    insightQuery = insightQuery.eq("status", "read")
+  const singleStatuses = ["new", "read", "todo", "actioned", "snoozed", "dismissed", "inaccurate"]
+  if (statusFilter === "kept" || statusFilter === "saved") {
+    // "Kept" spans every positive status: "todo" is what Keep writes today; "read" and
+    // "actioned" are legacy positives from the retired Track menu ("saved" is the even
+    // older query value, kept so stale links still resolve).
+    insightQuery = insightQuery.in("status", ["read", "todo", "actioned"])
   } else if (singleStatuses.includes(statusFilter)) {
     insightQuery = insightQuery.eq("status", statusFilter)
   } else {

@@ -212,10 +212,9 @@ export default function BriefView({
           <>
             {/* ── See-all-insights link (ALT-184a) — moved to the TOP of the brief's insights
                 list so it's discoverable immediately instead of buried at the bottom. ── */}
-            {/* "Pool" is internal vocabulary that told the operator nothing, so it is gone
-                from the label. The route keeps its path for now; the destination itself is
-                still being settled. */}
-            <Link className="pass-pool-link pass-pool-link-top" href="/home/pool">
+            {/* Points at the all-insights view (the settled destination; /home/pool now
+                redirects there too, so old bookmarks keep working). */}
+            <Link className="pass-pool-link pass-pool-link-top" href="/insights/all">
               See all insights &rarr;
             </Link>
 

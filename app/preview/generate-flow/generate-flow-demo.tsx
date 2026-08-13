@@ -2,13 +2,14 @@
 
 // DEV/REVIEW-ONLY playback of the ALT-230 "Generate insight" result UX. The live
 // endpoint needs auth + a Gemini key, so this reproduces the on-/insights states with
-// the REAL components + CSS (InsightCardKit, the .tk-sweep placeholder, the "Just
-// generated" marker + rust ring) so the review matches what ships. The data is mocked;
-// the presentation is production code.
+// the REAL components + CSS (InsightRowCard — the unified card with this surface's
+// wiring, the .tk-sweep placeholder, the "Just generated" marker + rust ring) so the
+// review matches what ships. The data is mocked; the presentation is production code.
+// (Only the server writes are inert here, because there is no session.)
 
 import { useState } from "react"
 import { TkToastProvider } from "@/components/ticket"
-import { InsightCardKit } from "@/app/(dashboard)/insights/insight-card-kit"
+import { InsightRowCard } from "@/app/(dashboard)/insights/insight-row-card"
 import type { FeedInsight } from "@/app/(dashboard)/insights/insights-feed-kit"
 
 // The freshly generated insight (what the Gemini endpoint returns for a weather card).
@@ -117,7 +118,7 @@ export function GenerateFlowDemo() {
               </div>
             ) : (
               <div className="ins-gen-landed">
-                <InsightCardKit insight={GENERATED} />
+                <InsightRowCard insight={GENERATED} />
               </div>
             )}
 
@@ -131,7 +132,7 @@ export function GenerateFlowDemo() {
                 <div className="tk-grid ins-grid">
                   {POOL.map((i) => (
                     <div key={i.id}>
-                      <InsightCardKit insight={i} />
+                      <InsightRowCard insight={i} />
                     </div>
                   ))}
                 </div>

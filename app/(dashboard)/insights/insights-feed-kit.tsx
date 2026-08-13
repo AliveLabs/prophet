@@ -1,14 +1,18 @@
 "use client"
 
-// The Pass — the /insights feed, REBUILT to the kit.
+// The Pass — the /insights feed, on the unified insight card.
 //
 // This REPLACES the shared <InsightFeed/> presentation (we may not edit the
 // shared component, so this is a page-local re-implementation). It keeps the same
-// behavior the operator already relies on — category tabs, a Feed↔Board toggle,
-// per-category grouping with "show more", optimistic re-bucketing on status
-// change — but renders every insight through <InsightCardKit/> (kit play cards
-// with confidence pips, chips, why-rolldowns, quotes) and wraps the kanban /
-// empty / still-learning states in Concept A's structure.
+// behavior the operator already relies on — category tabs, per-category grouping
+// with "show more", optimistic re-bucketing on status change — and renders every
+// insight through <InsightRowCard/> (the unified card with this surface's writes
+// attached).
+//
+// The Feed↔Board toggle is RETIRED with the Track / Read / Add to to-do / Mark as
+// done / Do later verb set that fed its columns: Keep and Dismiss are the only
+// verbs now, and a kanban whose To-do and Done columns nothing can feed would be
+// dead chrome. Kept insights surface in the Pinned section instead.
 //
 // The FeedInsight shape + server-action wiring are unchanged from the prior feed.
 
@@ -27,7 +31,7 @@ import {
   SOURCE_LABELS,
   type SourceCategory,
 } from "@/lib/insights/scoring"
-import { InsightCardKit } from "./insight-card-kit"
+import { InsightRowCard } from "./insight-row-card"
 import {
   INSIGHT_RECENT_WINDOW_DAYS,
   defaultRevealCount,
@@ -75,20 +79,12 @@ const CAT_FAMILY: Record<SourceCategory, TkFamily> = {
 }
 
 const HIDDEN_STATUSES = new Set(["dismissed", "snoozed", "inaccurate"])
-// ALT-184g: "pinned" = kept/saved — the existing positive statuses the Track menu
-// already writes (Mark as read / Add to to-do / Mark as done). No new status or
-// column: this is the same set <InsightCardKit/> already treats as "kept" for its
-// own Track-button fill state.
+// ALT-184g: "pinned" = kept. Keep writes "todo"; "read" and "actioned" are legacy
+// positives from the retired Track menu, still honored so old rows keep their place.
+// This is the same set insightKeptState() reads as kept for the card's toggle.
 const PINNED_STATUSES = new Set(["read", "todo", "actioned"])
 const CARDS_PER_CATEGORY = 6
-const CARDS_PER_COLUMN = 8
 const PINNED_PREVIEW_COUNT = 4
-
-const KANBAN_COLUMNS = [
-  { key: "inbox", label: "Inbox", statuses: new Set(["new", "read"]) },
-  { key: "todo", label: "To-do", statuses: new Set(["todo"]) },
-  { key: "done", label: "Done", statuses: new Set(["actioned"]) },
-] as const
 
 type Props = {
   insights: FeedInsight[]
@@ -108,8 +104,9 @@ type Props = {
 
 /** ALT-292: the reveal footer every section shares. One batch per click (never the
  *  whole remainder), an honest count of what is still unloaded, and a way back to the
- *  default view once the operator has expanded past it. */
-function RevealFooter({
+ *  default view once the operator has expanded past it. Exported for the all-insights
+ *  view, which batches its two sections with the same footer. */
+export function RevealFooter({
   plan: { nextCount, remaining, olderNext },
   fullWidth = false,
   onMore,
@@ -151,10 +148,9 @@ export default function InsightsFeedKit({
   recentCutoff,
 }: Props) {
   const [activeTab, setActiveTab] = useState("")
-  const [viewMode, setViewMode] = useState<"feed" | "board">("feed")
   const [statusOverrides, setStatusOverrides] = useState<Map<string, string>>(new Map())
   // ALT-292: how many cards each section has revealed so far, keyed by section
-  // ("cat:social", "col:inbox", "pinned"). An absent key means "still at its default",
+  // ("cat:social", "pinned"). An absent key means "still at its default",
   // so a collapse is a delete and a new category needs no seeding. This replaces the
   // old boolean expand flags, which jumped straight from 6 to the whole remainder.
   const [revealCounts, setRevealCounts] = useState<Map<string, number>>(new Map())
@@ -329,26 +325,11 @@ export default function InsightsFeedKit({
     return map
   }, [insightsByCategory, recentCutoff])
 
-  // ── Board view: group by status column ──
-  const columnInsights = useMemo(() => {
-    const map = new Map<string, FeedInsight[]>()
-    for (const col of KANBAN_COLUMNS) map.set(col.key, [])
-    for (const ins of filteredInsights) {
-      for (const col of KANBAN_COLUMNS) {
-        if (col.statuses.has(ins.status)) {
-          map.get(col.key)!.push(ins)
-          break
-        }
-      }
-    }
-    return map
-  }, [filteredInsights])
-
   const hasAnyInsights = filteredInsights.length > 0
 
-  // Pinned and the board columns have no recency notion (a kept insight or an open
-  // to-do doesn't stop mattering after a week), so they pass `recentCount: 0` and get
-  // plain batch reveal off the same planner the categories use.
+  // Pinned has no recency notion (a kept insight doesn't stop mattering after a
+  // week), so it passes `recentCount: 0` and gets plain batch reveal off the same
+  // planner the categories use.
   const pinnedShown = Math.min(
     revealCounts.get("pinned") ?? PINNED_PREVIEW_COUNT,
     pinnedInsights.length,
@@ -371,7 +352,7 @@ export default function InsightsFeedKit({
   return (
     <TkToastProvider>
       <div className="ins-feed">
-        {/* Tabs + view toggle */}
+        {/* Category tabs */}
         <div className="ins-controls">
           <div className="ins-tabs" role="tablist" aria-label="Filter by source">
             {presentTabs.map((tab) => {
@@ -392,31 +373,6 @@ export default function InsightsFeedKit({
               )
             })}
           </div>
-
-          <div className="ins-view-toggle" role="group" aria-label="View mode">
-            <button
-              type="button"
-              onClick={() => setViewMode("feed")}
-              aria-pressed={viewMode === "feed"}
-              className={`ins-vt${viewMode === "feed" ? " ins-vt-on" : ""}`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
-              </svg>
-              <span>Feed</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("board")}
-              aria-pressed={viewMode === "board"}
-              className={`ins-vt${viewMode === "board" ? " ins-vt-on" : ""}`}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M9 4.5v15m6-15v15M4.5 4.5h15a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18V6a1.5 1.5 0 0 1 1.5-1.5z" />
-              </svg>
-              <span>Board</span>
-            </button>
-          </div>
         </div>
 
         {/* ── ALT-230: a live-generated insight, pinned to the very top of the pool.
@@ -431,7 +387,7 @@ export default function InsightsFeedKit({
         ) : null}
         {pinnedGenerated ? (
           <div className="ins-gen-landed">
-            <InsightCardKit insight={pinnedGenerated} onStatusChange={handleStatusChange} />
+            <InsightRowCard insight={pinnedGenerated} onStatusChange={handleStatusChange} />
           </div>
         ) : null}
         {genError && !generating ? (
@@ -459,7 +415,7 @@ export default function InsightsFeedKit({
             <RevealOnView className="tk-grid ins-grid" stagger>
               {pinnedInsights.slice(0, pinnedShown).map((insight, i) => (
                 <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
-                  <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                  <InsightRowCard insight={insight} onStatusChange={handleStatusChange} />
                 </div>
               ))}
             </RevealOnView>
@@ -473,9 +429,9 @@ export default function InsightsFeedKit({
           </section>
         ) : null}
 
-        {/* ── Feed view (a secondary view relative to Pinned above — ALT-184e gives it
+        {/* ── The feed (a secondary view relative to Pinned above — ALT-184e gives it
             the same top breathing room the page already uses between major sections). ── */}
-        {viewMode === "feed" && hasAnyInsights ? (
+        {hasAnyInsights ? (
           <div className="ins-cats">
             {orderedCategories.map((cat) => {
               // ALT-292: `ordered` is the recent window followed by everything older.
@@ -519,7 +475,7 @@ export default function InsightsFeedKit({
                     <RevealOnView className="tk-grid ins-grid" stagger>
                       {visibleRecent.map((insight, i) => (
                         <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
-                          <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                          <InsightRowCard insight={insight} onStatusChange={handleStatusChange} />
                         </div>
                       ))}
                     </RevealOnView>
@@ -537,7 +493,7 @@ export default function InsightsFeedKit({
                     <RevealOnView className="tk-grid ins-grid" stagger>
                       {visibleOlder.map((insight, i) => (
                         <div key={insight.id} style={{ "--tk-i": i } as CSSProperties}>
-                          <InsightCardKit insight={insight} onStatusChange={handleStatusChange} />
+                          <InsightRowCard insight={insight} onStatusChange={handleStatusChange} />
                         </div>
                       ))}
                     </RevealOnView>
@@ -553,70 +509,6 @@ export default function InsightsFeedKit({
           </div>
         ) : null}
 
-        {/* ── Board view ── */}
-        {viewMode === "board" && hasAnyInsights ? (
-          <div className="ins-board">
-            {KANBAN_COLUMNS.map((col) => {
-              const colInsights = columnInsights.get(col.key) ?? []
-              // ALT-292: same incremental reveal as the feed. No recent window here:
-              // a board column is a workflow queue, so hiding older to-dos by date
-              // would hide work the operator still owes themselves.
-              const key = `col:${col.key}`
-              const shown = Math.min(revealCounts.get(key) ?? CARDS_PER_COLUMN, colInsights.length)
-              const visible = colInsights.slice(0, shown)
-              const plan = revealPlan({
-                shown,
-                recentCount: 0,
-                total: colInsights.length,
-                batch: CARDS_PER_COLUMN,
-              })
-              return (
-                <div key={col.key} className={`ins-col ins-col-${col.key}`}>
-                  <div className="ins-col-head">
-                    <span className="ins-col-dot" aria-hidden="true" />
-                    <h3>{col.label}</h3>
-                    <span className="ins-col-n">{colInsights.length}</span>
-                  </div>
-                  <div className="ins-col-body">
-                    {visible.length ? (
-                      visible.map((insight) => (
-                        <InsightCardKit
-                          key={insight.id}
-                          insight={insight}
-                          onStatusChange={handleStatusChange}
-                        />
-                      ))
-                    ) : (
-                      <TkEmptyState
-                        title={
-                          col.key === "inbox"
-                            ? "No new insights"
-                            : col.key === "todo"
-                              ? "Nothing planned yet"
-                              : "No completed actions"
-                        }
-                        description={
-                          col.key === "inbox"
-                            ? "New signals land here as your sweeps run."
-                            : col.key === "todo"
-                              ? "Add an insight to your to-do to plan it."
-                              : "Mark an insight done when you’ve acted on it."
-                        }
-                      />
-                    )}
-                    <RevealFooter
-                      plan={plan}
-                      fullWidth
-                      onMore={() => revealMore(key, CARDS_PER_COLUMN, CARDS_PER_COLUMN, colInsights.length)}
-                      onCollapse={shown > CARDS_PER_COLUMN ? () => collapse(key) : null}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-
         {/* ── Empty / still-learning (suppressed while a generation is in flight or
             has just landed, so the pinned card/placeholder owns the top instead) ── */}
         {!hasAnyInsights && !generating && !pinnedGenerated ? (
@@ -627,10 +519,10 @@ export default function InsightsFeedKit({
                   ? `No ${SOURCE_LABELS[activeTab as SourceCategory]?.toLowerCase() ?? ""} insights`
                   : statusFilter === "dismissed"
                     ? "No dismissed insights"
-                    : statusFilter === "todo"
-                      ? "Nothing on your to-do"
-                      : statusFilter === "actioned"
-                        ? "Nothing marked done"
+                    : statusFilter === "kept"
+                      ? "Nothing kept yet"
+                      : statusFilter === "inaccurate"
+                        ? "Nothing reported inaccurate"
                         : "No insights match this filter"
               }
               description={
