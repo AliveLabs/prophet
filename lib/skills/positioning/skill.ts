@@ -112,7 +112,10 @@ import { buildSkillPrompt, coerceEnrichedPlays } from "@/lib/skills/prompt-kit"
 import { selectAdjacentSignals } from "@/lib/skills/domain-map"
 import { POSITIONING_KNOWLEDGE } from "@/lib/skills/positioning/knowledge"
 
-const KNOWLEDGE_VERSION = "positioning@v4"
+// @v4.1 (2026-08-12): the DISH CREATION boundary bullet no longer names the retired kitchen/menu
+// specialist (beta rescue D5) — the boundary itself is unchanged. Bumped so differential builds
+// regenerate against the edited playbook instead of reusing plays hashed under the old prompt.
+const KNOWLEDGE_VERSION = "positioning@v4.1"
 
 // ── The positioning archetypes (stable keys — the click-feedback sub-domain the
 //    rollup can learn by, mirroring the four exemplars' *_ARCHETYPES exports).

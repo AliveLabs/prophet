@@ -221,6 +221,16 @@ describe("downstream fingerprint", () => {
     )
     expect(moved).not.toBe(base)
   })
+  it("changes when the SKILL SET changes — removing a skill from the registry forces a full downstream rebuild, never a false reuse", () => {
+    // The 2026-08-12 skill retirement relies on this: skillHashes is a KEYED record, so a brief
+    // fingerprinted under yesterday's roster can never byte-match a fingerprint computed over a
+    // smaller (or larger) roster, even when every surviving skill's hash is identical.
+    const p2 = { ...groundedPlay("Beta play"), skillId: "ds-beta", knowledgeVersion: "v1" } as EnrichedRecommendation
+    const twoSkills = [...results, { skillId: "ds-beta", inputHash: "h9", plays: [p2] }]
+    const withBoth = downstreamFingerprint(collectDownstreamInputs(arenaWeekDossier, twoSkills, {}))
+    const withOne = downstreamFingerprint(collectDownstreamInputs(arenaWeekDossier, results, {}))
+    expect(withOne).not.toBe(withBoth)
+  })
 })
 
 // ── the pipeline end to end ───────────────────────────────────────────────────────────────────

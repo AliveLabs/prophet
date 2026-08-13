@@ -80,7 +80,7 @@ export type ProducerSkill = {
    *  forcing a rebuild. RULES: derive it FROM selectInput (destructure + drop keys) so any new
    *  selectInput key enters the hash BY DEFAULT (conservative: new data = re-run), and never
    *  exclude citable rule-output signals — those are the re-run triggers tied to real changes.
-   *  Skills whose volatile fields ARE substance (local-demand/food-pairing/convergence: weather,
+   *  Skills whose volatile fields ARE substance (local-demand/convergence: weather,
    *  events) must NOT declare this — they legitimately rebuild daily. */
   selectStableInput?: (d: Dossier) => unknown
 }

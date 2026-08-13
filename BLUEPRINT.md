@@ -10,7 +10,7 @@
 > - **Nav is 3 items — Today / Competitors / Ask — plus conditional Weather / Events** (shown only
 >   where relevant). NOT the 11-link sidebar in §9.3. Menu/**Content**, **Visibility**/SEO, Social,
 >   Photos, Traffic are SIGNAL SOURCES that feed the brief (and drill-downs), NOT nav modules. Their
->   pipelines run in cron and their data is load-bearing for the food-pairing/positioning experts —
+>   pipelines run in cron and their data is load-bearing for the positioning expert —
 >   keep them; they're just not surfaced as pages.
 > - **Ask IS shipped** (`/ask`, `lib/ask/*`) — ignore "Ask Prophet not yet built".
 > - **`/home` renders `BriefView`** (headline + ranked play cards + evidence + recipe + right rail),

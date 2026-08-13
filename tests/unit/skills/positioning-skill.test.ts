@@ -20,7 +20,8 @@ import {
 import { POSITIONING_KNOWLEDGE } from "@/lib/skills/positioning/knowledge"
 import { priceLevelToTier } from "@/lib/places/format"
 
-const KNOWLEDGE_VERSION = "positioning@v4"
+// @v4.1: the DISH CREATION bullet stopped naming the retired kitchen/menu specialist (2026-08-12).
+const KNOWLEDGE_VERSION = "positioning@v4.1"
 
 // Minimal dossier: fallback() touches ruleOutputs + profile.attributes.priceTier (the
 // tier branch); parse() touches ruleOutputs; buildPrompt touches the wider profile /

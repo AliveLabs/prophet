@@ -275,7 +275,7 @@ export async function loadShadowKnowledge(
  * snippet set. This is the value stamped onto plays AND the cache key for the cached prefix:
  *   - EMPTY global set → returns the base version UNCHANGED (so an empty table is byte-identical to
  *     today, and the cache key is identical to today).
- *   - non-empty       → `${base}+f<hash>` (e.g. `food-pairing@v1+fa3c9b1`).
+ *   - non-empty       → `${base}+f<hash>` (e.g. `reputation@v2+fa3c9b1`).
  * Only the GLOBAL set perturbs this — scoped snippets ride the volatile block and MUST NOT change the
  * shared cache key (else per-location learnings would bust the 13-location morning prefix cache).
  */

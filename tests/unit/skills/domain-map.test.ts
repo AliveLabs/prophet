@@ -91,7 +91,7 @@ describe("selectAdjacentSignals", () => {
   it("graceful: unknown skill id yields no adjacency (no throw, no regression)", () => {
     const d = dossierWith(["events.a", "traffic.b", "social.c"])
     expect(selectAdjacentSignals(d, "convergence")).toEqual([]) // mapped nowhere
-    expect(selectAdjacentSignals(d, "food-pairing")).toEqual([]) // expert, not in the map
+    expect(selectAdjacentSignals(d, "guerrilla-marketing")).toEqual([]) // expert, not in the map
     expect(selectAdjacentSignals(d, "totally-made-up")).toEqual([])
   })
 

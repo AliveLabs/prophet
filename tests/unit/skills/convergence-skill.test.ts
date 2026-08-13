@@ -74,8 +74,8 @@ describe("convergence@v2 — wiring", () => {
     expect(convergenceSkill.kind).toBe("capitalize")
     expect(convergenceSkill.temperature).toBe(0.5)
   })
-  it("bumps the knowledge version to convergence@v2 (verified: @v1 is the only prior string)", () => {
-    expect(convergenceSkill.knowledgeVersion).toBe("convergence@v2")
+  it("bumps the knowledge version to convergence@v2.1 (@v2.1: sibling-boundary edit, 2026-08-12)", () => {
+    expect(convergenceSkill.knowledgeVersion).toBe("convergence@v2.1")
   })
   it("keeps the neutral scoring prior (earns the bias from evidence)", () => {
     expect(CATEGORY_PRIORS.convergence).toBe(1.0)
@@ -427,7 +427,7 @@ describe("convergence@v2 — deterministic floor", () => {
     const p = plays[0]
     expect(p.skillId).toBe("convergence")
     expect(p.kind).toBe("capitalize")
-    expect(p.knowledgeVersion).toBe("convergence@v2")
+    expect(p.knowledgeVersion).toBe("convergence@v2.1")
     expect(p.confidence).toBe("directional") // a canned floor has not EARNED medium (v1 over-stamped)
     expect(p.stance).toBe("fix") // cites a live warning thread by construction
     expect(p.evidenceRefs).toHaveLength(3)

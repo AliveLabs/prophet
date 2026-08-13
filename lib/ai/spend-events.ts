@@ -34,10 +34,9 @@ export type SpendSurface =
   | "insights_generate"
   | "knowledge_ingest"
   | "insights_pipeline"
-  // Per-competitor intel brief (lib/competitors/brief.ts) — instrumented 2026-08-12 when it moved
-  // from an un-telemetered raw Gemini fetch to Haiku via the shared provider. The `surface` column
-  // is deliberately NOT CHECK-constrained (see the migration), so no migration is needed here.
-  | "competitor_brief"
+// (A "competitor_brief" surface existed for a few hours on 2026-08-12; the per-competitor intel
+// brief it instrumented was deleted the same day — dead since the June Stage A rework — so nothing
+// records it. The `surface` column is deliberately NOT CHECK-constrained, so no migration either way.)
 
 export type SpendProvider = "anthropic" | "gemini"
 

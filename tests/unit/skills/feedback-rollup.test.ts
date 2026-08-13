@@ -44,8 +44,8 @@ import type { EnrichedRecommendation } from "@/lib/skills/types"
 // ── helpers ─────────────────────────────────────────────────────────────────────────────────────
 function sig(action: FeedbackAction, over: Partial<MappedFeedback> = {}): MappedFeedback {
   return {
-    skillId: "food-pairing",
-    playTypeKey: "food-pairing|capitalize|menu|tame",
+    skillId: "positioning",
+    playTypeKey: "positioning|capitalize|menu|tame",
     organizationId: "org-1",
     locationId: "loc-1",
     severity: 0,
@@ -175,7 +175,7 @@ describe("computePlayTypeKey", () => {
     ({
       title: "Feature the short rib this cold snap",
       rationale: "r",
-      skillId: "food-pairing",
+      skillId: "positioning",
       ownerRole: "kitchen",
       kind: "capitalize",
       recipe: [],
@@ -212,7 +212,7 @@ describe("computePlayTypeKey", () => {
 
   it("prefers the skill's declared lead-domain override (stable + intentional)", () => {
     const k = computePlayTypeKey(play({ evidenceRefs: ["whatever_noisy_ref:x"] }), { leadDomainOverride: "menu" })
-    expect(k).toBe("food-pairing|capitalize|menu|tame")
+    expect(k).toBe("positioning|capitalize|menu|tame")
   })
 
   it("produces the canonical 4-part shape", () => {
@@ -371,7 +371,7 @@ describe("synthesis multiplier application", () => {
       ({
         title: id,
         rationale: "r",
-        skillId: cat === "menu" ? "food-pairing" : "operations",
+        skillId: cat === "menu" ? "positioning" : "operations",
         ownerRole: "kitchen",
         kind: "capitalize",
         recipe: [],
@@ -381,7 +381,7 @@ describe("synthesis multiplier application", () => {
       }) as P
     const pool: P[] = [mk("a", "high", "menu"), mk("b", "medium", "operations"), mk("c", "directional", "menu")]
     const priors = resolveCategoryPriors(null)
-    const inputNoMult = (p: P): ScoreInput => ({ confidence: p.confidence, impact: "medium", category: p.skillId === "food-pairing" ? "menu" : "operations", ...calibrationOf(p) })
+    const inputNoMult = (p: P): ScoreInput => ({ confidence: p.confidence, impact: "medium", category: p.skillId === "positioning" ? "menu" : "operations", ...calibrationOf(p) })
     const inputNeutralMult = (p: P): ScoreInput => ({ ...inputNoMult(p), playTypeMultiplier: NEUTRAL_LOOKUP.multiplierFor("any") })
 
     const a = rankPlays<P>(pool, inputNoMult, priors)
@@ -399,7 +399,7 @@ describe("synthesis multiplier application", () => {
       ({
         title: id,
         rationale: "r",
-        skillId: "food-pairing",
+        skillId: "positioning",
         ownerRole: "kitchen",
         kind: "capitalize",
         recipe: [],
@@ -448,10 +448,10 @@ function rollupStore(rows: Record<string, unknown>[] | null, opts: { error?: boo
 }
 
 const rollupRow = (over: Record<string, unknown>): Record<string, unknown> => ({
-  skill_id: "food-pairing",
+  skill_id: "positioning",
   scope: "global",
   scope_id: null,
-  play_type_key: "food-pairing|capitalize|menu|tame",
+  play_type_key: "positioning|capitalize|menu|tame",
   multiplier: 1.25,
   support_n: 50,
   ...over,
@@ -459,49 +459,49 @@ const rollupRow = (over: Record<string, unknown>): Record<string, unknown> => ({
 
 describe("loadPlayTypeMultipliers — fail-soft + precedence", () => {
   it("ABSENT table (throws) → NEUTRAL lookup (every key 1.0, never throws)", async () => {
-    const lookup = await loadPlayTypeMultipliers(["food-pairing"], { locationId: "loc-1" }, { client: rollupStore(null, { throws: true }) as never })
+    const lookup = await loadPlayTypeMultipliers(["positioning"], { locationId: "loc-1" }, { client: rollupStore(null, { throws: true }) as never })
     expect(lookup.multiplierFor("anything")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
   })
 
   it("query error → NEUTRAL lookup", async () => {
-    const lookup = await loadPlayTypeMultipliers(["food-pairing"], {}, { client: rollupStore(null, { error: true }) as never })
-    expect(lookup.multiplierFor("food-pairing|capitalize|menu|tame")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    const lookup = await loadPlayTypeMultipliers(["positioning"], {}, { client: rollupStore(null, { error: true }) as never })
+    expect(lookup.multiplierFor("positioning|capitalize|menu|tame")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
   })
 
   it("EMPTY rollup → NEUTRAL lookup (the floor — ranking byte-identical to today)", async () => {
-    const lookup = await loadPlayTypeMultipliers(["food-pairing"], { locationId: "loc-1" }, { client: rollupStore([]) as never })
+    const lookup = await loadPlayTypeMultipliers(["positioning"], { locationId: "loc-1" }, { client: rollupStore([]) as never })
     expect(lookup).toBe(NEUTRAL_LOOKUP)
   })
 
   it("a below-support row is re-gated to NEUTRAL at read time", async () => {
     const lookup = await loadPlayTypeMultipliers(
-      ["food-pairing"],
+      ["positioning"],
       {},
       { client: rollupStore([rollupRow({ multiplier: 1.3, support_n: PLAY_TYPE_MIN_SUPPORT_N - 1 })]) as never },
     )
-    expect(lookup.multiplierFor("food-pairing|capitalize|menu|tame")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(lookup.multiplierFor("positioning|capitalize|menu|tame")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
   })
 
   it("a qualifying global row applies; a non-matching scope is ignored", async () => {
     const lookup = await loadPlayTypeMultipliers(
-      ["food-pairing"],
+      ["positioning"],
       { organizationId: "org-1", locationId: "loc-1" },
       {
         client: rollupStore([
           rollupRow({ scope: "global", scope_id: null, multiplier: 1.2 }),
-          rollupRow({ scope: "org", scope_id: "OTHER-ORG", play_type_key: "food-pairing|capitalize|menu|bold", multiplier: 0.7 }),
+          rollupRow({ scope: "org", scope_id: "OTHER-ORG", play_type_key: "positioning|capitalize|menu|bold", multiplier: 0.7 }),
         ]) as never,
       },
     )
-    expect(lookup.multiplierFor("food-pairing|capitalize|menu|tame")).toBeCloseTo(1.2)
+    expect(lookup.multiplierFor("positioning|capitalize|menu|tame")).toBeCloseTo(1.2)
     // the other-org row never applies to this location.
-    expect(lookup.multiplierFor("food-pairing|capitalize|menu|bold")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
+    expect(lookup.multiplierFor("positioning|capitalize|menu|bold")).toBe(PLAY_TYPE_MULTIPLIER_NEUTRAL)
   })
 
   it("location-scope wins over org wins over global (precedence)", async () => {
-    const key = "food-pairing|capitalize|menu|tame"
+    const key = "positioning|capitalize|menu|tame"
     const lookup = await loadPlayTypeMultipliers(
-      ["food-pairing"],
+      ["positioning"],
       { organizationId: "org-1", locationId: "loc-1" },
       {
         client: rollupStore([
@@ -523,7 +523,7 @@ describe("loadPlayTypeMultipliers — fail-soft + precedence", () => {
 // =================================================================================================
 /** A liked play, persisted in a brief, that the feedback play_key (skillId:slug) resolves to. */
 const ROLLUP_PLAY = {
-  skillId: "food-pairing",
+  skillId: "positioning",
   title: "Feature the hot honey",
   kind: "capitalize",
   evidenceRefs: ["menu_feature:hot_honey"],
@@ -691,10 +691,10 @@ describe("runFeedbackRollup — reasoned dismissals (reads play_actions.reason �
  *  real mass — enough for distillPatterns() to emit a candidate (so we reach the upsert). */
 function distillRollupRows(): Record<string, unknown>[] {
   const mk = (sevBand: string, supportN: number) => ({
-    skill_id: "food-pairing",
+    skill_id: "positioning",
     scope: "org",
     scope_id: "org-1",
-    play_type_key: `food-pairing|capitalize|menu|${sevBand}`,
+    play_type_key: `positioning|capitalize|menu|${sevBand}`,
     bayes_score: 0.85,
     multiplier: 1.25,
     support_n: supportN,
