@@ -416,9 +416,11 @@ function ProcessingStep({
   )
 }
 
-// ALT-299: competitor discovery grounds a Gemini call with Maps + Search and legitimately
-// runs 30–90s. Instead of one static line for the whole wait, rotate through what's actually
-// happening so the wait reads as deliberate work, not a hang. Plain language (no chef lingo).
+// ALT-299: competitor discovery tiles Places searchNearby for recall, then runs one Sonnet
+// rerank for precision (lib/competitors/discover.ts — the old grounded-Gemini path is deleted),
+// and legitimately runs a while. Instead of one static line for the whole wait, rotate through
+// what's actually happening so the wait reads as deliberate work, not a hang. Plain language
+// (no chef lingo).
 const DISCOVERY_STATUS_LINES = [
   "Searching maps and the web for who's really competing with you…",
   "Reading their menus, hours, and photos…",

@@ -1,4 +1,4 @@
-import { generateCompetitorBrief } from "@/lib/competitors/brief"
+import { getCachedCompetitorBrief } from "@/lib/competitors/brief"
 
 type IntelBriefProps = {
   competitorName: string
@@ -12,7 +12,9 @@ type IntelBriefProps = {
 }
 
 export async function IntelBrief({ competitorName, insights }: IntelBriefProps) {
-  const brief = await generateCompetitorBrief(competitorName, insights)
+  // Cached (24h, keyed on competitor + insight set) so mounting this component costs one Haiku
+  // call per insight change, not one per page render. See lib/competitors/brief.ts.
+  const brief = await getCachedCompetitorBrief(competitorName, insights)
 
   if (!brief) return null
 

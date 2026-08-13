@@ -3,21 +3,25 @@
 //
 // generateStructured<T>({ tier, system, prompt }) returns validated JSON.
 //   - tier "reasoning" -> Claude (the skill/synthesis brains)
-//   - tier "cheap"     -> Gemini Flash via the existing wrapper (voice, tagging, vision-adjacent)
 //
-// Deliberately hand-rolled REST (matches the repo's existing gemini.ts style) to
-// avoid a new-SDK version surface. Model ids come from env so they never go stale.
-// The transport is injectable, so skills are unit-tested with a deterministic mock
-// (no live calls, no spend) and wired to the real models when keys are present.
+// "reasoning" is the only tier. The Gemini "cheap" tier was deleted 2026-08-12 (beta rescue 2.2):
+// it never gained a call site — every generateStructured caller passes "reasoning" — and the
+// light interactive surfaces (quick-tip, on-demand insight, competitor brief, pipeline
+// narratives) now run Claude Haiku 4.5 (FAST_MODEL) through this same client instead of Gemini.
+// The single-member union stays so call sites keep naming their tier explicitly and a future
+// second tier is a union widen, not a signature change.
+//
+// Deliberately hand-rolled REST to avoid a new-SDK version surface. Model ids come from env so
+// they never go stale. The transport is injectable, so skills are unit-tested with a
+// deterministic mock (no live calls, no spend) and wired to the real models when keys are present.
 // ---------------------------------------------------------------------------
 
-import { generateGeminiJson } from "@/lib/ai/gemini"
 import { deltaTokensByModel, estimateAnthropicCostUsd } from "@/lib/ai/pricing"
 import { currentSpendBudget, effortForNextCall } from "@/lib/ai/spend-budget"
 import { withAnthropicSlot } from "@/lib/ai/concurrency"
 import type { ModelTokenTotals } from "@/lib/ai/pricing"
 
-export type ModelTier = "reasoning" | "cheap"
+export type ModelTier = "reasoning"
 
 /** Per-call token usage reported back to the caller (observability only — NEVER sent to the API).
  *  Fires on every 200 response, INCLUDING truncated ones (those billed too). Timeout-aborted calls
@@ -64,6 +68,10 @@ export type Transport = (req: GenerateRequest) => Promise<unknown>
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6"
 /** Deep reasoning model for the convergence + synthesis pass (P5): Opus + adaptive thinking. */
 export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-4-8"
+/** Light interactive model (beta rescue 2.2): the small, latency-sensitive surfaces that used to
+ *  ride Gemini (quick-tip, on-demand insight, competitor brief, pipeline narratives). Haiku 4.5
+ *  accepts temperature (see TEMPERATURE_OK) and prices at $1/$5 per MTok (pricing.ts /haiku/). */
+export const FAST_MODEL = process.env.ANTHROPIC_FAST_MODEL ?? "claude-haiku-4-5"
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
 // The deep pass is NON-streaming with a 32k max_tokens; a hung Opus call must abort and
@@ -405,24 +413,10 @@ export async function claudeTransport(req: GenerateRequest): Promise<unknown> {
   return extractJson(await claudeRaw(req))
 }
 
-/** Cheap tier — Gemini via the existing wrapper (folds system into the prompt). */
-export async function geminiTransport(req: GenerateRequest): Promise<unknown> {
-  const system = [req.systemCached, req.system].filter(Boolean).join("\n")
-  const prompt = system ? `${system}\n\n${req.prompt}` : req.prompt
-  return generateGeminiJson(prompt, {
-    maxOutputTokens: req.maxOutputTokens,
-    temperature: req.temperature,
-    // Forward to the same onUsage contract the Anthropic path uses, so a "cheap" tier caller of
-    // generateStructured gets spend telemetry for free (cacheWriteTokens: Gemini has no separate
-    // cache-write signal on this endpoint, always 0).
-    onUsage: req.onUsage
-      ? (usage) => req.onUsage?.({ ...usage, cacheWriteTokens: 0 })
-      : undefined,
-  })
-}
-
 export function defaultTransport(req: GenerateRequest): Promise<unknown> {
-  return req.tier === "reasoning" ? claudeTransport(req) : geminiTransport(req)
+  // "reasoning" is the only tier (the Gemini "cheap" transport was deleted 2026-08-12 with zero
+  // call sites — see the header comment).
+  return claudeTransport(req)
 }
 
 // PROD ROUTING — DECIDED 2026-07-31: direct REST stays. Do NOT route these adapters through the

@@ -16,8 +16,12 @@ editor keeps recommending changes to it that we have deliberately decided agains
 `lib/ai/provider.ts` is a small hand-rolled REST client exposing one tiered interface,
 `generateStructured({ tier, system, prompt })`:
 
-- `tier: "reasoning"` → Anthropic (the skill and synthesis brains)
-- `tier: "cheap"` → Gemini Flash via `lib/ai/gemini.ts` (voice, tagging, vision-adjacent)
+- `tier: "reasoning"` → Anthropic (the skill and synthesis brains). This is the **only** tier: the
+  Gemini `"cheap"` tier was deleted 2026-08-12 (it never gained a call site). The small interactive
+  surfaces (quick-tip, on-demand insight, competitor brief, pipeline narratives) run Claude Haiku
+  4.5 (`FAST_MODEL`) through this same client. `lib/ai/gemini.ts` still exists but is **Pro, not
+  Flash**, and serves exactly two remaining callers: the Search-grounded menu fetch
+  (`fetchGoogleMenuData`) and the /insights Priority Briefing call (slated for its own rewrite).
 
 The transport is injectable (`Transport`), which is what makes the whole engine headless-testable
 with no network and no API key. **1998 unit tests depend on that.**
