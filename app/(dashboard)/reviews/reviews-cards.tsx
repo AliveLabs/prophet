@@ -1,7 +1,7 @@
 "use client"
 
 // Review Intelligence (ALT-353) — the /reviews triage body (client island).
-// One island owns the whole list (same shape as insights-feed-kit) so a single
+// One island owns the whole list (same shape as the /insights feed island) so a single
 // TkToastProvider serves every card. The server page computes the bands and
 // groups (reviews-map + make-good); this file only renders + wires actions.
 //

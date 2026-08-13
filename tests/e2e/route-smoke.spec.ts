@@ -25,6 +25,7 @@ const DASHBOARD_ROUTES = [
   "/content",
   "/events",
   "/insights",
+  "/insights/all",
   "/locations",
   "/locations/new",
   "/photos",

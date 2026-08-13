@@ -7,6 +7,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
 import { requireOrgOwnerOrAdmin } from "@/lib/stripe/helpers"
 import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
+import { verifyReusableCustomer } from "@/lib/stripe/customer-reuse"
 import { isValidIndustryType } from "@/lib/verticals"
 import {
   PAID_TIERS,
@@ -100,7 +101,12 @@ export async function POST(request: Request) {
     const priceId = resolvePriceIdOrThrow(org.industry_type, tier, cadence)
 
     const stripe = getStripeClient()
-    let customerId = org.stripe_customer_id
+    // ALT-551: a stored customer id is a foreign key into a system we do not control.
+    // It goes stale (deleted in the Stripe dashboard, left over from test mode, written
+    // by the other brand during the shared-DB era) and passing a stale one to Checkout
+    // throws "No such customer", which the billing page used to swallow into a dead
+    // button. Verify before reuse; mint a fresh customer when it no longer resolves.
+    let customerId = await verifyReusableCustomer(stripe, org.stripe_customer_id)
 
     if (!customerId) {
       const customer = await stripe.customers.create({
