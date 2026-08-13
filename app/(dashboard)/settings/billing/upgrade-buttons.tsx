@@ -10,6 +10,7 @@ import {
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
+import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
 
@@ -45,8 +46,12 @@ function tierFeatures(tier: PaidTier): string[] {
 export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButtonsProps) {
   const [cadence, setCadence] = useState<Cadence>("monthly")
   const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
+  // ALT-551: this grid is the reactivation path on the held-account panel. A swallowed
+  // checkout failure here reads as "the product is broken", so surface every failure.
   async function handleUpgrade(tier: PaidTier) {
+    setError(null)
     setLoading(tier)
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -54,13 +59,16 @@ export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButton
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier, cadence }),
       })
-      const data = await res.json()
-      if (data.url) {
-        window.location.assign(data.url)
-      } else {
-        setLoading(null)
+      const payload = await res.json().catch(() => null)
+      const outcome = classifyBillingResponse(res.ok, payload)
+      if (outcome.kind === "redirect") {
+        window.location.assign(outcome.url)
+        return
       }
+      setError(outcome.message)
+      setLoading(null)
     } catch {
+      setError(GENERIC_BILLING_ERROR)
       setLoading(null)
     }
   }
@@ -68,6 +76,12 @@ export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButton
   return (
     <div>
       <CadenceToggle cadence={cadence} onChange={setCadence} />
+
+      {error && (
+        <div className="pv-field__hint" role="alert" style={{ marginTop: 10 }}>
+          {error}
+        </div>
+      )}
 
       <div className="pv-tiers" style={{ marginTop: 14 }}>
         {PAID_TIERS.map((tier) => {

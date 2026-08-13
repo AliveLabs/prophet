@@ -36,8 +36,8 @@ import {
   insightSentiment,
   insightMetrics,
   insightDateStamp,
+  type FeedInsight,
 } from "./insights-map"
-import type { FeedInsight } from "./insights-feed-kit"
 
 export function InsightRowCard({
   insight,
