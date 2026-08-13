@@ -27,7 +27,14 @@ vi.mock("@/lib/ask/answer", () => ({ answerQuestion: vi.fn(), MAX_QUESTION_LEN: 
 vi.mock("@/lib/ask/how-to", () => ({ isHowToQuestion: vi.fn().mockReturnValue(false), answerHowTo: vi.fn() }))
 vi.mock("@/lib/ask/history", () => ({ saveAsk: vi.fn().mockResolvedValue(undefined) }))
 vi.mock("@/lib/ai/quick-tip", () => ({ clampQuickTipContext: vi.fn().mockReturnValue(null) }))
-vi.mock("@/lib/ai/gemini", () => ({ generateGeminiJson: vi.fn().mockRejectedValue(new Error("boom")) }))
+// Beta rescue 2.2: quick-tip (claudeRaw) and insights/generate (claudeTransport) now run Haiku
+// through the shared provider instead of Gemini. Both mocks reject so the routes' own fail-soft
+// branches fire — proof the gate was passed without a real model call.
+vi.mock("@/lib/ai/provider", () => ({
+  claudeRaw: vi.fn().mockRejectedValue(new Error("boom")),
+  claudeTransport: vi.fn().mockRejectedValue(new Error("boom")),
+  FAST_MODEL: "claude-haiku-4-5",
+}))
 vi.mock("@/lib/ai/generated-insight", () => ({
   parseVizContext: vi.fn().mockReturnValue({ metric: "reviews", domain: "reviews", locationId: null, entityName: null }),
   buildGeneratedInsightPrompt: vi.fn().mockReturnValue("prompt"),
@@ -154,7 +161,7 @@ describe("POST /api/ai/insights/generate — soft-deleted org gate", () => {
       supabaseStub({ locations: [{ id: "loc_1" }] }) as never,
     )
     const res = await generateInsightPost(req({ vizContext: "{}" }))
-    // generateGeminiJson is mocked to reject, so the route's own fail-soft "model_failed"
+    // claudeTransport is mocked to reject, so the route's own fail-soft "model_failed"
     // branch fires next — proof the gate (and the admin check) were passed.
     expect(res.status).toBe(502)
     const body = await res.json()

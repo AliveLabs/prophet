@@ -10,7 +10,7 @@ import { mapWithConcurrency } from "@/lib/jobs/concurrency"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { diffSnapshots, buildInsights, buildOwnInsights, buildWeeklyInsights } from "@/lib/insights"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
-import { generateGeminiJson } from "@/lib/ai/gemini"
+import { claudeTransport, FAST_MODEL } from "@/lib/ai/provider"
 import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
@@ -355,15 +355,29 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
                 reviewSnippets,
               }
               const prompt = buildInsightNarrativePrompt(promptInput)
-              const llm = (await generateGeminiJson(prompt, {
+              // Haiku via the shared direct-REST provider (beta rescue 2.2; was an UNCAPPED
+              // gemini-2.5-pro call — no maxOutputTokens meant a latent truncation bug and Pro
+              // pricing for a small JSON). Failure contract unchanged: a transport throw lands in
+              // the surrounding catch (non-fatal, nothing pushed); an unparseable 200 returns null
+              // and the deterministic summary/recommendation builders below take over.
+              const llm = (await claudeTransport({
+                tier: "reasoning",
+                model: FAST_MODEL,
+                prompt,
+                // Explicit, sensible cap: 2-3 sentence summary + a few recs + review themes.
+                // Non-thinking, so this is pure output headroom (no thinking tokens to budget).
+                maxOutputTokens: 2048,
+                temperature: 0.3,
+                label: "insights-pipeline-narrative",
                 onUsage: (usage) =>
                   void recordSpendEvent({
                     surface: "insights_pipeline",
-                    provider: "gemini",
+                    provider: "anthropic",
                     model: usage.model,
                     inputTokens: usage.inputTokens,
                     outputTokens: usage.outputTokens,
                     cacheReadTokens: usage.cacheReadTokens,
+                    cacheWriteTokens: usage.cacheWriteTokens,
                     locationId: c.locationId,
                     metadata: { competitorId: competitor.id },
                   }),

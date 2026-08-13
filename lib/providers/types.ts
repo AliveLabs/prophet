@@ -29,27 +29,8 @@ export type NormalizedSnapshot = {
   source_raw?: unknown
 }
 
-export type ProviderCandidate = {
-  providerEntityId: string
-  name: string
-  category?: string
-  distanceMeters?: number
-  rating?: number
-  reviewCount?: number
-  raw: unknown
-}
-
-export interface Provider {
-  name: string
-  fetchCompetitorsNear(input: {
-    lat: number
-    lng: number
-    radiusMeters: number
-    query?: string
-    category?: string
-    city?: string
-    region?: string
-  }): Promise<ProviderCandidate[]>
-  fetchSnapshot(input: { providerEntityId: string }): Promise<unknown>
-  normalizeSnapshot(raw: unknown): NormalizedSnapshot
-}
+// The `Provider` interface + `ProviderCandidate` type (and the geminiProvider /
+// dataForSeoProvider implementations behind getProvider()) were deleted 2026-08-12: the
+// discovery path was rewritten to Places searchNearby + a Sonnet rerank
+// (lib/competitors/discover.ts) and nothing called getProvider() anymore. NormalizedSnapshot
+// stays — it is the snapshot shape the insights pipeline, dossier, and review store all read.

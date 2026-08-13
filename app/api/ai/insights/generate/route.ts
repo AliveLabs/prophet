@@ -1,11 +1,13 @@
 // ALT-230 Action 1 — on-demand "Generate insight" from a data-viz card.
 //
 // The viz-card T-bubble routes the operator to /insights?generate=<json viz ctx>;
-// the feed kit POSTs that context here, we run ONE grounded Gemini call, insert an
-// honest, low-scored insight, and return it so the feed pins it to the top of the
-// pool with a "Just generated" marker. It NEVER seizes the home hero: the type is
-// `user_viz.*`, which the dossier query (lib/insights/dossier/build.ts) excludes
-// from the brief, and home charts exclude too (lib/cache/home.ts).
+// the feed kit POSTs that context here, we run ONE Haiku call (beta rescue 2.2 —
+// this was a Gemini Pro call, and despite older comments it was never grounded:
+// no tools block was ever sent), insert an honest, low-scored insight, and return
+// it so the feed pins it to the top of the pool with a "Just generated" marker.
+// It NEVER seizes the home hero: the type is `user_viz.*`, which the dossier
+// query (lib/insights/dossier/build.ts) excludes from the brief, and home charts
+// exclude too (lib/cache/home.ts).
 //
 // Auth + per-user rate limit + fail-soft mirror app/api/ai/quick-tip/route.ts.
 
@@ -13,7 +15,7 @@ import { getUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { resolveOrgActorWith, isOrgAdmin } from "@/lib/auth/actor"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { generateGeminiJson } from "@/lib/ai/gemini"
+import { claudeTransport, FAST_MODEL } from "@/lib/ai/provider"
 import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { computeRelevanceScore, getUrgencyLevel } from "@/lib/insights/scoring"
 import { rateLimit, retryAfterSeconds } from "@/lib/http/rate-limit"
@@ -26,9 +28,9 @@ import {
   type ParsedViz,
 } from "@/lib/ai/generated-insight"
 
-// The Gemini call can take a while (retries + thinking); give the function real
-// headroom so Vercel doesn't kill it mid-generation and return an HTML 504 that the
-// client can't parse (ALT-294).
+// The model call can take a while (the provider retries transient errors with backoff); give
+// the function real headroom so Vercel doesn't kill it mid-generation and return an HTML 504
+// that the client can't parse (ALT-294).
 export const maxDuration = 120
 
 const CONFIDENCES = new Set(["medium", "low"]) // NEVER "high" from a single data point
@@ -76,7 +78,7 @@ export async function POST(req: Request) {
     const user = await getUser()
     if (!user) return Response.json({ insight: null }, { status: 401 })
 
-    // Per-user rate limit: this spends GOOGLE_AI_API_KEY + writes a row.
+    // Per-user rate limit: this spends ANTHROPIC_API_KEY + writes a row.
     const rl = await rateLimit(user.id, { prefix: "generated-insight", limit: 10, windowSeconds: 60 })
     if (!rl.ok) {
       return Response.json({ insight: null }, { status: 429, headers: { "Retry-After": String(retryAfterSeconds(rl)) } })
@@ -106,32 +108,36 @@ export async function POST(req: Request) {
     const locationId = viz.locationId && allowed.has(viz.locationId) ? viz.locationId : locs?.[0]?.id ?? null
     if (!locationId) return Response.json({ insight: null }, { status: 403 })
 
-    // ── One grounded Gemini call (Pro, via the shared helper). Fail-soft: if it
-    //    throws or returns garbage we DON'T persist a dud row — the client shows a
+    // ── One Haiku call via the shared direct-REST provider (beta rescue 2.2 — was Gemini
+    //    Pro, and never grounded despite the old comment: no tools block was sent). Fail-soft:
+    //    if it throws or returns garbage we DON'T persist a dud row — the client shows a
     //    "couldn't generate" notice and the operator can retry from the card. ──
     let llm: LlmInsight | null = null
     try {
-      const parsed = await generateGeminiJson(buildGeneratedInsightPrompt(viz), {
+      const parsed = await claudeTransport({
+        tier: "reasoning",
+        model: FAST_MODEL,
+        prompt: buildGeneratedInsightPrompt(viz),
         temperature: 0.4,
-        // gemini-2.5-pro thinks by default and bills it against maxOutputTokens; 1024 was
-        // too tight (thinking ate the budget → empty JSON → 502). Give the JSON real room
-        // and bound thinking so both fit (ALT-294).
+        // Non-thinking, so the whole cap is JSON headroom (the old Gemini call had to split
+        // this budget with Pro's default thinking — see ALT-294).
         maxOutputTokens: 4096,
-        thinkingBudget: 1024,
+        label: "insights-generate",
         onUsage: (usage) =>
           void recordSpendEvent({
             surface: "insights_generate",
-            provider: "gemini",
+            provider: "anthropic",
             model: usage.model,
             inputTokens: usage.inputTokens,
             outputTokens: usage.outputTokens,
             cacheReadTokens: usage.cacheReadTokens,
+            cacheWriteTokens: usage.cacheWriteTokens,
             locationId,
           }),
       })
       if (parsed) llm = coerceLlmInsight(parsed, viz)
     } catch (err) {
-      console.warn("[GeneratedInsight] Gemini call failed:", err)
+      console.warn("[GeneratedInsight] model call failed:", err)
     }
     if (!llm || !llm.summary) {
       console.warn("[GeneratedInsight] model returned no usable insight (empty/parse-fail)")
