@@ -57,16 +57,19 @@ const TREND_DAYS = 7
 // Non-brief AI spend (beta rescue 2.3): a separate, shorter window from the brief trend above.
 // This is a "is anything non-brief spending real money" glance, not a day-by-day trend.
 const NON_BRIEF_SPEND_DAYS = 7
+// Menu ingestion reliability (beta rescue 2.6, ALT-363): same 7d glance posture.
+const MENU_RELIABILITY_DAYS = 7
 
 export default async function PipelineHealthPage() {
   await connection()
   await requirePlatformAdmin()
 
   const supabase = createAdminSupabaseClient()
-  const [verdict, { locations, trend }, nonBriefSpend] = await Promise.all([
+  const [verdict, { locations, trend }, nonBriefSpend, menuReliability] = await Promise.all([
     detectPipelineHealth(supabase),
     loadFleetDetail(supabase),
     loadNonBriefSpend(supabase),
+    loadMenuReliability(supabase),
   ])
 
   return (
@@ -228,6 +231,49 @@ export default async function PipelineHealthPage() {
           </tbody>
         </table>
       </div>
+
+      <h2 className="ph-h2">Menu ingestion reliability ({MENU_RELIABILITY_DAYS}d)</h2>
+      <p className="ph-sub">
+        One row per menu-ingestion attempt (own location or competitor), including the runs
+        that produced nothing and therefore left no snapshot. &ldquo;Empty&rdquo; means the
+        sources answered with no menu; &ldquo;Failed&rdquo; means no trustworthy answer at
+        all. Observation only: recording never alters pipeline behaviour. Absent here means
+        the migration is not yet applied in this environment, not a clean week.
+      </p>
+      <div className="ph-table-wrap">
+        <table className="ph-table">
+          <thead>
+            <tr>
+              <th>Target</th>
+              <th>Attempts</th>
+              <th>Succeeded</th>
+              <th>Empty</th>
+              <th>Failed</th>
+              <th>Failure reasons</th>
+            </tr>
+          </thead>
+          <tbody>
+            {menuReliability === null && (
+              <tr><td colSpan={6} className="ph-empty">menu_ingest_events not available yet in this environment.</td></tr>
+            )}
+            {menuReliability !== null && menuReliability.byTarget.length === 0 && (
+              <tr><td colSpan={6} className="ph-empty">No menu ingestion runs recorded in the last {MENU_RELIABILITY_DAYS} days.</td></tr>
+            )}
+            {menuReliability?.byTarget.map((row) => (
+              <tr key={row.target}>
+                <td className="is-strong">{row.target}</td>
+                <td>{row.attempts}</td>
+                <td>{row.attempts > 0 ? `${row.succeeded} (${pct(row.succeeded / row.attempts)})` : "—"}</td>
+                <td>{row.empty}</td>
+                <td className={row.failed > 0 ? "is-alert" : undefined}>{row.failed}</td>
+                <td className="ph-offenders">
+                  {row.reasons.length === 0 ? "—" : row.reasons.map((r) => `${r.reason} ×${r.count}`).join(", ")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -351,6 +397,73 @@ async function loadNonBriefSpend(
     .map(([surface, v]) => ({ surface, ...v }))
     .sort((a, b) => b.usd - a.usd)
   return { bySurface, totalUsd }
+}
+
+// ── menu ingestion reliability (beta rescue 2.6, ALT-363) ──────────────────────────────────────
+
+type MenuIngestEventRow = { target: string; outcome: string; failure_reason: string | null }
+
+/** `menu_ingest_events` isn't in the generated DB types yet (its migration hasn't been applied),
+ *  so this uses the same loose-client cast as loadNonBriefSpend above. */
+type MenuEventsReadClient = {
+  from: (table: string) => {
+    select: (cols: string) => {
+      gte: (col: string, val: string) => Promise<{ data: MenuIngestEventRow[] | null; error: { message: string } | null }>
+    }
+  }
+}
+
+export type MenuReliabilitySummary = {
+  byTarget: Array<{
+    target: string
+    attempts: number
+    succeeded: number
+    empty: number
+    failed: number
+    reasons: Array<{ reason: string; count: number }>
+  }>
+}
+
+/** Roll up menu ingestion outcomes by target over the trailing window. Returns null (not an
+ *  empty summary) when the table itself isn't queryable yet: that environment hasn't had the
+ *  migration applied, which is a materially different state from "queried fine, zero rows". */
+async function loadMenuReliability(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+): Promise<MenuReliabilitySummary | null> {
+  const sinceIso = new Date(Date.now() - MENU_RELIABILITY_DAYS * 86_400_000).toISOString()
+  const client = supabase as unknown as MenuEventsReadClient
+  const { data, error } = await client
+    .from("menu_ingest_events")
+    .select("target, outcome, failure_reason")
+    .gte("created_at", sinceIso)
+  if (error) {
+    console.warn("[admin/health] menu_ingest_events query failed (migration likely not applied yet):", error.message)
+    return null
+  }
+  type Agg = { attempts: number; succeeded: number; empty: number; failed: number; reasons: Map<string, number> }
+  const byTargetMap = new Map<string, Agg>()
+  for (const row of data ?? []) {
+    const agg = byTargetMap.get(row.target) ?? { attempts: 0, succeeded: 0, empty: 0, failed: 0, reasons: new Map<string, number>() }
+    agg.attempts += 1
+    if (row.outcome === "succeeded") agg.succeeded += 1
+    else if (row.outcome === "empty") agg.empty += 1
+    else if (row.outcome === "failed") agg.failed += 1
+    if (row.failure_reason) agg.reasons.set(row.failure_reason, (agg.reasons.get(row.failure_reason) ?? 0) + 1)
+    byTargetMap.set(row.target, agg)
+  }
+  const byTarget = [...byTargetMap.entries()]
+    .map(([target, agg]) => ({
+      target,
+      attempts: agg.attempts,
+      succeeded: agg.succeeded,
+      empty: agg.empty,
+      failed: agg.failed,
+      reasons: [...agg.reasons.entries()]
+        .map(([reason, count]) => ({ reason, count }))
+        .sort((a, b) => b.count - a.count),
+    }))
+    .sort((a, b) => a.target.localeCompare(b.target))
+  return { byTarget }
 }
 
 // ── presentation helpers ────────────────────────────────────────────────────────────────────

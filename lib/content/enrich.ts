@@ -9,6 +9,7 @@ import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { buildMenuSnapshot, computeMenuDiffHash } from "@/lib/content/normalize"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
+import { newMenuObservation, recordMenuIngestEvent } from "@/lib/content/menu-telemetry"
 import type { MenuSource } from "@/lib/content/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
@@ -32,12 +33,18 @@ export async function enrichCompetitorContent(
 ): Promise<{ warnings: string[] }> {
   const warnings: string[] = []
 
+  // ALT-363 menu reliability telemetry: observation only, never influences this function's
+  // behaviour. Mutated as stages complete, recorded once at the end (fire-and-forget).
+  const obs = newMenuObservation()
+  obs.hasWebsite = website.trim().length > 0
+  const sources: MenuSource[] = []
+
   try {
     const compUrl = ensureUrl(website)
-    const sources: MenuSource[] = []
 
     // Discover menu URLs (cap at 2 for competitors)
     let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
+    obs.urlsDiscovered = compMenuUrls.length
     if (compMenuUrls.length === 0) {
       compMenuUrls = [compUrl]
     }
@@ -48,6 +55,7 @@ export async function enrichCompetitorContent(
     let compScreenshotSourceUrl: string | null = null
 
     for (const targetUrl of compMenuUrls) {
+      obs.scrapeAttempts++
       try {
         const menuResult = await scrapeMenuPage(targetUrl)
         if (menuResult) {
@@ -59,9 +67,13 @@ export async function enrichCompetitorContent(
           const parsed = normalizeExtractedMenu(menuResult.menu)
           if (parsed.categories.length > 0) {
             compParsedResults.push(parsed)
+            obs.scrapesWithItems++
           }
+        } else {
+          obs.scrapeErrors++
         }
       } catch {
+        obs.scrapeErrors++
         // Continue to next URL
       }
     }
@@ -74,8 +86,14 @@ export async function enrichCompetitorContent(
       if (googleMenu && googleMenu.categories.length > 0) {
         compParsedResults.push(normalizeGoogleMenuData(googleMenu))
         sources.push("gemini_google_search")
+        obs.enrichment = "items"
+      } else {
+        // fetchGoogleMenuData returns null on any error (HTTP, unparseable JSON) and a
+        // zero-category result when Google genuinely had nothing.
+        obs.enrichment = googleMenu ? "empty" : "error"
       }
     } catch {
+      obs.enrichment = "error"
       // Non-fatal
     }
 
@@ -92,6 +110,7 @@ export async function enrichCompetitorContent(
         merged.currency
       )
       compMenu.parseMeta.sources = sources
+      obs.mergedItems = compMenu.parseMeta.itemsTotal
 
       // Store in snapshots table (competitor-scoped)
       const menuHash = computeMenuDiffHash(compMenu)
@@ -109,6 +128,7 @@ export async function enrichCompetitorContent(
       )
 
       if (error) {
+        obs.saveError = error.message
         console.warn(`[Content Enrich] Snapshot save failed for ${competitorName}:`, error.message)
         warnings.push(`Menu snapshot save failed for ${competitorName}`)
       } else {
@@ -118,9 +138,20 @@ export async function enrichCompetitorContent(
       warnings.push(`No menu content found for ${competitorName}`)
     }
   } catch (err) {
+    obs.pipelineError = err instanceof Error ? err.message : String(err)
     console.warn(`[Content Enrich] Failed for ${competitorName}:`, err)
     warnings.push(`Content scrape failed for ${competitorName}`)
   }
+
+  // Fire-and-forget (callers are user-facing server actions): never awaited, never throws.
+  void recordMenuIngestEvent({
+    runSource: "competitor_enrich",
+    target: "competitor",
+    competitorId,
+    dateKey,
+    observation: obs,
+    sources,
+  })
 
   return { warnings }
 }

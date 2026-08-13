@@ -347,6 +347,12 @@ export type Brief = {
     /** How many model calls ran one effort notch cheaper because the ceiling was already crossed.
      *  Non-zero means the build completed but degraded — visible rather than silent, by design. */
     spendDegradedCalls?: number
+    /** Differential builds Phase 2: this brief's downstream stage (safety review, synthesis,
+     *  write) was CARRIED FORWARD from the previous brief — every producer was reused AND the
+     *  downstream-input fingerprint matched, so no downstream model call ran. Mirrors
+     *  SkillHealth.reused for producers: reused ≠ degraded — /admin/health and spend analysis
+     *  read this to tell a $0 "reused day" apart from a generated one. Absent = generated. */
+    downstreamReused?: boolean
   }
   /** Deterministic eval result for THIS served brief (lib/eval/record). Observation only — the
    *  checks never blocked or altered the brief. ABSENT means "not evaluated" (pre-step-3 briefs, or
@@ -380,4 +386,11 @@ export type Brief = {
    *  when a skill's inputHash matches. Fallback-served skills are stored too but NEVER reused
    *  (skillHealth.usedFallback gates that). Absent pre-2026-07-07. */
   skillOutputs?: Record<string, EnrichedRecommendation[]>
+  /** Differential builds Phase 2: fingerprint of every DOWNSTREAM input this build's safety review +
+   *  synthesis + write actually depended on (producer hashes, suppressed keys, evergreen set,
+   *  play-type multipliers, brand tolerance, category priors, maxPlays, profile framing). Tomorrow's
+   *  build compares its fresh fingerprint against this: equal AND every producer reused ⇒ the whole
+   *  downstream stage can carry forward (headline/deck/plays) with zero model calls. Absent means
+   *  "never reuse downstream from this brief" — absence is not innocence. Absent pre-Phase-2. */
+  downstreamFingerprint?: string
 }
