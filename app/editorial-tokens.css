@@ -2,8 +2,17 @@
    TICKET — "The Pass" design tokens (single source of truth)
    Premium LIGHT + dimensional system shared by the editorial
    surfaces: the Brief (.ticket-brief), the app shell (.ticket-app),
-   onboarding (.ob), and standalone chrome (.ticket-chrome).
+   onboarding (.ob), standalone chrome (.ticket-chrome), and the
+   platform admin shell (.ticket-admin).
    Imported by each surface's CSS so tokens never drift.
+
+   ADDING A SURFACE: a root class only carries these tokens if it is
+   listed in BOTH blocks below (light and .dark). A surface that is
+   missing here still renders: every var() silently resolves to
+   nothing, so gradients/backgrounds drop to transparent and the
+   breakage looks like a missing asset rather than a missing token.
+   That is what happened to .ticket-admin (its shell was rebuilt onto
+   a new root class without being added here).
 
    Replaces the old flat "newsprint" palette (cream + Instrument
    Serif + hairlines) — the AI-design cliché diagnosed in
@@ -24,7 +33,7 @@
 /* ═══════════════════════════════════════════════════════════════
    LIGHT
    ═══════════════════════════════════════════════════════════════ */
-.ticket-brief, .ticket-app, .ob, .ticket-chrome {
+.ticket-brief, .ticket-app, .ob, .ticket-chrome, .ticket-admin {
   /* ── Surfaces ─────────────────────────────────────────────── */
   --paper:#FAF8F4;        /* app ground (warmer, lighter than old newsprint) */
   --paper-2:#F3EFE8;      /* recessed wells, track bg, hover */
@@ -94,7 +103,7 @@
    DARK (cool ASH/charcoal — a true peer; ThemeProvider toggles .dark on <html>)
    -deep variants are LIGHTER than base here (light text on dark).
    ═══════════════════════════════════════════════════════════════ */
-.dark .ticket-brief, .dark .ticket-app, .dark .ob, .dark .ticket-chrome,
+.dark .ticket-brief, .dark .ticket-app, .dark .ob, .dark .ticket-chrome, .dark .ticket-admin,
 .ticket-brief.dark, .ticket-app.dark, .ob.dark {
   /* ALT-164 — cool ASH/CHAR dark (was too brown / not dark enough). Surface, ink and
      line grays pulled from Concept B (docs/design-concepts/round2/B-widget-board.html):

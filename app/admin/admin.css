@@ -1,8 +1,11 @@
 /* ============================================================
    TICKET ADMIN — "The Pass" shell + page chrome.
    Admin lives OUTSIDE the dashboard, so it carries its OWN
-   token surface (.ticket-app on the root, .tk-kit on content)
+   token surface (.ticket-admin on the root, .tk-kit on content)
    and imports the kits pass.css (which @imports the token SSOT).
+   .ticket-admin must stay listed in BOTH selector blocks of
+   app/editorial-tokens.css or every var() below resolves to
+   nothing and the shell renders unstyled.
    Everything here is prefixed adm- and scoped under .ticket-admin
    so it never collides with the dashboard .pv-* / kit .tk-*.
    Mirrors the operator shells frosted-glass rail + native mobile
@@ -128,12 +131,18 @@
 .adm-content { flex: 1 1 auto; padding: 28px 44px 90px; }
 .adm-content__inner { max-width: 1320px; margin: 0 auto; }
 
-/* desktop topbar strip */
+/* Desktop topbar strip: sticky frosted glass over the scrolling content.
+   Do NOT hand-write a `-webkit-backdrop-filter` companion here. Lightning CSS
+   already adds the prefix from the standard property, and when the source
+   supplies both it emits the -webkit- form ALONE and drops the standard one,
+   which kills the blur in engines that only take the standard property. Verified
+   in the production build: rules that declare only `backdrop-filter` ship both,
+   rules that declare the pair ship only the prefixed one. */
 .adm-topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 16px 44px; border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--paper) 72%, transparent);
-  backdrop-filter: saturate(140%) blur(10px); -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
   position: sticky; top: 0; z-index: 20;
 }
 .adm-topbar__label {
@@ -305,12 +314,13 @@
   .adm-main { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
   .adm-content { padding: 18px 18px 24px; }
 
+  /* No -webkit- companion, same reason as .adm-topbar. */
   .adm-mobilebar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     position: sticky; top: 0; z-index: 35; padding: 11px 16px;
     padding-top: calc(11px + env(safe-area-inset-top));
     background: color-mix(in srgb, var(--paper) 78%, transparent);
-    backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px);
+    backdrop-filter: saturate(160%) blur(16px);
     border-bottom: 1px solid var(--line-2);
     box-shadow: 0 1px 0 color-mix(in srgb, var(--card) 50%, transparent);
   }
@@ -323,11 +333,12 @@
   .adm-mobilebar .pv-theme-btn, .adm-mobilebar .adm-theme-btn { width: 44px; height: 44px; border-radius: 12px; }
 
   /* bottom tab dock — the primary admin sections */
+  /* No -webkit- companion, same reason as .adm-topbar. */
   .adm-tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
     padding: 8px 4px calc(8px + env(safe-area-inset-bottom));
     background: color-mix(in srgb, var(--paper) 84%, transparent);
-    backdrop-filter: saturate(160%) blur(18px); -webkit-backdrop-filter: saturate(160%) blur(18px);
+    backdrop-filter: saturate(160%) blur(18px);
     border-top: 1px solid var(--line-2);
     box-shadow: 0 -1px 0 color-mix(in srgb, var(--card) 50%, transparent), 0 -8px 24px rgba(36,30,26,.05);
     overflow-x: auto;
