@@ -101,7 +101,7 @@ describe("guerrilla-marketing skill — run.ts ground-filter end-to-end (model f
     for (const p of res.plays) expect(p.evidenceRefs.every((r) => allowed.has(r))).toBe(true)
   })
   it("a model failure with ONLY a non-grassroots signal yields zero plays (no signal, no play)", async () => {
-    // menu.* is food-pairing's, not guerrilla's — the zero-play invariant must hold end-to-end.
+    // menu.* is positioning's family, not guerrilla's — the zero-play invariant must hold end-to-end.
     const d = withSignals([sig("menu.signature_item_missing", "No signature dish")])
     const res = await runProducerSkill(guerrillaMarketingSkill, d, { transport: failing })
     expect(res.status).toBe("ok")

@@ -2,7 +2,8 @@
 // Convergence skill — REWRITTEN (convergence@v2, 2026-07-03), the NINTH and
 // final skill in the one-at-a-time mastery program. marketing@v2, reputation@v2,
 // operations@v2, local-demand@v2, positioning@v4 (all on main) plus the drafted
-// social-counter@v2 / food-pairing@v2 / guerrilla-unthrottle are the templates.
+// social-counter@v2 / guerrilla-unthrottle are the templates (the kitchen/menu
+// specialist's @v2 retrofit was too, before its 2026-08-12 retirement).
 //
 // THIS SKILL'S BAR IS DIFFERENT. Every sibling is a single-domain master; this
 // is the ONE producer that sees the WHOLE dossier (no prefix filter) and exists
@@ -88,9 +89,9 @@
 //     burning ~40% of the user prompt on braces and indentation.
 // The prompt smoke pins the HONEST worst case (evidence-keyed refs, five armed
 // rival curves) under the ~34k safe band — do NOT trust the stale 40k figure
-// (guerrilla's audit debunked it; food-pairing measured ~43k already in the
-// timeout zone at medium effort, and this skill runs the slowest config in the
-// engine).
+// (guerrilla's audit debunked it; the retired kitchen/menu skill measured ~43k
+// already in the timeout zone at medium effort, and this skill runs the slowest
+// config in the engine).
 // ---------------------------------------------------------------------------
 
 import type { Dossier } from "@/lib/insights/dossier/types"
@@ -105,7 +106,10 @@ import { CONVERGENCE_KNOWLEDGE } from "@/lib/skills/convergence/knowledge"
 // (verified via `git log --all -p -- lib/skills/convergence/` — no @v2/@v3
 // collision, unlike positioning's P4-era strings which forced @v4). The plain
 // program bump to @v2 is safe; the feedback rollup keys on this string.
-const KNOWLEDGE_VERSION = "convergence@v2"
+// @v2.1 (2026-08-12): the sibling-boundary list no longer names the retired kitchen/menu
+// specialist (beta rescue D5); the menu-featuring discipline itself is unchanged. Bumped so
+// differential builds regenerate against the edited playbook rather than reusing @v2 plays.
+const KNOWLEDGE_VERSION = "convergence@v2.1"
 
 // ── The convergence archetypes (stable keys — the click-feedback sub-domain the
 //    rollup learns by, mirroring the siblings' *_ARCHETYPES exports). UNLIKE the

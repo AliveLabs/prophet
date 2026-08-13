@@ -8,7 +8,7 @@
 //   NIGHTLY (routing — cheap, deterministic, NO LLM): route each ask to the skill(s) whose domain it
 //     touches, reusing domain-map.ts ADJACENT/DOMAIN_PREFIXES + a lightweight keyword classifier over
 //     the question + the signals it cited (ask_history.sources). A relevance score below the bar → the
-//     ask is dropped for that skill (no billing question polluting food-pairing).
+//     ask is dropped for that skill (no billing question polluting reputation).
 //   WEEKLY (distill — clustering, NO LLM for the GATING; a model may later refine prose): cluster
 //     routed, GROUNDED, REPEATED asks per skill into question_demand candidates:
 //       (a) COVERAGE GAP — operators repeatedly ask X and the skill never addresses it.
@@ -73,7 +73,6 @@ const DOMAIN_KEYWORDS: Record<string, readonly string[]> = {
 /** Skill-id-specific keyword bags for producers whose id is NOT a DOMAIN_PREFIXES domain key (so they
  *  still get routed). Keyed by skill registry id. */
 const SKILL_KEYWORDS: Record<string, readonly string[]> = {
-  "food-pairing": ["pair", "pairing", "menu", "dish", "feature", "special", "topping", "flavor", "ingredient", "lto", "limited"],
   "guerrilla-marketing": ["partner", "partnership", "school", "fundraiser", "spirit night", "catering", "sponsor", "community", "neighbor", "grassroots", "local business"],
   "social-counter": ["social", "instagram", "tiktok", "reel", "competitor post", "engagement", "viral", "trending sound", "caption"],
 }

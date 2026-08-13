@@ -124,10 +124,10 @@ export const CATEGORY_PRIORS: Record<Category, number> = {
   // can rerank it. NEUTRAL prior — same calibrate-from-evidence stance as menu/grassroots; a
   // cited-competitor-post counter-play competes on merit, no thumb on the scale before we have data.
   social: 1.0,
-  // P6: menu / food-pairing plays (the kitchen expert) compete on merit — NEUTRAL prior, like
-  // demand/marketing. We start narrow and earn any bias from instrumented evidence rather than
-  // asserting it (the calibration principle). A "feature the short rib this cold snap" play is a
-  // revenue-capture move; no reason to thumb the scale up or down before we have data.
+  // P6: menu plays compete on merit — NEUTRAL prior, like demand/marketing. The kitchen/menu
+  // producer was retired 2026-08-12 (beta rescue D5), but the category STAYS: briefs persisted
+  // before the retirement still carry menu-category plays, and stored plays must keep resolving a
+  // prior/label rather than falling through to a hole.
   menu: 1.0,
   // P6: grassroots / guerrilla marketing (zero-budget hyper-local hustle) is its OWN domain, split
   // from marketing (digital/social) so the operator sees two distinct lenses and synthesis can tell

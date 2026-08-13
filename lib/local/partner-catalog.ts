@@ -47,7 +47,7 @@ export type PartnerType =
   | "hotel" // hotels — concierge referral + guest perk
   | "dealership" // car dealerships — waiting-room catering + reciprocal
   | "theater" // movie/live theaters — pre/post-show reciprocal
-  | "brewery" // breweries / taprooms (no kitchen) — food-pairing reciprocal
+  | "brewery" // breweries / taprooms (no kitchen) — menu-pairing reciprocal
   | "bakery" // bakeries / coffee — daypart-complementary reciprocal
   | "farmers_market" // farmers markets — sampling + dated activation
 
@@ -119,7 +119,7 @@ export const PARTNER_TAXONOMY: PartnerTaxonomyEntry[] = [
   { includedType: "car_dealer", partnerType: "dealership", radiusMi: 4, sizeLow: 20, sizeHigh: 120, band: "small", sizeProxyKind: "staff headcount" },
   // Theaters — pre/post-show reciprocal (capacity as the audience anchor).
   { includedType: "movie_theater", partnerType: "theater", radiusMi: 3, sizeLow: 300, sizeHigh: 2500, band: "medium", sizeProxyKind: "seats / showings" },
-  // Breweries / taprooms (often no kitchen) — food-pairing reciprocal.
+  // Breweries / taprooms (often no kitchen) — menu-pairing reciprocal.
   { includedType: "bar", partnerType: "brewery", radiusMi: 1.5, sizeLow: 50, sizeHigh: 300, band: "small", sizeProxyKind: "taproom seats" },
   // Bakeries / coffee — daypart-complementary reciprocal.
   { includedType: "bakery", partnerType: "bakery", radiusMi: 1.5, sizeLow: 30, sizeHigh: 200, band: "small", sizeProxyKind: "daily foot traffic" },

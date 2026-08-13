@@ -55,10 +55,10 @@ describe("routeAsk — routing a grounded question to the right skill via the do
     expect(hits.find((h) => h.skillId === "positioning")!.relevance).toBeGreaterThanOrEqual(ROUTE_MIN_RELEVANCE)
   })
 
-  it("routes a reviews question to reputation, NOT to an off-domain skill like food-pairing", () => {
+  it("routes a reviews question to reputation, NOT to an off-domain skill like guerrilla-marketing", () => {
     const hits = routeAsk(ask({ question: "How do I get more 5-star reviews and respond to complaints?", sources: ["Reviews"] }))
     expect(hits.some((h) => h.skillId === "reputation")).toBe(true)
-    expect(hits.some((h) => h.skillId === "food-pairing")).toBe(false)
+    expect(hits.some((h) => h.skillId === "guerrilla-marketing")).toBe(false)
   })
 
   it("DROPS an OFF-DOMAIN question below the relevance bar (no billing question pollutes a skill)", () => {
@@ -129,7 +129,7 @@ describe("clusterQuestionDemand — recurring grounded asks → candidate questi
 describe("canAutoPromote — the auto-promotion matrix (§2.3.3 / §2.4)", () => {
   const row = (over: Partial<PromotableRow>): PromotableRow => ({
     id: "k1",
-    skillId: "food-pairing",
+    skillId: "marketing",
     learningKind: "external_trend",
     status: "candidate",
     confidence: 80,
@@ -167,7 +167,7 @@ describe("decidePromotions — the weekly auto-promote + retire pass", () => {
   const now = Date.parse("2026-06-24T00:00:00Z")
   const row = (over: Partial<PromotableRow>): PromotableRow => ({
     id: `k-${Math.random().toString(36).slice(2, 7)}`,
-    skillId: "food-pairing",
+    skillId: "marketing",
     learningKind: "external_trend",
     status: "candidate",
     confidence: 80,
@@ -223,7 +223,7 @@ describe("shadow mode — a shadow row is computed but does NOT change the serve
     ({
       title,
       rationale: "r",
-      skillId: "food-pairing",
+      skillId: "positioning",
       kind: "capitalize",
       confidence: conf,
       evidenceRefs: ["menu.item"],
@@ -467,7 +467,7 @@ describe("runPromotion — applies the auto-promote/retire flips; never touches 
   it("promotes a corroborated trend + supported feedback, retires an expired active, skips question_demand", async () => {
     const now = Date.parse("2026-06-24T00:00:00Z")
     const rows = [
-      { id: "trend", skill_id: "food-pairing", learning_kind: "external_trend", status: "candidate", confidence: 80, support_n: 2, effective_to: null },
+      { id: "trend", skill_id: "positioning", learning_kind: "external_trend", status: "candidate", confidence: 80, support_n: 2, effective_to: null },
       { id: "fb", skill_id: "marketing", learning_kind: "feedback_pattern", status: "candidate", confidence: 70, support_n: 25, effective_to: null },
       { id: "q", skill_id: "reputation", learning_kind: "question_demand", status: "candidate", confidence: 100, support_n: 99, effective_to: null },
       { id: "stale", skill_id: "operations", learning_kind: "external_trend", status: "active", confidence: 90, support_n: 3, effective_to: "2020-01-01T00:00:00Z" },

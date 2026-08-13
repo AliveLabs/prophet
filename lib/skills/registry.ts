@@ -7,7 +7,6 @@ import { positioningSkill } from "@/lib/skills/positioning/skill"
 import { marketingSkill } from "@/lib/skills/marketing/skill"
 import { reputationSkill } from "@/lib/skills/reputation/skill"
 import { operationsSkill } from "@/lib/skills/operations/skill"
-import { foodPairingSkill } from "@/lib/skills/food-pairing/skill"
 import { guerrillaMarketingSkill } from "@/lib/skills/guerrilla-marketing/skill"
 import { socialCounterSkill } from "@/lib/skills/social-counter/skill"
 import { convergenceSkill } from "@/lib/skills/convergence/skill"
@@ -18,10 +17,11 @@ export const PRODUCER_SKILLS: ProducerSkill[] = [
   marketingSkill,
   reputationSkill,
   operationsSkill,
-  // P6 expert roster — two specialist producers feeding the SAME global pool (no per-expert cap).
-  // food-pairing = the kitchen (what to feature, when); guerrilla = zero-budget hyper-local growth.
-  // Both run on the standard reasoning tier (not the deep pass).
-  foodPairingSkill,
+  // P6 expert roster — specialist producer feeding the SAME global pool (no per-expert cap).
+  // guerrilla = zero-budget hyper-local growth, standard reasoning tier (not the deep pass).
+  // (The P6 kitchen/menu-feature specialist was retired 2026-08-12, beta rescue D5: its real
+  // pairing knowledge was starved by its own plumbing. Historical briefs still carry its plays;
+  // rendering degrades by the stamped `category` field, never by a registry lookup.)
   guerrillaMarketingSkill,
   // P12 — social counter-strategy: reads a rival's winning posts (ranked by engagement RATE),
   // diagnoses the winning pattern, and emits a phone-shootable counter-play. Its own `social`

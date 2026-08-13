@@ -13,7 +13,7 @@ Codename **Prophet / Vatic** (repo `AliveLabs/prophet`). Built by [Alive Labs](h
 1. **Dossier** (`lib/insights/dossier`) — one structured context object per (location, day): all signals
    + ~76 deterministic rule outputs (the grounded evidence layer a play may cite).
 2. **Producer skills** (`lib/skills/*`) — expert lenses (reputation, positioning, convergence,
-   food-pairing, social-counter, local-demand, grassroots, …) each reason over the same dossier.
+   social-counter, local-demand, grassroots, …) each reason over the same dossier.
 3. **Synthesis → presenter → voice** (`lib/skills/pipeline.ts`) — rank/select the plays, compose the
    evidence-forward presentation layer, then scrub to Ticket's voice. Anti-fabrication is enforced
    throughout (`lib/eval/checks.ts`): grounded refs, verbatim quotes, no POS/$ claims.

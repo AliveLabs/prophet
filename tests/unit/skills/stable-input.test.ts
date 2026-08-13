@@ -19,7 +19,7 @@ import type { Transport } from "@/lib/ai/provider"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
 
 const SPLIT_SKILLS = ["positioning", "marketing", "social-counter", "reputation"] as const
-const FULL_HASH_SKILLS = ["local-demand", "food-pairing", "convergence"] as const
+const FULL_HASH_SKILLS = ["local-demand", "convergence"] as const
 
 const skillById = (id: string) => PRODUCER_SKILLS.find((s) => s.id === id)!
 const clone = (d: Dossier): Dossier => structuredClone(d)

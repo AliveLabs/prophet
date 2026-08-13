@@ -23,7 +23,7 @@ import {
   type IngestStore,
 } from "@/lib/skills/ingest-knowledge"
 import type { Transport } from "@/lib/ai/provider"
-import { foodPairingSkill } from "@/lib/skills/food-pairing/skill"
+import { positioningSkill } from "@/lib/skills/positioning/skill"
 import type { Dossier } from "@/lib/insights/dossier/types"
 
 // ── A minimal dossier good enough for prompt building (only the fields buildSkillPrompt reads). ────
@@ -72,7 +72,7 @@ function knowledgeStore(rows: Record<string, unknown>[] | null, opts: { error?: 
 
 const baseRow = (over: Record<string, unknown>): Record<string, unknown> => ({
   id: "k1",
-  skill_id: "food-pairing",
+  skill_id: "positioning",
   scope: "global",
   scope_id: null,
   learning_kind: "external_trend",
@@ -88,26 +88,26 @@ beforeEach(() => clearKnowledgeCache())
 
 describe("loadActiveKnowledge — fail-soft (the floor is today)", () => {
   it("returns EMPTY (never throws) when the table does not exist", async () => {
-    const out = await loadActiveKnowledge("food-pairing", { locationId: "loc-1" }, { client: knowledgeStore(null, { throws: true }) })
+    const out = await loadActiveKnowledge("positioning", { locationId: "loc-1" }, { client: knowledgeStore(null, { throws: true }) })
     expect(out).toEqual({ global: [], scoped: [], globalVersion: "" })
   })
 
   it("returns EMPTY when the query errors", async () => {
-    const out = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore(null, { error: true }) })
+    const out = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore(null, { error: true }) })
     expect(out.global).toEqual([])
     expect(out.scoped).toEqual([])
     expect(out.globalVersion).toBe("")
   })
 
   it("returns EMPTY when there are no active rows", async () => {
-    const out = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore([]) })
+    const out = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore([]) })
     expect(out.global).toHaveLength(0)
     expect(out.globalVersion).toBe("")
   })
 
   it("drops malformed rows (empty snippet / unknown scope) rather than injecting noise", async () => {
     const out = await loadActiveKnowledge(
-      "food-pairing",
+      "positioning",
       {},
       { client: knowledgeStore([baseRow({ id: "bad", snippet: "  " }), baseRow({ id: "ok2", title: "Real one" })]) },
     )
@@ -124,7 +124,7 @@ describe("loadActiveKnowledge — scope split (cache discipline)", () => {
       baseRow({ id: "other", scope: "location", scope_id: "loc-999", title: "Other loc" }),
     ]
     const out = await loadActiveKnowledge(
-      "food-pairing",
+      "positioning",
       { organizationId: "org-1", locationId: "loc-1" },
       { client: knowledgeStore(rows) },
     )
@@ -145,7 +145,7 @@ describe("loadActiveKnowledge — scope split (cache discipline)", () => {
       baseRow({ id: "fb-loc", scope: "location", scope_id: "loc-1", learning_kind: "feedback_pattern", title: "Scoped feedback" }),
     ]
     const out = await loadActiveKnowledge(
-      "food-pairing",
+      "positioning",
       { locationId: "loc-1" },
       { client: knowledgeStore(rows), acceptedKinds: ["external_trend", "editorial"] },
     )
@@ -161,13 +161,13 @@ describe("loadActiveKnowledge — scope split (cache discipline)", () => {
       baseRow({ id: "trend", learning_kind: "external_trend" }),
       baseRow({ id: "fb", learning_kind: "feedback_pattern", title: "Feedback pattern" }),
     ]
-    const out = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore(rows) })
+    const out = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore(rows) })
     expect(out.global.map((s) => s.id).sort()).toEqual(["fb", "trend"])
   })
 
   it("a declared-but-EMPTY acceptedKinds injects nothing (the floor)", async () => {
     const rows = [baseRow({ id: "trend", learning_kind: "external_trend" })]
-    const out = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore(rows), acceptedKinds: [] })
+    const out = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore(rows), acceptedKinds: [] })
     expect(out.global).toHaveLength(0)
     expect(out.globalVersion).toBe("")
   })
@@ -177,7 +177,7 @@ describe("loadActiveKnowledge — scope split (cache discipline)", () => {
       baseRow({ id: "expired", effective_to: "2020-01-01T00:00:00Z" }),
       baseRow({ id: "live", title: "Still live", effective_to: "2999-01-01T00:00:00Z" }),
     ]
-    const out = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore(rows), nowMs: Date.parse("2026-06-24T00:00:00Z") })
+    const out = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore(rows), nowMs: Date.parse("2026-06-24T00:00:00Z") })
     expect(out.global.map((s) => s.id)).toEqual(["live"])
   })
 })
@@ -190,7 +190,7 @@ describe("effectiveKnowledgeVersion — cache key includes the version", () => {
   })
   const snip = (id: string): KnowledgeSnippet => ({
     id,
-    skillId: "food-pairing",
+    skillId: "positioning",
     scope: "global",
     scopeId: null,
     learningKind: "external_trend",
@@ -200,24 +200,24 @@ describe("effectiveKnowledgeVersion — cache key includes the version", () => {
   })
 
   it("EMPTY global set → base version UNCHANGED (byte-identical-cache-key property)", () => {
-    expect(effectiveKnowledgeVersion("food-pairing@v1", inj([]))).toBe("food-pairing@v1")
+    expect(effectiveKnowledgeVersion("positioning@v1", inj([]))).toBe("positioning@v1")
   })
 
   it("non-empty global set → base + hash tag", () => {
-    const v = effectiveKnowledgeVersion("food-pairing@v1", inj([snip("a")]))
-    expect(v).toBe("food-pairing@v1+fabc1234")
-    expect(v).not.toBe("food-pairing@v1")
+    const v = effectiveKnowledgeVersion("positioning@v1", inj([snip("a")]))
+    expect(v).toBe("positioning@v1+fabc1234")
+    expect(v).not.toBe("positioning@v1")
   })
 
   it("the loader's globalVersion is order-independent + changes when the set changes", async () => {
-    const a = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore([baseRow({ id: "x" }), baseRow({ id: "y", title: "Y" })]) })
+    const a = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore([baseRow({ id: "x" }), baseRow({ id: "y", title: "Y" })]) })
     clearKnowledgeCache()
     // same two ids, reversed row order → same fingerprint (sorted ids).
-    const b = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore([baseRow({ id: "y", title: "Y" }), baseRow({ id: "x" })]) })
+    const b = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore([baseRow({ id: "y", title: "Y" }), baseRow({ id: "x" })]) })
     expect(a.globalVersion).toBe(b.globalVersion)
     clearKnowledgeCache()
     // different id set → different fingerprint.
-    const c = await loadActiveKnowledge("food-pairing", {}, { client: knowledgeStore([baseRow({ id: "z" })]) })
+    const c = await loadActiveKnowledge("positioning", {}, { client: knowledgeStore([baseRow({ id: "z" })]) })
     expect(c.globalVersion).not.toBe(a.globalVersion)
   })
 })
@@ -227,8 +227,8 @@ describe("prompt injection — placement + byte-identical floor", () => {
   const TRENDS_HEADER = "CURRENT TRENDS & LEARNED PRIORS (informational; never override the operator's own reality or the evidence)"
 
   it("EMPTY active set leaves systemCached BYTE-IDENTICAL to today (no knowledge arg)", () => {
-    const today = buildSkillPrompt(foodPairingSkill, d, { x: 1 })
-    const withEmpty = buildSkillPrompt(foodPairingSkill, d, { x: 1 }, { global: [], scoped: [], globalVersion: "" })
+    const today = buildSkillPrompt(positioningSkill, d, { x: 1 })
+    const withEmpty = buildSkillPrompt(positioningSkill, d, { x: 1 }, { global: [], scoped: [], globalVersion: "" })
     expect(withEmpty.systemCached).toBe(today.systemCached)
     expect(withEmpty.system).toBe(today.system)
     // and the block is genuinely absent.
@@ -238,12 +238,12 @@ describe("prompt injection — placement + byte-identical floor", () => {
   it("injects the trends block AFTER the DOMAIN PLAYBOOK and BEFORE the RULES", () => {
     const knowledge: KnowledgeInjection = {
       global: [
-        { id: "g", skillId: "food-pairing", scope: "global", scopeId: null, learningKind: "external_trend", title: "Hot honey", snippet: "Hot honey keeps trending; feature it on a sweet-heat item.", confidence: 80 },
+        { id: "g", skillId: "positioning", scope: "global", scopeId: null, learningKind: "external_trend", title: "Hot honey", snippet: "Hot honey keeps trending; feature it on a sweet-heat item.", confidence: 80 },
       ],
       scoped: [],
       globalVersion: "deadbeef",
     }
-    const out = buildSkillPrompt(foodPairingSkill, d, { x: 1 }, knowledge)
+    const out = buildSkillPrompt(positioningSkill, d, { x: 1 }, knowledge)
     const sc = out.systemCached
     const idxPlaybook = sc.indexOf("DOMAIN PLAYBOOK:")
     const idxTrends = sc.indexOf(TRENDS_HEADER)
@@ -256,11 +256,11 @@ describe("prompt injection — placement + byte-identical floor", () => {
 
   it("GLOBAL snippets ride systemCached; SCOPED snippets ride the volatile system block (cache discipline)", () => {
     const knowledge: KnowledgeInjection = {
-      global: [{ id: "g", skillId: "food-pairing", scope: "global", scopeId: null, learningKind: "external_trend", title: "Global trend", snippet: "global snippet text", confidence: 70 }],
-      scoped: [{ id: "l", skillId: "food-pairing", scope: "location", scopeId: "loc-1", learningKind: "feedback_pattern", title: "Local pattern", snippet: "scoped snippet text", confidence: 60 }],
+      global: [{ id: "g", skillId: "positioning", scope: "global", scopeId: null, learningKind: "external_trend", title: "Global trend", snippet: "global snippet text", confidence: 70 }],
+      scoped: [{ id: "l", skillId: "positioning", scope: "location", scopeId: "loc-1", learningKind: "feedback_pattern", title: "Local pattern", snippet: "scoped snippet text", confidence: 60 }],
       globalVersion: "v",
     }
-    const out = buildSkillPrompt(foodPairingSkill, d, { x: 1 }, knowledge)
+    const out = buildSkillPrompt(positioningSkill, d, { x: 1 }, knowledge)
     // global → cached prefix only; scoped → volatile system only. Never crossed.
     expect(out.systemCached).toContain("global snippet text")
     expect(out.systemCached).not.toContain("scoped snippet text")
@@ -268,17 +268,17 @@ describe("prompt injection — placement + byte-identical floor", () => {
     expect(out.system).not.toContain("global snippet text")
     // adding ONLY a scoped snippet must NOT change systemCached vs. the global-only build (so a
     // per-location learning can never bust the shared 13-location prefix cache).
-    const globalOnly = buildSkillPrompt(foodPairingSkill, d, { x: 1 }, { global: knowledge.global, scoped: [], globalVersion: "v" })
+    const globalOnly = buildSkillPrompt(positioningSkill, d, { x: 1 }, { global: knowledge.global, scoped: [], globalVersion: "v" })
     expect(out.systemCached).toBe(globalOnly.systemCached)
   })
 
   it("the injected block reasserts that trends NEVER override evidence/grounding (grounding stays sacred)", () => {
     const knowledge: KnowledgeInjection = {
-      global: [{ id: "g", skillId: "food-pairing", scope: "global", scopeId: null, learningKind: "external_trend", title: "T", snippet: "s", confidence: 80 }],
+      global: [{ id: "g", skillId: "positioning", scope: "global", scopeId: null, learningKind: "external_trend", title: "T", snippet: "s", confidence: 80 }],
       scoped: [],
       globalVersion: "v",
     }
-    const out = buildSkillPrompt(foodPairingSkill, d, { x: 1 }, knowledge)
+    const out = buildSkillPrompt(positioningSkill, d, { x: 1 }, knowledge)
     expect(out.systemCached).toContain("never cite a trend as an evidenceRef")
     expect(out.systemCached).toContain("the evidence wins")
     // the static GROUNDING rule is still present and untouched.
@@ -290,7 +290,7 @@ describe("prompt injection — placement + byte-identical floor", () => {
 // ── PIPELINE 1 validation gates ─────────────────────────────────────────────────────────────────
 const src = (id: string, tier: 1 | 2 | 3): SourceRow => ({
   id,
-  skillIds: ["food-pairing"],
+  skillIds: ["positioning"],
   name: `Source ${id}`,
   vertical: "culinary",
   url: `https://example.com/${id}`,
@@ -321,7 +321,7 @@ describe("adversarial distill gate (b)", () => {
 describe("corroboration gate (c)", () => {
   it("a lone TIER-3 source caps at SHADOW (never active)", () => {
     const hits: DistilledHit[] = [{ verdict: verdict({ confidence: 95 }), source: src("t3", 3) }]
-    const rows = corroborate("food-pairing", hits)
+    const rows = corroborate("positioning", hits)
     expect(rows).toHaveLength(1)
     expect(rows[0].status).toBe("shadow")
   })
@@ -331,7 +331,7 @@ describe("corroboration gate (c)", () => {
       { verdict: verdict({ confidence: 75 }), source: src("a", 1) },
       { verdict: verdict({ confidence: 72 }), source: src("b", 1) },
     ]
-    const rows = corroborate("food-pairing", hits)
+    const rows = corroborate("positioning", hits)
     expect(rows).toHaveLength(1) // same normalized title → one corroborated row
     expect(rows[0].status).toBe("active")
     expect(rows[0].supportN).toBe(2)
@@ -339,13 +339,13 @@ describe("corroboration gate (c)", () => {
   })
 
   it("a single TIER-1 source lands at SHADOW (compute + observe, don't yet serve)", () => {
-    const rows = corroborate("food-pairing", [{ verdict: verdict({ confidence: 65 }), source: src("a", 1) }])
+    const rows = corroborate("positioning", [{ verdict: verdict({ confidence: 65 }), source: src("a", 1) }])
     expect(rows[0].status).toBe("shadow")
   })
 
   it("writes external_trend rows with an active window (recency self-retire) and never relaxes grounding", () => {
     const now = Date.parse("2026-06-24T00:00:00Z")
-    const rows = corroborate("food-pairing", [{ verdict: verdict({ confidence: 90 }), source: src("a", 1) }, { verdict: verdict({ confidence: 88 }), source: src("b", 1) }], { nowMs: now })
+    const rows = corroborate("positioning", [{ verdict: verdict({ confidence: 90 }), source: src("a", 1) }, { verdict: verdict({ confidence: 88 }), source: src("b", 1) }], { nowMs: now })
     expect(rows[0].effectiveToMs).toBeGreaterThan(rows[0].effectiveFromMs)
     expect(rows[0].provenance.streams).toEqual(["external"])
     // the row carries NO evidenceRefs field — a trend can never become a citable ref.
@@ -647,8 +647,8 @@ function ingestStore(opts: { upsertError?: string; upsertThrows?: string } = {})
     onConflict: null,
   }
   const sources = [
-    { id: "src-1", skill_ids: ["food-pairing"], name: "Tier1 A", vertical: "culinary", url: "https://a.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
-    { id: "src-2", skill_ids: ["food-pairing"], name: "Tier1 B", vertical: "culinary", url: "https://b.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
+    { id: "src-1", skill_ids: ["positioning"], name: "Tier1 A", vertical: "culinary", url: "https://a.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
+    { id: "src-2", skill_ids: ["positioning"], name: "Tier1 B", vertical: "culinary", url: "https://b.example.com/feed/", fetch_strategy: "rss", auth_kind: "none", trust_tier: 1, enabled: true },
   ]
   const store: IngestStore = {
     from() {

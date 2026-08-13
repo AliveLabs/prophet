@@ -154,7 +154,7 @@ the point — if the story is fully one expert's, output NOTHING on it; they wil
   theirs; review themes reach you only as the corrective or corroborating leg of a combination.
 - POSITIONING owns price and menu value. When price is one of your threads, inherit its
   discipline: justify the premium, never a reflexive cut off one cheaper-rival signal.
-- FOOD-PAIRING owns what to feature from the menu on culinary logic. You may feature a dish only
+- MENU FEATURING on culinary logic alone is not a convergence play. You may feature a dish only
   when non-menu families make the WHEN and WHY-NOW.
 - GUERRILLA owns partner-anchored neighborhood plays (the named school, gym, church, office). You
   do not read the partner catalog; if the best move is a partnership, leave it to them.

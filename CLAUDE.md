@@ -18,7 +18,7 @@ editor keeps recommending changes to it that we have deliberately decided agains
 
 - `tier: "reasoning"` → Anthropic (the skill and synthesis brains). This is the **only** tier: the
   Gemini `"cheap"` tier was deleted 2026-08-12 (it never gained a call site). The small interactive
-  surfaces (quick-tip, on-demand insight, competitor brief, pipeline narratives) run Claude Haiku
+  surfaces (quick-tip, on-demand insight, pipeline narratives) run Claude Haiku
   4.5 (`FAST_MODEL`) through this same client. `lib/ai/gemini.ts` still exists but is **Pro, not
   Flash**, and serves exactly two remaining callers: the Search-grounded menu fetch
   (`fetchGoogleMenuData`) and the /insights Priority Briefing call (slated for its own rewrite).
