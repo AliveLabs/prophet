@@ -17,6 +17,7 @@ import {
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
+import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
@@ -45,8 +46,12 @@ export function UpgradeTilesPass({
 }) {
   const [cadence, setCadence] = useState<Cadence>("monthly")
   const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
+  // ALT-551: every failure path used to end at `setLoading(null)` with nothing shown,
+  // so a 403 or a 500 was indistinguishable from a dead button. Surface it.
   async function handleUpgrade(tier: PaidTier) {
+    setError(null)
     setLoading(tier)
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -54,13 +59,16 @@ export function UpgradeTilesPass({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier, cadence }),
       })
-      const data = await res.json()
-      if (data.url) {
-        window.location.assign(data.url)
-      } else {
-        setLoading(null)
+      const payload = await res.json().catch(() => null)
+      const outcome = classifyBillingResponse(res.ok, payload)
+      if (outcome.kind === "redirect") {
+        window.location.assign(outcome.url)
+        return
       }
+      setError(outcome.message)
+      setLoading(null)
     } catch {
+      setError(GENERIC_BILLING_ERROR)
       setLoading(null)
     }
   }
@@ -90,6 +98,12 @@ export function UpgradeTilesPass({
         </div>
         {cadence === "annual" && <span className="tk-set-save-note">Save 20%</span>}
       </div>
+
+      {error && (
+        <span className="tk-set-status tk-set-status-err" role="alert">
+          {error}
+        </span>
+      )}
 
       <div className="tk-set-tiers">
         {PAID_TIERS.map((tier) => {

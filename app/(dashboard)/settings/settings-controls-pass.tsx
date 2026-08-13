@@ -4,6 +4,8 @@
 // Same wired behavior as settings-controls.tsx — these call the SAME server actions
 // (setVoiceTone, setOwnSocialNetwork, setCommsPref) with the same optimistic-rollback
 // and "saved" seams. Only the presentation moves to kit tk-set-* controls.
+// locationId is REQUIRED on all three (ALT-583): a missing id used to short-circuit
+// the save silently while the control kept the new value, a save that never happened.
 
 import { useState, useTransition } from "react"
 import { setVoiceTone, setCommsPref, setOwnSocialNetwork, setWeeklyDigestDay } from "./actions"
@@ -16,7 +18,7 @@ const VOICES = [
   { v: "upscale", label: "Upscale" },
 ]
 
-export function VoiceSelectPass({ initial, locationId }: { initial: string | null; locationId?: string }) {
+export function VoiceSelectPass({ initial, locationId }: { initial: string | null; locationId: string }) {
   const [v, setV] = useState(initial ?? "warm_personal")
   const [status, setStatus] = useState<string | null>(null)
   const [err, setErr] = useState(false)
@@ -25,7 +27,6 @@ export function VoiceSelectPass({ initial, locationId }: { initial: string | nul
   function onChange(next: string) {
     setV(next)
     setStatus(null)
-    if (!locationId) return
     startSaving(async () => {
       const res = await setVoiceTone(locationId, next)
       setErr(!res.ok)
@@ -61,7 +62,7 @@ export function OwnNetworkSelectPass({
   locationId,
 }: {
   initial: string | null
-  locationId?: string
+  locationId: string
 }) {
   const [v, setV] = useState(initial ?? "instagram")
   const [status, setStatus] = useState<string | null>(null)
@@ -72,7 +73,6 @@ export function OwnNetworkSelectPass({
     const prev = v
     setV(next)
     setStatus(null)
-    if (!locationId) return
     startSaving(async () => {
       const res = await setOwnSocialNetwork(locationId, next)
       if (res.ok) {
@@ -192,7 +192,7 @@ export function CommsPrefsPass({
   digestDay,
 }: {
   email: string
-  locationId?: string
+  locationId: string
   initial?: Record<string, boolean> | null
   digestDay?: number | null
 }) {
@@ -205,7 +205,6 @@ export function CommsPrefsPass({
     const prev = prefs[key]
     setPrefs((p) => ({ ...p, [key]: on }))
     setStatus(null)
-    if (!locationId) return
     startSaving(async () => {
       const res = await setCommsPref(locationId, key, on)
       if (!res.ok) {

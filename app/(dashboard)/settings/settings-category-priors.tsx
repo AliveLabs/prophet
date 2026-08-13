@@ -1,9 +1,10 @@
 "use client"
 
-// Per-operator category rerank (P8), rebuilt to The Pass. Same wired behavior as
-// category-priors-controls.tsx — it calls the SAME server action `setCategoryPriors`,
-// the same resolve/default logic, and the same "applies to your NEXT brief, never a
-// hard filter" contract. Only the presentation moves to the kit's tk-set-* controls.
+// Per-operator category rerank (P8), rebuilt to The Pass. Calls the `setCategoryPriors`
+// server action with the shared resolve/default logic and the "applies to your NEXT
+// brief, never a hard filter" contract, presented with the kit's tk-set-* controls.
+// locationId is REQUIRED (ALT-583): a missing id used to fall into a branch that marked
+// the sliders applied without calling the server at all, a save that never happened.
 
 import { useMemo, useState, useTransition } from "react"
 import {
@@ -55,7 +56,7 @@ export default function SettingsCategoryPriors({
   locationId,
 }: {
   initial: CategoryPriors | null
-  locationId?: string
+  locationId: string
 }) {
   const start = useMemo(() => resolveCategoryPriors(initial), [initial])
   const [values, setValues] = useState<Record<Category, number>>(start)
@@ -76,26 +77,22 @@ export default function SettingsCategoryPriors({
 
   function apply() {
     setSaveError(null)
-    if (locationId) {
-      startSaving(async () => {
-        // A thrown action (proxy 403 while impersonating, deploy skew, network) must surface
-        // exactly like a returned failure. Before this catch, a throw left the sliders showing
-        // unsaved values with no error, which read as saved until the next full page load
-        // (the "my sliders reset overnight" report, ALT-581).
-        try {
-          const res = await setCategoryPriors(locationId, values)
-          if (!res.ok) {
-            setSaveError(res.error ?? "Could not save. Try again.")
-            return
-          }
-          setApplied(values)
-        } catch {
-          setSaveError("Could not save. Try again.")
+    startSaving(async () => {
+      // A thrown action (proxy 403 while impersonating, deploy skew, network) must surface
+      // exactly like a returned failure. Before this catch, a throw left the sliders showing
+      // unsaved values with no error, which read as saved until the next full page load
+      // (the "my sliders reset overnight" report, ALT-583).
+      try {
+        const res = await setCategoryPriors(locationId, values)
+        if (!res.ok) {
+          setSaveError(res.error ?? "Could not save. Try again.")
+          return
         }
-      })
-    } else {
-      setApplied(values)
-    }
+        setApplied(values)
+      } catch {
+        setSaveError("Could not save. Try again.")
+      }
+    })
   }
 
   return (
@@ -136,7 +133,7 @@ export default function SettingsCategoryPriors({
         })}
       </div>
 
-      {/* ALT-581: the apply button used to be a quiet keep-variant that only APPEARED once a
+      {/* ALT-583: the apply button used to be a quiet keep-variant that only APPEARED once a
           slider moved, left of the hint. Bryan overlooked it dozens of times, so the priors were
           never saved and every "overnight reset" traced back to this. It is now always present
           (disabled until dirty), primary, and rightmost; the hint anchors left (CSS). Keep it

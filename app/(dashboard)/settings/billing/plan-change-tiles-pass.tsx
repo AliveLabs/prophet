@@ -16,6 +16,7 @@ import {
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
+import { classifyBillingMutation, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
@@ -51,6 +52,9 @@ export function PlanChangeTilesPass({
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // ALT-551: a non-JSON error response (an HTML 500 page) used to throw inside
+  // res.json(), land in the bare catch, and show "Failed to change plan" with no
+  // detail. Parse defensively and pass the route's own message through.
   async function handleChange(tier: PaidTier) {
     setError(null)
     setLoading(tier)
@@ -60,15 +64,15 @@ export function PlanChangeTilesPass({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tier, cadence }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setError(data.error ?? "Failed to change plan")
-        setLoading(null)
+      const payload = await res.json().catch(() => null)
+      const outcome = classifyBillingMutation(res.ok, payload)
+      if (outcome.kind === "error") {
+        setError(outcome.message)
         return
       }
       router.refresh()
     } catch {
-      setError("Failed to change plan")
+      setError(GENERIC_BILLING_ERROR)
     } finally {
       setLoading(null)
     }

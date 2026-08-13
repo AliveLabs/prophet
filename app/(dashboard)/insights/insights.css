@@ -1,20 +1,15 @@
-/* The Pass — page-local styling for the rebuilt /insights surface.
+/* The Pass — page-local styling for the /insights surface.
    All colors flow from the shared editorial tokens (so light + dark are both
    intentional and the kits dark mode comes for free). No light-only hardcodes.
    Scoped under .ticket-app so it never leaks past the operator surface. */
 
-.ticket-app .ins-page {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-/* ── Controls bar (filters + generate) — on-system soft panel ── */
+/* ── Controls bar (the filters) — on-system soft panel ── */
 .ticket-app .ins-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+  margin-top: 24px;
   padding: 14px 16px;
 }
 .ticket-app .ins-bar > * {
@@ -48,70 +43,6 @@
   align-self: center;
 }
 
-/* ── Priority — the deterministic top picks (replaced the model briefing) ── */
-.ticket-app .ins-priority { display: flex; flex-direction: column; gap: 14px; }
-
-/* ── At-a-glance widget extras ── */
-.ticket-app .ins-glance-foot {
-  margin-top: 8px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--ink-3);
-}
-
-/* ── Feed ── */
-.ticket-app .ins-feed { display: flex; flex-direction: column; gap: 26px; }
-
-.ticket-app .ins-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.ticket-app .ins-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-.ticket-app .ins-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 36px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line-2);
-  background: var(--card);
-  color: var(--ink-2);
-  font-family: var(--font-cond);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  transition: background 0.18s var(--ease), color 0.18s var(--ease), border-color 0.18s var(--ease);
-}
-.ticket-app .ins-tab:hover { color: var(--ink); border-color: var(--ink-3); }
-.ticket-app .ins-tab-on {
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
-}
-.ticket-app .ins-tab-n {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--ink-3) 16%, transparent);
-  color: inherit;
-}
-.ticket-app .ins-tab-on .ins-tab-n { background: color-mix(in srgb, var(--paper) 24%, transparent); }
-
-/* ── ALT-184g: Pinned — same rhythm as a category section (.ins-cat), so it reads
-   as a first-class part of the page, not a bolt-on. The 26px gap from `.ins-feed`
-   already separates it from the ALT-230 generate UI above and the category feed
-   below (ALT-184e — no extra one-off spacing value needed). ── */
-.ticket-app .ins-pinned { display: flex; flex-direction: column; gap: 14px; }
-
-.ticket-app .ins-cats { display: flex; flex-direction: column; gap: 28px; }
-.ticket-app .ins-cat { display: flex; flex-direction: column; gap: 14px; }
-.ticket-app .ins-cat-head { display: inline-flex; align-items: center; }
 /* ALT-184b: cards must match height WITHIN A ROW — different content lengths (quotes,
    metrics, recs) were leaving ragged gaps under `align-items: start`. `stretch` (the grid
    default) makes every card in a row match the row's tallest; each card is already a flex
@@ -140,13 +71,11 @@
   transition: background 0.18s var(--ease), color 0.18s var(--ease);
 }
 .ticket-app .ins-more:hover { background: var(--paper-2, var(--thermal)); color: var(--ink); }
-.ticket-app .ins-more-col { align-self: stretch; width: 100%; justify-content: center; box-shadow: none; border-style: dashed; }
 
 /* ── ALT-292: incremental reveal. The reveal button carries an honest count of what is
    still unloaded, and a quiet "Show less" sits beside it once the section has grown
    past its default. Scoped to `.ins-morerow` so nothing here reaches other sections. ── */
 .ticket-app .ins-morerow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ticket-app .ins-morerow-wide { flex-direction: column; align-items: stretch; gap: 8px; }
 .ticket-app .ins-morerow .ins-more-n {
   font-variant-numeric: tabular-nums;
   font-size: 11.5px;
@@ -169,28 +98,6 @@
   transition: color 0.18s var(--ease);
 }
 .ticket-app .ins-less:hover { color: var(--ink); text-decoration-color: currentColor; }
-.ticket-app .ins-morerow-wide .ins-less { padding: 4px; text-align: center; }
-
-/* The labelled band that separates a category's older run from its recent window, so
-   revealing older insights never quietly mixes them into this week's read. */
-.ticket-app .ins-olderrule {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 4px 0 -2px;
-  color: var(--ink-2);
-  font-family: var(--font-cond);
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.ticket-app .ins-olderrule::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--rule, var(--line-2));
-}
 
 /* ── The unified card's support region for a detector row (metric pills, sentiment
    split, quotes, provenance) — rendered through the card's `support` slot. ── */
@@ -256,16 +163,15 @@
 .ticket-app .ins-gen-retry { flex: none; font-family: var(--font-display); font-size: 12.5px; font-weight: 700; color: var(--rust-deep); padding: 7px 14px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--rust) 40%, transparent); background: var(--card); transition: background var(--t-fast), border-color var(--t-fast); }
 .ticket-app .ins-gen-retry:hover { background: var(--rust-tint); border-color: var(--rust); }
 
-/* ── The all-insights view (/insights/all): two sections, batch reveal ── */
+/* ── The consolidated /insights feed: two sections, batch reveal ── */
 .ticket-app .ins-all { display: flex; flex-direction: column; gap: 34px; margin-top: 24px; }
 .ticket-app .ins-all-sec { display: flex; flex-direction: column; gap: 14px; }
-.ticket-app .ins-all-loc { color: var(--ink-3); font-weight: 400; }
 .ticket-app .ins-all-empty { margin-top: 24px; }
 
-/* ── Responsive ── */
-@media (max-width: 640px) {
-  .ticket-app .ins-page { gap: 24px; }
-  .ticket-app .ins-controls { gap: 10px; }
-  .ticket-app .ins-tabs { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
-  .ticket-app .ins-tab { flex: 0 0 auto; }
+/* The labelled empty note under a section head when the active filters clear it out —
+   the section stays on the page so the narrowing is visible, never silent. */
+.ticket-app .ins-sec-empty {
+  font-size: 13.5px;
+  font-style: italic;
+  color: var(--ink-3);
 }
