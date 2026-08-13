@@ -12,6 +12,7 @@ import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
+import { newMenuObservation, recordMenuIngestEvent } from "@/lib/content/menu-telemetry"
 import type { MenuSnapshot, SiteContentSnapshot, MenuSource } from "@/lib/content/types"
 
 // ---------------------------------------------------------------------------
@@ -82,11 +83,25 @@ export async function refreshContentAction(formData: FormData) {
   }
 
   if (!website) {
+    // ALT-363: record the no-website abort (fire-and-forget, never throws), then redirect
+    // exactly as before.
+    const noSiteObs = newMenuObservation()
+    noSiteObs.hasWebsite = false
+    void recordMenuIngestEvent({
+      runSource: "content_refresh_action",
+      target: "location",
+      locationId,
+      dateKey: getDateKey(),
+      observation: noSiteObs,
+    })
     redirect(`/content?location_id=${locationId}&error=No+website+configured.+Add+a+website+URL+in+Locations.`)
   }
 
   const websiteUrl = ensureUrl(website)
   const dateKey = getDateKey()
+  // ALT-363 menu reliability telemetry for the location's own menu: observation only,
+  // mutated as the steps below run, recorded once after the menu block.
+  const menuObs = newMenuObservation()
   let locationSiteContent: SiteContentSnapshot | null = null
   let locationMenu: MenuSnapshot | null = null
 
@@ -159,6 +174,7 @@ export async function refreshContentAction(formData: FormData) {
         menuUrls.push(posUrl)
       }
     }
+    menuObs.urlsDiscovered = menuUrls.length
     // If we still have no menu URLs, fall back to the homepage itself
     if (menuUrls.length === 0) {
       menuUrls.push(websiteUrl)
@@ -182,6 +198,7 @@ export async function refreshContentAction(formData: FormData) {
     const primaryMenuUrl = menuUrls[0] ?? websiteUrl
 
     for (const targetUrl of menuUrls) {
+      menuObs.scrapeAttempts++
       try {
         console.log(`[Content] Scraping menu URL: ${targetUrl}`)
         const menuResult = await scrapeMenuPage(targetUrl)
@@ -197,10 +214,14 @@ export async function refreshContentAction(formData: FormData) {
           const parsed = normalizeExtractedMenu(menuResult.menu)
           if (parsed.categories.length > 0) {
             allParsedResults.push(parsed)
+            menuObs.scrapesWithItems++
             console.log(`[Content] URL ${targetUrl}: ${parsed.categories.length} categories, ${parsed.categories.reduce((s, c) => s + c.items.length, 0)} items`)
           }
+        } else {
+          menuObs.scrapeErrors++
         }
       } catch (err) {
+        menuObs.scrapeErrors++
         console.warn(`[Content] Menu scrape error for ${targetUrl}:`, err)
         warnings.push(`Could not scrape: ${targetUrl}`)
       }
@@ -223,9 +244,14 @@ export async function refreshContentAction(formData: FormData) {
         const normalizedGoogle = normalizeGoogleMenuData(googleMenu)
         allParsedResults.push(normalizedGoogle)
         sources.push("gemini_google_search")
+        menuObs.enrichment = "items"
         console.log(`[Content] Google Search grounding added ${normalizedGoogle.categories.reduce((s, c) => s + c.items.length, 0)} items`)
+      } else {
+        // fetchGoogleMenuData returns null on any error and zero categories on a clean miss.
+        menuObs.enrichment = googleMenu ? "empty" : "error"
       }
     } catch (err) {
+      menuObs.enrichment = "error"
       console.warn("[Content] Gemini Google menu fetch error:", err)
       warnings.push("Supplemental menu lookup failed; used the primary read only")
     }
@@ -245,6 +271,7 @@ export async function refreshContentAction(formData: FormData) {
         merged.currency
       )
       locationMenu.parseMeta.sources = sources
+      menuObs.mergedItems = locationMenu.parseMeta.itemsTotal
 
       // Upsert location_snapshots for menu
       const menuHash = computeMenuDiffHash(locationMenu)
@@ -260,6 +287,7 @@ export async function refreshContentAction(formData: FormData) {
         { onConflict: "location_id,provider,date_key" }
       )
       if (upsertErr) {
+        menuObs.saveError = upsertErr.message
         console.warn("[Content] Menu upsert error:", upsertErr.message)
         warnings.push("Failed to save menu snapshot")
       } else {
@@ -269,9 +297,20 @@ export async function refreshContentAction(formData: FormData) {
       warnings.push("No menu content found across any discovered URLs")
     }
   } catch (err) {
+    menuObs.pipelineError = err instanceof Error ? err.message : String(err)
     console.warn("[Content] Menu scrape pipeline error:", err)
     warnings.push("Could not scrape menu pages")
   }
+
+  // ALT-363: one event per run for the location's own menu (fire-and-forget, never throws).
+  void recordMenuIngestEvent({
+    runSource: "content_refresh_action",
+    target: "location",
+    locationId,
+    dateKey,
+    observation: menuObs,
+    sources: locationMenu?.parseMeta.sources ?? [],
+  })
 
   // =========================================================================
   // STEP 4: Scrape competitor menus (also via Firecrawl JSON extraction)
@@ -295,17 +334,32 @@ export async function refreshContentAction(formData: FormData) {
   const competitorMenus: CompetitorMenuResult[] = []
 
   for (const comp of approvedCompetitors) {
+    // ALT-363: per-competitor observation, recorded after this iteration's try/catch.
+    const compObs = newMenuObservation()
+    const compSources: MenuSource[] = []
+
     const compWebsite = comp.website ?? extractDomain(
       ((comp.metadata as Record<string, unknown>)?.placeDetails as Record<string, unknown>)?.websiteUri as string
     )
-    if (!compWebsite) continue
+    if (!compWebsite) {
+      compObs.hasWebsite = false
+      void recordMenuIngestEvent({
+        runSource: "content_refresh_action",
+        target: "competitor",
+        locationId,
+        competitorId: comp.id,
+        dateKey,
+        observation: compObs,
+      })
+      continue
+    }
 
     try {
       const compUrl = ensureUrl(compWebsite)
-      const compSources: MenuSource[] = []
 
       // Discover menu URLs for this competitor (cap at 2)
       let compMenuUrls = await discoverAllMenuUrls(compUrl, 2)
+      compObs.urlsDiscovered = compMenuUrls.length
       if (compMenuUrls.length === 0) {
         compMenuUrls = [compUrl]
       }
@@ -316,6 +370,7 @@ export async function refreshContentAction(formData: FormData) {
       let compScreenshotSourceUrl: string | null = null
 
       for (const compTargetUrl of compMenuUrls) {
+        compObs.scrapeAttempts++
         try {
           const compMenuResult = await scrapeMenuPage(compTargetUrl)
           if (compMenuResult) {
@@ -327,9 +382,13 @@ export async function refreshContentAction(formData: FormData) {
             const parsed = normalizeExtractedMenu(compMenuResult.menu)
             if (parsed.categories.length > 0) {
               compParsedResults.push(parsed)
+              compObs.scrapesWithItems++
             }
+          } else {
+            compObs.scrapeErrors++
           }
         } catch {
+          compObs.scrapeErrors++
           // Continue to next URL
         }
       }
@@ -348,8 +407,13 @@ export async function refreshContentAction(formData: FormData) {
         if (googleCompMenu && googleCompMenu.categories.length > 0) {
           compParsedResults.push(normalizeGoogleMenuData(googleCompMenu))
           compSources.push("gemini_google_search")
+          compObs.enrichment = "items"
+        } else {
+          // fetchGoogleMenuData returns null on any error and zero categories on a clean miss.
+          compObs.enrichment = googleCompMenu ? "empty" : "error"
         }
       } catch {
+        compObs.enrichment = "error"
         // Non-fatal
       }
 
@@ -366,12 +430,13 @@ export async function refreshContentAction(formData: FormData) {
           merged.currency
         )
         compMenu.parseMeta.sources = compSources
+        compObs.mergedItems = compMenu.parseMeta.itemsTotal
 
         const compSiteContent: SiteContentSnapshot | null = normalizeSiteContentFromExtraction(compUrl, null, null)
 
         // Store in snapshots table (competitor-scoped)
         const menuHash = computeMenuDiffHash(compMenu)
-        await supabase.from("snapshots").upsert(
+        const { error: compSaveError } = await supabase.from("snapshots").upsert(
           {
             competitor_id: comp.id,
             date_key: dateKey,
@@ -383,6 +448,8 @@ export async function refreshContentAction(formData: FormData) {
           },
           { onConflict: "competitor_id,date_key,snapshot_type" }
         )
+        // Upsert errors were (and remain) non-fatal here; the observation just notes them.
+        if (compSaveError) compObs.saveError = compSaveError.message
 
         competitorMenus.push({
           competitorId: comp.id,
@@ -392,9 +459,21 @@ export async function refreshContentAction(formData: FormData) {
         })
         console.log(`[Content] Competitor ${comp.name}: ${compMenu.parseMeta.itemsTotal} items from ${compSources.join(" + ")}`)
       }
-    } catch {
+    } catch (err) {
+      compObs.pipelineError = err instanceof Error ? err.message : String(err)
       warnings.push(`Could not scrape menu for ${comp.name ?? "competitor"}`)
     }
+
+    // ALT-363: one event per competitor per run (fire-and-forget, never throws).
+    void recordMenuIngestEvent({
+      runSource: "content_refresh_action",
+      target: "competitor",
+      locationId,
+      competitorId: comp.id,
+      dateKey,
+      observation: compObs,
+      sources: compSources,
+    })
   }
 
   // =========================================================================
