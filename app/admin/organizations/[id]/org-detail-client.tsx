@@ -19,6 +19,7 @@ import {
   restoreOrg,
   mergeOrganizations,
   setLocationDailyRunsEnabled,
+  convertDemoToCustomer,
 } from "@/app/actions/org-management"
 import { impersonateUser } from "@/app/actions/user-management"
 import { switchOrganizationAction } from "@/app/(dashboard)/actions"
@@ -85,6 +86,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
   const [showTransfer, setShowTransfer] = useState(false)
   const [showDeleteOrg, setShowDeleteOrg] = useState(false)
   const [showMerge, setShowMerge] = useState(false)
+  const [showConvertDemo, setShowConvertDemo] = useState(false)
   const router = useRouter()
 
   const isSuspended = org.tier === "suspended"
@@ -364,6 +366,15 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
               <TkButton variant="keep" onClick={() => setShowTransfer(!showTransfer)}>
                 Transfer owner
               </TkButton>
+              {(org.orgKind === "demo" || org.orgKind === "test") && !org.deletedAt && (
+                <TkButton
+                  variant="keep"
+                  onClick={() => setShowConvertDemo(!showConvertDemo)}
+                  style={{ color: "var(--gold-deep)", borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)" }}
+                >
+                  Convert to customer
+                </TkButton>
+              )}
               {org.mergeCandidates.length > 0 && (
                 <TkButton
                   variant="keep"
@@ -405,6 +416,19 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                   members={org.members}
                   onClose={() => setShowTransfer(false)}
                   onFeedback={setFeedback}
+                />
+              )}
+              {showConvertDemo && (
+                <ConvertDemoPanel
+                  orgId={org.id}
+                  orgName={org.name}
+                  members={org.members}
+                  onClose={() => setShowConvertDemo(false)}
+                  onFeedback={setFeedback}
+                  onConverted={() => {
+                    setShowConvertDemo(false)
+                    router.refresh()
+                  }}
                 />
               )}
               {showMerge && (
@@ -1142,6 +1166,104 @@ function TransferOwnerPanel({
         <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
           Cancel
         </TkButton>
+      </form>
+    </div>
+  )
+}
+
+// Packaged demo handover (beta rescue phase 3.5): the three-step dance (transfer ownership
+// with data -> reclassify to Customer -> start a real trial) as one action. The real
+// operator must already be a member of this org, because ownership can only be handed to
+// someone in the roster; invite them from the org's Team settings first, or transfer to
+// them and let the invite email land. Super_admin only, guarded server-side (a lower role
+// gets a clean error rather than a hidden control, matching the merge/purge panels).
+function ConvertDemoPanel({
+  orgId,
+  orgName,
+  members,
+  onClose,
+  onFeedback,
+  onConverted,
+}: {
+  orgId: string
+  orgName: string
+  members: Array<{ userId: string; email: string; role: string }>
+  onClose: () => void
+  onFeedback: (msg: string) => void
+  onConverted: () => void
+}) {
+  const currentOwner = members.find((m) => m.role === "owner")
+  const candidates = members.filter((m) => m.userId !== currentOwner?.userId)
+  const [toUserId, setToUserId] = useState(candidates[0]?.userId ?? "")
+  const [reason, setReason] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  const ready = Boolean(toUserId) && reason.trim().length > 0
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!ready) return
+    startTransition(async () => {
+      const result = await convertDemoToCustomer(orgId, toUserId, reason)
+      if (result.ok) {
+        onFeedback(result.message)
+        onConverted()
+        return
+      }
+      // Partial runs report how far the chain got so the rest can be finished by hand.
+      const done = "steps" in result && result.steps.length > 0 ? ` Completed: ${result.steps.join(" ")}` : ""
+      onFeedback(`${result.error}${done}`)
+    })
+  }
+
+  if (candidates.length === 0) {
+    return (
+      <div className="ao-panel">
+        <p className="ao-hint">
+          No other member to hand this org to. Invite the operator from this org&rsquo;s Team
+          settings first, then come back.{" "}
+          <button onClick={onClose} className="ao-link" style={{ background: "none" }}>
+            Close
+          </button>
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="ao-panel" style={{ borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)" }}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="ao-hint" style={{ color: "var(--gold-deep)", fontWeight: 600 }}>
+          Hands {orgName} and all its data to the chosen member as owner, reclassifies it as a
+          Customer org (billable, out of the clear-test blast radius), and starts a fresh
+          14-day trial. Not atomic: if a step fails, the ones before it stay applied and the
+          message says how far it got.
+        </p>
+        <div className="ao-field">
+          <label>New owner</label>
+          <select value={toUserId} onChange={(e) => setToUserId(e.target.value)} className="ao-select">
+            {candidates.map((m) => (
+              <option key={m.userId} value={m.userId}>
+                {m.email}
+              </option>
+            ))}
+          </select>
+        </div>
+        <input
+          type="text"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Reason (required, recorded in the audit log)"
+          className="ao-input"
+        />
+        <div className="ao-panel-row">
+          <TkButton type="submit" variant="act" disabled={!ready || isPending}>
+            {isPending ? "Converting…" : "Convert to customer"}
+          </TkButton>
+          <TkButton variant="ghost" onClick={onClose} style={{ minHeight: 0, padding: "10px 12px", fontSize: 12 }}>
+            Cancel
+          </TkButton>
+        </div>
       </form>
     </div>
   )

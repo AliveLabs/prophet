@@ -808,6 +808,123 @@ export const setOrgKind = withAdminAction(
   }
 )
 
+export type ConvertDemoResult =
+  | { ok: true; message: string; steps: string[] }
+  | { ok: false; error: string; steps: string[] }
+
+// "Convert demo to customer": the packaged handover (beta rescue phase 3.5). Pairs with
+// the signup-collision flow: when a real operator turns up wanting a location we run as a
+// demo, app/onboarding/actions.ts captures their contact and alerts us; this is what we
+// run afterwards, once we've validated they are who they say they are.
+//
+// It CHAINS the three existing actions rather than reimplementing any of them, in the only
+// order that works:
+//   1. transferOrgOwnership: hand the org (with all its data) to the real operator. Runs
+//      FIRST because it refuses a soft-deleted org and is the step most likely to fail on
+//      bad input; failing here leaves the org exactly as it was, still a demo.
+//   2. setOrgKind('real'): reclassify, which is what makes it billable and pulls it out
+//      of the clear-test blast radius. After the transfer so a half-done run never leaves
+//      a billable org still owned by an admin.
+//   3. resetOrgTrial: swap the demo's 1-year clock for a real 14-day mid-tier trial.
+//      Last because it is the only fully reversible step.
+//
+// NOT atomic, and deliberately not pretending to be: each sub-action has its own audit
+// entry, and `steps` reports exactly how far the chain got so an admin can finish the rest
+// by hand. Stops at the first failure rather than pressing on into a stranger state.
+//
+// Billing beyond the trial stays manual: convertOrgToPaid generates a checkout link to
+// send them (no admin-initiated charge), which is a separate decision from this handover.
+export const convertDemoToCustomer = withAdminAction(
+  "org.manage",
+  async (ctx, orgId: string, newOwnerUserId: string, reason: string = ""): Promise<ConvertDemoResult> => {
+    requireSuperAdmin(ctx, "Converting a demo organization to a customer requires a super admin.")
+    const supabase = createAdminSupabaseClient()
+    const steps: string[] = []
+
+    const { data: org } = await supabase
+      .from("organizations")
+      .select("id, name, org_kind, deleted_at")
+      .eq("id", orgId)
+      .maybeSingle()
+    if (!org) return { ok: false, error: "Organization not found.", steps }
+    if (org.deleted_at) {
+      return { ok: false, error: "This organization is deleted. Restore it first.", steps }
+    }
+    if (org.org_kind === "real") {
+      return { ok: false, error: `${org.name} is already a Customer org.`, steps }
+    }
+
+    const currentOwner = await supabase
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", orgId)
+      .eq("role", "owner")
+      .maybeSingle()
+    const fromUserId = currentOwner.data?.user_id ?? ctx.adminId
+    if (fromUserId === newOwnerUserId) {
+      return { ok: false, error: "That user already owns this organization.", steps }
+    }
+
+    // "no log ⇒ no action": one intent row for the packaged action, on top of the audit
+    // entries each sub-action writes for itself.
+    const intent = await logCriticalAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.convert_demo_to_customer",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      before: { orgName: org.name, orgKind: org.org_kind, previousOwnerUserId: fromUserId },
+      details: { phase: "intent", newOwnerUserId },
+    })
+    if (!intent.ok) return { ...intent, steps }
+
+    const transfer = await transferOrgOwnership(orgId, fromUserId, newOwnerUserId)
+    if (!transfer.ok) {
+      return { ok: false, error: `Ownership transfer failed: ${transfer.error}`, steps }
+    }
+    steps.push(transfer.message)
+
+    const reclassify = await setOrgKind(orgId, "real")
+    if (!reclassify.ok) {
+      return {
+        ok: false,
+        error: `Ownership moved, but reclassifying to Customer failed: ${reclassify.error}`,
+        steps,
+      }
+    }
+    steps.push(reclassify.message)
+
+    const trial = await resetOrgTrial(orgId)
+    if (!trial.ok) {
+      return {
+        ok: false,
+        error: `Ownership moved and reclassified, but starting the trial failed: ${trial.error}`,
+        steps,
+      }
+    }
+    steps.push(trial.message)
+
+    await logAdminAction({
+      adminId: ctx.adminId,
+      adminEmail: ctx.adminEmail,
+      action: "org.convert_demo_to_customer",
+      targetType: "org",
+      targetId: orgId,
+      reason,
+      details: { phase: "result", orgName: org.name, fromUserId, newOwnerUserId, steps },
+    })
+
+    revalidatePath("/admin/organizations")
+    revalidatePath(`/admin/organizations/${orgId}`)
+    return {
+      ok: true,
+      steps,
+      message: `${org.name} is now a Customer org owned by the new owner, on a fresh ${TRIAL_DURATION_DAYS}-day trial. Send them a checkout link with "Convert to paid" when they're ready.`,
+    }
+  }
+)
+
 // Demo/test orgs are created ONLY from the admin panel: owned by the logged-in
 // admin, tagged demo/test, on a long (1yr) clock-only trial so they don't expire
 // mid-demo. No Stripe customer. They're excluded from real metrics + billing and

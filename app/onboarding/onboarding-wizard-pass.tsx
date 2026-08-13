@@ -18,6 +18,10 @@ import {
   discoverCompetitorsForLocation,
   addCompetitorCandidateAction,
   completeOnboardingAction,
+  requestOrgAccessAction,
+  escalateOrgAccessAction,
+  submitDemoContactAction,
+  type SignupCollisionKind,
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
@@ -449,6 +453,254 @@ function DiscoveryWait() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Collision screens (beta rescue phase 3.5). Shown INSTEAD of the wizard when the
+// picked place already belongs to a live org, so a second org is never created.
+//
+// Copy rules: plain and honest, no promises we can't keep. We never say how many
+// people are on the other account or name its owner: the requester may not be
+// entitled to know who works there.
+// ---------------------------------------------------------------------------
+
+/** Escalate-to-us form. Lives ON the request screen, not behind a timeout, because
+ *  the requester often already knows the owner is gone (fired, left, unreachable). */
+function EscalateForm({
+  placeId,
+  intent,
+  onDone,
+}: {
+  placeId: string
+  intent: "unreachable_owner" | "demo"
+  onDone: () => void
+}) {
+  const [contact, setContact] = useState("")
+  const [message, setMessage] = useState("")
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    if (sending) return
+    setSending(true)
+    setError(null)
+    const result =
+      intent === "demo"
+        ? await submitDemoContactAction({ placeId, contact, message })
+        : await escalateOrgAccessAction({ placeId, contact, message })
+    setSending(false)
+    if (result.ok) {
+      onDone()
+      return
+    }
+    setError(result.error)
+  }
+
+  return (
+    <div className="ob-grid">
+      <div className="full ob-field">
+        <label className="ob-label" htmlFor="ob-contact">
+          Best way to reach you
+        </label>
+        <input
+          id="ob-contact"
+          className="ob-input"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder="Email or phone"
+        />
+      </div>
+      <div className="full ob-field">
+        <label className="ob-label" htmlFor="ob-note">
+          Anything we should know (optional)
+        </label>
+        <input
+          id="ob-note"
+          className="ob-input"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Your role, who set it up before, anything useful"
+        />
+      </div>
+      {error ? (
+        <div className="full ob-alert">
+          <IconAlert />
+          {error}
+        </div>
+      ) : null}
+      <div className="full ob-nav">
+        <button className="ob-btn ob-btn--act" onClick={submit} disabled={sending}>
+          {sending ? "Sending…" : "Send this to the Ticket team"}
+          {!sending ? <IconArrow /> : null}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function CollisionPanel({
+  kind,
+  placeName,
+  placeId,
+  onStartOver,
+}: {
+  kind: SignupCollisionKind
+  placeName: string
+  placeId: string
+  onStartOver: () => void
+}) {
+  const router = useRouter()
+  const [requested, setRequested] = useState(false)
+  const [requesting, setRequesting] = useState(false)
+  const [requestError, setRequestError] = useState<string | null>(null)
+  const [escalateOpen, setEscalateOpen] = useState(false)
+  const [escalated, setEscalated] = useState(false)
+
+  // Already a member: they have access, they just came in the wrong door.
+  if (kind === "already_member") {
+    return (
+      <>
+        <span className="ob-panel-eyebrow">Already set up</span>
+        <h2 className="ob-panel-title">You already have access</h2>
+        <p className="ob-panel-lede">
+          {placeName} is on your account. Head to your dashboard to pick up where you
+          left off.
+        </p>
+        <div className="ob-nav">
+          <button className="ob-btn ob-btn--act" onClick={() => router.push("/home")}>
+            Go to your dashboard
+            <IconArrow />
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // Demo/test org: request-access would dead-end at one of our own admins, so this is a
+  // contact capture. We've already alerted ourselves at detection.
+  if (kind === "demo") {
+    return (
+      <>
+        <span className="ob-panel-eyebrow">Already connected</span>
+        <h2 className="ob-panel-title">We&apos;ll get you set up</h2>
+        {escalated ? (
+          <p className="ob-panel-lede">
+            Got it. Someone from the Ticket team will reach out to get {placeName}{" "}
+            moved over to you.
+          </p>
+        ) : (
+          <>
+            <p className="ob-panel-lede">
+              {placeName} is already connected to Ticket on our side. Leave your details
+              and we will get it moved over to your account.
+            </p>
+            <EscalateForm
+              placeId={placeId}
+              intent="demo"
+              onDone={() => setEscalated(true)}
+            />
+          </>
+        )}
+        <div className="ob-nav">
+          <button className="ob-btn ob-btn--ghost" onClick={onStartOver}>
+            Search for a different place
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // Live customer org: request access from its owner.
+  return (
+    <>
+      <span className="ob-panel-eyebrow">Already on Ticket</span>
+      <h2 className="ob-panel-title">This restaurant is already set up</h2>
+      {escalated ? (
+        <p className="ob-panel-lede">
+          Thanks. We have your details and we will look into who should have access to{" "}
+          {placeName}. We check with the account before changing anything.
+        </p>
+      ) : (
+        <>
+          <p className="ob-panel-lede">
+            {placeName} already has an account on Ticket. To get in, ask the person who
+            owns that account to add you. We can send them the request now.
+          </p>
+
+          {requested ? (
+            <div className="ob-setup-banner">
+              <IconInfo />
+              <span>
+                Request sent. The account owner has been emailed and can add you from
+                their team settings.
+              </span>
+            </div>
+          ) : (
+            <div className="ob-nav">
+              <button
+                className="ob-btn ob-btn--act"
+                disabled={requesting}
+                onClick={async () => {
+                  if (requesting) return
+                  setRequesting(true)
+                  setRequestError(null)
+                  const result = await requestOrgAccessAction({ placeId })
+                  setRequesting(false)
+                  if (result.ok) {
+                    setRequested(true)
+                    return
+                  }
+                  setRequestError(result.error)
+                }}
+              >
+                {requesting ? "Sending…" : "Request access"}
+                {!requesting ? <IconArrow /> : null}
+              </button>
+            </div>
+          )}
+          {requestError ? (
+            <div className="ob-alert">
+              <IconAlert />
+              {requestError}
+            </div>
+          ) : null}
+
+          {/* Escalation is on THIS screen, not a timeout fallback: plenty of requesters
+              already know the owner is gone. */}
+          {escalateOpen ? (
+            <>
+              <p className="ob-panel-lede">
+                Tell us how to reach you. We check with the account before we change
+                anything, so this is not instant.
+              </p>
+              <EscalateForm
+                placeId={placeId}
+                intent="unreachable_owner"
+                onDone={() => setEscalated(true)}
+              />
+            </>
+          ) : (
+            // ob-skipbtn, not a 13px .ob-hint link: --ink-3 only clears AA at 14px+,
+            // and that rule already carries the underline fix for exactly this case.
+            <div className="ob-cardskip">
+              <button
+                type="button"
+                className="ob-skipbtn"
+                onClick={() => setEscalateOpen(true)}
+              >
+                Owner gone or unreachable? Ask the Ticket team for help
+              </button>
+            </div>
+          )}
+        </>
+      )}
+      <div className="ob-nav">
+        <button className="ob-btn ob-btn--ghost" onClick={onStartOver}>
+          Search for a different place
+        </button>
+      </div>
+    </>
+  )
+}
+
 export default function OnboardingWizardPass({
   existingOrgId,
   existingLocationId,
@@ -481,6 +733,12 @@ export default function OnboardingWizardPass({
 
   const [orgId, setOrgId] = useState<string | null>(existingOrgId ?? null)
   const [locationId, setLocationId] = useState<string | null>(existingLocationId ?? null)
+
+  // Collision (beta rescue phase 3.5): the picked place already belongs to a live org, so
+  // no org is created. Non-null takes over the panel entirely: there is nothing useful the
+  // wizard's remaining steps could do, and offering "continue anyway" is exactly the
+  // duplicate this prevents.
+  const [collision, setCollision] = useState<SignupCollisionKind | null>(null)
 
   // step 2 — competitors (top picks auto-selected; selection = ids sent to completion)
   const [competitors, setCompetitors] = useState<OnboardingCandidate[]>(
@@ -567,6 +825,7 @@ export default function OnboardingWizardPass({
     setPlace(null)
     setQuery("")
     setPlaceError(null)
+    setCollision(null)
   }
 
   const discover = useCallback(
@@ -663,6 +922,12 @@ export default function OnboardingWizardPass({
     })
     setCreating(false)
     if (!result.ok) {
+      // A collision means no org was created and none will be: swap the panel for the
+      // already-on-Ticket / we'll-set-you-up screen instead of an inline error.
+      if (result.collision) {
+        setCollision(result.collision)
+        return
+      }
       setCreateError(result.error)
       return
     }
@@ -856,7 +1121,21 @@ export default function OnboardingWizardPass({
               </div>
             ) : null}
 
-            {step === 0 ? (
+            {/* A collision replaces the whole step flow: no org was created and none will
+                be, so every remaining step is a dead end. */}
+            {collision && place ? (
+              <CollisionPanel
+                kind={collision}
+                placeName={bizName.trim() || place.name}
+                placeId={place.primary_place_id}
+                onStartOver={() => {
+                  clearPlace()
+                  setStep(0)
+                }}
+              />
+            ) : null}
+
+            {!collision && step === 0 ? (
               <>
                 <span className="ob-panel-eyebrow">Find your restaurant</span>
                 <h2 className="ob-panel-title">Search for your place</h2>
@@ -921,7 +1200,7 @@ export default function OnboardingWizardPass({
               </>
             ) : null}
 
-            {step === 1 ? (
+            {!collision && step === 1 ? (
               <>
                 <span className="ob-panel-eyebrow">Confirm details</span>
                 <h2 className="ob-panel-title">
@@ -989,7 +1268,7 @@ export default function OnboardingWizardPass({
               </>
             ) : null}
 
-            {step === 2 ? (
+            {!collision && step === 2 ? (
               <>
                 <span className="ob-panel-eyebrow">Competitors</span>
                 <h2 className="ob-panel-title">Here&apos;s who we&apos;d watch</h2>
@@ -1153,7 +1432,7 @@ export default function OnboardingWizardPass({
               </>
             ) : null}
 
-            {step === 3 ? (
+            {!collision && step === 3 ? (
               <>
                 <span className="ob-panel-eyebrow">Optional · pick any that apply</span>
                 <h2 className="ob-panel-title">Anything you&apos;re focused on?</h2>
