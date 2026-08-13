@@ -33,6 +33,7 @@ import { shouldClaimCurrentOrg } from "@/lib/onboarding/claim-current-org"
 import type { Json } from "@/types/database.types"
 import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
+import { mirrorLifecycleToMarketing } from "@/lib/marketing/trial-lifecycle"
 
 function slugify(input: string) {
   return input
@@ -1207,6 +1208,24 @@ export async function completeOnboardingAction(input: {
       clientFacing: true,
       overrideClientEmailPause: false,
     }).catch((err) => console.error("Welcome email failed:", err))
+
+    // ALT-591: make the contact visible to Chris's n8n flows the moment
+    // onboarding completes (self-serve signups never hit the waitlist mirror).
+    // 'access_granted' here also means the later trial transition -- card-backed
+    // OR card-less -- lands as a status UPDATE, which his trigger stamps.
+    // upsertMarketingContact never downgrades an existing trial/paid/churned
+    // row, so a wizard re-submit after trial start is harmless. Awaited (not
+    // fire-and-forget) so the write isn't cut off when the action returns;
+    // it never throws, and it no-ops unless MARKETING_CONTACTS_ENABLED=true.
+    const fullName: string | null = user.user_metadata?.full_name ?? null
+    const [firstName, ...restName] = (fullName ?? "").trim().split(/\s+/)
+    await mirrorLifecycleToMarketing({
+      organizationId: input.orgId,
+      status: "access_granted",
+      fallbackEmail: userEmail,
+      firstName: firstName || null,
+      lastName: restName.length ? restName.join(" ") : null,
+    })
   }
 
   return { ok: true }
@@ -1288,6 +1307,18 @@ export async function startTrialWithoutCardAction() {
   if (error) {
     redirect(`/onboarding/trial?error=${encodeURIComponent(error.message)}`)
   }
+
+  // ALT-591: the card-less trial start is the one lifecycle transition Stripe
+  // never sees, so the webhook mirror can't write it -- without this line the
+  // org's contact never reaches status 'trial' and Chris's n8n drip skips them
+  // entirely. Awaited BEFORE the redirect (redirect() throws, which would cut
+  // off a fire-and-forget promise); never throws; no-ops unless
+  // MARKETING_CONTACTS_ENABLED=true.
+  await mirrorLifecycleToMarketing({
+    organizationId: orgId,
+    status: "trial",
+    fallbackEmail: user.email ?? null,
+  })
 
   redirect("/home")
 }

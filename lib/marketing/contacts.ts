@@ -14,6 +14,17 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 //   status marketing.contact_status, stripe_customer_id, posthog_distinct_id.
 // Do NOT add columns here that don't exist in Chris's schema -- PostgREST
 // will reject the write and the mirror silently drops the row.
+//
+// TRIGGER CAVEAT (v1.3 schema): trg_contacts_log_status_change is BEFORE
+// UPDATE OF status -- it stamps trial_start_date / paid_date / churn_date and
+// logs the marketing.events row ONLY on an UPDATE that changes status. A row
+// INSERTed directly at 'trial' (or 'paid'/'churned') gets no stamp and no
+// lifecycle event, which starves Chris's n8n Workflow C/D. We do not patch his
+// schema from the product side; instead, when we must INSERT a brand-new row
+// at one of those statuses, we insert it at 'access_granted' first and then
+// UPDATE status to the target so the trigger fires. His C6 poller backstops
+// trial_start_date regardless, but the two-step also produces the
+// status-change event the webhook-driven workflows subscribe to.
 
 export type MarketingIndustryType = "restaurant" | "liquor_store"
 
@@ -67,7 +78,7 @@ type MarketingSchemaClient = {
     select: (cols: string) => {
       eq: (col: string, val: string) => {
         maybeSingle: () => Promise<{
-          data: { id: string } | null
+          data: { id: string; status?: string | null } | null
           error: unknown
         }>
       }
@@ -78,6 +89,25 @@ type MarketingSchemaClient = {
     }
   }
 }
+
+// Statuses whose date stamps + lifecycle event come from Chris's BEFORE UPDATE
+// OF status trigger. Inserting a new row directly at one of these skips the
+// trigger, so the insert path below routes through 'access_granted' first.
+const TRIGGER_STAMPED_STATUSES: ReadonlySet<MarketingStatus> = new Set([
+  "trial",
+  "paid",
+  "churned",
+])
+
+// Lifecycle statuses that must never be overwritten by a pre-lifecycle one.
+// Example: completeOnboardingAction mirrors 'access_granted' and can re-run on
+// a wizard resubmit after the trial already started -- dropping the status
+// from that update keeps the contact at 'trial' instead of regressing it
+// (which would also re-fire Chris's status-change trigger with a bogus event).
+const PRE_LIFECYCLE_STATUSES: ReadonlySet<MarketingStatus> = new Set([
+  "waitlist",
+  "access_granted",
+])
 
 function getMarketingSchema(): MarketingSchemaClient {
   const supabase = createAdminSupabaseClient()
@@ -125,7 +155,7 @@ export async function upsertMarketingContact(
     // NOT NULL constraints (industry_type), otherwise skip.
     const { data: existing, error: readError } = await marketingSchema
       .from("contacts")
-      .select("id")
+      .select("id, status")
       .eq("email", normalizedEmail)
       .maybeSingle()
 
@@ -135,9 +165,23 @@ export async function upsertMarketingContact(
     }
 
     if (existing) {
+      // Never regress a lifecycle status (trial/paid/churned) back to a
+      // pre-lifecycle one; keep the rest of the update (names, ids, source).
+      const updatePayload = { ...payload }
+      if (
+        input.status !== undefined &&
+        PRE_LIFECYCLE_STATUSES.has(input.status) &&
+        typeof existing.status === "string" &&
+        TRIGGER_STAMPED_STATUSES.has(existing.status as MarketingStatus)
+      ) {
+        delete updatePayload.status
+      }
+      if (Object.keys(updatePayload).length === 0) {
+        return { ok: true, skipped: true }
+      }
       const { error: updateError } = await marketingSchema
         .from("contacts")
-        .update(payload)
+        .update(updatePayload)
         .eq("id", existing.id)
       if (updateError) {
         console.error("marketing.contacts update failed:", updateError)
@@ -154,12 +198,35 @@ export async function upsertMarketingContact(
       }
     }
 
-    const { error: insertError } = await marketingSchema
-      .from("contacts")
-      .insert({ ...payload, email: normalizedEmail })
+    // Trigger safety (see header): a brand-new row at 'trial'/'paid'/'churned'
+    // is inserted at 'access_granted' first, then UPDATEd to the target status
+    // so trg_contacts_log_status_change stamps the date columns and logs the
+    // lifecycle event. If the second step fails, the row still exists at
+    // 'access_granted' and the caller's next upsert takes the existing-row
+    // path, which is inherently trigger-safe.
+    const targetStatus = input.status
+    const needsTwoStep =
+      targetStatus !== undefined && TRIGGER_STAMPED_STATUSES.has(targetStatus)
+
+    const { error: insertError } = await marketingSchema.from("contacts").insert({
+      ...payload,
+      ...(needsTwoStep ? { status: "access_granted" } : {}),
+      email: normalizedEmail,
+    })
     if (insertError) {
       console.error("marketing.contacts insert failed:", insertError)
       return { ok: false, error: insertError }
+    }
+
+    if (needsTwoStep) {
+      const { error: statusError } = await marketingSchema
+        .from("contacts")
+        .update({ status: targetStatus })
+        .eq("email", normalizedEmail)
+      if (statusError) {
+        console.error("marketing.contacts status step failed:", statusError)
+        return { ok: false, error: statusError }
+      }
     }
     return { ok: true }
   } catch (error) {

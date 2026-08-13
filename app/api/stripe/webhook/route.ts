@@ -20,6 +20,7 @@ import {
   type MarketingIndustryType,
   type MarketingStatus,
 } from "@/lib/marketing/contacts"
+import { marketingSourceForIndustry } from "@/lib/marketing/trial-lifecycle"
 
 // Stripe webhook dispatcher. Every event is:
 //   1. Verified against STRIPE_WEBHOOK_SECRET
@@ -412,6 +413,7 @@ async function mirrorSubscriptionToMarketing(args: {
       email: billingEmail,
       industryType,
       status,
+      source: marketingSourceForIndustry(org.industry_type),
       stripeCustomerId: args.customerId,
     })
   } catch (error) {
