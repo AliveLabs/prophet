@@ -19,14 +19,13 @@
 //   · No numerals reach a score. `relevanceScore` ranks; it never renders.
 
 import type { UnifiedInsight, InsightTag } from "@/components/insights/unified-insight-card"
-import type { FeedInsight } from "./insights-feed-kit"
 import {
   insightChipLabel,
   insightConfLevel,
   insightImpactLevel,
   insightWhyPoints,
   insightRecs,
-  insightCategory,
+  type FeedInsight,
 } from "./insights-map"
 
 /**
@@ -70,52 +69,4 @@ export function insightRowToUnifiedInsight(row: FeedInsight): UnifiedInsight {
     // The `insights` surface has no per-row detail page, so no link is promised.
     detailHref: undefined,
   }
-}
-
-// ---------------------------------------------------------------------------
-// The deterministic priority pick — replaces the model-generated Priority Briefing.
-//
-// Same shape /home uses: a fixed-size, diversity-guarded pick over scores that already
-// exist, composed with zero model calls. One insight per source category first (each
-// category's best by relevanceScore), then fill by score, final order by score.
-// ---------------------------------------------------------------------------
-
-export const PRIORITY_COUNT = 5
-
-const CLEARED_STATUSES = new Set(["dismissed", "snoozed", "inaccurate"])
-
-export function pickPriorityInsights(rows: FeedInsight[], max: number = PRIORITY_COUNT): FeedInsight[] {
-  // ALT-230 hero-equivalent guard: user-generated viz insights never reach a priority
-  // surface (same rule as the home hero/dossier). Suppressed types (down-weighted by the
-  // operator's own feedback) and cleared rows don't belong at the top either.
-  const eligible = rows.filter(
-    (r) => !r.insightType.startsWith("user_viz") && !r.suppressed && !CLEARED_STATUSES.has(r.status),
-  )
-  if (eligible.length === 0) return []
-
-  const byScore = [...eligible].sort((a, b) => b.relevanceScore - a.relevanceScore)
-
-  // Round one: each source category's single best, so the pick can never be five rows of
-  // the same stream.
-  const picked: FeedInsight[] = []
-  const pickedIds = new Set<string>()
-  const seenCategories = new Set<string>()
-  for (const row of byScore) {
-    if (picked.length >= max) break
-    const cat = insightCategory(row)
-    if (seenCategories.has(cat)) continue
-    seenCategories.add(cat)
-    picked.push(row)
-    pickedIds.add(row.id)
-  }
-
-  // Round two: fill the remainder by plain score.
-  for (const row of byScore) {
-    if (picked.length >= max) break
-    if (pickedIds.has(row.id)) continue
-    picked.push(row)
-    pickedIds.add(row.id)
-  }
-
-  return picked.sort((a, b) => b.relevanceScore - a.relevanceScore)
 }
