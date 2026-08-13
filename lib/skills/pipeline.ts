@@ -2,6 +2,10 @@
 // runBrief — the real engine entry point.
 // producers (parallel) -> brand-fit harm review (graduated) -> synthesis -> voice.
 // One call the routes/workflow/tests use. Transport is injectable (mock in tests).
+//
+// Differential builds Phase 2: when EVERY producer was reused AND the downstream-input
+// fingerprint matches the previous brief's, the whole downstream stage (harm review,
+// synthesis, write) is carried forward instead of regenerated — see the reuse branch below.
 // ---------------------------------------------------------------------------
 
 import type { Transport } from "@/lib/ai/provider"
@@ -10,17 +14,23 @@ import { deltaTokensByModel, estimateAnthropicCostUsd, type ModelTokenTotals } f
 import { PER_BRIEF_CEILING_USD, currentSpendBudget, runWithSpendBudget } from "@/lib/ai/spend-budget"
 import { logEvalRecord, recordBriefEval } from "@/lib/eval/record"
 import { briefGroundTruth } from "@/lib/eval/ground-truth"
-import type { Dossier } from "@/lib/insights/dossier/types"
+import { buildRefIndex, type Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation, SkillHealth } from "@/lib/skills/types"
 import type { ProducerSkill, SkillResult } from "@/lib/skills/skill-types"
-import type { PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
-import type { PreviousBuild } from "@/lib/skills/differential"
+import { NEUTRAL_LOOKUP, type PlayTypeMultiplierLookup } from "@/lib/skills/feedback-rollup"
+import {
+  decideDownstreamReuse,
+  downstreamFingerprint,
+  type DownstreamFingerprintInputs,
+  type PreviousBuild,
+} from "@/lib/skills/differential"
+import { computePlayTypeKey, playKey } from "@/lib/skills/preferences"
 // (suppressedKeys / evergreen / playTypeMultipliers are loaded by the build caller from
 //  lib/insights/evergreen.ts and lib/skills/feedback-rollup.ts)
 import { runProducerSkills } from "@/lib/skills/run"
 import { PRODUCER_SKILLS } from "@/lib/skills/registry"
 import { reviewPlays, applyHarmReview } from "@/lib/skills/safety-review"
-import { synthesize } from "@/lib/skills/synthesis"
+import { synthesize, buildCoverage, LEAD_DOMAIN_BY_SKILL } from "@/lib/skills/synthesis"
 import { synthesisWrite } from "@/lib/skills/synthesis-write"
 import { presentBrief } from "@/lib/skills/presenter"
 import { voicePass } from "@/lib/skills/voice"
@@ -99,6 +109,65 @@ async function runBriefBudgeted(
     )
   }
 
+  // Differential builds Phase 2: fingerprint the downstream inputs on EVERY build (stamped on the
+  // brief so tomorrow can compare), then decide whether the whole downstream stage can carry
+  // forward. Fail-soft, mirroring the per-skill hash: a fingerprint error must never break a build
+  // (fingerprint stays undefined → no stamp, no reuse today or tomorrow → full downstream).
+  let downstreamFp: string | undefined
+  try {
+    downstreamFp = downstreamFingerprint(collectDownstreamInputs(dossier, skillResults, opts))
+  } catch (err) {
+    console.warn(
+      `[runBrief] ${dossier.profile.locationId}: downstream fingerprint failed (downstream reuse disabled for this build):`,
+      err,
+    )
+  }
+  const downstreamDecision = decideDownstreamReuse({ skillResults, previous: opts.previous, todayFingerprint: downstreamFp })
+
+  if (downstreamDecision.reuse && opts.previous?.downstream) {
+    // Every producer carried yesterday's plays forward AND every downstream input (suppressions,
+    // evergreen, multipliers, tolerance, priors, profile) is byte-identical, so yesterday's
+    // downstream OUTPUT is still a valid answer — carry it forward instead of paying for the harm
+    // review + Opus synthesis + write again. VISIBLE, not silent: providerStats.downstreamReused
+    // marks the brief, and the log line below mirrors the producer-reuse line. Fresh per-day bits
+    // are still recomputed deterministically: asOf/coverage from today's dossier, the voice scrub
+    // (compliance floor tracks today's rules), and — in the shared tail — evalCheck + judge ground
+    // truth, none of which cost a model call. The presenter is NOT re-run: the carried plays are
+    // already post-presenter, and re-presenting against today's (volatile) dossier could rewrite
+    // evidence that yesterday's build already grounded.
+    const ds = opts.previous.downstream
+    console.log(
+      `[runBrief] ${dossier.profile.locationId}: downstream reused — all ${skillResults.length} producers unchanged and downstream inputs identical; skipped harm review + synthesis + write (differential Phase 2)`,
+    )
+    const carried: Brief = {
+      locationId: dossier.locationId,
+      dateKey: dossier.dateKey,
+      headline: ds.headline,
+      deck: ds.deck,
+      plays: ds.plays,
+      asOf: dossier.generatedAt,
+      coverage: dossier.coverage ?? buildCoverage(dossier),
+    }
+    const providerStats: Brief["providerStats"] = {
+      ...collectProviderStats(providerAtStart, dossier.profile.locationId),
+      downstreamReused: true,
+    }
+    const voiced: Brief = {
+      ...(await voicePass(carried)),
+      skillHealth,
+      skillOutputs,
+      providerStats,
+      ...(downstreamFp ? { downstreamFingerprint: downstreamFp } : {}),
+    }
+    // No harm review ran, so nothing was dropped TODAY — yesterday's drops already shaped ds.plays.
+    return { brief: finalizeBrief(voiced, dossier), skillResults, dropped: [] }
+  }
+  if (skillResults.length > 0 && reusedCount === skillResults.length && !downstreamDecision.reuse) {
+    // All producers reused but downstream still runs — say why, so a "should have been free" day
+    // is explainable from the logs instead of looking like a silent miss.
+    console.log(`[runBrief] ${dossier.profile.locationId}: downstream NOT reused — ${downstreamDecision.reason}`)
+  }
+
   // graduated brand-fit review, gated by the customer's tolerance slider (default 50)
   const verdicts = await reviewPlays(dossier, candidates, t)
   const { kept, dropped } = applyHarmReview(candidates, verdicts, dossier.profile.brandTolerance ?? 50)
@@ -122,9 +191,33 @@ async function runBriefBudgeted(
     ...synthesized,
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
+  const providerStats = collectProviderStats(providerAtStart, dossier.profile.locationId)
+
+  const presented = presentBrief(written, dossier)
+  const voiced: Brief = {
+    ...(await voicePass(presented)),
+    skillHealth,
+    skillOutputs,
+    providerStats,
+    // Phase 2: stamp the downstream-input fingerprint so TOMORROW's build can compare against it.
+    // Absent (fingerprint failed) means this brief can never seed a downstream reuse.
+    ...(downstreamFp ? { downstreamFingerprint: downstreamFp } : {}),
+  }
+
+  return { brief: finalizeBrief(voiced, dossier), skillResults, dropped }
+}
+
+/** Anthropic call/token/spend telemetry for THIS build — the per-model delta between the start
+ *  snapshot and now. Same cross-build-approximate caveat as `requests` on a shared Fluid instance;
+ *  fine for a trend. Shared by the generated path and the Phase 2 downstream-reuse path (where the
+ *  delta is normally zero — recording that zero is exactly what makes a reused day visible in
+ *  spend analysis). */
+function collectProviderStats(
+  providerAtStart: { requests: number; rateLimited: number; tokensByModel: Record<string, ModelTokenTotals> },
+  locationId: string,
+): NonNullable<Brief["providerStats"]> {
   const providerAtEnd = anthropicCallStats()
   // Token telemetry (2026-07-16): per-model delta between the two snapshots — THIS build's tokens.
-  // Same cross-build-approximate caveat as `requests` on a shared Fluid instance; fine for a trend.
   const tokensByModel = deltaTokensByModel(providerAtStart.tokensByModel, providerAtEnd.tokensByModel)
   const tokenTotals = Object.values(tokensByModel).reduce(
     (acc, t) => ({
@@ -142,21 +235,24 @@ async function runBriefBudgeted(
   const budget = currentSpendBudget()
   if (budget && budget.degradedCalls > 0) {
     console.warn(
-      `[runBrief] ${dossier.profile.locationId}: spend ceiling degraded ${budget.degradedCalls} call(s) ` +
+      `[runBrief] ${locationId}: spend ceiling degraded ${budget.degradedCalls} call(s) ` +
         `(peak≈$${budget.peakSpendUsd.toFixed(4)} vs ceiling $${budget.ceilingUsd.toFixed(4)}, final≈$${estimatedUsd.toFixed(4)})`,
     )
   }
-  const providerStats: Brief["providerStats"] = {
+  return {
     requests: providerAtEnd.requests - providerAtStart.requests,
     rateLimited: providerAtEnd.rateLimited - providerAtStart.rateLimited,
     ...(Object.keys(tokensByModel).length > 0 ? { ...tokenTotals, tokensByModel } : {}),
     ...(estimatedUsd > 0 ? { estimatedUsd } : {}),
     ...(budget ? { spendCeilingUsd: budget.ceilingUsd, spendDegradedCalls: budget.degradedCalls } : {}),
   }
+}
 
-  const presented = presentBrief(written, dossier)
-  const voiced: Brief = { ...(await voicePass(presented)), skillHealth, skillOutputs, providerStats }
-
+/** The shared build tail: eval recorder + judge ground truth. Runs on BOTH the generated path and
+ *  the Phase 2 downstream-reuse path — the deterministic checks cost no model call, and re-running
+ *  them on a reused day (rather than carrying yesterday's evalCheck forward) means the recorded
+ *  verdict always reflects TODAY's rules and TODAY's dossier. Absence still means "not evaluated". */
+function finalizeBrief(voiced: Brief, dossier: Dossier): Brief {
   // Eval recorder (step 3): run the deterministic anti-fabrication checks over the FINAL brief —
   // what the operator actually reads, after presenter + voice. Observation only: never throws, never
   // mutates plays, costs no model call. Absence of the field means "not evaluated", not "clean".
@@ -165,11 +261,60 @@ async function runBriefBudgeted(
   // Ground truth for the nightly judge, captured HERE because the dossier is not persisted and
   // rebuilding it later would hit paid vendors. Fail-soft: a capture failure just omits the field.
   const gt = briefGroundTruth(dossier)
-  const brief: Brief = {
+  return {
     ...voiced,
     ...(evalCheck ? { evalCheck } : {}),
     ...(gt ? { judgeGroundTruth: gt.summary, ...(gt.truncated ? { judgeGroundTruthTruncated: true } : {}) } : {}),
   }
+}
 
-  return { brief, skillResults, dropped }
+/**
+ * Assemble the Phase 2 downstream-input fingerprint payload from the live build (differential.ts
+ * keeps the pure hash + decision; the dossier/options glue lives here, next to the objects).
+ * Captures everything the harm review + synthesis + write depend on BEYOND the producer outputs:
+ * per-skill input hashes, the P7a suppression set, the P7b evergreen pool (content + whether each
+ * play's refs resolve against today's dossier), the P15 multiplier values probed over every
+ * candidate play's play_type_key at every severity band (the harm review stamps severity later, so
+ * a rollup change confined to a bold/wild band must still break the match), the tolerance slider,
+ * category priors, maxPlays, and the profile framing the prompts embed. Shadow multipliers are
+ * deliberately EXCLUDED — they never affect the served brief. Exported for unit tests.
+ */
+export function collectDownstreamInputs(
+  dossier: Dossier,
+  skillResults: Pick<SkillResult, "skillId" | "inputHash" | "plays">[],
+  opts: Pick<RunBriefOptions, "suppressedKeys" | "evergreen" | "playTypeMultipliers" | "maxPlays">,
+): DownstreamFingerprintInputs {
+  const lookup = opts.playTypeMultipliers ?? NEUTRAL_LOOKUP
+  const keyOf = (p: EnrichedRecommendation) =>
+    computePlayTypeKey(p, { leadDomainOverride: LEAD_DOMAIN_BY_SKILL[p.skillId] })
+  const playTypeMultipliers: Record<string, number> = {}
+  const probeMultipliers = (p: EnrichedRecommendation) => {
+    for (const severity of [0, 2, 3]) {
+      // 0/2/3 cover the three severity bands (tame/bold/wild); undefined severity keys as tame too.
+      const k = keyOf({ ...p, severity })
+      playTypeMultipliers[k] = lookup.multiplierFor(k)
+    }
+  }
+  for (const r of skillResults) r.plays.forEach(probeMultipliers)
+
+  const allowedRefs = buildRefIndex(dossier).allowedRefs
+  const evergreen = (opts.evergreen ?? [])
+    .map((p) => ({
+      key: playKey(p),
+      play: p,
+      resolvable: (p.evidenceRefs?.length ?? 0) > 0 && p.evidenceRefs.every((ref) => allowedRefs.has(ref)),
+    }))
+    .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+  ;(opts.evergreen ?? []).forEach(probeMultipliers)
+
+  return {
+    skillHashes: Object.fromEntries(skillResults.map((r) => [r.skillId, r.inputHash ?? null])),
+    suppressedKeys: [...(opts.suppressedKeys ?? [])].sort(),
+    evergreen,
+    playTypeMultipliers,
+    brandTolerance: dossier.profile.brandTolerance ?? 50,
+    categoryPriors: dossier.profile.categoryPriors ?? null,
+    maxPlays: opts.maxPlays ?? null,
+    profile: { name: dossier.profile.name, attributes: dossier.profile.attributes, voiceTone: dossier.profile.voiceTone },
+  }
 }
