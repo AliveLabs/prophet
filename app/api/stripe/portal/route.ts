@@ -8,6 +8,7 @@ import {
   getPortalConfigId,
   requireOrgOwnerOrAdmin,
 } from "@/lib/stripe/helpers"
+import { verifyReusableCustomer } from "@/lib/stripe/customer-reuse"
 import { isValidIndustryType } from "@/lib/verticals"
 
 // POST /api/stripe/portal
@@ -75,8 +76,25 @@ export async function POST(request: Request) {
     const configurationId = getPortalConfigId(org.industry_type)
 
     const stripe = getStripeClient()
+    // ALT-551: the stored id can point at a customer that no longer exists under the
+    // current Stripe key. Creating a Portal session against it throws "No such
+    // customer" and the page rendered that as a button that does nothing. Check first
+    // and say so plainly instead. Unlike checkout we do NOT mint a replacement: an
+    // empty new customer has no card and no invoices, so the Portal would be a
+    // pointless dead end.
+    const customerId = await verifyReusableCustomer(stripe, org.stripe_customer_id)
+    if (!customerId) {
+      return NextResponse.json(
+        {
+          error:
+            "We could not find your billing profile with our payment provider. Pick a plan to set one up, or contact support@alivelabs.co.",
+        },
+        { status: 400 }
+      )
+    }
+
     const session = await stripe.billingPortal.sessions.create({
-      customer: org.stripe_customer_id,
+      customer: customerId,
       return_url: `${appUrl}/settings/billing`,
       ...(configurationId ? { configuration: configurationId } : {}),
       ...(flow ? { flow_data: { type: flow } } : {}),

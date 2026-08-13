@@ -24,13 +24,21 @@ import {
 } from "@/lib/insights/evergreen"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import { classifyLocationWrite } from "@/lib/settings/location-write"
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)))
 
 type LocUpdater = {
   from: (t: string) => {
     update: (row: Record<string, unknown>) => {
-      eq: (col: string, val: string) => Promise<{ error: { message: string } | null }>
+      eq: (
+        col: string,
+        val: string
+      ) => {
+        select: (
+          cols: string
+        ) => Promise<{ data: Array<{ id: string }> | null; error: { message: string } | null }>
+      }
     }
   }
 }
@@ -248,11 +256,15 @@ export async function setBrandTolerance(
 ): Promise<{ ok: boolean; error?: string }> {
   await requireUser()
   const supabase = await createServerSupabaseClient()
-  const { error } = await (supabase as unknown as LocUpdater)
+  // ALT-583: a zero-row UPDATE (member-role seat under the owner/admin-only RLS
+  // policy, or a stale location id) must fail loudly, not report a fake save.
+  const { data, error } = await (supabase as unknown as LocUpdater)
     .from("locations")
     .update({ brand_tolerance: clamp(value) })
     .eq("id", locationId)
-  if (error) return { ok: false, error: error.message }
+    .select("id")
+  const outcome = classifyLocationWrite(error, data)
+  if (!outcome.ok) return outcome
   revalidatePath("/home")
   return { ok: true }
 }
