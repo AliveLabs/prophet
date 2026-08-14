@@ -12,6 +12,7 @@ import type {
 } from "@/lib/skills/types"
 import type { TkFamily } from "@/components/ticket"
 import type { TkConfidenceLevel, TkImpactLevel, TkSentimentTone } from "@/components/ticket"
+import { CATEGORY_LABEL } from "@/lib/skills/category-labels"
 import { distinctDomains, humanizeRef } from "@/lib/skills/evidence-format"
 import { calibratedImpact, IMPACT_DEFAULT, IMPACT_SCORE, calibrationOf } from "@/lib/skills/scoring-config"
 
@@ -90,24 +91,15 @@ export function playFamily(play: EnrichedRecommendation): TkFamily {
   return KIND_FAMILY[play.kind]
 }
 
+// The fallback vocabulary, and deliberately coarser than the category names: it only
+// ever renders for a legacy play with no stamped category, which cannot honestly claim
+// one. Everything with a category reads from the shared CATEGORY_LABEL map (ALT-554).
 const FAMILY_LABEL: Record<TkFamily, string> = {
   competitive: "Competitive",
   reputation: "Reputation",
   social: "Social",
   menu: "Menu",
   grassroots: "Grassroots",
-}
-
-const CATEGORY_LABEL: Record<Category, string> = {
-  demand: "Demand",
-  marketing: "Marketing",
-  social: "Social",
-  menu: "Menu",
-  grassroots: "Grassroots",
-  positioning: "Positioning",
-  reputation: "Reputation",
-  operations: "Operations",
-  convergence: "Cross-domain",
 }
 
 // The chip text: prefer the precise operator-facing category, else the family.

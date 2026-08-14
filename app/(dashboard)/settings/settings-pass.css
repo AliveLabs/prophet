@@ -171,6 +171,15 @@
 .tk-set-apply-hint.tk-set-apply-err { color: var(--alert-deep); }
 
 /* category prior rows */
+/* ALT-554 — the caption explains the per-row count once, so each row can stay a short
+   chip instead of repeating "in your latest brief" nine times. Both are token-coloured
+   and read as meta, never as a second score competing with the ×-multiplier below. */
+.tk-set-cp-caption { font-size: 12px; line-height: 1.5; color: var(--ink-3); margin: 0 0 12px; }
+.tk-set-cp-count {
+  flex: 0 0 auto; font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-3);
+  background: var(--bond); border: 1px solid var(--line); border-radius: 999px; padding: 2px 7px;
+}
 .tk-set-cp { display: flex; flex-direction: column; gap: 18px; }
 .tk-set-cp-row { display: flex; flex-direction: column; gap: 2px; }
 .tk-set-cp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }

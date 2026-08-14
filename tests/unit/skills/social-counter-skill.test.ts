@@ -34,7 +34,8 @@ import {
 import { SOCIAL_COUNTER_KNOWLEDGE } from "@/lib/skills/social-counter/knowledge"
 import { runProducerSkill } from "@/lib/skills/run"
 import { CATEGORY_PRIORS } from "@/lib/skills/scoring-config"
-import { CATEGORY_ORDER, CATEGORY_LABELS } from "@/lib/skills/category-priors"
+import { CATEGORY_ORDER } from "@/lib/skills/category-priors"
+import { CATEGORY_LABEL } from "@/lib/skills/category-labels"
 import { buildRefIndex } from "@/lib/insights/dossier/types"
 import { lintVoice } from "@/lib/eval/voice-rules"
 import { sanitizeAnalysis } from "@/lib/social/visual-analysis"
@@ -125,7 +126,7 @@ describe("social-counter skill — wiring", () => {
     expect(socialCounterSkill.category).not.toBe("marketing")
     expect(CATEGORY_PRIORS.social).toBe(1.0) // scoring-config touchpoint
     expect(CATEGORY_ORDER).toContain("social") // category-priors order touchpoint
-    expect(CATEGORY_LABELS.social).toBeTruthy() // Record<Category,string> labels touchpoint
+    expect(CATEGORY_LABEL.social).toBeTruthy() // shared operator-facing label touchpoint
   })
   it("carries the P14 learning hook with the social lead-domain", () => {
     expect(socialCounterSkill.learning?.playTypeLeadDomain).toBe("social")

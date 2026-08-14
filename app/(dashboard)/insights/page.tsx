@@ -13,8 +13,9 @@
 //      detector rows from the nightly sweeps, both through the unified card.
 //
 // One URL-driven filter state (insights-filters.ts) applies across BOTH sections:
-// type (the card's own chip labels — no third vocabulary, see ALT-554), the #213
-// status views, and confidence/impact as word levels only. Filters land in
+// type (the card's own chip labels — plays from the shared category map, rows from
+// their signal source, see ALT-554), the #213 status views, and confidence/impact as
+// word levels only. Filters land in
 // searchParams via <AutoFilterForm/>, so a filtered view is shareable.
 //
 // /insights/all and /home/pool both redirect here.
