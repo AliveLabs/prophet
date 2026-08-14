@@ -1,6 +1,10 @@
 // ---------------------------------------------------------------------------
-// Menu normalizer – clean up Firecrawl's structured extraction output
-// Firecrawl does the heavy lifting (LLM extraction); we just normalize.
+// Menu normalizer – clean up one page's extracted menu into our shape.
+//
+// The extraction itself is deterministic by default (lib/content/menu-markdown.ts parses
+// the page's own markdown) and falls back to the scraper's LLM JSON mode only for pages the
+// parser cannot read. Both arrive here in the same shape; `extractor` says which ran, and
+// that is what the stored note reports.
 // ---------------------------------------------------------------------------
 
 import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource, MenuExtractor } from "./types"
@@ -103,10 +107,16 @@ export function normalizeExtractedMenu(
   // The note names the EXTRACTOR on purpose: parseMeta.notes is the only place an operator
   // can see whether a stored read came from the deterministic parser or from the model, and
   // that distinction is the whole of the reliability story (menu-markdown.ts).
+  //
+  // It names the extractor and NOT the vendor. This string is customer-facing: it renders
+  // under "How we read it" on /content (content-board.tsx). The old wording was "Extracted
+  // via <the scraping vendor> JSON mode", which put a vendor name on a customer surface: the
+  // thing lib/ops/provenance-copy.ts forbids. The static scan missed it because it walks the
+  // dashboard, not lib/content.
   notes.push(
     extractor === "markdown"
-      ? `Parsed deterministically from page markdown (${totalItems} items across ${categories.length} categories)`
-      : `Extracted via Firecrawl JSON mode (${totalItems} items across ${categories.length} categories)`
+      ? `Read the menu page directly (${totalItems} items across ${categories.length} categories)`
+      : `Read the menu page with an extraction model (${totalItems} items across ${categories.length} categories)`
   )
 
   return {
