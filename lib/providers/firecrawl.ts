@@ -3,6 +3,13 @@
 // ---------------------------------------------------------------------------
 
 import Firecrawl from "@mendable/firecrawl-js"
+import {
+  parseMenuMarkdown,
+  priceSignalCount,
+  MIN_PRICE_SIGNALS_FOR_MODEL,
+} from "@/lib/content/menu-markdown"
+import { THIN_READ_RATIO } from "@/lib/content/menu-thin-read"
+import type { MenuExtractor } from "@/lib/content/types"
 
 function getClient() {
   const apiKey = process.env.FIRECRAWL_API_KEY
@@ -31,6 +38,13 @@ export type MenuExtractResult = {
   screenshot: string | null
   menu: ExtractedMenu | null
   markdown: string | null
+  /** Which extractor produced `menu`. "none" means the page had no readable menu. */
+  extractor: MenuExtractor
+  itemsTotal: number
+  /** True when this read is implausibly small versus the caller's expectation for this URL. */
+  thin: boolean
+  /** Page fetches spent on this URL (2 = a thin first read was re-read). */
+  attempts: number
 }
 
 export type ExtractedMenu = {
@@ -224,93 +238,221 @@ export async function scrapePage(
 }
 
 // ---------------------------------------------------------------------------
-// scrapeMenuPage – scrape + extract structured menu via Firecrawl JSON mode
-// Uses Firecrawl's built-in LLM extraction (no need for external Gemini call)
+// scrapeMenuPage – deterministic-first menu capture
+//
+// The page's markdown is fetched and parsed DETERMINISTICALLY (lib/content/menu-markdown.ts).
+// Firecrawl's LLM JSON mode is the fallback for pages the parser cannot read, not the
+// default for pages it reads perfectly. Measured 2026-08-14 on the live sites:
+//
+//   sugarbacon.com/dinner-menu   model 60 / 60 / 60   deterministic 60 / 60 / 60
+//   sugarbacon.com/drink-menu    model 58 / 58 / 58   deterministic 58 / 58 / 58
+//   fogharbor.com/menu           model 69 / 80 / 79   deterministic 200 / 200 / 200
+//   bushschicken.com/menu        model  8 /  0 /  9   deterministic   0 /   0 /   0
+//
+// The markdown behind each of those was byte-identical across runs, so every one of the
+// model's swings was extractor nondeterminism, not page change. Two of those rows matter
+// beyond the variance: on fogharbor the model silently dropped whole categories (its 69-item
+// run lost all of "Happy Hour Food"), and on bushschicken — whose menu is a JPEG, with zero
+// prices anywhere in the page text — the model INVENTED priced items ("Fried Chicken Meal
+// $8.99") on two runs out of three, and echoed the schema's own example category names back
+// as empty categories on the third. The price-signal gate below is what stops us paying a
+// model to hallucinate a menu off a page that has none.
+//
+// Latency, same measurements: markdown-only 5-20s per page, JSON mode 55-75s.
 // ---------------------------------------------------------------------------
 
-export async function scrapeMenuPage(url: string): Promise<MenuExtractResult | null> {
-  const client = getClient()
+/**
+ * Reveal tabs and accordions before capture. Kept as-is from the JSON-mode implementation:
+ * it is a no-op on the sites measured above (their markdown is identical with and without
+ * it) but it is the only thing standing between us and tab-hidden menus elsewhere, and
+ * there is no evidence to justify removing it.
+ */
+const REVEAL_SCRIPT = [
+  'document.querySelectorAll(',
+  '  \'[role="tab"], .tab, [data-tab], .nav-link, .menu-tab, \'  +',
+  '  \'.tab-link, .tabs a, .tabs button, .tab-header, \'  +',
+  '  \'[data-toggle="tab"], [data-bs-toggle="tab"]\'',
+  ').forEach(function(el) { try { el.click(); } catch(e) {} });',
+  'document.querySelectorAll(',
+  '  \'[style*="display: none"], [style*="display:none"], \'  +',
+  '  \'.hidden, [hidden], .tab-pane, .accordion-body, \'  +',
+  '  \'.collapse:not(.show), .tab-content > div\'',
+  ').forEach(function(el) {',
+  '  el.style.display = "block";',
+  '  el.style.visibility = "visible";',
+  '  el.style.opacity = "1";',
+  '  el.style.height = "auto";',
+  '  el.classList.remove("hidden");',
+  '  el.removeAttribute("hidden");',
+  '});',
+].join("\n")
 
-  const baseOpts: Record<string, unknown> = {
-    formats: [
-      "markdown",
-      { type: "screenshot", fullPage: true },
-      {
-        type: "json",
-        schema: MENU_SCHEMA,
-        prompt: MENU_EXTRACT_PROMPT,
-      },
-    ],
-    onlyMainContent: false,
-    timeout: 90000,
-  }
-
-  const actionsPayload = [
-    { type: "wait", milliseconds: 2000 },
-    {
-      type: "executeJavascript",
-      script: [
-        'document.querySelectorAll(',
-        '  \'[role="tab"], .tab, [data-tab], .nav-link, .menu-tab, \'  +',
-        '  \'.tab-link, .tabs a, .tabs button, .tab-header, \'  +',
-        '  \'[data-toggle="tab"], [data-bs-toggle="tab"]\'',
-        ').forEach(function(el) { try { el.click(); } catch(e) {} });',
-        'document.querySelectorAll(',
-        '  \'[style*="display: none"], [style*="display:none"], \'  +',
-        '  \'.hidden, [hidden], .tab-pane, .accordion-body, \'  +',
-        '  \'.collapse:not(.show), .tab-content > div\'',
-        ').forEach(function(el) {',
-        '  el.style.display = "block";',
-        '  el.style.visibility = "visible";',
-        '  el.style.opacity = "1";',
-        '  el.style.height = "auto";',
-        '  el.classList.remove("hidden");',
-        '  el.removeAttribute("hidden");',
-        '});',
-      ].join('\n'),
-    },
-    { type: "scroll", direction: "down" as const },
-    { type: "scroll", direction: "down" as const },
-    { type: "scroll", direction: "down" as const },
-    { type: "wait", milliseconds: 1500 },
+function renderActions(hardened: boolean) {
+  const scrolls = hardened ? 8 : 3
+  return [
+    { type: "wait", milliseconds: hardened ? 4000 : 2000 },
+    { type: "executeJavascript", script: REVEAL_SCRIPT },
+    ...Array.from({ length: scrolls }, () => ({ type: "scroll", direction: "down" as const })),
+    { type: "wait", milliseconds: hardened ? 4000 : 1500 },
   ]
+}
 
-  // Try with actions first (reveals hidden tabs/accordions), fall back to plain scrape
-  let result: Record<string, unknown> | null = null
+/** Scrape once, retrying without actions on the one error Firecrawl raises for them. */
+async function scrapeWithActions(
+  url: string,
+  baseOpts: Record<string, unknown>,
+  hardened: boolean
+): Promise<Record<string, unknown> | null> {
+  const client = getClient()
   try {
-    result = await client.scrape(url, { ...baseOpts, actions: actionsPayload } as Record<string, unknown>) as Record<string, unknown> | null
+    return (await client.scrape(url, {
+      ...baseOpts,
+      actions: renderActions(hardened),
+    } as Record<string, unknown>)) as Record<string, unknown> | null
   } catch (err) {
-    const isActionsUnsupported =
+    const actionsUnsupported =
       err instanceof Error &&
       (err.message.includes("SCRAPE_ACTIONS_NOT_SUPPORTED") ||
-       err.message.includes("Actions are not supported"))
-    if (isActionsUnsupported) {
-      console.log("[Firecrawl] Actions not supported, retrying without actions:", url)
-      try {
-        result = await client.scrape(url, baseOpts) as Record<string, unknown> | null
-      } catch (retryErr) {
-        console.warn("Firecrawl scrapeMenuPage retry error:", retryErr)
-        return null
-      }
-    } else {
+        err.message.includes("Actions are not supported"))
+    if (!actionsUnsupported) {
       console.warn("Firecrawl scrapeMenuPage error:", err)
       return null
     }
+    console.log("[Firecrawl] Actions not supported, retrying without actions:", url)
+    try {
+      return (await client.scrape(url, baseOpts)) as Record<string, unknown> | null
+    } catch (retryErr) {
+      console.warn("Firecrawl scrapeMenuPage retry error:", retryErr)
+      return null
+    }
+  }
+}
+
+function countItems(menu: ExtractedMenu | null | undefined): number {
+  return menu?.categories?.reduce((sum, c) => sum + (c.items?.length ?? 0), 0) ?? 0
+}
+
+type PageRead = {
+  screenshot: string | null
+  markdown: string | null
+  menu: ExtractedMenu | null
+  itemsTotal: number
+  extractor: MenuExtractor
+}
+
+/** One full read of a page: markdown, deterministic parse, and the model only if needed. */
+async function readMenuPage(
+  url: string,
+  opts: { hardened: boolean; wantScreenshot: boolean }
+): Promise<PageRead | null> {
+  const formats: unknown[] = ["markdown"]
+  if (opts.wantScreenshot) formats.push({ type: "screenshot", fullPage: true })
+
+  const page = await scrapeWithActions(
+    url,
+    {
+      formats,
+      onlyMainContent: false,
+      timeout: opts.hardened ? 120000 : 90000,
+      // A hardened re-read must not be served the same cached render that came back thin.
+      ...(opts.hardened ? { maxAge: 0, waitFor: 5000 } : {}),
+    },
+    opts.hardened
+  )
+  if (!page) return null
+
+  const screenshot = typeof page.screenshot === "string" ? page.screenshot : null
+  const markdown = typeof page.markdown === "string" ? page.markdown : null
+  const parsed = parseMenuMarkdown(markdown)
+
+  if (parsed.credible && parsed.menu) {
+    console.log(`[Firecrawl] Menu parsed deterministically: ${url}, ${parsed.itemsTotal} items in ${parsed.categoriesTotal} categories`)
+    return { screenshot, markdown, menu: parsed.menu, itemsTotal: parsed.itemsTotal, extractor: "markdown" }
   }
 
-  if (!result) return null
+  const signals = markdown ? priceSignalCount(markdown) : 0
+  if (signals < MIN_PRICE_SIGNALS_FOR_MODEL) {
+    // Not enough priced text on the page for a menu to exist. Paying a model to look at it
+    // is how invented items get into the product.
+    console.log(`[Firecrawl] No menu on page (${signals} price signals), skipping model extraction: ${url}`)
+    const fallback = parsed.usable && parsed.menu ? parsed.menu : null
+    return {
+      screenshot,
+      markdown,
+      menu: fallback,
+      itemsTotal: fallback ? parsed.itemsTotal : 0,
+      extractor: fallback ? "markdown" : "none",
+    }
+  }
 
-  const screenshot = typeof result.screenshot === "string" ? result.screenshot : null
-  const markdown = typeof result.markdown === "string" ? result.markdown : null
-  const jsonData = result.json as ExtractedMenu | null | undefined
+  const modelMenu = await extractMenuWithModel(url, opts.hardened)
+  const modelItems = countItems(modelMenu)
+  if (modelMenu && modelItems > parsed.itemsTotal) {
+    console.log(`[Firecrawl] Menu extracted by model: ${url}, ${modelItems} items (deterministic parse: ${parsed.itemsTotal}; ${parsed.reason})`)
+    return { screenshot, markdown, menu: modelMenu, itemsTotal: modelItems, extractor: "model" }
+  }
 
-  const totalItems = jsonData?.categories?.reduce((s, c) => s + (c.items?.length ?? 0), 0) ?? 0
-  console.log(`[Firecrawl] Menu extracted: ${url}, ${totalItems} items in ${jsonData?.categories?.length ?? 0} categories, screenshot: ${screenshot ? "yes" : "no"}`)
-
+  const fallback = parsed.usable && parsed.menu ? parsed.menu : null
   return {
     screenshot,
     markdown,
-    menu: jsonData ?? null,
+    menu: fallback,
+    itemsTotal: fallback ? parsed.itemsTotal : 0,
+    extractor: fallback ? "markdown" : "none",
+  }
+}
+
+/** Firecrawl JSON mode. Fallback path only; no screenshot, no markdown, minimum surface. */
+async function extractMenuWithModel(url: string, hardened: boolean): Promise<ExtractedMenu | null> {
+  const page = await scrapeWithActions(
+    url,
+    {
+      formats: [{ type: "json", schema: MENU_SCHEMA, prompt: MENU_EXTRACT_PROMPT }],
+      onlyMainContent: false,
+      timeout: hardened ? 120000 : 90000,
+      ...(hardened ? { maxAge: 0, waitFor: 5000 } : {}),
+    },
+    hardened
+  )
+  if (!page) return null
+  const menu = (page.json as ExtractedMenu | null | undefined) ?? null
+  // The schema's example category names come back as EMPTY categories when the model has
+  // nothing to extract; dropping them here keeps that echo out of the merge.
+  if (!menu?.categories?.length) return null
+  const withItems = menu.categories.filter((c) => (c.items?.length ?? 0) > 0)
+  if (withItems.length === 0) return null
+  return { ...menu, categories: withItems }
+}
+
+export async function scrapeMenuPage(
+  url: string,
+  options?: { expectedItems?: number | null }
+): Promise<MenuExtractResult | null> {
+  const expected = options?.expectedItems ?? null
+  const isThin = (items: number) => expected !== null && expected > 0 && items < expected * THIN_READ_RATIO
+
+  const first = await readMenuPage(url, { hardened: false, wantScreenshot: true })
+  if (!first) return null
+
+  if (!isThin(first.itemsTotal)) {
+    return { ...first, thin: false, attempts: 1 }
+  }
+
+  // The read is far short of what this URL has produced before. Re-read it with a hardened
+  // render and a cold cache before believing the page shrank.
+  console.warn(`[Firecrawl] Thin read for ${url}: ${first.itemsTotal} items vs ${expected} expected. Re-reading.`)
+  const second = await readMenuPage(url, { hardened: true, wantScreenshot: !first.screenshot })
+  const best = second && second.itemsTotal > first.itemsTotal ? second : first
+  const thin = isThin(best.itemsTotal)
+  if (thin) {
+    console.warn(`[Firecrawl] Thin read CONFIRMED for ${url}: ${best.itemsTotal} items vs ${expected} expected after re-read.`)
+  }
+
+  return {
+    ...best,
+    screenshot: best.screenshot ?? first.screenshot,
+    thin,
+    attempts: second ? 2 : 1,
   }
 }
 

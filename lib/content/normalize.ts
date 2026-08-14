@@ -9,6 +9,7 @@ import type {
   MenuSnapshot,
   MenuCategory,
   MenuItem,
+  MenuPageRead,
 } from "./types"
 import type { ExtractedSiteFeatures } from "@/lib/providers/firecrawl"
 import type { FeatureDefinition } from "@/lib/verticals/types"
@@ -220,7 +221,10 @@ export function buildMenuSnapshot(
   confidence: "high" | "medium" | "low",
   notes: string[],
   screenshotRef: { storagePath: string; sourceUrl: string } | null,
-  currency: string | null
+  currency: string | null,
+  // Per-URL reads behind this capture, including the ones rejected as thin. Stored so the
+  // NEXT run can judge each page against its own history (lib/content/menu-thin-read.ts).
+  pages?: MenuPageRead[]
 ): MenuSnapshot {
   const normalized = normalizeMenuCategories(categories)
   const itemsTotal = normalized.reduce((sum, cat) => sum + cat.items.length, 0)
@@ -231,7 +235,7 @@ export function buildMenuSnapshot(
     screenshot: screenshotRef,
     currency,
     categories: normalized,
-    parseMeta: { itemsTotal, confidence, notes },
+    parseMeta: { itemsTotal, confidence, notes, ...(pages && pages.length > 0 ? { pages } : {}) },
   }
 }
 

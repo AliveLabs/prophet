@@ -5,10 +5,12 @@ import { updateTag } from "next/cache"
 import { resolveOrgActor, isOrgAdmin } from "@/lib/auth/actor"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
-import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
+import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeHomepage } from "@/lib/providers/firecrawl"
 import { normalizeSiteContentFromExtraction, buildMenuSnapshot, computeContentDiffHash, computeMenuDiffHash } from "@/lib/content/normalize"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
+import { normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { captureMenuPages } from "@/lib/content/menu-capture"
+import { collectPageHistory } from "@/lib/content/menu-thin-read"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
@@ -192,40 +194,33 @@ export async function refreshContentAction(formData: FormData) {
   // STEP 3: Scrape ALL menu URLs, merge results into one combined menu
   // =========================================================================
   try {
-    const allParsedResults: NormalizedMenuResult[] = []
-    let firstScreenshotPath: string | null = null
-    let firstScreenshotSourceUrl: string | null = null
     const primaryMenuUrl = menuUrls[0] ?? websiteUrl
 
-    for (const targetUrl of menuUrls) {
-      menuObs.scrapeAttempts++
-      try {
-        console.log(`[Content] Scraping menu URL: ${targetUrl}`)
-        const menuResult = await scrapeMenuPage(targetUrl)
-        if (menuResult) {
-          // Upload screenshot from the first successful scrape
-          if (!firstScreenshotPath && menuResult.screenshot) {
-            const path = buildScreenshotPath(organizationId, "locations", locationId, "menu.png")
-            firstScreenshotPath = await uploadScreenshot(menuResult.screenshot, path)
-            firstScreenshotSourceUrl = targetUrl
-          }
+    const { data: priorMenuSnaps } = await supabase
+      .from("location_snapshots")
+      .select("raw_data")
+      .eq("location_id", locationId)
+      .eq("provider", "firecrawl_menu")
+      .order("date_key", { ascending: false })
+      .limit(MENU_HISTORY_WINDOW)
 
-          // Normalize this page's extracted menu
-          const parsed = normalizeExtractedMenu(menuResult.menu)
-          if (parsed.categories.length > 0) {
-            allParsedResults.push(parsed)
-            menuObs.scrapesWithItems++
-            console.log(`[Content] URL ${targetUrl}: ${parsed.categories.length} categories, ${parsed.categories.reduce((s, c) => s + c.items.length, 0)} items`)
-          }
-        } else {
-          menuObs.scrapeErrors++
-        }
-      } catch (err) {
-        menuObs.scrapeErrors++
-        console.warn(`[Content] Menu scrape error for ${targetUrl}:`, err)
-        warnings.push(`Could not scrape: ${targetUrl}`)
-      }
-    }
+    const capture = await captureMenuPages({
+      urls: menuUrls,
+      pageHistory: collectPageHistory(
+        (priorMenuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+      ),
+      obs: menuObs,
+      uploadScreenshot: (screenshot) =>
+        uploadScreenshot(
+          screenshot,
+          buildScreenshotPath(organizationId, "locations", locationId, "menu.png")
+        ),
+      onWarning: (message) => warnings.push(message),
+    })
+
+    const allParsedResults: NormalizedMenuResult[] = [...capture.results]
+    const firstScreenshotPath = capture.screenshotPath
+    const firstScreenshotSourceUrl = capture.screenshotSourceUrl
 
     // -----------------------------------------------------------------------
     // STEP 3.5: Fetch Google menu data via Gemini + Search Grounding
@@ -268,7 +263,8 @@ export async function refreshContentAction(formData: FormData) {
         firstScreenshotPath
           ? { storagePath: firstScreenshotPath, sourceUrl: firstScreenshotSourceUrl ?? primaryMenuUrl }
           : null,
-        merged.currency
+        merged.currency,
+        capture.pages
       )
       locationMenu.parseMeta.sources = sources
       menuObs.mergedItems = locationMenu.parseMeta.itemsTotal
@@ -364,34 +360,32 @@ export async function refreshContentAction(formData: FormData) {
         compMenuUrls = [compUrl]
       }
 
-      // Scrape each URL and merge
-      const compParsedResults: NormalizedMenuResult[] = []
-      let compScreenshotPath: string | null = null
-      let compScreenshotSourceUrl: string | null = null
+      // Scrape each URL and merge. Thin reads are re-read once and then dropped, never
+      // merged (lib/content/menu-capture.ts).
+      const { data: priorCompSnaps } = await supabase
+        .from("snapshots")
+        .select("raw_data")
+        .eq("competitor_id", comp.id)
+        .eq("snapshot_type", "web_menu_weekly")
+        .order("date_key", { ascending: false })
+        .limit(MENU_HISTORY_WINDOW)
 
-      for (const compTargetUrl of compMenuUrls) {
-        compObs.scrapeAttempts++
-        try {
-          const compMenuResult = await scrapeMenuPage(compTargetUrl)
-          if (compMenuResult) {
-            if (!compScreenshotPath && compMenuResult.screenshot) {
-              const path = buildScreenshotPath(organizationId, "competitors", comp.id, "menu.png")
-              compScreenshotPath = await uploadScreenshot(compMenuResult.screenshot, path)
-              compScreenshotSourceUrl = compTargetUrl
-            }
-            const parsed = normalizeExtractedMenu(compMenuResult.menu)
-            if (parsed.categories.length > 0) {
-              compParsedResults.push(parsed)
-              compObs.scrapesWithItems++
-            }
-          } else {
-            compObs.scrapeErrors++
-          }
-        } catch {
-          compObs.scrapeErrors++
-          // Continue to next URL
-        }
-      }
+      const compCapture = await captureMenuPages({
+        urls: compMenuUrls,
+        pageHistory: collectPageHistory(
+          (priorCompSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+        ),
+        obs: compObs,
+        uploadScreenshot: (screenshot) =>
+          uploadScreenshot(
+            screenshot,
+            buildScreenshotPath(organizationId, "competitors", comp.id, "menu.png")
+          ),
+      })
+
+      const compParsedResults: NormalizedMenuResult[] = [...compCapture.results]
+      const compScreenshotPath = compCapture.screenshotPath
+      const compScreenshotSourceUrl = compCapture.screenshotSourceUrl
 
       if (compParsedResults.length > 0) compSources.push("firecrawl")
 
@@ -427,7 +421,8 @@ export async function refreshContentAction(formData: FormData) {
           compScreenshotPath
             ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
             : null,
-          merged.currency
+          merged.currency,
+          compCapture.pages
         )
         compMenu.parseMeta.sources = compSources
         compObs.mergedItems = compMenu.parseMeta.itemsTotal
