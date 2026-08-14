@@ -151,7 +151,7 @@
    tiles at natural size instead of covering the slot. */
 .tk-hero-photo .tk-photo { background-image: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--rust) 55%, transparent), transparent 55%), linear-gradient(150deg, var(--slate-2), color-mix(in srgb, var(--slate-2) 70%, #000 30%) 80%); }
 .tk-hero-photo .tk-veil { position: absolute; inset: 0; z-index: 2; background: linear-gradient(to top, rgba(15,20,25,.55), transparent 60%); }
-.tk-hero-venuechip { position: absolute; left: 18px; top: 18px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: rgba(20,26,32,.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: #fff; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.16); }
+.tk-hero-venuechip { position: absolute; left: 18px; top: 18px; z-index: 3; display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px; background: rgba(20,26,32,.6); backdrop-filter: blur(6px); color: #fff; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.16); }
 .tk-hero-venuechip svg { width: 13px; height: 13px; color: #F0C9B6; }
 .tk-hero-body { position: relative; padding: 30px 32px 28px; display: flex; flex-direction: column; gap: 16px; }
 /* ALT-251: the first chip (the family tag) stays LEFT; the confidence+impact pair
@@ -168,7 +168,7 @@
 .tk-photo { position: relative; width: 100%; height: 100%; min-height: 200px; background: linear-gradient(135deg, color-mix(in srgb, var(--slate) 70%, #000 4%), var(--slate-2)); background-size: cover; background-position: center; background-repeat: no-repeat; display: flex; align-items: flex-end; }
 /* a real photo dropped into a tk-photo slot (img child) always fills the box (ALT-152b) */
 .tk-photo > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.tk-photo[data-label]::after { content: attr(data-label); position: absolute; left: 12px; bottom: 11px; z-index: 2; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: rgba(255,255,255,.82); background: rgba(0,0,0,.42); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.tk-photo[data-label]::after { content: attr(data-label); position: absolute; left: 12px; bottom: 11px; z-index: 2; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .06em; color: rgba(255,255,255,.82); background: rgba(0,0,0,.42); padding: 3px 8px; border-radius: 6px; backdrop-filter: blur(3px); }
 .tk-stadium { position: absolute; inset: 0; z-index: 1; opacity: .9; }
 
 /* ALT-152a — the ONE neutral placeholder for a card image slot with no real
@@ -191,7 +191,7 @@
 }
 .tk-photo-empty .tk-photo-mark svg { width: 22px; height: 22px; }
 /* keep the data-label chip readable over the lighter neutral panel */
-.tk-photo-empty[data-label]::after { color: var(--ink-3); background: var(--card); border: 1px solid var(--line); backdrop-filter: none; -webkit-backdrop-filter: none; }
+.tk-photo-empty[data-label]::after { color: var(--ink-3); background: var(--card); border: 1px solid var(--line); backdrop-filter: none; }
 
 /* ════════════════════════════════════════════════════════════
    SECTION HEADERS
@@ -341,14 +341,14 @@
   background: linear-gradient(180deg, rgba(0,0,0,.34), transparent 26%, transparent 74%, rgba(0,0,0,.30));
 }
 /* ALT-175: video badge over the embed media (bottom-left glass chip). */
-.tk-se-vid { position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); }
+.tk-se-vid { position: absolute; left: 10px; bottom: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #fff; background: rgba(20,26,32,.62); backdrop-filter: blur(5px); padding: 4px 8px; border-radius: 7px; border: 1px solid rgba(255,255,255,.16); }
 .tk-se-vid svg { width: 11px; height: 11px; }
 /* ALT-174: open-original-post button over the embed media (top-right glass button).
    ALT-272a: the glass chip is theme-invariant (fixed dark over the photo), so the icon
    color is the palette's lightest paper (#FAF8F4) as a literal — every surface token
    flips dark in dark mode and would vanish here. Stronger .76 backdrop + a subtle
    drop-shadow keep the icon legible over bright photos. */
-.tk-se-open { position: absolute; right: 10px; top: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #FAF8F4; background: rgba(20,26,32,.76); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border-radius: 8px; border: 1px solid rgba(255,255,255,.16); transition: background var(--t-fast), transform var(--t-fast); }
+.tk-se-open { position: absolute; right: 10px; top: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #FAF8F4; background: rgba(20,26,32,.76); backdrop-filter: blur(5px); border-radius: 8px; border: 1px solid rgba(255,255,255,.16); transition: background var(--t-fast), transform var(--t-fast); }
 .tk-se-open svg { width: 15px; height: 15px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.4)); }
 .tk-se-open:hover { background: rgba(20,26,32,.88); }
 .tk-se-open:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
@@ -545,7 +545,7 @@
 /* ════════════════════════════════════════════════════════════
    DRAWER + SCRIM  (right-slide desktop / bottom-sheet mobile)
    ════════════════════════════════════════════════════════════ */
-.tk-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(20,15,12,.5); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity var(--t); }
+.tk-scrim { position: fixed; inset: 0; z-index: 60; background: rgba(20,15,12,.5); backdrop-filter: blur(3px); opacity: 0; pointer-events: none; transition: opacity var(--t); }
 .tk-scrim.tk-open { opacity: 1; pointer-events: auto; }
 .tk-drawer { position: fixed; z-index: 61; top: 0; right: 0; bottom: 0; width: min(560px, 100%); background: var(--paper); border-left: 1px solid var(--line-2); box-shadow: var(--shadow-lg); transform: translateX(100%); transition: transform var(--t) var(--ease), visibility 0s linear var(--t); display: flex; flex-direction: column; }
 /* ALT-150: while CLOSED the drawer sits off-canvas right (translateX(100%)). Its large
@@ -554,7 +554,7 @@
    `visibility` (not `display`) keeps the slide transition + a11y/aria-hidden behaviour. */
 .tk-drawer:not(.tk-open) { visibility: hidden; box-shadow: none; }
 .tk-drawer.tk-open { transform: translateX(0); visibility: visible; box-shadow: var(--shadow-lg); transition: transform var(--t) var(--ease); }
-.tk-drawer-head { position: sticky; top: 0; padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; background: color-mix(in srgb, var(--paper) 90%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.tk-drawer-head { position: sticky; top: 0; padding: 18px 22px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; background: color-mix(in srgb, var(--paper) 90%, transparent); backdrop-filter: blur(8px); }
 .tk-drawer-head .tk-dh-chip { flex: 1; }
 .tk-drawer-close { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; border: 1px solid var(--line-2); background: var(--card); }
 .tk-drawer-close:hover { background: var(--paper-2); }

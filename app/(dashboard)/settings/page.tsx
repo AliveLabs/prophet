@@ -9,6 +9,7 @@ import Link from "next/link"
 import { loadOperatorContext, tierLabel } from "../operator-data"
 import { requireUser } from "@/lib/auth/server"
 import type { CategoryPriors } from "@/lib/skills/category-priors"
+import { loadLatestBriefCategoryCounts } from "@/lib/insights/insight-pool"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import {
@@ -76,6 +77,10 @@ export default async function SettingsPage() {
   const digestDayRaw = (profileRow as { weekly_digest_day?: unknown } | null)?.weekly_digest_day
   const digestDay = typeof digestDayRaw === "number" ? digestDayRaw : null
   const refreshStatus = await getFullRefreshStatus(ctx.locationId)
+  // ALT-554 — what the latest brief actually contained per category, shown beside each
+  // priority slider so the control visibly connects to what it changes. Fail-soft: an
+  // empty result simply renders no counts.
+  const latestBriefCounts = await loadLatestBriefCategoryCounts(ctx.locationId)
 
   // Own-network-of-choice (paid Tier 1 only collects ONE own network). Other
   // verified own handles render as the honest "tracked on Tier 2+" seam.
@@ -183,6 +188,7 @@ export default async function SettingsPage() {
                   <SettingsCategoryPriors
                     initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
                     locationId={ctx.locationId}
+                    latestBrief={latestBriefCounts}
                   />
                 </div>
               </div>

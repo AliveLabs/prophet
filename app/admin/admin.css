@@ -45,7 +45,6 @@
     color-mix(in srgb, var(--card) 78%, transparent),
     color-mix(in srgb, var(--card) 60%, transparent));
   backdrop-filter: saturate(160%) blur(16px);
-  -webkit-backdrop-filter: saturate(160%) blur(16px);
   box-shadow: 1px 0 0 color-mix(in srgb, var(--card) 50%, transparent);
   display: flex; flex-direction: column; padding: 20px 14px 16px;
 }

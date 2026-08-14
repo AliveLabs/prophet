@@ -9,8 +9,11 @@
 // filters on agreeing by construction:
 //
 //   · TYPE is the card's own "what" chip label (playChipLabel / insightChipLabel).
-//     The option set is derived from the data actually present — no third label
-//     vocabulary is invented here (ALT-554 is the standing warning about that).
+//     The option set is derived from the data actually present — no label vocabulary is
+//     invented here. Plays name their CATEGORY (the shared CATEGORY_LABEL map, ALT-554)
+//     and detector rows name the SIGNAL they were read from (SOURCE_LABELS), so the
+//     dropdown honestly mixes both: they are different objects and one list of words
+//     could only describe them by overstating one of them.
 //   · STATUS is the #213 lifecycle read: All active / New / Kept / Dismissed /
 //     Reported inaccurate. Keep/Dismiss are the only verbs; the groups below map the
 //     stored statuses and play actions onto them, legacy Track-era rows included.

@@ -94,6 +94,56 @@ export async function updateInsightPool(
   if (sweepErr) console.warn(`[insight-pool] retention sweep failed: ${sweepErr.message}`)
 }
 
+/** What the LATEST brief contained, by category — the honest feedback the settings
+ *  sliders show beside each category (ALT-554). `dateKey` names the brief the counts
+ *  came from, and is null when there is nothing to count (no brief built yet, or the
+ *  read failed), which is the caller's signal to render no counts at all rather than a
+ *  column of zeroes that reads as "these sliders do nothing". */
+export type LatestBriefCategoryCounts = {
+  dateKey: string | null
+  counts: Record<string, number>
+}
+
+/** Pure half of the above, so the counting rule is unit-testable without a DB.
+ *  Scoped to `is_top` on purpose: those rows ARE the latest brief's plays (updateInsightPool
+ *  clears the flag fleet-wide for the location, then re-stamps today's). A wider window (the
+ *  full 30-day pool) would count plays the current sliders never ranked, which is the one
+ *  thing that would make this number lie. Uncategorised plays are counted by nobody: they
+ *  have no slider to sit beside. */
+export function latestBriefCategoryCounts(
+  rows: Array<{ category: string | null; last_seen_date: string | null }>,
+): LatestBriefCategoryCounts {
+  const counts: Record<string, number> = {}
+  let dateKey: string | null = null
+  for (const row of rows) {
+    if (row.last_seen_date && (dateKey === null || row.last_seen_date > dateKey)) dateKey = row.last_seen_date
+    if (!row.category) continue
+    counts[row.category] = (counts[row.category] ?? 0) + 1
+  }
+  return { dateKey, counts }
+}
+
+/** Load the latest brief's per-category play counts. FAIL-SOFT, same posture as
+ *  loadPoolEntries: a settings page must render even pre-migration or on a read error. */
+export async function loadLatestBriefCategoryCounts(
+  locationId: string,
+  opts: { client?: PoolStore } = {},
+): Promise<LatestBriefCategoryCounts> {
+  const empty: LatestBriefCategoryCounts = { dateKey: null, counts: {} }
+  try {
+    const db = store(opts.client)
+    const { data, error } = await db
+      .from("insight_pool_entries")
+      .select("category, last_seen_date")
+      .eq("location_id", locationId)
+      .eq("is_top", true)
+    if (error) return empty
+    return latestBriefCategoryCounts((data ?? []) as Array<{ category: string | null; last_seen_date: string | null }>)
+  } catch {
+    return empty
+  }
+}
+
 /** Load pool entries for a location (the "see all insights" view). FAIL-SOFT: [] on any error. */
 export async function loadPoolEntries(
   locationId: string,

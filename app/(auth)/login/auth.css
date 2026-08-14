@@ -148,7 +148,6 @@
   padding: 12px 15px;
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--card) 78%, transparent);
-  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-md);
