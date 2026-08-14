@@ -55,7 +55,7 @@ function armAdmin(opts: { digestDay?: unknown; timezone?: string | null } = {}) 
         return { error: null }
       },
     }
-    for (const method of ["select", "order", "eq", "in", "is", "not"]) {
+    for (const method of ["select", "order", "eq", "in", "is", "not", "gt", "gte", "limit"]) {
       chain[method] = () => chain
     }
     return chain

@@ -25,6 +25,8 @@ import { isTrialActive } from "@/lib/billing/trial"
 import { getBrief } from "@/lib/insights/daily-brief"
 import { sendEmail } from "@/lib/email/send"
 import { WeeklyDigest } from "@/lib/email/templates/weekly-digest"
+import { loadActiveWatchEvents } from "@/lib/reviews/watch-events"
+import { buildWatchNotices } from "@/lib/reviews/watch-copy"
 import { stripAccents } from "@/lib/text/accents"
 import {
   DIGEST_SENDS_DISABLED_REASON,
@@ -137,6 +139,14 @@ export async function GET(req: Request) {
       continue
     }
 
+    // Phase 4.2: review changes the watchdog already recorded and that are still
+    // inside their observation window. READ ONLY: no detection, no model call, and
+    // nothing here decides whether an email sends (the D6 gate above owns that).
+    // Two notices max, because the digest's job is one reason to open, not a list.
+    const watchNotices = buildWatchNotices(await loadActiveWatchEvents(admin, loc.id))
+      .slice(0, 2)
+      .map((n) => ({ title: stripAccents(n.title), line: stripAccents(n.line) }))
+
     const dateKey = digestDateKey(timezone, now)
     let sent = 0
     const errors: string[] = []
@@ -162,6 +172,8 @@ export async function GET(req: Request) {
           deck: brief.deck,
           plays: brief.plays.slice(0, 3).map((p) => ({ title: p.title, kind: p.kind })),
           briefUrl: `${appUrl}/home`,
+          watchNotices,
+          reviewsUrl: `${appUrl}/reviews?location_id=${loc.id}`,
           digestDayUrl: `${appUrl}/settings#weekly-digest`,
         }),
         clientFacing: true,
