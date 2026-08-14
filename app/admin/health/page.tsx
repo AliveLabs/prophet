@@ -237,10 +237,13 @@ export default async function PipelineHealthPage() {
       <h2 className="ph-h2">Menu ingestion reliability ({MENU_RELIABILITY_DAYS}d)</h2>
       <p className="ph-sub">
         One row per menu-ingestion attempt (own location or competitor), including the runs
-        that produced nothing and therefore left no snapshot. &ldquo;Empty&rdquo; means the
+        that produced nothing and therefore left no snapshot. &ldquo;Degraded&rdquo; means a
+        menu was saved but holds under 85% of that menu&rsquo;s best known size: the read that
+        looks fine and produces confidently incomplete claims. &ldquo;Empty&rdquo; means the
         sources answered with no menu; &ldquo;Failed&rdquo; means no trustworthy answer at
-        all. Observation only: recording never alters pipeline behaviour. Absent here means
-        the migration is not yet applied in this environment, not a clean week.
+        all. Coverage averages only runs that had enough history for a verdict. Observation
+        only: recording never alters pipeline behaviour. Absent here means the migration is not
+        yet applied in this environment, not a clean week.
       </p>
       <div className="ph-table-wrap">
         <table className="ph-table">
@@ -249,25 +252,29 @@ export default async function PipelineHealthPage() {
               <th>Target</th>
               <th>Attempts</th>
               <th>Succeeded</th>
+              <th>Degraded</th>
               <th>Empty</th>
               <th>Failed</th>
+              <th>Mean coverage</th>
               <th>Failure reasons</th>
             </tr>
           </thead>
           <tbody>
             {menuReliability === null && (
-              <tr><td colSpan={6} className="ph-empty">menu_ingest_events not available yet in this environment.</td></tr>
+              <tr><td colSpan={8} className="ph-empty">menu_ingest_events not available yet in this environment.</td></tr>
             )}
             {menuReliability !== null && menuReliability.byTarget.length === 0 && (
-              <tr><td colSpan={6} className="ph-empty">No menu ingestion runs recorded in the last {MENU_RELIABILITY_DAYS} days.</td></tr>
+              <tr><td colSpan={8} className="ph-empty">No menu ingestion runs recorded in the last {MENU_RELIABILITY_DAYS} days.</td></tr>
             )}
             {menuReliability?.byTarget.map((row) => (
               <tr key={row.target}>
                 <td className="is-strong">{row.target}</td>
                 <td>{row.attempts}</td>
                 <td>{row.attempts > 0 ? `${row.succeeded} (${pct(row.succeeded / row.attempts)})` : "—"}</td>
+                <td className={row.degraded > 0 ? "is-alert" : undefined}>{row.degraded}</td>
                 <td>{row.empty}</td>
                 <td className={row.failed > 0 ? "is-alert" : undefined}>{row.failed}</td>
+                <td>{row.meanCoverage === null ? "no verdict" : pct(row.meanCoverage)}</td>
                 <td className="ph-offenders">
                   {row.reasons.length === 0 ? "—" : row.reasons.map((r) => `${r.reason} ×${r.count}`).join(", ")}
                 </td>
@@ -407,7 +414,7 @@ async function loadNonBriefSpend(
 
 // ── menu ingestion reliability (beta rescue 2.6, ALT-363) ──────────────────────────────────────
 
-type MenuIngestEventRow = { target: string; outcome: string; failure_reason: string | null }
+type MenuIngestEventRow = { target: string; outcome: string; failure_reason: string | null; coverage_ratio: number | null }
 
 /** `menu_ingest_events` isn't in the generated DB types yet (its migration hasn't been applied),
  *  so this uses the same loose-client cast as loadNonBriefSpend above. */
@@ -424,8 +431,12 @@ export type MenuReliabilitySummary = {
     target: string
     attempts: number
     succeeded: number
+    /** Saved a menu, but it holds less than 85% of that menu's best known size. */
+    degraded: number
     empty: number
     failed: number
+    /** Mean coverage across runs that HAVE a verdict; null when none did. */
+    meanCoverage: number | null
     reasons: Array<{ reason: string; count: number }>
   }>
 }
@@ -440,20 +451,27 @@ async function loadMenuReliability(
   const client = supabase as unknown as MenuEventsReadClient
   const { data, error } = await client
     .from("menu_ingest_events")
-    .select("target, outcome, failure_reason")
+    .select("target, outcome, failure_reason, coverage_ratio")
     .gte("created_at", sinceIso)
   if (error) {
     console.warn("[admin/health] menu_ingest_events query failed (migration likely not applied yet):", error.message)
     return null
   }
-  type Agg = { attempts: number; succeeded: number; empty: number; failed: number; reasons: Map<string, number> }
+  type Agg = { attempts: number; succeeded: number; degraded: number; empty: number; failed: number; coverageSum: number; coverageCount: number; reasons: Map<string, number> }
   const byTargetMap = new Map<string, Agg>()
   for (const row of data ?? []) {
-    const agg = byTargetMap.get(row.target) ?? { attempts: 0, succeeded: 0, empty: 0, failed: 0, reasons: new Map<string, number>() }
+    const agg = byTargetMap.get(row.target) ?? { attempts: 0, succeeded: 0, degraded: 0, empty: 0, failed: 0, coverageSum: 0, coverageCount: 0, reasons: new Map<string, number>() }
     agg.attempts += 1
     if (row.outcome === "succeeded") agg.succeeded += 1
+    else if (row.outcome === "degraded") agg.degraded += 1
     else if (row.outcome === "empty") agg.empty += 1
     else if (row.outcome === "failed") agg.failed += 1
+    // Only runs with a real verdict average in: a null ratio is "unknown", and folding it in
+    // as a zero (or skipping it silently as a 1) would both lie about the fleet.
+    if (typeof row.coverage_ratio === "number") {
+      agg.coverageSum += row.coverage_ratio
+      agg.coverageCount += 1
+    }
     if (row.failure_reason) agg.reasons.set(row.failure_reason, (agg.reasons.get(row.failure_reason) ?? 0) + 1)
     byTargetMap.set(row.target, agg)
   }
@@ -462,8 +480,10 @@ async function loadMenuReliability(
       target,
       attempts: agg.attempts,
       succeeded: agg.succeeded,
+      degraded: agg.degraded,
       empty: agg.empty,
       failed: agg.failed,
+      meanCoverage: agg.coverageCount > 0 ? agg.coverageSum / agg.coverageCount : null,
       reasons: [...agg.reasons.entries()]
         .map(([reason, count]) => ({ reason, count }))
         .sort((a, b) => b.count - a.count),

@@ -4,8 +4,9 @@
 // ---------------------------------------------------------------------------
 
 import { discoverAllMenuUrls, scrapeMenuPage } from "@/lib/providers/firecrawl"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, stampMenuCoverage } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { loadPriorMenuItemCounts } from "@/lib/content/menu-history"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { buildMenuSnapshot, computeMenuDiffHash } from "@/lib/content/normalize"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
@@ -99,7 +100,7 @@ export async function enrichCompetitorContent(
 
     if (compParsedResults.length > 0) {
       const merged = mergeExtractedMenus(compParsedResults)
-      const compMenu = buildMenuSnapshot(
+      const built = buildMenuSnapshot(
         compMenuUrls[0],
         merged.categories,
         merged.confidence,
@@ -109,8 +110,13 @@ export async function enrichCompetitorContent(
           : null,
         merged.currency
       )
-      compMenu.parseMeta.sources = sources
+      built.parseMeta.sources = sources
+      // Coverage verdict stamped BEFORE the upsert (prior reads only), so the stored snapshot
+      // says whether this competitor's menu was really read or only partly read.
+      const compMenu = stampMenuCoverage(built, await loadPriorMenuItemCounts(supabase, { competitorId }))
       obs.mergedItems = compMenu.parseMeta.itemsTotal
+      obs.coverageRatio = compMenu.parseMeta.coverageRatio ?? null
+      obs.historicalHighItems = compMenu.parseMeta.historicalHighItems ?? null
 
       // Store in snapshots table (competitor-scoped)
       const menuHash = computeMenuDiffHash(compMenu)

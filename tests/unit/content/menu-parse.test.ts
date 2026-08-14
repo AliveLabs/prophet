@@ -92,8 +92,29 @@ describe("unionRecentMenus — cross-run stability", () => {
     expect(unioned!.parseMeta.itemsTotal).toBe(11)
   })
 
-  it("returns a single snapshot unchanged", () => {
+  it("corrects a lone snapshot's inherited 'high' to 'unknown' when nothing backs it", () => {
+    // Previously this returned the snapshot by IDENTITY. It no longer can: a single capture
+    // has no history to judge coverage against, and the stored `confidence` on every legacy
+    // snapshot is an item-count bucket that says "high" regardless of how much of the menu
+    // was actually read (86 of 90 prod snapshots claimed "high", none carried coverage).
+    // Absence of a verdict has to read as unknown, or a 12-item read of a 137-item menu keeps
+    // presenting itself as a confident one. Contents are otherwise untouched.
     const only = snap([cat("Dinner", [mi("Burger"), mi("Fries")])])
+    const out = unionRecentMenus([only])
+    expect(out).not.toBeNull()
+    expect(out!.parseMeta.confidence).toBe("unknown")
+    expect(out!.parseMeta.coverageRatio).toBeUndefined()
+    expect(out!.categories).toBe(only.categories)
+    expect(out!.parseMeta.itemsTotal).toBe(only.parseMeta.itemsTotal)
+  })
+
+  it("still returns the snapshot by identity when there is nothing at all to correct", () => {
+    // The identity path survives for a snapshot already stamped honestly: no verdict to add
+    // and nothing to fix means no new object.
+    const only: MenuSnapshot = {
+      ...snap([cat("Dinner", [mi("Burger")])]),
+      parseMeta: { itemsTotal: 1, confidence: "unknown", notes: [], sources: ["firecrawl"] },
+    }
     expect(unionRecentMenus([only])).toBe(only)
   })
 

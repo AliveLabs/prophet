@@ -67,10 +67,14 @@ const MENU_TYPE_LABELS: Record<MenuType, string> = {
   other: "Other",
 }
 
+// Read quality, derived from how much of this menu we actually captured versus its best
+// known size. "unknown" is a real state (not enough history to judge yet) and reads as
+// directional, never as a confident read.
 const CONF_LEVEL = {
   high: "high",
   medium: "medium",
   low: "directional",
+  unknown: "directional",
 } as const
 
 /* ── icons (inline; match the Pass icon weight) ─────────────────────────── */
@@ -283,7 +287,14 @@ function MenuCard({
           </div>
         </div>
         <div className="content-menu-meta">
-          <TkConfidence level={conf} label={`${menu.parseMeta.confidence} read`} />
+          <TkConfidence
+            level={conf}
+            label={
+              menu.parseMeta.confidence === "unknown"
+                ? "read quality unknown"
+                : `${menu.parseMeta.confidence} read`
+            }
+          />
           <TkButton variant="add" onClick={copyMenu} aria-label="Copy menu to clipboard">
             Copy menu
           </TkButton>

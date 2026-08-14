@@ -347,8 +347,20 @@ export function menuRead(m: MenuSnapshot | null | undefined) {
   })
   return {
     capturedAt: m.capturedAt ?? null,
+    // Read quality, now derived from coverage rather than an item-count bucket: "unknown"
+    // means we have no basis to judge, which is what a new location honestly looks like.
     scrapeConfidence: m.parseMeta?.confidence ?? null,
     itemsSeenInScrape: m.parseMeta?.itemsTotal ?? null,
+    // How much of this menu we believe we are holding. Included so the model can hedge on a
+    // partial read instead of describing a fragment as the whole menu: it was previously told
+    // "high confidence, 12 items" for a menu we knew had run to 137. Absent when there is no
+    // verdict, so a menu-less and a verdict-less prompt stay byte-comparable.
+    ...(typeof m.parseMeta?.coverageRatio === "number"
+      ? {
+          menuCoveragePct: Math.round(m.parseMeta.coverageRatio * 100),
+          bestKnownItemCount: m.parseMeta.historicalHighItems ?? null,
+        }
+      : {}),
     scrapeNotes: (m.parseMeta?.notes ?? []).slice(0, 2),
     buckets,
   }

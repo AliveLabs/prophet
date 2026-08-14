@@ -87,9 +87,22 @@ export type MenuCategory = {
 
 export type MenuSource = "firecrawl" | "gemini_google_search"
 
+/**
+ * How much of this menu we believe we actually read.
+ *
+ * This is a READ-QUALITY verdict, not an extractor self-report. It is derived from
+ * `coverageRatio` (see deriveMenuConfidence in menu-parse.ts), so it moves with the only
+ * evidence we have about completeness. "unknown" is the honest value when no coverage
+ * verdict exists (a new location, or a legacy snapshot written before coverage was
+ * stamped): absence of a verdict must never read as a good one. It used to: the old
+ * value was a pure item-count bucket, so a 12-item read of a 137-item menu was stored as
+ * "high", and every consumer believed it.
+ */
+export type MenuReadConfidence = "high" | "medium" | "low" | "unknown"
+
 export type ParseMeta = {
   itemsTotal: number
-  confidence: "high" | "medium" | "low"
+  confidence: MenuReadConfidence
   notes: string[]
   sources?: MenuSource[]
   /**

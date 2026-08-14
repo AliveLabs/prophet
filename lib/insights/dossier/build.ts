@@ -31,6 +31,7 @@ import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/l
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { generateOwnTrafficInsights } from "@/lib/insights/own-traffic-insights"
 import { corroboratePriceInsights } from "@/lib/content/insights"
+import { loadUnionedLocationMenu } from "@/lib/content/menu-history"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
 import { classifyNow, isUsable, THRESHOLDS, type SignalKind } from "@/lib/freshness/contract"
@@ -453,13 +454,20 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   }
 
   // ── own location signals ──
-  const ownMenuMeta = await latestSnapshotMeta(sb, locationId, "firecrawl_menu")
-  const ownMenuRaw = ownMenuMeta.raw
+  // The menu handed to producers is the cross-run UNION of the recent captures, coverage
+  // stamped, NOT the single latest raw read. A weekly scrape of the same restaurant swings
+  // enormously (one prod location measured 12 to 169 items across 21 reads), so the latest
+  // raw read made the whole brief hostage to one bad Sunday: on the 12-item week every skill
+  // reasoned over a 12-item menu and said so confidently. Same loader, same window constant,
+  // same helper as lib/jobs/pipelines/insights.ts, so the two cannot drift apart again.
+  // Freshness still reports the newest RAW capture's date: that is when we last actually
+  // looked, which is what staleness means here.
+  const ownMenu = await loadUnionedLocationMenu(sb, locationId)
   const location: EntitySignals = {
     entityId: loc.id as string,
     kind: "location",
     name: (loc.name as string) ?? "Your location",
-    menu: (ownMenuRaw as MenuSnapshot | null) ?? null,
+    menu: ownMenu.menu,
   }
 
   // ── FUNDED DATA: own Places details (rating + reviews), own foot traffic, review sentiment ──
@@ -740,7 +748,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     mk("Weather", weather.length > 0, weather.length ? `${weather.length}-day forecast` : "not available", weatherAsOf, "weather"),
     mk("Reviews", reviewThemes > 0, reviewThemes ? `${reviewThemes} topic${reviewThemes === 1 ? "" : "s"}` : "none yet", reviewThemes ? dateKey : null, "reviews"),
     mk("Foot traffic", !!location.busyTimes, location.busyTimes ? "your busy times" : "not available", location.busyTimes ? dateKey : null, "traffic"),
-    mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenuMeta.dateKey, "menu"),
+    mk("Your menu", !!location.menu, location.menu ? "up to date" : "not added", ownMenu.latestDateKey, "menu"),
     mk("Competitors", scraped > 0, `${scraped} of ${competitors.length} checked`, seoAsOf, "seo"),
     mk("Social", socialFresh, socialFresh ? `${socialByEntity.size} active account${socialByEntity.size === 1 ? "" : "s"}` : socialDormant > 0 ? "no recent activity" : "not connected", socialFresh ? socialAsOf : null, "social"),
     mk("Nearby partners", partnerEntities.length > 0, partnerEntities.length ? `${partnerEntities.length} nearby` : "not mapped yet", partnerEntities.length ? dateKey : null),

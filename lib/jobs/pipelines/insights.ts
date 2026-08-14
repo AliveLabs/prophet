@@ -14,7 +14,7 @@ import { claudeTransport, FAST_MODEL } from "@/lib/ai/provider"
 import { recordSpendEvent } from "@/lib/ai/spend-events"
 import { buildInsightNarrativePrompt } from "@/lib/ai/prompts/insights"
 import { generateContentInsights, corroboratePriceInsights } from "@/lib/content/insights"
-import { unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
+import { loadUnionedLocationMenu } from "@/lib/content/menu-history"
 import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { scoreLocationReviews } from "@/lib/reviews/scoring"
@@ -521,10 +521,8 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         // claims. Sustained-change detection (#2), however, runs on the RAW per-run reads —
         // its thin-read / one-run-blip guards are meaningless against a smoothed union — so it
         // gets the raw latest (menuHistory[0]) plus the raw prior history.
-        const { data: menuSnaps } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_menu").order("date_key", { ascending: false }).limit(MENU_HISTORY_WINDOW)
+        const { menu: locMenu, history: menuHistory } = await loadUnionedLocationMenu(c.supabase, c.locationId)
         const { data: locSiteSnap } = await c.supabase.from("location_snapshots").select("raw_data").eq("location_id", c.locationId).eq("provider", "firecrawl_site_content").order("date_key", { ascending: false }).limit(1).maybeSingle()
-        const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
-        const locMenu = unionRecentMenus(menuHistory)
         const locSiteContent = locSiteSnap?.raw_data as SiteContentSnapshot | null
         if (!locMenu && !locSiteContent) return { contentInsights: 0 }
 

@@ -15,12 +15,21 @@
 // Call sites in a user-facing server action should `void` it (fire and move on); the
 // background content job may await it so the write lands before the function suspends.
 //
-// `menu_ingest_events` is not yet in the generated DB types (its migration,
-// supabase/migrations/20260812150000_menu_ingest_events.sql, has not been applied), so this
-// uses the same loose-client cast as lib/ai/spend-events.ts for a not-yet-regenerated table.
+// `menu_ingest_events` is not in the generated DB types, so this uses the same loose-client
+// cast as lib/ai/spend-events.ts. The table itself IS live in prod (verified 2026-08-14):
+// what it has is zero rows, because the content job runs Sundays and the recorder landed
+// after the last one. The types are simply un-regenerated.
+//
+// DEPLOY ORDER: the "degraded" outcome and the coverage columns need
+// supabase/migrations/20260814210000_menu_ingest_degraded_coverage.sql applied FIRST. The
+// original CHECK constraint allows only succeeded/empty/failed, so a degraded run inserted
+// against an unmigrated database is rejected. The insert never throws (it warns and moves
+// on), which means the failure mode is a silently empty ledger: apply the migration with or
+// before this code, not after.
 // ---------------------------------------------------------------------------
 
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { MENU_MIN_COVERAGE_RATIO } from "@/lib/content/menu-parse"
 
 /** Which code path ran the menu ingestion. */
 export type MenuRunSource =
@@ -35,8 +44,15 @@ export type MenuTargetKind = "location" | "competitor"
  * looked and found no menu (the sources answered, with nothing); "failed" means it could not
  * get a trustworthy answer at all. Conflating the two is exactly what made menu reliability
  * unmeasurable before.
+ *
+ * "degraded" is the fourth state and the one this whole ticket is about: the run DID produce
+ * a menu, it saved fine, and it is badly incomplete against what this same menu has given us
+ * before (one prod location's weekly reads ran 12 to 169 items). A degraded run used to be
+ * indistinguishable from a healthy one because both merged items and both saved. It is
+ * deliberately not folded into "failed": the distinction between "no answer" and "a confident
+ * wrong answer" is the entire reliability question here.
  */
-export type MenuRunOutcome = "succeeded" | "empty" | "failed"
+export type MenuRunOutcome = "succeeded" | "degraded" | "empty" | "failed"
 
 /** Status of one extraction channel (Firecrawl scraping or Gemini Google-Search grounding). */
 export type MenuChannelStatus =
@@ -60,6 +76,11 @@ export type MenuChannelStatus =
  * - save_failed:        a menu WAS extracted but the snapshot upsert failed, so the data
  *                       never landed. From the product's view this run produced nothing.
  * - pipeline_error:     an unexpected exception in the enrichment path (the outer catch).
+ * - low_coverage:       a menu was extracted and saved, but it holds less than
+ *                       MENU_MIN_COVERAGE_RATIO of this same menu's best known size. The run
+ *                       succeeded mechanically and is wrong substantively: the read that
+ *                       looks fine to every other signal and produces confidently incomplete
+ *                       claims. Pairs with outcome "degraded", never with "failed".
  */
 export type MenuFailureReason =
   | "no_website"
@@ -69,6 +90,7 @@ export type MenuFailureReason =
   | "zero_items"
   | "save_failed"
   | "pipeline_error"
+  | "low_coverage"
 
 /**
  * Raw, mechanical observations collected as the pipeline runs. Call sites only ever RECORD
@@ -89,6 +111,14 @@ export type MenuStageObservation = {
   enrichment: MenuChannelStatus
   /** Item count of the merged menu (0 when nothing merged / nothing found). */
   mergedItems: number
+  /**
+   * This run's coverage against the same menu's best known size (menuCoverage, stamped onto
+   * the snapshot at write time). NULL means no verdict was available, which is the honest
+   * state for a new or thinly-sampled target: it must never be read as good coverage.
+   */
+  coverageRatio: number | null
+  /** Best item count credibly read for this menu before, the denominator of coverageRatio. */
+  historicalHighItems: number | null
   /** Snapshot upsert error message, if the save was attempted and failed. */
   saveError: string | null
   /** Message from the outer catch, when the whole enrichment path blew up. */
@@ -105,6 +135,8 @@ export function newMenuObservation(): MenuStageObservation {
     scrapesWithItems: 0,
     enrichment: "skipped",
     mergedItems: 0,
+    coverageRatio: null,
+    historicalHighItems: null,
     saveError: null,
     pipelineError: null,
   }
@@ -128,8 +160,8 @@ export type MenuRunVerdict = {
  * total: every observation maps to exactly one verdict.
  *
  * Precedence: structural failures first (no website, unexpected exception), then the happy
- * path (items merged -> saved?), then the zero-item space is split by which channel failed
- * versus which channel genuinely answered "empty".
+ * path (items merged -> saved? -> complete enough to be worth anything?), then the zero-item
+ * space is split by which channel failed versus which channel genuinely answered "empty".
  */
 export function classifyMenuRun(obs: MenuStageObservation): MenuRunVerdict {
   if (!obs.hasWebsite) return { outcome: "failed", reason: "no_website" }
@@ -137,6 +169,12 @@ export function classifyMenuRun(obs: MenuStageObservation): MenuRunVerdict {
 
   if (obs.mergedItems > 0) {
     if (obs.saveError) return { outcome: "failed", reason: "save_failed" }
+    // Nonempty but badly short of this menu's own best known size. Checked only when a
+    // verdict EXISTS: an absent ratio (new location, too little history) is "unknown", and
+    // guessing "degraded" there would slander every brand-new location's first reads.
+    if (typeof obs.coverageRatio === "number" && obs.coverageRatio < MENU_MIN_COVERAGE_RATIO) {
+      return { outcome: "degraded", reason: "low_coverage" }
+    }
     return { outcome: "succeeded", reason: null }
   }
 
@@ -201,6 +239,10 @@ export async function recordMenuIngestEvent(input: MenuIngestEventInput): Promis
       outcome,
       failure_reason: reason,
       items_total: input.observation.mergedItems,
+      // Promoted out of `stages` into their own columns so a reliability rollup can filter and
+      // average on them without unpacking jsonb. Null = no verdict, never "fine".
+      coverage_ratio: input.observation.coverageRatio,
+      historical_high_items: input.observation.historicalHighItems,
       sources: input.sources ?? [],
       stages: input.observation,
     })

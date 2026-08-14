@@ -6,6 +6,7 @@
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot, MenuCategory, MenuType, MenuItem, ItemKind } from "./types"
+import { MENU_MIN_COVERAGE_RATIO } from "./menu-parse"
 
 type CompetitorMenu = {
   competitorId: string
@@ -36,9 +37,9 @@ const MIN_MENU_ITEMS_FOR_CLAIMS = 5
 // Minimum share of this menu's OWN best-known size before we'll ground a claim on it.
 // MIN_MENU_ITEMS_FOR_CLAIMS only catches near-empty reads; the dangerous case is the
 // confidently-incomplete one (a 68-item menu read as 10 clears the item floor easily).
-// Measured 2026-07-27: the 4-capture union holds a median 96% of best-known, so 0.85 keeps
-// the healthy majority and mutes the tail that produces wrong claims.
-const MENU_MIN_COVERAGE_RATIO = 0.85
+// Now shared from menu-parse.ts: the stored read-quality verdict and the ingest telemetry's
+// degraded classification have to agree with this gate, and three copies of 0.85 drifting
+// apart would quietly re-open the bug.
 
 /**
  * Is this menu read complete enough to ground a claim?

@@ -3,7 +3,7 @@
 // Firecrawl does the heavy lifting (LLM extraction); we just normalize.
 // ---------------------------------------------------------------------------
 
-import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource } from "./types"
+import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource, MenuReadConfidence } from "./types"
 import { coerceItemKind } from "./types"
 import type { ExtractedMenu } from "@/lib/providers/firecrawl"
 import type { GoogleMenuResult } from "@/lib/ai/gemini"
@@ -291,6 +291,66 @@ const UNION_OUTLIER_FACTOR = 2
 // claims. This is what lets insights tell those two groups apart.
 export const MENU_HISTORY_WINDOW = 12
 
+// Minimum share of this menu's OWN best-known size before a read is complete enough to
+// ground a claim. Lives here (not in insights.ts, where it started) because three separate
+// consumers now have to agree on it: the insight gate, the stored read-quality verdict
+// (deriveMenuConfidence), and the ingest telemetry's degraded-run classification. Two copies
+// of this number drifting apart would silently re-open the exact bug this file exists to close.
+// Measured 2026-07-27: the 4-capture union holds a median 96% of best-known, so 0.85 keeps the
+// healthy majority and mutes the tail that produces confidently wrong claims.
+export const MENU_MIN_COVERAGE_RATIO = 0.85
+
+// Below this share of best-known, a read is not merely short, it is a different menu than the
+// one we know exists (Sugarbacon's 12-of-137 read scored 0.12). Splits the sub-threshold space
+// into "thin" (medium) and "broken" (low) so an operator-facing surface can say which.
+const MENU_LOW_COVERAGE_RATIO = 0.5
+
+/**
+ * Read-quality verdict from a coverage ratio.
+ *
+ * ABSENT ratio maps to "unknown", never "high". Before this, `confidence` was a pure
+ * item-count bucket (>=10 items = "high"), so every 12-item degraded read of a 137-item menu
+ * was stored as a high-confidence read and no consumer could tell. Coverage is the only
+ * evidence we have about completeness, so it is the only thing allowed to set this.
+ */
+export function deriveMenuConfidence(coverageRatio: number | undefined): MenuReadConfidence {
+  if (typeof coverageRatio !== "number" || !Number.isFinite(coverageRatio)) return "unknown"
+  if (coverageRatio >= MENU_MIN_COVERAGE_RATIO) return "high"
+  if (coverageRatio >= MENU_LOW_COVERAGE_RATIO) return "medium"
+  return "low"
+}
+
+/**
+ * Stamp a freshly-parsed menu with its coverage verdict, for the WRITE path.
+ *
+ * `unionRecentMenus` already does this at read time, but it runs after the snapshot is
+ * stored, so nothing in storage carried a coverage signal (verified in prod 2026-08-14:
+ * 0 of 90 stored menu snapshots had `coverageRatio`, and 86 of 90 claimed confidence
+ * "high"). Any consumer reading a snapshot directly was therefore blind to read quality.
+ * This makes the verdict part of what gets written.
+ *
+ * Storage stays RAW per run: only `parseMeta` gains fields. The union is deliberately NOT
+ * written in place of the raw read, because the sustained-change detector and
+ * `computeMenuDiffHash` both need the true per-run series, and a smoothed union would
+ * freeze the diff hash and mute real menu changes.
+ *
+ * `priorItemCounts` are the item counts of this menu's previous reads (any order). The
+ * current read joins them, matching unionRecentMenus, whose history window includes the
+ * newest capture.
+ */
+export function stampMenuCoverage(menu: MenuSnapshot, priorItemCounts: number[]): MenuSnapshot {
+  const itemsTotal = menu.parseMeta.itemsTotal
+  const coverage = menuCoverage(itemsTotal, [itemsTotal, ...priorItemCounts])
+  return {
+    ...menu,
+    parseMeta: {
+      ...menu.parseMeta,
+      ...coverage,
+      confidence: deriveMenuConfidence(coverage.coverageRatio),
+    },
+  }
+}
+
 /**
  * Coverage of a unioned menu against the best read we have ever had for it.
  *
@@ -334,10 +394,14 @@ function median(values: number[]): number {
 }
 
 function snapshotToResult(snap: MenuSnapshot): NormalizedMenuResult {
+  const stored = snap.parseMeta?.confidence
   return {
     categories: snap.categories,
     currency: snap.currency,
-    confidence: snap.parseMeta?.confidence ?? "low",
+    // "unknown" (no coverage verdict) ranks as the weakest input here. The union's own
+    // confidence is re-derived from coverage below, so this only feeds mergeExtractedMenus'
+    // internal ranking and can never promote a no-verdict snapshot.
+    confidence: stored === undefined || stored === "unknown" ? "low" : stored,
     notes: [],
   }
 }
@@ -372,10 +436,13 @@ export function unionRecentMenus(
   if (considered.length === 1) {
     const only = considered[0]
     const cov = menuCoverage(only.parseMeta?.itemsTotal ?? 0, historyCounts)
-    // Pass a lone snapshot through UNTOUCHED when there's no coverage verdict to add:
-    // callers rely on that identity, and there's nothing to stamp.
-    if (cov.coverageRatio === undefined) return only
-    return { ...only, parseMeta: { ...only.parseMeta, ...cov } }
+    const confidence = deriveMenuConfidence(cov.coverageRatio)
+    // Pass a lone snapshot through UNTOUCHED when there is genuinely nothing to add: no
+    // coverage verdict AND its stored confidence already says so. A legacy snapshot that
+    // claims "high" with no verdict behind it is corrected to "unknown" instead, which is
+    // the whole point of making confidence honest.
+    if (cov.coverageRatio === undefined && only.parseMeta?.confidence === confidence) return only
+    return { ...only, parseMeta: { ...only.parseMeta, ...cov, confidence } }
   }
 
   const merged = mergeExtractedMenus(considered.map(snapshotToResult))
@@ -393,7 +460,9 @@ export function unionRecentMenus(
     categories: merged.categories,
     parseMeta: {
       itemsTotal,
-      confidence: merged.confidence,
+      // Coverage-derived, NOT the merge's item-count bucket: a union that still holds only
+      // 12 of a known 137 items is a bad read no matter how the extractor felt about it.
+      confidence: deriveMenuConfidence(coverage.coverageRatio),
       notes: [
         `Unioned across ${considered.length} recent capture(s) (${itemsTotal} items); ${
           window.length - considered.length

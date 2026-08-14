@@ -7,8 +7,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { fetchPlaceDetails } from "@/lib/places/google"
 import { discoverAllMenuUrls, detectPosOrderingUrls, scrapeMenuPage, scrapeHomepage } from "@/lib/providers/firecrawl"
 import { normalizeSiteContentFromExtraction, buildMenuSnapshot, computeContentDiffHash, computeMenuDiffHash } from "@/lib/content/normalize"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
+import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus, stampMenuCoverage } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { loadPriorMenuItemCounts, loadUnionedLocationMenu } from "@/lib/content/menu-history"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
@@ -260,7 +261,7 @@ export async function refreshContentAction(formData: FormData) {
       const merged = mergeExtractedMenus(allParsedResults)
       console.log(`[Content] Merged menu: ${merged.categories.length} categories, ${merged.categories.reduce((s, c) => s + c.items.length, 0)} items from ${allParsedResults.length} source(s)`)
 
-      locationMenu = buildMenuSnapshot(
+      const builtMenu = buildMenuSnapshot(
         primaryMenuUrl,
         merged.categories,
         merged.confidence,
@@ -270,8 +271,13 @@ export async function refreshContentAction(formData: FormData) {
           : null,
         merged.currency
       )
-      locationMenu.parseMeta.sources = sources
+      builtMenu.parseMeta.sources = sources
+      // Coverage verdict stamped BEFORE the upsert (prior reads only), so the stored snapshot
+      // carries its own read quality. Same treatment the background content job gives it.
+      locationMenu = stampMenuCoverage(builtMenu, await loadPriorMenuItemCounts(supabase, { locationId }))
       menuObs.mergedItems = locationMenu.parseMeta.itemsTotal
+      menuObs.coverageRatio = locationMenu.parseMeta.coverageRatio ?? null
+      menuObs.historicalHighItems = locationMenu.parseMeta.historicalHighItems ?? null
 
       // Upsert location_snapshots for menu
       const menuHash = computeMenuDiffHash(locationMenu)
@@ -419,7 +425,7 @@ export async function refreshContentAction(formData: FormData) {
 
       if (compParsedResults.length > 0) {
         const merged = mergeExtractedMenus(compParsedResults)
-        const compMenu = buildMenuSnapshot(
+        const builtComp = buildMenuSnapshot(
           compMenuUrls[0],
           merged.categories,
           merged.confidence,
@@ -429,8 +435,11 @@ export async function refreshContentAction(formData: FormData) {
             : null,
           merged.currency
         )
-        compMenu.parseMeta.sources = compSources
+        builtComp.parseMeta.sources = compSources
+        const compMenu = stampMenuCoverage(builtComp, await loadPriorMenuItemCounts(supabase, { competitorId: comp.id }))
         compObs.mergedItems = compMenu.parseMeta.itemsTotal
+        compObs.coverageRatio = compMenu.parseMeta.coverageRatio ?? null
+        compObs.historicalHighItems = compMenu.parseMeta.historicalHighItems ?? null
 
         const compSiteContent: SiteContentSnapshot | null = normalizeSiteContentFromExtraction(compUrl, null, null)
 
@@ -483,16 +492,8 @@ export async function refreshContentAction(formData: FormData) {
     // ALT-380: this run's fresh snapshot is already stored above (newest row). `locMenu` is
     // the cross-run UNION (#4) for coverage/price claims; sustained-change detection (#2)
     // runs on the RAW per-run reads — the raw latest plus the raw prior history.
-    const { data: menuSnaps } = await supabase
-      .from("location_snapshots")
-      .select("raw_data")
-      .eq("location_id", locationId)
-      .eq("provider", "firecrawl_menu")
-      .order("date_key", { ascending: false })
-      .limit(MENU_HISTORY_WINDOW)
-
-    const menuHistory = (menuSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
-    const locMenu = unionRecentMenus(menuHistory) ?? locationMenu
+    const { menu: unioned, history: menuHistory } = await loadUnionedLocationMenu(supabase, locationId)
+    const locMenu = unioned ?? locationMenu
     const rawCurrentMenu = menuHistory[0] ?? locationMenu
     const previousMenus = menuHistory.slice(1)
 

@@ -117,15 +117,64 @@ describe("classifyMenuRun", () => {
           if (scrapesWithItems > scrapeAttempts - scrapeErrors) continue
           for (const enrichment of ["items", "empty", "error", "skipped"] as const) {
             for (const mergedItems of [0, 10]) {
-              const verdict = classifyMenuRun(obs({ scrapeAttempts, scrapeErrors, scrapesWithItems, enrichment, mergedItems }))
-              expect(["succeeded", "empty", "failed"]).toContain(verdict.outcome)
-              if (verdict.outcome === "succeeded") expect(verdict.reason).toBeNull()
-              else expect(verdict.reason).not.toBeNull()
+              for (const coverageRatio of [null, 0.12, 0.9]) {
+                const verdict = classifyMenuRun(obs({ scrapeAttempts, scrapeErrors, scrapesWithItems, enrichment, mergedItems, coverageRatio }))
+                expect(["succeeded", "degraded", "empty", "failed"]).toContain(verdict.outcome)
+                if (verdict.outcome === "succeeded") expect(verdict.reason).toBeNull()
+                else expect(verdict.reason).not.toBeNull()
+              }
             }
           }
         }
       }
     }
+  })
+})
+
+// The failure this whole ticket is about: the run worked, the row saved, and the menu is a
+// fraction of itself. Under the old three-outcome taxonomy a 12-item read of a 137-item menu
+// recorded as "succeeded", identical to a good run, so the ledger could never show it.
+describe("classifyMenuRun: degraded reads (nonempty but badly incomplete)", () => {
+  const healthyRun = { scrapeAttempts: 2, scrapesWithItems: 1, enrichment: "items" as const }
+
+  it("items merged and saved, but coverage below the claim floor -> degraded/low_coverage", () => {
+    expect(
+      classifyMenuRun(obs({ ...healthyRun, mergedItems: 12, coverageRatio: 12 / 98, historicalHighItems: 98 }))
+    ).toEqual({ outcome: "degraded", reason: "low_coverage" })
+  })
+
+  it("is distinguishable from an empty run: a degraded read still carries its items", () => {
+    const degraded = classifyMenuRun(obs({ ...healthyRun, mergedItems: 12, coverageRatio: 0.12 }))
+    const empty = classifyMenuRun(obs({ scrapeAttempts: 2, enrichment: "empty", mergedItems: 0 }))
+    expect(degraded.outcome).toBe("degraded")
+    expect(empty.outcome).toBe("empty")
+    expect(degraded.outcome).not.toBe(empty.outcome)
+  })
+
+  it("healthy coverage stays 'succeeded'", () => {
+    expect(classifyMenuRun(obs({ ...healthyRun, mergedItems: 137, coverageRatio: 1 }))).toEqual({
+      outcome: "succeeded",
+      reason: null,
+    })
+    expect(classifyMenuRun(obs({ ...healthyRun, mergedItems: 90, coverageRatio: 0.85 }))).toEqual({
+      outcome: "succeeded",
+      reason: null,
+    })
+  })
+
+  it("no coverage verdict stays 'succeeded': absence is unknown, not an accusation", () => {
+    // A brand-new location's first reads have no baseline. Calling those degraded would
+    // slander every new customer's first week.
+    expect(classifyMenuRun(obs({ ...healthyRun, mergedItems: 40, coverageRatio: null }))).toEqual({
+      outcome: "succeeded",
+      reason: null,
+    })
+  })
+
+  it("a save failure still outranks a coverage verdict (the data never landed at all)", () => {
+    expect(
+      classifyMenuRun(obs({ ...healthyRun, mergedItems: 12, coverageRatio: 0.12, saveError: "permission denied" }))
+    ).toEqual({ outcome: "failed", reason: "save_failed" })
   })
 })
 
@@ -160,9 +209,38 @@ describe("recordMenuIngestEvent", () => {
       failure_reason: null,
       items_total: 42,
       sources: ["firecrawl", "gemini_google_search"],
+      // No history behind this run, so no verdict. Null, never a stand-in value.
+      coverage_ratio: null,
+      historical_high_items: null,
     })
     // The raw observation rides along so a reason can be re-derived later.
     expect(row.stages).toMatchObject({ scrapeAttempts: 2, scrapeErrors: 1, enrichment: "items" })
+  })
+
+  it("records a degraded run with its coverage columns, so the ledger can rank the bad reads", async () => {
+    await recordMenuIngestEvent({
+      runSource: "content_pipeline",
+      target: "location",
+      locationId: "loc-1",
+      dateKey: "2026-07-12",
+      observation: obs({
+        scrapeAttempts: 2,
+        scrapesWithItems: 1,
+        enrichment: "items",
+        mergedItems: 12,
+        coverageRatio: 12 / 98,
+        historicalHighItems: 98,
+      }),
+      sources: ["firecrawl"],
+    })
+    const row = insertMock.mock.calls[0][0]
+    expect(row).toMatchObject({
+      outcome: "degraded",
+      failure_reason: "low_coverage",
+      items_total: 12,
+      historical_high_items: 98,
+    })
+    expect(row.coverage_ratio).toBeCloseTo(12 / 98, 5)
   })
 
   it("defaults missing ids/sources instead of sending undefined, and records failure verdicts", async () => {
