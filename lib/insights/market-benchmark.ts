@@ -106,19 +106,26 @@ export function buildMarketBenchmark(
   }
 }
 
+// Written for an operator, not an analyst. The earlier draft read "Above the set: your 4.6
+// across 812 reviews vs a 4.3 median across 5 tracked competitors" — "the set" is our internal
+// word for the competitor group, "median" is a statistics term, and "tracked competitors" is
+// our system's vocabulary rather than the operator's. The numbers stay exactly as precise; only
+// the framing changed. The middle value is still a median (see `median()` above), we just do not
+// make the reader parse the method to read the sentence.
 const STANDING_LEAD: Record<MarketBenchmark["standing"], string> = {
-  above: "Above the set",
-  level: "Level with the set",
-  below: "Below the set",
+  above: "You are rated higher than your competitors",
+  level: "You are rated about even with your competitors",
+  below: "You are rated lower than your competitors",
 }
 
 /** The rendered line. Denominated on both sides, no superlatives, no named rival. */
 export function formatBenchmarkLine(benchmark: MarketBenchmark): string {
   const reviews = benchmark.ownReviewCount.toLocaleString("en-US")
-  const competitors = `${benchmark.comparedCount} tracked competitor${benchmark.comparedCount === 1 ? "" : "s"}`
+  const rivals =
+    benchmark.comparedCount === 1 ? "the 1 you track" : `the ${benchmark.comparedCount} you track`
   return (
-    `${STANDING_LEAD[benchmark.standing]}: your ${benchmark.ownRating.toFixed(1)} across ${reviews} reviews ` +
-    `vs a ${benchmark.medianRating.toFixed(1)} median across ${competitors}.`
+    `${STANDING_LEAD[benchmark.standing]}: ${benchmark.ownRating.toFixed(1)} from ${reviews} reviews, ` +
+    `against ${benchmark.medianRating.toFixed(1)} across ${rivals}.`
   )
 }
 
