@@ -9,7 +9,6 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import {
   discoverAllMenuUrls,
   detectPosOrderingUrls,
-  scrapeMenuPage,
   scrapeHomepage,
 } from "@/lib/providers/firecrawl"
 import {
@@ -19,13 +18,14 @@ import {
   computeMenuDiffHash,
 } from "@/lib/content/normalize"
 import {
-  normalizeExtractedMenu,
   normalizeGoogleMenuData,
   mergeExtractedMenus,
   unionRecentMenus,
   MENU_HISTORY_WINDOW,
 } from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { captureMenuPages } from "@/lib/content/menu-capture"
+import { collectPageHistory } from "@/lib/content/menu-thin-read"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { generateContentInsights } from "@/lib/content/insights"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
@@ -36,6 +36,7 @@ import {
 } from "@/lib/content/menu-telemetry"
 import type {
   MenuSnapshot,
+  MenuPageRead,
   SiteContentSnapshot,
   MenuSource,
 } from "@/lib/content/types"
@@ -75,6 +76,8 @@ export type ContentPipelineCtx = {
     locationSiteContent: SiteContentSnapshot | null
     locationMenu: MenuSnapshot | null
     allParsedResults: NormalizedMenuResult[]
+    /** Per-URL reads from this run, stored on the snapshot as next run's thin-read history. */
+    menuPages: MenuPageRead[]
     sources: MenuSource[]
     competitorMenus: Array<{
       competitorId: string
@@ -129,33 +132,30 @@ async function processCompetitorMenu(c: ContentPipelineCtx, comp: CompetitorInpu
     obs.urlsDiscovered = compMenuUrls.length
     if (compMenuUrls.length === 0) compMenuUrls = [compUrl]
 
-    const compParsedResults: NormalizedMenuResult[] = []
-    let compScreenshotPath: string | null = null
-    let compScreenshotSourceUrl: string | null = null
+    const { data: priorCompSnaps } = await c.supabase
+      .from("snapshots")
+      .select("raw_data")
+      .eq("competitor_id", comp.id)
+      .eq("snapshot_type", "web_menu_weekly")
+      .order("date_key", { ascending: false })
+      .limit(MENU_HISTORY_WINDOW)
 
-    for (const compTargetUrl of compMenuUrls) {
-      obs.scrapeAttempts++
-      try {
-        const compMenuResult = await scrapeMenuPage(compTargetUrl)
-        if (compMenuResult) {
-          if (!compScreenshotPath && compMenuResult.screenshot) {
-            const path = buildScreenshotPath(c.organizationId, "competitors", comp.id, "menu.png")
-            compScreenshotPath = await uploadScreenshot(compMenuResult.screenshot, path)
-            compScreenshotSourceUrl = compTargetUrl
-          }
-          const parsed = normalizeExtractedMenu(compMenuResult.menu)
-          if (parsed.categories.length > 0) {
-            compParsedResults.push(parsed)
-            obs.scrapesWithItems++
-          }
-        } else {
-          obs.scrapeErrors++
-        }
-      } catch {
-        obs.scrapeErrors++
-        /* continue */
-      }
-    }
+    const capture = await captureMenuPages({
+      urls: compMenuUrls,
+      pageHistory: collectPageHistory(
+        (priorCompSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+      ),
+      obs,
+      uploadScreenshot: (screenshot) =>
+        uploadScreenshot(
+          screenshot,
+          buildScreenshotPath(c.organizationId, "competitors", comp.id, "menu.png")
+        ),
+    })
+
+    const compParsedResults: NormalizedMenuResult[] = [...capture.results]
+    const compScreenshotPath = capture.screenshotPath
+    const compScreenshotSourceUrl = capture.screenshotSourceUrl
 
     if (compParsedResults.length > 0) compSources.push("firecrawl")
 
@@ -191,7 +191,8 @@ async function processCompetitorMenu(c: ContentPipelineCtx, comp: CompetitorInpu
       compScreenshotPath
         ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
         : null,
-      merged.currency
+      merged.currency,
+      capture.pages
     )
     compMenu.parseMeta.sources = compSources
     obs.mergedItems = compMenu.parseMeta.itemsTotal
@@ -364,51 +365,40 @@ export function buildContentSteps(
         }
         c.state.menuUrls = c.state.menuUrls.slice(0, 4)
 
-        let firstScreenshotPath: string | null = null
-        let firstScreenshotSourceUrl: string | null = null
+        // Per-URL history so a page can be judged against ITSELF, not against the merged
+        // total. Failing to load it only removes the thin-read verdict; it never blocks.
+        const { data: priorSnaps } = await c.supabase
+          .from("location_snapshots")
+          .select("raw_data")
+          .eq("location_id", c.locationId)
+          .eq("provider", "firecrawl_menu")
+          .order("date_key", { ascending: false })
+          .limit(MENU_HISTORY_WINDOW)
+        const pageHistory = collectPageHistory(
+          (priorSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)
+        )
 
-        for (const targetUrl of c.state.menuUrls) {
-          c.state.menuObservation.scrapeAttempts++
-          try {
-            const menuResult = await scrapeMenuPage(targetUrl)
-            if (menuResult) {
-              if (!firstScreenshotPath && menuResult.screenshot) {
-                const path = buildScreenshotPath(
-                  c.organizationId,
-                  "locations",
-                  c.locationId,
-                  "menu.png"
-                )
-                firstScreenshotPath = await uploadScreenshot(
-                  menuResult.screenshot,
-                  path
-                )
-                firstScreenshotSourceUrl = targetUrl
-              }
-              const parsed = normalizeExtractedMenu(menuResult.menu)
-              if (parsed.categories.length > 0) {
-                c.state.allParsedResults.push(parsed)
-                c.state.menuObservation.scrapesWithItems++
-              }
-            } else {
-              c.state.menuObservation.scrapeErrors++
-            }
-          } catch (err) {
-            c.state.menuObservation.scrapeErrors++
-            c.state.warnings.push(`Could not scrape: ${targetUrl}`)
-            console.warn(`[Content] Menu scrape error for ${targetUrl}:`, err)
-          }
-        }
+        const capture = await captureMenuPages({
+          urls: c.state.menuUrls,
+          pageHistory,
+          obs: c.state.menuObservation,
+          uploadScreenshot: (screenshot) =>
+            uploadScreenshot(
+              screenshot,
+              buildScreenshotPath(c.organizationId, "locations", c.locationId, "menu.png")
+            ),
+          onWarning: (message) => c.state.warnings.push(message),
+        })
 
+        c.state.allParsedResults.push(...capture.results)
+        c.state.menuPages = capture.pages
         if (c.state.allParsedResults.length > 0) {
           c.state.sources.push("firecrawl")
         }
 
         // Store first screenshot path for later use in building the menu snapshot
-        ;(c.state as Record<string, unknown>)._menuScreenshotPath =
-          firstScreenshotPath
-        ;(c.state as Record<string, unknown>)._menuScreenshotSourceUrl =
-          firstScreenshotSourceUrl
+        ;(c.state as Record<string, unknown>)._menuScreenshotPath = capture.screenshotPath
+        ;(c.state as Record<string, unknown>)._menuScreenshotSourceUrl = capture.screenshotSourceUrl
 
         const totalItems = c.state.allParsedResults.reduce(
           (s, p) => s + p.categories.reduce((s2, cat) => s2 + cat.items.length, 0),
@@ -417,6 +407,7 @@ export function buildContentSteps(
         return {
           pagesScraped: c.state.menuUrls.length,
           itemsFound: totalItems,
+          thinRejected: c.state.menuObservation.thinRejected,
         }
       },
     },
@@ -494,7 +485,8 @@ export function buildContentSteps(
                 sourceUrl: screenshotSourceUrl ?? primaryMenuUrl,
               }
             : null,
-          merged.currency
+          merged.currency,
+          c.state.menuPages
         )
         c.state.locationMenu.parseMeta.sources = c.state.sources
         c.state.menuObservation.mergedItems = c.state.locationMenu.parseMeta.itemsTotal
@@ -712,6 +704,7 @@ export async function buildContentContext(
       locationSiteContent: null,
       locationMenu: null,
       allParsedResults: [],
+      menuPages: [],
       sources: [],
       competitorMenus: [],
       warnings: [],

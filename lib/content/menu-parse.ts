@@ -3,7 +3,7 @@
 // Firecrawl does the heavy lifting (LLM extraction); we just normalize.
 // ---------------------------------------------------------------------------
 
-import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource } from "./types"
+import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource, MenuExtractor } from "./types"
 import { coerceItemKind } from "./types"
 import type { ExtractedMenu } from "@/lib/providers/firecrawl"
 import type { GoogleMenuResult } from "@/lib/ai/gemini"
@@ -62,7 +62,8 @@ export type NormalizedMenuResult = {
 }
 
 export function normalizeExtractedMenu(
-  extracted: ExtractedMenu | null
+  extracted: ExtractedMenu | null,
+  extractor: MenuExtractor = "model"
 ): NormalizedMenuResult {
   const notes: string[] = []
 
@@ -99,7 +100,14 @@ export function normalizeExtractedMenu(
   const totalItems = categories.reduce((s, c) => s + c.items.length, 0)
   const confidence = totalItems >= 10 ? "high" : totalItems >= 3 ? "medium" : "low"
 
-  notes.push(`Extracted via Firecrawl JSON mode (${totalItems} items across ${categories.length} categories)`)
+  // The note names the EXTRACTOR on purpose: parseMeta.notes is the only place an operator
+  // can see whether a stored read came from the deterministic parser or from the model, and
+  // that distinction is the whole of the reliability story (menu-markdown.ts).
+  notes.push(
+    extractor === "markdown"
+      ? `Parsed deterministically from page markdown (${totalItems} items across ${categories.length} categories)`
+      : `Extracted via Firecrawl JSON mode (${totalItems} items across ${categories.length} categories)`
+  )
 
   return {
     categories,

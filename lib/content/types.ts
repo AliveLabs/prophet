@@ -87,11 +87,31 @@ export type MenuCategory = {
 
 export type MenuSource = "firecrawl" | "gemini_google_search"
 
+/** Which extractor produced a page's items. See lib/content/menu-markdown.ts for why. */
+export type MenuExtractor = "markdown" | "model" | "none"
+
+/**
+ * One page's contribution to a menu capture. Recorded per run so the NEXT run can judge a
+ * page against its own history rather than against the whole location's merged total, which
+ * is what makes thin-read rejection possible (lib/content/menu-thin-read.ts).
+ */
+export type MenuPageRead = {
+  url: string
+  items: number
+  extractor: MenuExtractor
+  /** True when the read was rejected as implausibly small versus this URL's own history. */
+  thin: boolean
+  /** Scrape attempts spent on this URL (2 means a thin first read was re-read). */
+  attempts: number
+}
+
 export type ParseMeta = {
   itemsTotal: number
   confidence: "high" | "medium" | "low"
   notes: string[]
   sources?: MenuSource[]
+  /** Per-URL reads behind this snapshot. Absent on snapshots captured before 2026-08-14. */
+  pages?: MenuPageRead[]
   /**
    * Best item count we have ever credibly read for this menu (high outliers excluded).
    * Our only available proxy for "how big is this menu really" — see

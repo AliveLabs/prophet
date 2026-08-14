@@ -3,14 +3,20 @@
 // Used by: approveCompetitorAction, refreshContentAction
 // ---------------------------------------------------------------------------
 
-import { discoverAllMenuUrls, scrapeMenuPage } from "@/lib/providers/firecrawl"
-import { normalizeExtractedMenu, normalizeGoogleMenuData, mergeExtractedMenus } from "@/lib/content/menu-parse"
+import { discoverAllMenuUrls } from "@/lib/providers/firecrawl"
+import {
+  normalizeGoogleMenuData,
+  mergeExtractedMenus,
+  MENU_HISTORY_WINDOW,
+} from "@/lib/content/menu-parse"
 import type { NormalizedMenuResult } from "@/lib/content/menu-parse"
+import { captureMenuPages } from "@/lib/content/menu-capture"
+import { collectPageHistory } from "@/lib/content/menu-thin-read"
 import { fetchGoogleMenuData } from "@/lib/ai/gemini"
 import { buildMenuSnapshot, computeMenuDiffHash } from "@/lib/content/normalize"
 import { uploadScreenshot, buildScreenshotPath } from "@/lib/content/storage"
 import { newMenuObservation, recordMenuIngestEvent } from "@/lib/content/menu-telemetry"
-import type { MenuSource } from "@/lib/content/types"
+import type { MenuSnapshot, MenuSource } from "@/lib/content/types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
 // ---------------------------------------------------------------------------
@@ -49,34 +55,31 @@ export async function enrichCompetitorContent(
       compMenuUrls = [compUrl]
     }
 
-    // Scrape each URL and merge
-    const compParsedResults: NormalizedMenuResult[] = []
-    let compScreenshotPath: string | null = null
-    let compScreenshotSourceUrl: string | null = null
+    // Scrape each URL and merge. Thin reads are re-read once and then dropped rather than
+    // stored (lib/content/menu-capture.ts).
+    const { data: priorSnaps } = await supabase
+      .from("snapshots")
+      .select("raw_data")
+      .eq("competitor_id", competitorId)
+      .eq("snapshot_type", "web_menu_weekly")
+      .order("date_key", { ascending: false })
+      .limit(MENU_HISTORY_WINDOW)
 
-    for (const targetUrl of compMenuUrls) {
-      obs.scrapeAttempts++
-      try {
-        const menuResult = await scrapeMenuPage(targetUrl)
-        if (menuResult) {
-          if (!compScreenshotPath && menuResult.screenshot) {
-            const path = buildScreenshotPath(organizationId, "competitors", competitorId, "menu.png")
-            compScreenshotPath = await uploadScreenshot(menuResult.screenshot, path)
-            compScreenshotSourceUrl = targetUrl
-          }
-          const parsed = normalizeExtractedMenu(menuResult.menu)
-          if (parsed.categories.length > 0) {
-            compParsedResults.push(parsed)
-            obs.scrapesWithItems++
-          }
-        } else {
-          obs.scrapeErrors++
-        }
-      } catch {
-        obs.scrapeErrors++
-        // Continue to next URL
-      }
-    }
+    const capture = await captureMenuPages({
+      urls: compMenuUrls,
+      pageHistory: collectPageHistory((priorSnaps ?? []).map((r) => r.raw_data as MenuSnapshot)),
+      obs,
+      uploadScreenshot: (screenshot) =>
+        uploadScreenshot(
+          screenshot,
+          buildScreenshotPath(organizationId, "competitors", competitorId, "menu.png")
+        ),
+      onWarning: (message) => warnings.push(message),
+    })
+
+    const compParsedResults: NormalizedMenuResult[] = [...capture.results]
+    const compScreenshotPath = capture.screenshotPath
+    const compScreenshotSourceUrl = capture.screenshotSourceUrl
 
     if (compParsedResults.length > 0) sources.push("firecrawl")
 
@@ -107,7 +110,8 @@ export async function enrichCompetitorContent(
         compScreenshotPath
           ? { storagePath: compScreenshotPath, sourceUrl: compScreenshotSourceUrl ?? compUrl }
           : null,
-        merged.currency
+        merged.currency,
+        capture.pages
       )
       compMenu.parseMeta.sources = sources
       obs.mergedItems = compMenu.parseMeta.itemsTotal
