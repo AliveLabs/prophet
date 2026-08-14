@@ -110,7 +110,7 @@ describe("formatBenchmarkLine", () => {
 
   it("denominates both sides", () => {
     expect(formatBenchmarkLine(b)).toBe(
-      "Above the set: your 4.6 across 812 reviews vs a 4.2 median across 5 tracked competitors.",
+      "You are rated higher than your competitors: 4.6 from 812 reviews, against 4.2 across the 5 you track.",
     )
   })
 
@@ -118,6 +118,9 @@ describe("formatBenchmarkLine", () => {
     const line = formatBenchmarkLine(b)
     expect(line).not.toMatch(/because|caused|driving|thanks to/i)
     expect(line).not.toMatch(/best|worst|leader|beating|crushing|dominat/i)
+    // Operator language, not analyst language: these read as internal vocabulary on a
+    // customer-facing surface (flagged by Bryan 2026-08-14).
+    expect(line).not.toMatch(/\bthe set\b|\bmedian\b|\btracked competitor/i)
     expect(line).not.toContain("—")
   })
 
@@ -129,11 +132,11 @@ describe("formatBenchmarkLine", () => {
   it("words the level and below cases without a superlative", () => {
     const level = buildMarketBenchmark({ rating: 4.2, reviewCount: 300 }, SET)!
     const below = buildMarketBenchmark({ rating: 3.8, reviewCount: 300 }, SET)!
-    expect(formatBenchmarkLine(level)).toContain("Level with the set:")
-    expect(formatBenchmarkLine(below)).toContain("Below the set:")
+    expect(formatBenchmarkLine(level)).toContain("about even with your competitors")
+    expect(formatBenchmarkLine(below)).toContain("rated lower than your competitors")
   })
 
-  it("keeps the competitor noun singular when only one cleared the floor", () => {
+  it("keeps the phrasing correct when only one competitor cleared the floor", () => {
     expect(
       formatBenchmarkLine({
         ownRating: 4.6,
@@ -142,7 +145,7 @@ describe("formatBenchmarkLine", () => {
         comparedCount: 1,
         standing: "above",
       }),
-    ).toContain("1 tracked competitor.")
+    ).toContain("across the 1 you track.")
   })
 })
 
