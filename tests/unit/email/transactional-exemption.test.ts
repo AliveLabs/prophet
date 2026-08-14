@@ -1,5 +1,5 @@
-// D7 unsubscribe, HARD REQUIREMENT (Bryan): transactional email is exempt
-// from the marketing opt-out BY CONSTRUCTION, not by a runtime check.
+// HARD REQUIREMENT (Bryan): transactional email is exempt from the marketing
+// opt-out BY CONSTRUCTION, not by a runtime check.
 //
 // A fully opted-out contact must still receive password resets, magic links,
 // billing notices, receipts, and security mail. The way that is guaranteed is
@@ -7,15 +7,22 @@
 // there is no flag to get wrong, no query to mis-scope, no boolean anyone can
 // invert later.
 //
-// This file enforces both halves:
-//   1. RUNTIME  -- a send for an opted-out address goes out, and the opt-out
-//                  storage layer and the Supabase admin client are never
-//                  touched during it.
-//   2. STATIC   -- no file under lib/email/** references the suppression
-//                  module, its export, or the opt-out column. That is the
-//                  guard against a future "just check the flag here" edit,
-//                  which the runtime test alone would not catch on a path it
-//                  does not exercise.
+// This guard is independent of WHERE opt-outs are recorded. The app used to
+// host its own unsubscribe page and write its own column; that was retired on
+// 2026-08-14 in favour of the marketing automation side, which owns unsubscribe
+// end to end and records opt-outs in `marketing.suppression` (see
+// docs/UNSUBSCRIBE-CONTRACT.md). The requirement did not change, so neither did
+// this file: transactional mail must not consult opt-out state, wherever that
+// state happens to live.
+//
+// It enforces both halves:
+//   1. RUNTIME  -- a send for an opted-out address goes out, and the Supabase
+//                  admin client (the only route into the `marketing` schema,
+//                  where suppression lives) is never constructed during it.
+//   2. STATIC   -- no file under lib/email/** references opt-out or suppression
+//                  state by any name. That is the guard against a future "just
+//                  check the flag here" edit, which the runtime test alone
+//                  would not catch on a path it does not exercise.
 
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { readdirSync, readFileSync, statSync } from "node:fs"
@@ -27,13 +34,9 @@ vi.mock("@/lib/email/client", () => ({
   resend: { emails: { send: (...args: unknown[]) => sendMock(...args) } },
 }))
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: vi.fn() }))
-vi.mock("@/lib/marketing/suppression", () => ({
-  setMarketingEmailOptOut: vi.fn(),
-}))
 
 import { sendEmail } from "@/lib/email/send"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { setMarketingEmailOptOut } from "@/lib/marketing/suppression"
 
 // Stands in for any transactional template (magic link, receipt, security
 // notice). sendEmail takes a ReactElement; the shape is all that matters here.
@@ -62,18 +65,15 @@ describe("transactional email ignores the marketing opt-out", () => {
     expect(sendMock).toHaveBeenCalledTimes(1)
     expect(sendMock.mock.calls[0][0]).toMatchObject({ to: [OPTED_OUT] })
 
-    // The opt-out never entered the decision: no suppression call, and no
-    // admin client (the only route to the marketing schema) constructed.
-    expect(setMarketingEmailOptOut).not.toHaveBeenCalled()
+    // The opt-out never entered the decision: no admin client, which is the
+    // only route to the marketing schema, was constructed.
     expect(createAdminSupabaseClient).not.toHaveBeenCalled()
   })
 
-  it("still sends when marketing contacts are enabled and a secret is configured", async () => {
+  it("still sends when the marketing contact mirror is enabled", async () => {
     // Nothing about the marketing configuration can gate a transactional send.
     const priorFlag = process.env.MARKETING_CONTACTS_ENABLED
-    const priorSecret = process.env.UNSUB_SECRET
     process.env.MARKETING_CONTACTS_ENABLED = "true"
-    process.env.UNSUB_SECRET = "test-unsub-secret-value"
     try {
       const result = await sendEmail({
         to: OPTED_OUT,
@@ -87,8 +87,6 @@ describe("transactional email ignores the marketing opt-out", () => {
     } finally {
       if (priorFlag === undefined) delete process.env.MARKETING_CONTACTS_ENABLED
       else process.env.MARKETING_CONTACTS_ENABLED = priorFlag
-      if (priorSecret === undefined) delete process.env.UNSUB_SECRET
-      else process.env.UNSUB_SECRET = priorSecret
     }
   })
 })
@@ -104,11 +102,20 @@ describe("the transactional email layer cannot see the opt-out (static)", () => 
   }
 
   // Anything that would couple a transactional send to marketing opt-out
-  // state. Keep this list in sync with lib/marketing/suppression.ts.
+  // state, under any of the names that state has gone by. Matched
+  // case-insensitively against the WHOLE file, comments included: if you need
+  // to explain this exemption, explain it here or in
+  // docs/UNSUBSCRIBE-CONTRACT.md, not inside lib/email.
+  //
+  // "unsubscribe" also covers "unsubscribed" and the retired
+  // `unsubscribed_at` column, and it keeps an unsubscribe link out of
+  // transactional templates, which would imply this mail is suppressible.
   const FORBIDDEN = [
-    "marketing/suppression",
-    "setMarketingEmailOptOut",
-    "unsubscribed_at",
+    "suppression",
+    "unsubscribe",
+    "opt-out",
+    "opt_out",
+    "optout",
   ]
 
   it("has files to check (guards against a silently empty scan)", () => {
@@ -119,7 +126,7 @@ describe("the transactional email layer cannot see the opt-out (static)", () => 
   it("references nothing from the marketing opt-out layer", () => {
     const offenders: string[] = []
     for (const file of walk(emailDir).filter((f) => /\.tsx?$/.test(f))) {
-      const source = readFileSync(file, "utf8")
+      const source = readFileSync(file, "utf8").toLowerCase()
       for (const needle of FORBIDDEN) {
         if (source.includes(needle)) {
           offenders.push(`${path.relative(emailDir, file)}: ${needle}`)
