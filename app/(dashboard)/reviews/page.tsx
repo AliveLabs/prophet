@@ -25,6 +25,8 @@ import {
   reviewsSubLine,
   type ReviewCardView,
 } from "./reviews-map"
+import { loadActiveWatchEvents } from "@/lib/reviews/watch-events"
+import { buildWatchNotices, WATCH_COPY } from "@/lib/reviews/watch-copy"
 import ReviewsTriage from "./reviews-cards"
 import "./reviews.css"
 
@@ -82,6 +84,14 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   const rows = selectedLocationId ? await listLocationReviews(supabase, selectedLocationId) : []
   const signalsByAuthor = aggregateReviewerSignals(rows)
 
+  // Phase 4.2: the watchdog panel. Reads events the nightly pipeline already
+  // recorded (no detection at render time), and shows only the ones still inside
+  // their observation window, so the panel is always about reviews the operator
+  // has not been told about yet. Fail-soft: [] pre-migration or on any error.
+  const watchNotices = selectedLocationId
+    ? buildWatchNotices(await loadActiveWatchEvents(supabase, selectedLocationId))
+    : []
+
   const views: ReviewCardView[] = rows.map((row) => {
     // "Scored" = the scoring pass has written both axes. Anything else renders
     // neutrally (never a fabricated band — the scoring pass's fail-soft contract).
@@ -133,6 +143,28 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
                   },
                 ]}
               />
+            </TkSoftPanel>
+          )}
+
+          {watchNotices.length > 0 && (
+            <TkSoftPanel className="rev-watch" aria-label={WATCH_COPY.panel.title}>
+              <div className="rev-watch-head">
+                <span className="rev-watch-kicker">{WATCH_COPY.panel.title}</span>
+                <p className="rev-watch-sub">{WATCH_COPY.panel.sub}</p>
+              </div>
+              <ul className="rev-watch-list">
+                {watchNotices.map((n) => (
+                  <li key={n.key} className={`rev-watch-item rev-watch-${n.tone}`}>
+                    <span className="rev-watch-mark" aria-hidden="true" />
+                    <div className="rev-watch-body">
+                      <p className="rev-watch-title">{n.title}</p>
+                      <p className="rev-watch-line">{n.line}</p>
+                    </div>
+                    {n.when && <span className="rev-watch-when">{n.when}</span>}
+                  </li>
+                ))}
+              </ul>
+              {views.length > 0 && <p className="rev-watch-foot">{WATCH_COPY.footer}</p>}
             </TkSoftPanel>
           )}
 

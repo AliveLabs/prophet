@@ -18,6 +18,7 @@ import { unionRecentMenus, MENU_HISTORY_WINDOW } from "@/lib/content/menu-parse"
 import { analyzeReviews } from "@/lib/insights/reviews/sentiment"
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { scoreLocationReviews } from "@/lib/reviews/scoring"
+import { runReviewWatchdog } from "@/lib/reviews/watch-events"
 import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { generateSeoInsights, filterNoDiffSafeSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
@@ -160,6 +161,7 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       run: async (c) => {
         let reviewsPersisted = 0
         let reviewsScored = 0
+        let watchdogFired = 0
         if (c.location.primary_place_id) {
           const details = await fetchPlaceDetails(c.location.primary_place_id)
           c.state.locationSnapshot = buildSnapshotFromPlaceDetails(details)
@@ -294,8 +296,26 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
           } catch (err) {
             console.warn(`[insights:${c.locationId}] review scoring threw:`, err)
           }
+
+          // Phase 4.2: the review watchdog. Runs LAST in this step, once the
+          // corpus is both fresh (upsert above) and scored (red_flags for the
+          // cluster detector). Pure arithmetic plus two SELECTs: NO model call.
+          // Best-effort BUT LOUD, same posture as everything else here: a
+          // watchdog miss must never block a build, and never silently vanish.
+          try {
+            const watch = await runReviewWatchdog(c.supabase, c.locationId, { firedOn: c.dateKey })
+            watchdogFired = watch.fired.length
+            for (const anomaly of watch.fired) {
+              console.log(`[insights:${c.locationId}] review watchdog fired ${anomaly.key} (z=${anomaly.strength})`)
+            }
+            for (const err of watch.errors) {
+              console.warn(`[insights:${c.locationId}] review watchdog error: ${err}`)
+            }
+          } catch (err) {
+            console.warn(`[insights:${c.locationId}] review watchdog threw:`, err)
+          }
         }
-        return { hasPlacesData: !!c.state.locationSnapshot, reviewsPersisted, reviewsScored }
+        return { hasPlacesData: !!c.state.locationSnapshot, reviewsPersisted, reviewsScored, watchdogFired }
       },
     },
     {
