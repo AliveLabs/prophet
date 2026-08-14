@@ -117,15 +117,46 @@ describe("classifyMenuRun", () => {
           if (scrapesWithItems > scrapeAttempts - scrapeErrors) continue
           for (const enrichment of ["items", "empty", "error", "skipped"] as const) {
             for (const mergedItems of [0, 10]) {
-              const verdict = classifyMenuRun(obs({ scrapeAttempts, scrapeErrors, scrapesWithItems, enrichment, mergedItems }))
-              expect(["succeeded", "empty", "failed"]).toContain(verdict.outcome)
-              if (verdict.outcome === "succeeded") expect(verdict.reason).toBeNull()
-              else expect(verdict.reason).not.toBeNull()
+              for (const thinRejected of [0, 1]) {
+                const verdict = classifyMenuRun(
+                  obs({ scrapeAttempts, scrapeErrors, scrapesWithItems, enrichment, mergedItems, thinRejected })
+                )
+                expect(["succeeded", "empty", "failed"]).toContain(verdict.outcome)
+                if (verdict.outcome === "succeeded") expect(verdict.reason).toBeNull()
+                else expect(verdict.reason).not.toBeNull()
+              }
             }
           }
         }
       }
     }
+  })
+
+  // Thin-read rejection (2026-08-14). A run that read real menus and REFUSED them for being
+  // implausibly small must never be filed as "this place has no menu" — that reading is what
+  // would let a scraper regression look like a fleet of menuless restaurants.
+  it("a run whose every page was rejected as thin is failed/thin_read, not empty", () => {
+    expect(
+      classifyMenuRun(obs({ scrapeAttempts: 3, scrapesWithItems: 0, thinRejected: 3, enrichment: "empty" }))
+    ).toEqual({ outcome: "failed", reason: "thin_read" })
+  })
+
+  it("thin_read outranks zero_items and parse_empty, which would both understate the failure", () => {
+    expect(
+      classifyMenuRun(obs({ scrapeAttempts: 1, scrapesWithItems: 0, thinRejected: 1, enrichment: "skipped" }))
+    ).toEqual({ outcome: "failed", reason: "thin_read" })
+  })
+
+  it("a fetch failure still outranks a thin rejection: we never read the site at all", () => {
+    expect(
+      classifyMenuRun(obs({ scrapeAttempts: 2, scrapeErrors: 2, thinRejected: 0 }))
+    ).toEqual({ outcome: "failed", reason: "fetch_failed" })
+  })
+
+  it("one page rejected while another succeeded is still a success, with the rejection on the record", () => {
+    const observation = obs({ scrapeAttempts: 2, scrapesWithItems: 1, thinRejected: 1, mergedItems: 60 })
+    expect(classifyMenuRun(observation)).toEqual({ outcome: "succeeded", reason: null })
+    expect(observation.thinRejected).toBe(1)
   })
 })
 

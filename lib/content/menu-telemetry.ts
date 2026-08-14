@@ -60,6 +60,11 @@ export type MenuChannelStatus =
  * - save_failed:        a menu WAS extracted but the snapshot upsert failed, so the data
  *                       never landed. From the product's view this run produced nothing.
  * - pipeline_error:     an unexpected exception in the enrichment path (the outer catch).
+ * - thin_read:          every page we read came back implausibly small versus that URL's own
+ *                       history and was rejected rather than stored. This is a DELIBERATE
+ *                       refusal, not a crash: the run produced nothing because everything it
+ *                       produced was untrustworthy. It ranks above zero_items because the
+ *                       pages plainly do have menus.
  */
 export type MenuFailureReason =
   | "no_website"
@@ -69,6 +74,7 @@ export type MenuFailureReason =
   | "zero_items"
   | "save_failed"
   | "pipeline_error"
+  | "thin_read"
 
 /**
  * Raw, mechanical observations collected as the pipeline runs. Call sites only ever RECORD
@@ -85,6 +91,12 @@ export type MenuStageObservation = {
   scrapeErrors: number
   /** Attempts whose normalized parse produced at least one category with items. */
   scrapesWithItems: number
+  /** Extra page fetches spent re-reading a page that came back thin. */
+  scrapeRetries: number
+  /** Reads dropped because they stayed implausibly small after the re-read. */
+  thinRejected: number
+  /** Pages that needed Firecrawl's LLM JSON mode because deterministic parsing failed. */
+  modelExtractions: number
   /** Gemini Google-Search grounding channel status. */
   enrichment: MenuChannelStatus
   /** Item count of the merged menu (0 when nothing merged / nothing found). */
@@ -103,6 +115,9 @@ export function newMenuObservation(): MenuStageObservation {
     scrapeAttempts: 0,
     scrapeErrors: 0,
     scrapesWithItems: 0,
+    scrapeRetries: 0,
+    thinRejected: 0,
+    modelExtractions: 0,
     enrichment: "skipped",
     mergedItems: 0,
     saveError: null,
@@ -142,6 +157,12 @@ export function classifyMenuRun(obs: MenuStageObservation): MenuRunVerdict {
 
   // Zero merged items: decide whether we FAILED to look or looked and found nothing.
   const fc = firecrawlStatus(obs)
+
+  // We looked, we found menus, and we REFUSED them for being implausibly small. That is a
+  // failure with a known cause, and must never be filed as "this place has no menu".
+  if (obs.thinRejected > 0 && obs.scrapesWithItems === 0) {
+    return { outcome: "failed", reason: "thin_read" }
+  }
 
   // Primary channel down entirely -> we could not fetch, regardless of what Gemini said
   // (a secondary "empty" is not trustworthy when the site itself was never read).
