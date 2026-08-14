@@ -114,6 +114,12 @@ headings use weight **600–700** with tracking `-0.02em` (not the old serif wei
   for grouping inside a card without over-chroming. Prefer this over nested lifted cards.
 - **Glass** (sticky chrome only): `background: color-mix(in srgb, var(--paper) 82%, transparent)` +
   `backdrop-filter: saturate(140%) blur(12px)`. Used on topbar, mobile tab bar, drawer header.
+  **Declare the standard property ALONE. Never hand-write a `-webkit-backdrop-filter` companion.**
+  Lightning CSS adds the prefix itself, and when the source supplies both it emits the `-webkit-`
+  form *alone* and drops the standard one, which this engine does not support: the rule computes
+  `backdrop-filter: none` and the frost silently does not render. Twenty-eight rules across twelve
+  stylesheets were shipping flat for exactly this reason (ALT-600, after PR #219 found the first
+  three). Verify by computed style on a real page, never by grepping the source.
 - **Gradient fills** (Concept C): `linear-gradient(150deg, base, deep)` for primary buttons, brand mark, weighted
   widgets, hero veils. Text/number "weight" widgets get the gradient; data-display widgets stay `--card`.
 - Shadows: `sm 0 1px 2px / 0 1px 3px (.05–.06)`, `md 0 4px 14px / 0 2px 6px (.08)`, `lg 0 18px 50px / 0 6px 18px (.16/.08)`. Warm-shifted (`rgba(36,30,26,…)`).

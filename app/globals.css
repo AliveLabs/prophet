@@ -399,28 +399,24 @@
   .glass-card {
     background: rgba(255, 255, 255, 0.04);
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .glass-indigo {
     background: rgba(43, 53, 63, 0.12);
     backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(43, 53, 63, 0.22);
   }
 
   .glass-gold {
     background: rgba(212, 136, 10, 0.1);
     backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(212, 136, 10, 0.22);
   }
 
   .glass-teal {
     background: rgba(52, 119, 94, 0.1);
     backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(52, 119, 94, 0.22);
   }
 

@@ -26,7 +26,9 @@ export const DEFAULT_CATEGORY_PRIORS: Record<Category, number> = CATEGORY_PRIORS
 /** A per-location override — partial: only the categories the operator changed. */
 export type CategoryPriors = Partial<Record<Category, number>>
 
-/** Operator-facing ordering + labels for the controls UI. */
+/** Operator-facing ordering for the controls UI. The NAMES live in
+ *  `lib/skills/category-labels.ts` (CATEGORY_LABEL) — one map shared with every card
+ *  and feed chip, so a slider and the chips it moves read the same word (ALT-554). */
 export const CATEGORY_ORDER: Category[] = [
   "demand",
   "marketing",
@@ -38,18 +40,6 @@ export const CATEGORY_ORDER: Category[] = [
   "operations",
   "convergence",
 ]
-
-export const CATEGORY_LABELS: Record<Category, string> = {
-  demand: "Demand (events & weather)",
-  marketing: "Marketing (your own content)",
-  social: "Social counter-strategy (vs rivals)",
-  grassroots: "Grassroots (hyper-local hustle)",
-  menu: "Menu & food",
-  positioning: "Positioning",
-  reputation: "Reputation",
-  operations: "Operations",
-  convergence: "Cross-signal convergence",
-}
 
 const KNOWN_CATEGORIES = new Set<string>(CATEGORY_ORDER)
 const EPSILON = 0.001

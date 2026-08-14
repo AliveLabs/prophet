@@ -6,6 +6,7 @@ import { ensureBriefQueued } from "@/lib/jobs/triggers"
 import { loadPipelineChecks } from "../proof-data"
 import { loadStandingAnswer } from "@/lib/ask/history"
 import { loadPlayActions, loadWeeklyMomentum } from "@/lib/insights/momentum"
+import { loadMarketPulse } from "@/lib/insights/market-pulse"
 import BriefView from "./brief-view"
 import FirstRunPanel from "./first-run-panel"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
@@ -86,12 +87,15 @@ export default async function HomePage() {
   }
 
   const competitorIds = approvedComps.map((c) => c.id)
-  const [checks, standingAsk, playActions, weeklyMomentum, photosData] = await Promise.all([
+  const [checks, standingAsk, playActions, weeklyMomentum, photosData, marketPulse] = await Promise.all([
     loadPipelineChecks(),
     loadStandingAnswer(locRow.id),
     loadPlayActions(locRow.id, brief.dateKey),
     loadWeeklyMomentum(locRow.id),
     fetchPhotosPageData(locRow.id, competitorIds),
+    // Phase 3.2 — the competitor changelog + the market benchmark. Reads only stored
+    // pipeline output: no model call, no vendor call.
+    loadMarketPulse(locRow.id),
   ])
 
   // Listing-imagery modules (ALT-160): own-listing photo rows + per-competitor
@@ -136,6 +140,7 @@ export default async function HomePage() {
       hasListing={!!locRow.primary_place_id}
       shelfCompetitors={shelfCompetitors}
       competitorCovers={competitorCovers}
+      marketPulse={marketPulse}
     />
   )
 }
