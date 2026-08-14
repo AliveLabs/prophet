@@ -378,7 +378,6 @@
   background: rgba(255, 255, 255, .18);
   color: #fff;
   backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
 }
 .photos-tile-cap-chip.is-pro {
   background: color-mix(in srgb, var(--teal) 80%, #fff 20%);
@@ -405,7 +404,6 @@
   padding: 3px 8px;
   border-radius: 999px;
   backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 .photos-promo-badge {
   font-family: var(--font-cond);

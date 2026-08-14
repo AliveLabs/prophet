@@ -118,7 +118,6 @@
   place-items: center;
   background: rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.22);
 }
 .pd-hero-fam svg {
@@ -408,7 +407,6 @@
   color: #fff;
   background: rgba(20, 26, 32, 0.62);
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
   padding: 4px 9px;
   border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -430,7 +428,6 @@
   color: #fff;
   background: rgba(20, 26, 32, 0.62);
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
   padding: 4px 8px;
   border-radius: 7px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -460,7 +457,6 @@
   color: #fff;
   background: rgba(20, 26, 32, 0.62);
   backdrop-filter: blur(5px);
-  -webkit-backdrop-filter: blur(5px);
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   transition: background var(--t-fast), transform var(--t-fast);

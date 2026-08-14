@@ -40,7 +40,7 @@
   /* deeper frost over the atmospheric canvas — the rail reads as floating glass */
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--card) 78%, transparent), color-mix(in srgb, var(--card) 60%, transparent));
-  backdrop-filter:saturate(160%) blur(16px); -webkit-backdrop-filter:saturate(160%) blur(16px);
+  backdrop-filter:saturate(160%) blur(16px);
   box-shadow:1px 0 0 color-mix(in srgb, var(--card) 50%, transparent);
   display:flex; flex-direction:column; padding:20px 14px 16px;
 }
@@ -217,7 +217,7 @@
     position:sticky; top:0; z-index:35; padding:11px 16px;
     padding-top:calc(11px + env(safe-area-inset-top));
     background:color-mix(in srgb, var(--paper) 78%, transparent);
-    backdrop-filter:saturate(160%) blur(16px); -webkit-backdrop-filter:saturate(160%) blur(16px);
+    backdrop-filter:saturate(160%) blur(16px);
     border-bottom:1px solid var(--line-2);
     box-shadow:0 1px 0 color-mix(in srgb, var(--card) 50%, transparent);
   }
@@ -229,7 +229,7 @@
     display:flex; position:fixed; left:0; right:0; bottom:0; z-index:45;
     padding:8px 6px calc(8px + env(safe-area-inset-bottom));
     background:color-mix(in srgb, var(--paper) 84%, transparent);
-    backdrop-filter:saturate(160%) blur(18px); -webkit-backdrop-filter:saturate(160%) blur(18px);
+    backdrop-filter:saturate(160%) blur(18px);
     border-top:1px solid var(--line-2);
     box-shadow:0 -1px 0 color-mix(in srgb, var(--card) 50%, transparent), 0 -8px 24px rgba(36,30,26,.05);
   }
