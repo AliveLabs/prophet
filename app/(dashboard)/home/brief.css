@@ -681,6 +681,68 @@
   padding: 4px 11px;
 }
 
+/* ── MARKET PULSE (Phase 3.2) ─────────────────────────────────────────────
+   Two blocks on the brief's existing section idiom (TkSectionHead over TkCard):
+   the you-vs-the-set benchmark line, and the competitor changelog. The row
+   treatment deliberately reuses the "what we checked" coverage rhythm below —
+   same hairline separators, same mono meta column — so these read as part of
+   the brief rather than as a bolted-on widget. ───────────────────────────── */
+.ticket-brief .pass-bench {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink);
+}
+.ticket-brief .pass-bench-foot {
+  margin: 11px 0 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  line-height: 1.5;
+}
+
+.ticket-brief .pass-changes { list-style: none; margin: 0; padding: 0; }
+.ticket-brief .pass-change {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ticket-brief .pass-change:first-child { padding-top: 0; }
+.ticket-brief .pass-change:last-child { border-bottom: 0; padding-bottom: 0; }
+.ticket-brief .pass-change-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.ticket-brief .pass-change-who {
+  font-family: var(--font-cond, var(--font-display));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 12px;
+  color: var(--ink);
+  min-width: 0;
+}
+.ticket-brief .pass-change-when {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.ticket-brief .pass-change-what {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ticket-brief .pass-changes-card .pass-pool-link { margin-top: 16px; }
+
 /* ── See-all-insights link (ALT-184a: moved to the TOP of the brief's insights
    list so it's discoverable immediately, not buried at the bottom) ──────── */
 .ticket-brief .pass-pool-link {

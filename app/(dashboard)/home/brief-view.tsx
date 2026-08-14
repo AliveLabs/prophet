@@ -35,6 +35,8 @@ import {
   TkTooltipLayer,
 } from "@/components/ticket"
 import { BriefInsightCard } from "./brief-insight-card"
+import MarketPulseSection from "./market-pulse-section"
+import type { MarketPulse } from "@/lib/insights/market-pulse"
 import { PassAskWidget } from "./pass-ask-widget"
 import { PassClearedUndo } from "./pass-cleared-undo"
 import { PassHeroCanvas } from "./pass-hero-canvas"
@@ -74,6 +76,7 @@ export default function BriefView({
   hasListing = false,
   shelfCompetitors = [],
   competitorCovers = [],
+  marketPulse = null,
 }: {
   brief: Brief
   locationId: string
@@ -92,6 +95,10 @@ export default function BriefView({
   /** Hero imagery: one picked cover per competitor (url + focal), so a competitive lead play
    *  can show that rival's photo. The own-photo tier is category-matched from `ownPhotos`. */
   competitorCovers?: Array<{ name: string; url: string; focal: { x: number; y: number } }>
+  /** Phase 3.2 — the competitor changelog + the market benchmark, both already gated by
+   *  `loadMarketPulse`. Only /home supplies it; preview and dev-brief pass nothing, so the
+   *  section renders nothing there. */
+  marketPulse?: MarketPulse | null
 }) {
   const competitorCoverMap = buildCompetitorCoverMap(competitorCovers)
   const allRefs = brief.plays.flatMap((p) => p.evidenceRefs)
@@ -367,6 +374,13 @@ export default function BriefView({
             </RevealOnView>
           </>
         )}
+
+        {/* ── MARKET PULSE (Phase 3.2) — what moved among the tracked competitors this week,
+            and one honest you-vs-the-set rating line. Deliberately OUTSIDE the low-data
+            branch: a location whose first brief has no plays yet can still have real
+            competitor movement worth coming back for. Both blocks self-hide when the data
+            does not support them, and neither costs a model call. ── */}
+        <MarketPulseSection pulse={marketPulse} />
 
         {/* ── LISTING IMAGERY (ALT-160) — your Google-listing photos: a storefront
             check + a you-vs-set Shelf. Sits below the at-a-glance widgets and above
