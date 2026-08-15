@@ -102,6 +102,80 @@ describe("claudeRaw request shape — temperature by model generation", () => {
   })
 })
 
+// ALT-613. The SECOND thing that made a model swap unsafe, and the one ALT-544 missed.
+//
+// Omitting `thinking` is not neutral. On Sonnet 4.6 / Opus 4.8 an absent field means no thinking;
+// on Sonnet 5 and Opus 5 thinking is ON BY DEFAULT. So an omitted field silently enables adaptive
+// thinking on every non-thinking call site the moment ANTHROPIC_MODEL points at a 5-family id,
+// against max_tokens ceilings sized for no thinking — the 2026-06 truncation outage mechanism,
+// landing on safety-review and on the eval judge itself.
+//
+// The load-bearing property: the non-thinking branch must send an EXPLICIT disable, on every model.
+describe("claudeRaw request shape — thinking is always explicit", () => {
+  const realFetch = global.fetch
+  const hadKey = process.env.ANTHROPIC_API_KEY
+  afterEach(() => {
+    global.fetch = realFetch
+    if (hadKey === undefined) delete process.env.ANTHROPIC_API_KEY
+    else process.env.ANTHROPIC_API_KEY = hadKey
+    vi.restoreAllMocks()
+  })
+
+  function mockFetch(): { body: () => Record<string, unknown> } {
+    let captured: Record<string, unknown> = {}
+    global.fetch = vi.fn(async (_url: unknown, init: { body: string }) => {
+      captured = JSON.parse(init.body)
+      return { ok: true, json: async () => ({ content: [{ type: "text", text: "{}" }] }) } as unknown as Response
+    }) as unknown as typeof fetch
+    return { body: () => captured }
+  }
+
+  it("NEVER omits the thinking field on a non-thinking call, on any model", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    for (const model of ["claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-5", "claude-haiku-4-5"]) {
+      const f = mockFetch()
+      await claudeRaw({ tier: "reasoning", prompt: "x", model })
+      expect(f.body().thinking, model).toEqual({ type: "disabled" })
+    }
+  })
+
+  it("still sends temperature alongside the explicit disable on models that accept it", async () => {
+    // Verified live: `thinking:{type:"disabled"}` + `temperature` returns 200 on Sonnet 4.6 and
+    // Haiku 4.5. Today's behaviour is otherwise unchanged — this is additive.
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-4-6", temperature: 0.1 })
+    expect(f.body().thinking).toEqual({ type: "disabled" })
+    expect(f.body().temperature).toBe(0.1)
+  })
+
+  it("sends the explicit disable WITHOUT temperature on a 5-family model", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-5", temperature: 0.1 })
+    expect(f.body().thinking).toEqual({ type: "disabled" })
+    expect(f.body().temperature).toBeUndefined()
+  })
+
+  it("never sends output_config on the disabled branch — Opus 5 400s on disabled + xhigh/max", async () => {
+    // The disabled branch inherits the provider's default effort (`high`), which Opus 5 accepts.
+    // If ALT-614 ever starts sending effort here it needs a per-model guard first.
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-opus-5", effort: "high" })
+    expect(f.body().thinking).toEqual({ type: "disabled" })
+    expect(f.body().output_config).toBeUndefined()
+  })
+
+  it("keeps adaptive thinking on the thinking path (no accidental disable)", async () => {
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", model: "claude-sonnet-5", thinking: true, effort: "medium" })
+    expect(f.body().thinking).toEqual({ type: "adaptive" })
+    expect(f.body().output_config).toEqual({ effort: "medium" })
+  })
+})
+
 describe("pricing: the 5 family", () => {
   it("prices Opus 5 at the Opus rate (unchanged from 4.8)", () => {
     expect(rateFor("claude-opus-5")).toEqual({ input: 5, output: 25 })

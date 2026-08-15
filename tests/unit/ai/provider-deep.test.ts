@@ -38,12 +38,17 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     expect(b.max_tokens).toBe(32000) // deep pass gets headroom (thinking counts as output)
   })
 
-  it("normal request keeps temperature, no thinking/effort", async () => {
+  // ALT-613 changed this assertion, deliberately. It used to require `thinking` to be ABSENT on a
+  // normal request, which is the assumption that made a 5-family swap unsafe: an absent field means
+  // no thinking on Sonnet 4.6, but thinking ON on Sonnet 5 / Opus 5. The non-thinking branch now
+  // sends an explicit disable. Everything else here is unchanged: still no effort, still
+  // temperature 0.4, still the 8192 cap.
+  it("normal request keeps temperature and explicitly DISABLES thinking, with no effort", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key"
     const f = mockFetch()
     await claudeRaw({ tier: "reasoning", prompt: "x", temperature: 0.4 })
     const b = f.body()
-    expect(b.thinking).toBeUndefined()
+    expect(b.thinking).toEqual({ type: "disabled" })
     expect(b.output_config).toBeUndefined()
     expect(b.temperature).toBe(0.4)
     expect(b.max_tokens).toBe(8192)
