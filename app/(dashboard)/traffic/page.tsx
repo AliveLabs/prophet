@@ -27,6 +27,8 @@ import TrafficRanks from "./traffic-ranks"
 import TrafficIntel, { generateTrafficInsights } from "./traffic-intel"
 import { TrafficHeroCanvas } from "./traffic-hero-canvas"
 import "./traffic.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -70,6 +72,15 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run these sections
+  // would otherwise show whatever had landed so far, which an operator reads as the
+  // finished answer. Gated BEFORE the data reads below, so a page nobody will see does
+  // not pay for them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("traffic", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Foot traffic" />
+  }
 
   // Hero imagery: the operator's own-listing cover fills the hero instead of the gradient
   // default (this is their own location, so their own storefront/food is the honest subject).

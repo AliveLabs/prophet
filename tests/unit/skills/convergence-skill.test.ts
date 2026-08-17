@@ -584,6 +584,7 @@ describe("convergence@v2 — buildPrompt smoke", () => {
           weather_icon: "01d",
           precipitation_in: 0,
           is_severe: false,
+          precipitation_chance_pct: 0,
         })),
       },
     }

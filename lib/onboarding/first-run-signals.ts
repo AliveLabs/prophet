@@ -52,7 +52,16 @@ export type FirstRunSignalInput = {
    *  An empty ARRAY and null mean different things and must not be collapsed. */
   events: readonly { title: string; startDate: string | null }[] | null
   /** Local-search read, or null when no ranked-keyword snapshot exists yet. */
-  localSearch: { rankedKeywordCount: number; topKeywords: readonly string[] } | null
+  localSearch: {
+    rankedKeywordCount: number
+    /**
+     * ALT-623: the best-ranked searches that actually name the operator's area or ask for
+     * something near the searcher, already labelled with their position. NOT the top three
+     * keywords overall: this card is titled "local search", so a national term underneath it is
+     * a claim we cannot support. Empty is a real answer, and gets its own line below.
+     */
+    localKeywords: readonly string[]
+  } | null
   /** Whether the listing carries a website. Without one there is nothing to look up. */
   hasWebsite: boolean
 }
@@ -95,7 +104,9 @@ function competitorSignal(input: FirstRunSignalInput): FirstRunSignal {
 }
 
 function eventsSignal(input: FirstRunSignalInput): FirstRunSignal {
-  const label = "What is on near you"
+  // ALT-624: "What is on near you" is a British idiom. Our operators are American and it read
+  // as broken English to the first one who saw it.
+  const label = "What's happening near you"
   if (input.events === null) {
     if (!pipelineSettled(input.jobStatus, "events")) {
       return {
@@ -156,7 +167,7 @@ function visibilitySignal(input: FirstRunSignalInput): FirstRunSignal {
       headline: "We could not read your search visibility this time. We try again on the next run.",
     }
   }
-  const { rankedKeywordCount, topKeywords } = input.localSearch
+  const { rankedKeywordCount, localKeywords } = input.localSearch
   if (rankedKeywordCount === 0) {
     return {
       key: "visibility",
@@ -165,12 +176,25 @@ function visibilitySignal(input: FirstRunSignalInput): FirstRunSignal {
       headline: "Your site is not showing up for any searches we can see yet.",
     }
   }
+  const headline = `Your site shows up for ${rankedKeywordCount} ${plural(rankedKeywordCount, "search", "searches")}.`
+  // ALT-623: ranking for a lot of searches and ranking for LOCAL ones are different facts, and
+  // this card is about the second. When none of them name the area, say that instead of quietly
+  // showing national terms under a local-search heading and letting the operator conclude we do
+  // not understand where they are.
+  if (localKeywords.length === 0) {
+    return {
+      key: "visibility",
+      label,
+      state: "ready",
+      headline: `${headline} None of them name your area yet, which is the gap worth closing.`,
+    }
+  }
   return {
     key: "visibility",
     label,
     state: "ready",
-    headline: `Your site shows up for ${rankedKeywordCount} ${plural(rankedKeywordCount, "search", "searches")}.`,
-    items: topKeywords.slice(0, 3).map((k) => `“${k}”`),
+    headline,
+    items: localKeywords.slice(0, 3),
   }
 }
 

@@ -29,6 +29,8 @@ import { loadActiveWatchEvents } from "@/lib/reviews/watch-events"
 import { buildWatchNotices, WATCH_COPY } from "@/lib/reviews/watch-copy"
 import ReviewsTriage from "./reviews-cards"
 import "./reviews.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 // Loose read for the location row — `generosity_threshold` lands with the
 // Review Intelligence migration, ahead of the repo-wide types regen (same
@@ -69,6 +71,14 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
     requestedLocationId && locations.some((l) => l.id === requestedLocationId)
       ? requestedLocationId
       : locations[0]?.id ?? null
+  // ALT-629: refuse to render a half-finished page. Reviews arrive with the place-details
+  // read, so mid-first-run this page would show a partial set and a rating computed from it,
+  // which an operator reads as their real standing. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("reviews", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Reviews" />
+  }
+
   const selectedLocation = locations.find((l) => l.id === selectedLocationId) ?? null
 
   // The make-good posture (0 respond-first .. 100 generous). NULL pre-slider →

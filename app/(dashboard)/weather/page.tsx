@@ -50,6 +50,8 @@ import {
   type LocationWeather,
 } from "./weather-shared"
 import "./weather.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 type WeatherPageProps = {
   searchParams?: Promise<{
@@ -112,6 +114,15 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run these sections
+  // would otherwise show whatever had landed so far, which an operator reads as the
+  // finished answer. Gated BEFORE the data reads below, so a page nobody will see does
+  // not pay for them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("weather", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Weather, events & demand" />
+  }
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId)
 
   // Fetch weather data (cached, 7-day TTL)
@@ -154,6 +165,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
           humidity_avg: d.humidity_avg,
           wind_speed_max_mph: d.wind_speed_max_mph,
           isForecast: true,
+          precipitation_chance_pct: d.precipitation_chance_pct,
         }))
     } catch (err) {
       console.warn("[Weather] Forecast fetch failed:", err)

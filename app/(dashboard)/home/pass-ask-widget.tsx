@@ -15,13 +15,10 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
-const CHIPS = [
-  "Who's undercutting me?",
-  "What changed this week?",
-  "What should I prep before the weekend?",
-]
-
-export function PassAskWidget() {
+// ALT-634: the chips are handed in by the server, which knows what this location holds. They
+// used to be hardcoded here and led with "Who's undercutting me?", a question Ask has no menu or
+// pricing data to answer. An offered question is a promise.
+export function PassAskWidget({ questions = [] }: { questions?: readonly string[] }) {
   const router = useRouter()
   const [q, setQ] = useState("")
 
@@ -56,7 +53,7 @@ export function PassAskWidget() {
         </button>
       </form>
       <div className="pass-ask-chips">
-        {CHIPS.map((c) => (
+        {questions.map((c) => (
           <button key={c} type="button" className="pass-ask-chip" onClick={() => go(c)}>
             {c}
           </button>

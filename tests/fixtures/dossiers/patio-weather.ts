@@ -17,6 +17,7 @@ const sunny: DailyWeatherSummary = {
   weather_icon: "01d",
   precipitation_in: 0,
   is_severe: false,
+  precipitation_chance_pct: 0,
 }
 
 const ruleOutputs: GeneratedInsight[] = [

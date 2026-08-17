@@ -22,6 +22,8 @@ export type WeatherDay = {
   humidity_avg: number | null
   wind_speed_max_mph: number | null
   isForecast?: boolean
+  /** Chance of precipitation 0-100 on forecast days; null on days that already happened. */
+  precipitation_chance_pct?: number | null
 }
 
 export type LocationWeather = {
@@ -47,14 +49,33 @@ export function toTkWeatherIcon(condition: string, isSevere: boolean): TkWeather
   return "sun"
 }
 
+/** Below this chance we do not treat a forecast day as wet. Mirrors WET_LABEL_MIN_CHANCE_PCT. */
+const WET_MIN_CHANCE_PCT = 30
+
+/**
+ * Is this day wet enough to move demand?
+ *
+ * ALT-628/635: the condition label alone used to decide this, and OpenWeather labels a 6%-chance
+ * day "Rain". That marked four dry days "down" in a row. The provider now resolves the label
+ * honestly, and this is the second gate: when we have a stated chance, it has to clear the bar.
+ * Real accumulation still counts on its own, and a day with no stated chance (one that already
+ * happened) is judged the way it always was.
+ */
+export function isWetDay(d: WeatherDay): boolean {
+  if (d.precipitation_in > 0.2) return true
+  const chance = d.precipitation_chance_pct
+  if (typeof chance === "number" && chance < WET_MIN_CHANCE_PCT) return false
+  const c = (d.weather_condition ?? "").toLowerCase()
+  return c.includes("rain") || c.includes("drizzle") || c.includes("snow") || c.includes("storm")
+}
+
 // Honest demand estimate from conditions — NOT a measured number. Mirrors the
 // directional language already used in the actionable-insights copy: harsh weather
 // pulls walk-in down, mild/clear weekend warmth lifts it, everything else is flat.
 export function estimateDemand(d: WeatherDay): TkDemand {
   const c = (d.weather_condition ?? "").toLowerCase()
-  const wet = c.includes("rain") || c.includes("drizzle") || c.includes("snow") || c.includes("storm") || d.precipitation_in > 0.2
   if (d.is_severe || c.includes("thunder")) return "down"
-  if (wet) return "down"
+  if (isWetDay(d)) return "down"
   if (d.temp_low_f < 35 || d.temp_high_f > 98) return "down"
   const dow = new Date(d.date + "T12:00:00Z").getDay()
   const isWeekend = dow === 0 || dow === 6

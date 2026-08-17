@@ -77,12 +77,15 @@ export default function BriefView({
   shelfCompetitors = [],
   competitorCovers = [],
   marketPulse = null,
+  askQuestions = [],
 }: {
   brief: Brief
   locationId: string
   locationName: string
   competitors: string[]
   readOnly?: boolean
+  /** ALT-634: Ask chips this location's data can actually answer. Resolved by the server. */
+  askQuestions?: readonly string[]
   detailHrefBase?: string
   checks?: PipelineCheck[]
   standingAsk?: { question: string; answer: string } | null
@@ -428,9 +431,11 @@ export default function BriefView({
                     <span>Ask about your market…</span>
                   </div>
                   <div className="pass-ask-chips">
-                    <span className="pass-ask-chip">Who&apos;s undercutting me?</span>
+                    {/* ALT-634: the preview shows the same questions the live surface can
+                        answer, so a marketing screenshot cannot promise a dead end. */}
                     <span className="pass-ask-chip">What changed this week?</span>
                     <span className="pass-ask-chip">Before the weekend?</span>
+                    <span className="pass-ask-chip">Who is busiest on a Friday night?</span>
                   </div>
                   <p className="pass-ask-foot">
                     Domain-locked. Answers come only from your market and competitor data, never the open web.
@@ -440,7 +445,7 @@ export default function BriefView({
               ) : (
                 /* Live: a REAL input — type + Enter (or a chip) navigates to /ask?q= which
                    prefills and auto-runs the answer (client island). */
-                <PassAskWidget />
+                <PassAskWidget questions={askQuestions} />
               )}
             </TkCard>
 

@@ -27,6 +27,7 @@ import {
   type TkConfidenceLevel,
 } from "@/components/ticket"
 import PassAskBox from "./pass-ask-box"
+import { loadSuggestedAskQuestions } from "@/lib/ask/load-suggested-questions"
 import PassStandingForm from "./pass-standing-form"
 import "./ask.css"
 
@@ -56,10 +57,12 @@ export default async function AskPage({
   const initialQuestion = qParam?.trim() ? qParam.trim() : undefined
 
   const op = await resolveOperator()
-  const [recent, standingQuestion, standingAnswer] = await Promise.all([
+  const [recent, standingQuestion, standingAnswer, askSuggestions] = await Promise.all([
     loadRecentAsks(op.locationId, 10),
     getStandingQuestion(op.locationId),
     loadStandingAnswer(op.locationId),
+    // ALT-634: only offer questions this location's data can answer.
+    loadSuggestedAskQuestions(op.locationId),
   ])
 
   const hasLiveStandingAnswer = !!(standingAnswer && standingAnswer.question === standingQuestion)
@@ -83,6 +86,7 @@ export default async function AskPage({
             locationName={op.locationName}
             standingQuestion={standingQuestion}
             initialQuestion={initialQuestion}
+            suggested={askSuggestions}
           />
         </div>
 

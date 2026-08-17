@@ -6,6 +6,8 @@ import { fetchContentPageData } from "@/lib/cache/content"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import ContentBoard, { type CompetitorMenuDisplay } from "./content-board"
 import "./content.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 type PageProps = {
   searchParams?: Promise<{
@@ -38,6 +40,15 @@ export default async function ContentPage({ searchParams }: PageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run these sections
+  // would otherwise show whatever had landed so far, which an operator reads as the
+  // finished answer. Gated BEFORE the data reads below, so a page nobody will see does
+  // not pay for them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("content", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Competitor menus and sites" />
+  }
   const error = resolvedParams?.error
   const success = resolvedParams?.success
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
