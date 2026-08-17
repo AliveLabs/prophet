@@ -1,16 +1,17 @@
 import { Section, Text, Link } from "@react-email/components"
 import { EmailLayout, emailStyles, type EmailBrand } from "./layout"
+import { stripAccents } from "@/lib/text/accents"
 
 interface FirstBriefReadyProps {
   brand: EmailBrand
-  userName: string
+  userName: string | null
   locationName: string
   headline: string | null
   briefUrl: string
 }
 
 // Sent once, when a location's FIRST brief lands. The onboarding loading
-// screen tells people they can close the tab and we'll email them — this is
+// screen tells people they can close the tab and we'll email them; this is
 // that email. Keep it short: one promise kept, one link.
 export function FirstBriefReady({
   brand,
@@ -19,20 +20,24 @@ export function FirstBriefReady({
   headline,
   briefUrl,
 }: FirstBriefReadyProps) {
-  const subject = `${userName}, your first ${brand} brief is ready`
+  const subject = userName
+    ? `${userName}, your first ${brand} brief is ready`
+    : `Your first ${brand} brief is ready`
   return (
     <EmailLayout preview={subject} brand={brand}>
       <Section>
         <Text style={emailStyles.heading}>Your first brief is ready.</Text>
 
         <Text style={emailStyles.paragraph}>
-          We finished the first full intelligence pass for {locationName} —
+          We finished the first full intelligence pass for {locationName}:
           competitors, menus, search visibility, social, local events, and
           weather, distilled into your daily brief.
         </Text>
 
         {headline ? (
-          <Text style={emailStyles.pullQuote}>&ldquo;{headline}&rdquo;</Text>
+          <Text style={emailStyles.pullQuote}>
+            &ldquo;{stripAccents(headline)}&rdquo;
+          </Text>
         ) : null}
 
         <Section style={emailStyles.ctaContainer}>
@@ -46,7 +51,7 @@ export function FirstBriefReady({
           waiting each morning.
         </Text>
 
-        <Text style={emailStyles.signoff}>— The {brand} Team</Text>
+        <Text style={emailStyles.signoff}>The {brand} Team</Text>
       </Section>
     </EmailLayout>
   )

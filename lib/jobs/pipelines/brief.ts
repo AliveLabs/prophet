@@ -147,7 +147,10 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
             .maybeSingle()
           if (!profile?.email) continue
 
-          const userName = profile.full_name ?? profile.email.split("@")[0]
+          // First name only, and never the email handle: "chrishershberger,
+          // your first Ticket brief is ready" reads like a bug (ALT reported
+          // 2026-08-17). No name on file -> no name in the subject.
+          const userName = profile.full_name?.trim().split(/\s+/)[0] ?? null
           try {
             // Bypasses the CLIENT_EMAILS_ENABLED pause: the onboarding loading
             // screen explicitly promises this email ("close this tab — we'll
@@ -156,7 +159,9 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
             await sendEmail({
               from: fromAddress,
               to: profile.email,
-              subject: `${userName}, your first ${brand} brief is ready`,
+              subject: userName
+                ? `${userName}, your first ${brand} brief is ready`
+                : `Your first ${brand} brief is ready`,
               react: FirstBriefReady({
                 brand,
                 userName,

@@ -55,8 +55,8 @@ export function EmailLayout({
 
           <Section style={footer}>
             <Text style={footerText}>
-              {brand} is powered by Vatic — competitive intelligence by{" "}
-              <Link href="https://alivelabs.co" style={footerLink}>
+              {brand} is powered by Vatic, competitive intelligence by{" "}
+              <Link href="https://alivelabs.io" style={footerLink}>
                 Alive Labs
               </Link>
               .
