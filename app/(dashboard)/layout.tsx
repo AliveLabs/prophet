@@ -59,7 +59,7 @@ function ShellSkeleton() {
   return (
     <div className="ticket-app">
       <aside className="pv-sidebar">
-        <div className="pv-brand"><TicketMark /> TICKET</div>
+        <div className="pv-brand"><TicketMark /> TICKET<span className="pv-beta" title="Ticket is in public beta">Beta</span></div>
         {/* Skeleton nav: bare <span> items styled by `.pv-nav > span` to hold the
             same box as the live nav (ALT-149) so the rail reserves its shape and
             doesn't jump when <ShellNav> swaps in. The .tick here is a sized spacer
@@ -130,7 +130,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
         <div className="ticket-app">
           <div className="bg-atmos" aria-hidden />
           <aside className="pv-sidebar">
-            <div className="pv-brand"><TicketMark /> TICKET</div>
+            <div className="pv-brand"><TicketMark /> TICKET<span className="pv-beta" title="Ticket is in public beta">Beta</span></div>
             <ShellNav locked />
             <div className="pv-spacer" />
             <div className="pv-foot">
@@ -192,7 +192,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
         <div className="ticket-app">
           <div className="bg-atmos" aria-hidden />
           <aside className="pv-sidebar">
-            <div className="pv-brand"><TicketMark /> TICKET</div>
+            <div className="pv-brand"><TicketMark /> TICKET<span className="pv-beta" title="Ticket is in public beta">Beta</span></div>
             <ShellNav locked />
             <div className="pv-spacer" />
             <div className="pv-foot">
@@ -285,7 +285,7 @@ async function OperatorShell({ children }: { children: ReactNode }) {
       <div className="ticket-app">
         <div className="bg-atmos" aria-hidden />
         <aside className="pv-sidebar">
-          <div className="pv-brand"><TicketMark /> TICKET</div>
+          <div className="pv-brand"><TicketMark /> TICKET<span className="pv-beta" title="Ticket is in public beta">Beta</span></div>
           <ShellNav />
           <div className="pv-spacer" />
           <FeedbackLauncher locationId={currentLoc?.id ?? null} />

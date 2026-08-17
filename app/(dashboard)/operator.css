@@ -545,3 +545,24 @@
 .pv-fb__text:focus{ outline:none; border-color:var(--rust); }
 .pv-fb__text::placeholder{ color:var(--ink-3); }
 .pv-fb__hint{ margin:8px 0 4px; font-size:12px; color:var(--ink-3); }
+
+/* Public beta, stated in the app chrome (2026-08-17).
+   The marketing site says public beta; the product said nothing, so an operator
+   had no way to know why something might move under them. It rides the wordmark
+   rather than a banner: always present, never in the way, and it disappears the
+   day we stop being in beta by deleting one span. Deliberately quiet — a loud
+   badge on every screen reads as an apology. */
+.pv-beta{
+  margin-left:8px;
+  align-self:center;
+  font-family:var(--font-sans);
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  padding:2px 7px;
+  border-radius:999px;
+  color:var(--rust);
+  background:color-mix(in srgb, var(--rust) 12%, transparent);
+  border:1px solid color-mix(in srgb, var(--rust) 22%, transparent);
+}
