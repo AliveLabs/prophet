@@ -95,7 +95,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   // ALT-152: when an own post has no usable social image, fall back to the
   // best photo from your Google listing (already fetched + graded by ALT-160)
   // instead of dropping straight to the neutral placeholder.
-  const ownFallbackPhotoUrl = pickCoverPhoto(ownPhotos)
+  const ownFallbackPhotoUrl = pickCoverPhoto(ownPhotos, { allowUnvetted: true })
 
   const allInsights = cached.insights
   const preferences: InsightPreference[] = cached.preferences
