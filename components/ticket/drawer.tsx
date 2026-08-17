@@ -71,19 +71,27 @@ export function TkDrawer({
   // the portal there would render the drawer inside a hidden subtree. Same family as the
   // querySelectorAll-counts-hidden-nodes trap. So: prefer a candidate outside `[hidden]`.
   //
-  // NOTE the rAF: it does not fire while the document is hidden, so `host` stays null in a
-  // backgrounded tab. That is why the scroll-lock effect below is gated on `host` — otherwise
-  // opening a drawer in a hidden tab freezes body scroll with nothing rendered.
+  // ALT-632: this used to defer the lookup to a requestAnimationFrame. rAF DOES NOT FIRE while
+  // the document is hidden, and the effect had `[portal]` for deps, so it never ran again: a
+  // drawer whose component mounted in a backgrounded tab had `host === null` permanently, and
+  // pressing "See the plan" rendered nothing at all. That is not hypothetical on this product,
+  // where an operator waiting out a first run leaves the tab in the background by definition.
+  //
+  // Resolving directly in the effect is safe: setState in an effect BODY is fine (it is
+  // render-phase setState that is forbidden), and the SSR case is already handled by the
+  // `typeof document` guard, so there is no hydration mismatch to dodge. `open` joins the deps
+  // so a drawer that somehow mounted before its host existed still finds one when it is opened.
   const [host, setHost] = useState<HTMLElement | null>(null)
   useEffect(() => {
     if (!portal || typeof document === "undefined") return
-    const id = requestAnimationFrame(() => {
-      const candidates = [...document.querySelectorAll<HTMLElement>(".ticket-app")]
-      const live = candidates.find((el) => !el.closest("[hidden]")) ?? candidates[0]
-      setHost(live ?? document.body)
-    })
-    return () => cancelAnimationFrame(id)
-  }, [portal])
+    const candidates = [...document.querySelectorAll<HTMLElement>(".ticket-app")]
+    const live = candidates.find((el) => !el.closest("[hidden]")) ?? candidates[0]
+    // document.body is the last resort and it is a BAD one: the kit's tokens are scoped to
+    // .ticket-app, so a panel that lands on body has no --paper to paint with. The drawer's own
+    // CSS now carries literal fallbacks for exactly that case (see .tk-drawer in pass.css), which
+    // is what keeps this from rendering as a dark scrim over an invisible panel.
+    setHost(live ?? document.body)
+  }, [portal, open])
 
   // remember the opener, restore on close.
   // Gated on `portal ? host : true`: locking body scroll while the panel has nowhere to
