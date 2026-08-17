@@ -77,6 +77,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
   const heroCover = selectedLocationId
     ? pickCoverPhotoWithFocal(
         (await fetchOwnPhotos(selectedLocationId)).map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url })),
+        { allowUnvetted: true }
       )
     : null
 

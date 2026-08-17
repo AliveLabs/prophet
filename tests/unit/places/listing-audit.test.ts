@@ -180,8 +180,13 @@ describe("pickCoverPhoto (ALT-152 — own-listing image fallback)", () => {
   })
 
   it("falls back to any photo with a url when nothing scores above zero", () => {
-    const url = pickCoverPhoto([row("other", { url: "only-option" })])
+    // Leniency is now OPT-IN (2026-08-17). It is still right for the operator's own
+    // listing, which is what ALT-152 was about; a competitor cover must not inherit it,
+    // because there the same fallback shows the wrong business as fact.
+    const url = pickCoverPhoto([row("other", { url: "only-option" })], { allowUnvetted: true })
     expect(url).toBe("only-option")
+    // And without the opt-in, the same input is refused.
+    expect(pickCoverPhoto([row("other", { url: "only-option" })])).toBeNull()
   })
 })
 
