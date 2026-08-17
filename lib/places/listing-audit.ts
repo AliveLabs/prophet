@@ -167,26 +167,77 @@ const COVER_SLOT_PRIORITY: ListingSlot[] = [
  *  photo was analyzed before focal detection existed (pre-backfill), so callers never break. */
 export type PickedPhoto = { url: string; focal: FocalPoint }
 
-export function pickCoverPhotoWithFocal(rows: PhotoRow[]): PickedPhoto | null {
+// A COVER MUST EARN ITS PLACE. The previous version scored every photo and then took the
+// highest, but a photo with NO analysis scored 0 and was still eligible — and since `best`
+// was seeded by the first row regardless of score, an unanalysed, uncategorised image could
+// become a competitor's headline photo purely by being first in the array.
+//
+// That is how a customer-uploaded shot of a GameStop interior ended up as the cover for a
+// Subway (reported in beta, 2026-08-17). Google Places feeds are full of images that are
+// not portraits of the business: a photo of the car park, a receipt, a promo flyer, or
+// something from another shop entirely that a reviewer happened to upload.
+//
+// So eligibility is now POSITIVE EVIDENCE rather than the absence of a reason to exclude.
+// A photo is only a cover candidate when we can say what it is:
+//
+//   1. It has an analysis that cleared CONF_FLOOR (parseAnalysis enforces both).
+//   2. Its category maps to a real listing slot. This drops `other`, `event_promotion`,
+//      `renovation`, `seasonal_decor` and `customer_atmosphere` — categories that can be
+//      perfectly valid photos OF the business and still make a poor headline image.
+//   3. It is not promotional. A flyer is a message, not a portrait, and its text competes
+//      with the card's own copy once cropped.
+//
+// When nothing qualifies this returns NULL, and the surfaces fall back to their own
+// imagery (ALT-152). Showing no photo is strictly better than confidently showing the
+// wrong business.
+//
+// KNOWN LIMIT, stated rather than papered over: a wrong-business photo that the vision
+// pass reads as a plain `interior` still clears this bar. Distinguishing "an interior" from
+// "an interior OF THIS BUSINESS" needs a signal we do not carry on PhotoRow yet — owner vs
+// customer attribution is the obvious candidate, since the audit already estimates it.
+//
+// `allowUnvetted` exists because ALT-152 made the OPPOSITE call for a different surface, and
+// both calls are right for their own case. On the operator's OWN listing, any photo beats an
+// empty frame: it is their restaurant, they recognise it, and an imageless own-listing page
+// reads as broken. On a COMPETITOR, the same leniency is a mis-attribution — the operator
+// cannot tell our mistake from that competitor's real storefront. Default is strict, so a
+// new call site has to opt into leniency deliberately rather than inherit it by accident.
+export function pickCoverPhotoWithFocal(
+  rows: PhotoRow[],
+  opts: { allowUnvetted?: boolean } = {}
+): PickedPhoto | null {
   let best: { url: string; focal: FocalPoint; score: number } | null = null
   for (const r of rows) {
     if (!r.image_url) continue
     const a = parseAnalysis(r.analysis_result)
-    let score = 0
-    if (a) {
-      if (a.quality_signals.lighting === "professional") score += 3
-      if (a.quality_signals.staging === "styled") score += 1
-      const slot = CAT_TO_SLOT[a.category]
-      const priority = slot ? COVER_SLOT_PRIORITY.indexOf(slot) : -1
-      if (priority >= 0) score += COVER_SLOT_PRIORITY.length - priority
-    }
-    if (!best || score > best.score) best = { url: r.image_url, focal: normalizeFocal(a?.focal_point), score }
+    if (!a) continue
+    const slot = CAT_TO_SLOT[a.category]
+    if (!slot) continue
+    const priority = COVER_SLOT_PRIORITY.indexOf(slot)
+    if (priority < 0) continue
+    if (a.promotional_content) continue
+
+    let score = COVER_SLOT_PRIORITY.length - priority
+    if (a.quality_signals.lighting === "professional") score += 3
+    if (a.quality_signals.staging === "styled") score += 1
+    if (!best || score > best.score) best = { url: r.image_url, focal: normalizeFocal(a.focal_point), score }
   }
+
+  // ALT-152 fallback, opt-in only: nothing cleared the bar, so take the first photo that at
+  // least exists. Reached on the operator's own listing, never on a competitor.
+  if (!best && opts.allowUnvetted) {
+    const any = rows.find((r) => Boolean(r.image_url))
+    if (any?.image_url) {
+      const a = parseAnalysis(any.analysis_result)
+      return { url: any.image_url, focal: normalizeFocal(a?.focal_point) }
+    }
+  }
+
   return best ? { url: best.url, focal: best.focal } : null
 }
 
-export function pickCoverPhoto(rows: PhotoRow[]): string | null {
-  return pickCoverPhotoWithFocal(rows)?.url ?? null
+export function pickCoverPhoto(rows: PhotoRow[], opts: { allowUnvetted?: boolean } = {}): string | null {
+  return pickCoverPhotoWithFocal(rows, opts)?.url ?? null
 }
 
 // Category-aware variant of the cover picker. Picks the photo whose category best fits the

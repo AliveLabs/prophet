@@ -169,7 +169,15 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
   await Promise.all(
     (locations ?? []).map(async (location) => {
       const rows = await fetchOwnPhotos(location.id)
-      coverMap.set(location.id, pickCoverPhotoWithFocal(rows.map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url }))))
+      // Own listing: ALT-152 leniency applies — any photo of their own restaurant beats an
+      // empty frame, because they recognise their own place.
+      coverMap.set(
+        location.id,
+        pickCoverPhotoWithFocal(
+          rows.map((p) => ({ analysis_result: p.analysis_result, image_url: p.image_url })),
+          { allowUnvetted: true }
+        )
+      )
     })
   )
 
