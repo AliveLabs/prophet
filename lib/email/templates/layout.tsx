@@ -219,7 +219,7 @@ export const emailStyles = {
     margin: "4px 0",
     paddingLeft: "12px",
   },
-  /** Monospace details — codes, datelines. */
+  /** Monospace details: codes, datelines. */
   mono: {
     fontFamily: FONT_MONO,
     fontSize: "13px",

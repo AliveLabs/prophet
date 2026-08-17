@@ -34,7 +34,7 @@ export function TrialDay13({
         <Text style={emailStyles.paragraph}>
           {hasCard ? (
             <>
-              Hey {userName} — tomorrow your card will be charged for the{" "}
+              Hey {userName}, tomorrow your card will be charged for the{" "}
               {tierDisplayName} plan. If you want to stay on {brand}, you&rsquo;re
               all set. If it&rsquo;s not working out, you have one more day to
               cancel.
@@ -60,7 +60,7 @@ export function TrialDay13({
             <Link href={cancelUrl} style={emailStyles.inlineLink}>
               Click here
             </Link>{" "}
-            — no questions asked, your data stays available for 30 days in case
+            with no questions asked, and your data stays available for 30 days in case
             you change your mind.
           </Text>
         ) : (
@@ -70,7 +70,7 @@ export function TrialDay13({
           </Text>
         )}
 
-        <Text style={emailStyles.signoff}>— The {brand} Team</Text>
+        <Text style={emailStyles.signoff}>The {brand} Team</Text>
       </Section>
     </EmailLayout>
   )

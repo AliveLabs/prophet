@@ -6,14 +6,14 @@ interface ErrorReportEmailProps {
   url: string
   timestamp: string
   message?: string
-  /** Enriched server-side from the session — never trust a client-supplied value here. */
+  /** Enriched server-side from the session; never trust a client-supplied value here. */
   userEmail?: string
   /** Enriched server-side from the user's org membership. */
   orgName?: string
 }
 
 /**
- * Internal OPS alert (clientFacing:false) — fires when a customer hits the route error boundary
+ * Internal OPS alert (clientFacing:false); fires when a customer hits the route error boundary
  * (app/error.tsx / app/global-error.tsx) and the client successfully POSTs to /api/error-report.
  * user/org fields are enriched server-side from the session, since a hard crash can't reliably
  * read that context client-side.
@@ -57,7 +57,7 @@ export function ErrorReportEmail({
           </Text>
         </Section>
 
-        <Text style={emailStyles.signoff}>— Ticket error monitor</Text>
+        <Text style={emailStyles.signoff}>Ticket error monitor</Text>
       </Section>
     </EmailLayout>
   )

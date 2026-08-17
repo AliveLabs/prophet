@@ -15,7 +15,7 @@ interface VendorHealthAlertProps {
 }
 
 /**
- * Internal OPS alert (clientFacing:false) — fires when a data vendor goes down fleet-wide.
+ * Internal OPS alert (clientFacing:false); fires when a data vendor goes down fleet-wide.
  * Built for DataForSEO's 402 "out of credits" outage; reuses emailStyles.alertText for the red.
  */
 export function VendorHealthAlert({
@@ -34,7 +34,7 @@ export function VendorHealthAlert({
     : `${vendor} pulls are failing across the fleet. Check the vendor status / account, then re-run the affected pulls.`
 
   return (
-    <EmailLayout preview={`${headline} — ${downLocations}/${totalLocations} locations affected`}>
+    <EmailLayout preview={`${headline}: ${downLocations}/${totalLocations} locations affected`}>
       <Section>
         <Text style={emailStyles.kicker}>OPS ALERT · VENDOR HEALTH</Text>
         <Text style={emailStyles.heading}>{headline}</Text>
@@ -55,7 +55,7 @@ export function VendorHealthAlert({
           </Link>
         </Section>
 
-        <Text style={emailStyles.signoff}>— Ticket vendor-health monitor</Text>
+        <Text style={emailStyles.signoff}>Ticket vendor-health monitor</Text>
       </Section>
     </EmailLayout>
   )

@@ -1,4 +1,4 @@
-// Weekly digest (complete-picture · Batch 4) — a highlights email whose only job is
+// Weekly digest (complete-picture · Batch 4): a highlights email whose only job is
 // driving the operator back to their brief. Top plays + headline, one link, no noise.
 
 import { Section, Text, Link } from "@react-email/components"

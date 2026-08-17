@@ -5,8 +5,8 @@ interface WaitlistInvitationProps {
   name?: string
   magicLinkUrl: string
   /**
-   * "access" — first time in: waitlist approved, or an admin created their account.
-   * "signin" — an EXISTING user was sent a fresh sign-in link.
+   * "access": first time in, waitlist approved, or an admin created their account.
+   * "signin": an EXISTING user was sent a fresh sign-in link.
    *
    * Defaults to "access" so existing callers keep their meaning.
    */

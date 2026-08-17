@@ -68,7 +68,7 @@ export function TrialDay10({
             <Link href={cancelUrl} style={emailStyles.inlineLink}>
               cancel anytime
             </Link>{" "}
-            — we won&rsquo;t charge you a cent.
+            and we won&rsquo;t charge you a cent.
           </Text>
         ) : (
           <Text style={emailStyles.paragraph}>
@@ -77,7 +77,7 @@ export function TrialDay10({
           </Text>
         )}
 
-        <Text style={emailStyles.signoff}>— The {brand} Team</Text>
+        <Text style={emailStyles.signoff}>The {brand} Team</Text>
       </Section>
     </EmailLayout>
   )
