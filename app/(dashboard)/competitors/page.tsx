@@ -13,20 +13,28 @@ import CompetitorRoster from "./competitor-roster"
 import { type SuggestedCompetitor } from "./competitor-add-drawer"
 import CompetitorScorecard from "./competitor-scorecard"
 import CompetitorHoursGrid from "./competitor-hours-grid"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 import "./competitors.css"
 
 export default async function CompetitorsPage() {
-  // Independent reads — run them together (each resolves the operator on its own).
-  // The scorecard needs the ctx's snapshot-resolved competitor ratings (ALT-186),
-  // so it chains off loadOperatorContext rather than re-running that resolution.
-  const ctxPromise = loadOperatorContext()
-  const [ctx, comparison, scorecard, swapState] = await Promise.all([
-    ctxPromise,
+  // ALT-629: refuse to render a half-finished page. Mid-first-run the roster shows the
+  // competitors chosen during onboarding but none of the ratings, hours, or signal counts
+  // the content pull supplies, and a scorecard computed off that partial set is a
+  // comparison the operator cannot tell is incomplete. Fails open on any read error.
+  // The operator context resolves first because the gate needs the location id. The scorecard
+  // already chained off it (ALT-186 — it needs the snapshot-resolved competitor ratings), so the
+  // only cost is that the comparison and swap-state reads no longer start before it.
+  const ctx = await loadOperatorContext()
+  const readiness = await loadSurfaceReadiness("competitors", ctx.locationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Your competitive set" />
+  }
+
+  const [comparison, scorecard, swapState] = await Promise.all([
     loadCompetitorComparison(),
-    ctxPromise.then((c) =>
-      loadCompetitorScorecard(
-        c.competitors.map((x) => ({ id: x.id, rating: x.rating, reviewCount: x.reviewCount })),
-      ),
+    loadCompetitorScorecard(
+      ctx.competitors.map((x) => ({ id: x.id, rating: x.rating, reviewCount: x.reviewCount })),
     ),
     loadCompetitorSwapState(),
   ])

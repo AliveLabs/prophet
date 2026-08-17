@@ -25,6 +25,8 @@ import SocialPostsPass from "./social-posts-pass"
 import SocialInsightsPass from "./social-insights-pass"
 import type { SocialPlatform } from "@/lib/social/types"
 import "./social.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 // ALT-270: platform names are spelled out in the counts rather than reduced to a
 // bare number, so "Platforms 2" can never be read as two of something else.
@@ -65,6 +67,15 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run these sections
+  // would otherwise show whatever had landed so far, which an operator reads as the
+  // finished answer. Gated BEFORE the data reads below, so a page nobody will see does
+  // not pay for them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("social", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Social" />
+  }
   const selectedLocation = locations?.find((l) => l.id === selectedLocationId) ?? null
 
   // -------------------------------------------------------------------------

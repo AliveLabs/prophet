@@ -25,6 +25,8 @@ import {
   TkStillLearning,
 } from "@/components/ticket"
 import "./photos.css"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 type PhotosPageProps = {
   searchParams?: Promise<{
@@ -80,6 +82,15 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const selectedLocationId = (requestedLocationId && locations?.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locations?.[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run these sections
+  // would otherwise show whatever had landed so far, which an operator reads as the
+  // finished answer. Gated BEFORE the data reads below, so a page nobody will see does
+  // not pay for them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("photos", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Listing photos" />
+  }
 
   const { data: competitors } = selectedLocationId
     ? await supabase

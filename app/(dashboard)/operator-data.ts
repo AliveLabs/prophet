@@ -872,6 +872,16 @@ export type CompetitorDetail = {
   cuisine: string | null
   address: string | null
   insights: CompetitorInsight[]
+  /**
+   * Whether a listing read for this competitor has EVER produced anything (ALT-633).
+   *
+   * False means we hold no listing for them at all: no snapshot profile, no stored place
+   * details. Every fact above is null for the same single reason, and the page has to say so.
+   * Without this the detail page silently omitted each empty field one at a time, which reads
+   * as "this rival has no rating, no price, no category, no address" rather than "we could not
+   * find their listing". Absence of data is not absence of the thing.
+   */
+  hasListingRead: boolean
 }
 
 /** One watched competitor + recent signals — scoped to the operator's location, so a
@@ -941,6 +951,10 @@ export async function loadOperatorCompetitorDetail(id: string): Promise<Competit
       summary: r.summary ?? null,
       dateKey: r.date_key ?? "",
     })),
+    // ALT-633: did a listing read produce ANYTHING for this competitor? Either source counts —
+    // the freshest snapshot profile, or the place details stored when they were added. Neither
+    // means we never got a listing, which is a different sentence from "they have no rating".
+    hasListingRead: Boolean(sp) || Boolean(pd),
   }
 }
 

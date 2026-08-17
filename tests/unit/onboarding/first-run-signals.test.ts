@@ -125,27 +125,46 @@ describe("visibility signal", () => {
 
   it("only says 'not showing up' from a REAL empty read", () => {
     const s = byKey(
-      input({ jobStatus: { visibility: "done" }, localSearch: { rankedKeywordCount: 0, topKeywords: [] } }),
+      input({ jobStatus: { visibility: "done" }, localSearch: { rankedKeywordCount: 0, localKeywords: [] } }),
     ).visibility
     expect(s.state).toBe("empty")
     expect(s.headline).toContain("not showing up")
   })
 
-  it("is READY with the counted number and the top terms", () => {
+  it("is READY with the counted number and the LOCAL terms", () => {
     const s = byKey(
       input({
         jobStatus: { visibility: "done" },
-        localSearch: { rankedKeywordCount: 12, topKeywords: ["tacos forney", "best tacos"] },
+        localSearch: {
+          rankedKeywordCount: 12,
+          localKeywords: ["“tacos forney”, position 3", "“tacos near me”, position 7"],
+        },
       }),
     ).visibility
     expect(s.state).toBe("ready")
     expect(s.headline).toContain("12 searches")
-    expect(s.items).toEqual(["“tacos forney”", "“best tacos”"])
+    expect(s.items).toEqual(["“tacos forney”, position 3", "“tacos near me”, position 7"])
+  })
+
+  // ALT-623: ranking widely and ranking LOCALLY are different facts, and this card is about the
+  // second. Showing national terms under a local-search heading is what made the first operator
+  // to see it say the pills were "not related to my area".
+  it("names the gap instead of showing terms when none of them are local", () => {
+    const s = byKey(
+      input({
+        jobStatus: { visibility: "done" },
+        localSearch: { rankedKeywordCount: 40, localKeywords: [] },
+      }),
+    ).visibility
+    expect(s.state).toBe("ready")
+    expect(s.headline).toContain("40 searches")
+    expect(s.headline).toContain("None of them name your area")
+    expect(s.items ?? []).toEqual([])
   })
 
   it("uses the singular for exactly one search", () => {
     const s = byKey(
-      input({ localSearch: { rankedKeywordCount: 1, topKeywords: ["tacos"] } }),
+      input({ localSearch: { rankedKeywordCount: 1, localKeywords: ["“tacos”, position 2"] } }),
     ).visibility
     expect(s.headline).toContain("1 search.")
   })

@@ -38,7 +38,7 @@ import {
   useInView,
 } from "@/components/ticket"
 import type { TkWeatherIcon } from "@/components/ticket"
-import { toTkWeatherIcon, type WeatherDay, type LocationWeather } from "./weather-shared"
+import { toTkWeatherIcon, isWetDay, type WeatherDay, type LocationWeather } from "./weather-shared"
 
 /* ════════════════════════════════════════════════════════════════════
    The day/location shapes (WeatherDay, LocationWeather) and the pure helpers
@@ -79,6 +79,8 @@ type ChartRow = {
   icon: string
   isForecast: boolean
   isSevere: boolean
+  /** Chance of precipitation on a forecast day, 0-100. Null on days that already happened. */
+  chancePct: number | null
 }
 
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload?: ChartRow }> }) {
@@ -106,9 +108,17 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
         <span className="tk-mono" style={{ fontWeight: 700, color: "var(--gold-deep)", textAlign: "right" }}>{Math.round(row.high)}°F</span>
         <span style={{ color: "var(--ink-2)" }}>Low</span>
         <span className="tk-mono" style={{ fontWeight: 700, color: "var(--slate-deep)", textAlign: "right" }}>{Math.round(row.low)}°F</span>
+        {/* ALT-628: on a forecast day the CHANCE is the honest headline number. Showing an
+            expected depth on its own reads as a promise that it will rain that much. */}
+        {row.isForecast && row.chancePct != null && (
+          <>
+            <span style={{ color: "var(--ink-2)" }}>Chance</span>
+            <span className="tk-mono" style={{ fontWeight: 700, color: "#4E7AA8", textAlign: "right" }}>{row.chancePct}%</span>
+          </>
+        )}
         {row.precipitation > 0 && (
           <>
-            <span style={{ color: "var(--ink-2)" }}>Precip</span>
+            <span style={{ color: "var(--ink-2)" }}>{row.isForecast ? "If it falls" : "Precip"}</span>
             <span className="tk-mono" style={{ fontWeight: 700, color: "#4E7AA8", textAlign: "right" }}>{row.precipitation.toFixed(2)}&quot;</span>
           </>
         )}
@@ -187,6 +197,7 @@ export function WeatherTrend({
               icon: d.weather_icon,
               isForecast: d.isForecast ?? false,
               isSevere: d.is_severe,
+              chancePct: d.precipitation_chance_pct ?? null,
             }))} margin={{ top: 12, right: 14, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="tkTempGrad" x1="0" y1="0" x2="0" y2="1">
@@ -285,10 +296,9 @@ function bucketHistory(days: WeatherDay[]): { buckets: Bucket[]; window: number 
   return { buckets, window }
 }
 
-function wet(d: WeatherDay): boolean {
-  const c = (d.weather_condition ?? "").toLowerCase()
-  return c.includes("rain") || c.includes("drizzle") || c.includes("snow") || c.includes("storm") || d.precipitation_in > 0.2
-}
+// One definition of "wet" across the page (./weather-shared). These buckets are historical days,
+// which carry no forecast chance, so isWetDay reads them exactly as the old local helper did.
+const wet = isWetDay
 function severeOrWet(d: WeatherDay): boolean {
   return d.is_severe || wet(d)
 }
@@ -372,22 +382,37 @@ function buildActionPlays(days: WeatherDay[]): ActionPlay[] {
     })
   }
 
+  // ALT-628: the streak counts days the forecast actually calls wet. It used to count any day
+  // OpenWeather LABELLED "Rain", which includes a 6% chance of a passing shower — that is how a
+  // dry week was presented to an operator as four days of rain. isWetDay gates on the stated
+  // chance; the lowest chance across the streak is quoted so the claim carries its own floor.
   let streak = 0
   let maxStreak = 0
+  let streakMinChance: number | null = null
+  let maxStreakMinChance: number | null = null
   for (const d of forecast) {
-    const cond = (d.weather_condition ?? "").toLowerCase()
-    if (cond.includes("rain") || cond.includes("drizzle") || cond.includes("snow") || cond.includes("storm") || d.precipitation_in > 0.2) {
+    if (isWetDay(d)) {
       streak++
-      maxStreak = Math.max(maxStreak, streak)
+      const chance = d.precipitation_chance_pct
+      if (typeof chance === "number") {
+        streakMinChance = streakMinChance === null ? chance : Math.min(streakMinChance, chance)
+      }
+      if (streak > maxStreak) {
+        maxStreak = streak
+        maxStreakMinChance = streakMinChance
+      }
     } else {
       streak = 0
+      streakMinChance = null
     }
   }
   if (maxStreak >= 3) {
+    const floor =
+      maxStreakMinChance !== null ? ` Each of those days is at least a ${maxStreakMinChance}% chance.` : ""
     out.push({
       icon: "rain",
-      title: "Extended rain ahead",
-      summary: `${maxStreak} consecutive rainy days in the forecast. Walk-in traffic typically drops 15–30% during prolonged wet weather.`,
+      title: "Extended wet stretch ahead",
+      summary: `${maxStreak} straight days in the forecast are likely to be wet.${floor} Walk-in traffic typically drops 15–30% during prolonged wet weather.`,
       tone: "down",
       actions: [
         "Boost delivery / takeout promotions",

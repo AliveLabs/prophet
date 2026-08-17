@@ -127,7 +127,7 @@ export default async function CompetitorDetail({
           photoLabel={heroImage ? undefined : c.name}
           lede={
             <>
-              What we&apos;re reading on {c.name} — their signals, live posts, and the accounts we watch.
+              What we&apos;re reading on {c.name}: their signals, live posts, and the accounts we watch.
             </>
           }
         >
@@ -155,6 +155,16 @@ export default async function CompetitorDetail({
             </p>
           ) : null}
           {c.address ? <p className="tk-addr">{c.address}</p> : null}
+          {/* ALT-633: no listing at all is one fact, not four missing ones. Saying it plainly is
+              the difference between "we could not find them" and an implied claim that this
+              rival has no rating, no price, no category and no address. */}
+          {!c.hasListingRead ? (
+            <p className="tk-meta-line tk-comp-nolisting">
+              We have not been able to pull a business listing for {c.name}, so their rating,
+              price, category and address are all still blank. Everything below comes from the
+              accounts and pages we can reach directly.
+            </p>
+          ) : null}
         </TkHero>
       </RevealOnView>
 
@@ -206,7 +216,7 @@ export default async function CompetitorDetail({
             title="Nothing has moved yet"
             description={
               c.reviewCount != null && c.reviewCount < 5
-                ? "Not enough reviews yet to read what guests are saying, and nothing else has shifted. As their reviews build up — and their pricing, social, or menu change — the signals show up here and in your brief."
+                ? "Not enough reviews yet to read what guests are saying, and nothing else has shifted. As their reviews build up, and as their pricing, social, or menu change, the signals show up here and in your brief."
                 : "No signals tracked for this competitor so far. As their pricing, reviews, social, or menu shift, the change shows up here and in your brief."
             }
           />
@@ -221,11 +231,24 @@ export default async function CompetitorDetail({
             <CompetitorPostsGrid posts={posts} />
           </RevealOnView>
         ) : (
-          <TkEmptyState
-            icon={SOCIAL_ICON}
-            title="Their accounts are quiet"
-            description="No current social activity — either they're posting little, or we don't have the right handles yet. Add or fix the accounts we watch above and the next pull picks them up."
-          />
+          // ALT-627: two different failures used to wear one sentence, and the sentence guessed
+          // between them ("either they're posting little, or we don't have the right handles").
+          // We already know which it is: `handles` is loaded above. Say the true one. A rival
+          // whose accounts we never found has not "gone quiet", and telling an operator it has
+          // is a claim about their competitor that we cannot support.
+          handles.length === 0 ? (
+            <TkEmptyState
+              icon={SOCIAL_ICON}
+              title="We have not found their accounts"
+              description={`We could not match ${c.name} to a social account we can read, so we have nothing to show here yet. If you know where they post, add the account above and the next pull picks it up.`}
+            />
+          ) : (
+            <TkEmptyState
+              icon={SOCIAL_ICON}
+              title="Their accounts are quiet"
+              description={`Nothing posted recently on the ${handles.length === 1 ? "account" : "accounts"} we watch for them. If they post somewhere we are not watching, add it above.`}
+            />
+          )
         )}
       </section>
 

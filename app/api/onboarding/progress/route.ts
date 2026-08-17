@@ -22,6 +22,7 @@ import {
 } from "@/lib/onboarding/first-run-signals"
 import { STARTER_SNAPSHOT_PROVIDER, parseStoredStarter } from "@/lib/insights/starter-play"
 import type { NormalizedRankedKeyword } from "@/lib/seo/types"
+import { pickLocalKeywords, localKeywordLabel } from "@/lib/seo/local-keywords"
 
 const EVENTS_PROVIDER = "dataforseo_google_events"
 const RANKED_KEYWORDS_PROVIDER = "seo_ranked_keywords"
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
   const admin = createAdminSupabaseClient()
   const { data: location } = await admin
     .from("locations")
-    .select("organization_id, city, website")
+    .select("organization_id, city, region, postal_code, website")
     .eq("id", locationId)
     .maybeSingle()
 
@@ -139,15 +140,18 @@ export async function GET(request: Request) {
 
   const keywordsRaw = latestByProvider.get(RANKED_KEYWORDS_PROVIDER)
   const rankedKeywords = keywordsRaw ? ((keywordsRaw.keywords as NormalizedRankedKeyword[]) ?? []) : null
+  // ALT-623: the card is titled "local search", so only searches that name this operator's area
+  // (or ask for something near the searcher) may appear under it. The rule is in lib/seo/
+  // local-keywords.ts, pure and unit-tested. The COUNT still covers every ranking; only the
+  // examples are filtered, and each carries its position so the pill says something.
   const localSearch = rankedKeywords
     ? {
         rankedKeywordCount: rankedKeywords.length,
-        topKeywords: rankedKeywords
-          .slice()
-          .sort((a, b) => (a.rank ?? 999) - (b.rank ?? 999))
-          .slice(0, 3)
-          .map((k) => k.keyword)
-          .filter(Boolean),
+        localKeywords: pickLocalKeywords(rankedKeywords, {
+          city: location.city as string | null,
+          region: (location as Record<string, unknown>).region as string | null,
+          postalCode: (location as Record<string, unknown>).postal_code as string | null,
+        }).map(localKeywordLabel),
       }
     : null
 

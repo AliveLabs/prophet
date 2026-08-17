@@ -15,16 +15,17 @@ import { setStandingQuestion } from "./actions"
 
 type AskAnswer = { answer: string; confidence: "high" | "medium" | "low"; sources: string[]; grounded: boolean }
 
-// Suggested questions. The last one is a HOW-TO (instructional) prompt so it's obvious
-// Ask also helps you use the site, not just read your market (ALT-203a). `kind` lets us
-// give the how-to chip a quiet distinct treatment while it stays a clickable chip.
-const SUGGESTED: { text: string; kind: "market" | "howto" }[] = [
-  { text: "Who's undercutting me right now?", kind: "market" },
-  { text: "What changed this week?", kind: "market" },
-  { text: "What should I prep before the weekend?", kind: "market" },
-  { text: "Which competitor is gaining on social?", kind: "market" },
-  { text: "How do I add a competitor's social handle?", kind: "howto" },
-]
+// The HOW-TO prompt is instructional, so it's obvious Ask also helps you use the site, not just
+// read your market (ALT-203a). `kind` gives it a quiet distinct treatment while it stays a
+// clickable chip. It is always available: it needs no location data to answer.
+//
+// ALT-634: the MARKET questions now come from the caller, which knows what this location holds.
+// The old hardcoded list led with "Who's undercutting me right now?", which Ask cannot ground —
+// no menu or pricing data reaches gatherAskContext, so the chip dead-ended every time.
+const HOWTO_SUGGESTION = {
+  text: "How do I add a competitor's social handle?",
+  kind: "howto" as const,
+}
 
 // AskAnswer confidence ("high"|"medium"|"low") → the kit's single confidence
 // encoding ("high"|"medium"|"directional"). "low" reads as directional.
@@ -38,9 +39,13 @@ export default function PassAskBox({
   standingQuestion = null,
   initialQuestion,
   endpoint = "/api/ask",
+  suggested = [],
 }: {
   locationId: string
   locationName: string
+  /** ALT-634: market questions this location's data can actually answer. The how-to chip is
+   *  appended locally because it needs no location data. */
+  suggested?: readonly string[]
   /** the currently pinned standing question, if any (to reflect "Pinned" state) */
   standingQuestion?: string | null
   /** ALT-183: a question carried in from the dashboard Ask widget (via ?q=). When present we
@@ -48,6 +53,10 @@ export default function PassAskBox({
   initialQuestion?: string
   endpoint?: string
 }) {
+  const suggestions = [
+    ...suggested.map((text) => ({ text, kind: "market" as const })),
+    HOWTO_SUGGESTION,
+  ]
   const router = useRouter()
   const [q, setQ] = useState(initialQuestion ?? "")
   const [asked, setAsked] = useState("")
@@ -147,7 +156,7 @@ export default function PassAskBox({
           </div>
 
           <div className="tkask-suggest">
-            {SUGGESTED.map((s) => (
+            {suggestions.map((s) => (
               <button
                 className={`tkask-sg${s.kind === "howto" ? " tkask-sg-howto" : ""}`}
                 key={s.text}

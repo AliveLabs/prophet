@@ -11,6 +11,7 @@ import BriefView from "./brief-view"
 import FirstRunPanel from "./first-run-panel"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
 import { competitorCoversFrom } from "./hero-covers"
+import { loadSuggestedAskQuestions } from "@/lib/ask/load-suggested-questions"
 import "./brief.css"
 
 // Loose read for the location row — `brand_tolerance` lands with the engine-rewrite
@@ -87,7 +88,7 @@ export default async function HomePage() {
   }
 
   const competitorIds = approvedComps.map((c) => c.id)
-  const [checks, standingAsk, playActions, weeklyMomentum, photosData, marketPulse] = await Promise.all([
+  const [checks, standingAsk, playActions, weeklyMomentum, photosData, marketPulse, askQuestions] = await Promise.all([
     loadPipelineChecks(),
     loadStandingAnswer(locRow.id),
     loadPlayActions(locRow.id, brief.dateKey),
@@ -96,6 +97,8 @@ export default async function HomePage() {
     // Phase 3.2 — the competitor changelog + the market benchmark. Reads only stored
     // pipeline output: no model call, no vendor call.
     loadMarketPulse(locRow.id),
+    // ALT-634: only offer Ask questions this location's data can answer.
+    loadSuggestedAskQuestions(locRow.id),
   ])
 
   // Listing-imagery modules (ALT-160): own-listing photo rows + per-competitor
@@ -141,6 +144,7 @@ export default async function HomePage() {
       shelfCompetitors={shelfCompetitors}
       competitorCovers={competitorCovers}
       marketPulse={marketPulse}
+      askQuestions={askQuestions}
     />
   )
 }

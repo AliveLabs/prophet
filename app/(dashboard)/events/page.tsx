@@ -66,6 +66,8 @@ import {
 // (tests/unit/events/dow-local.test.ts). Imported rather than reimplemented so
 // the page and the insight engine can never drift apart on what "weekend" means.
 import { isWeekendEvent } from "@/lib/events/insights"
+import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
+import SurfaceNotReady from "@/components/first-run/surface-not-ready"
 
 type EventsPageProps = {
   searchParams: Promise<{
@@ -226,6 +228,15 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
   const selectedLocationId = (requestedLocationId && locationList.some((l: { id: string }) => l.id === requestedLocationId))
     ? requestedLocationId
     : locationList[0]?.id ?? null
+
+  // ALT-629: refuse to render a half-finished page. During a first run this page would
+  // otherwise show whatever had landed so far, which an operator reads as the finished
+  // answer. Gated BEFORE the data reads below, so a page nobody will see does not pay for
+  // them either. Fails open on any read error.
+  const readiness = await loadSurfaceReadiness("events", selectedLocationId)
+  if (readiness.state === "working") {
+    return <SurfaceNotReady readiness={readiness} title="Local events" />
+  }
 
   const selectedLocation = locationList.find((l: { id: string }) => l.id === selectedLocationId) ?? null
   const locationName = selectedLocation?.name ?? "your location"

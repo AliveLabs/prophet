@@ -1,0 +1,109 @@
+/* The gated-surface panel (ALT-629).
+
+   Self-sufficient like first-run-signals.css: it pulls the token SSOT itself rather than trusting
+   whichever surface mounts it. Duplicate @imports dedupe, so this is safe alongside the shell's
+   own import. */
+@import "../../app/editorial-tokens.css";
+
+/* Flex, not `display: grid; place-items: center`. Under grid centring the panel is a
+   justify-items:center item, so it sizes to MAX-CONTENT and `width: 100%` resolves against that
+   shrunken track: the panel collapsed to the width of its longest word. Flex with a growing
+   basis gives it the row and lets max-width do the constraining. */
+.snr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(60vh, 520px);
+  padding: 32px 20px;
+}
+
+.snr-panel {
+  flex: 1 1 auto;
+  max-width: 560px;
+  padding: 34px 32px 30px;
+  background: var(--card, #fff);
+  border: 1px solid var(--line, #e9e2d7);
+  border-radius: var(--r-lg, 18px);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(20, 15, 12, 0.05));
+  text-align: left;
+}
+
+/* One quiet pulse. It marks that work is happening WITHOUT drawing the shape of the answer, which
+   is the whole reason this is a panel and not a skeleton. */
+.snr-mark {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--gold, #c9942a);
+  animation: snr-pulse 1.6s var(--ease, ease-in-out) infinite;
+}
+
+@keyframes snr-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .snr-mark { animation: none; }
+}
+
+.snr-title {
+  margin: 16px 0 0;
+  font-family: var(--font-display, Georgia, serif);
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink, #241d17);
+  text-wrap: balance;
+}
+
+.snr-head {
+  margin: 10px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink, #241d17);
+}
+
+.snr-detail {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2, #4b4139);
+}
+
+.snr-list {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.snr-list li {
+  position: relative;
+  padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2, #4b4139);
+}
+
+.snr-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line-2, #dad2c4);
+}
+
+.snr-foot {
+  margin: 18px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, #e9e2d7);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-3, #6b6055);
+}

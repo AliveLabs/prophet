@@ -8,14 +8,16 @@ import { useState } from "react"
 
 type AskAnswer = { answer: string; confidence: "high" | "medium" | "low"; sources: string[]; grounded: boolean }
 
-const SUGGESTED = [
-  "Who's undercutting me right now?",
-  "What changed this week?",
-  "What should I prep before the weekend?",
-  "Which competitor is gaining on social?",
-]
-
-export default function AskBox({ endpoint = "/api/ask" }: { endpoint?: string }) {
+// ALT-634: suggestions come from the caller, which knows what data exists. The old hardcoded
+// list led with a pricing question Ask cannot ground (no menu data reaches gatherAskContext).
+export default function AskBox({
+  endpoint = "/api/ask",
+  suggested = [],
+}: {
+  endpoint?: string
+  suggested?: readonly string[]
+}) {
+  const SUGGESTED = suggested
   const [q, setQ] = useState("")
   const [asked, setAsked] = useState("")
   const [loading, setLoading] = useState(false)
