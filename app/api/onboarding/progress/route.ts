@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   // Newest job whose scope is first_run identifies the latest first-run batch.
   const { data: jobs, error } = await admin
     .from("signal_jobs")
-    .select("run_id, pipeline, status, cursor")
+    .select("run_id, pipeline, status, cursor, created_at")
     .eq("location_id", locationId)
     .order("created_at", { ascending: false })
     .limit(60)
@@ -94,11 +94,22 @@ export async function GET(request: Request) {
     (cursor as { mode?: string }).mode === "first_run"
 
   const latest = (jobs ?? []).find((j) => isFirstRun(j.cursor))
-  const runJobs = latest
-    ? (jobs ?? [])
-        .filter((j) => j.run_id === latest.run_id)
-        .map((j) => ({ pipeline: j.pipeline, status: j.status }))
-    : []
+  const thisRun = latest ? (jobs ?? []).filter((j) => j.run_id === latest.run_id) : []
+  const runJobs = thisRun.map((j) => ({ pipeline: j.pipeline, status: j.status }))
+
+  // ALT-660: the elapsed clock must be the TOTAL time this run has been going, not time since a
+  // component mounted. Both the onboarding Build step and /home's first-run panel used to start
+  // their own timer on mount, so continuing from one screen to the other silently reset it to
+  // 0:00 and an operator who had already waited ten minutes was told they had waited none.
+  // The earliest job in the run is the run's real start, and it is the SAME value on both
+  // screens because it comes from here rather than from the browser.
+  const runStartedAt =
+    thisRun.length > 0
+      ? thisRun.reduce(
+          (earliest, j) => (j.created_at < earliest ? j.created_at : earliest),
+          thisRun[0].created_at as string
+        )
+      : null
 
   // ── progressive value ──
   // Three reads, run together. They are cheap (indexed single-location lookups) and the payload
@@ -170,6 +181,7 @@ export async function GET(request: Request) {
     JSON.stringify({
       ok: true,
       jobs: runJobs,
+      runStartedAt,
       signals,
       starter: starter ? { play: starter.play, generatedAt: starter.generatedAt } : null,
     }),
