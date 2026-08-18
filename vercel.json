@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/location-country-audit",
+      "schedule": "0 7 * * 1"
+    },
+    {
       "path": "/api/cron/daily",
       "schedule": "0 6 * * *"
     },
