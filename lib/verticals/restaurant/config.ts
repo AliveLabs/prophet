@@ -51,7 +51,7 @@ export const restaurantConfig: VerticalConfig = {
 
   emailCopy: {
     welcome: {
-      subject: "Welcome to Ticket — your intelligence is live",
+      subject: "Welcome to Ticket: your intelligence is live",
       headline: "Your restaurant is being watched (in a good way)",
       intro: "We're scanning your competitors daily. Your first weekly briefing will land in 7 days.",
       tipHeader: "Quick tip",

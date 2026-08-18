@@ -10,7 +10,10 @@ interface VerticalEmailCopy {
 }
 
 interface WelcomeProps {
-  userName: string
+  /** ALT-675: null when we have no full name on file. Never the email handle, which is
+   *  what this used to fall back to ("Welcome to Ticket, chrishershberger."). Same rule
+   *  PR #231 established for the first-brief subject. */
+  userName: string | null
   locationName: string
   competitorCount: number
   dashboardUrl: string
@@ -30,7 +33,9 @@ export function Welcome({
   return (
     <EmailLayout preview={previewText}>
       <Section>
-        <Text style={emailStyles.heading}>Welcome to Ticket, {userName}.</Text>
+        <Text style={emailStyles.heading}>
+          {userName ? `Welcome to Ticket, ${userName}.` : "Welcome to Ticket."}
+        </Text>
         <Text style={emailStyles.paragraph}>
           Your competitive intelligence is now live. Here&rsquo;s a quick recap
           of what we set up:

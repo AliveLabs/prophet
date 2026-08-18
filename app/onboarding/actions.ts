@@ -1345,12 +1345,19 @@ export async function completeOnboardingAction(input: {
       .single()
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+    // ALT-675: never greet someone by their email handle. This is the same defect
+    // PR #231 fixed in the first-brief subject ("chrishershberger, your first Ticket
+    // brief is ready" reads like a bug), which was fixed at the reported instance
+    // rather than across the class. First name when we know it, otherwise no name.
     const userName =
-      user.user_metadata?.full_name ?? userEmail.split("@")[0] ?? "there"
+      typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name.trim().split(/\s+/)[0] || null
+        : null
 
     sendEmail({
       to: userEmail,
-      subject: "Welcome to Ticket — your feed is live",
+      // No em dash: house style bans them in customer copy.
+      subject: "Welcome to Ticket: your feed is live",
       react: Welcome({
         userName,
         locationName: locInfo?.name ?? "Your location",

@@ -157,7 +157,7 @@ export async function submitBetaFeedback(input: {
 
     await sendEmail({
       to: OPS_RECIPIENTS,
-      subject: `[Ticket] Beta feedback${org?.name ? ` — ${org.name}` : ""}`,
+      subject: `[Ticket] Beta feedback${org?.name ? `: ${org.name}` : ""}`,
       react: BetaFeedbackEmail({
         message,
         category: category ?? undefined,
