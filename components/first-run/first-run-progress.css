@@ -1,0 +1,157 @@
+/* First-run progress panel (ALT-654 / ALT-660).
+
+   Self-sufficient, same convention as first-run-signals.css: pull the token SSOT rather than
+   depending on whichever surface mounts it. Both mount points (`.ob` in onboarding, `.ticket-brief`
+   on /home) already define these tokens, and duplicate @imports dedupe. */
+@import "../../app/editorial-tokens.css";
+
+.frp {
+  margin: 18px 0 0;
+}
+
+/* ── top bar: busy glyph + the clock ─────────────────────────────────────────
+   Both used to live under the list. The one question an operator has on this screen is "are you
+   still working, and for how long", so it goes first. */
+.frp-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.frp-elapsed {
+  font-size: 13px;
+  color: var(--ink-3, #6e6862);
+  letter-spacing: 0.2px;
+}
+
+/* The busy glyph: three dots riding their own phase of a slow travelling wave.
+   Deliberately NOT the reference's full-bleed ambient colour wash, which Bryan ruled out for this
+   product (dark, saturated, and wrong sitting under live data for minutes at a time). Small, quiet,
+   neutral, and slow enough to tolerate being on screen for the length of a real first run.
+   Compositor-only: animates transform, never layout or colour. */
+.frp-glyph {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 10px;
+}
+
+.frp-glyph > i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ink, #1c1917);
+  opacity: 0.55;
+  animation: frp-wave 1900ms ease-in-out infinite;
+}
+
+/* Staggered delays are what make the trio read as a travelling wave rather than a blink. */
+.frp-glyph > i:nth-child(2) {
+  animation-delay: 240ms;
+}
+
+.frp-glyph > i:nth-child(3) {
+  animation-delay: 480ms;
+}
+
+@keyframes frp-wave {
+  0%,
+  100% {
+    transform: translateY(-2.5px);
+  }
+  50% {
+    transform: translateY(2.5px);
+  }
+}
+
+/* A moving indicator sitting under live numbers for several minutes is exactly what this query
+   exists for: hold still instead. */
+@media (prefers-reduced-motion: reduce) {
+  .frp-glyph > i {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ── the "still working" line, top and bottom ───────────────────────────────
+   Repeated on purpose: it used to sit only below the list, so an operator had to scroll to find
+   out we had not stalled. */
+.frp-still {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3, #6e6862);
+  margin: 0 0 12px;
+}
+
+.frp-still--bottom {
+  margin: 14px 0 0;
+}
+
+/* ── the pipeline rows ──────────────────────────────────────────────────────── */
+.frp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line, #e9e2d7);
+  border: 1px solid var(--line, #e9e2d7);
+  border-radius: var(--r-sm, 10px);
+  overflow: hidden;
+}
+
+.frp-row {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 15px;
+  background: var(--card, #fff);
+}
+
+.frp-mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line, #e9e2d7);
+}
+
+.frp-label {
+  font-size: 14px;
+  color: var(--ink, #1c1917);
+}
+
+/* The state word carries the meaning. The dot is decoration, never the only signal. */
+.frp-when {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ink-3, #6e6862);
+}
+
+.frp-row.is-ready .frp-mark {
+  background: var(--teal, #3a8066);
+}
+
+.frp-row.is-doing .frp-mark {
+  background: var(--rust, #b85c38);
+}
+
+.frp-row.is-failed .frp-mark {
+  background: var(--alert, #c44040);
+}
+
+.frp-row.is-ready .frp-when {
+  color: var(--teal-deep, #2f6b53);
+}
+
+.frp-row.is-doing .frp-when {
+  color: var(--rust-deep, #96461f);
+}
+
+.frp-row.is-failed .frp-when {
+  color: var(--alert-deep, #a52f2f);
+}
