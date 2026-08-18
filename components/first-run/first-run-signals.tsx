@@ -13,6 +13,9 @@ import type { FirstRunSignal, FirstRunSignalState } from "@/lib/onboarding/first
 import "./first-run-signals.css"
 
 // The state word is rendered beside the label, so the row never depends on the dot's colour alone.
+/** Above this many, the list collapses behind a disclosure instead of running down the panel. */
+const ITEMS_INLINE_MAX = 3
+
 const STATE_WORD: Record<FirstRunSignalState, string> = {
   ready: "Ready",
   working: "Working",
@@ -41,11 +44,30 @@ export default function FirstRunSignals({
             </div>
             <p className="frs-line">{signal.headline}</p>
             {signal.items?.length ? (
-              <ul className="frs-items">
-                {signal.items.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              // ALT-654: a signal can now hand over its FULL list (local search returns every
+              // ranked term with its position, which can be dozens). Above a short threshold it
+              // collapses behind a native <details> so the panel stays short and the in-progress
+              // rows below it stay high on the page, which was the point of the reordering.
+              // <details> rather than a hand-rolled toggle: keyboard and screen-reader behaviour
+              // come free, and it needs no client state.
+              signal.items.length > ITEMS_INLINE_MAX ? (
+                <details className="frs-more">
+                  <summary>
+                    All {signal.items.length} {signal.itemsNoun ?? "items"}
+                  </summary>
+                  <ul className="frs-items">
+                    {signal.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </details>
+              ) : (
+                <ul className="frs-items">
+                  {signal.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )
             ) : null}
           </div>
         </div>
