@@ -10,6 +10,8 @@ import {
   mapPlaceToLocation,
   type DiscoveredCompetitor as NearbyPlace,
 } from "@/lib/places/google"
+import { checkPlaceIsServed } from "@/lib/geo/check-place-country"
+import { isServedCountry, unsupportedCompetitorMessage } from "@/lib/geo/us-only"
 import { scoreCompetitor, EXCLUDED_COMPETITOR_TYPES } from "@/lib/providers/scoring"
 import { generateStructured } from "@/lib/ai/provider"
 import {
@@ -207,6 +209,13 @@ export async function createOrganizationAction(formData: FormData) {
     redirect(`/onboarding?error=${encodeURIComponent(profileError.message)}`)
   }
 
+
+  // ALT-606: US only. Decided on the country Google resolves for this place id, never on the
+  // `country` form field, which arrives from the client.
+  const servedOrg = await checkPlaceIsServed(primaryPlaceId, String(formData.get("country") ?? ""))
+  if (!servedOrg.ok) {
+    redirect(`/onboarding?error=${encodeURIComponent(servedOrg.message)}`)
+  }
   const geoLatValue = String(formData.get("geo_lat") ?? "").trim()
   const geoLngValue = String(formData.get("geo_lng") ?? "").trim()
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
@@ -295,6 +304,13 @@ export async function createLocationAction(formData: FormData) {
     redirect(`/onboarding?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
   }
 
+
+  // ALT-606: US only. Decided on the country Google resolves for this place id, never on the
+  // `country` form field, which arrives from the client.
+  const servedLoc = await checkPlaceIsServed(primaryPlaceId, String(formData.get("country") ?? ""))
+  if (!servedLoc.ok) {
+    redirect(`/onboarding?error=${encodeURIComponent(servedLoc.message)}`)
+  }
   const geoLatValue = String(formData.get("geo_lat") ?? "").trim()
   const geoLngValue = String(formData.get("geo_lng") ?? "").trim()
   const geoLat = geoLatValue ? Number.parseFloat(geoLatValue) : null
@@ -354,6 +370,8 @@ type CreateOrgInput = {
     region: string | null
     postal_code: string | null
     country: string | null
+    /** ISO 3166-1 alpha-2 from Places, when the client has it (ALT-606). */
+    country_code?: string | null
     geo_lat: number | null
     geo_lng: number | null
     website?: string | null
@@ -450,6 +468,12 @@ export async function createOrgAndLocationAction(
   if (memberError) {
     return { ok: false, error: memberError.message }
   }
+
+
+  // ALT-606: US only, re-resolved from the place id so a crafted payload cannot assert its own
+  // country. Returns an error rather than redirecting: these are called from the wizard island.
+  const servedPlace = await checkPlaceIsServed(input.place.primary_place_id, input.place.country)
+  if (!servedPlace.ok) return { ok: false, error: servedPlace.message }
 
   const geoLat = Number.isFinite(input.place.geo_lat) ? input.place.geo_lat : null
   const geoLng = Number.isFinite(input.place.geo_lng) ? input.place.geo_lng : null
@@ -553,6 +577,12 @@ export async function createLocationForOrgAction(
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
+
+
+  // ALT-606: US only, re-resolved from the place id so a crafted payload cannot assert its own
+  // country. Returns an error rather than redirecting: these are called from the wizard island.
+  const servedPlace = await checkPlaceIsServed(input.place.primary_place_id, input.place.country)
+  if (!servedPlace.ok) return { ok: false, error: servedPlace.message }
 
   const geoLat = Number.isFinite(input.place.geo_lat) ? input.place.geo_lat : null
   const geoLng = Number.isFinite(input.place.geo_lng) ? input.place.geo_lng : null
@@ -1078,6 +1108,12 @@ export async function addCompetitorCandidateAction(input: {
     return { ok: false, error: `Couldn't load that place: ${err instanceof Error ? err.message : String(err)}` }
   }
   const mapped = mapPlaceToLocation(details)
+  // ALT-606: tracked competitors are US-only too (Bryan, 2026-08-18). Every downstream read on a
+  // competitor runs through the same US-centric vendors, so a rival across a border yields a
+  // comparison built on data we cannot actually get.
+  if (!isServedCountry(mapped.country_code ?? mapped.country)) {
+    return { ok: false, error: unsupportedCompetitorMessage(mapped.country_code ?? mapped.country) }
+  }
   if (
     mapped.name &&
     location.name &&
