@@ -42,7 +42,9 @@ describe("competitor signal", () => {
     expect(s.competitors.state).toBe("ready")
     expect(s.competitors.headline).toContain("1 business")
     expect(s.competitors.headline).toContain("near Forney")
-    expect(s.competitors.items).toEqual(["Rosita's, 0.4 mi away"])
+    // ALT-654: the competitor NAMES are deliberately not listed. Naming a subset of a count
+    // invites "and the other two?", and the operator picked this list minutes ago.
+    expect(s.competitors.items).toBeUndefined()
   })
 
   it("counts only what it was given and never claims a distance it does not have", () => {
@@ -57,7 +59,23 @@ describe("competitor signal", () => {
       }),
     )
     expect(s.competitors.headline).toContain("4 businesses")
-    expect(s.competitors.items).toEqual(["A", "B, 1.3 mi away", "C"]) // capped at 3
+    // ALT-654: no names at any count. The count is the fact; the names were noise.
+    expect(s.competitors.items).toBeUndefined()
+  })
+
+  it("ALT-654: never names competitors, however many there are", () => {
+    for (const count of [1, 3, 5, 10]) {
+      const s = byKey(
+        input({
+          competitors: Array.from({ length: count }, (_, i) => ({
+            name: `Competitor ${i}`,
+            distanceMi: i,
+          })),
+        }),
+      ).competitors
+      expect(s.items, `count=${count} leaked names`).toBeUndefined()
+      expect(s.headline).not.toContain("Competitor 0")
+    }
   })
 
   it("omits the city clause when there is no city", () => {
@@ -144,6 +162,21 @@ describe("visibility signal", () => {
     expect(s.state).toBe("ready")
     expect(s.headline).toContain("12 searches")
     expect(s.items).toEqual(["“tacos forney”, position 3", "“tacos near me”, position 7"])
+    expect(s.itemsNoun).toBe("searches")
+  })
+
+  // ALT-654: the full list goes to the renderer, which collapses it behind a disclosure. Slicing
+  // to three here would make that disclosure a lie about what we know.
+  it("hands over EVERY local term, not a silent top three", () => {
+    const many = Array.from({ length: 9 }, (_, i) => `“term ${i}”, position ${i + 1}`)
+    const s = byKey(
+      input({
+        jobStatus: { visibility: "done" },
+        localSearch: { rankedKeywordCount: 120, localKeywords: many },
+      }),
+    ).visibility
+    expect(s.items).toHaveLength(9)
+    expect(s.items).toEqual(many)
   })
 
   // ALT-623: ranking widely and ranking LOCALLY are different facts, and this card is about the

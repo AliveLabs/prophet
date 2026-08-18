@@ -101,3 +101,46 @@
   background: var(--paper-2, #f3efe8);
   color: var(--ink-2, #5c5249);
 }
+
+/* ALT-654: the disclosure for a long item list (local search can return dozens of ranked terms).
+   Collapsed by default so the panel stays short and the in-progress rows below stay high on the
+   page, which was the point of reordering this screen. */
+.frs-more {
+  margin-top: 6px;
+}
+
+.frs-more > summary {
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: 11.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3, #6e6862);
+  list-style: none;
+}
+
+/* Hide the default disclosure triangle in both engines, then draw our own so it matches the kit. */
+.frs-more > summary::-webkit-details-marker {
+  display: none;
+}
+
+.frs-more > summary::before {
+  content: "+";
+  display: inline-block;
+  width: 1em;
+  font-family: var(--font-mono);
+  color: var(--rust, #b85c38);
+}
+
+.frs-more[open] > summary::before {
+  content: "\2212"; /* minus */
+}
+
+.frs-more > summary:hover,
+.frs-more > summary:focus-visible {
+  color: var(--ink, #1c1917);
+}
+
+.frs-more .frs-items {
+  margin-top: 6px;
+}

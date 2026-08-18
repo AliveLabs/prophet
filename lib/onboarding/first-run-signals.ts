@@ -36,8 +36,11 @@ export type FirstRunSignal = {
   state: FirstRunSignalState
   /** One honest line. Never a promise, never a percentage. */
   headline: string
-  /** Up to three concrete facts behind the headline (names, event titles, search terms). */
+  /** Concrete facts behind the headline (event titles, search terms with their positions).
+   *  May be the FULL list: the renderer collapses anything long behind a disclosure. */
   items?: string[]
+  /** What `items` are, for the disclosure summary ("All 47 searches"). Defaults to "items". */
+  itemsNoun?: string
 }
 
 export type FirstRunSignalInput = {
@@ -92,14 +95,16 @@ function competitorSignal(input: FirstRunSignalInput): FirstRunSignal {
     }
   }
   const near = input.city ? ` near ${input.city}` : ""
+  // ALT-654: no `items`. This used to say "We are watching 5 businesses near Argyle" and then name
+  // three of them, which Bryan called out as making no sense: naming a subset of a count invites
+  // "and the other two?", and the operator chose these competitors minutes ago so we are reading
+  // their own list back to them. The count is the fact worth stating; dropping the names is also
+  // what makes this module smaller, which was the other half of the note.
   return {
     key: "competitors",
     label: "Who we watch near you",
     state: "ready",
     headline: `We are watching ${names.length} ${plural(names.length, "business", "businesses")}${near}.`,
-    items: input.competitors.slice(0, 3).map((c) =>
-      c.distanceMi !== null ? `${c.name}, ${c.distanceMi.toFixed(1)} mi away` : c.name,
-    ),
   }
 }
 
@@ -142,7 +147,8 @@ function eventsSignal(input: FirstRunSignalInput): FirstRunSignal {
 }
 
 function visibilitySignal(input: FirstRunSignalInput): FirstRunSignal {
-  const label = "Whether you show up in local search"
+  // ALT-654: was "Whether you show up in local search", which is a sentence, not a label.
+  const label = "Local search"
   if (!input.hasWebsite) {
     return {
       key: "visibility",
@@ -189,12 +195,16 @@ function visibilitySignal(input: FirstRunSignalInput): FirstRunSignal {
       headline: `${headline} None of them name your area yet, which is the gap worth closing.`,
     }
   }
+  // ALT-654: hand over EVERY local term we have, not a silent top three. The renderer collapses
+  // them behind a disclosure, so the panel stays short while the operator can still see the whole
+  // list and its positions. Truncating here would make the accordion a lie about what we know.
   return {
     key: "visibility",
     label,
     state: "ready",
     headline,
-    items: localKeywords.slice(0, 3),
+    items: [...localKeywords],
+    itemsNoun: "searches",
   }
 }
 
