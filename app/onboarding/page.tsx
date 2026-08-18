@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import OnboardingWizard from "./onboarding-wizard-pass"
 import { getVerticalConfig } from "@/lib/verticals"
+import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { BrandProvider } from "@/components/brand-provider"
 
 type OnboardingCandidate = {
@@ -13,6 +14,21 @@ type OnboardingCandidate = {
   provider_entity_id: string | null
   metadata: Record<string, unknown>
   relevance_score: number | null
+}
+
+// ALT-663: the wizard must be told its PLAN cap for tracked competitors rather than
+// assuming five. Resolved here, where the org row is already in hand.
+async function loadMaxCompetitors(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  orgId: string
+): Promise<number | undefined> {
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("subscription_tier")
+    .eq("id", orgId)
+    .maybeSingle()
+  if (!org) return undefined
+  return TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].maxCompetitorsPerLocation
 }
 
 // Load an org's first location + its still-pending (is_active=false, not
@@ -113,6 +129,7 @@ export default async function OnboardingPage({
       supabase,
       setupOrgId
     )
+    const setupMaxCompetitors = await loadMaxCompetitors(supabase, setupOrgId)
 
     // Already set up (location + ≥1 ACTIVE competitor)? Don't re-render the
     // wizard — re-running completion would re-approve competitors, reset
@@ -135,6 +152,7 @@ export default async function OnboardingPage({
           existingOrgId={setupOrgId}
           existingLocationId={locationId}
           existingCompetitors={competitors}
+          maxCompetitors={setupMaxCompetitors}
           existingLocationGeo={locationGeo}
           verticalConfig={verticalConfig}
           mode="setup"
@@ -182,6 +200,7 @@ export default async function OnboardingPage({
   let existingLocationId: string | null = null
   let existingLocationGeo: { lat: number; lng: number } | null = null
   let existingCompetitors: OnboardingCandidate[] = []
+  let resumeMaxCompetitors: number | undefined
 
   if (membership?.organization_id) {
     existingOrgId = membership.organization_id
@@ -189,6 +208,7 @@ export default async function OnboardingPage({
     existingLocationId = loaded.locationId
     existingLocationGeo = loaded.locationGeo
     existingCompetitors = loaded.competitors
+    resumeMaxCompetitors = await loadMaxCompetitors(supabase, membership.organization_id)
   }
 
   return (
@@ -197,6 +217,7 @@ export default async function OnboardingPage({
         existingOrgId={existingOrgId}
         existingLocationId={existingLocationId}
         existingCompetitors={existingCompetitors}
+        maxCompetitors={resumeMaxCompetitors}
         existingLocationGeo={existingLocationGeo}
         verticalConfig={verticalConfig}
       />
