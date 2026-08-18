@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
+import { isMirroredMediaUrl } from "@/lib/social/types"
 import type {
   SocialPlatform,
   SocialSnapshotData,
@@ -519,7 +520,7 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           // function budget. Already-analyzed posts are filtered out, so a backlog
           // chunks naturally across runs with no cursor or rework.
           const needingAnalysis = posts.filter(
-            (p) => !p.visualAnalysis && p.mediaUrl?.includes("supabase")
+            (p) => !p.visualAnalysis && isMirroredMediaUrl(p.mediaUrl)
           )
           const budgetLeft = Math.max(0, MAX_VISION_POSTS_PER_RUN - totalAnalyzed)
           const postsNeedingAnalysis = needingAnalysis.slice(0, budgetLeft)
@@ -923,7 +924,7 @@ async function collectSingleProfile(
     if (snapshot.recentPosts.length > 0) {
       const originalPosts = snapshot.recentPosts
       const persisted = await persistPostImages(originalPosts, handle, platform)
-      const savedCount = persisted.filter((p) => p.mediaUrl?.includes("supabase")).length
+      const savedCount = persisted.filter((p) => isMirroredMediaUrl(p.mediaUrl)).length
       console.log(`[Social] ${platform}/${handle}: persisted ${savedCount}/${persisted.length} post images to storage`)
       snapshot = { ...snapshot, recentPosts: persisted }
     }

@@ -8,6 +8,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { classifyNow, isUsable } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import type { SocialSnapshotData, NormalizedSocialPost, SocialPostAnalysis } from "@/lib/social/types"
+import { isMirroredMediaUrl } from "@/lib/social/types"
 import type { PhotoAnalysis } from "@/lib/providers/photos"
 import { resolveOperator } from "./operator-data"
 import { operatorSafeReason, safePipelineLabel } from "@/lib/ops/provenance-copy"
@@ -148,7 +149,7 @@ async function loadProofForEntities(
         entityName,
         platform: profile.platform,
         handle: profile.handle,
-        imageUrl: p.mediaUrl?.includes("supabase") ? p.mediaUrl : null,
+        imageUrl: isMirroredMediaUrl(p.mediaUrl) ? p.mediaUrl : null,
         text: p.text,
         createdTime: p.createdTime ?? null,
         likes: p.likesCount ?? 0,

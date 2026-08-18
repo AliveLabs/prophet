@@ -20,6 +20,7 @@ import type {
   NormalizedSocialPost,
   SocialPlatform,
 } from "./types"
+import { isMirroredMediaUrl } from "./types"
 import { normalizeFocal } from "@/lib/providers/photos"
 
 const GEMINI_VISION_URL =
@@ -155,12 +156,7 @@ export async function analyzePostImages(
 
   // Filter to posts needing analysis, sorted by engagement (highest first)
   const needsAnalysis = posts
-    .filter(
-      (p) =>
-        !p.visualAnalysis &&
-        p.mediaUrl &&
-        p.mediaUrl.includes("supabase")
-    )
+    .filter((p) => !p.visualAnalysis && isMirroredMediaUrl(p.mediaUrl))
     .sort(
       (a, b) =>
         b.likesCount + b.commentsCount + b.sharesCount -

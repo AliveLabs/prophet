@@ -10,6 +10,7 @@ import { buildRefIndex } from "@/lib/insights/dossier/types"
 import { checkPresentationGrounded, collectStoredQuotes, evaluateBrief } from "@/lib/eval/checks"
 import type { Dossier } from "@/lib/insights/dossier/types"
 import type { Brief, EnrichedRecommendation } from "@/lib/skills/types"
+import { isMirroredMediaUrl } from "@/lib/social/types"
 
 const mkPlay = (over: Partial<EnrichedRecommendation> = {}): EnrichedRecommendation => ({
   title: "t",
@@ -83,7 +84,7 @@ const compDossier = {
       social: {
         profile: { followerCount: 2000 },
         recentPosts: [
-          { platformPostId: "p1", platform: "instagram", text: "Our new smash burger drop!", mediaUrl: "https://xyz.supabase.co/social/c1/instagram/p1.jpg", mediaType: "image", likesCount: 300, commentsCount: 50, sharesCount: 10, viewsCount: null, hashtags: [], createdTime: "2026-06-20" },
+          { platformPostId: "p1", platform: "instagram", text: "Our new smash burger drop!", mediaUrl: "https://auth.getticket.ai/storage/v1/object/public/social-media/instagram/c1/p1.jpg", mediaType: "image", likesCount: 300, commentsCount: 50, sharesCount: 10, viewsCount: null, hashtags: [], createdTime: "2026-06-20" },
           { platformPostId: "p2", platform: "instagram", text: "low engagement post", mediaUrl: "https://cdn.instagram.com/p2.jpg", mediaType: "image", likesCount: 10, commentsCount: 1, sharesCount: 0, viewsCount: null, hashtags: [], createdTime: "2026-06-18" },
         ],
         aggregateMetrics: {},
@@ -186,20 +187,20 @@ describe("advantage — press-the-advantage vs steal-the-cue", () => {
 })
 
 describe("exemplarSocialPost — embed the competitor's winning post", () => {
-  it("picks the highest-rate supabase-hosted post of the cited competitor", () => {
+  it("picks the highest-rate post of the cited competitor that we have mirrored", () => {
     const play = mkPlay({ skillId: "social-counter", category: "social", evidenceRefs: ["social.engagement_gap"] })
     const p = buildPresentation(play, ctxOf(compDossier))
     const ex = p?.exemplarSocialPost
     expect(ex).toBeDefined()
     expect(ex!.competitor).toBe("Rival A")
-    expect(ex!.mediaUrl).toContain("supabase")
+    expect(isMirroredMediaUrl(ex!.mediaUrl)).toBe(true) // ALT-665: mirrored, not an expiring CDN URL
     expect(ex!.caption).toBe("Our new smash burger drop!")
     expect(ex!.likes).toBe(300)
     expect(ex!.engagementPct).toBe(18) // (300+50+10)/2000 = 18.0%
   })
   it("omits the post when the only image is not in our storage (not embeddable)", () => {
     const noStore = JSON.parse(JSON.stringify(compDossier)) as Dossier
-    // strip the supabase post, leaving only the cdn one
+    // strip the mirrored post, leaving only the expiring-CDN one
     noStore.competitors[0].social!.recentPosts = [noStore.competitors[0].social!.recentPosts[1]]
     const play = mkPlay({ skillId: "social-counter", category: "social", evidenceRefs: ["social.engagement_gap"] })
     const p = buildPresentation(play, ctxOf(noStore))
@@ -312,7 +313,7 @@ describe("checkPresentationGrounded — honesty gate", () => {
   it("rejects a $ / POS competitor caption that slipped into an exemplar post", () => {
     const play = mkPlay({
       presentation: {
-        exemplarSocialPost: { competitor: "Rival A", platform: "instagram", mediaUrl: "https://x.supabase.co/p.jpg", caption: "$5 margarita Monday", source: "review.theme" },
+        exemplarSocialPost: { competitor: "Rival A", platform: "instagram", mediaUrl: "https://auth.getticket.ai/storage/v1/object/public/social-media/instagram/c1/p.jpg", caption: "$5 margarita Monday", source: "review.theme" },
       },
     })
     const vios = checkPresentationGrounded(play, 0, index, stored)

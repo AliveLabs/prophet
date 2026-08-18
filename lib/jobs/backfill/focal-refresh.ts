@@ -10,6 +10,7 @@
 
 import { analyzePhoto } from "@/lib/providers/photos"
 import { analyzeSocialPostImage } from "@/lib/social/visual-analysis"
+import { isMirroredMediaUrl } from "@/lib/social/types"
 
 // Loose client — location_photos / competitor_photos aren't in the generated DB types yet
 // (same pattern as lib/cache/photos.ts). We only touch id / image_url / analysis_result.
@@ -85,7 +86,7 @@ export async function refreshSocialFocal(client: unknown, limit: number): Promis
       if (budget <= 0) break
       const va = p.visualAnalysis as (Record<string, unknown> & { focalPoint?: unknown }) | undefined
       const mediaUrl = typeof p.mediaUrl === "string" ? p.mediaUrl : null
-      if (!va || va.focalPoint || !mediaUrl || !mediaUrl.includes("supabase")) continue
+      if (!va || va.focalPoint || !isMirroredMediaUrl(mediaUrl)) continue
       scanned++
       const dl = await download(mediaUrl)
       if (!dl) continue
