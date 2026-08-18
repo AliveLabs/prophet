@@ -94,8 +94,11 @@
 }
 
 /* LEFT — the pearlescent rail */
+/* ALT-653: sticky + align-self:start so the rail holds position while a long panel scrolls past it,
+   which is the "anchor it and allow the other one to scroll" half of Bryan's note. align-self is
+   required because the grid sets align-items:stretch, and a stretched item cannot stick. */
 .ob-rail {
-  position: relative;
+  position: sticky; top: 0; align-self: start; max-height: 100dvh; overflow: hidden;
   display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 36px);
   padding: clamp(40px, 4vw, 56px) clamp(28px, 3.2vw, 52px);
   justify-content: center;
@@ -163,8 +166,13 @@
 .ob-accent-body p { font-size: 12.5px; color: var(--ink-2); margin-top: 2px; line-height: 1.4; }
 
 /* RIGHT — the floating form panel area */
+/* ALT-653: was `align-items: center`, which vertically centred the panel inside a 100dvh grid cell.
+   On a long step (the Build step especially) that pushed the panel out of register with the rail and
+   read as the left column floating in a scroll space, which is exactly how Bryan described it.
+   Top-align both columns instead. Applied globally rather than per-step, per his note that the fix
+   probably belongs on all the pages. */
 .ob-stage {
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
   padding: 56px 52px;
 }
 .ob-panel {
@@ -330,10 +338,6 @@
 .ob-goal.is-on .ob-goal__check { background: var(--rust); border-color: var(--rust); }
 .ob-goal__text b { font-family: var(--font-display); font-weight: 700; font-size: 15px; display: block; color: var(--ink); }
 .ob-goal__text span { font-size: 13px; color: var(--ink-2); }
-
-/* 3.1: the starter insight on the Build step. The unified card is self-sufficient for styling,
-   so this only owns the spacing around it. */
-.ob-starter { margin: 20px 0 4px; }
 
 /* processing status (real signal_jobs statuses, polled) */
 .ob-status {

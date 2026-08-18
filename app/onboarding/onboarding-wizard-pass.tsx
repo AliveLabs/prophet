@@ -26,9 +26,8 @@ import {
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
 import FirstRunSignals from "@/components/first-run/first-run-signals"
-import StarterInsightCard from "@/app/(dashboard)/home/starter-insight-card"
+import FirstRunProgress from "@/components/first-run/first-run-progress"
 import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
-import type { EnrichedRecommendation } from "@/lib/skills/types"
 import { TIER_LIMITS } from "@/lib/billing/tiers"
 
 const TOTAL = 5
@@ -184,41 +183,12 @@ function whyLine(c: OnboardingCandidate): string {
   return parts.join(", ")
 }
 
-const PIPELINE_ORDER = [
-  "starter",
-  "content",
-  "visibility",
-  "events",
-  "weather",
-  "busy_times",
-  "social",
-  "photos",
-  "insights",
-  "brief",
-] as const
-
-const PIPELINE_LABELS: Record<string, string> = {
-  starter: "Your first insight",
-  content: "Menus & websites",
-  visibility: "Search visibility",
-  events: "Local events",
-  weather: "Weather",
-  busy_times: "Foot traffic",
-  social: "Social media",
-  photos: "Photos",
-  insights: "First signals",
-  brief: "Your full brief",
-}
+// ALT-654: PIPELINE_ORDER and PIPELINE_LABELS moved to components/first-run/first-run-progress.tsx
+// so this screen and /home cannot drift apart. Note the labels also changed there: "Search
+// visibility" is now "Local search", per Bryan.
 
 /** Bound on first-run fast-path invocations from one mounted Build step. See FirstRunPanel. */
 const MAX_KICKS = 8
-
-function formatElapsed(ms: number): string {
-  const totalSec = Math.floor(ms / 1000)
-  const m = Math.floor(totalSec / 60)
-  const s = totalSec % 60
-  return `${m}:${String(s).padStart(2, "0")}`
-}
 
 /* ── tiny inline icon set (no external deps; AA-safe via currentColor) ── */
 const IconArrow = () => (
@@ -270,13 +240,13 @@ function ProcessingStep({
   const router = useRouter()
   const [jobs, setJobs] = useState<Array<{ pipeline: string; status: string }> | null>(null)
   const [signals, setSignals] = useState<FirstRunSignal[]>([])
-  const [starter, setStarter] = useState<{ play: EnrichedRecommendation; generatedAt: string } | null>(null)
+  // ALT-660: the run's real start, from the server, so the clock does not reset when the operator
+  // continues to /home. Replaces the mount-time clock this screen used to keep.
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null)
   const [completionDone, setCompletionDone] = useState(false)
   const [completionError, setCompletionError] = useState<string | null>(null)
   const [timedOut, setTimedOut] = useState(false)
-  const [elapsedMs, setElapsedMs] = useState(0)
   const startedRef = useRef(false)
-  const mountedAtRef = useRef(Date.now())
 
   const runCompletion = useCallback(async () => {
     setCompletionError(null)
@@ -351,7 +321,7 @@ function ProcessingStep({
         if (cancelled || !data.ok || !Array.isArray(data.jobs)) return
         setJobs(data.jobs)
         if (Array.isArray(data.signals)) setSignals(data.signals as FirstRunSignal[])
-        if (data.starter) setStarter(data.starter as { play: EnrichedRecommendation; generatedAt: string })
+        if (typeof data.runStartedAt === "string") setRunStartedAt(data.runStartedAt)
       } catch {
         // transient — next tick retries
       }
@@ -370,16 +340,8 @@ function ProcessingStep({
     return () => clearTimeout(timer)
   }, [])
 
-  // Elapsed clock — honest expectations beat a spinner on a loop.
-  useEffect(() => {
-    const timer = setInterval(() => setElapsedMs(Date.now() - mountedAtRef.current), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
   const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
   const insightsDone = statusByPipeline.get("insights") === "done"
-  const allDone =
-    jobs !== null && jobs.length > 0 && jobs.every((j) => j.status === "done")
   const canEnter = completionDone && !completionError && (insightsDone || timedOut)
 
   return (
@@ -392,10 +354,6 @@ function ProcessingStep({
       <p className="ob-panel-lede">
         What we find shows up here as it lands. Your first insight comes first, then the rest of
         your market fills in behind it.
-      </p>
-      <p className="ob-hint">
-        Elapsed: <span className="tk-mono">{formatElapsed(elapsedMs)}</span>. You
-        can close this tab and we&apos;ll email you the moment your first brief is ready.
       </p>
 
       {completionError ? (
@@ -413,53 +371,18 @@ function ProcessingStep({
               is already chosen so it renders immediately, the rest arrive as their pulls finish. */}
           {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
 
-          {starter ? (
-            <div className="ob-starter">
-              <StarterInsightCard play={starter.play} todayKey={starter.generatedAt.slice(0, 10)} />
-            </div>
-          ) : null}
+          {/* ALT-654: the first insight does NOT render on this screen in any state. Bryan,
+              2026-08-18: it is out of context, the first insight is not necessarily a strong one,
+              "and it IS the first impression that we don't get back". Removing it also takes most
+              of the long scroll out of this panel (ALT-653). */}
 
-          <ul className="ob-status">
-            {PIPELINE_ORDER.map((pipeline) => {
-              const status = statusByPipeline.get(pipeline) ?? "queued"
-              const cls =
-                status === "done"
-                  ? "is-ready"
-                  : status === "running"
-                    ? "is-doing"
-                    : status === "failed"
-                      ? "is-failed"
-                      : "is-queued"
-              const when =
-                status === "done"
-                  ? "Ready"
-                  : status === "running"
-                    ? "In progress"
-                    : status === "failed"
-                      ? "Hit a snag"
-                      : jobs === null || jobs.length === 0
-                        ? "Starting"
-                        : "Queued"
-              return (
-                <li className={`ob-status__row ${cls}`} key={pipeline}>
-                  <span className="ob-status__mark" />
-                  <span className="ob-status__label">{PIPELINE_LABELS[pipeline]}</span>
-                  <span className="ob-status__when">{when}</span>
-                </li>
-              )
-            })}
-          </ul>
-
-          {!allDone ? <div className="ob-sweep" /> : null}
+          {/* ALT-654 / ALT-660: rows, clock, busy glyph and the "still working" line all come from
+              the SHARED panel, so this screen and /home cannot drift apart again. The glyph and the
+              clock sit at the TOP of it, which is the reordering Bryan asked for. */}
+          <FirstRunProgress jobs={jobs} runStartedAt={runStartedAt} />
 
           {canEnter ? (
             <>
-              {!allDone ? (
-                <p className="ob-hint">
-                  Still working. Data keeps landing after you continue, your brief fills in as
-                  each signal finishes, and we&apos;ll email you when it&apos;s ready.
-                </p>
-              ) : null}
               <div className="ob-nav">
                 {/* Signup: the trial (and recurring pulls) start at checkout —
                     /onboarding/trial collects the card before the dashboard.

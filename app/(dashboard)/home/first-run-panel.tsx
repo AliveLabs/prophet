@@ -13,51 +13,33 @@
 // fast path, so a location that landed here without one (an interrupted signup, a demo set up by
 // an admin) is drained now rather than on the next */5 cron tick.
 //
-// Labels/order mirror the onboarding Build step (onboarding-wizard-pass.tsx); kept local so
-// /home doesn't import the onboarding wizard.
+// ALT-660: the pipeline rows, the elapsed clock and the "still working" line now come from the
+// SHARED components/first-run/first-run-progress.tsx. They used to be duplicated here, with a
+// comment admitting it ("labels/order mirror the onboarding Build step; kept local so /home doesn't
+// import the onboarding wizard"), and the two copies had already drifted. The shared component is
+// not the onboarding wizard, so the reason for the duplication is gone.
+//
+// Three behaviour changes in the same ticket:
+//   - The clock is TOTAL run time from the server (`runStartedAt`), not time since this component
+//     mounted. Continuing from onboarding to /home used to reset it to 0:00 and tell an operator who
+//     had waited ten minutes that they had waited none.
+//   - The starter insight no longer renders. Bryan, 2026-08-18: it is out of context, the first
+//     insight is not necessarily a strong one, "and it IS the first impression that we don't get
+//     back". Held until the full brief can carry it.
+//   - The CTA carries the clock while incomplete and becomes "Read your brief" when it is not. The
+//     panel still auto-swaps on its own; the button is for the operator who is watching.
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import FirstRunSignals from "@/components/first-run/first-run-signals"
-import StarterInsightCard from "./starter-insight-card"
+import FirstRunProgress, {
+  formatElapsed,
+  useRunElapsed,
+  type FirstRunJob,
+} from "@/components/first-run/first-run-progress"
 import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
-import type { EnrichedRecommendation } from "@/lib/skills/types"
 
-const PIPELINE_ORDER = [
-  "starter",
-  "content",
-  "visibility",
-  "events",
-  "weather",
-  "busy_times",
-  "social",
-  "photos",
-  "insights",
-  "brief",
-] as const
-
-const PIPELINE_LABELS: Record<string, string> = {
-  starter: "Your first insight",
-  content: "Menus & websites",
-  visibility: "Search visibility",
-  events: "Local events",
-  weather: "Weather",
-  busy_times: "Foot traffic",
-  social: "Social media",
-  photos: "Photos",
-  insights: "First signals",
-  brief: "Your full brief",
-}
-
-function formatElapsed(ms: number): string {
-  const total = Math.floor(ms / 1000)
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${String(s).padStart(2, "0")}`
-}
-
-type Job = { pipeline: string; status: string }
-type Starter = { play: EnrichedRecommendation; generatedAt: string }
+type Job = FirstRunJob
 
 /** Bound on fast-path invocations from one mounted panel. Each call runs to its own wall-clock
  *  budget, so this is a stop, not a schedule: a location that still is not done after this many
@@ -76,16 +58,10 @@ export default function FirstRunPanel({
   const router = useRouter()
   const [jobs, setJobs] = useState<Job[] | null>(null)
   const [signals, setSignals] = useState<FirstRunSignal[]>([])
-  const [starter, setStarter] = useState<Starter | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
+  // ALT-660: run start comes from the server so the clock is continuous across onboarding and here.
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null)
   const refreshedRef = useRef(false)
-
-  // Elapsed clock — honest expectations beat a spinner on a loop.
-  useEffect(() => {
-    const start = Date.now()
-    const t = setInterval(() => setElapsedMs(Date.now() - start), 1000)
-    return () => clearInterval(t)
-  }, [])
+  const elapsedMs = useRunElapsed(runStartedAt)
 
   // Kick the first-run fast path. Idempotent and first-run-only server side (it refuses a
   // location that already has a brief), and each call claims jobs atomically, so a second tab
@@ -132,7 +108,7 @@ export default function FirstRunPanel({
         if (cancelled || !data.ok || !Array.isArray(data.jobs)) return
         setJobs(data.jobs as Job[])
         if (Array.isArray(data.signals)) setSignals(data.signals as FirstRunSignal[])
-        if (data.starter) setStarter(data.starter as Starter)
+        if (typeof data.runStartedAt === "string") setRunStartedAt(data.runStartedAt)
         const brief = (data.jobs as Job[]).find((j) => j.pipeline === "brief")
         if (brief?.status === "done" && !refreshedRef.current) {
           refreshedRef.current = true
@@ -151,7 +127,6 @@ export default function FirstRunPanel({
     }
   }, [locationId, router])
 
-  const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
   const allDone = jobs !== null && jobs.length > 0 && jobs.every((j) => j.status === "done")
 
   // Plain JS string rendered via {readyFact} below — React escapes it, so a normal apostrophe
@@ -170,54 +145,25 @@ export default function FirstRunPanel({
 
         {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
 
-        {starter ? (
-          <div className="fr-starter">
-            <StarterInsightCard play={starter.play} todayKey={starter.generatedAt.slice(0, 10)} />
-          </div>
-        ) : null}
+        {/* ALT-660: no insight renders here in ANY state. Bryan, 2026-08-18: out of context, the
+            first insight is not necessarily a strong one, "and it IS the first impression that we
+            don't get back". It waits for the full brief. */}
 
-        <ul className="fr-status" aria-label="First brief progress">
-          {PIPELINE_ORDER.map((pipeline) => {
-            const status = statusByPipeline.get(pipeline) ?? "queued"
-            const cls =
-              status === "done"
-                ? "is-ready"
-                : status === "running"
-                  ? "is-doing"
-                  : status === "failed"
-                    ? "is-failed"
-                    : "is-queued"
-            const when =
-              status === "done"
-                ? "Ready"
-                : status === "running"
-                  ? "In progress"
-                  : status === "failed"
-                    ? "Hit a snag"
-                    : jobs === null || jobs.length === 0
-                      ? "Starting"
-                      : "Queued"
-            return (
-              <li className={`fr-row ${cls}`} key={pipeline}>
-                <span className="fr-mark" aria-hidden="true" />
-                <span className="fr-label">{PIPELINE_LABELS[pipeline]}</span>
-                <span className="fr-when">{when}</span>
-              </li>
-            )
-          })}
-        </ul>
+        <FirstRunProgress jobs={jobs} runStartedAt={runStartedAt} />
 
-        {!allDone ? <div className="fr-sweep" aria-hidden="true" /> : null}
-
-        {/* No wall-clock promise. The old copy said "within ten minutes", which the queue could
-            not keep on a busy market, and a missed promise costs more than a vague one. */}
-        <p className="fr-hint" aria-live="polite">
-          Your first insight lands in a few minutes. The full brief takes longer, and you can close
-          this tab: we&apos;ll email you the moment it&apos;s ready.
-        </p>
-        <p className="fr-elapsed">
-          Elapsed <span className="tk-mono">{formatElapsed(elapsedMs)}</span>
-        </p>
+        {/* The panel auto-swaps into the real brief when the poll sees the brief job done, so this
+            button is for the operator who is sitting here watching. Disabled state carries the
+            clock; enabled state is the only way in, and it only exists once there IS a brief. */}
+        {allDone ? (
+          <button type="button" className="fr-cta" onClick={() => router.refresh()}>
+            Read your brief
+          </button>
+        ) : (
+          <button type="button" className="fr-cta" disabled aria-live="polite">
+            Building your brief
+            <span className="tk-mono fr-cta-clock">{formatElapsed(elapsedMs)}</span>
+          </button>
+        )}
       </div>
     </div>
   )

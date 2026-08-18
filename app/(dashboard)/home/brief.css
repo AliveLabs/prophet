@@ -768,31 +768,22 @@
 /* 3.1: the starter insight sits between the landed signals and the pipeline rows — the first
    thing worth reading, above the machinery that is still running. The card brings its own
    chrome, so this only owns the spacing. */
-.fr-starter { margin: 22px 0 4px; }
+/* ALT-654 / ALT-660: the first-run status list, sweep bar, hint and elapsed line all moved to the
+   SHARED components/first-run/first-run-progress.{tsx,css}, so /home and the onboarding Build step
+   render one component instead of two copies that had already drifted. Only the CTA below is local.
 
-.fr-status { list-style: none; margin: 24px 0 0; padding: 0; border: 1px solid var(--line-2); border-radius: var(--r-md); background: var(--card-2); overflow: hidden; }
-.fr-row { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
-.fr-row:last-child { border-bottom: 0; }
-.fr-mark { width: 11px; height: 11px; flex: 0 0 auto; border-radius: 50%; background: var(--ledger); border: 1px solid var(--line-2); }
-.fr-row.is-ready  .fr-mark { background: var(--teal);  border-color: transparent; box-shadow: 0 0 0 3px var(--teal-tint); }
-.fr-row.is-doing  .fr-mark { background: var(--rust);  border-color: transparent; box-shadow: 0 0 0 3px var(--rust-tint); }
-.fr-row.is-failed .fr-mark { background: var(--alert); border-color: transparent; }
-.fr-label { flex: 1; font-size: 14px; color: var(--ink); }
-.fr-when { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .03em; text-transform: uppercase; color: var(--ink-3); white-space: nowrap; }
-.fr-row.is-ready  .fr-when { color: var(--teal-deep); }
-.fr-row.is-doing  .fr-when { color: var(--rust-deep); }
-.fr-row.is-failed .fr-when { color: var(--alert-deep); }
-@media (prefers-reduced-motion: no-preference) {
-  .fr-row.is-doing .fr-mark { animation: fr-pulse 1.8s var(--ease) infinite; }
-  @keyframes fr-pulse { 0%, 100% { box-shadow: 0 0 0 3px var(--rust-tint); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--rust) 14%, transparent); } }
+   The CTA carries the elapsed clock while the run is incomplete and becomes the way into the brief
+   once it is not. The panel still auto-swaps on its own poll; this is for the operator watching it. */
+.fr-cta {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin: 20px 0 0; padding: 11px 18px;
+  font-family: var(--font-cond); font-size: 13px; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--paper); background: var(--rust);
+  border: 1px solid var(--rust); border-radius: var(--r-sm); cursor: pointer;
 }
-
-.fr-sweep { height: 3px; border-radius: 2px; margin: 22px 0 0; background: linear-gradient(90deg, transparent, var(--rust), transparent); background-size: 38% 100%; background-repeat: no-repeat; }
-@media (prefers-reduced-motion: no-preference) {
-  .fr-sweep { animation: fr-sw 1.8s linear infinite; }
-  @keyframes fr-sw { from { background-position: -38% 0; } to { background-position: 138% 0; } }
+.fr-cta:hover:not(:disabled) { background: var(--rust-deep); border-color: var(--rust-deep); }
+.fr-cta:disabled {
+  color: var(--ink-3); background: var(--card-2);
+  border-color: var(--line-2); cursor: default;
 }
-
-.fr-hint { font-size: 13px; color: var(--ink-3); line-height: 1.5; margin: 18px 0 0; }
-.fr-elapsed { font-size: 12px; color: var(--ink-3); margin: 8px 0 0; }
-.fr-elapsed .tk-mono, .fr-hint .tk-mono { font-family: var(--font-mono); }
+.fr-cta-clock { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
