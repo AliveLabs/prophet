@@ -11,8 +11,8 @@ interface WaitlistAdminNotificationProps {
 }
 
 const BRAND_LABEL: Record<Brand, { product: string; signoff: string }> = {
-  ticket: { product: "Ticket", signoff: "— Ticket Platform" },
-  neat: { product: "Neat", signoff: "— Neat Platform" },
+  ticket: { product: "Ticket", signoff: "Ticket Platform" },
+  neat: { product: "Neat", signoff: "Neat Platform" },
 }
 
 export function WaitlistAdminNotification({

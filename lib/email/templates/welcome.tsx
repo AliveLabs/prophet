@@ -24,7 +24,7 @@ export function Welcome({
   dashboardUrl,
   verticalCopy,
 }: WelcomeProps) {
-  const previewText = verticalCopy?.subject ?? "Welcome to Ticket — your feed is live"
+  const previewText = verticalCopy?.subject ?? "Welcome to Ticket: your feed is live"
   const tipText = verticalCopy?.tipBody ?? "Bookmark your dashboard so you can check it between the lunch and dinner rush."
 
   return (
@@ -54,7 +54,7 @@ export function Welcome({
         <Text style={emailStyles.paragraph}>
           Ticket is already collecting data on your competitors. Within 24 hours,
           you&rsquo;ll start seeing your first insights. Check back in a week
-          for your first weekly intelligence briefing — the 5 most important
+          for your first weekly intelligence briefing: the 5 most important
           things happening in your local market.
         </Text>
 
@@ -68,7 +68,7 @@ export function Welcome({
           Tip: {tipText}
         </Text>
 
-        <Text style={emailStyles.signoff}>— The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

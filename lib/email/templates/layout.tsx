@@ -55,8 +55,8 @@ export function EmailLayout({
 
           <Section style={footer}>
             <Text style={footerText}>
-              {brand} is powered by Vatic — competitive intelligence by{" "}
-              <Link href="https://alivelabs.co" style={footerLink}>
+              {brand} is powered by Vatic, competitive intelligence by{" "}
+              <Link href="https://alivelabs.io" style={footerLink}>
                 Alive Labs
               </Link>
               .
@@ -219,7 +219,7 @@ export const emailStyles = {
     margin: "4px 0",
     paddingLeft: "12px",
   },
-  /** Monospace details — codes, datelines. */
+  /** Monospace details: codes, datelines. */
   mono: {
     fontFamily: FONT_MONO,
     fontSize: "13px",

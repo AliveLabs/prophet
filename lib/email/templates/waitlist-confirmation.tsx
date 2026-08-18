@@ -20,12 +20,12 @@ const COPY: Record<Brand, BrandCopy> = {
   ticket: {
     productName: "Ticket",
     monitoringSubject: "your competitive landscape",
-    signoff: "— The Ticket Team",
+    signoff: "The Ticket Team",
   },
   neat: {
     productName: "Neat",
     monitoringSubject: "your local liquor market",
-    signoff: "— The Neat Team",
+    signoff: "The Neat Team",
   },
 }
 

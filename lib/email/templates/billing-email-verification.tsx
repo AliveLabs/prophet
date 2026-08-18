@@ -12,7 +12,7 @@ export function BillingEmailVerification({ verifyUrl }: BillingEmailVerification
         <Text style={emailStyles.heading}>Confirm your billing email</Text>
         <Text style={emailStyles.paragraph}>
           Someone requested this address as the new billing email for a Ticket
-          account. Click below to confirm — nothing changes until you do.
+          account. Click below to confirm. Nothing changes until you do.
         </Text>
 
         <Section style={emailStyles.ctaContainer}>
@@ -30,7 +30,7 @@ export function BillingEmailVerification({ verifyUrl }: BillingEmailVerification
 
         <Text style={emailStyles.paragraph}>
           This link expires in 24 hours and can only be used once. If you
-          didn&rsquo;t request this, you can safely ignore this email — your
+          didn&rsquo;t request this, you can safely ignore this email; your
           billing email will not change.
         </Text>
 

@@ -50,7 +50,7 @@ export function PaymentFailed({
           </Text>
         )}
 
-        <Text style={emailStyles.signoff}>— The {brand} Team</Text>
+        <Text style={emailStyles.signoff}>The {brand} Team</Text>
       </Section>
     </EmailLayout>
   )

@@ -5,7 +5,7 @@ interface BillingEmailChangeNoticeProps {
   newEmail: string
 }
 
-/** Security notice only — sent to the CURRENT billing email when a change is
+/** Security notice only. Sent to the CURRENT billing email when a change is
  *  requested. Informational; the change itself only takes effect once the
  *  new address is confirmed via BillingEmailVerification. */
 export function BillingEmailChangeNotice({ newEmail }: BillingEmailChangeNoticeProps) {
@@ -19,7 +19,7 @@ export function BillingEmailChangeNotice({ newEmail }: BillingEmailChangeNoticeP
           email stays the billing contact unless that address is confirmed.
         </Text>
         <Text style={emailStyles.paragraph}>
-          If you didn&rsquo;t request this, no action is needed — nothing
+          If you didn&rsquo;t request this, no action is needed; nothing
           changes unless the new address is verified. If you&rsquo;re
           concerned about account access, contact support.
         </Text>
