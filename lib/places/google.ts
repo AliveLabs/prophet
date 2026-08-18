@@ -158,6 +158,41 @@ export async function fetchAutocomplete(input: string, options: AutocompleteOpti
   )
 }
 
+/**
+ * A Places lookup that failed, carrying enough to tell WHY (ALT-606).
+ *
+ * The distinction matters because two very different things used to throw the same bare Error:
+ * "Google is down" and "Google says there is no such place". Treating them alike meant a caller
+ * either had to trust both or refuse both. The US-only guard has to trust the first (a vendor
+ * blip must not block signups) and must not trust the second (an unverifiable place is exactly
+ * how a crafted payload reaches the fallback).
+ *
+ * The message keeps its original shape so anything matching on the string still works.
+ */
+export class PlacesLookupError extends Error {
+  constructor(
+    message: string,
+    /** HTTP status from Places, or 0 when the request never got one. */
+    readonly httpStatus: number,
+    /** Google's own status string, e.g. NOT_FOUND, INVALID_ARGUMENT. Null when absent. */
+    readonly googleStatus: string | null,
+  ) {
+    super(message)
+    this.name = "PlacesLookupError"
+  }
+
+  /**
+   * True when the PLACE is the problem, not the vendor: a 4xx, which for this endpoint means
+   * the id is malformed or names nothing. A caller must not fall back to client-supplied data
+   * on one of these, because the client is the thing that just supplied a bad id.
+   *
+   * 429 is deliberately excluded: rate limiting is a 4xx, but it says nothing about the place.
+   */
+  get isPlaceFault(): boolean {
+    return this.httpStatus >= 400 && this.httpStatus < 500 && this.httpStatus !== 429
+  }
+}
+
 export async function fetchPlaceDetails(placeId: string) {
   const response = await fetchWithRetry(`https://places.googleapis.com/v1/places/${placeId}`, {
     headers: {
@@ -169,11 +204,15 @@ export async function fetchPlaceDetails(placeId: string) {
   })
 
   if (!response.ok) {
-    const data = (await response.json()) as { error?: { message?: string; status?: string } }
-    throw new Error(
+    const data = (await response.json().catch(() => ({}))) as {
+      error?: { message?: string; status?: string }
+    }
+    throw new PlacesLookupError(
       `Google Places error: ${data.error?.status ?? response.status} - ${
         data.error?.message ?? "Unknown error"
-      }`
+      }`,
+      response.status,
+      data.error?.status ?? null,
     )
   }
 
