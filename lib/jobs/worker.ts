@@ -121,17 +121,42 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
   }
 }
 
-/** Chain the brief build after a first_run insights job (idempotent per run). */
+/** Chain the brief build after a first_run insights job (idempotent per LOCATION).
+ *
+ *  ALT-674: this check used to be scoped to `run_id`, which made it blind to a brief
+ *  job enqueued by any other path. enqueueBriefIfMissing (the self-healing /home
+ *  enqueuer, via triggers.ts ensureBriefQueued) mints a FRESH run_id, so when an
+ *  operator sat on /home while first-run insights was still going, both paths
+ *  enqueued: two brief runs for one location, minutes apart, under different run_ids.
+ *
+ *  Confirmed on both 2026-08 walkthroughs. 407 BBQ ran briefs at 14:49:51 (run
+ *  85684ddf, the first-run chain) and 14:50:45 (run 8252a3e6, standalone); Jersey
+ *  Mike's showed the identical shape a day earlier. The consequences were a
+ *  duplicate "your first brief is ready" email to the customer, doubled model spend,
+ *  and a lost brief: daily_briefs is one row per (location_id, date_key), so the
+ *  second run's save overwrote the first, which we had already emailed about.
+ *
+ *  So match enqueueBriefIfMissing and check per LOCATION for an active brief job.
+ *  Deliberately narrower than that function's guard: no 2h "recent" window here,
+ *  because a first run legitimately needs its brief even if an earlier attempt
+ *  finished moments ago. Only queued/running counts.
+ */
 async function enqueueFirstBrief(sb: SB, job: SignalJob): Promise<void> {
   try {
     const { data: existing } = await sb
       .from("signal_jobs")
       .select("id")
-      .eq("run_id", job.run_id)
+      .eq("location_id", job.location_id)
       .eq("pipeline", "brief")
+      .in("status", ["queued", "running"])
       .limit(1)
       .maybeSingle()
-    if (existing) return
+    if (existing) {
+      console.log(
+        `[worker] first-brief chain skipped for ${job.location_id}: a brief job is already queued/running (ALT-674)`
+      )
+      return
+    }
 
     await enqueueRun(sb, {
       runId: job.run_id,

@@ -51,7 +51,7 @@ export const liquorStoreConfig: VerticalConfig = {
 
   emailCopy: {
     welcome: {
-      subject: "Welcome to Neat — your intelligence is live",
+      subject: "Welcome to Neat: your intelligence is live",
       headline: "Your store is being watched (in a good way)",
       intro: "We're scanning your competitors daily. Your first weekly briefing will land in 7 days.",
       tipHeader: "Quick tip",

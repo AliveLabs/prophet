@@ -151,6 +151,26 @@ export function buildBriefSteps(): PipelineStepDef<BriefPipelineCtx>[] {
           // your first Ticket brief is ready" reads like a bug (ALT reported
           // 2026-08-17). No name on file -> no name in the subject.
           const userName = profile.full_name?.trim().split(/\s+/)[0] ?? null
+
+          // ALT-674: claim the send BEFORE making it. Two overlapping brief runs both
+          // read isFirstBrief=true (it is derived from hasAnyBrief() at the start of a
+          // run), so the flag alone cannot make this unrepeatable. The insert is the
+          // lock: a 23505 unique violation means a concurrent run already took this
+          // send, so skip silently. Same pattern as trial_reminder_sends and
+          // weekly_digest_sends. Any OTHER insert error is logged and then allowed
+          // through, because failing to email a customer we promised to email is worse
+          // than a small risk of emailing twice.
+          const { error: claimError } = await c.supabase
+            .from("first_brief_sends")
+            .insert({ location_id: c.locationId, user_id: owner.user_id })
+          if (claimError) {
+            if (claimError.code === "23505") continue
+            console.warn(
+              `[brief] first_brief_sends claim failed for ${c.locationId}/${owner.user_id}, sending anyway:`,
+              claimError.message
+            )
+          }
+
           try {
             // Bypasses the CLIENT_EMAILS_ENABLED pause: the onboarding loading
             // screen explicitly promises this email ("close this tab — we'll
