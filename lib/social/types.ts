@@ -174,3 +174,34 @@ export type SocialProfileRow = {
   created_at: string
   updated_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Mirrored-image predicate (ALT-665)
+// ---------------------------------------------------------------------------
+//
+// A post's mediaUrl starts life as a platform CDN URL (signed, short-lived) and
+// is replaced by lib/social/storage.ts with a permanent Supabase Storage URL.
+// Consumers must only display / analyse / embed the MIRRORED form: the CDN
+// original expires, so rendering it yields a broken image.
+//
+// This used to be spelled `mediaUrl.includes("supabase")` in six places. That
+// broke silently on 2026-07-24 when storage moved behind the custom domain
+// `auth.getticket.ai`, which contains no "supabase" substring — so every
+// successfully mirrored image read as unmirrored. Images vanished from the
+// competitor surface, the Gemini vision read stopped running fleet-wide, and
+// the `savedCount` metric reported zero saves while saves ran at ~97%.
+//
+// Match the STORAGE PATH, not the hostname. `getPublicUrl` always produces
+// `<origin>/storage/v1/object/public/<bucket>/<path>`, so this holds for the
+// default *.supabase.co origin, for auth.getticket.ai, and for whatever the
+// origin becomes next. It also classifies historical rows correctly, so no
+// backfill is needed to bring already-mirrored images back.
+const SUPABASE_STORAGE_PUBLIC_PATH = "/storage/v1/object/public/"
+
+/** Is this a permanent URL in our own Supabase Storage (as opposed to an
+ *  expiring platform CDN URL, or nothing at all)? */
+export function isMirroredMediaUrl(
+  mediaUrl: string | null | undefined
+): mediaUrl is string {
+  return !!mediaUrl && mediaUrl.includes(SUPABASE_STORAGE_PUBLIC_PATH)
+}

@@ -29,6 +29,7 @@
 import type { Dossier, EntitySignals } from "@/lib/insights/dossier/types"
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { NormalizedSocialPost } from "@/lib/social/types"
+import { isMirroredMediaUrl } from "@/lib/social/types"
 import { humanizeRef } from "@/lib/skills/evidence-format"
 import type {
   BreakoutQuote,
@@ -406,7 +407,7 @@ function buildExemplarSocialPost(play: EnrichedRecommendation, ctx: Presentation
     const posts = c.social?.recentPosts ?? []
     const followers = num(c.social?.profile?.followerCount) ?? 0
     for (const p of posts) {
-      if (!p.mediaUrl || !p.mediaUrl.includes("supabase")) continue // safe-to-embed gate
+      if (!isMirroredMediaUrl(p.mediaUrl)) continue // safe-to-embed gate
       const eng = (num(p.likesCount) ?? 0) + (num(p.commentsCount) ?? 0) + (num(p.sharesCount) ?? 0)
       // viewsCount === 0 (a real value, e.g. an image post or an API zero) is NOT a usable denominator
       // — fall back to followers, else there's no rate (?? alone wouldn't fall back on a literal 0).
