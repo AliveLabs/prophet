@@ -1,3 +1,4 @@
+import { isServedCountry } from "@/lib/geo/us-only"
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
 
 type GooglePlacesAutocompleteResponse = {
@@ -187,6 +188,28 @@ function getComponent(
   return match?.longText ?? null
 }
 
+/**
+ * The component's SHORT text, which for `country` is the ISO 3166-1 alpha-2 code.
+ *
+ * ALT-606: the US-only guard needs a code, not a name. `longText` gives "United States", and
+ * `locations.country` already holds that alongside the literal "US" that every insert falls back
+ * to, so the column cannot be matched on reliably. The code can.
+ */
+function getComponentShort(
+  components: GooglePlaceDetailsResponse["addressComponents"] | undefined,
+  type: string
+) {
+  const match = components?.find((component) => component.types?.includes(type))
+  return match?.shortText ?? null
+}
+
+/** ISO country code off a nearby result's address components (ALT-606). */
+function countryCodeOf(
+  components: Array<{ shortText?: string; types?: string[] }> | undefined,
+): string | null {
+  return components?.find((c) => c.types?.includes("country"))?.shortText ?? null
+}
+
 type GoogleNearbyResponse = {
   places?: Array<{
     id?: string
@@ -197,6 +220,7 @@ type GoogleNearbyResponse = {
     userRatingCount?: number
     priceLevel?: string
     shortFormattedAddress?: string
+    addressComponents?: Array<{ longText?: string; shortText?: string; types?: string[] }>
     location?: { latitude?: number; longitude?: number }
   }>
   error?: { message?: string; status?: string }
@@ -204,6 +228,8 @@ type GoogleNearbyResponse = {
 
 export type DiscoveredCompetitor = {
   placeId: string
+  /** ISO 3166-1 alpha-2 for the result, when Places returned a country component (ALT-606). */
+  countryCode?: string | null
   name: string
   primaryType: string | null
   types: string[]
@@ -247,7 +273,10 @@ export async function fetchNearbyPlaces(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": getGoogleKey(),
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.shortFormattedAddress,places.location",
+        // ALT-606: addressComponents carries the country so discovery can drop cross-border results
+        // before the operator ever sees them. It sits in the Pro SKU, below the Enterprise tier this
+        // mask already pays for via rating/userRatingCount/priceLevel, so it adds no billing tier.
+        "places.id,places.displayName,places.primaryType,places.types,places.rating,places.userRatingCount,places.priceLevel,places.shortFormattedAddress,places.location,places.addressComponents",
     },
     body: JSON.stringify({
       includedTypes: opts.includedTypes,
@@ -266,8 +295,14 @@ export async function fetchNearbyPlaces(
 
   return (data.places ?? [])
     .filter((p) => p.id && p.id !== opts.excludePlaceId && p.displayName?.text)
+    // ALT-606: a 3km radius crosses a national border in plenty of real markets (Detroit,
+    // San Diego, El Paso, Buffalo). Suggesting a rival the operator is then refused when they
+    // pick it is a worse experience than never offering it. Approval is still guarded server
+    // side; this only stops us proposing something we will not accept.
+    .filter((p) => isServedCountry(countryCodeOf(p.addressComponents)))
     .map((p) => ({
       placeId: p.id as string,
+      countryCode: countryCodeOf(p.addressComponents),
       name: p.displayName?.text as string,
       primaryType: p.primaryType ?? null,
       types: p.types ?? [],
@@ -310,6 +345,8 @@ export function mapPlaceToLocation(result: GooglePlaceDetailsResponse) {
     region: getComponent(result.addressComponents, "administrative_area_level_1"),
     postal_code: getComponent(result.addressComponents, "postal_code"),
     country: getComponent(result.addressComponents, "country"),
+    // ISO 3166-1 alpha-2 (ALT-606). This is what the US-only guard decides on.
+    country_code: getComponentShort(result.addressComponents, "country"),
     geo_lat: result.location?.latitude ?? null,
     geo_lng: result.location?.longitude ?? null,
     phone:

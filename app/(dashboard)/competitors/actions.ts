@@ -325,6 +325,7 @@ export async function ignoreCompetitorAction(formData: FormData) {
 
 import { revalidatePath } from "next/cache"
 import { enqueueAdhocLocation } from "@/lib/jobs/queue"
+import { isServedCountry, unsupportedCompetitorMessage } from "@/lib/geo/us-only"
 
 export async function addCompetitorAction(input: {
   locationId: string
@@ -402,6 +403,15 @@ export async function addCompetitorAction(input: {
     const mapped = mapPlaceToLocation(details)
     if (mapped.name && location.name && mapped.name.trim().toLowerCase() === location.name.trim().toLowerCase()) {
       return { ok: false, error: "That's your own restaurant" }
+    }
+
+    // ALT-606: US only, decided on the code Google resolved for this place rather than anything
+    // the client sent. Bryan's call 2026-08-18 that the restriction covers tracked competitors
+    // too, not only the operator's own locations: every downstream read on a competitor (search
+    // visibility, events, busy times, menus) runs through the same US-centric vendors, so a rival
+    // across a border produces a comparison built on data we cannot actually get.
+    if (!isServedCountry(mapped.country_code ?? mapped.country)) {
+      return { ok: false, error: unsupportedCompetitorMessage(mapped.country_code ?? mapped.country) }
     }
 
     const targetCategory = (location.settings as { category?: string } | null)?.category ?? null

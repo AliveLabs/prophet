@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { requireUser } from "@/lib/auth/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
+import { checkPlaceIsServed } from "@/lib/geo/check-place-country"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -53,6 +54,13 @@ export async function createLocationFromPlaceAction(formData: FormData) {
     ensureCanAddLocation(orgRow, locationCount ?? 0)
   } catch (err) {
     redirect(`/locations?error=${encodeURIComponent(String(err instanceof Error ? err.message : err))}`)
+  }
+
+  // ALT-606: US only. Decided on the country Google resolves for this place id, not on the
+  // `country` form field, which arrives from the client. Refuses rather than defaulting.
+  const served = await checkPlaceIsServed(primaryPlaceId, String(formData.get("country") ?? ""))
+  if (!served.ok) {
+    redirect(`/locations?error=${encodeURIComponent(served.message)}`)
   }
 
   const geoLatValue = String(formData.get("geo_lat") ?? "").trim()
