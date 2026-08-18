@@ -94,6 +94,13 @@ export default function PassAskBox({
         body: JSON.stringify({ question: qq }),
       })
       setAnswer((await res.json()) as AskAnswer)
+      // ALT-667: "Recent asks" is server-rendered from lib/ask/history.ts, so without a
+      // refresh it keeps showing whatever it held at first paint and the question the
+      // operator just asked looks lost. Only on success: a failed ask wrote no history.
+      // Safe against re-running the carried-in question, which the ALT-183 `autoRan` ref
+      // already guards for exactly this reason, and the answer lives in client state so
+      // refreshing the server tree will not clear what they are reading.
+      router.refresh()
     } catch {
       setAnswer({ answer: "Something went wrong. Try again in a moment.", confidence: "low", sources: [], grounded: false })
     } finally {

@@ -29,9 +29,17 @@ import FirstRunSignals from "@/components/first-run/first-run-signals"
 import StarterInsightCard from "@/app/(dashboard)/home/starter-insight-card"
 import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
 import type { EnrichedRecommendation } from "@/lib/skills/types"
+import { TIER_LIMITS } from "@/lib/billing/tiers"
 
 const TOTAL = 5
-const MAX_TRACKED = 5
+// ALT-663: the tracked-competitor cap was a module constant here (`MAX_TRACKED = 5`) with
+// no knowledge of the org's plan. On any tier other than `mid` it told the operator the
+// wrong maximum, let them pick that many, and then completeOnboarding silently sliced the
+// extras away. The cap now arrives from the server as a plan limit. The fallback below is
+// only for the first render of a fresh signup, before the org exists: such orgs are created
+// on `mid` (createOrgAndLocationAction), and the real value replaces it as soon as the org
+// is created.
+const FALLBACK_MAX_TRACKED = TIER_LIMITS.mid.maxCompetitorsPerLocation
 
 type Prediction = {
   place_id: string
@@ -71,6 +79,10 @@ type WizardProps = {
   existingOrgId?: string | null
   existingLocationId?: string | null
   existingCompetitors?: OnboardingCandidate[]
+  /** ALT-663: max tracked competitors for THIS org's plan. Supplied whenever the org
+   *  already exists (resume + admin setup); a fresh signup learns it from
+   *  createOrgAndLocationAction once the org is created. */
+  maxCompetitors?: number
   /** Coordinates of the existing location (resume/setup) — bias the step-2
    *  competitor search to the neighborhood. Fresh signups get coords from the
    *  step-0 place pick instead. */
@@ -759,6 +771,7 @@ export default function OnboardingWizardPass({
   existingOrgId,
   existingLocationId,
   existingCompetitors,
+  maxCompetitors,
   existingLocationGeo,
   verticalConfig: externalConfig,
   mode = "signup",
@@ -794,12 +807,27 @@ export default function OnboardingWizardPass({
   // duplicate this prevents.
   const [collision, setCollision] = useState<SignupCollisionKind | null>(null)
 
+  // ALT-663: plan cap, not a constant. Seeded from the prop when the org already exists,
+  // replaced with the server's value the moment a fresh signup creates its org.
+  const [maxTracked, setMaxTracked] = useState<number>(
+    maxCompetitors ?? FALLBACK_MAX_TRACKED
+  )
+  // ALT-663: `discover` needs the current cap, but it must NOT take maxTracked as a
+  // dependency. `discover` is in the resume effect's dep array, so changing its identity
+  // when the server's cap arrives would re-fire discovery: a second run for the same
+  // location, which is the exact duplicate-work shape ALT-674 was filed for. A ref gives
+  // the callback the latest value while keeping it referentially stable.
+  const maxTrackedRef = useRef(maxTracked)
+  useEffect(() => {
+    maxTrackedRef.current = maxTracked
+  }, [maxTracked])
+
   // step 2 — competitors (top picks auto-selected; selection = ids sent to completion)
   const [competitors, setCompetitors] = useState<OnboardingCandidate[]>(
     existingCompetitors ?? []
   )
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set((existingCompetitors ?? []).slice(0, MAX_TRACKED).map((c) => c.id))
+    () => new Set((existingCompetitors ?? []).slice(0, maxCompetitors ?? FALLBACK_MAX_TRACKED).map((c) => c.id))
   )
   const [discovering, setDiscovering] = useState(false)
   const [discoveryError, setDiscoveryError] = useState<string | null>(null)
@@ -901,7 +929,7 @@ export default function OnboardingWizardPass({
             const kept = new Set([...prev].filter((id) => valid.has(id)))
             return kept.size > 0
               ? kept
-              : new Set(result.competitors.slice(0, MAX_TRACKED).map((c) => c.id))
+              : new Set(result.competitors.slice(0, maxTrackedRef.current).map((c) => c.id))
           })
         } else {
           setDiscoveryError(result.error)
@@ -975,6 +1003,10 @@ export default function OnboardingWizardPass({
       place: placePayload,
     })
     setCreating(false)
+    if (result.ok) {
+      // ALT-663: the org now exists, so its plan cap is authoritative from here on.
+      setMaxTracked(result.maxCompetitors)
+    }
     if (!result.ok) {
       // A collision means no org was created and none will be: swap the panel for the
       // already-on-Ticket / we'll-set-you-up screen instead of an inline error.
@@ -1056,7 +1088,7 @@ export default function OnboardingWizardPass({
           return Array.from(byId.values())
         })
         setSelectedIds((prev) => {
-          if (prev.size >= MAX_TRACKED || prev.has(added.id)) return prev
+          if (prev.size >= maxTracked || prev.has(added.id)) return prev
           const next = new Set(prev)
           next.add(added.id)
           return next
@@ -1082,7 +1114,7 @@ export default function OnboardingWizardPass({
 
   const addCompetitor = (id: string) =>
     setSelectedIds((prev) => {
-      if (prev.size >= MAX_TRACKED) return prev
+      if (prev.size >= maxTracked) return prev
       const next = new Set(prev)
       next.add(id)
       return next
@@ -1412,7 +1444,7 @@ export default function OnboardingWizardPass({
                           <button
                             className="ob-btn ob-btn--act ob-btn--sm"
                             onClick={() => addCompetitor(c.id)}
-                            disabled={selectedIds.size >= MAX_TRACKED}
+                            disabled={selectedIds.size >= maxTracked}
                           >
                             Add
                           </button>
@@ -1443,7 +1475,7 @@ export default function OnboardingWizardPass({
                               className="ob-btn ob-btn--act ob-btn--sm"
                               onClick={() => pickCompetitor(p)}
                               disabled={
-                                selectedIds.size >= MAX_TRACKED || addingPlaceId !== null
+                                selectedIds.size >= maxTracked || addingPlaceId !== null
                               }
                             >
                               {addingPlaceId === p.place_id ? "Adding…" : "Add"}
@@ -1461,12 +1493,19 @@ export default function OnboardingWizardPass({
                       suggestions.length === 0 ? (
                         <p className="ob-hint">No matches yet — keep typing the name.</p>
                       ) : null}
-                      {selectedIds.size >= MAX_TRACKED ? (
+                      {selectedIds.size >= maxTracked ? (
                         <p className="ob-hint">
-                          You&apos;re tracking the max of {MAX_TRACKED} — remove one to add another.
+                          You&apos;re tracking the max of {maxTracked}. Remove one to add another.
                         </p>
                       ) : null}
                     </>
+                  ) : discovering ? (
+                    // ALT-662: no manual add while auto-detection is still running. A
+                    // manual insert racing the discovery writer is an untested path (it
+                    // can duplicate, be overwritten, or push past the cap), and the point
+                    // of this step is to lead with our picks. The operator gets the escape
+                    // hatch once they can see what we found.
+                    null
                   ) : (
                     <button className="ob-add" onClick={() => setAdding(true)}>
                       + Add a competitor

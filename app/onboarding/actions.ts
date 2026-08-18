@@ -363,7 +363,7 @@ type CreateOrgInput = {
 export async function createOrgAndLocationAction(
   input: CreateOrgInput
 ): Promise<
-  | { ok: true; orgId: string; locationId: string }
+  | { ok: true; orgId: string; locationId: string; maxCompetitors: number }
   | { ok: false; error: string; collision?: SignupCollisionKind }
 > {
   const user = await requireUser()
@@ -396,7 +396,9 @@ export async function createOrgAndLocationAction(
   }
 
   // Retry slug with numeric suffix on collision (up to 5 attempts)
-  let org: { id: string } | null = null
+  // ALT-663: carries subscription_tier so the plan cap returned to the wizard comes
+  // from the written row.
+  let org: { id: string; subscription_tier: string | null } | null = null
   let slugAttempt = baseSlug
   for (let attempt = 0; attempt < 5; attempt++) {
     const shouldSetIndustry =
@@ -415,7 +417,9 @@ export async function createOrgAndLocationAction(
         subscription_tier: "mid",
         ...(shouldSetIndustry ? { industry_type: input.industryType } : {}),
       })
-      .select("id")
+      // ALT-663: select the tier back so the cap we hand the client comes from the row
+      // that was actually written, not from re-reading the literal above.
+      .select("id, subscription_tier")
       .single()
 
     if (!error && data) {
@@ -483,7 +487,18 @@ export async function createOrgAndLocationAction(
     geoLng,
   }).catch(() => {})
 
-  return { ok: true, orgId: org.id, locationId: loc.id }
+  // ALT-663: hand the client the PLAN cap. The wizard used to carry a module-level
+  // `MAX_TRACKED = 5`, so an org on any other tier was told the wrong maximum and then
+  // had its extra picks silently sliced off during completion. New orgs are created on
+  // `mid` (see subscription_tier above), but the cap must come from the tier, never from
+  // the assumption that a new org is always mid.
+  return {
+    ok: true,
+    orgId: org.id,
+    locationId: loc.id,
+    maxCompetitors:
+      TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].maxCompetitorsPerLocation,
+  }
 }
 
 type CreateLocationForOrgInput = {
@@ -1271,6 +1286,19 @@ export async function completeOnboardingAction(input: {
   const onboardTier = asSubscriptionTier(org?.subscription_tier)
   const maxCompetitors = TIER_LIMITS[onboardTier].maxCompetitorsPerLocation
   const cappedCompetitorIds = input.competitorIds.slice(0, maxCompetitors)
+  // ALT-663: this slice used to be silent. The wizard now receives the same cap from
+  // createOrgAndLocationAction, so arriving here with more picks than the plan allows
+  // means the two disagreed — a bug, not a user action. Say so loudly rather than
+  // quietly discarding competitors the operator deliberately chose. Still non-fatal:
+  // dropping the extras beats failing the whole onboarding at the last step.
+  if (input.competitorIds.length > maxCompetitors) {
+    console.error(
+      `[Onboarding] ALT-663 cap mismatch: location ${input.locationId} submitted ` +
+        `${input.competitorIds.length} competitors on tier '${onboardTier}' (max ` +
+        `${maxCompetitors}). Dropped ${input.competitorIds.length - maxCompetitors}. ` +
+        `The client cap and the plan cap are out of sync.`
+    )
+  }
 
   if (cappedCompetitorIds.length > 0) {
     for (const compId of cappedCompetitorIds) {
