@@ -9,6 +9,7 @@ import {
 } from "@/lib/billing/tiers"
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
 import { BrandProvider } from "@/components/brand-provider"
+import { UpgradeTilesPass } from "@/app/(dashboard)/settings/billing/upgrade-tiles-pass"
 import StartTrialButton from "./start-trial-button"
 import SkipCardButton from "./skip-card-button"
 import "../onboarding.css"
@@ -22,6 +23,14 @@ import "../onboarding.css"
 // "The Pass" rebuild: rendered into the pearlescent SPLIT layout — a canvas
 // rail (brand + headline + trial value) beside a floating panel that carries
 // the facts + the rust-gradient checkout CTA. Stripe wiring unchanged.
+//
+// ALT-658: `?pricing=1` renders the PRICING screen on this same route instead of the split
+// layout. Same route on purpose — it is what makes the round trip free. The browser back button
+// already works (a real navigation), "Keep my free trial" returns here explicitly, and buying a
+// tier routes FORWARD, because the tiles pass context="onboarding" and the checkout route
+// already sends that to /onboarding/checkout-complete. No new route, no modal, no duplicated
+// pricing copy: the tiles derive every name and price from lib/billing/tiers.ts, so the pending
+// tier rename lands here automatically rather than needing a second edit.
 
 // Computed outside render so the impure Date.now() read isn't called during
 // the component body. Returns the post-trial charge date (today + 14 days)
@@ -108,6 +117,44 @@ export default async function TrialPage({
 
   const canceled = params.canceled === "1"
   const error = typeof params.error === "string" ? params.error : null
+
+  // ── ALT-658: the pricing screen ──────────────────────────────────────────────
+  // Its own single-column stage rather than the 480px panel: three tiles do not belong in a
+  // column that narrow, and a pricing screen reads better centred anyway.
+  if (params.pricing === "1") {
+    return (
+      <BrandProvider brand={dataBrand}>
+        <div className="ob">
+          <div className="ob-canvas" aria-hidden="true" />
+          <div className="ob-pricing tk-kit">
+            <header className="ob-pricing-head">
+              <span className="ob-brand">
+                <span className="ob-mark"><IconBrandT /></span>
+                <span className="ob-wordmark">{brand}</span>
+              </span>
+              <span className="ob-kicker">Every plan starts free</span>
+              <h1 className="ob-h">Pick the plan that fits.</h1>
+              <p className="ob-sub">
+                {midName} is what your free trial runs on, and it is the one most operators stay on.
+                Choosing a plan here starts the same 14-day trial: nothing is charged today.
+              </p>
+            </header>
+
+            <UpgradeTilesPass industry={industry} context="onboarding" />
+
+            <div className="ob-pricing-exit">
+              <a className="ob-pricing-back" href="/onboarding/trial">
+                ← Keep my free trial of {midName}
+              </a>
+              <p className="ob-pricing-note">
+                You can change plans any time from Settings → Billing. Nothing here locks you in.
+              </p>
+            </div>
+          </div>
+        </div>
+      </BrandProvider>
+    )
+  }
 
   return (
     <BrandProvider brand={dataBrand}>
@@ -207,6 +254,13 @@ export default async function TrialPage({
 
               <StartTrialButton />
               <SkipCardButton />
+
+              {/* ALT-658. Directly under the facts, because this is the most willing-to-buy moment
+                  an operator will have and until now the screen offered no way to see a price or
+                  choose a different plan. */}
+              <a className="ob-pricing-link" href="/onboarding/trial?pricing=1">
+                View pricing and plans
+              </a>
             </section>
           </main>
         </div>

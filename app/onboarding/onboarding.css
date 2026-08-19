@@ -475,3 +475,49 @@
 .ob-discovering { margin-top: 12px; }
 .ob-discovering__line { font-size: 14px; color: var(--ink-2); margin: 0 0 10px; line-height: 1.5; min-height: 1.5em; }
 .ob-discovering__hint { font-size: 12px; color: var(--ink-3); margin: 10px 0 0; }
+
+/* ── ALT-658: the onboarding pricing screen (/onboarding/trial?pricing=1) ─────
+   A single centred column, not the 480px .ob-panel: three tier tiles need room, and a pricing
+   screen reads better centred than pushed into one half of a split. The tiles themselves are
+   .tk-set-* (settings-pass.css, pulled in by the component) and are entirely token-driven, so
+   they inherit this surface's light palette with no overrides here. */
+.ob-pricing {
+  position: relative; z-index: 1;
+  max-width: 1060px; margin: 0 auto;
+  padding: clamp(40px, 5vw, 72px) clamp(20px, 4vw, 40px) clamp(48px, 6vw, 80px);
+  display: flex; flex-direction: column; gap: clamp(24px, 3vw, 34px);
+}
+.ob-pricing-head {
+  display: flex; flex-direction: column; gap: 14px;
+  text-align: center; align-items: center;
+}
+/* The brand lockup is a row inside a column-flex head, so it needs its own axis back. */
+.ob-pricing-head .ob-brand { flex-direction: row; }
+.ob-pricing-head .ob-sub { max-width: 62ch; }
+
+.ob-pricing-exit {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin-top: 4px; text-align: center;
+}
+/* The way out is a quiet link, not a competing button: the trial is still the recommended path
+   and a second prominent action would just make the choice harder. */
+.ob-pricing-back {
+  font-family: var(--font-cond); font-weight: 700; font-size: 13.5px;
+  letter-spacing: .02em; color: var(--ink-2); text-decoration: none;
+  padding: 8px 4px; border-radius: var(--r-sm);
+  transition: color var(--t-fast);
+}
+.ob-pricing-back:hover { color: var(--ink); text-decoration: underline; }
+.ob-pricing-back:focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; }
+.ob-pricing-note { font-size: 12.5px; color: var(--ink-3); margin: 0; line-height: 1.5; }
+
+/* The trial screen's own entry point into the above. Centred under the two actions, deliberately
+   lighter than either of them. */
+.ob-pricing-link {
+  display: block; margin: 14px 0 0; text-align: center;
+  font-size: 13px; color: var(--ink-3); text-decoration: none;
+  padding: 6px 4px; border-radius: var(--r-sm);
+  transition: color var(--t-fast);
+}
+.ob-pricing-link:hover { color: var(--ink); text-decoration: underline; }
+.ob-pricing-link:focus-visible { outline: 2px solid var(--rust); outline-offset: 3px; }

@@ -82,6 +82,23 @@ export type PipelineSignals = {
   briefDrainP95Ms: number
   /** How many completed brief jobs the drain p95 was computed over (gates the alert). */
   briefDrainsSampled: number
+  /** ALT-666. Social image-mirror runs in the window that COLLAPSED: they attempted at least
+   *  `mirrorCollapseMinAttempts` images and mirrored zero. This is the signal that would have
+   *  caught the 2026-07-24 custom-domain break on the day it happened instead of 3.5 weeks later.
+   *  Counted from `pipeline_runs.signals.mirror`, which the mirror itself writes — deliberately
+   *  NOT re-derived from a URL, because that is exactly how the last outage stayed invisible. */
+  mirrorCollapsedRuns: number
+  /** Social runs in the window that carried a mirror tally at all (the collapse count's base).
+   *  0 means "cannot judge yet" (pre-ALT-666 runs have no tally), never "healthy". */
+  mirrorRunsSampled: number
+  /** Fraction (0..1) of mirror attempts that succeeded across the window. ~0.97 is the historical
+   *  healthy rate: expired CDN URLs are normal churn. 0 when nothing was attempted. */
+  mirrorSuccessRate: number
+  /** Total mirror attempts behind mirrorSuccessRate (its denominator; gates the warning). */
+  mirrorAttemptsSampled: number
+  /** Failure reasons summed across the window, worst-first when rendered. Diagnostic only:
+   *  `http_403` dominating is normal expiry, `upload_error` dominating is our own storage path. */
+  mirrorFailures: Record<string, number>
 }
 
 export type PipelineHealthThresholds = {
@@ -125,6 +142,21 @@ export type PipelineHealthThresholds = {
   /** Minimum completed brief jobs before the drain p95 can alert. Small on purpose — drain times are
    *  not noisy like call latencies, and even a few multi-hour drains are a real throughput finding. */
   drainMinSample: number
+  /** Attempts a single social run must have made before zero successes counts as a COLLAPSE rather
+   *  than a couple of bad images. 8 measured against prod (2026-08-19): a snapshot carries a median
+   *  of 25 media-bearing posts and only 8 of 223 snapshots carried 1-3, so 8 clears the small-sample
+   *  case while any normal run passes it many times over. */
+  mirrorCollapseMinAttempts: number
+  /** Collapsed social runs in the window that escalate to degraded. 2, matching staleLocationsAlert:
+   *  one location with a wholly-unreachable CDN is not a fleet problem, but the 2026-07-24 break
+   *  collapsed every run (9 per 26h window), so a real outage clears this instantly. */
+  mirrorCollapsedRunsAlert: number
+  /** Fleet mirror success rate (0..1) below which we WARN (never page). The healthy rate is ~0.97;
+   *  0.7 sits far enough below routine expired-URL churn to mean something, and a partial
+   *  degradation is worth watching rather than waking someone. */
+  mirrorSuccessWarnRate: number
+  /** Minimum mirror attempts before the rate is judgeable. 50 ≈ two snapshots' worth of media posts. */
+  mirrorMinSample: number
 }
 
 export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
@@ -139,6 +171,10 @@ export const DEFAULT_THRESHOLDS: PipelineHealthThresholds = {
   producerP95CorroborationFallbackRate: 0.15,
   briefDrainAlertMs: 7_200_000,
   drainMinSample: 3,
+  mirrorCollapseMinAttempts: 8,
+  mirrorCollapsedRunsAlert: 2,
+  mirrorSuccessWarnRate: 0.7,
+  mirrorMinSample: 50,
 }
 
 /** A location counts as "recently active" (and therefore expected to stay fresh) if it built a
@@ -176,6 +212,11 @@ export type PipelineHealthVerdict = {
   latencySamples: number
   briefDrainP95Ms: number
   briefDrainsSampled: number
+  mirrorCollapsedRuns: number
+  mirrorRunsSampled: number
+  mirrorSuccessRate: number
+  mirrorAttemptsSampled: number
+  mirrorFailures: Record<string, number>
   thresholds: PipelineHealthThresholds
 }
 
@@ -296,6 +337,27 @@ export function evaluatePipelineHealth(
     escalate("degraded")
   }
 
+  // Social image mirror (ALT-666). The failure this exists for is a SILENT one: the mirror broke
+  // fleet-wide on 2026-07-24 and every downstream layer degraded politely — empty image slots, an
+  // honest "no confident read" — so the product just looked like it had little to say. Nothing
+  // counted it, and the one counter that existed was derived from the same broken predicate.
+  //
+  // Following the alerting overhaul: page on a COLLAPSE (runs that tried and mirrored nothing),
+  // never on individual images. Expired CDN URLs are routine and must stay silent.
+  if (s.mirrorCollapsedRuns >= t.mirrorCollapsedRunsAlert) {
+    reasons.push(
+      `social image mirror collapsed on ${s.mirrorCollapsedRuns} of ${s.mirrorRunsSampled} run(s) — attempted images, saved none (failures: ${describeFailureCounts(s.mirrorFailures)}); post images and the vision read are both dark. Check the storage bucket and the public-URL host before assuming the provider is down`,
+    )
+    escalate("degraded")
+  } else if (
+    s.mirrorAttemptsSampled >= t.mirrorMinSample &&
+    s.mirrorSuccessRate < t.mirrorSuccessWarnRate
+  ) {
+    warnings.push(
+      `social image mirror success rate is ${(s.mirrorSuccessRate * 100).toFixed(0)}% across ${s.mirrorAttemptsSampled} attempts (healthy is ~97%; failures: ${describeFailureCounts(s.mirrorFailures)}) — degraded but not collapsed`,
+    )
+  }
+
   return {
     status,
     checkedAt: new Date(nowMs).toISOString(),
@@ -321,7 +383,71 @@ export function evaluatePipelineHealth(
     latencySamples: s.latencySamples,
     briefDrainP95Ms: s.briefDrainP95Ms,
     briefDrainsSampled: s.briefDrainsSampled,
+    mirrorCollapsedRuns: s.mirrorCollapsedRuns,
+    mirrorRunsSampled: s.mirrorRunsSampled,
+    mirrorSuccessRate: s.mirrorSuccessRate,
+    mirrorAttemptsSampled: s.mirrorAttemptsSampled,
+    mirrorFailures: s.mirrorFailures,
     thresholds: t,
+  }
+}
+
+/** `403 × 12, timeout × 2`, worst first. Shared by the verdict text and the admin tile. */
+export function describeFailureCounts(failures: Record<string, number>): string {
+  const parts = Object.entries(failures)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([reason, n]) => `${reason} × ${n}`)
+  return parts.length > 0 ? parts.join(", ") : "none"
+}
+
+/**
+ * PURE: fold social runs' `signals.mirror` into the fleet mirror signals.
+ *
+ * Runs with no tally are EXCLUDED rather than counted as zero — pre-ALT-666 rows have no
+ * tally, and treating "we did not measure" as "we measured nothing" would fire a collapse
+ * alert on deploy day. Runs that attempted nothing (a location with no media posts) are
+ * likewise not evidence either way.
+ */
+export function summarizeMirrorRuns(
+  rows: ReadonlyArray<{ signals: unknown }>,
+  minAttempts: number,
+): Pick<
+  PipelineSignals,
+  "mirrorCollapsedRuns" | "mirrorRunsSampled" | "mirrorSuccessRate" | "mirrorAttemptsSampled" | "mirrorFailures"
+> {
+  let collapsed = 0
+  let sampled = 0
+  let attempted = 0
+  let succeeded = 0
+  const failures: Record<string, number> = {}
+
+  for (const row of rows) {
+    const mirror = (row.signals as { mirror?: unknown } | null)?.mirror
+    if (!mirror || typeof mirror !== "object") continue
+    const m = mirror as { attempted?: unknown; succeeded?: unknown; failures?: unknown }
+    const a = typeof m.attempted === "number" ? m.attempted : 0
+    const ok = typeof m.succeeded === "number" ? m.succeeded : 0
+    if (a <= 0) continue
+
+    sampled++
+    attempted += a
+    succeeded += ok
+    if (a >= minAttempts && ok === 0) collapsed++
+
+    if (m.failures && typeof m.failures === "object") {
+      for (const [reason, count] of Object.entries(m.failures as Record<string, unknown>)) {
+        if (typeof count === "number" && count > 0) failures[reason] = (failures[reason] ?? 0) + count
+      }
+    }
+  }
+
+  return {
+    mirrorCollapsedRuns: collapsed,
+    mirrorRunsSampled: sampled,
+    mirrorSuccessRate: attempted > 0 ? succeeded / attempted : 0,
+    mirrorAttemptsSampled: attempted,
+    mirrorFailures: failures,
   }
 }
 
@@ -335,7 +461,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   const queuedGraceIso = new Date(nowMs - 120 * 60_000).toISOString()
   const recentActiveIso = new Date(nowMs - RECENT_ACTIVE_DAYS * 24 * 3_600_000).toISOString()
 
-  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, doneBriefJobs, vendor, locationRows, orgRows] = await Promise.all([
+  const [run, data, brief, recentBriefs, stuck, failedRows, staleQ, doneBriefJobs, vendor, locationRows, orgRows, socialRuns] = await Promise.all([
     sb.from("pipeline_runs").select("started_at, finished_at").order("started_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("location_snapshots").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     sb.from("daily_briefs").select("generated_at").order("generated_at", { ascending: false }).limit(1).maybeSingle(),
@@ -356,6 +482,9 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     // this runs on an ops path where an explicit query is easier to reason about than a nested select.
     sb.from("locations").select("id, organization_id"),
     sb.from("organizations").select("id, subscription_tier, trial_ends_at, payment_state").is("deleted_at", null),
+    // ALT-666: social runs in the window carry their image-mirror tally on signals.mirror.
+    // Selecting the jsonb path server-side keeps this to the small object, not the whole signals blob.
+    sb.from("pipeline_runs").select("signals").eq("pipeline", "social").gte("started_at", sinceIso),
   ])
 
   // Newest brief per location (rows are ordered newest-first, so first seen per location wins).
@@ -391,6 +520,11 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   for (const [locationId, orgId] of orgByLocation) {
     if (!activeOrgIds.has(orgId)) gatedLocationIds.add(locationId)
   }
+
+  const mirror = summarizeMirrorRuns(
+    (socialRuns.data ?? []) as ReadonlyArray<{ signals: unknown }>,
+    DEFAULT_THRESHOLDS.mirrorCollapseMinAttempts,
+  )
 
   let staleLocations = 0
   let billingDarkLocations = 0
@@ -465,6 +599,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
     latencySamples: latencies.length,
     briefDrainP95Ms,
     briefDrainsSampled,
+    ...mirror,
   }
 }
 

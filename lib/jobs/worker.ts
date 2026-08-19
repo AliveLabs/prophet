@@ -12,6 +12,7 @@ import { enqueueRun, finishJob, recordRun, type SB, type SignalJob, type Pipelin
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { classifyNow, type FreshnessStatus } from "@/lib/freshness/contract"
 import { vendorSignalFromError, moreSevereVendorSignal, type VendorSignal } from "@/lib/jobs/vendor-health"
+import type { MirrorTally } from "@/lib/social/storage"
 
 // Steps excluded from the scheduled path. analyze_social_visuals used to live here
 // (it was unbounded); it now self-caps at MAX_VISION_POSTS_PER_RUN per run (photos
@@ -83,7 +84,15 @@ export async function runJob(sb: SB, job: SignalJob): Promise<WorkerJobResult> {
       }
     }
 
-    const summarized = await summarize(sb, job, { completed, failed, warnings, vendorError })
+    // ALT-666: the social pipeline counts its image-mirror outcomes on ctx.state as it
+    // goes (see lib/social/storage.ts for why the count lives at the mirror and not
+    // downstream). Lift it onto the run's signals so /admin/health and the watchdog can
+    // see a fleet-wide collapse the day it happens.
+    const mirror =
+      job.pipeline === "social"
+        ? (ctx as { state?: { mirror?: MirrorTally } }).state?.mirror
+        : undefined
+    const summarized = await summarize(sb, job, { completed, failed, warnings, vendorError, mirror })
     // A CRITICAL step failure is a failed job, period — sibling-step progress must not launder a
     // missing artifact into "partial"/done (2026-07-07 Cane's: saveBrief failed, the email step
     // succeeded → job done, no brief saved, no retry; customer saw yesterday's brief).
@@ -201,14 +210,24 @@ export async function locationStillActive(sb: SB, locationId: string, organizati
 async function summarize(
   sb: SB,
   job: SignalJob,
-  r: { completed: number; failed: number; warnings: string[]; vendorError?: VendorSignal }
+  r: {
+    completed: number
+    failed: number
+    warnings: string[]
+    vendorError?: VendorSignal
+    /** Social only. Recorded on signals.mirror; no schema change (signals is jsonb). */
+    mirror?: MirrorTally
+  }
 ): Promise<{ outcome: PipelineOutcome; reason?: string; signals: Record<string, unknown> }> {
   // A vendor outage rides along on every outcome so the UI/detector can read the CAUSE,
   // not just infer it from a failed count. (Stamped on signals.vendor; no schema change.)
   const vendor = r.vendorError ? { vendor: r.vendorError } : {}
+  // Only stamp the mirror when it actually tried. An empty tally on a run with no posts
+  // would be indistinguishable from a total failure once it is read back.
+  const mirror = r.mirror && r.mirror.attempted > 0 ? { mirror: r.mirror } : {}
 
   if (r.completed === 0 && r.failed > 0) {
-    return { outcome: "failed", reason: r.warnings[0], signals: { completed: r.completed, failed: r.failed, ...vendor } }
+    return { outcome: "failed", reason: r.warnings[0], signals: { completed: r.completed, failed: r.failed, ...vendor, ...mirror } }
   }
 
   // Social: outcome reflects real content freshness, not just "the call returned".
@@ -224,14 +243,14 @@ async function summarize(
         : stale > 0
           ? `${counts.dormant} dormant / ${counts.empty} empty — no recent activity`
           : "no social profiles"
-    return { outcome, reason, signals: { ...counts, completed: r.completed, failed: r.failed, ...vendor } }
+    return { outcome, reason, signals: { ...counts, completed: r.completed, failed: r.failed, ...vendor, ...mirror } }
   }
 
   const outcome: PipelineOutcome = r.failed > 0 ? "partial" : "fresh"
   return {
     outcome,
     reason: r.failed > 0 ? r.warnings.slice(0, 2).join(" | ") : undefined,
-    signals: { completed: r.completed, failed: r.failed, ...vendor },
+    signals: { completed: r.completed, failed: r.failed, ...vendor, ...mirror },
   }
 }
 

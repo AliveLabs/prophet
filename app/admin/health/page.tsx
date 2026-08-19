@@ -13,7 +13,8 @@ import { connection } from "next/server"
 import type { CSSProperties } from "react"
 import { requirePlatformAdmin } from "@/lib/auth/platform-admin"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
-import { detectPipelineHealth, RECENT_ACTIVE_DAYS, type PipelineHealthVerdict } from "@/lib/ops/pipeline-health"
+import { detectPipelineHealth, describeFailureCounts, RECENT_ACTIVE_DAYS, type PipelineHealthVerdict } from "@/lib/ops/pipeline-health"
+import { fetchFirstRunReport, FIRST_RUN_LOOKBACK_DAYS, type FirstRunSample } from "@/lib/ops/first-run-duration"
 import { estimateAnthropicCostUsd, type ModelTokenTotals } from "@/lib/ai/pricing"
 import { RevealOnView } from "@/components/ticket"
 import "./health.css"
@@ -65,11 +66,12 @@ export default async function PipelineHealthPage() {
   await requirePlatformAdmin()
 
   const supabase = createAdminSupabaseClient()
-  const [verdict, { locations, trend }, nonBriefSpend, menuReliability] = await Promise.all([
+  const [verdict, { locations, trend }, nonBriefSpend, menuReliability, firstRun] = await Promise.all([
     detectPipelineHealth(supabase),
     loadFleetDetail(supabase),
     loadNonBriefSpend(supabase),
     loadMenuReliability(supabase),
+    fetchFirstRunReport(supabase),
   ])
 
   return (
@@ -93,6 +95,43 @@ export default async function PipelineHealthPage() {
         <SignalTile label="Brief drain p95" value={minutes(verdict.briefDrainP95Ms)} sub={`${verdict.briefDrainsSampled} recent builds`} tone={toneFor(verdict.briefDrainP95Ms, verdict.thresholds.briefDrainAlertMs)} />
         <SignalTile label="Stale locations" value={String(verdict.staleLocations)} sub={`of ${RECENT_ACTIVE_DAYS}d-active fleet`} tone={verdict.staleLocations > 0 ? "alert" : "teal"} />
         <SignalTile label="Vendor (DataForSEO)" value={verdict.vendor.down ? "Down" : "OK"} sub={verdict.vendor.paymentRequired ? "payment required" : "—"} tone={verdict.vendor.down ? "alert" : "teal"} />
+        {/* ALT-666. The tile that did not exist on 2026-07-24, when the mirror broke fleet-wide and
+            stayed broken for 3.5 weeks. "Not measured" is shown as such, never as healthy. */}
+        {/* ALT-676: the 15-minute claim, measured. Cold starts only — a pre-warmed run is faster
+            for a reason we did not earn, so it never enters the headline number. */}
+        <SignalTile
+          label="First run (cold, median)"
+          value={firstRun.cold.medianMs == null ? "—" : minutesPrecise(firstRun.cold.medianMs)}
+          sub={firstRun.cold.n === 0 ? "no cold starts measured" : `n=${firstRun.cold.n} · p95 ${minutesPrecise(firstRun.cold.p95Ms ?? 0)}`}
+          tone={firstRun.cold.medianMs == null ? "gold" : firstRun.cold.medianMs > FIRST_READ_CLAIM_MS ? "alert" : "teal"}
+        />
+        <SignalTile
+          label="First run idle"
+          value={firstRun.cold.idleShare == null ? "—" : pct(firstRun.cold.idleShare)}
+          sub={firstRun.cold.medianIdleMs == null ? "not measured" : `${minutesPrecise(firstRun.cold.medianIdleMs)} of the median run`}
+          tone={firstRun.cold.idleShare == null ? "gold" : firstRun.cold.idleShare > 0.1 ? "gold" : "teal"}
+        />
+        <SignalTile
+          label="Social image mirror"
+          value={verdict.mirrorRunsSampled === 0 ? "—" : pct(verdict.mirrorSuccessRate)}
+          sub={
+            verdict.mirrorRunsSampled === 0
+              ? "not measured yet"
+              : verdict.mirrorCollapsedRuns > 0
+                ? `${verdict.mirrorCollapsedRuns} of ${verdict.mirrorRunsSampled} run(s) collapsed`
+                : `${verdict.mirrorAttemptsSampled} attempts · ${describeFailureCounts(verdict.mirrorFailures)}`
+          }
+          tone={
+            verdict.mirrorCollapsedRuns >= verdict.thresholds.mirrorCollapsedRunsAlert
+              ? "alert"
+              : verdict.mirrorRunsSampled === 0
+                ? "gold"
+                : verdict.mirrorAttemptsSampled >= verdict.thresholds.mirrorMinSample &&
+                    verdict.mirrorSuccessRate < verdict.thresholds.mirrorSuccessWarnRate
+                  ? "gold"
+                  : "teal"
+          }
+        />
       </RevealOnView>
 
       {verdict.reasons.length > 0 && (
@@ -188,6 +227,48 @@ export default async function PipelineHealthPage() {
                 <td>{day.inputTokens > 0 || day.outputTokens > 0 ? `${tok(day.inputTokens)} / ${tok(day.outputTokens)}` : "—"}</td>
                 <td>{day.estCostUsd > 0 ? usd(day.estCostUsd) : "—"}</td>
               </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="ph-h2">First-run duration ({FIRST_RUN_LOOKBACK_DAYS}d)</h2>
+      <p className="ph-sub">
+        Anchored on the <code>starter</code> job, which fires the instant the operator finishes the
+        wizard and the machine takes over. Not <code>locations.created_at</code>, which would bill us
+        for the operator&apos;s own reading time, and not the earliest pipeline run, which can predate
+        setup. <strong>Idle</strong> is wall clock minus the union of every pipeline run in the
+        window: time nobody was working, which is the fixable part. A <strong>pre-warmed</strong> run
+        had pulls finish before the anchor because the operator was slow in the wizard, so it is
+        listed apart rather than blended into the median. The public claim is{" "}
+        {minutes(FIRST_READ_CLAIM_MS)}.
+      </p>
+      <div className="ph-table-wrap">
+        <table className="ph-table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Started</th>
+              <th>Total</th>
+              <th>Work</th>
+              <th>Idle</th>
+              <th>Kind</th>
+            </tr>
+          </thead>
+          <tbody>
+            {firstRun.coldStarts.length === 0 &&
+              firstRun.preWarmed.length === 0 &&
+              firstRun.incomplete.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="ph-empty">
+                    No onboarding has run in the last {FIRST_RUN_LOOKBACK_DAYS} days. The anchor only
+                    exists for runs after the starter job shipped, so an empty table here means no new
+                    operators, not a measurement failure.
+                  </td>
+                </tr>
+              )}
+            {[...firstRun.coldStarts, ...firstRun.preWarmed, ...firstRun.incomplete].map((r) => (
+              <FirstRunRow key={`${r.locationId}:${r.startedAt}`} row={r} />
             ))}
           </tbody>
         </table>
@@ -474,6 +555,26 @@ async function loadMenuReliability(
 
 // ── presentation helpers ────────────────────────────────────────────────────────────────────
 
+/** The public first-read claim (ALT-640). Kept at 15 min knowingly: no observed cold start has met
+ *  it, and Bryan's call is to fix the product and measure real onboardings rather than re-price the
+ *  promise off a single sample. This constant is what the tile is red against. */
+const FIRST_READ_CLAIM_MS = 15 * 60_000
+
+function FirstRunRow({ row }: { row: FirstRunSample }) {
+  const kind = row.briefAt == null ? "in flight" : row.preWarmed ? `pre-warmed (${row.preWarmedPulls})` : "cold start"
+  const overClaim = row.totalMs != null && row.totalMs > FIRST_READ_CLAIM_MS
+  return (
+    <tr>
+      <td className="is-strong">{row.locationName ?? row.locationId.slice(0, 8)}</td>
+      <td>{relativeTime(row.startedAt)}</td>
+      <td className={overClaim ? "is-alert" : "is-strong"}>{row.totalMs == null ? "—" : minutesPrecise(row.totalMs)}</td>
+      <td>{row.workMs == null ? "—" : minutesPrecise(row.workMs)}</td>
+      <td>{row.idleMs == null ? "—" : minutesPrecise(row.idleMs)}</td>
+      <td>{kind}</td>
+    </tr>
+  )
+}
+
 function pct(n: number): string {
   return `${Math.round(n * 100)}%`
 }
@@ -491,6 +592,11 @@ function seconds(ms: number): string {
 }
 function minutes(ms: number): string {
   return `${Math.round(ms / 60_000)}m`
+}
+/** One decimal. First-run idle is measured in fractions of a minute — 0.4m rounded to "0m" would
+ *  read as "no idle at all", which is the opposite of what the number says. */
+function minutesPrecise(ms: number): string {
+  return `${(ms / 60_000).toFixed(1)}m`
 }
 function relativeTime(iso: string): string {
   const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000
