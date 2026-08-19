@@ -78,14 +78,31 @@ const VOLUMES = {
   brief: { claudeCallsPerBrief: 10 }, // skills + synthesis + voice + review per brief
 } as const
 
-const RUNS_PER_MONTH = { daily: 30, weekly: 4.3 } as const
+/** Runs per month by cadence.
+ *
+ *  `biweekly` added 2026-08-19 for ALT-668. It is the SeoCadence value the TOP tier actually
+ *  carries, and `isSeoDue` enforces it as Mondays + Thursdays, so ~8.6 runs/mo. Without it the
+ *  model had no way to express the top tier's real SEO cadence and fell back to weekly, which
+ *  UNDERSTATED the most expensive tier's largest vendor line by 2x. That is the same
+ *  projection-versus-enforcement gap that produced the 2026-08-10 7x surprise, pointing the
+ *  other way. */
+export const RUNS_PER_MONTH = { daily: 30, biweekly: 30 / 3.5, weekly: 4.3 } as const
+
+export type CostCadence = keyof typeof RUNS_PER_MONTH
 const DORMANT_PULLS_PER_MONTH = 30 / 14 // dormant social re-checked ~every 14 days
 
 export type ClientCostParams = {
   competitors: number
   platforms: number // social networks (1 = IG/Tier1; 3 = all/Tier2-3)
   dormantFraction?: number // share of social profiles dormant (default 0.5 — audit measured ~20/33)
-  cadence: "daily" | "weekly"
+  cadence: CostCadence
+  /** SEO/visibility cadence, when it differs from `cadence`.
+   *
+   *  ALT-668: this used to be read off the GLOBAL `COST_KNOBS.seoCadence`, so every client was
+   *  modelled at the same SEO cadence no matter what their tier enforced. The enforced value is
+   *  per-tier (`TIER_LIMITS[tier].seoCadence`, gated by `isSeoDue` in the daily cron). Omit to keep
+   *  the old global-knob behaviour, which is what the pre-tier callers expect. */
+  seoCadence?: CostCadence
   postsPerPull?: number
   data365Plan?: "basic" | "standard"
   monthlyPriceUsd?: number
@@ -106,14 +123,34 @@ export function estimateClientCost(p: ClientCostParams): ClientCostEstimate {
   const entities = comps + 1
   const runs = RUNS_PER_MONTH[p.cadence]
   const photoRuns = RUNS_PER_MONTH[COST_KNOBS.photoFetchCadence === "daily" ? p.cadence : "weekly"]
-  const seoRuns = RUNS_PER_MONTH[COST_KNOBS.seoCadence === "daily" ? p.cadence : "weekly"]
+  const seoRuns =
+    RUNS_PER_MONTH[p.seoCadence ?? (COST_KNOBS.seoCadence === "daily" ? p.cadence : "weekly")]
+
+  // ALT-668: three pipelines were billed at the wrong cadence, because `runs` (the BRIEF cadence)
+  // was used as a stand-in for "how often this pipeline runs". Checked against what
+  // app/api/cron/daily/route.ts actually enqueues, per location:
+  //
+  //   content     → only on isWeeklyFullBuildDay  ⇒ WEEKLY (the differential-builds decision;
+  //                 `contentRefreshCadence` is "weekly" on every tier and agrees). Was billed
+  //                 daily, overstating the Firecrawl + Gemini-menu lines ~7x on a daily tier, and
+  //                 the Gemini menu call is $0.024, one of the priciest units we buy.
+  //   busy_times  → pushed only on Mondays        ⇒ WEEKLY. Was billed daily (Outscraper line).
+  //   events      → pushed unconditionally        ⇒ DAILY. Was billed at the SEO cadence, which
+  //                 UNDERSTATED it: DataForSEO events is our single most expensive unit at $0.04.
+  //
+  // Two overstatements and one understatement, so this was never going to cancel out. Same class of
+  // error as 2026-08-10, where the model priced SEO weekly while the pipeline ran it daily: a model
+  // that guesses a pipeline's cadence instead of reading it describes a different system.
+  const contentRuns = RUNS_PER_MONTH.weekly
+  const trafficRuns = RUNS_PER_MONTH.weekly
+  const eventsRuns = runs
   const postsPerPull = p.postsPerPull ?? COST_KNOBS.data365PostsPerPull
   const dormantFraction = p.dormantFraction ?? 0.5
   const notes: string[] = []
 
   // Content (Firecrawl + Gemini menu)
-  const firecrawlCalls = (VOLUMES.content.firecrawlLoc + VOLUMES.content.firecrawlPerComp * comps) * runs
-  const geminiMenuCalls = (VOLUMES.content.geminiMenuLoc + VOLUMES.content.geminiMenuPerComp * comps) * runs
+  const firecrawlCalls = (VOLUMES.content.firecrawlLoc + VOLUMES.content.firecrawlPerComp * comps) * contentRuns
+  const geminiMenuCalls = (VOLUMES.content.geminiMenuLoc + VOLUMES.content.geminiMenuPerComp * comps) * contentRuns
   const content = firecrawlCalls * UNIT_PRICES.firecrawlScrape + geminiMenuCalls * UNIT_PRICES.geminiFlashPerMenu
 
   // Visibility (DataForSEO Labs + SERP) — weekly cadence by default
@@ -122,11 +159,14 @@ export function estimateClientCost(p: ClientCostParams): ClientCostEstimate {
   const dataForSeoVis = labsCalls * UNIT_PRICES.dataForSeoLabsCall + serpCalls * UNIT_PRICES.dataForSeoSerpCall
 
   // Events (DataForSEO events) + a little Places for venue matching
-  const events = VOLUMES.events.eventsLoc * seoRuns * UNIT_PRICES.dataForSeoEventsCall
+  const events = VOLUMES.events.eventsLoc * eventsRuns * UNIT_PRICES.dataForSeoEventsCall
   const dataForSeo = dataForSeoVis + events
 
   // Places (details for location + events matching + photo refs per comp)
-  const placesDetailCalls = (VOLUMES.visibility.placesLoc + VOLUMES.events.placesLoc) * seoRuns + VOLUMES.photos.placesRefsPerComp * comps * photoRuns
+  const placesDetailCalls =
+    VOLUMES.visibility.placesLoc * seoRuns +
+    VOLUMES.events.placesLoc * eventsRuns +
+    VOLUMES.photos.placesRefsPerComp * comps * photoRuns
   const places = placesDetailCalls * UNIT_PRICES.placesDetailsCall
 
   // Photos (Places Photo SKU + Gemini Vision) — weekly, deduped
@@ -136,7 +176,7 @@ export function estimateClientCost(p: ClientCostParams): ClientCostEstimate {
   const geminiVision = visionCalls * UNIT_PRICES.geminiFlashPerImage
 
   // Traffic (Outscraper) + Weather (free)
-  const outscraper = VOLUMES.traffic.outscraperPerEntity * entities * runs * UNIT_PRICES.outscraperRecord
+  const outscraper = VOLUMES.traffic.outscraperPerEntity * entities * trafficRuns * UNIT_PRICES.outscraperRecord
   const weather = VOLUMES.weather.openWeatherLoc * runs * UNIT_PRICES.openWeatherCall
 
   // Brief engine (Claude reasoning) — per brief, on the run cadence
