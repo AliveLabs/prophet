@@ -117,7 +117,10 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   {
     kicker: "Found for you",
     head: <>Here&apos;s who <em>we&apos;d watch.</em></>,
-    sub: "We scanned your neighborhood and picked the spots your customers would actually choose instead — each with the reason why.",
+    // ALT-648: "neighborhood" is too tight (some picks are further out), and telling an operator
+    // their customers "would actually choose" a competitor asserts they are already losing, before
+    // we have shown them any evidence. Softened, and the em dash is gone per house style.
+    sub: "We scanned your area and picked the spots your customers may be choosing instead, each with the reason why.",
   },
   {
     kicker: "Optional",
@@ -1146,10 +1149,15 @@ export default function OnboardingWizardPass({
             {!collision && step === 1 ? (
               <>
                 <span className="ob-panel-eyebrow">Confirm details</span>
-                <h2 className="ob-panel-title">
-                  Does this look right?
+                {/* ALT-647: the badge used to sit INSIDE this h2, which broke it two ways. The
+                    heading carries `text-wrap: balance`, so the balancer counted the badge's words
+                    and split "auto-filled" across lines; and an inline-flex badge inside a
+                    line-height 1.18 heading sits on the heading's baseline rather than its centre,
+                    which is the vertical offset. Siblings in a centred flex row instead. */}
+                <div className="ob-title-row">
+                  <h2 className="ob-panel-title">Does this look right?</h2>
                   <span className="ob-derived"><IconCheck /> auto-filled</span>
-                </h2>
+                </div>
                 <p className="ob-panel-lede">
                   We pulled this from your listing. Fix anything that&apos;s off.
                 </p>

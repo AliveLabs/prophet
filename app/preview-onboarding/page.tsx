@@ -52,7 +52,7 @@ const STEP_NAMES = ["Find", "Confirm", "Competitors", "Focus", "Build"] as const
 const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   { kicker: "Welcome to Ticket", head: <>Let&apos;s find <em>your restaurant.</em></>, sub: "Search for your place and we'll pull everything we can from your public listing — so you barely have to type." },
   { kicker: "Mostly done for you", head: <>Does this <em>look right?</em></>, sub: "We pulled these details straight from your listing. Fix anything that's off, then keep going." },
-  { kicker: "Found for you", head: <>Here&apos;s who <em>we'd watch.</em></>, sub: "We scanned your neighborhood for similar spots and picked the closest competitors — each with the reason why." },
+  { kicker: "Found for you", head: <>Here&apos;s who <em>we&apos;d watch.</em></>, sub: "We scanned your area and picked the spots your customers may be choosing instead, each with the reason why." },
   { kicker: "Optional", head: <>Anything you&apos;re <em>focused on?</em></>, sub: "It just helps us rank what we surface first. Choose as many as you like — or skip for now." },
   { kicker: "You're set", head: <>Building your <em>first brief.</em></>, sub: "We're pulling competitor, demand, and review signals now. Watch them land — or we'll tell you when it's ready." },
 ]

@@ -245,10 +245,24 @@
 }
 .ob-skipbtn:hover { color: var(--ink); text-decoration-color: var(--ink-3); }
 .ob-skipbtn:disabled { opacity: .5; cursor: not-allowed; text-decoration: none; }
+/* ALT-647: the title and its auto-filled badge are siblings in a centred row now. The badge used
+   to live inside .ob-panel-title, which carries `text-wrap: balance` — the balancer counted the
+   badge's words and split "auto-filled" over two lines, and that made it two lines tall inside a
+   line-height 1.18 heading, sitting on the baseline instead of the heading's centre. */
+.ob-title-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+/* The title no longer needs to leave room for the badge, so let it take the space it wants. */
+.ob-title-row .ob-panel-title { margin: 6px 0 0; }
+
 .ob-derived {
   display: inline-flex; align-items: center; gap: 5px;
   font-family: var(--font-cond); text-transform: uppercase; letter-spacing: .06em;
-  font-size: 10.5px; color: var(--teal-deep); margin-left: 8px; font-weight: 700;
+  font-size: 10.5px; color: var(--teal-deep); font-weight: 700;
+  /* Two words that must never break: the wrap was the reported bug. */
+  white-space: nowrap;
+  /* Matches the h2's own top margin so the row centres on the text, not the box. */
+  margin-top: 6px;
 }
 
 /* Places autocomplete + selected restaurant */

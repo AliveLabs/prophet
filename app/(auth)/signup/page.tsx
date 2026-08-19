@@ -51,8 +51,8 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             <span className="auth-kicker">Get started</span>
             <h1 className="auth-h">Create your <em>account</em>.</h1>
             <p className="auth-lede__sub">
-              Name your competitors and Ticket starts watching menus, pricing,
-              reviews, and social from day one.
+              Confirm your competitors and Ticket starts watching menus,
+              pricing, reviews, and social from day one.
             </p>
           </div>
 
