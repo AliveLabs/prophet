@@ -376,7 +376,7 @@ async function mirrorSubscriptionToMarketing(args: {
 
     const { data: org, error: orgError } = await admin
       .from("organizations")
-      .select("industry_type")
+      .select("name, industry_type")
       .eq("id", args.organizationId)
       .maybeSingle()
     if (orgError || !org) {
@@ -415,6 +415,9 @@ async function mirrorSubscriptionToMarketing(args: {
       status,
       source: marketingSourceForIndustry(org.industry_type),
       stripeCustomerId: args.customerId,
+      // ALT-679: a card-backed trial converts through here without ever touching the product-side
+      // mirror, so it needs the business name too or those contacts stay unpersonalised.
+      ...(org.name ? { businessName: org.name } : {}),
     })
   } catch (error) {
     console.error("marketing mirror threw:", error)

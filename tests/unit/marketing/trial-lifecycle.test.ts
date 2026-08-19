@@ -22,7 +22,9 @@ import {
   upsertMarketingContact,
 } from "@/lib/marketing/contacts"
 
-function armOrg(org: { industry_type?: string | null; org_kind?: string } | null) {
+function armOrg(
+  org: { name?: string | null; industry_type?: string | null; org_kind?: string } | null,
+) {
   vi.mocked(createAdminSupabaseClient).mockReturnValue({
     from: () => ({
       select: () => ({
@@ -37,7 +39,7 @@ beforeEach(() => {
   vi.mocked(isMarketingContactsEnabled).mockReturnValue(true)
   vi.mocked(getOrganizationBillingEmail).mockResolvedValue("billing@rest.com")
   vi.mocked(upsertMarketingContact).mockResolvedValue({ ok: true })
-  armOrg({ industry_type: "restaurant", org_kind: "real" })
+  armOrg({ name: "407 BBQ", industry_type: "restaurant", org_kind: "real" })
 })
 
 describe("marketingSourceForIndustry", () => {
@@ -69,6 +71,9 @@ describe("mirrorLifecycleToMarketing", () => {
       industryType: "restaurant",
       status: "trial",
       source: "getticket.ai",
+      // ALT-679: derived from the org this function already loads, so it rides along on
+      // every mirrored transition rather than depending on the caller.
+      businessName: "407 BBQ",
     })
   })
 
@@ -131,5 +136,24 @@ describe("mirrorLifecycleToMarketing", () => {
       mirrorLifecycleToMarketing({ organizationId: "org_1", status: "trial" })
     ).resolves.toBeUndefined()
     expect(upsertMarketingContact).not.toHaveBeenCalled()
+  })
+})
+
+// ── ALT-679: the business name is derived here, not asked of callers ──────────
+describe("mirrorLifecycleToMarketing — businessName (ALT-679)", () => {
+  it("passes the org name through as businessName without the caller supplying it", async () => {
+    // Deliberately derived here: this function already has to load the org, so the business name
+    // is free, and no call site can forget it. Every contact in prod has business_name NULL.
+    await mirrorLifecycleToMarketing({ organizationId: "org_1", status: "access_granted" })
+    expect(upsertMarketingContact).toHaveBeenCalledWith(
+      expect.objectContaining({ businessName: "407 BBQ" }),
+    )
+  })
+
+  it("omits businessName when the org has no name rather than writing an empty string", async () => {
+    armOrg({ name: null, industry_type: "restaurant", org_kind: "real" })
+    await mirrorLifecycleToMarketing({ organizationId: "org_1", status: "access_granted" })
+    const arg = vi.mocked(upsertMarketingContact).mock.calls[0][0]
+    expect(Object.keys(arg)).not.toContain("businessName")
   })
 })
