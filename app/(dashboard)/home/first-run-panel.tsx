@@ -41,10 +41,22 @@ import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
 
 type Job = FirstRunJob
 
-/** Bound on fast-path invocations from one mounted panel. Each call runs to its own wall-clock
- *  budget, so this is a stop, not a schedule: a location that still is not done after this many
- *  is a case for the cron worker and the alerting, not for a browser tab hammering the route. */
-const MAX_KICKS = 8
+/** How long one mounted panel keeps re-invoking the fast path. A stop, not a schedule: a location
+ *  still unfinished after this is a case for the cron worker and the alerting, not a browser tab.
+ *
+ *  ALT-655 / ALT-661: this was `MAX_KICKS = 8`, a cap on the NUMBER of calls, and the loop had no
+ *  delay between them. A drain call returns as soon as nothing is runnable, which happens routinely
+ *  and cheaply: the first-run insights job defers while its data pulls are still going, so the call
+ *  claims it, defers it, finds nothing else, and returns `moreWork: true` in a few hundred
+ *  milliseconds. With no delay, eight such no-op calls burned the entire budget in a couple of
+ *  seconds, after which the panel never invoked again and the rest of the run fell back to the
+ *  five-minute worker cron. A wall-clock bound with a real gap between attempts cannot be spent
+ *  that way. */
+const KICK_WINDOW_MS = 25 * 60 * 1000
+
+/** Wait between fast-path invocations. Long enough that a no-op call cannot spin, far shorter than
+ *  the five-minute cron it exists to beat. */
+const KICK_INTERVAL_MS = 6_000
 
 export default function FirstRunPanel({
   locationId,
@@ -66,10 +78,22 @@ export default function FirstRunPanel({
   // Kick the first-run fast path. Idempotent and first-run-only server side (it refuses a
   // location that already has a brief), and each call claims jobs atomically, so a second tab
   // doing the same thing cannot double-run anything.
+  //
+  // ALT-655 / ALT-661: keep invoking for a WALL-CLOCK window with a real gap between attempts,
+  // rather than counting calls. Two jobs in a first run can only start as the FIRST job of an
+  // invocation, so they structurally require a fresh call rather than more time in the current one:
+  //   - `insights` (estimate 350s) may not start more than 6 minutes into a call, and the data
+  //     pulls it waits for routinely finish later than that.
+  //   - `brief` (estimate 780s) can never start mid-call at all: 800s budget minus a 90s margin
+  //     leaves less than its estimate from the very first second.
+  // So after each of those, SOMETHING has to invoke again. When this loop gave up early, that
+  // something was the `*/5` cron, which is where Jersey Mike's 2.9 and 1.4 minute idle gaps came
+  // from: 4.3 of a 21.2 minute first run spent waiting rather than working.
   useEffect(() => {
     let cancelled = false
+    const until = Date.now() + KICK_WINDOW_MS
     async function kick() {
-      for (let i = 0; i < MAX_KICKS && !cancelled; i++) {
+      while (!cancelled && Date.now() < until) {
         try {
           const res = await fetch("/api/onboarding/first-run", {
             method: "POST",
@@ -77,10 +101,15 @@ export default function FirstRunPanel({
             body: JSON.stringify({ location_id: locationId }),
           })
           const data = await res.json()
-          if (cancelled || !data?.ok || data.moreWork !== true) return
+          if (cancelled) return
+          // moreWork false means done (or already briefed, or the fleet cap halted it) — stop.
+          if (!data?.ok || data.moreWork !== true) return
         } catch {
           return // the cron worker still drains this location; don't retry-storm
         }
+        // Always pause, even after a productive call: a drain call is expensive and the point is to
+        // beat a 5-minute cron, not to hold a request open continuously.
+        await new Promise((r) => setTimeout(r, KICK_INTERVAL_MS))
       }
     }
     void kick()
