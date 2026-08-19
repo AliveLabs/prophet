@@ -245,20 +245,27 @@
 .tk-set-tiers {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; align-items: stretch;
 }
-.tk-set-tier {
+/* The tier tile is a <button>, so every box declaration here has to outrank the kit reset
+   `.tk-kit button { border: 0; background: none; }` (specificity 0,1,1). A bare `.tk-set-tier`
+   is 0,1,0 and LOSES: verified 2026-08-19, the tiles were rendering with a transparent
+   background and no border at all, on /settings/billing as well as the new onboarding pricing
+   screen. `.tk-kit .tk-set-tier` is 0,2,0 and wins outright — deliberately not `button.tk-set-tier`,
+   which merely TIES the reset at 0,1,1 and would hand the outcome to stylesheet order.
+   Same trap, and the same reason, as `button.tk-tbub` in components/ticket/pass.css. */
+.tk-kit .tk-set-tier {
   position: relative; text-align: left; display: flex; flex-direction: column; gap: 4px;
   background: var(--card); border: 1.5px solid var(--line-2); border-radius: var(--r-lg);
   padding: 22px 20px; box-shadow: var(--shadow-sm);
   transition: transform var(--t-fast), box-shadow var(--t-fast), border-color var(--t-fast);
 }
-.tk-set-tier:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--ink-3); }
-.tk-set-tier:disabled { cursor: not-allowed; }
-.tk-set-tier:disabled:hover { transform: none; box-shadow: var(--shadow-sm); }
-.tk-set-tier-reco {
+.tk-kit .tk-set-tier:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--ink-3); }
+.tk-kit .tk-set-tier:disabled { cursor: not-allowed; }
+.tk-kit .tk-set-tier:disabled:hover { transform: none; box-shadow: var(--shadow-sm); }
+.tk-kit .tk-set-tier-reco {
   border-color: color-mix(in srgb, var(--rust) 55%, transparent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--rust) 35%, transparent), var(--shadow-md);
 }
-.tk-set-tier-reco:hover { border-color: var(--rust); }
+.tk-kit .tk-set-tier-reco:hover { border-color: var(--rust); }
 .tk-set-tier-flag {
   position: absolute; top: -11px; left: 20px;
   font-family: var(--font-cond); font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;

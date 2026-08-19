@@ -46,7 +46,13 @@ import {
 import { generateSocialInsights } from "@/lib/social/insights"
 import { generateVisualInsights } from "@/lib/social/visual-insights"
 import { analyzePostImages, aggregateVisualMetrics } from "@/lib/social/visual-analysis"
-import { persistPostImages } from "@/lib/social/storage"
+import {
+  persistPostImages,
+  emptyMirrorTally,
+  mergeMirrorTallies,
+  describeMirrorFailures,
+  type MirrorTally,
+} from "@/lib/social/storage"
 import { fetchInstagramProfile, fetchInstagramPosts } from "@/lib/providers/data365/instagram"
 import { fetchFacebookProfile, fetchFacebookPosts } from "@/lib/providers/data365/facebook"
 import { fetchTikTokProfile, fetchTikTokPosts } from "@/lib/providers/data365/tiktok"
@@ -101,6 +107,10 @@ export type SocialPipelineCtx = {
     insightsGenerated: number
     visualProfiles: EntityVisualProfile[]
     warnings: string[]
+    /** ALT-666: image-mirror outcomes for this run, counted at the mirror itself
+     *  (lib/social/storage.ts) and never re-derived from a URL. The worker reads
+     *  this onto `pipeline_runs.signals.mirror` so /admin/health can see a collapse. */
+    mirror: MirrorTally
   }
 }
 
@@ -354,8 +364,16 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
           )
         )
 
+        // ALT-666: roll every profile's mirror tally up to the run. A profile that
+        // TIMED OUT contributes nothing — withTimeout rejects, so its partial counts are
+        // lost. That is deliberate: a half-counted pull would understate the success
+        // rate and could read as a collapse the mirror never had.
+        const tallies: MirrorTally[] = []
         for (const r of results) {
-          if (r.status === "fulfilled" && r.value) collected++
+          if (r.status === "fulfilled") {
+            if (r.value.ok) collected++
+            tallies.push(r.value.mirror)
+          }
           if (r.status === "rejected") {
             const msg =
               r.reason instanceof Error ? r.reason.message : String(r.reason)
@@ -363,9 +381,16 @@ export function buildSocialSteps(): PipelineStepDef<SocialPipelineCtx>[] {
             console.warn("[Social Pipeline]", msg)
           }
         }
+        c.state.mirror = mergeMirrorTallies(tallies)
 
         c.state.snapshotsCollected = collected
-        return { snapshots: collected, pulled: toPull.length, skippedByCadence: c.state.skippedByCadence, total: profiles.length }
+        return {
+          snapshots: collected,
+          pulled: toPull.length,
+          skippedByCadence: c.state.skippedByCadence,
+          total: profiles.length,
+          mirror: c.state.mirror,
+        }
       },
     },
 
@@ -869,6 +894,7 @@ export async function buildSocialContext(
       insightsGenerated: 0,
       visualProfiles: [],
       warnings: [],
+      mirror: emptyMirrorTally(),
     },
   }
 }
@@ -883,14 +909,17 @@ async function collectSingleProfile(
   profileId: string,
   dateKey: string,
   supabase: SupabaseClient
-): Promise<boolean> {
+): Promise<{ ok: boolean; mirror: MirrorTally }> {
+  // A pull that bails before the mirror ran attempted nothing — an empty tally is
+  // the honest answer, not a zero-success one (that would read as a collapse).
+  const noMirror = emptyMirrorTally()
   try {
     let snapshot: SocialSnapshotData
 
     switch (platform) {
       case "instagram": {
         const rawProfile = await fetchInstagramProfile(handle)
-        if (!rawProfile) return false
+        if (!rawProfile) return { ok: false, mirror: noMirror }
         const rawPosts = await fetchInstagramPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeInstagramProfile(rawProfile, handle)
@@ -900,7 +929,7 @@ async function collectSingleProfile(
       }
       case "facebook": {
         const rawProfile = await fetchFacebookProfile(handle)
-        if (!rawProfile) return false
+        if (!rawProfile) return { ok: false, mirror: noMirror }
         const rawPosts = await fetchFacebookPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeFacebookProfile(rawProfile, handle)
@@ -910,7 +939,7 @@ async function collectSingleProfile(
       }
       case "tiktok": {
         const rawProfile = await fetchTikTokProfile(handle)
-        if (!rawProfile) return false
+        if (!rawProfile) return { ok: false, mirror: noMirror }
         const rawPosts = await fetchTikTokPosts(handle, DATA365_POSTS_PER_PULL)
         console.log(`[Social] ${platform}/${handle}: profile OK, ${rawPosts.length} posts`)
         const profile = normalizeTikTokProfile(rawProfile, handle)
@@ -920,13 +949,22 @@ async function collectSingleProfile(
       }
     }
 
-    // Download post images and replace expiring CDN URLs with permanent Storage URLs
+    // Download post images and replace expiring CDN URLs with permanent Storage URLs.
+    //
+    // ALT-666: the count comes from the mirror's own tally. It used to be
+    // `persisted.filter((p) => p.mediaUrl?.includes("supabase")).length`, which
+    // silently read 0 for three and a half weeks after Storage moved to
+    // auth.getticket.ai while the mirror was in fact succeeding ~97% of the time.
+    // Never recount by inspecting the URL: that is the behaviour, not the metric.
+    let mirror = noMirror
     if (snapshot.recentPosts.length > 0) {
-      const originalPosts = snapshot.recentPosts
-      const persisted = await persistPostImages(originalPosts, handle, platform)
-      const savedCount = persisted.filter((p) => isMirroredMediaUrl(p.mediaUrl)).length
-      console.log(`[Social] ${platform}/${handle}: persisted ${savedCount}/${persisted.length} post images to storage`)
-      snapshot = { ...snapshot, recentPosts: persisted }
+      const persisted = await persistPostImages(snapshot.recentPosts, handle, platform)
+      mirror = persisted.tally
+      console.log(
+        `[Social] ${platform}/${handle}: mirrored ${mirror.succeeded}/${mirror.attempted} post images` +
+          (mirror.failed > 0 ? ` (failures: ${describeMirrorFailures(mirror)})` : "")
+      )
+      snapshot = { ...snapshot, recentPosts: persisted.posts }
     }
 
     const diffHash = computeSnapshotHash(snapshot)
@@ -952,7 +990,7 @@ async function collectSingleProfile(
       { onConflict: "social_profile_id,date_key" }
     )
 
-    return true
+    return { ok: true, mirror }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const detail = (err as { apiError?: string }).apiError
@@ -960,7 +998,7 @@ async function collectSingleProfile(
       `[Social Pipeline] Failed to collect ${platform}/${handle}: ${msg}`,
       detail ? `\n  Response body: ${detail.slice(0, 500)}` : ""
     )
-    return false
+    return { ok: false, mirror: noMirror }
   }
 }
 

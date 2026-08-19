@@ -27,6 +27,13 @@ const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
   latencySamples: 0,
   briefDrainP95Ms: 0,
   briefDrainsSampled: 0,
+  // Healthy baseline for the image mirror (ALT-666): nothing measured yet. Zeroes here mean
+  // "no runs carried a tally", which must read as ok — a pre-ALT-666 fleet is not a collapsed one.
+  mirrorCollapsedRuns: 0,
+  mirrorRunsSampled: 0,
+  mirrorSuccessRate: 0,
+  mirrorAttemptsSampled: 0,
+  mirrorFailures: {},
   ...over,
 })
 
@@ -274,5 +281,92 @@ describe("evaluatePipelineHealth — escalation", () => {
     const sig = healthy({ lastRunAt: hoursAgo(10) })
     expect(evaluatePipelineHealth(sig, NOW, { ...DEFAULT_THRESHOLDS, staleHours: 8 }).status).toBe("down")
     expect(evaluatePipelineHealth(sig, NOW, { ...DEFAULT_THRESHOLDS, staleHours: 26 }).status).toBe("ok")
+  })
+})
+
+// ── ALT-666: social image mirror ──────────────────────────────────────────────
+// The alerting-overhaul posture applied to a new signal: page on a collapse, warn on
+// degradation, and stay completely silent on routine expired-URL churn.
+describe("evaluatePipelineHealth — social image mirror", () => {
+  it("stays ok and silent when no run carried a tally (pre-ALT-666 fleet)", () => {
+    const v = evaluatePipelineHealth(healthy({ mirrorRunsSampled: 0, mirrorAttemptsSampled: 0 }), NOW)
+    expect(v.status).toBe("ok")
+    expect(v.reasons).toEqual([])
+    expect(v.warnings).toEqual([])
+  })
+
+  it("stays ok on the healthy ~97% rate — expired CDN URLs must never page", () => {
+    const v = evaluatePipelineHealth(
+      healthy({
+        mirrorRunsSampled: 9,
+        mirrorAttemptsSampled: 900,
+        mirrorSuccessRate: 0.97,
+        mirrorFailures: { http_403: 27 },
+      }),
+      NOW,
+    )
+    expect(v.status).toBe("ok")
+    expect(v.warnings).toEqual([])
+  })
+
+  it("does not page on ONE collapsed run — a single unreachable CDN is not a fleet fault", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ mirrorCollapsedRuns: 1, mirrorRunsSampled: 9, mirrorAttemptsSampled: 900, mirrorSuccessRate: 0.86 }),
+      NOW,
+    )
+    expect(v.status).toBe("ok")
+    expect(v.reasons).toEqual([])
+  })
+
+  it("escalates to degraded once collapsed runs hit the threshold", () => {
+    const v = evaluatePipelineHealth(
+      healthy({
+        mirrorCollapsedRuns: 9,
+        mirrorRunsSampled: 9,
+        mirrorAttemptsSampled: 900,
+        mirrorSuccessRate: 0,
+        mirrorFailures: { upload_error: 900 },
+      }),
+      NOW,
+    )
+    expect(v.status).toBe("degraded")
+    expect(v.reasons.some((r) => r.includes("social image mirror collapsed on 9 of 9"))).toBe(true)
+    // The failure breakdown is the difference between "the provider is down" and "our own
+    // storage path is broken" — which is precisely the wrong conclusion drawn in 2026-07.
+    expect(v.reasons.some((r) => r.includes("upload_error × 900"))).toBe(true)
+  })
+
+  it("warns without paging on a partial degradation", () => {
+    const v = evaluatePipelineHealth(
+      healthy({
+        mirrorRunsSampled: 9,
+        mirrorAttemptsSampled: 900,
+        mirrorSuccessRate: 0.4,
+        mirrorFailures: { http_403: 540 },
+      }),
+      NOW,
+    )
+    expect(v.status).toBe("ok")
+    expect(v.reasons).toEqual([])
+    expect(v.warnings.some((w) => w.includes("40% across 900 attempts"))).toBe(true)
+  })
+
+  it("will not warn off a sample too small to mean anything", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ mirrorRunsSampled: 1, mirrorAttemptsSampled: 4, mirrorSuccessRate: 0.25 }),
+      NOW,
+    )
+    expect(v.warnings).toEqual([])
+  })
+
+  it("carries the mirror signals through onto the verdict for the admin tile", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ mirrorRunsSampled: 9, mirrorAttemptsSampled: 900, mirrorSuccessRate: 0.97, mirrorFailures: { http_403: 27 } }),
+      NOW,
+    )
+    expect(v.mirrorRunsSampled).toBe(9)
+    expect(v.mirrorAttemptsSampled).toBe(900)
+    expect(v.mirrorSuccessRate).toBeCloseTo(0.97, 5)
+    expect(v.mirrorFailures).toEqual({ http_403: 27 })
   })
 })

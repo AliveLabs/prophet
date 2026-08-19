@@ -19,6 +19,11 @@ import {
 import type { IndustryType } from "@/lib/verticals"
 import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
+// Self-sufficient, same convention as components/first-run/*: pull the stylesheet the tiles need
+// rather than depending on whichever surface mounts them. ALT-658 mounts this inside onboarding,
+// which has no reason to know about the settings page. The .tk-set-* namespace is collision-safe
+// by design (see the file header) and duplicate @imports dedupe.
+import "../settings-pass.css"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
 
@@ -40,9 +45,14 @@ function tierFeatures(tier: PaidTier): string[] {
 export function UpgradeTilesPass({
   industry,
   showFeatures = true,
+  context = "settings",
 }: {
   industry: IndustryType
   showFeatures?: boolean
+  /** ALT-658: "onboarding" makes Stripe return into the onboarding flow — forward to
+   *  /onboarding/checkout-complete on purchase, back to /onboarding/trial on cancel. The
+   *  checkout route already branches on this; the tiles just had no way to say so. */
+  context?: "settings" | "onboarding"
 }) {
   const [cadence, setCadence] = useState<Cadence>("monthly")
   const [loading, setLoading] = useState<string | null>(null)
@@ -57,7 +67,7 @@ export function UpgradeTilesPass({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier, cadence }),
+        body: JSON.stringify({ tier, cadence, context }),
       })
       const payload = await res.json().catch(() => null)
       const outcome = classifyBillingResponse(res.ok, payload)
