@@ -84,15 +84,35 @@ export function useRunElapsed(runStartedAt: string | null): number {
   return Math.max(0, now - (Number.isFinite(startMs) ? startMs : mountedAt))
 }
 
-/** Row state derived from the job status, plus the word shown beside it. */
+/**
+ * Row state derived from the job status, plus the word shown beside it.
+ *
+ * ALT-656: these rows report a JOB STATUS, not a data outcome, and the word has to say so.
+ * "Ready" was wrong: it promises the operator a deliverable is waiting, when all we know is that
+ * the step stopped. A step can finish having found nothing, and one did — Jersey Mike's social
+ * pipeline completed with zero own-social profiles on the location.
+ *
+ * "Done" claims only what we know. The FirstRunSignals block rendered above these rows is the
+ * surface that speaks to what actually LANDED, and it has an explicit `empty` state ("Nothing
+ * found") for exactly this case. So the panel is honest at both levels: signals say what we have,
+ * rows say what has run. Do not "improve" this back to Ready.
+ *
+ * Checked against prod for the two 2026-08 walkthroughs, because the worry was that Ready meant
+ * nothing at all. It mostly did mean something: search visibility (7 and 16 SEO snapshots), weather
+ * (2 and 3 rows), foot traffic (28 and 21 rows) and photos (10 own plus 24 competitor each) all had
+ * real data behind a done job. The word is still an overclaim, and the one counterexample proves it.
+ */
 function rowState(status: string | undefined, jobsKnown: boolean) {
-  if (status === "done") return { cls: "is-ready", word: "Ready" }
+  if (status === "done") return { cls: "is-ready", word: "Done" }
   if (status === "running") return { cls: "is-doing", word: "In progress" }
   if (status === "failed") return { cls: "is-failed", word: "Hit a snag" }
   // ALT-655: never render a whole list of "Queued" with nothing shown as working. Before the first
   // poll returns we genuinely do not know, so say "Starting" rather than implying a stalled queue.
   return { cls: "is-queued", word: jobsKnown ? "Queued" : "Starting" }
 }
+
+/** Exported for tests: this mapping is honesty-critical, so it is pinned rather than eyeballed. */
+export const __rowStateForTest = rowState
 
 export default function FirstRunProgress({
   jobs,
