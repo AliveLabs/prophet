@@ -176,3 +176,55 @@ describe("upsertMarketingContact — existing-row path", () => {
     expect(updates).toHaveLength(0)
   })
 })
+
+// ── ALT-679: business_name ────────────────────────────────────────────────────
+// The bug was not a wrong value, it was an ABSENT FIELD: marketing.contacts has had a
+// business_name column all along and v_trial_onboarding_due hands it to the drip templates,
+// but UpsertMarketingContactInput had no way to express it, so every contact in prod carries
+// NULL. A missing field writes nothing and reports no error, which is why nobody noticed until
+// a drip email rendered blank. These pin the mapping on both write paths.
+describe("upsertMarketingContact — business_name (ALT-679)", () => {
+  it("writes business_name on the insert path", async () => {
+    const { inserts } = arm({ existing: null })
+    const res = await upsertMarketingContact({
+      email: "op@restaurant.com",
+      industryType: "restaurant",
+      status: "access_granted",
+      businessName: "407 BBQ",
+      firstName: "Bryan",
+      lastName: "Castles",
+    })
+    expect(res.ok).toBe(true)
+    expect(inserts).toHaveLength(1)
+    expect(inserts[0]).toMatchObject({
+      business_name: "407 BBQ",
+      first_name: "Bryan",
+      last_name: "Castles",
+    })
+  })
+
+  it("writes business_name on the update path", async () => {
+    const { updates } = arm({ existing: { id: "c1", status: "trial" } })
+    const res = await upsertMarketingContact({
+      email: "op@restaurant.com",
+      businessName: "407 BBQ",
+    })
+    expect(res.ok).toBe(true)
+    expect(updates).toHaveLength(1)
+    expect(updates[0].values).toMatchObject({ business_name: "407 BBQ" })
+  })
+
+  it("omits business_name entirely when not supplied, rather than nulling an existing value", async () => {
+    // A caller that does not know the business must not erase one another path already wrote.
+    const { updates } = arm({ existing: { id: "c1", status: "trial" } })
+    await upsertMarketingContact({ email: "op@restaurant.com", firstName: "Bryan" })
+    expect(updates).toHaveLength(1)
+    expect(Object.keys(updates[0].values)).not.toContain("business_name")
+  })
+
+  it("can clear business_name deliberately with an explicit null", async () => {
+    const { updates } = arm({ existing: { id: "c1", status: "trial" } })
+    await upsertMarketingContact({ email: "op@restaurant.com", businessName: null })
+    expect(updates[0].values).toMatchObject({ business_name: null })
+  })
+})

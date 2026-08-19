@@ -57,6 +57,11 @@ export interface UpsertMarketingContactInput {
   posthogDistinctId?: string | null
   firstName?: string | null
   lastName?: string | null
+  /** ALT-679: the operator's business, mirrored to `business_name`. The column has always
+   *  existed and `v_trial_onboarding_due` hands it to Chris's drip templates, but there was no
+   *  field here, so it could NEVER be written: every contact in prod has it NULL. For a
+   *  restaurant drip this is the single most useful personalisation field we have. */
+  businessName?: string | null
 }
 
 export interface UpsertMarketingContactResult {
@@ -144,6 +149,7 @@ export async function upsertMarketingContact(
     payload.posthog_distinct_id = input.posthogDistinctId
   if (input.firstName !== undefined) payload.first_name = input.firstName
   if (input.lastName !== undefined) payload.last_name = input.lastName
+  if (input.businessName !== undefined) payload.business_name = input.businessName
 
   try {
     const marketingSchema = getMarketingSchema()

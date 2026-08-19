@@ -1275,7 +1275,9 @@ export async function completeOnboardingAction(input: {
   // silently repoint the admin's /home (ALT-300).
   const { data: existingProfile } = await admin
     .from("profiles")
-    .select("current_organization_id")
+    // full_name comes along for the marketing mirror below (ALT-679); the profile upsert that
+    // follows never touches it, so this value is still current when we read it.
+    .select("current_organization_id, full_name")
     .eq("id", user.id)
     .maybeSingle()
   const claimCurrentOrg = shouldClaimCurrentOrg(
@@ -1412,7 +1414,18 @@ export async function completeOnboardingAction(input: {
     // row, so a wizard re-submit after trial start is harmless. Awaited (not
     // fire-and-forget) so the write isn't cut off when the action returns;
     // it never throws, and it no-ops unless MARKETING_CONTACTS_ENABLED=true.
-    const fullName: string | null = user.user_metadata?.full_name ?? null
+    // ALT-679: prefer auth metadata, fall back to the profile row.
+    //
+    // Checked against prod 2026-08-19, and the ticket's premise was wrong in a useful way: for
+    // bryancastles@gmail.com BOTH user_metadata.full_name and profiles.full_name are NULL, while
+    // chrishershberger@gmail.com has the metadata name (it arrives with OAuth) and a NULL profile.
+    // So the mirroring worked; there was simply no name to mirror. Email/password signup never
+    // asks for one, and profiles.full_name is only ever written by the settings path
+    // (app/actions/user-management.ts). The fallback below therefore fixes the case where someone
+    // later sets their name, but it cannot invent one — collecting a name at signup is a product
+    // decision and is written up on the ticket.
+    const fullName: string | null =
+      user.user_metadata?.full_name ?? existingProfile?.full_name ?? null
     const [firstName, ...restName] = (fullName ?? "").trim().split(/\s+/)
     await mirrorLifecycleToMarketing({
       organizationId: input.orgId,

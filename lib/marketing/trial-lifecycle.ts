@@ -51,7 +51,7 @@ export async function mirrorLifecycleToMarketing(
     const admin = createAdminSupabaseClient()
     const { data: org, error: orgError } = await admin
       .from("organizations")
-      .select("industry_type, org_kind")
+      .select("name, industry_type, org_kind")
       .eq("id", input.organizationId)
       .maybeSingle()
     if (orgError || !org) {
@@ -83,6 +83,9 @@ export async function mirrorLifecycleToMarketing(
       source: marketingSourceForIndustry(org.industry_type),
       ...(input.firstName !== undefined ? { firstName: input.firstName } : {}),
       ...(input.lastName !== undefined ? { lastName: input.lastName } : {}),
+      // ALT-679: derived here rather than asked of every caller. This function already has to
+      // load the org, so the business name is free, and a caller cannot forget to pass it.
+      ...(org.name ? { businessName: org.name } : {}),
     })
     if (!result.ok) {
       console.error(
