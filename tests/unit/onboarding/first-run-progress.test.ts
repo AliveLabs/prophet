@@ -10,6 +10,7 @@ import {
   PIPELINE_ORDER,
   PIPELINE_LABELS,
   formatElapsed,
+  __rowStateForTest,
 } from "@/components/first-run/first-run-progress"
 
 describe("ALT-654: the first-run pipeline list has ONE source", () => {
@@ -63,5 +64,37 @@ describe("ALT-660: the elapsed clock", () => {
   it("never renders a negative clock", () => {
     // a server runStartedAt slightly ahead of the client clock must not print "-0:01"
     expect(formatElapsed(-5_000)).toBe("0:00")
+  })
+})
+
+// ALT-656: these rows report a JOB STATUS, not a data outcome. Bryan's concern was that "Ready"
+// on search visibility, weather, foot traffic and photos would turn out to mean nothing.
+//
+// Checked against prod for both 2026-08 walkthroughs: it mostly meant something. Search visibility
+// had 7 and 16 SEO snapshots, weather 2 and 3 rows, foot traffic 28 and 21 rows, photos 10 own plus
+// 24 competitor each. But Jersey Mike's social pipeline finished with ZERO own-social profiles, so a
+// done job genuinely can mean "we looked and found nothing" — which is why the word had to change.
+describe("ALT-656: the row word claims only what the job status knows", () => {
+  it("a finished job says Done, never Ready", () => {
+    const s = __rowStateForTest("done", true)
+    expect(s.word).toBe("Done")
+    // "Ready" promises the operator a deliverable is waiting. Only the signals block can say that.
+    expect(s.word).not.toBe("Ready")
+  })
+
+  it("running and failed stay plainly worded", () => {
+    expect(__rowStateForTest("running", true).word).toBe("In progress")
+    expect(__rowStateForTest("failed", true).word).toBe("Hit a snag")
+  })
+
+  it("ALT-655: before the first poll returns it says Starting, not Queued", () => {
+    // A full list of "Queued" with nothing shown working reads as a stalled queue, which is what
+    // Bryan saw. We genuinely do not know yet at that point, so do not imply we are idle.
+    expect(__rowStateForTest(undefined, false).word).toBe("Starting")
+    expect(__rowStateForTest(undefined, true).word).toBe("Queued")
+  })
+
+  it("an unrecognised status degrades to queued rather than claiming completion", () => {
+    expect(__rowStateForTest("something_new", true).word).toBe("Queued")
   })
 })
