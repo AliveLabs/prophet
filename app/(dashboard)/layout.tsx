@@ -160,6 +160,29 @@ async function OperatorShell({ children }: { children: ReactNode }) {
     )
   }
 
+  // ALT-652: an operator who reaches Billing and closes the tab has an org with a location, a
+  // first run already enqueued, payment_state null AND trial_ends_at null. isTrialActive() is false
+  // for that, so `gated` is true and the block below would show a REACTIVATION panel to an account
+  // that was never activated: "your access has ended" to someone whose access never started.
+  //
+  // Nobody is in that state in prod today (verified: zero orgs with a location, null payment_state
+  // and null trial_ends_at). It stays unlikely only because the old flow put the Build screen
+  // between Focus and Billing, so people arrived at billing already engaged. Moving Billing to be
+  // the last gate before /home makes this the obvious abandon point, so guard it before shipping
+  // the reorder rather than after someone hits it.
+  //
+  // They are fully recoverable: /onboarding/trial renders normally for them (its own guard only
+  // bounces people whose trial IS active), so send them back to finish the step they abandoned.
+  if (
+    gated &&
+    orgRow &&
+    orgRow.payment_state == null &&
+    orgRow.trial_ends_at == null &&
+    orgRow.subscription_tier !== "suspended"
+  ) {
+    redirect("/onboarding/trial")
+  }
+
   if (gated && orgRow) {
     const locIds =
       (
