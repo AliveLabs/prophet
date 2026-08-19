@@ -186,7 +186,10 @@ export default async function TrialPage({
               <ul className="ob-trialfacts">
                 <li>
                   <IconCheck />
-                  <span><strong>$0 today.</strong> Nothing is charged until your trial ends, and only if you added a card.</span>
+                  {/* ALT-659: was "$0 today. Nothing is charged until your trial ends, and only if
+                      you added a card." Bryan: the substance is right, the delivery was over-
+                      explained and unpolished. Same promise, said once. */}
+                  <span><strong>$0 today.</strong> A card is only charged when the trial ends, and only if you added one.</span>
                 </li>
                 <li>
                   <IconCheck />
@@ -194,7 +197,7 @@ export default async function TrialPage({
                 </li>
                 <li>
                   <IconCheck />
-                  <span><strong>We&apos;ll remind you</strong> by email on day 10 and day 13 — no surprise charges.</span>
+                  <span><strong>We&apos;ll remind you</strong> by email on day 10 and day 13, so nothing arrives as a surprise.</span>
                 </li>
                 <li>
                   <IconCheck />
