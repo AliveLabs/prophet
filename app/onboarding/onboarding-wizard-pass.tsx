@@ -25,9 +25,6 @@ import {
 } from "./actions"
 import { getVerticalConfig } from "@/lib/verticals"
 import type { VerticalConfig } from "@/lib/verticals"
-import FirstRunSignals from "@/components/first-run/first-run-signals"
-import FirstRunProgress from "@/components/first-run/first-run-progress"
-import type { FirstRunSignal } from "@/lib/onboarding/first-run-signals"
 import { TIER_LIMITS } from "@/lib/billing/tiers"
 
 const TOTAL = 5
@@ -134,7 +131,16 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   },
 ]
 
-const STEP_NAMES = ["Find", "Confirm", "Competitors", "Focus", "Build"] as const
+// ALT-652: the labelled STAGES, in Bryan's own words: "Set location > Competitors > Focus Areas >
+// Billing/Trial > Home (building)". Four stages, five screens: finding the place and confirming its
+// details are two screens but one thing the operator is doing, so they share a stage. Home is not a
+// stage because it is not part of setup, it is where setup lands.
+const STEP_STAGES = ["Set location", "Competitors", "Focus areas", "Billing"] as const
+
+/** Screen index -> stage index. Screen 4 is the handoff, already on its way to Billing. */
+const SCREEN_STAGE = [0, 0, 1, 2, 3] as const
+
+const stageOf = (screen: number): number => SCREEN_STAGE[screen] ?? SCREEN_STAGE.length - 1
 
 function prettyCategory(category: string | null | undefined): string {
   if (!category) return ""
@@ -187,9 +193,6 @@ function whyLine(c: OnboardingCandidate): string {
 // so this screen and /home cannot drift apart. Note the labels also changed there: "Search
 // visibility" is now "Local search", per Bryan.
 
-/** Bound on first-run fast-path invocations from one mounted Build step. See FirstRunPanel. */
-const MAX_KICKS = 8
-
 /* ── tiny inline icon set (no external deps; AA-safe via currentColor) ── */
 const IconArrow = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -222,9 +225,25 @@ const IconBrandT = () => (
   </svg>
 )
 
-// Step 4 — runs completion once, then shows real signal_jobs statuses.
-// (Logic preserved verbatim from the original wizard; presentation only.)
-function ProcessingStep({
+// ALT-652 — the HANDOFF step. Not a screen the operator dwells on.
+//
+// This used to be the "Build" step: it ran completion, then polled and displayed the whole
+// first-run progress panel, and only afterwards offered a Continue button to /onboarding/trial.
+// That put billing BEHIND the build screen, and the build screen tells people "you can close this
+// tab and we'll email you". Anyone who took us up on that skipped billing entirely. Bryan, 100%:
+// move the trial in front of the building.
+//
+// So the order is now Set location -> Competitors -> Focus areas -> Billing -> Home (building),
+// and there is exactly ONE building screen: /home's first-run panel, which since ALT-660 renders
+// the same shared FirstRunProgress component this step used to duplicate.
+//
+// What still happens here, because it must happen before billing can render:
+//   - completeOnboardingAction writes the setup AND sets profiles.current_organization_id, which
+//     /onboarding/trial requires (it redirects to /onboarding without one). So we wait for it.
+//   - one first-run kick, so the pull is genuinely underway while the operator is entering a card.
+//     "Building in the background" is Bryan's phrase and this is the part that makes it true.
+// What deliberately does NOT happen here any more: polling, and showing any status.
+function HandoffStep({
   orgId,
   locationId,
   competitorIds,
@@ -238,18 +257,13 @@ function ProcessingStep({
   setupMode: boolean
 }) {
   const router = useRouter()
-  const [jobs, setJobs] = useState<Array<{ pipeline: string; status: string }> | null>(null)
-  const [signals, setSignals] = useState<FirstRunSignal[]>([])
-  // ALT-660: the run's real start, from the server, so the clock does not reset when the operator
-  // continues to /home. Replaces the mount-time clock this screen used to keep.
-  const [runStartedAt, setRunStartedAt] = useState<string | null>(null)
-  const [completionDone, setCompletionDone] = useState(false)
-  const [completionError, setCompletionError] = useState<string | null>(null)
-  const [timedOut, setTimedOut] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const startedRef = useRef(false)
 
-  const runCompletion = useCallback(async () => {
-    setCompletionError(null)
+  // No setError(null) at the top: this runs from an effect, and a synchronous setState there
+  // triggers cascading renders (react-hooks/set-state-in-effect). There is nothing to clear on the
+  // first attempt anyway, and the retry button clears it before calling in again.
+  const run = useCallback(async () => {
     try {
       const result = await completeOnboardingAction({
         orgId,
@@ -257,152 +271,68 @@ function ProcessingStep({
         competitorIds,
         monitoringPrefs,
       })
-      if (!result.ok) setCompletionError(result.error)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      // Fire-and-forget: start the drain now rather than waiting for the */5 cron, so the pull is
+      // already moving while billing is on screen. Not awaited, and failure is not fatal — the cron
+      // covers it, and /home re-kicks on arrival.
+      void fetch("/api/onboarding/first-run", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ location_id: locationId }),
+      }).catch(() => {})
+
+      // Setup mode (an admin completing a demo org) has no billing to collect.
+      // replace(), not push(): the handoff must not be a back-button destination, because
+      // completion has already run and re-entering it would re-submit setup.
+      router.replace(setupMode ? "/home" : "/onboarding/trial")
     } catch {
-      setCompletionError("Something went wrong finishing setup. Try again.")
-    } finally {
-      setCompletionDone(true)
+      setError("Something went wrong finishing setup. Try again.")
     }
-  }, [orgId, locationId, competitorIds, monitoringPrefs])
+  }, [orgId, locationId, competitorIds, monitoringPrefs, setupMode, router])
 
   useEffect(() => {
     if (startedRef.current) return
     startedRef.current = true
-    void runCompletion()
-  }, [runCompletion])
-
-  // Beta rescue 3.1 — KICK THE FIRST-RUN FAST PATH once setup has been written. Without this the
-  // queue is drained by a */5 cron whose claim order is fleet-wide and created_at-based, so a new
-  // signup starts behind every job the daily cron enqueued that morning: the first session shows
-  // nothing happening for a long time. The route is first-run only, membership-checked, and claims
-  // atomically, so calling it from here is safe and idempotent.
-  useEffect(() => {
-    if (!completionDone || completionError) return
-    let cancelled = false
-    async function kick() {
-      for (let i = 0; i < MAX_KICKS && !cancelled; i++) {
-        try {
-          const res = await fetch("/api/onboarding/first-run", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ location_id: locationId }),
-          })
-          const data = await res.json()
-          if (cancelled || !data?.ok || data.moreWork !== true) return
-        } catch {
-          return // the cron worker still drains this location; don't retry-storm
-        }
-      }
-    }
-    void kick()
-    return () => {
-      cancelled = true
-    }
-  }, [completionDone, completionError, locationId])
-
-  // Poll the authed progress route every ~4s for real job statuses. Stops
-  // after 2h: an abandoned tab must not poll forever (a 16h zombie tab was
-  // observed in the wild, 2026-06-12) — the email path covers them by then.
-  useEffect(() => {
-    let cancelled = false
-    const pollUntil = Date.now() + 2 * 60 * 60 * 1000
-    // eslint-disable-next-line prefer-const -- timer is referenced in poll() before assignment; const would cause a TDZ/use-before-define error
-    let timer: ReturnType<typeof setInterval> | undefined
-    async function poll() {
-      if (Date.now() > pollUntil) {
-        if (timer) clearInterval(timer)
-        return
-      }
-      try {
-        const res = await fetch(
-          `/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`
-        )
-        const data = await res.json()
-        if (cancelled || !data.ok || !Array.isArray(data.jobs)) return
-        setJobs(data.jobs)
-        if (Array.isArray(data.signals)) setSignals(data.signals as FirstRunSignal[])
-        if (typeof data.runStartedAt === "string") setRunStartedAt(data.runStartedAt)
-      } catch {
-        // transient — next tick retries
-      }
-    }
-    void poll()
-    timer = setInterval(poll, 4000)
-    return () => {
-      cancelled = true
-      if (timer) clearInterval(timer)
-    }
-  }, [locationId])
-
-  // Don't hold people hostage: after ~90s they can enter even if jobs run on.
-  useEffect(() => {
-    const timer = setTimeout(() => setTimedOut(true), 90_000)
-    return () => clearTimeout(timer)
-  }, [])
-
-  const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
-  const insightsDone = statusByPipeline.get("insights") === "done"
-  const canEnter = completionDone && !completionError && (insightsDone || timedOut)
+    // Awaited inside an async IIFE rather than a bare `void run()`. run() only ever setStates
+    // AFTER an await, and writing it this way is what lets react-hooks/set-state-in-effect see
+    // that, instead of reading the call as a synchronous setState in an effect body.
+    void (async () => {
+      await run()
+    })()
+  }, [run])
 
   return (
     <>
       <span className="ob-panel-eyebrow">{setupMode ? "Demo setup" : "Almost there"}</span>
-      <h2 className="ob-panel-title">We&apos;re building your first brief.</h2>
-      {/* No wall-clock promise for the full brief. The old copy quoted 30 to 60 minutes for a busy
-          market, which is not a thing to say to someone who just signed up, and the queue could
-          not hold the number either way. What we CAN stand behind is the order things arrive in. */}
-      <p className="ob-panel-lede">
-        What we find shows up here as it lands. Your first insight comes first, then the rest of
-        your market fills in behind it.
-      </p>
-
-      {completionError ? (
+      <h2 className="ob-panel-title">Getting your account ready.</h2>
+      {error ? (
         <>
-          <div className="ob-alert"><IconAlert />{completionError}</div>
+          <div className="ob-alert"><IconAlert />{error}</div>
           <div className="ob-nav">
-            <button className="ob-btn ob-btn--act" onClick={() => { setCompletionDone(false); void runCompletion() }}>
+            <button
+              className="ob-btn ob-btn--act"
+              onClick={() => {
+                setError(null)
+                startedRef.current = false
+                void run()
+              }}
+            >
               Try again
             </button>
           </div>
         </>
       ) : (
         <>
-          {/* Progressive value. These land one at a time, and each one is real: the competitor set
-              is already chosen so it renders immediately, the rest arrive as their pulls finish. */}
-          {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
-
-          {/* ALT-654: the first insight does NOT render on this screen in any state. Bryan,
-              2026-08-18: it is out of context, the first insight is not necessarily a strong one,
-              "and it IS the first impression that we don't get back". Removing it also takes most
-              of the long scroll out of this panel (ALT-653). */}
-
-          {/* ALT-654 / ALT-660: rows, clock, busy glyph and the "still working" line all come from
-              the SHARED panel, so this screen and /home cannot drift apart again. The glyph and the
-              clock sit at the TOP of it, which is the reordering Bryan asked for. */}
-          <FirstRunProgress jobs={jobs} runStartedAt={runStartedAt} />
-
-          {canEnter ? (
-            <>
-              <div className="ob-nav">
-                {/* Signup: the trial (and recurring pulls) start at checkout —
-                    /onboarding/trial collects the card before the dashboard.
-                    Setup (admin/demo): no billing — drop straight into the org's
-                    dashboard (context already switched by completeOnboardingAction). */}
-                <button
-                  className="ob-btn ob-btn--act"
-                  onClick={() => router.push(setupMode ? "/home" : "/onboarding/trial")}
-                >
-                  {setupMode ? "Open demo dashboard" : "Continue"}
-                  <IconArrow />
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="ob-hint">
-              The essentials usually land in a few minutes. Hang tight, or close this
-              tab and watch for our email.
-            </p>
-          )}
+          <p className="ob-panel-lede">
+            We&apos;re saving your setup and starting the first pull. This takes a moment.
+          </p>
+          {/* No progress rows and no elapsed clock here on purpose: the operator has not reached
+              the building screen yet, and showing a status they cannot act on would just be a
+              second building screen with billing hidden behind it. */}
+          <div className="ob-sweep" />
         </>
       )}
     </>
@@ -1066,7 +996,9 @@ export default function OnboardingWizardPass({
           <span className="ob-wordmark">Ticket</span>
         </span>
         <span className="ob-steplabel">
-          {step < TOTAL - 1 ? `Step ${step + 1} of ${TOTAL - 1}` : "All set"}
+          {step < TOTAL - 1
+            ? `Step ${stageOf(step) + 1} of ${STEP_STAGES.length}`
+            : "All set"}
         </span>
       </header>
 
@@ -1084,11 +1016,12 @@ export default function OnboardingWizardPass({
               <p className="ob-sub">{rail.sub}</p>
             </div>
             <ol className="ob-stepper" aria-label="Setup progress">
-              {STEP_NAMES.map((name, i) => {
-                const state = i < step ? "is-done" : i === step ? "is-current" : ""
+              {STEP_STAGES.map((name, i) => {
+                const current = stageOf(step)
+                const state = i < current ? "is-done" : i === current ? "is-current" : ""
                 return (
-                  <li key={name} className={state} aria-current={i === step ? "step" : undefined}>
-                    <span className="ob-step-dot">{i < step ? <IconCheck /> : i + 1}</span>
+                  <li key={name} className={state} aria-current={i === current ? "step" : undefined}>
+                    <span className="ob-step-dot">{i < current ? <IconCheck /> : i + 1}</span>
                     <span className="ob-step-name">{name}</span>
                   </li>
                 )
@@ -1114,9 +1047,10 @@ export default function OnboardingWizardPass({
               <h1 className="ob-h">{rail.head}</h1>
               <p className="ob-sub">{rail.sub}</p>
               <div className="ob-progress" aria-hidden="true">
-                {Array.from({ length: TOTAL }).map((_, i) => (
-                  <i key={i} className={i < step ? "done" : i === step ? "current" : ""} />
-                ))}
+                {STEP_STAGES.map((name, i) => {
+                  const current = stageOf(step)
+                  return <i key={name} className={i < current ? "done" : i === current ? "current" : ""} />
+                })}
               </div>
             </div>
 
@@ -1493,7 +1427,7 @@ export default function OnboardingWizardPass({
             ) : null}
 
             {step === 4 && orgId && locationId ? (
-              <ProcessingStep
+              <HandoffStep
                 orgId={orgId}
                 locationId={locationId}
                 competitorIds={Array.from(selectedIds)}
