@@ -92,6 +92,9 @@ export function ensureCanAddLocation(
     payment_state?: string | null
     org_kind?: string | null
     deleted_at?: string | null
+    // ALT-687 — passed through to resolveLocationAllowance. Optional, so a caller whose select
+    // omits it keeps the pre-change behaviour of "included only".
+    locations_purchased?: number | null
   },
   currentCount: number
 ): void {
@@ -116,6 +119,9 @@ export function canAddLocationHere(
     payment_state?: string | null
     org_kind?: string | null
     deleted_at?: string | null
+    // ALT-687 — passed through to resolveLocationAllowance. Optional, so a caller whose select
+    // omits it keeps the pre-change behaviour of "included only".
+    locations_purchased?: number | null
   },
   currentCount: number
 ): boolean {

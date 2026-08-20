@@ -8,7 +8,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import {
-  PAID_TIERS,
+  SELF_SERVE_TIERS,
   TIER_LIMITS,
   TIER_PRICING,
   getTierDisplayName,
@@ -108,7 +108,7 @@ export function PlanChangeTilesPass({
       {error && <span className="tk-set-status tk-set-status-err">{error}</span>}
 
       <div className="tk-set-tiers">
-        {PAID_TIERS.map((tier) => {
+        {SELF_SERVE_TIERS.map((tier) => {
           const t = tier as PaidTier
           const pricing = TIER_PRICING[t]
           const displayName = getTierDisplayName(t, industry)
@@ -151,7 +151,7 @@ export function PlanChangeTilesPass({
                       ? cadence === "annual"
                         ? "Switch to annual →"
                         : "Switch to monthly →"
-                      : PAID_TIERS.indexOf(t) > PAID_TIERS.indexOf(currentTier)
+                      : SELF_SERVE_TIERS.indexOf(t) > SELF_SERVE_TIERS.indexOf(currentTier)
                         ? "Upgrade →"
                         : "Downgrade →"}
               </span>

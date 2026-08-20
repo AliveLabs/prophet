@@ -9,7 +9,7 @@
 
 import { useState } from "react"
 import {
-  PAID_TIERS,
+  SELF_SERVE_TIERS,
   TIER_LIMITS,
   TIER_PRICING,
   getTierDisplayName,
@@ -117,7 +117,7 @@ export function UpgradeTilesPass({
       )}
 
       <div className="tk-set-tiers">
-        {PAID_TIERS.map((tier) => {
+        {SELF_SERVE_TIERS.map((tier) => {
           const t = tier as PaidTier
           const pricing = TIER_PRICING[t]
           const displayName = getTierDisplayName(t, industry)

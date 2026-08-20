@@ -149,6 +149,12 @@ export function estimateTierCost(
      *  average; pass `OBSERVED_USD_PER_BRIEF.p95` for the worst-case account. Pass `null` to see
      *  the raw modelled number (only useful for comparing against the old projection). */
     usdPerBrief?: number | null
+    /** ALT-687 — how many locations to cost. Defaults to the tier's INCLUDED count, which is 1 on
+     *  every tier now. Pass a higher number to cost an account that has purchased more, which is
+     *  the question the per-location price sheet actually raises ("what does a 4-location Standard
+     *  account cost to serve?"). Note the PRICE stays the single-unit price, so compare
+     *  perLocationUsd rather than variableMarginPct when you override this. */
+    locations?: number
   } = {},
 ): TierCostEstimate {
   const limits = TIER_LIMITS[tier]
@@ -170,7 +176,7 @@ export function estimateTierCost(
     monthlyPriceUsd: priceUsd,
   })
 
-  const locations = Math.max(limits.includedLocations, 0)
+  const locations = Math.max(opts.locations ?? limits.includedLocations, 0)
 
   // Replace the modelled Claude line with the measured one (see OBSERVED_USD_PER_BRIEF). Done here
   // rather than by editing cost-model's UNIT_PRICES because that file's contract is "verified

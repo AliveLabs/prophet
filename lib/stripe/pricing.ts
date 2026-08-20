@@ -24,24 +24,41 @@ export type PriceInfo = {
 // `quantity` is the number bought. These are separate price IDs, resolved the same env-var way.
 export type AddOnKind = "location" | "competitor"
 
+// An additional LOCATION is priced per plan, because "additional locations run on the same plan as
+// the first" has to mean the same price: a flat rate against Starter's $99 base would let a
+// customer save money by splitting into two accounts. A competitor is flat, and far below either
+// base, so it carries no tier. `SELF_SERVE_ADDON_TIERS` is what exists in Stripe; Multi-Location is
+// contract-only and quoted, so it has no add-on price ID.
+export const SELF_SERVE_ADDON_TIERS = ["entry", "mid"] as const
+export type AddOnTier = (typeof SELF_SERVE_ADDON_TIERS)[number]
+
 export type AddOnPriceInfo = {
   industry: IndustryType
   kind: AddOnKind
+  /** Present for `location`, absent for the flat `competitor` add-on. */
+  tier?: AddOnTier
   cadence: Cadence
   priceId: string
 }
 
-function addOnEnvKey(industry: IndustryType, kind: AddOnKind, cadence: Cadence): string {
+function addOnEnvKey(
+  industry: IndustryType,
+  kind: AddOnKind,
+  cadence: Cadence,
+  tier?: AddOnTier
+): string {
   const brand = industry === "restaurant" ? "TICKET" : "NEAT"
-  return `STRIPE_PRICE_ID_${brand}_ADDON_${kind.toUpperCase()}_${cadence.toUpperCase()}`
+  const tierPart = tier ? `_${tier.toUpperCase()}` : ""
+  return `STRIPE_PRICE_ID_${brand}_ADDON_${kind.toUpperCase()}${tierPart}_${cadence.toUpperCase()}`
 }
 
 export function resolveAddOnPriceId(
   industry: IndustryType,
   kind: AddOnKind,
-  cadence: Cadence
+  cadence: Cadence,
+  tier?: AddOnTier
 ): string | null {
-  return process.env[addOnEnvKey(industry, kind, cadence)] ?? null
+  return process.env[addOnEnvKey(industry, kind, cadence, tier)] ?? null
 }
 
 /** Reverse lookup for a webhook payload. Returns null for the base price and for anything we do
@@ -50,13 +67,16 @@ export function resolveAddOnPriceId(
 export function resolveAddOnPriceInfo(priceId: string | null | undefined): AddOnPriceInfo | null {
   if (!priceId) return null
   const industries: IndustryType[] = ["restaurant", "liquor_store"]
-  const kinds: AddOnKind[] = ["location", "competitor"]
   const cadences: Cadence[] = ["monthly", "annual"]
   for (const industry of industries) {
-    for (const kind of kinds) {
-      for (const cadence of cadences) {
-        if (process.env[addOnEnvKey(industry, kind, cadence)] === priceId) {
-          return { industry, kind, cadence, priceId }
+    for (const cadence of cadences) {
+      // Flat competitor add-on: no tier in the key.
+      if (process.env[addOnEnvKey(industry, "competitor", cadence)] === priceId) {
+        return { industry, kind: "competitor", cadence, priceId }
+      }
+      for (const tier of SELF_SERVE_ADDON_TIERS) {
+        if (process.env[addOnEnvKey(industry, "location", cadence, tier)] === priceId) {
+          return { industry, kind: "location", tier, cadence, priceId }
         }
       }
     }

@@ -51,22 +51,35 @@ describe("estimateTierCost — inputs come from enforced limits", () => {
     expect(estimateTierCost("top").inputs.briefCadence).toBe("daily")
   })
 
-  it("multiplies the whole cost by locations, because every pull is per location", () => {
-    const top = estimateTierCost("top")
-    expect(top.inputs.locations).toBe(3)
-    expect(top.totalVariableUsd).toBeCloseTo(top.perLocationUsd * 3, 1)
-    expect(top.notes.some((n) => n.includes("PER LOCATION"))).toBe(true)
+  it("multiplies by locations when a tier includes more than one", () => {
+    // No tier bundles locations any more (ALT-687: they are purchased), so this exercises the
+    // multiplier directly rather than through `top`, which used to include 3.
+    const one = estimateTierCost("mid")
+    const three = estimateTierCost("mid", { locations: 3 })
+    expect(three.inputs.locations).toBe(3)
+    expect(three.totalVariableUsd).toBeCloseTo(one.perLocationUsd * 3, 1)
+    expect(three.notes.some((n) => n.includes("PER LOCATION"))).toBe(true)
   })
 
-  it("does not multiply a single-location tier", () => {
-    const mid = estimateTierCost("mid")
-    expect(mid.totalVariableUsd).toBe(mid.perLocationUsd)
-    expect(mid.notes.some((n) => n.includes("PER LOCATION"))).toBe(false)
+  it("every tier now includes exactly one location", () => {
+    for (const tier of ["entry", "mid", "top"] as const) {
+      expect(estimateTierCost(tier).inputs.locations).toBe(1)
+      expect(estimateTierCost(tier).notes.some((n) => n.includes("PER LOCATION"))).toBe(false)
+    }
   })
 })
 
 describe("estimateTierCost — the verdict on each price point", () => {
-  it("entry and mid clear on variable cost", () => {
+  // ⚠️ REWRITTEN 2026-08-20 with the new sheet. The block this replaces pinned the ANALYSIS of a
+  // price point that no longer exists: "$499 top is underwater at 3 bundled locations". That
+  // finding was correct and it is why the $499 tier was deleted, but a test that asserts a deleted
+  // price is underwater is asserting history, not behaviour. The reasoning lives in
+  // docs/PRICING-2026-08-19.md and in [[ticket-tier-cost-to-serve-gap]].
+  //
+  // What survives here is the part that is still an invariant: the model must use the MEASURED
+  // $/brief, and every self-serve price must clear on variable cost.
+
+  it("every SELF-SERVE tier clears on variable cost", () => {
     for (const tier of ["entry", "mid"] as const) {
       const e = estimateTierCost(tier)
       expect(e.verdict).toBe("healthy")
@@ -74,56 +87,50 @@ describe("estimateTierCost — the verdict on each price point", () => {
     }
   })
 
-  it("top is UNDERWATER at $499: this is the finding the ticket exists for", () => {
-    // ~$258 of variable cost against a $499 price, at 3 locations x 10 competitors with daily
-    // briefs. Positive, but under half the price left BEFORE any fixed cost, support or CAC.
+  it("Multi-Location is priced PER LOCATION, so one unit is one location", () => {
+    // This is what the old bundle model hid. `top` used to include 3 locations against a single
+    // $499 price, so the model compared three locations' cost to one location's price. Under
+    // per-location pricing every tier includes exactly one and the rest are purchased.
     const top = estimateTierCost("top")
-    expect(top.verdict).toBe("underwater")
-    expect(top.totalVariableUsd).toBeGreaterThan(240)
-    expect(top.totalVariableUsd).toBeLessThan(280)
-    expect(top.variableMarginPct).toBeLessThan(VARIABLE_MARGIN_BANDS.underwater * 100)
+    expect(top.inputs.locations).toBe(1)
+    expect(top.totalVariableUsd).toBeCloseTo(top.perLocationUsd, 5)
   })
 
-  it("names the driver: Claude is the majority of the top tier's cost", () => {
-    // 30 briefs x 3 locations x $1.77. Not the search volume everyone assumed.
+  it("the per-location contract rate covers a per-location cost", () => {
+    // The floor that matters for a Multi-Location quote. $165/location on daily is the hard floor
+    // in §5 of the pricing doc; the list rate has to sit comfortably above the cost of serving one.
+    const top = estimateTierCost("top")
+    expect(top.priceUsd).toBeGreaterThan(top.totalVariableUsd)
+    expect(top.variableMarginPct).toBeGreaterThan(0)
+  })
+
+  it("names the driver: Claude is the majority of a daily location's cost", () => {
+    // 30 briefs x 1 location x $1.77. Not the search volume everyone assumed.
     const top = estimateTierCost("top")
     expect(top.bySourceUsd.claude).toBeGreaterThan(top.totalVariableUsd * 0.5)
-    expect(top.bySourceUsd.claude).toBeCloseTo(OBSERVED_USD_PER_BRIEF.avg * 30 * 3, 0)
+    expect(top.bySourceUsd.claude).toBeCloseTo(OBSERVED_USD_PER_BRIEF.avg * 30 * 1, 0)
   })
 
-  it("the measured $/brief is what flips top, not the modelled one", () => {
-    // Guards against anyone quietly reverting to cost-model's ~$0.24/brief, which understates
-    // Anthropic ~7x and makes $499 look comfortable.
+  it("the model uses the MEASURED $/brief, not the modelled one", () => {
+    // The one assertion from the old block that is still load-bearing. cost-model.ts prices a
+    // brief at ~$0.24; the Anthropic console says $1.77. Anyone reverting to the modelled figure
+    // makes every tier look comfortable by about 7x on the largest line.
     const observed = estimateTierCost("top")
     const modelled = estimateTierCost("top", { usdPerBrief: null })
-    expect(modelled.verdict).toBe("healthy")
-    expect(observed.verdict).toBe("underwater")
     expect(observed.totalVariableUsd).toBeGreaterThan(modelled.totalVariableUsd * 2)
+    expect(observed.variableMarginPct).toBeLessThan(modelled.variableMarginPct)
   })
 
-  it("the p95 account is worse still", () => {
+  it("the p95 account is worse than the average one", () => {
     const p95 = estimateTierCost("top", { usdPerBrief: OBSERVED_USD_PER_BRIEF.p95 })
-    expect(p95.verdict).toBe("underwater")
-    expect(p95.variableMarginPct).toBeLessThan(
-      estimateTierCost("top").variableMarginPct,
+    expect(p95.variableMarginPct).toBeLessThan(estimateTierCost("top").variableMarginPct)
+  })
+
+  it("a daily location costs more to serve than a weekly one, which is the price gap", () => {
+    // The entire Starter-versus-Standard difference. If this ever inverts, the sheet is wrong.
+    expect(estimateTierCost("mid").perLocationUsd).toBeGreaterThan(
+      estimateTierCost("entry").perLocationUsd,
     )
-  })
-
-  it("top sells locations for HALF what mid does while costing more each to serve", () => {
-    // The cleanest statement of the pricing problem: mid is $299 for one location, top is $499 for
-    // three, i.e. ~$166 each — yet a top location costs MORE to serve than a mid one (more
-    // competitors, more keywords, denser SEO cadence).
-    const mid = estimateTierCost("mid")
-    const top = estimateTierCost("top")
-    const topPerLocationPrice = top.priceUsd / top.inputs.locations
-    expect(topPerLocationPrice).toBeLessThan(mid.priceUsd * 0.6)
-    expect(top.perLocationUsd).toBeGreaterThan(mid.perLocationUsd)
-  })
-
-  it("costs rise monotonically with the tier", () => {
-    const [entry, mid, top] = (["entry", "mid", "top"] as const).map((t) => estimateTierCost(t))
-    expect(mid.totalVariableUsd).toBeGreaterThan(entry.totalVariableUsd)
-    expect(top.totalVariableUsd).toBeGreaterThan(mid.totalVariableUsd)
   })
 
   it("prices annual off the effective monthly, so the discount is not hidden", () => {
@@ -138,35 +145,33 @@ describe("estimateTierCost — the verdict on each price point", () => {
 })
 
 describe("tierLoadMultiple — does the price keep up with the load?", () => {
-  it("top costs 1.67x mid in price but ~24x in search volume", () => {
-    // THIS is the answer to the ticket's central question, and it is not the ~28x an earlier pass
-    // guessed from seoLabsCadence — it lands near it by coincidence, via 4x keywords x 3 locations
-    // x 2x cadence rather than via a daily pull.
-    const m = tierLoadMultiple("top", "mid")
-    expect(m.price).toBeCloseTo(1.67, 2)
-    expect(m.seoVolume).toBeGreaterThan(20)
-    expect(m.seoVolume).toBeLessThan(30)
-    expect(m.entities).toBeCloseTo(5.5, 1)
-    expect(m.briefs).toBeCloseTo(3, 1)
-    // The load outruns the price on every axis. That is the finding.
-    expect(m.seoVolume).toBeGreaterThan(m.price)
-    expect(m.entities).toBeGreaterThan(m.price)
+  // ⚠️ REWRITTEN 2026-08-20. The old block compared BUNDLES: "top costs 1.67x mid in price but 24x
+  // in search volume" was the sharpest statement of why $499-for-three-locations was mispriced,
+  // and it is why that tier was deleted. With locations purchased separately, a tier-to-tier price
+  // ratio no longer describes anything a customer buys, so those assertions were measuring a
+  // structure that no longer exists. The finding is preserved in docs/PRICING-2026-08-19.md.
+  //
+  // What is still worth pinning: at the Starter-to-Standard step, the load must not outrun the
+  // price. That is the one boundary a self-serve customer actually crosses.
+
+  it("Starter to Standard: the price step covers the load step", () => {
+    const m = tierLoadMultiple("mid", "entry")
+    // $119 -> $299.
+    expect(m.price).toBeCloseTo(299 / 119, 2)
+    // Competitors 3 -> 5, so entities 4 -> 6.
+    expect(m.entities).toBeCloseTo(1.5, 1)
+    expect(m.entities).toBeLessThan(m.price)
+    // Briefs are the real step change: weekly to daily is 7x, and it is the only axis that
+    // outruns the price. That is deliberate and it is what the $180 gap is buying.
+    expect(m.briefs).toBeGreaterThan(6)
     expect(m.briefs).toBeGreaterThan(m.price)
   })
 
-  it("top vs entry clears 79x search volume for 3.35x the price", () => {
-    const m = tierLoadMultiple("top", "entry")
-    expect(m.price).toBeCloseTo(3.35, 2)
-    expect(m.seoVolume).toBeGreaterThan(75)
-  })
-
-  it("mid is the only step where the price nearly keeps pace on entities", () => {
+  it("cadence, not competitors, is the expensive half of that step", () => {
+    // The design principle behind the sheet: 3 -> 10 competitors costs $16.88, weekly -> daily
+    // costs $37.93. If this ever inverts, the tier boundary is drawn in the wrong place.
     const m = tierLoadMultiple("mid", "entry")
-    expect(m.price).toBeCloseTo(2.01, 2)
-    expect(m.entities).toBeCloseTo(1.5, 1)
-    expect(m.entities).toBeLessThan(m.price)
-    // Briefs jump 7x though — weekly digest to daily is the real step change at this boundary.
-    expect(m.briefs).toBeGreaterThan(6)
+    expect(m.briefs).toBeGreaterThan(m.entities)
   })
 })
 
@@ -192,17 +197,24 @@ describe("fixedFloorPerSubscriberUsd — the number that actually decides this",
     expect(entry.totalVariableUsd + floorAt25).toBeLessThan(entry.priceUsd)
   })
 
-  it("top never reaches a healthy margin, even once fixed cost is spread thin", () => {
-    // The distinction that decides the recommendation: entry and mid are fixed-floor problems that
-    // scale away, top is a variable-cost problem that does not.
-    const top = estimateTierCost("top")
-    const floorAt50 = fixedFloorPerSubscriberUsd(1118, 50) as number
-    const loaded = top.totalVariableUsd + floorAt50
-    expect(loaded).toBeLessThan(top.priceUsd)
-    expect((top.priceUsd - loaded) / top.priceUsd).toBeLessThan(0.5)
-
+  it("the floor is a subscriber-count problem, and it scales away", () => {
+    // Replaces "top never reaches a healthy margin", which asserted a deleted $499 bundle. The
+    // durable point is the one that shaped the pricing: at low subscriber counts the FIXED floor
+    // dominates, and it thins out as subscribers arrive. That is why $99 costs velocity rather
+    // than profit (§4 of the pricing doc).
     const entry = estimateTierCost("entry")
-    const entryLoaded = entry.totalVariableUsd + floorAt50
-    expect((entry.priceUsd - entryLoaded) / entry.priceUsd).toBeGreaterThan(0.7)
+    const floorAt10 = fixedFloorPerSubscriberUsd(875, 10) as number
+    const floorAt100 = fixedFloorPerSubscriberUsd(875, 100) as number
+    expect(floorAt10).toBeGreaterThan(floorAt100)
+
+    const marginAt = (floor: number) =>
+      (entry.priceUsd - entry.totalVariableUsd - floor) / entry.priceUsd
+    // Measured, not assumed: Starter still clears at 10 subscribers, but on ~16% instead of ~84%.
+    // The floor does not sink it, it just eats almost all of the margin until subscribers arrive.
+    expect(marginAt(floorAt10)).toBeGreaterThan(0)
+    expect(marginAt(floorAt10)).toBeLessThan(0.25)
+    expect(marginAt(floorAt100)).toBeGreaterThan(0.7)
+    // 12 customers cover the whole floor (§4 of the pricing doc).
+    expect(entry.priceUsd * 12).toBeGreaterThan(875)
   })
 })
