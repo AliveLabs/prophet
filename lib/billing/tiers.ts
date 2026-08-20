@@ -178,21 +178,27 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   },
 }
 
-// Per-brand tier display names. Drives the billing page, upgrade buttons,
-// trial gate, emails, and any admin copy that shows a customer what they bought.
+// ALT-657 — the customer-facing plan names. Drives the billing page, upgrade buttons, the trial
+// gate, the trial-reminder emails, the held-account panel and the onboarding trial screen. This is
+// the one that reaches customers; it was still "Table / Shift / House" and "Well / Call / Top
+// Shelf" after the Stripe products had already been renamed, so the invoice said one thing and the
+// app said another.
+//
+// Deliberately IDENTICAL across brands, and referenced from ONE object so they cannot drift
+// apart by someone updating a single side. Table/Shift/House and Well/Call/Top Shelf were jargon
+// that told a buyer nothing about what they were getting. If a brand ever genuinely needs its own
+// names, split this then, with a reason.
+const PLAIN_TIER_NAMES: Record<SubscriptionTier, string> = {
+  entry: "Starter",
+  mid: "Standard",
+  top: "Multi-Location",
+  // Not "Suspended": that is our word for our state. The operator experiences a pause.
+  suspended: "Paused",
+}
+
 const DISPLAY_NAMES: Record<IndustryType, Record<SubscriptionTier, string>> = {
-  restaurant: {
-    entry: "Table",
-    mid: "Shift",
-    top: "House",
-    suspended: "Suspended",
-  },
-  liquor_store: {
-    entry: "Well",
-    mid: "Call",
-    top: "Top Shelf",
-    suspended: "Suspended",
-  },
+  restaurant: PLAIN_TIER_NAMES,
+  liquor_store: PLAIN_TIER_NAMES,
 }
 
 export function getTierDisplayName(
@@ -280,26 +286,27 @@ export function addOnLocationPrice(tier: SubscriptionTier) {
   return ADD_ON_PRICING.location[t]
 }
 
-// ── Display names ───────────────────────────────────────────────────────────────────────────
-// ONE source. There were two copies of a `tierLabel` that rendered "Tier 1 / Tier 2 / Tier 3" to
-// customers, in app/(dashboard)/operator-data.ts and app/preview/preview-data.ts. "Tier 2" is
-// internal shorthand that tells an operator nothing about what they bought, and it breaks the
-// customer-facing voice rule. Legacy DB values are mapped so an old row still renders.
-const TIER_DISPLAY_NAMES: Record<string, string> = {
-  entry: "Starter",
-  mid: "Standard",
-  top: "Multi-Location",
-  suspended: "Paused",
-  // Legacy subscription_tier values still present on old rows.
-  tier_1: "Starter",
-  tier_2: "Standard",
-  tier_3: "Multi-Location",
-  free: "Trial",
+// ── Display names, brand-agnostic ───────────────────────────────────────────────────────────
+// For callers that have a tier string and NO industry to hand: `tierLabel` in
+// app/(dashboard)/operator-data.ts and app/preview/preview-data.ts, which used to be two separate
+// copies of a map rendering "Tier 1 / Tier 2 / Tier 3" at customers.
+//
+// Reads PLAIN_TIER_NAMES rather than holding its own copy. Also maps the legacy
+// subscription_tier values still present on old rows, which getTierDisplayName cannot because its
+// key type is SubscriptionTier.
+const LEGACY_TIER_ALIASES: Record<string, SubscriptionTier> = {
+  tier_1: "entry",
+  tier_2: "mid",
+  tier_3: "top",
+  free: "mid", // legacy free rows are trials, and a trial is of the mid plan
 }
 
 /** What to call a plan in front of a customer. Never render a raw tier key. */
 export function tierDisplayName(tier: string): string {
-  return TIER_DISPLAY_NAMES[tier] ?? "Starter"
+  const canonical = (PLAIN_TIER_NAMES as Record<string, string>)[tier]
+  if (canonical) return canonical
+  const aliased = LEGACY_TIER_ALIASES[tier]
+  return aliased ? PLAIN_TIER_NAMES[aliased] : PLAIN_TIER_NAMES.entry
 }
 
 // Resolve which OWN-account networks a tier actually collects for a location.

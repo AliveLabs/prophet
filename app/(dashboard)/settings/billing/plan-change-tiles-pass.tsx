@@ -49,7 +49,9 @@ export function PlanChangeTilesPass({
   currentCadence: Cadence | null
 }) {
   const router = useRouter()
-  const [cadence, setCadence] = useState<Cadence>(currentCadence ?? "monthly")
+  // Keeps the customer's CURRENT cadence. Unlike the sell surfaces this is a change screen, and
+  // pre-selecting a switch nobody asked for is a different thing from showing the better offer.
+  const [cadence, setCadence] = useState<Cadence>(currentCadence ?? "annual")
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -102,7 +104,7 @@ export function PlanChangeTilesPass({
             Annual
           </button>
         </div>
-        {cadence === "annual" && <span className="tk-set-save-note">Save 20%</span>}
+        {cadence === "annual" && <span className="tk-set-save-note">Two months free</span>}
       </div>
 
       {error && <span className="tk-set-status tk-set-status-err">{error}</span>}

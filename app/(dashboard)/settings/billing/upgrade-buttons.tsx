@@ -45,7 +45,10 @@ function tierFeatures(tier: PaidTier): string[] {
 // /api/stripe/checkout which resolves the Stripe price ID server-side using
 // org.industry_type.
 export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButtonsProps) {
-  const [cadence, setCadence] = useState<Cadence>("monthly")
+  // ALT-699 — defaults to ANNUAL. It is the price we want people on, it is the cheaper option
+  // for them, and the whole discount story (two months free) is invisible if the screen opens on
+  // monthly. Not a dark pattern: the cheaper choice is pre-selected and the other is one tap away.
+  const [cadence, setCadence] = useState<Cadence>("annual")
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -167,7 +170,7 @@ function CadenceToggle({
           Annual
         </button>
       </div>
-      {cadence === "annual" && <span className="pv-save-note">Save 20%</span>}
+      {cadence === "annual" && <span className="pv-save-note">Two months free</span>}
     </div>
   )
 }
