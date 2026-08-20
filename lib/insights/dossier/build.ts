@@ -31,6 +31,7 @@ import { analyzeReviews, reviewInsightsFromSentiment, type RawReview } from "@/l
 import { capturedFromSnapshot, upsertLocationReviews } from "@/lib/reviews/store"
 import { generateOwnTrafficInsights } from "@/lib/insights/own-traffic-insights"
 import { corroboratePriceInsights } from "@/lib/content/insights"
+import { loadLocationMenu, loadCompetitorMenu } from "@/lib/content/menu-history"
 import { aggregateVisualMetrics } from "@/lib/social/visual-analysis"
 import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
 import { classifyNow, isUsable, THRESHOLDS, type SignalKind } from "@/lib/freshness/contract"
@@ -59,10 +60,6 @@ function ageDays(dateKey: string | null | undefined, today: string): number {
 
 function isoDaysBefore(dateKey: string, days: number): string {
   return new Date(Date.parse(`${dateKey}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10)
-}
-
-async function latestSnapshotRaw(sb: SB, locationId: string, provider: string): Promise<Record<string, unknown> | null> {
-  return (await latestSnapshotMeta(sb, locationId, provider)).raw
 }
 
 /** Latest snapshot for a provider WITH its date, so coverage can report freshness. */
@@ -453,13 +450,18 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   }
 
   // ── own location signals ──
-  const ownMenuMeta = await latestSnapshotMeta(sb, locationId, "firecrawl_menu")
-  const ownMenuRaw = ownMenuMeta.raw
+  // ALT-363 — the UNION of the recent captures, not the single latest raw scrape. This read used
+  // to be `latestSnapshotMeta(sb, locationId, "firecrawl_menu")`, its own fourth copy of that
+  // query, while the three pipelines all unioned. So on a day the scrape returned 3 items, every
+  // producer skill got a 3-item menu as ground truth for a menu we knew ran to 110. Freshness
+  // still comes from the newest RAW capture: unioning is not a claim that we looked again.
+  const ownMenuRead = await loadLocationMenu(sb, locationId)
+  const ownMenuMeta = { raw: ownMenuRead.menu as Record<string, unknown> | null, dateKey: ownMenuRead.dateKey }
   const location: EntitySignals = {
     entityId: loc.id as string,
     kind: "location",
     name: (loc.name as string) ?? "Your location",
-    menu: (ownMenuRaw as MenuSnapshot | null) ?? null,
+    menu: ownMenuRead.menu,
   }
 
   // ── FUNDED DATA: own Places details (rating + reviews), own foot traffic, review sentiment ──
@@ -610,10 +612,14 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   const competitors: EntitySignals[] = await Promise.all(
     approved.map(async (c) => {
       const compId = c.id as string
-      const [listing, menu] = await Promise.all([
+      // ALT-363 — competitor menus go through the union too. Every instability figure that
+      // motivated this was measured on COMPETITOR captures (3 to 110 items across 20 reads of
+      // the same menu), so this path matters at least as much as the own-menu one.
+      const [listing, menuRead] = await Promise.all([
         latestCompetitorSnapshot(sb, compId),
-        latestCompetitorSnapshot(sb, compId, "web_menu_weekly"),
+        loadCompetitorMenu(sb, compId),
       ])
+      const menu = menuRead.menu
       // T4: reviews — fail-soft null when no review_themes row exists for this competitor yet.
       const themes = competitorThemesByCompId.get(compId)
       const reviews: ReviewSentiment | null = themes ? { themes, source: "google_places", windowDays: RETENTION_DAYS } : null
