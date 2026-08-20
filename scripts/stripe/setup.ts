@@ -13,7 +13,7 @@
  *   If found, we UPDATE; if not, we CREATE. Safe to run repeatedly.
  *
  * Usage:
- *   STRIPE_SECRET_KEY=sk_test_... \
+ *   STRIPE_SECRET_KEY=sk_... \
  *   APP_URL=https://app.getticket.ai \
  *   npx tsx scripts/stripe/setup.ts
  *
@@ -436,6 +436,16 @@ async function main() {
 
   assertAddOnsBelowBase()
 
+  // --prices-only limits the run to products and prices, skipping the portal config and the
+  // webhook endpoint. That exists so the whole job can be done with a RESTRICTED key holding just
+  // two write scopes (Products, Prices) instead of a full secret key. The portal config and the
+  // webhook already exist in the live account, so on a price change there is nothing for them to
+  // do beyond re-listing the new price IDs, which is a separate, later step.
+  const pricesOnly = process.argv.includes("--prices-only")
+  if (pricesOnly) {
+    console.log("Mode: --prices-only (skipping portal config and webhook)\n")
+  }
+
   console.log("Step 1: Products")
   const products = new Map<string, Stripe.Product>()
   for (const spec of PRODUCT_SPECS) {
@@ -470,23 +480,34 @@ async function main() {
     }
   }
 
-  console.log("\nStep 4: Portal configurations")
-  const ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
-  const neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
+  let ticketPortal: { id: string } | null = null
+  let neatPortal: { id: string } | null = null
+  if (pricesOnly) {
+    console.log("\nSteps 4-5: SKIPPED (--prices-only)")
+  } else {
+    console.log("\nStep 4: Portal configurations")
+    ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
+    neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
 
-  console.log("\nStep 5: Webhook endpoint")
-  await upsertWebhook(stripe, appUrl)
+    console.log("\nStep 5: Webhook endpoint")
+    await upsertWebhook(stripe, appUrl)
+  }
 
   console.log("\n\n== .env snippet ==\n")
   console.log("# Stripe prices (Ticket)")
   envLines.filter((l) => l.includes("_TICKET_")).forEach((l) => console.log(l))
   console.log("\n# Stripe prices (Neat)")
   envLines.filter((l) => l.includes("_NEAT_")).forEach((l) => console.log(l))
-  console.log("\n# Stripe Customer Portal configurations")
-  console.log(`STRIPE_PORTAL_CONFIG_TICKET=${ticketPortal.id}`)
-  console.log(`STRIPE_PORTAL_CONFIG_NEAT=${neatPortal.id}`)
-  console.log("\n# Copy STRIPE_WEBHOOK_SECRET from above if the webhook was newly created.")
-  console.log("# (Stripe only returns signing secrets at creation time.)")
+  if (ticketPortal && neatPortal) {
+    console.log("\n# Stripe Customer Portal configurations")
+    console.log(`STRIPE_PORTAL_CONFIG_TICKET=${ticketPortal.id}`)
+    console.log(`STRIPE_PORTAL_CONFIG_NEAT=${neatPortal.id}`)
+    console.log("\n# Copy STRIPE_WEBHOOK_SECRET from above if the webhook was newly created.")
+    console.log("# (Stripe only returns signing secrets at creation time.)")
+  } else {
+    console.log("\n# Portal config and webhook untouched (--prices-only).")
+    console.log("# The new price IDs still need adding to the portal's allowed products later.")
+  }
   console.log("\n== Done ==\n")
 }
 
