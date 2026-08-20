@@ -27,7 +27,14 @@ function haversineMeters(input: {
   return Math.round(earthRadiusMeters * c)
 }
 import { scoreCompetitor } from "@/lib/providers/scoring"
-import { ensureCompetitorLimit, computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
+import {
+  ensureCompetitorLimit,
+  readSwapHistory,
+  computeSwapAllowance,
+  stampSwapOut,
+  swapLockedMessage,
+} from "@/lib/billing/limits"
+import { isTrialing } from "@/lib/billing/trial"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
@@ -244,27 +251,25 @@ export async function ignoreCompetitorAction(formData: FormData) {
     redirect("/competitors?error=Only%20admins%20can%20ignore%20competitors")
   }
 
-  // ALT-195 — one competitor swap per 30 days. A swap begins with a removal, so we
-  // gate the remove step: if another competitor at this location was removed inside
-  // the cooldown window, this removal is locked. Bypass-proof (the UI also disables
-  // the remove button + shows the rule). Derived from existing timestamps — no migration.
-  const { data: priorRemovals } = await supabase
+  // ALT-195 — the competitor swap rule (two swaps in a trial, then one per 7 days). A swap
+  // begins with a removal, so we gate the remove step: if this location has spent its
+  // allowance, this removal is locked. Bypass-proof (the UI also disables the remove button
+  // and shows the rule). No migration: the record is an append-only array in metadata.
+  //
+  // Reads EVERY row, not just inactive ones — a removed-then-re-added competitor is active
+  // again but still carries its swap history, and filtering it out would hand a rotating
+  // operator unlimited swaps.
+  const { data: priorRows } = await supabase
     .from("competitors")
-    .select("updated_at, metadata")
+    .select("updated_at, is_active, metadata")
     .eq("location_id", competitor.location_id)
-    .eq("is_active", false)
-  let lastRemovalAt: string | null = null
-  for (const r of priorRemovals ?? []) {
-    if ((r.metadata as Record<string, unknown> | null)?.status !== "ignored") continue
-    const ts = r.updated_at as string | null
-    if (ts && (!lastRemovalAt || ts > lastRemovalAt)) lastRemovalAt = ts
-  }
-  // ALT-261: the cooldown only binds a real SWAP — a removal while the set is already at
-  // the plan cap. Below the cap, removing just frees a slot (not a swap), so it must not
-  // be blocked. Mirror the UI's atLimit guard + computeSwapCooldown's documented intent.
+  const history = readSwapHistory(priorRows)
+  // ALT-261: the rule only binds a real SWAP — a removal while the set is already at the
+  // plan cap. Below the cap, removing just frees a slot (not a swap), so it must not be
+  // blocked. Mirror the UI's atLimit guard + computeSwapAllowance's documented intent.
   const { data: org } = await supabase
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, trial_ends_at, payment_state")
     .eq("id", organizationId)
     .maybeSingle()
   const tier = asSubscriptionTier(org?.subscription_tier)
@@ -275,19 +280,16 @@ export async function ignoreCompetitorAction(formData: FormData) {
     .eq("is_active", true)
   const atCap = (activeCount ?? 0) >= TIER_LIMITS[tier].maxCompetitorsPerLocation
 
-  const cooldown = computeSwapCooldown(lastRemovalAt)
-  if (atCap && cooldown.locked) {
-    redirect(
-      `/competitors?error=${encodeURIComponent(
-        `You can swap a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. Locked for ${cooldown.daysRemaining} more day${cooldown.daysRemaining === 1 ? "" : "s"}.`
-      )}`
-    )
+  const allowance = computeSwapAllowance(history, { trialing: org ? isTrialing(org) : false })
+  if (atCap && allowance.locked) {
+    redirect(`/competitors?error=${encodeURIComponent(swapLockedMessage(allowance))}`)
   }
 
-  const metadata = {
-    ...(competitor?.metadata as Record<string, unknown> | null),
-    status: "ignored",
-  }
+  // Stamp the swap-out so the allowance survives a later re-add of this same competitor.
+  // Only stamped when this removal is an actual swap; freeing an unused slot is not one.
+  const metadata = atCap
+    ? stampSwapOut(competitor?.metadata, new Date().toISOString())
+    : { ...(competitor?.metadata as Record<string, unknown> | null), status: "ignored" }
 
   const { data: updated, error } = await supabase
     .from("competitors")

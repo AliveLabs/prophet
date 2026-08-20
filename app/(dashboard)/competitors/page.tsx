@@ -6,7 +6,11 @@
 
 import { loadOperatorContext, loadCompetitorComparison, loadCompetitorScorecard, loadCompetitorSwapState, tierLabel } from "../operator-data"
 import { TIER_LIMITS, asSubscriptionTier } from "@/lib/billing/tiers"
-import { computeSwapCooldown, COMPETITOR_SWAP_COOLDOWN_DAYS } from "@/lib/billing/limits"
+import {
+  computeSwapAllowance,
+  swapLockedMessage,
+  COMPETITOR_SWAP_COOLDOWN_DAYS,
+} from "@/lib/billing/limits"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { TkTooltipLayer } from "@/components/ticket"
 import CompetitorRoster from "./competitor-roster"
@@ -39,8 +43,8 @@ export default async function CompetitorsPage() {
     loadCompetitorSwapState(),
   ])
   const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
-  // ALT-195 — swap cooldown (1 / 30 days), derived from the last removal timestamp.
-  const swapCooldown = computeSwapCooldown(swapState.lastRemovalAt)
+  // ALT-195 — two changes during a trial, then one per COMPETITOR_SWAP_COOLDOWN_DAYS.
+  const swapCooldown = computeSwapAllowance(swapState.history, { trialing: swapState.trialing })
 
   // Pending discovery candidates → the add drawer's "Suggested for you" (best first,
   // never ignored rows). Empty is fine: the drawer scans on first open.
@@ -124,12 +128,19 @@ export default async function CompetitorsPage() {
                 <path d="M8 11V7a4 4 0 0 1 8 0v4" />
               </svg>
             </span>
-            Your set is locked for {swapCooldown.daysRemaining} more day
-            {swapCooldown.daysRemaining === 1 ? "" : "s"} — you can swap a competitor once every{" "}
-            {COMPETITOR_SWAP_COOLDOWN_DAYS} days.
+            {swapLockedMessage(swapCooldown)}
+          </>
+        ) : swapCooldown.trialSwapsRemaining != null ? (
+          <>
+            You have {swapCooldown.trialSwapsRemaining} competitor change
+            {swapCooldown.trialSwapsRemaining === 1 ? "" : "s"} left in your trial. Once you
+            subscribe, you can change one every {COMPETITOR_SWAP_COOLDOWN_DAYS} days.
           </>
         ) : (
-          <>You can swap a competitor once every {COMPETITOR_SWAP_COOLDOWN_DAYS} days. After you remove one, the set locks for {COMPETITOR_SWAP_COOLDOWN_DAYS} days.</>
+          <>
+            You can change a competitor once every {COMPETITOR_SWAP_COOLDOWN_DAYS} days. After you
+            remove one, your set locks for {COMPETITOR_SWAP_COOLDOWN_DAYS} days.
+          </>
         )}
       </p>
     </div>

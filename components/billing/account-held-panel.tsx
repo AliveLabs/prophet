@@ -3,6 +3,7 @@ import type { IndustryType } from "@/lib/verticals"
 import { UpgradeButtons } from "@/app/(dashboard)/settings/billing/upgrade-buttons"
 import { ManageBillingButton } from "@/app/(dashboard)/settings/billing/manage-billing-button"
 import StartTrialWithoutCardButton from "./start-trial-without-card-button"
+import { supportMailto } from "@/lib/support/contact"
 
 interface AccountHeldPanelProps {
   orgName: string
@@ -130,7 +131,7 @@ export function AccountHeldPanel({
       <div className="pv-section">
         <p className="pv-field__hint">
           Questions?{" "}
-          <a className="pv-link" href="mailto:support@alivelabs.co">
+          <a className="pv-link" href={supportMailto()}>
             Contact us
           </a>
         </p>

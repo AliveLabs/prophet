@@ -83,64 +83,190 @@ export function ensureCompetitorLimit(
 }
 
 // ---------------------------------------------------------------------------
-// Competitor swap cooldown (ALT-195)
+// Competitor swap cooldown (ALT-195, rule revised 2026-08-20)
 // ---------------------------------------------------------------------------
-// One swap (remove + add a competitor) per 30 days, location-wide (NOT per slot).
-// Derived from existing competitor timestamps — no new column / migration: the window
-// is anchored on the most recent REMOVAL (competitors.updated_at of a row whose
-// metadata.status flipped to "ignored"), i.e. the swap-OUT half of a swap. If that
-// moment is within 30 days, the next swap is locked until it clears.
+// A swap is a remove + add, gated location-wide (NOT per slot), and always anchored on
+// the REMOVAL: the swap-OUT half. No migration — the record lives in competitor metadata
+// (see readSwapHistory).
 //
 // ALT-261: anchor on a REMOVAL, never on adds. Onboarding auto-approves the initial
-// competitor set (adds, status "approved" — never "ignored"), so it must not start the
+// competitor set (adds, status "approved", never "ignored"), so adds must not start the
 // window: an operator who just accepted the auto-picks can still swap during their trial.
 // (Don't "reconcile" this by also reading competitors.created_at — that would start the
 // window at onboarding and re-introduce the exact bug ALT-261 fixed.)
 //
 // Adding to fill an EMPTY slot (still under the plan's competitor count) is not a swap
 // and isn't gated here — the caller only consults this when the set is full, so
-// removing-to-make-room then re-adding is what the cooldown governs.
+// removing-to-make-room then re-adding is what the rule governs.
 
-export const COMPETITOR_SWAP_COOLDOWN_DAYS = 30
+// TWO-PART RULE (Bryan, 2026-08-20), replacing the flat 1-per-30-days:
+//
+//   TRIAL  — TRIAL_COMPETITOR_SWAPS swaps total, with NO waiting period between them.
+//            Onboarding auto-approves a discovered set, so the operator needs to be able
+//            to correct a bad auto-pick immediately, not a month later.
+//   PAID   — one swap per COMPETITOR_SWAP_COOLDOWN_DAYS, measured from the last swap.
+//
+// At the trial→paid boundary the interval simply runs from the most recent swap, whenever
+// it happened. Converting does not hand out a fresh swap, and the trial allowance does not
+// carry over. One sentence to explain: "two changes while you're trialing, then one a week."
+//
+// WHY 7 DAYS AND NOT 30: the anti-arbitrage job here is stopping a 3-competitor plan from
+// being used to watch 5. The primary defence is the per-competitor add-on price, not the
+// lockout: rotating slots to dodge it saves the operator ~$30/mo in exchange for a weekly
+// manual chore and gappy, non-comparable data. 30 days was mostly taxing legitimate
+// correction. See the KNOWN GAP note on readSwapHistory before widening this further.
+export const COMPETITOR_SWAP_COOLDOWN_DAYS = 7
+export const TRIAL_COMPETITOR_SWAPS = 2
 const DAY_MS = 24 * 60 * 60 * 1000
 
-export type SwapCooldown = {
-  /** True when a swap happened within the cooldown window and another is blocked. */
+export type SwapAllowance = {
+  /** True when another swap is blocked right now. */
   locked: boolean
-  /** ISO timestamp the cooldown clears (locked only). */
+  /** ISO timestamp the interval clears. Null when unlocked OR when locked for a
+   *  reason a clock cannot clear (a spent trial allowance clears on conversion). */
   unlocksAt: string | null
-  /** Whole days remaining until it clears (locked only; min 1 so we never say "0 days"). */
+  /** Whole days until the interval clears (min 1 so we never say "0 days"). 0 when unlocked. */
   daysRemaining: number
+  /** Swaps left in the trial allowance; null when the org is not trialing. */
+  trialSwapsRemaining: number | null
+  reason: "unlocked" | "cooldown" | "trial_exhausted"
 }
 
-/** Pure: given the most recent swap moment (ISO) and "now", compute lock state.
- *  `lastSwapAt` null/empty ⇒ never swapped ⇒ unlocked. */
-export function computeSwapCooldown(
-  lastSwapAt: string | null | undefined,
+/** What the competitor rows for one location say about its swap history. */
+export type SwapHistory = {
+  /** Most recent swap-out moment (ISO), or null if there has never been one. */
+  lastSwapAt: string | null
+  /** Total swap-outs on record for the location. */
+  swapsUsed: number
+}
+
+type SwapHistoryRow = {
+  updated_at?: string | null
+  is_active?: boolean | null
+  metadata?: unknown
+}
+
+// Reduce a location's competitor rows to its swap history. Pure, so both the page read and
+// the server action share one definition instead of the two copies this replaces.
+//
+// The durable record is `metadata.swapHistory`, an append-only array of ISO timestamps
+// stamped on each removal. It lives on the competitor row because add-competitor preserves
+// unknown metadata keys when it re-approves an existing row, so the history survives a
+// remove → re-add cycle.
+//
+// LEGACY FALLBACK: rows predating the stamp have no array, so an inactive row whose status
+// is "ignored" contributes its updated_at as a single removal. That is the old, less exact
+// signal (any write to the row moves updated_at), kept only so the interval rule does not
+// regress to "never swapped" for existing orgs. Only consulted when the array is absent.
+//
+// KNOWN GAP, deliberately not closed here: removal is a soft delete (is_active=false) and
+// re-adding the same place restores the row WITH its accumulated snapshots. So rotating a
+// slot costs the operator continuity but loses no history, which leaves the watch-5-on-a-3
+// loop open in principle. Closing it properly means capping DISTINCT competitors observed
+// per rolling window, not lengthening the interval. Filed as a follow-up rather than guessed
+// at, because nothing in the data shows anyone doing it yet.
+export function readSwapHistory(rows: readonly SwapHistoryRow[] | null | undefined): SwapHistory {
+  const stamps: string[] = []
+  for (const row of rows ?? []) {
+    const metadata = (row.metadata ?? null) as Record<string, unknown> | null
+    const history = metadata?.swapHistory
+    const entries = Array.isArray(history) ? history.filter((v): v is string => typeof v === "string") : []
+    if (entries.length > 0) {
+      stamps.push(...entries)
+      continue
+    }
+    if (row.is_active === false && metadata?.status === "ignored" && typeof row.updated_at === "string") {
+      stamps.push(row.updated_at)
+    }
+  }
+  let lastSwapAt: string | null = null
+  for (const ts of stamps) if (!lastSwapAt || ts > lastSwapAt) lastSwapAt = ts
+  return { lastSwapAt, swapsUsed: stamps.length }
+}
+
+// Mirrors the generated `Json` type without importing database types into a pure billing
+// module. The competitor metadata column really is jsonb, so treating a read as JSON is a
+// statement of fact rather than a convenience cast.
+type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject
+type JsonObject = { [key: string]: JsonValue | undefined }
+
+/** Append one swap-out timestamp to a competitor row's metadata. Returns the metadata to
+ *  write, leaving every other key alone. */
+export function stampSwapOut(metadata: unknown, at: string, status: string = "ignored"): JsonObject {
+  const base = (metadata ?? null) as JsonObject | null
+  const prior = Array.isArray(base?.swapHistory)
+    ? (base.swapHistory as JsonValue[]).filter((v): v is string => typeof v === "string")
+    : []
+  return { ...base, status, swapHistory: [...prior, at] }
+}
+
+/** Pure: does this location get another swap right now?
+ *
+ *  A trialing org spends from a fixed allowance and never waits. A paid org waits out the
+ *  interval from its last swap. Callers must still apply the at-cap test: removing a
+ *  competitor while BELOW the plan limit frees a slot and is not a swap (ALT-261). */
+export function computeSwapAllowance(
+  history: SwapHistory,
+  opts: { trialing: boolean },
   now: Date = new Date()
-): SwapCooldown {
-  if (!lastSwapAt) return { locked: false, unlocksAt: null, daysRemaining: 0 }
-  const last = new Date(lastSwapAt).getTime()
-  if (Number.isNaN(last)) return { locked: false, unlocksAt: null, daysRemaining: 0 }
+): SwapAllowance {
+  if (opts.trialing) {
+    const remaining = Math.max(0, TRIAL_COMPETITOR_SWAPS - history.swapsUsed)
+    if (remaining > 0) {
+      return { locked: false, unlocksAt: null, daysRemaining: 0, trialSwapsRemaining: remaining, reason: "unlocked" }
+    }
+    // No clock can clear this one: the allowance refreshes when they subscribe.
+    return {
+      locked: true,
+      unlocksAt: null,
+      daysRemaining: 0,
+      trialSwapsRemaining: 0,
+      reason: "trial_exhausted",
+    }
+  }
+
+  const unlocked: SwapAllowance = {
+    locked: false,
+    unlocksAt: null,
+    daysRemaining: 0,
+    trialSwapsRemaining: null,
+    reason: "unlocked",
+  }
+  if (!history.lastSwapAt) return unlocked
+  const last = new Date(history.lastSwapAt).getTime()
+  if (Number.isNaN(last)) return unlocked
   const unlocks = last + COMPETITOR_SWAP_COOLDOWN_DAYS * DAY_MS
   const remainingMs = unlocks - now.getTime()
-  if (remainingMs <= 0) return { locked: false, unlocksAt: null, daysRemaining: 0 }
+  if (remainingMs <= 0) return unlocked
   return {
     locked: true,
     unlocksAt: new Date(unlocks).toISOString(),
     daysRemaining: Math.max(1, Math.ceil(remainingMs / DAY_MS)),
+    trialSwapsRemaining: null,
+    reason: "cooldown",
   }
 }
 
-/** Throwing guard for the add-competitor server action so a locked operator can't
- *  bypass the disabled UI by invoking the action directly. No-op when unlocked. */
-export function ensureSwapAllowed(cooldown: SwapCooldown): void {
-  if (cooldown.locked) {
-    throw new Error(
-      `You can swap a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. ` +
-        `Your set is locked for ${cooldown.daysRemaining} more day${cooldown.daysRemaining === 1 ? "" : "s"}.`
+/** The one place the rule is worded for an operator. Both the page copy and the blocked
+ *  action message come from here, so they cannot drift apart. */
+export function swapLockedMessage(allowance: SwapAllowance): string {
+  if (allowance.reason === "trial_exhausted") {
+    return (
+      `You've used both competitor changes in your trial. ` +
+      `Subscribe to keep changing your set, then it's one change a week.`
     )
   }
+  const days = allowance.daysRemaining
+  return (
+    `You can change a competitor once every ${COMPETITOR_SWAP_COOLDOWN_DAYS} days. ` +
+    `Your set is locked for ${days} more day${days === 1 ? "" : "s"}.`
+  )
+}
+
+/** Throwing guard for the server actions so a locked operator can't bypass the disabled
+ *  UI by invoking the action directly. No-op when unlocked. */
+export function ensureSwapAllowed(allowance: SwapAllowance): void {
+  if (allowance.locked) throw new Error(swapLockedMessage(allowance))
 }
 
 // ---------------------------------------------------------------------------

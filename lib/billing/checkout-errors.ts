@@ -13,6 +13,8 @@
 // the route, what does the operator get told? The islands own only the fetch and the
 // state.
 
+import { SUPPORT_EMAIL } from "@/lib/support/contact"
+
 /** A parsed billing-route response. `url` present = go there; otherwise show `error`. */
 export type BillingRouteOutcome =
   | { kind: "redirect"; url: string }
@@ -21,7 +23,7 @@ export type BillingRouteOutcome =
 /** Shown when the route failed but gave us nothing usable to display (HTML error page,
  *  empty body, network drop). Deliberately actionable rather than "something broke". */
 export const GENERIC_BILLING_ERROR =
-  "We could not reach billing just now. Try again, and if it keeps happening contact support@alivelabs.co."
+  `We could not reach billing just now. Try again, and if it keeps happening contact ${SUPPORT_EMAIL}.`
 
 /** Stripe/Supabase messages we never want to put in front of an operator verbatim.
  *  Anything matching falls back to the generic line. */

@@ -7,6 +7,8 @@ import { cacheTag, cacheLife } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { getAdminContext } from "@/lib/auth/platform-admin"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { readSwapHistory, type SwapHistory } from "@/lib/billing/limits"
+import { isTrialing } from "@/lib/billing/trial"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
 import { typeToCuisine } from "@/lib/places/format"
@@ -244,35 +246,37 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ALT-195 — competitor swap cooldown (1 swap / 30 days), derived from existing
-// competitor timestamps (no migration). A "swap" begins when the operator REMOVES
-// a competitor, so the clock is keyed off the most recent removal: a deactivated
-// (status: "ignored") competitor's updated_at. Adds are never blocked — the operator
-// can always re-fill the slot they just freed; only a SECOND removal inside the
-// window is the locked action. computeSwapCooldown turns that moment into lock state.
+// ALT-195 — competitor swap rule. Two parts as of 2026-08-20: a trialing org gets
+// TRIAL_COMPETITOR_SWAPS swaps with no waiting period, a paid org gets one per
+// COMPETITOR_SWAP_COOLDOWN_DAYS. A "swap" begins when the operator REMOVES a competitor,
+// so both halves key off removals; adds are never blocked, because the operator can always
+// re-fill the slot they just freed. readSwapHistory reduces the rows, computeSwapAllowance
+// turns that plus trial state into lock state.
 //
-// CAVEAT (flagged in the report): updated_at is touched by any write to the row, not
-// only the removal. In practice an ignored competitor isn't written again, so its
-// updated_at is the removal time; a dedicated removed_at column (a migration) would
-// make this exact. Good enough for the cooldown without a schema change.
+// Selects EVERY competitor row for the location, not just inactive ones: the swap record is
+// an append-only array in metadata, and a removed-then-re-added competitor is active again
+// while still carrying its history. Filtering on is_active would lose exactly the swaps a
+// rotating operator has performed.
 // ─────────────────────────────────────────────────────────────────────────────
-export async function loadCompetitorSwapState(): Promise<{ lastRemovalAt: string | null }> {
+export async function loadCompetitorSwapState(): Promise<{
+  history: SwapHistory
+  trialing: boolean
+}> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
-  const { data: rows } = await sb
-    .from("competitors")
-    .select("updated_at, metadata")
-    .eq("location_id", op.locationId)
-    .eq("is_active", false)
+  const [{ data: rows }, { data: org }] = await Promise.all([
+    sb.from("competitors").select("updated_at, is_active, metadata").eq("location_id", op.locationId),
+    sb
+      .from("organizations")
+      .select("subscription_tier, trial_ends_at, payment_state")
+      .eq("id", op.organizationId)
+      .maybeSingle(),
+  ])
 
-  let lastRemovalAt: string | null = null
-  for (const r of rows ?? []) {
-    const status = (r.metadata as Record<string, unknown> | null)?.status
-    if (status !== "ignored") continue
-    const ts = r.updated_at as string | null
-    if (ts && (!lastRemovalAt || ts > lastRemovalAt)) lastRemovalAt = ts
+  return {
+    history: readSwapHistory(rows),
+    trialing: org ? isTrialing(org) : false,
   }
-  return { lastRemovalAt }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

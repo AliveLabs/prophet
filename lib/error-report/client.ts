@@ -4,9 +4,11 @@
 // Fallback: a prefilled mailto: link, used when the POST fails or as a simpler always-available
 // alternative next to the button while the POST is in flight / unsupported (e.g. no JS fetch).
 
+import { SUPPORT_EMAIL } from "@/lib/support/contact"
+
 // Reuse the same ops distribution convention as the server-side default (lib/ops + the
 // vendor-health cron) so the mailto fallback lands in the same inboxes as the POST path.
-export const ERROR_REPORT_FALLBACK_EMAIL = "support@getticket.ai"
+export const ERROR_REPORT_FALLBACK_EMAIL = SUPPORT_EMAIL
 
 export interface ErrorReportPayload {
   digest?: string
