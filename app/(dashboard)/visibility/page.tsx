@@ -94,7 +94,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
   // not pay for them either. Fails open on any read error.
   const readiness = await loadSurfaceReadiness("visibility", selectedLocationId)
   if (readiness.state === "working") {
-    return <SurfaceNotReady readiness={readiness} title="Local search visibility" />
+    return <SurfaceNotReady readiness={readiness} title="Search visibility" />
   }
   const activeTab = resolvedParams?.tab ?? "organic"
   const error = resolvedParams?.error
@@ -363,10 +363,10 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
       <VisibilityTooltips />
 
       <div className="pv-page-head">
-        <span className="pv-kicker">Local visibility</span>
+        <span className="pv-kicker">Search visibility</span>
         <h1 className="pv-h1">Where you show up</h1>
         <p className="pv-sub">
-          How findable {locationDomain ? <b>{locationDomain}</b> : "your location"} is in local search —
+          How findable {locationDomain ? <b>{locationDomain}</b> : "your location"} is in search —
           the keywords you win, where rivals out-rank you, and which searches you&apos;re missing.
         </p>
       </div>
@@ -429,7 +429,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           (organicEmpty ? (
             <TkEmptyState
               title="No search data yet"
-              description="Hit “Refresh SEO” above and we'll read how your location ranks across local search — keywords, rivals, and the searches you're missing."
+              description="Hit “Refresh SEO” above and we'll read how your domain ranks in search — keywords, rivals, and the searches you're missing."
             />
           ) : (
             <>

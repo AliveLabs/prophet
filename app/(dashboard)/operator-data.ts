@@ -717,8 +717,12 @@ export async function loadCompetitorScorecard(
     )
   }
 
-  // ── Local search visibility — estimated monthly search traffic (ETV), matched
-  //    to watched competitors by website domain. ──
+  // ── Search visibility — estimated monthly search traffic (ETV), matched to watched
+  //    competitors by website domain.
+  //
+  //    NOT "local" (ALT-636): the snapshots read below come from clients that send
+  //    `location_code: 2840`, the entire United States, and no call site overrides it. The ETV and
+  //    ranks here are national. ──
   if (visData) {
     const rankData = (visData.snapshots["seo_domain_rank_overview"]?.raw_data ?? null) as DomainRankSnapshot | null
     const rankedKeywords = (((visData.snapshots["seo_ranked_keywords"]?.raw_data as Record<string, unknown>)?.keywords ??
