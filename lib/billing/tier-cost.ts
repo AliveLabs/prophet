@@ -18,21 +18,33 @@
 // `TierLimits` for readers outside tiers.ts and cost-model.ts:
 //
 //   ENFORCED, and used below:
-//     maxLocations, maxCompetitorsPerLocation, ownSocialNetworkLimit, briefingCadence,
+//     maxLocations, maxCompetitorsPerLocation, ownSocialNetworkLimit, runCadence,
 //     seoCadence (via isSeoDue in app/api/cron/daily), seoTrackedKeywords,
 //     seoRankedKeywordsLimit, seoIntersectionEnabled/Limit (all in lib/jobs/pipelines/visibility.ts)
 //
 //   DEAD FIELDS — zero readers anywhere. They must NOT be used to price anything:
-//     `seoLabsCadence`, `seoSerpCadence`  (superseded by `seoCadence`)
 //     `eventsKeywordSets`
 //     `ensureTrackedKeywordLimit()` also has no callers, so the tracked-keyword cap is not
 //     enforced at the point a keyword is added. Cost is still bounded, because visibility.ts
 //     slices to `getSeoTrackedKeywordsLimit` before pulling — the gap is a UX cap, not a spend leak.
 //
-// That audit matters because the dead pair is exactly what an earlier reading of this problem
-// priced from: `seoLabsCadence` says the top tier is "daily", which would make its search volume
+//   DELETED 2026-08-20 (ALT-683) — do not restore these to "match the pricing brief":
+//     `briefingCadence`  sat in the SOLD block and enforced nothing. `eventsCadence`, filed under
+//        "internal pipeline tuning (not sold)", was the field that actually gated the run. They are
+//        now one honestly-named `runCadence`, with a pure `isRunDueToday` predicate and a test
+//        tying it to the billing tiles that promise it (tests/unit/billing/run-cadence.test.ts).
+//     `seoLabsCadence`, `seoSerpCadence`  superseded by `seoCadence`, getters had zero callers.
+//     `contentRefreshCadence`  decorative: content refresh is gated by `isWeeklyFullBuildDay`,
+//        which is not tier-dependent at all, so the field implied a per-tier behaviour that did
+//        not exist.
+//
+// That audit matters because the dead SEO pair is exactly what an earlier reading of this problem
+// priced from: `seoLabsCadence` said the top tier was "daily", which would make its search volume
 // roughly 28x the mid tier. The ENFORCED field says `biweekly`. The real multiplier is derived
 // below and it is smaller, for a reason nobody would guess from reading TIER_LIMITS top to bottom.
+//
+// The rule this keeps re-teaching: a field that DESCRIBES the system without CONTROLLING it will
+// eventually be priced or gated from. Same family as the metric-must-not-share-predicate rule.
 //
 // ── Are the SEO limits per location or per organization? PER LOCATION ────────────────────────
 // The daily cron loops over locations, gates `seoDue` per location, and enqueues `visibility` per
@@ -110,9 +122,9 @@ export type TierCostEstimate = {
   notes: string[]
 }
 
-/** The brief cadence a tier's `briefingCadence` actually produces. */
+/** The brief cadence a tier's `runCadence` produces. Same field the cron gates on. */
 function briefCadenceFor(tier: PricedTier): CostCadence {
-  return TIER_LIMITS[tier].briefingCadence === "weekly_digest" ? "weekly" : "daily"
+  return TIER_LIMITS[tier].runCadence
 }
 
 function verdictFor(variableMarginPct: number): TierCostVerdict {

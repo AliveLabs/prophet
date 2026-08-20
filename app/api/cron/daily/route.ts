@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js"
 import { isWeeklyFullBuildDay, isSeoDue, shouldRunDailyForLocation } from "@/lib/jobs/build-schedule"
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
+import { isRunDueToday } from "@/lib/billing/limits"
 import { isTrialActive, isTrialing } from "@/lib/billing/trial"
 import { enqueueRun, DAILY_PIPELINES } from "@/lib/jobs/queue"
 
@@ -156,8 +157,23 @@ export async function GET(req: Request) {
     const inActiveTrial = orgTrial ? isTrialing(orgTrial) : false
     // An explicitly named single location skips the cadence gate: that request is a
     // deliberate human/ops action, not the nightly sweep deciding whose turn it is.
-    const isWeeklyOnly = limits.eventsCadence === "weekly" && !inActiveTrial && !singleLocationId
-    if (isWeeklyOnly && !isMonday) {
+    //
+    // ALT-683 — THIS GATE IS THE PRODUCT DIFFERENCE WE SELL. Skipping here skips the whole
+    // location: no pipelines, no brief. So `runCadence` is what makes a Starter location
+    // weekly and a Standard location daily, and that gap is the entire justification for the
+    // price difference ($23.27/location/month weekly vs $73.25 daily, measured).
+    //
+    // It used to read `limits.eventsCadence`, a field filed under "internal pipeline tuning
+    // (not sold)", while the field named `briefingCadence` in the sold block enforced nothing.
+    // Anyone tidying `eventsCadence` down to "only gate the events pipeline" would have
+    // silently flipped Starter to daily briefs at 3x cost, with no alert and no test to catch
+    // it. There is now one honestly-named field, one pure predicate (`isRunDueToday`, so the
+    // gate is testable rather than inlined here), and a test tying that predicate to the
+    // billing tiles that promise it. Do not reintroduce a second cadence field for this.
+    if (!isRunDueToday(limits.runCadence, dayOfWeek, {
+      inActiveTrial,
+      forced: !!singleLocationId,
+    })) {
       jobs.push({
         location_id: location.id,
         location_name: location.name,
