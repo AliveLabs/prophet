@@ -42,7 +42,7 @@ export default async function CompetitorsPage() {
     ),
     loadCompetitorSwapState(),
   ])
-  const competitorLimit = TIER_LIMITS[asSubscriptionTier(ctx.tier)].maxCompetitorsPerLocation
+  const competitorLimit = swapState.competitorAllowance.total
   // ALT-195 — two changes during a trial, then one per COMPETITOR_SWAP_COOLDOWN_DAYS.
   const swapCooldown = computeSwapAllowance(swapState.history, { trialing: swapState.trialing })
 

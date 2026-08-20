@@ -27,8 +27,8 @@ interface UpgradeButtonsProps {
 function tierFeatures(tier: PaidTier): string[] {
   const l = TIER_LIMITS[tier]
   const feats = [
-    `${l.maxLocations} ${l.maxLocations === 1 ? "location" : "locations"}`,
-    `${l.maxCompetitorsPerLocation} competitors per location`,
+    `${l.includedLocations} ${l.includedLocations === 1 ? "location" : "locations"}`,
+    `${l.includedCompetitorsPerLocation} competitors per location`,
     runCadenceLabel(tier),
     l.ownSocialNetworkLimit === 1
       ? "1 social network of your choice + competitors on all 3"

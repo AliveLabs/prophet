@@ -185,7 +185,7 @@ export default async function TrialPage({
                 </h1>
                 <p className="ob-sub">
                   Your trial runs on the full intelligence loop: a daily brief,
-                  up to {midLimits.maxCompetitorsPerLocation} competitors, and
+                  up to {midLimits.includedCompetitorsPerLocation} competitors, and
                   Instagram, Facebook, and TikTok coverage.
                 </p>
               </div>
@@ -208,7 +208,7 @@ export default async function TrialPage({
                 <h1 className="ob-h">Start your free trial of <em>{midName}.</em></h1>
                 <p className="ob-sub">
                   The full intelligence loop: a daily brief, up to{" "}
-                  {midLimits.maxCompetitorsPerLocation} competitors, and social coverage.
+                  {midLimits.includedCompetitorsPerLocation} competitors, and social coverage.
                 </p>
               </div>
 

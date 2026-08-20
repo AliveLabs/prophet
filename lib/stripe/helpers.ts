@@ -2,7 +2,7 @@ import type Stripe from "stripe"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { IndustryType } from "@/lib/verticals"
 import type { SubscriptionTier } from "@/lib/billing/tiers"
-import { resolvePriceInfo, priceBelongsToIndustry } from "@/lib/stripe/pricing"
+import { resolvePriceInfo, resolveAddOnPriceInfo, priceBelongsToIndustry } from "@/lib/stripe/pricing"
 
 // ----------------------------------------------------------------------------
 // Organization resolution
@@ -201,8 +201,33 @@ export async function applySubscriptionToOrg(
       ? subscription.customer
       : (subscription.customer?.id ?? null)
 
-  const priceId = subscription.items.data[0]?.price?.id ?? null
+  // ALT-687 — a subscription now carries a BASE item plus up to two add-on items (locations,
+  // competitors) whose Stripe `quantity` is what the customer bought. This used to read
+  // `items.data[0]` and assume it was the plan, which silently ignores every add-on and, worse,
+  // would read an add-on as the plan if Stripe ever ordered the items differently.
+  //
+  // Find the base by asking which price resolves to a tier. Fall back to item 0 so a subscription
+  // with an unrecognised price behaves exactly as before (the tier-preservation branch below).
+  const items = subscription.items.data
+  const baseItem = items.find((i) => resolvePriceInfo(i.price?.id) !== null) ?? items[0]
+  const priceId = baseItem?.price?.id ?? null
   const priceInfo = resolvePriceInfo(priceId)
+
+  // Sum add-on quantities by kind. Everything that is not a recognised add-on price contributes
+  // nothing, so before the add-on prices exist in Stripe every item resolves to null, both
+  // quantities are 0, and the effective caps equal the included allowances. That is what makes
+  // this safe to ship ahead of ALT-670.
+  let locationsPurchased = 0
+  let competitorsPurchased = 0
+  for (const item of items) {
+    const addOn = resolveAddOnPriceInfo(item.price?.id)
+    if (!addOn) continue
+    const qty = typeof item.quantity === "number" && Number.isFinite(item.quantity)
+      ? Math.max(0, Math.floor(item.quantity))
+      : 0
+    if (addOn.kind === "location") locationsPurchased += qty
+    else competitorsPurchased += qty
+  }
 
   // Tier: derived from the subscription's current price. On 'deleted' the
   // tier parks on 'entry' — payment_state 'canceled' is what blocks access
@@ -256,6 +281,10 @@ export async function applySubscriptionToOrg(
     stripe_subscription_id: subscription.id,
     stripe_price_id: priceId,
     subscription_tier: tier,
+    // ALT-687. On 'deleted' both park at 0: a cancelled subscription entitles nobody to add-ons,
+    // and payment_state 'canceled' is what blocks access anyway.
+    locations_purchased: opts?.deleted ? 0 : locationsPurchased,
+    competitors_purchased: opts?.deleted ? 0 : competitorsPurchased,
     cancel_at_period_end: subscription.cancel_at_period_end ?? false,
     trial_ends_at: trialEndIso,
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,

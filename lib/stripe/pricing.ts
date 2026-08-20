@@ -19,6 +19,51 @@ export type PriceInfo = {
   priceId: string
 }
 
+// ALT-687 — the metered add-ons. Locations and competitors are PURCHASED QUANTITIES now, not
+// tier caps, so a subscription carries a base item plus up to two add-on items whose Stripe
+// `quantity` is the number bought. These are separate price IDs, resolved the same env-var way.
+export type AddOnKind = "location" | "competitor"
+
+export type AddOnPriceInfo = {
+  industry: IndustryType
+  kind: AddOnKind
+  cadence: Cadence
+  priceId: string
+}
+
+function addOnEnvKey(industry: IndustryType, kind: AddOnKind, cadence: Cadence): string {
+  const brand = industry === "restaurant" ? "TICKET" : "NEAT"
+  return `STRIPE_PRICE_ID_${brand}_ADDON_${kind.toUpperCase()}_${cadence.toUpperCase()}`
+}
+
+export function resolveAddOnPriceId(
+  industry: IndustryType,
+  kind: AddOnKind,
+  cadence: Cadence
+): string | null {
+  return process.env[addOnEnvKey(industry, kind, cadence)] ?? null
+}
+
+/** Reverse lookup for a webhook payload. Returns null for the base price and for anything we do
+ *  not recognise, which is what keeps this safe to ship before the add-on prices exist in Stripe:
+ *  every item resolves to null, purchased quantities stay 0, and behaviour is unchanged. */
+export function resolveAddOnPriceInfo(priceId: string | null | undefined): AddOnPriceInfo | null {
+  if (!priceId) return null
+  const industries: IndustryType[] = ["restaurant", "liquor_store"]
+  const kinds: AddOnKind[] = ["location", "competitor"]
+  const cadences: Cadence[] = ["monthly", "annual"]
+  for (const industry of industries) {
+    for (const kind of kinds) {
+      for (const cadence of cadences) {
+        if (process.env[addOnEnvKey(industry, kind, cadence)] === priceId) {
+          return { industry, kind, cadence, priceId }
+        }
+      }
+    }
+  }
+  return null
+}
+
 function envKey(
   industry: IndustryType,
   tier: PaidTier,

@@ -5,6 +5,7 @@ import OnboardingWizard from "./onboarding-wizard-pass"
 import { getVerticalConfig } from "@/lib/verticals"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { BrandProvider } from "@/components/brand-provider"
+import { resolveCompetitorAllowance } from "@/lib/billing/limits"
 
 type OnboardingCandidate = {
   id: string
@@ -24,11 +25,11 @@ async function loadMaxCompetitors(
 ): Promise<number | undefined> {
   const { data: org } = await supabase
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, locations_purchased, competitors_purchased")
     .eq("id", orgId)
     .maybeSingle()
   if (!org) return undefined
-  return TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].maxCompetitorsPerLocation
+  return resolveCompetitorAllowance(org).total
 }
 
 // Load an org's first location + its still-pending (is_active=false, not

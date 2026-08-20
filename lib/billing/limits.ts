@@ -3,13 +3,68 @@
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "./tiers"
 import { isTrialing } from "./trial"
 
-export function ensureLocationLimit(
-  tier: SubscriptionTier,
-  currentCount: number
-): void {
-  const limit = TIER_LIMITS[tier].maxLocations
-  if (currentCount >= limit) {
-    throw new Error(`Location limit reached for ${tier} tier.`)
+// ---------------------------------------------------------------------------
+// ALT-687 — locations and competitors are PURCHASED QUANTITIES, not tier caps
+// ---------------------------------------------------------------------------
+// The plan includes some; anything beyond is bought as a Stripe subscription-item quantity and
+// mirrored onto organizations.locations_purchased / competitors_purchased by the webhook.
+//
+//     effective cap = TIER_LIMITS[tier].included* + org.*_purchased
+//
+// Resolve through these two functions. Reading `includedLocations` or
+// `includedCompetitorsPerLocation` directly gives the INCLUDED count and silently under-counts a
+// customer who has paid for more. The fields were renamed from `maxLocations` /
+// `maxCompetitorsPerLocation` precisely so that a stale read fails to compile rather than
+// quietly refusing a paying customer the thing they bought.
+//
+// The purchased fields are OPTIONAL on the input type on purpose: a caller whose select omits
+// them behaves exactly as before the change (purchased = 0). That is what makes this safe to
+// ship ahead of the Stripe work in ALT-670.
+
+export type Allowance = {
+  /** Included in the plan. */
+  included: number
+  /** Bought on top, as a Stripe item quantity. */
+  purchased: number
+  /** The number to actually enforce. */
+  total: number
+}
+
+export type QuantityOrg = {
+  /** Nullable on purpose: asSubscriptionTier degrades null/unknown to `entry`, the SMALLEST
+   *  allowance, so a bad read can never widen a cap. */
+  subscription_tier: string | null
+  locations_purchased?: number | null
+  competitors_purchased?: number | null
+}
+
+/** Non-negative integer, defaulting to 0. A negative or junk value must never widen a cap. */
+function purchased(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
+}
+
+export function resolveLocationAllowance(org: QuantityOrg): Allowance {
+  const included = TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].includedLocations
+  const bought = purchased(org.locations_purchased)
+  return { included, purchased: bought, total: included + bought }
+}
+
+export function resolveCompetitorAllowance(org: QuantityOrg): Allowance {
+  const included =
+    TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].includedCompetitorsPerLocation
+  const bought = purchased(org.competitors_purchased)
+  return { included, purchased: bought, total: included + bought }
+}
+
+export function ensureLocationLimit(org: QuantityOrg, currentCount: number): void {
+  const { total } = resolveLocationAllowance(org)
+  if (currentCount >= total) {
+    throw new Error(
+      total === 0
+        ? "This plan does not include any locations."
+        : `You have ${total} location${total === 1 ? "" : "s"} on your plan. Add another to your subscription to track more.`
+    )
   }
 }
 
@@ -49,7 +104,7 @@ export function ensureCanAddLocation(
       "Trials cover one location. Convert to a paid plan to add more."
     )
   }
-  ensureLocationLimit(asSubscriptionTier(org.subscription_tier), currentCount)
+  ensureLocationLimit(org, currentCount)
 }
 
 // Non-throwing mirror of ensureCanAddLocation — for UI that branches between the
@@ -72,13 +127,14 @@ export function canAddLocationHere(
   }
 }
 
-export function ensureCompetitorLimit(
-  tier: SubscriptionTier,
-  currentCount: number
-): void {
-  const limit = TIER_LIMITS[tier].maxCompetitorsPerLocation
-  if (currentCount >= limit) {
-    throw new Error(`Competitor limit reached for ${tier} tier.`)
+export function ensureCompetitorLimit(org: QuantityOrg, currentCount: number): void {
+  const { total } = resolveCompetitorAllowance(org)
+  if (currentCount >= total) {
+    throw new Error(
+      total === 0
+        ? "This plan does not include competitor tracking."
+        : `You're watching ${total} competitor${total === 1 ? "" : "s"}, the most your plan covers. Add another to your subscription to watch more.`
+    )
   }
 }
 
