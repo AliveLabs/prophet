@@ -57,6 +57,8 @@ export async function GET(request: Request) {
                 page_path: string | null
                 user_id: string | null
                 organization_id: string | null
+                email: string | null
+                business_name: string | null
               }> | null
               error: { message: string } | null
             }>
@@ -66,7 +68,7 @@ export async function GET(request: Request) {
     }
   })
     .from("beta_feedback")
-    .select("id, created_at, message, category, page_path, user_id, organization_id")
+    .select("id, created_at, message, category, page_path, user_id, organization_id, email, business_name")
     .is("notion_page_id", null)
     .order("created_at", { ascending: true })
     .limit(BATCH)
@@ -111,8 +113,15 @@ export async function GET(request: Request) {
       message: row.message,
       category: row.category,
       pagePath: row.page_path,
-      userEmail: row.user_id ? emailById.get(row.user_id) ?? null : null,
-      orgName: row.organization_id ? orgById.get(row.organization_id) ?? null : null,
+      // ALT-695 — an ANONYMOUS row (logged-out support form) has no user_id or organization_id,
+      // so fall back to what the person typed. Without this a retried anonymous request becomes a
+      // Notion ticket with no reporter and no business name, which is exactly the two fields that
+      // make it actionable: there is no other way to reply to them or find their account.
+      userEmail: (row.user_id ? emailById.get(row.user_id) ?? null : null) ?? row.email ?? null,
+      orgName:
+        (row.organization_id ? orgById.get(row.organization_id) ?? null : null) ??
+        row.business_name ??
+        null,
       createdAt: row.created_at,
     })
 

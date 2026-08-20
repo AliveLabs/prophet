@@ -11,7 +11,8 @@ import { toast } from "sonner"
 import { TkDrawer, TkActions, TkButton } from "@/components/ticket"
 import { submitBetaFeedback } from "./feedback-actions"
 import {
-  FEEDBACK_CATEGORIES,
+  SUPPORT_SUBJECTS,
+  FEEDBACK_SUBJECTS,
   FEEDBACK_CATEGORY_LABELS,
   FEEDBACK_MAX_MESSAGE,
   type FeedbackCategory,
@@ -43,7 +44,7 @@ export default function FeedbackLauncher({
         pagePath: pathname,
       })
       if (res.ok) {
-        toast.success("Thanks. We read every one of these.")
+        toast.success(res.reference ? `Got it. Your reference is ${res.reference}.` : "Got it. We read every one of these.")
         setMessage("")
         setCategory(null)
         setOpen(false)
@@ -67,24 +68,42 @@ export default function FeedbackLauncher({
           type="button"
           className="pv-fb-btn pv-fb-btn--compact"
           onClick={() => setOpen(true)}
-          aria-label="Share feedback"
+          aria-label="Get help or share feedback"
         >
           {icon}
         </button>
       ) : (
         <button type="button" className="pv-fb-btn" onClick={() => setOpen(true)}>
           {icon}
-          <span>Share feedback</span>
+          <span>Help</span>
         </button>
       )}
 
-      <TkDrawer open={open} onClose={() => setOpen(false)} title="Share feedback" portal>
+      <TkDrawer open={open} onClose={() => setOpen(false)} title="How can we help?" portal>
         <p className="pv-fb__lead">
-          What&rsquo;s working? What&rsquo;s missing? Tell us anything. The rough edges help most.
+          Need a hand, or want to tell us something? Either way, this reaches us.
         </p>
 
-        <div className="pv-fb__chips" role="group" aria-label="What kind of feedback?">
-          {FEEDBACK_CATEGORIES.map((c) => (
+        {/* ALT-695 — support subjects lead, feedback follows. Ordering is how "support first" is
+            expressed: no option is pre-selected, because a default that half of people do not
+            notice they accepted produces worse routing than no default at all. */}
+        <div className="pv-fb__chips" role="group" aria-label="What do you need?">
+          {SUPPORT_SUBJECTS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`pv-fb__chip${category === c ? " is-on" : ""}`}
+              aria-pressed={category === c}
+              onClick={() => setCategory(category === c ? null : c)}
+            >
+              {FEEDBACK_CATEGORY_LABELS[c]}
+            </button>
+          ))}
+        </div>
+
+        <p className="pv-fb__hint">Or just tell us what you think:</p>
+        <div className="pv-fb__chips" role="group" aria-label="Feedback">
+          {FEEDBACK_SUBJECTS.map((c) => (
             <button
               key={c}
               type="button"
@@ -103,7 +122,7 @@ export default function FeedbackLauncher({
           onChange={(e) => setMessage(e.target.value)}
           maxLength={FEEDBACK_MAX_MESSAGE}
           rows={5}
-          placeholder="Share what you're seeing…"
+          placeholder="What's going on?"
           aria-label="Your feedback"
           autoFocus
         />
@@ -114,7 +133,7 @@ export default function FeedbackLauncher({
             Cancel
           </TkButton>
           <TkButton variant="act" onClick={submit} disabled={!canSend}>
-            {pending ? "Sending…" : "Send feedback"}
+            {pending ? "Sending…" : "Send"}
           </TkButton>
         </TkActions>
       </TkDrawer>

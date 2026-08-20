@@ -23,7 +23,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/send"
 import { BetaFeedbackEmail } from "@/lib/email/templates/beta-feedback"
-import { normalizeCategory, normalizeMessage, normalizePagePath } from "@/lib/feedback/feedback"
+import { normalizeCategory, normalizeMessage, normalizePagePath, referenceFor } from "@/lib/feedback/feedback"
 import { createFeedbackTicket } from "@/lib/feedback/notion"
 import { headers } from "next/headers"
 
@@ -49,7 +49,7 @@ export async function submitBetaFeedback(input: {
   locationId?: string | null
   /** The route they were on — captured automatically for in-context signal. */
   pagePath?: string | null
-}): Promise<{ ok: boolean; error?: string }> {
+}): Promise<{ ok: boolean; error?: string; reference?: string }> {
   const user = await requireUser()
 
   const message = normalizeMessage(input.message)
@@ -170,5 +170,7 @@ export async function submitBetaFeedback(input: {
     console.error("[beta-feedback] fan-out failed (feedback still saved):", err)
   }
 
-  return { ok: true }
+  // ALT-695 — acknowledge with a reference on BOTH doors. Without one, somebody unsure their
+  // message arrived sends it again through another channel and the queue doubles.
+  return { ok: true, reference: referenceFor(row.id) }
 }

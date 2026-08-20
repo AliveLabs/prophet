@@ -119,6 +119,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               New to Ticket?{" "}
               <a className="auth-link" href="https://www.getticket.ai">Get started at getticket.ai</a>.
             </p>
+            {/* ALT-695 — the only door someone locked OUT has. This page is where they are stuck,
+                so the link has to be here and visible, not buried in a footer somewhere else. */}
+            <p className="auth-alt">
+              Can&apos;t get in? <a className="auth-link" href="/support">Tell us what happened</a>.
+            </p>
           </div>
         </section>
       </div>

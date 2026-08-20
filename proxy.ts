@@ -154,9 +154,16 @@ export async function proxy(req: NextRequest) {
 }
 
 // Broad matcher so impersonation read-only covers customer routes too. Excludes static assets,
-// the auth callback, and login/signup (so an un-auth'd visitor can still reach them).
+// the auth callback, and login/signup/support (so an un-auth'd visitor can still reach them).
 export const config = {
-  // login/signup/auth are SEGMENT-anchored so only those exact routes are excluded — a future
-  // /login-help or /signups must NOT silently bypass the central impersonation/admin gate.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|login(?:/|$)|signup(?:/|$)|auth/).*)"],
+  // login/signup/auth/support are SEGMENT-anchored so only those exact routes are excluded — a
+  // future /login-help or /signups must NOT silently bypass the central impersonation/admin gate.
+  //
+  // ALT-695 — `support` is here because the whole point of that route is to work with no session:
+  // the person using it is locked out, which is what they are writing to tell us. It is added
+  // deliberately and segment-anchored, in the same style as the others. Do NOT loosen the regex to
+  // something like `support.*` — a future /support-admin would then bypass the admin gate.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|login(?:/|$)|signup(?:/|$)|support(?:/|$)|auth/).*)",
+  ],
 }
