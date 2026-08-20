@@ -171,6 +171,19 @@ export default function FirstRunPanel({
         <span className="fr-kicker">Your Brief</span>
         <h1 className="fr-head">Building your first read.</h1>
         <p className="fr-sub">{readyFact}</p>
+        {/* ALT-661 — SET THE EXPECTATION, do not promise a duration.
+            No number here on purpose. We do not have a measured first-run time on the current
+            system: every figure we had (21.2, 22.3, 23.6 min) predates the #242 deferral fix, and
+            the older ones predate the token and read reductions too. A specific promise we cannot
+            stand behind is worse than none.
+            But saying nothing is also wrong: a silent several-minute wait reads as a hang, and the
+            operator closes the tab. So this says it will take a while and points at the two things
+            that prove it is alive, the elapsed clock and the per-pipeline rows below. */}
+        <p className="fr-sub">
+          This takes a while the first time. We read your whole market before we say anything, and
+          you can watch each part land below. Leave it open and this page turns into your brief on
+          its own.
+        </p>
 
         {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
 
