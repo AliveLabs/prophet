@@ -110,7 +110,17 @@ function ruleForRef(ref: string, ctx: PresentationContext) {
 }
 
 /** A clean, operator-readable source label for a grounded ref (no API/internal jargon). P5: SEO/
- *  visibility refs read "Local search visibility", making them first-class source-attributed lines. */
+ *  visibility refs read "Search visibility", making them first-class source-attributed lines.
+ *
+ *  NOT "Local search visibility" (ALT-636). Every client under lib/providers/dataforseo/ sends
+ *  `location_code: input.locationCode ?? 2840` and 2840 is the entire United States, and no call
+ *  site has ever passed a locationCode. So the rankings behind an `seo.*` ref are national, and a
+ *  label saying "local" claims a geography we did not ask for. The 2026-08-17 operator report that
+ *  the keywords were "not related to my area" was about the DATA, not the wording.
+ *
+ *  `events` below keeps "Local events" on purpose: google-events.ts passes a real location_name
+ *  with a location_coordinate fallback, so events genuinely are geo-scoped. It is only the SEO
+ *  family that is not. Restore "local" here once the calls carry a location. */
 function sourceLabel(ref: string, ctx: PresentationContext): string {
   const base = baseRef(ref)
   if (base === "review.theme") {
@@ -120,7 +130,7 @@ function sourceLabel(ref: string, ctx: PresentationContext): string {
   }
   if (base.startsWith("review") || base.startsWith("rating")) return "Reviews"
   if (base.startsWith("social")) return "Competitor social"
-  if (base.startsWith("seo")) return "Local search visibility"
+  if (base.startsWith("seo")) return "Search visibility"
   if (base.startsWith("events") || base.startsWith("cross_event")) return "Local events"
   if (base.startsWith("traffic")) return "Foot traffic"
   if (base.startsWith("menu")) return "Menu"
@@ -322,11 +332,11 @@ function buildHeadToHead(play: EnrichedRecommendation, ctx: PresentationContext)
       const gaps = Array.isArray(ev.gap_keywords) ? ev.gap_keywords.length : 0
       if (gaps > 0) {
         push({
-          metric: "Local search visibility",
+          metric: "Search visibility",
           you: "not ranking",
           setOrCompetitor: `competitors rank for ${gaps} keyword${gaps === 1 ? "" : "s"}`,
           lead: "them",
-          label: "Competitors are winning local searches you don't appear for",
+          label: "Competitors are winning searches you don't appear for",
         })
       }
     }

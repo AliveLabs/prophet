@@ -320,3 +320,82 @@ describe("checkPresentationGrounded — honesty gate", () => {
     expect(vios.some((v) => v.code === "presentation_exemplar_caption_money_or_pos")).toBe(true)
   })
 })
+
+// ── ALT-636: SEO refs must not claim locality we never requested ──────────────
+// Every client under lib/providers/dataforseo/ sends `location_code: input.locationCode ?? 2840`
+// (the entire United States) and no call site has ever passed a locationCode, so the rankings
+// behind an `seo.*` ref are national. The label used to read "Local search visibility", which is
+// how an operator came to report that the keywords were "not related to my area" — they were right
+// about the data. These assertions fail if someone reintroduces the claim while the calls are still
+// national. Delete them, and restore "local", once the SEO calls actually carry a location.
+const seoDossier = {
+  locationId: "loc-3",
+  dateKey: "2026-08-20",
+  generatedAt: "2026-08-20T00:00:00Z",
+  location: { entityId: "loc-3", kind: "location", name: "Airways Hamburger", listing: { profile: { rating: 4.2 } } },
+  competitors: [],
+  demandCalendar: { events: [], weather: [] },
+  ruleOutputs: [
+    {
+      insight_type: "seo_keyword_opportunity_gap",
+      title: "Competitors rank for searches you don't",
+      summary: "Three rivals rank for burger searches you do not appear for.",
+      confidence: "medium",
+      severity: "warning",
+      evidence: { gap_keywords: ["best burger arlington", "burger near me", "mesquite grilled burger"] },
+      recommendations: [],
+    },
+  ],
+} as unknown as Dossier
+
+describe("ALT-636 — SEO labels stay honest while the data is national", () => {
+  it('labels an seo ref "Search visibility", never "local"', () => {
+    const play = mkPlay({ skillId: "positioning", kind: "positioning", evidenceRefs: ["seo_keyword_opportunity_gap"] })
+    const p = buildPresentation(play, ctxOf(seoDossier))
+    const basis = p?.confidenceBasis ?? []
+    expect(basis.length).toBeGreaterThan(0)
+    expect(basis[0].source).toBe("Search visibility")
+    for (const b of basis) expect(b.source.toLowerCase()).not.toContain("local")
+  })
+
+  it("the head-to-head line does not say local either", () => {
+    const play = mkPlay({ skillId: "positioning", kind: "positioning", evidenceRefs: ["seo_keyword_opportunity_gap"] })
+    const p = buildPresentation(play, ctxOf(seoDossier))
+    const h2h = p?.headToHead ?? []
+    // Verified biting, not vacuous: reverting `metric` and `label` in presentation.ts to their
+    // "local" wording fails this test, so the fixture really does produce the seo head-to-head
+    // line. Asserted non-empty as well, so a future fixture change cannot quietly turn the loop
+    // below into a no-op that passes for the wrong reason.
+    expect(h2h.length).toBeGreaterThan(0)
+    for (const h of h2h) {
+      expect(`${h.metric} ${h.label ?? ""}`.toLowerCase()).not.toContain("local")
+    }
+    const seoLine = h2h.find((h) => h.metric === "Search visibility")
+    if (seoLine) expect(seoLine.label?.toLowerCase() ?? "").not.toContain("local search")
+  })
+
+  it("events keep their local label, because events really are geo-scoped", () => {
+    // The counterpart assertion: google-events.ts passes a real location_name with a
+    // location_coordinate fallback, so "Local events" is earned. A blanket find-and-replace of
+    // "local" across the presenter would break this, which is exactly why it is asserted.
+    const eventsDossier = {
+      ...seoDossier,
+      ruleOutputs: [
+        {
+          insight_type: "events_nearby_spike",
+          title: "Three events near you this weekend",
+          summary: "Three events within 40km this weekend.",
+          confidence: "high",
+          severity: "info",
+          evidence: { count: 3 },
+          recommendations: [],
+        },
+      ],
+    } as unknown as Dossier
+    const play = mkPlay({ skillId: "positioning", kind: "positioning", evidenceRefs: ["events_nearby_spike"] })
+    const p = buildPresentation(play, ctxOf(eventsDossier))
+    const basis = p?.confidenceBasis ?? []
+    expect(basis.length).toBeGreaterThan(0)
+    expect(basis[0].source).toBe("Local events")
+  })
+})
