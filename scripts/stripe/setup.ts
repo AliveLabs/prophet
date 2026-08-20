@@ -2,8 +2,9 @@
  * Stripe production rollout — idempotent bootstrap script.
  *
  * Creates:
- *   - 6 Products      (Ticket × {Entry,Mid,Top}, Neat × {Entry,Mid,Top})
+ *   - 6 Products      (Ticket × {Starter,Standard,Multi-Location}, Neat × same)
  *   - 12 Prices       (6 products × {monthly, annual})
+ *   - 4 ADD-ON Prices (location + competitor, per brand-neutral product, × {monthly, annual})
  *   - 2 Portal configs (one per brand; brand-specific business_profile + products)
  *   - 1 Webhook endpoint (pointing at $APP_URL/api/stripe/webhook)
  *
@@ -39,27 +40,90 @@ interface ProductSpec {
 }
 
 const PRODUCT_SPECS: ProductSpec[] = [
-  { brand: "ticket", tier: "entry", name: "Ticket — Table", description: "Single location, starter insights for restaurants." },
-  { brand: "ticket", tier: "mid", name: "Ticket — Shift", description: "Daily social + SEO intelligence for growing restaurants. Includes 14-day free trial." },
-  { brand: "ticket", tier: "top", name: "Ticket — House", description: "Multi-location, daily SEO + ads intelligence for restaurant groups." },
-  { brand: "neat", tier: "entry", name: "Neat — Well", description: "Single location, starter insights for liquor stores." },
-  { brand: "neat", tier: "mid", name: "Neat — Call", description: "Daily social + SEO intelligence for growing liquor stores. Includes 14-day free trial." },
-  { brand: "neat", tier: "top", name: "Neat — Top Shelf", description: "Multi-location, daily SEO + ads intelligence for liquor store groups." },
+  // ALT-657 — plain names. Table / Shift / House and Well / Call / Top Shelf were jargon that
+  // told a buyer nothing, and they appear on the invoice and the card statement.
+  { brand: "ticket", tier: "entry", name: "Ticket Starter", description: "One location, a weekly brief, and 3 competitors watched." },
+  { brand: "ticket", tier: "mid", name: "Ticket Standard", description: "One location, a daily brief, and 5 competitors watched. Includes a 14-day free trial." },
+  { brand: "ticket", tier: "top", name: "Ticket Multi-Location", description: "Multi-location coverage, priced per location by contract." },
+  { brand: "neat", tier: "entry", name: "Neat Starter", description: "One location, a weekly brief, and 3 competitors watched." },
+  { brand: "neat", tier: "mid", name: "Neat Standard", description: "One location, a daily brief, and 5 competitors watched. Includes a 14-day free trial." },
+  { brand: "neat", tier: "top", name: "Neat Multi-Location", description: "Multi-location coverage, priced per location by contract." },
 ]
 
-// USD, cents. Per Ticket_Neat_Pricing_Brief_Apr2026.txt.
-// Annual = monthly × 12 × 0.80 (20% discount), expressed in whole cents.
-const PRICE_USD_CENTS: Record<Tier, { monthly: number; annual: number }> = {
-  entry: { monthly: 14900, annual: 142800 },
-  mid:   { monthly: 29900, annual: 286800 },
-  top:   { monthly: 49900, annual: 478800 },
+// USD, cents. Per docs/PRICING-2026-08-19.md, which is authoritative. The April 2026 brief this
+// script was originally written from is superseded.
+//
+// ANNUAL = MONTHLY × 10, i.e. "two months free" (16.7%), not the old 20% off. That construction is
+// why every effective monthly figure lands on a round number: $119 × 10 / 12 = $99.17, and
+// $299 × 10 / 12 = $249.17. Keep the monthly price as the primary and derive annual, or the round
+// numbers on the pricing page stop being round.
+const MONTHS_PER_ANNUAL = 10
+
+function annualFrom(monthlyCents: number): number {
+  return monthlyCents * MONTHS_PER_ANNUAL
 }
+
+// `top` (Multi-Location) is CONTRACT-ONLY: no self-serve checkout, no published price. Its number
+// here is the per-location list rate at 0% discount, which is the starting point for a quote, and
+// it exists so the portal can still carry an existing contract. Do NOT surface it on the pricing
+// page. See §5 of the pricing doc for the discount schedule and the $165/location floor.
+const PRICE_USD_CENTS: Record<Tier, { monthly: number; annual: number }> = {
+  entry: { monthly: 11900, annual: annualFrom(11900) }, // Starter:  $119/mo, $99/mo annual
+  mid:   { monthly: 29900, annual: annualFrom(29900) }, // Standard: $299/mo, $249/mo annual
+  top:   { monthly: 27500, annual: annualFrom(27500) }, // Multi-Location, per location, contract
+}
+
+// ── ALT-687: the metered add-ons ─────────────────────────────────────────────
+// Locations and competitors are PURCHASED QUANTITIES, so each is one subscription item whose
+// `quantity` is the number bought. Brand-neutral products: an add-on location is the same thing
+// whichever brand the base plan is, and splitting them would double the number of price IDs for
+// no benefit.
+//
+// ⚠️ INVARIANT: an add-on may never cost more than the base plan it attaches to. $229 < $249 is
+// what stops a customer opening a second account instead of adding a location. An earlier draft
+// priced the add-on at $269 against a $99 base and a two-location customer saved $370 by
+// splitting. Any edit here must preserve that.
+type AddOnKind = "location" | "competitor"
+
+interface AddOnSpec {
+  kind: AddOnKind
+  name: string
+  description: string
+  monthly: number
+}
+
+const ADD_ON_SPECS: AddOnSpec[] = [
+  {
+    kind: "location",
+    name: "Additional location",
+    description: "One more location on the same plan as your first. Billed per location.",
+    monthly: 27500, // $275/mo, $229/mo annual
+  },
+  {
+    kind: "competitor",
+    name: "Additional competitor",
+    description: "Watch one more competitor at every location. Billed per competitor.",
+    monthly: 1800, // $18/mo, $15/mo annual — confirmed by Bryan 2026-08-20
+  },
+]
 
 function productKey(brand: Brand, tier: Tier) {
   return `vatic.product.${brand}.${tier}`
 }
 function priceKey(brand: Brand, tier: Tier, cadence: Cadence) {
   return `vatic.price.${brand}.${tier}.${cadence}`
+}
+function addOnProductKey(kind: AddOnKind) {
+  return `vatic.product.addon.${kind}`
+}
+function addOnPriceKey(kind: AddOnKind, cadence: Cadence) {
+  return `vatic.price.addon.${kind}.${cadence}`
+}
+// The app resolves these via resolveAddOnPriceInfo in lib/stripe/pricing.ts, which scans the same
+// env-var names per brand. The PRODUCT is brand-neutral but the env var is per brand, so both
+// brands point at the same price ID. That is intentional: one price, two lookups.
+function addOnEnvVarName(brand: Brand, kind: AddOnKind, cadence: Cadence) {
+  return `STRIPE_PRICE_ID_${brand.toUpperCase()}_ADDON_${kind.toUpperCase()}_${cadence.toUpperCase()}`
 }
 function portalConfigKey(brand: Brand) {
   return `vatic.portal.${brand}`
@@ -151,6 +215,78 @@ async function upsertPrice(
   })
   console.log(`  + price created: ${spec.name} ${cadence} $${(amount / 100).toFixed(2)} (${created.id})`)
   return created
+}
+
+async function upsertAddOnProduct(stripe: Stripe, spec: AddOnSpec): Promise<Stripe.Product> {
+  const key = addOnProductKey(spec.kind)
+  const existing = await findByMetadata(
+    () => stripe.products.list({ limit: 100, active: true }),
+    key,
+  )
+  const params = {
+    name: spec.name,
+    description: spec.description,
+    metadata: { vatic_key: key, addon: spec.kind },
+  }
+  if (existing) {
+    console.log(`  ✓ add-on product exists: ${spec.name} (${existing.id})`)
+    return stripe.products.update(existing.id, params)
+  }
+  const created = await stripe.products.create(params)
+  console.log(`  + add-on product created: ${spec.name} (${created.id})`)
+  return created
+}
+
+async function upsertAddOnPrice(
+  stripe: Stripe,
+  product: Stripe.Product,
+  spec: AddOnSpec,
+  cadence: Cadence,
+): Promise<Stripe.Price> {
+  const key = addOnPriceKey(spec.kind, cadence)
+  const amount = cadence === "monthly" ? spec.monthly : annualFrom(spec.monthly)
+  const existing = await findByMetadata(
+    () => stripe.prices.list({ limit: 100, product: product.id, active: true }),
+    key,
+  )
+  if (existing) {
+    const matches =
+      existing.unit_amount === amount &&
+      existing.recurring?.interval === (cadence === "monthly" ? "month" : "year")
+    if (matches) {
+      console.log(`  ✓ add-on price exists: ${spec.name} ${cadence} $${(amount / 100).toFixed(2)} (${existing.id})`)
+      return existing
+    }
+    console.log(`  ~ add-on price changed, archiving old: ${existing.id}`)
+    await stripe.prices.update(existing.id, { active: false })
+  }
+  const created = await stripe.prices.create({
+    product: product.id,
+    currency: "usd",
+    unit_amount: amount,
+    recurring: { interval: cadence === "monthly" ? "month" : "year" },
+    metadata: { vatic_key: key, addon: spec.kind, cadence },
+    nickname: `${spec.name} (${cadence})`,
+  })
+  console.log(`  + add-on price created: ${spec.name} ${cadence} $${(amount / 100).toFixed(2)} (${created.id})`)
+  return created
+}
+
+// The add-on must never cost more than the cheapest base plan it can attach to, or a customer is
+// better off opening a second account. Checked BEFORE anything is written to Stripe: a bad price
+// should fail the run, not land half-applied.
+function assertAddOnsBelowBase(): void {
+  const cheapestBaseMonthly = Math.min(PRICE_USD_CENTS.entry.monthly, PRICE_USD_CENTS.mid.monthly)
+  for (const spec of ADD_ON_SPECS) {
+    if (spec.monthly > cheapestBaseMonthly) {
+      throw new Error(
+        `ADD-ON PRICE INVARIANT BROKEN: "${spec.name}" at $${(spec.monthly / 100).toFixed(2)}/mo ` +
+          `exceeds the cheapest base plan at $${(cheapestBaseMonthly / 100).toFixed(2)}/mo. ` +
+          `A customer would save money by opening a second account instead of adding one. ` +
+          `See docs/PRICING-2026-08-19.md.`,
+      )
+    }
+  }
 }
 
 async function upsertPortalConfig(
@@ -279,6 +415,8 @@ async function main() {
   console.log(`App URL: ${appUrl}`)
   console.log(`Idempotency seed: ${randomBytes(4).toString("hex")}\n`)
 
+  assertAddOnsBelowBase()
+
   console.log("Step 1: Products")
   const products = new Map<string, Stripe.Product>()
   for (const spec of PRODUCT_SPECS) {
@@ -300,11 +438,24 @@ async function main() {
     }
   }
 
-  console.log("\nStep 3: Portal configurations")
+  console.log("\nStep 3: Add-on products and prices (ALT-687)")
+  for (const spec of ADD_ON_SPECS) {
+    const product = await upsertAddOnProduct(stripe, spec)
+    for (const cadence of ["monthly", "annual"] as const) {
+      const price = await upsertAddOnPrice(stripe, product, spec, cadence)
+      // Same price ID under both brands: the product is brand-neutral, the lookup is per brand.
+      for (const brand of ["ticket", "neat"] as const) {
+        envLines.push(`${addOnEnvVarName(brand, spec.kind, cadence)}=${price.id}`)
+      }
+      ticketPriceIds.push(price.id)
+    }
+  }
+
+  console.log("\nStep 4: Portal configurations")
   const ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
   const neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
 
-  console.log("\nStep 4: Webhook endpoint")
+  console.log("\nStep 5: Webhook endpoint")
   await upsertWebhook(stripe, appUrl)
 
   console.log("\n\n== .env snippet ==\n")
