@@ -111,7 +111,13 @@ export default async function TrialPage({
   const dataBrand = industry === "liquor_store" ? "neat" : "ticket"
   const midName = getTierDisplayName("mid", industry)
   const midLimits = TIER_LIMITS.mid
+  // ALT-699 — the trial screen states ONE price, and it stated only the monthly one. The annual
+  // price is the one we want people on and the one the discount story lives in, so hiding it here
+  // makes the product look 20% more expensive than it is at the exact moment somebody decides.
+  // This is not the plan PICKER (that is ?pricing=1, which has a cadence toggle); it is the single
+  // line telling them what happens when the trial ends, so it names both.
   const monthly = TIER_PRICING.mid.monthly
+  const annualMonthly = TIER_PRICING.mid.annualEffectiveMonthly
 
   const chargeDate = computeChargeDate()
 
@@ -218,14 +224,14 @@ export default async function TrialPage({
               {canceled ? (
                 <div className="ob-alert">
                   <IconAlert />
-                  No charge was made. Your setup is saved — start the trial
+                  No charge was made. Your setup is saved, so start the trial
                   whenever you&apos;re ready.
                 </div>
               ) : null}
               {error ? (
                 <div className="ob-alert">
                   <IconAlert />
-                  We couldn&apos;t confirm that checkout. No worries — your setup
+                  We couldn&apos;t confirm that checkout. No worries: your setup
                   is saved. Try again below.
                 </div>
               ) : null}
@@ -240,7 +246,10 @@ export default async function TrialPage({
                 </li>
                 <li>
                   <IconCheck />
-                  <span><strong>${monthly}/mo after {chargeDate}</strong> unless you cancel first.</span>
+                  <span>
+                    <strong>${monthly}/mo after {chargeDate}</strong> unless you cancel first, or{" "}
+                    <strong>${annualMonthly}/mo</strong> if you pay annually. That is two months free.
+                  </span>
                 </li>
                 <li>
                   <IconCheck />
