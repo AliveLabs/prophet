@@ -10,6 +10,7 @@ import {
 } from "@/lib/stripe/helpers"
 import { verifyReusableCustomer } from "@/lib/stripe/customer-reuse"
 import { isValidIndustryType } from "@/lib/verticals"
+import { SUPPORT_EMAIL } from "@/lib/support/contact"
 
 // POST /api/stripe/portal
 // Body: { flow?: 'payment_method_update' } — ALT-228: plan changes and
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "We could not find your billing profile with our payment provider. Pick a plan to set one up, or contact support@alivelabs.co.",
+            `We could not find your billing profile with our payment provider. Pick a plan to set one up, or contact ${SUPPORT_EMAIL}.`,
         },
         { status: 400 }
       )

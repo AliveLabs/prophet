@@ -18,6 +18,7 @@ import {
   TkEmptyState,
 } from "@/components/ticket"
 import { ignoreCompetitorAction } from "./actions"
+import { swapLockedMessage, TRIAL_COMPETITOR_SWAPS } from "@/lib/billing/limits"
 import CompetitorAddDrawer, { type SuggestedCompetitor } from "./competitor-add-drawer"
 
 export type CompetitorRow = {
@@ -56,8 +57,16 @@ const ADD_ICON = (
   </svg>
 )
 
-/** ALT-195 — serializable swap-cooldown state from the server (computeSwapCooldown). */
-type SwapCooldown = { locked: boolean; unlocksAt: string | null; daysRemaining: number }
+/** ALT-195 — serializable swap allowance from the server (computeSwapAllowance).
+ *  `trialSwapsRemaining` is null once the org is paying; `reason` distinguishes a spent
+ *  trial allowance (clears on subscribing) from an interval lock (clears on a clock). */
+type SwapAllowanceProp = {
+  locked: boolean
+  unlocksAt: string | null
+  daysRemaining: number
+  trialSwapsRemaining: number | null
+  reason: "unlocked" | "cooldown" | "trial_exhausted"
+}
 
 export default function CompetitorRoster({
   initial,
@@ -69,7 +78,7 @@ export default function CompetitorRoster({
   locationGeo,
   addSuggestions,
   swapCooldown,
-  swapCooldownDays = 30,
+  swapCooldownDays = 7,
 }: {
   initial: CompetitorRow[]
   tierLabel: string
@@ -85,7 +94,7 @@ export default function CompetitorRoster({
   /** Pending discovery candidates for the add drawer's "Suggested for you". */
   addSuggestions?: SuggestedCompetitor[]
   /** ALT-195 — when locked, removing (and thus swapping) is blocked + warned. */
-  swapCooldown?: SwapCooldown
+  swapCooldown?: SwapAllowanceProp
   swapCooldownDays?: number
 }) {
   const [rows, setRows] = useState<CompetitorRow[]>(initial)
@@ -107,6 +116,18 @@ export default function CompetitorRoster({
   // slot and isn't a swap, so it must never be blocked (this was disabling every
   // removal, most visibly on Tier 2/3 which sit below cap far more often).
   const swapLocked = persist && atLimit && !!swapCooldown?.locked
+  // One wording source for the blocked case, shared with the server action's redirect.
+  const lockedText = swapCooldown ? swapLockedMessage(swapCooldown) : ""
+  // What this removal costs them, said before they confirm rather than discovered after.
+  // The history line is literally true: removal is a soft delete and re-adding the same
+  // place restores the row with its accumulated snapshots.
+  const removeConfirmText = (name: string) =>
+    swapCooldown?.trialSwapsRemaining != null
+      ? `Stop watching ${name}?\n\nYou get ${TRIAL_COMPETITOR_SWAPS} competitor changes during your trial. ` +
+        `This uses one, leaving ${Math.max(0, swapCooldown.trialSwapsRemaining - 1)}.`
+      : `Stop watching ${name}?\n\nYou can change a competitor once every ${swapCooldownDays} days, ` +
+        `so this locks your set for ${swapCooldownDays} days. If you add ${name} back later, ` +
+        `their tracking history comes back with them.`
   const limitLabel =
     competitorLimit != null
       ? `Watching ${rows.length} of ${competitorLimit}, set by your plan (${tierLabel})`
@@ -225,7 +246,7 @@ export default function CompetitorRoster({
                 </div>
 
                 {c.added ? (
-                  <p className="tk-rost-quiet">First data pull running — signals appear here shortly.</p>
+                  <p className="tk-rost-quiet">First data pull running. Signals appear here shortly.</p>
                 ) : c.topSignals.length ? (
                   <div className="tk-rost-signals">
                     <span className="tk-sig-lbl">
@@ -234,7 +255,7 @@ export default function CompetitorRoster({
                     {c.topSignals[0]}
                   </div>
                 ) : (
-                  <p className="tk-rost-quiet">Quiet this month — nothing has moved into your brief yet.</p>
+                  <p className="tk-rost-quiet">Quiet this month. Nothing has moved into your brief yet.</p>
                 )}
 
                 <div className="tk-rost-foot">
@@ -247,17 +268,13 @@ export default function CompetitorRoster({
                     <form
                       action={ignoreCompetitorAction}
                       onSubmit={(e) => {
-                        // ALT-195: block + warn when the swap cooldown is active; otherwise
-                        // confirm, since removing starts a 30-day swap lock.
+                        // ALT-195: block when the allowance is spent; otherwise confirm, since
+                        // removing either spends a trial change or starts the interval lock.
                         if (swapLocked) {
                           e.preventDefault()
                           return
                         }
-                        if (
-                          !window.confirm(
-                            `Stop watching ${c.name}?\n\nYou can swap a competitor once every ${swapCooldownDays} days — removing this one locks your set for ${swapCooldownDays} days.`
-                          )
-                        ) {
+                        if (!window.confirm(removeConfirmText(c.name))) {
                           e.preventDefault()
                         }
                       }}
@@ -267,16 +284,8 @@ export default function CompetitorRoster({
                         type="submit"
                         className="tk-rost-rm"
                         disabled={swapLocked}
-                        aria-label={
-                          swapLocked
-                            ? `Swapping is locked for ${swapCooldown?.daysRemaining} more days`
-                            : `Stop watching ${c.name}`
-                        }
-                        title={
-                          swapLocked
-                            ? `Locked for ${swapCooldown?.daysRemaining} more day${swapCooldown?.daysRemaining === 1 ? "" : "s"} — one swap per ${swapCooldownDays} days`
-                            : `Stop watching ${c.name}`
-                        }
+                        aria-label={swapLocked ? lockedText : `Stop watching ${c.name}`}
+                        title={swapLocked ? lockedText : `Stop watching ${c.name}`}
                       >
                         {RM_ICON}
                       </button>
@@ -317,7 +326,7 @@ export default function CompetitorRoster({
                 <p className="tk-rost-quiet" style={{ marginTop: 0 }}>
                   {persist
                     ? "A new rival's first data pull starts the moment you add them."
-                    : "Preview — changes here don't save."}
+                    : "Preview: changes here don't save."}
                 </p>
               </TkCard>
             )}
