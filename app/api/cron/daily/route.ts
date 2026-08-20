@@ -10,7 +10,7 @@ import { isWeeklyFullBuildDay, isSeoDue, shouldRunDailyForLocation } from "@/lib
 import type { Database } from "@/types/database.types"
 import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "@/lib/billing/tiers"
 import { isRunDueToday } from "@/lib/billing/limits"
-import { isTrialActive, isTrialing } from "@/lib/billing/trial"
+import { isTrialActive } from "@/lib/billing/trial"
 import { enqueueRun, DAILY_PIPELINES } from "@/lib/jobs/queue"
 
 export const maxDuration = 300
@@ -151,10 +151,6 @@ export async function GET(req: Request) {
     const tier = orgTierMap.get(location.organization_id) ?? "entry"
     const limits = TIER_LIMITS[tier]
 
-    // Active TRIALS run daily regardless of tier — a trial is an evaluation, and an
-    // evaluator who sees data move only on Mondays churns. (Trials are of the mid
-    // tier, which is daily anyway; this keeps legacy clock-trials on lower tiers daily.)
-    const inActiveTrial = orgTrial ? isTrialing(orgTrial) : false
     // An explicitly named single location skips the cadence gate: that request is a
     // deliberate human/ops action, not the nightly sweep deciding whose turn it is.
     //
@@ -170,10 +166,7 @@ export async function GET(req: Request) {
     // it. There is now one honestly-named field, one pure predicate (`isRunDueToday`, so the
     // gate is testable rather than inlined here), and a test tying that predicate to the
     // billing tiles that promise it. Do not reintroduce a second cadence field for this.
-    if (!isRunDueToday(limits.runCadence, dayOfWeek, {
-      inActiveTrial,
-      forced: !!singleLocationId,
-    })) {
+    if (!isRunDueToday(limits.runCadence, dayOfWeek, { forced: !!singleLocationId })) {
       jobs.push({
         location_id: location.id,
         location_name: location.name,
@@ -198,9 +191,14 @@ export async function GET(req: Request) {
     //   weekly   → Mondays
     //   biweekly → "2x / week" per the type comment: Mondays + Thursdays
     // Trials and an explicitly requested single location bypass, exactly like the events gate above.
-    const seoDue = isSeoDue(limits.seoCadence, dayOfWeek, {
-      force: inActiveTrial || !!singleLocationId,
-    })
+    // ALT-684 / ALT-688 — no trial bypass. A trial used to force a DAILY search pull, which no
+    // paid tier gets at any price (mid is weekly, the old top was biweekly). Confirmed in prod:
+    // visibility_runs == locations every single day from 2026-06-18 to 2026-08-19. At the measured
+    // $1.13/location-day that is $15.82 of search data per 14-day trial against ~$4.14 at weekly,
+    // so ~$11.68 wasted per trial, or roughly $58 per acquired customer at 20% conversion.
+    //
+    // `singleLocationId` still forces: that is a human asking for one location, not the sweep.
+    const seoDue = isSeoDue(limits.seoCadence, dayOfWeek, { force: !!singleLocationId })
 
     const pipelines = [
       ...(seoDue ? ["visibility"] : []),
