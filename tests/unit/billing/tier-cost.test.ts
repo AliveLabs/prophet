@@ -28,8 +28,8 @@ describe("estimateTierCost — inputs come from enforced limits", () => {
     for (const tier of ["entry", "mid", "top"] as const) {
       const e = estimateTierCost(tier)
       const l = TIER_LIMITS[tier]
-      expect(e.inputs.locations).toBe(l.maxLocations)
-      expect(e.inputs.competitorsPerLocation).toBe(l.maxCompetitorsPerLocation)
+      expect(e.inputs.locations).toBe(l.includedLocations)
+      expect(e.inputs.competitorsPerLocation).toBe(l.includedCompetitorsPerLocation)
       expect(e.inputs.ownSocialNetworks).toBe(l.ownSocialNetworkLimit)
       expect(e.inputs.seoCadence).toBe(l.seoCadence)
       expect(e.priceUsd).toBe(TIER_PRICING[tier].monthly)

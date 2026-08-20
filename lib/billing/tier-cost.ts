@@ -18,7 +18,7 @@
 // `TierLimits` for readers outside tiers.ts and cost-model.ts:
 //
 //   ENFORCED, and used below:
-//     maxLocations, maxCompetitorsPerLocation, ownSocialNetworkLimit, runCadence,
+//     includedLocations, includedCompetitorsPerLocation, ownSocialNetworkLimit, runCadence,
 //     seoCadence (via isSeoDue in app/api/cron/daily), seoTrackedKeywords,
 //     seoRankedKeywordsLimit, seoIntersectionEnabled/Limit (all in lib/jobs/pipelines/visibility.ts)
 //
@@ -162,7 +162,7 @@ export function estimateTierCost(
       : TIER_PRICING[tier].monthly
 
   const perLocation: ClientCostEstimate = estimateClientCost({
-    competitors: limits.maxCompetitorsPerLocation,
+    competitors: limits.includedCompetitorsPerLocation,
     platforms: limits.ownSocialNetworkLimit,
     cadence: briefCadence,
     seoCadence,
@@ -170,7 +170,7 @@ export function estimateTierCost(
     monthlyPriceUsd: priceUsd,
   })
 
-  const locations = Math.max(limits.maxLocations, 0)
+  const locations = Math.max(limits.includedLocations, 0)
 
   // Replace the modelled Claude line with the measured one (see OBSERVED_USD_PER_BRIEF). Done here
   // rather than by editing cost-model's UNIT_PRICES because that file's contract is "verified
@@ -210,7 +210,7 @@ export function estimateTierCost(
     priceUsd,
     inputs: {
       locations,
-      competitorsPerLocation: limits.maxCompetitorsPerLocation,
+      competitorsPerLocation: limits.includedCompetitorsPerLocation,
       ownSocialNetworks: limits.ownSocialNetworkLimit,
       briefCadence,
       seoCadence,
@@ -256,9 +256,9 @@ export function tierLoadMultiple(
   const load = (t: PricedTier) => {
     const l = TIER_LIMITS[t]
     return {
-      seo: l.seoTrackedKeywords * l.maxLocations * RUNS_PER_MONTH[l.seoCadence as CostCadence],
-      entities: (l.maxCompetitorsPerLocation + 1) * l.maxLocations,
-      briefs: RUNS_PER_MONTH[briefCadenceFor(t)] * l.maxLocations,
+      seo: l.seoTrackedKeywords * l.includedLocations * RUNS_PER_MONTH[l.seoCadence as CostCadence],
+      entities: (l.includedCompetitorsPerLocation + 1) * l.includedLocations,
+      briefs: RUNS_PER_MONTH[briefCadenceFor(t)] * l.includedLocations,
     }
   }
   const a = load(tier)

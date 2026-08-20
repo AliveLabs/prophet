@@ -7,7 +7,12 @@ import { cacheTag, cacheLife } from "next/cache"
 import { requireUser } from "@/lib/auth/server"
 import { getAdminContext } from "@/lib/auth/platform-admin"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { readSwapHistory, type SwapHistory } from "@/lib/billing/limits"
+import {
+  readSwapHistory,
+  resolveCompetitorAllowance,
+  type SwapHistory,
+  type Allowance,
+} from "@/lib/billing/limits"
 import { isTrialing } from "@/lib/billing/trial"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
@@ -261,6 +266,9 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
 export async function loadCompetitorSwapState(): Promise<{
   history: SwapHistory
   trialing: boolean
+  /** ALT-687 — the enforced cap is included + purchased, so the page must not read
+   *  `includedCompetitorsPerLocation` and under-count a customer who bought more. */
+  competitorAllowance: Allowance
 }> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
@@ -268,7 +276,7 @@ export async function loadCompetitorSwapState(): Promise<{
     sb.from("competitors").select("updated_at, is_active, metadata").eq("location_id", op.locationId),
     sb
       .from("organizations")
-      .select("subscription_tier, trial_ends_at, payment_state")
+      .select("subscription_tier, trial_ends_at, payment_state, competitors_purchased")
       .eq("id", op.organizationId)
       .maybeSingle(),
   ])
@@ -276,6 +284,7 @@ export async function loadCompetitorSwapState(): Promise<{
   return {
     history: readSwapHistory(rows),
     trialing: org ? isTrialing(org) : false,
+    competitorAllowance: resolveCompetitorAllowance(org ?? { subscription_tier: null }),
   }
 }
 

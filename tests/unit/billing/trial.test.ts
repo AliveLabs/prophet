@@ -110,12 +110,33 @@ describe("ensureCanAddLocation — trials cover one location", () => {
     ).not.toThrow()
   })
 
-  it("paid orgs fall through to the per-tier limit (1 / 1 / 3)", () => {
+  it("paid orgs fall through to the plan allowance (1 / 1 / 3)", () => {
+    // ALT-687 reworded the refusal: it used to say "Location limit reached for entry tier",
+    // which names an internal tier at an operator. It now says what they can do about it.
     const paid = (tier: string) => ({ subscription_tier: tier, trial_ends_at: null, payment_state: "active" })
-    expect(() => ensureCanAddLocation(paid("entry"), 1)).toThrow(/Location limit/)
-    expect(() => ensureCanAddLocation(paid("mid"), 1)).toThrow(/Location limit/)
+    const refused = /add another to your subscription/i
+    expect(() => ensureCanAddLocation(paid("entry"), 1)).toThrow(refused)
+    expect(() => ensureCanAddLocation(paid("mid"), 1)).toThrow(refused)
     expect(() => ensureCanAddLocation(paid("top"), 2)).not.toThrow()
-    expect(() => ensureCanAddLocation(paid("top"), 3)).toThrow(/Location limit/)
+    expect(() => ensureCanAddLocation(paid("top"), 3)).toThrow(refused)
+  })
+
+  it("ALT-687: a purchased location is honoured on top of the plan allowance", () => {
+    const org = { subscription_tier: "entry", trial_ends_at: null, payment_state: "active", locations_purchased: 1 }
+    // entry includes 1; with one bought, the second location is allowed and the third is not.
+    expect(() => ensureCanAddLocation(org, 1)).not.toThrow()
+    expect(() => ensureCanAddLocation(org, 2)).toThrow()
+  })
+
+  it("ALT-687: a purchased location does NOT open up a multi-location trial", () => {
+    // The trial one-location rule is checked ahead of the allowance and must stay that way.
+    const trialing = {
+      subscription_tier: "mid",
+      trial_ends_at: new Date(Date.now() + 86_400_000).toISOString(),
+      payment_state: null,
+      locations_purchased: 5,
+    }
+    expect(() => ensureCanAddLocation(trialing, 1)).toThrow(/trials cover one location/i)
   })
 })
 

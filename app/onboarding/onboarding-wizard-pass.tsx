@@ -35,7 +35,7 @@ const TOTAL = 5
 // only for the first render of a fresh signup, before the org exists: such orgs are created
 // on `mid` (createOrgAndLocationAction), and the real value replaces it as soon as the org
 // is created.
-const FALLBACK_MAX_TRACKED = TIER_LIMITS.mid.maxCompetitorsPerLocation
+const FALLBACK_MAX_TRACKED = TIER_LIMITS.mid.includedCompetitorsPerLocation
 
 type Prediction = {
   place_id: string

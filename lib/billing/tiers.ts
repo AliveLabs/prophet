@@ -3,8 +3,8 @@
 // differentiated by organizations.industry_type; same tier prices and feature
 // gates per tier across brands. Display names diverge per brand.
 //
-// Public surface used by the pricing page / upgrade buttons: maxLocations,
-// maxCompetitorsPerLocation, socialPlatforms, seoCadence, runCadence,
+// Public surface used by the pricing page / upgrade buttons: includedLocations,
+// includedCompetitorsPerLocation, socialPlatforms, seoCadence, runCadence,
 // photoAnalysisDepth, retentionDays, whiteLabelReports, apiAccess, support.
 // Everything else (eventsQueriesPerRun, seoTrackedKeywords, etc.) is an
 // internal pipeline-tuning knob not sold on the pricing page.
@@ -37,8 +37,13 @@ export const ALL_SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
 
 export type TierLimits = {
   // --- Brief-visible fields (pricing page) -------------------------------
-  maxLocations: number
-  maxCompetitorsPerLocation: number
+  /** ALT-687 — the locations INCLUDED in the plan, not the ceiling. The effective cap is
+   *  `included + purchased`; resolve it with resolveLocationAllowance(org), never by reading
+   *  this directly. Renamed from `maxLocations` so a stale read fails to compile. */
+  includedLocations: number
+  /** ALT-687 — competitors INCLUDED per location, not the ceiling. Use
+   *  resolveCompetitorAllowance(org). Renamed from `maxCompetitorsPerLocation`. */
+  includedCompetitorsPerLocation: number
   /** How many OWN-account networks this tier collects. Entry = ONE network of
    *  the customer's choice (locations.settings.ownSocialNetwork, default
    *  instagram); mid/top = all three. Resolve via resolveOwnSocialNetworks. */
@@ -79,8 +84,8 @@ export type TierLimits = {
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
   entry: {
-    maxLocations: 1,
-    maxCompetitorsPerLocation: 3,
+    includedLocations: 1,
+    includedCompetitorsPerLocation: 3,
     ownSocialNetworkLimit: 1,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
@@ -101,8 +106,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     contentPagesPerRun: 3,
   },
   mid: {
-    maxLocations: 1,
-    maxCompetitorsPerLocation: 5,
+    includedLocations: 1,
+    includedCompetitorsPerLocation: 5,
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
@@ -123,8 +128,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     contentPagesPerRun: 5,
   },
   top: {
-    maxLocations: 3,
-    maxCompetitorsPerLocation: 10,
+    includedLocations: 3,
+    includedCompetitorsPerLocation: 10,
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "biweekly",
@@ -145,8 +150,8 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     contentPagesPerRun: 8,
   },
   suspended: {
-    maxLocations: 0,
-    maxCompetitorsPerLocation: 0,
+    includedLocations: 0,
+    includedCompetitorsPerLocation: 0,
     ownSocialNetworkLimit: 0,
     competitorSocialNetworks: [] as const,
     seoCadence: "weekly",
@@ -254,19 +259,19 @@ export function asSubscriptionTier(value: unknown): SubscriptionTier {
   return "entry"
 }
 
-// The next paid tier up in location count (the smallest maxLocations strictly
+// The next paid tier up in location count (the smallest includedLocations strictly
 // greater than `tier`'s) — i.e. the "upgrade to fit another location on this same
 // bill" target. null when the org is already at the most-locations tier (then the
 // only way to add more is a separate account). Drives the decision screen (A2 2a).
 export function nextTierWithMoreLocations(
   tier: SubscriptionTier
 ): SubscriptionTier | null {
-  const current = TIER_LIMITS[asSubscriptionTier(tier)].maxLocations
+  const current = TIER_LIMITS[asSubscriptionTier(tier)].includedLocations
   let best: SubscriptionTier | null = null
   for (const t of PAID_TIERS) {
     if (
-      TIER_LIMITS[t].maxLocations > current &&
-      (best === null || TIER_LIMITS[t].maxLocations < TIER_LIMITS[best].maxLocations)
+      TIER_LIMITS[t].includedLocations > current &&
+      (best === null || TIER_LIMITS[t].includedLocations < TIER_LIMITS[best].includedLocations)
     ) {
       best = t
     }

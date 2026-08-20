@@ -29,7 +29,7 @@ import {
 import { enqueueFirstRun } from "@/lib/jobs/queue"
 import { rateLimit } from "@/lib/http/rate-limit"
 import { asSubscriptionTier, type SubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
-import { ensureCanAddLocation } from "@/lib/billing/limits"
+import { ensureCanAddLocation, resolveCompetitorAllowance } from "@/lib/billing/limits"
 import { TRIAL_DURATION_DAYS } from "@/lib/billing/trial"
 import { shouldClaimCurrentOrg } from "@/lib/onboarding/claim-current-org"
 import {
@@ -521,7 +521,7 @@ export async function createOrgAndLocationAction(
     orgId: org.id,
     locationId: loc.id,
     maxCompetitors:
-      TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].maxCompetitorsPerLocation,
+      resolveCompetitorAllowance(org).total,
   }
 }
 
@@ -1322,7 +1322,7 @@ export async function completeOnboardingAction(input: {
 
   // 3. Bulk approve selected competitors (capped to tier limit)
   const onboardTier = asSubscriptionTier(org?.subscription_tier)
-  const maxCompetitors = TIER_LIMITS[onboardTier].maxCompetitorsPerLocation
+  const maxCompetitors = TIER_LIMITS[onboardTier].includedCompetitorsPerLocation
   const cappedCompetitorIds = input.competitorIds.slice(0, maxCompetitors)
   // ALT-663: this slice used to be silent. The wizard now receives the same cap from
   // createOrgAndLocationAction, so arriving here with more picks than the plan allows

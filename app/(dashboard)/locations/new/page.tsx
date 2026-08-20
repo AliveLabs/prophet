@@ -90,7 +90,7 @@ export default async function NewLocationPage() {
               <h2>Add it to this account</h2>
               <p>
                 Upgrade your plan to manage up to{" "}
-                {TIER_LIMITS[upgradeTarget].maxLocations} locations under one login and one
+                {TIER_LIMITS[upgradeTarget].includedLocations} locations under one login and one
                 bill — each with its own competitors, signals, and brief.
               </p>
               <Link className="loc-path-link" href="/settings/billing">

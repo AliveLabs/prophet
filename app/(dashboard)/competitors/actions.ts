@@ -29,6 +29,7 @@ function haversineMeters(input: {
 import { scoreCompetitor } from "@/lib/providers/scoring"
 import {
   ensureCompetitorLimit,
+  resolveCompetitorAllowance,
   readSwapHistory,
   computeSwapAllowance,
   stampSwapOut,
@@ -86,7 +87,7 @@ export async function approveCompetitorAction(formData: FormData) {
 
   const { data: organization } = await supabase
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, locations_purchased, competitors_purchased")
     .eq("id", organizationId)
     .single()
 
@@ -99,7 +100,7 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("is_active", true)
 
   try {
-    ensureCompetitorLimit(tier, count ?? 0)
+    ensureCompetitorLimit(organization ?? { subscription_tier: tier }, count ?? 0)
   } catch (error) {
     redirect(`/competitors?error=${encodeURIComponent(String(error))}`)
   }
@@ -269,7 +270,7 @@ export async function ignoreCompetitorAction(formData: FormData) {
   // blocked. Mirror the UI's atLimit guard + computeSwapAllowance's documented intent.
   const { data: org } = await supabase
     .from("organizations")
-    .select("subscription_tier, trial_ends_at, payment_state")
+    .select("subscription_tier, locations_purchased, competitors_purchased, trial_ends_at, payment_state")
     .eq("id", organizationId)
     .maybeSingle()
   const tier = asSubscriptionTier(org?.subscription_tier)
@@ -278,7 +279,8 @@ export async function ignoreCompetitorAction(formData: FormData) {
     .select("id", { count: "exact", head: true })
     .eq("location_id", competitor.location_id)
     .eq("is_active", true)
-  const atCap = (activeCount ?? 0) >= TIER_LIMITS[tier].maxCompetitorsPerLocation
+  const atCap =
+    (activeCount ?? 0) >= resolveCompetitorAllowance(org ?? { subscription_tier: tier }).total
 
   const allowance = computeSwapAllowance(history, { trialing: org ? isTrialing(org) : false })
   if (atCap && allowance.locked) {
@@ -359,7 +361,7 @@ export async function addCompetitorAction(input: {
 
   const { data: org } = await supabase
     .from("organizations")
-    .select("subscription_tier")
+    .select("subscription_tier, locations_purchased, competitors_purchased")
     .eq("id", location.organization_id)
     .maybeSingle()
   const tier = asSubscriptionTier(org?.subscription_tier)
@@ -369,7 +371,7 @@ export async function addCompetitorAction(input: {
     .eq("location_id", location.id)
     .eq("is_active", true)
   try {
-    ensureCompetitorLimit(tier, activeCount ?? 0)
+    ensureCompetitorLimit(org ?? { subscription_tier: tier }, activeCount ?? 0)
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
