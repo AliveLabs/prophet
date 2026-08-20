@@ -4,7 +4,7 @@
 // gates per tier across brands. Display names diverge per brand.
 //
 // Public surface used by the pricing page / upgrade buttons: maxLocations,
-// maxCompetitorsPerLocation, socialPlatforms, seoCadence, briefingCadence,
+// maxCompetitorsPerLocation, socialPlatforms, seoCadence, runCadence,
 // photoAnalysisDepth, retentionDays, whiteLabelReports, apiAccess, support.
 // Everything else (eventsQueriesPerRun, seoTrackedKeywords, etc.) is an
 // internal pipeline-tuning knob not sold on the pricing page.
@@ -27,7 +27,6 @@ export type Cadence = "monthly" | "annual"
 export type SocialPlatform = "instagram" | "facebook" | "tiktok"
 
 export type SeoCadence = "weekly" | "biweekly" // biweekly = 2x / week
-export type BriefingCadence = "weekly_digest" | "daily" | "daily_priority"
 export type SupportTier = "email" | "email_chat" | "dedicated"
 
 export const ALL_SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
@@ -48,7 +47,18 @@ export type TierLimits = {
    *  customer's own-network choice never limits competitor coverage. */
   competitorSocialNetworks: readonly SocialPlatform[]
   seoCadence: SeoCadence
-  briefingCadence: BriefingCadence
+  /** ALT-683 — HOW OFTEN A LOCATION RUNS AT ALL, and therefore how often a brief
+   *  appears. THIS is the field the daily cron gates on, and the brief cadence the
+   *  pricing page sells. It was called `eventsCadence` and lived under "internal
+   *  pipeline tuning (not sold)" while a `briefingCadence` in this block enforced
+   *  NOTHING: the thing we sell was gated by a field named after something else.
+   *
+   *  It never gated events specifically. `events` is unconditionally in the pipeline
+   *  list, so the old name was wrong from the first commit.
+   *
+   *  Do not add a second cadence field that has to agree with this one. Two fields
+   *  that must match, with nothing enforcing the match, IS the bug this replaced. */
+  runCadence: "weekly" | "daily"
   photoAnalysisDepth: number
   retentionDays: number
   whiteLabelReports: boolean
@@ -56,19 +66,15 @@ export type TierLimits = {
   support: SupportTier
 
   // --- Internal pipeline tuning (not sold) -------------------------------
-  eventsCadence: "weekly" | "daily"
   eventsQueriesPerRun: number
   eventsMaxDepth: number
   eventsKeywordSets: number
   seoTrackedKeywords: number
-  seoLabsCadence: "weekly" | "daily"
-  seoSerpCadence: "weekly" | "daily"
   seoRankedKeywordsLimit: number
   seoIntersectionEnabled: boolean
   seoIntersectionLimit: number
   seoAdsEnabled: boolean
   contentPagesPerRun: number
-  contentRefreshCadence: "weekly" | "daily"
 }
 
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
@@ -78,25 +84,21 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 1,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
-    briefingCadence: "weekly_digest",
     photoAnalysisDepth: 10,
     retentionDays: 30,
     whiteLabelReports: false,
     apiAccess: false,
     support: "email",
-    eventsCadence: "weekly",
+    runCadence: "weekly",
     eventsQueriesPerRun: 1,
     eventsMaxDepth: 10,
     eventsKeywordSets: 2,
     seoTrackedKeywords: 15,
-    seoLabsCadence: "weekly",
-    seoSerpCadence: "weekly",
     seoRankedKeywordsLimit: 50,
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 25,
     seoAdsEnabled: false,
     contentPagesPerRun: 3,
-    contentRefreshCadence: "weekly",
   },
   mid: {
     maxLocations: 1,
@@ -104,25 +106,21 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
-    briefingCadence: "daily",
     photoAnalysisDepth: 30,
     retentionDays: 90,
     whiteLabelReports: true,
     apiAccess: false,
     support: "email_chat",
-    eventsCadence: "daily",
+    runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
     eventsKeywordSets: 5,
     seoTrackedKeywords: 50,
-    seoLabsCadence: "weekly",
-    seoSerpCadence: "weekly",
     seoRankedKeywordsLimit: 100,
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 100,
     seoAdsEnabled: true,
     contentPagesPerRun: 5,
-    contentRefreshCadence: "weekly",
   },
   top: {
     maxLocations: 3,
@@ -130,25 +128,21 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "biweekly",
-    briefingCadence: "daily_priority",
     photoAnalysisDepth: 30,
     retentionDays: 365,
     whiteLabelReports: true,
     apiAccess: true,
     support: "dedicated",
-    eventsCadence: "daily",
+    runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
     eventsKeywordSets: 5,
     seoTrackedKeywords: 200,
-    seoLabsCadence: "daily",
-    seoSerpCadence: "daily",
     seoRankedKeywordsLimit: 500,
     seoIntersectionEnabled: true,
     seoIntersectionLimit: 500,
     seoAdsEnabled: true,
     contentPagesPerRun: 8,
-    contentRefreshCadence: "weekly",
   },
   suspended: {
     maxLocations: 0,
@@ -156,25 +150,21 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 0,
     competitorSocialNetworks: [] as const,
     seoCadence: "weekly",
-    briefingCadence: "weekly_digest",
     photoAnalysisDepth: 0,
     retentionDays: 0,
     whiteLabelReports: false,
     apiAccess: false,
     support: "email",
-    eventsCadence: "weekly",
+    runCadence: "weekly",
     eventsQueriesPerRun: 0,
     eventsMaxDepth: 0,
     eventsKeywordSets: 0,
     seoTrackedKeywords: 0,
-    seoLabsCadence: "weekly",
-    seoSerpCadence: "weekly",
     seoRankedKeywordsLimit: 0,
     seoIntersectionEnabled: false,
     seoIntersectionLimit: 0,
     seoAdsEnabled: false,
     contentPagesPerRun: 0,
-    contentRefreshCadence: "weekly",
   },
 }
 

@@ -315,12 +315,6 @@ export function ensureCanInviteTeamMember(org: {
 // Events Intelligence
 // ---------------------------------------------------------------------------
 
-export function getEventsCadence(
-  tier: SubscriptionTier
-): "weekly" | "daily" {
-  return TIER_LIMITS[tier].eventsCadence
-}
-
 export function getEventsQueriesPerRun(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].eventsQueriesPerRun
 }
@@ -347,18 +341,6 @@ export function ensureEventQueryLimit(
 
 export function getSeoTrackedKeywordsLimit(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].seoTrackedKeywords
-}
-
-export function getSeoLabsCadence(
-  tier: SubscriptionTier
-): "weekly" | "daily" {
-  return TIER_LIMITS[tier].seoLabsCadence
-}
-
-export function getSeoSerpCadence(
-  tier: SubscriptionTier
-): "weekly" | "daily" {
-  return TIER_LIMITS[tier].seoSerpCadence
 }
 
 export function getSeoRankedKeywordsLimit(tier: SubscriptionTier): number {
@@ -397,12 +379,6 @@ export function getContentMaxPages(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].contentPagesPerRun
 }
 
-export function getContentCadence(
-  tier: SubscriptionTier
-): "weekly" | "daily" {
-  return TIER_LIMITS[tier].contentRefreshCadence
-}
-
 // ---------------------------------------------------------------------------
 // Pricing-brief features (sold on the pricing page)
 // ---------------------------------------------------------------------------
@@ -427,4 +403,37 @@ export function getCompetitorSocialPlatforms(
   tier: SubscriptionTier
 ): readonly ("instagram" | "facebook" | "tiktok")[] {
   return TIER_LIMITS[tier].competitorSocialNetworks
+}
+
+// ---------------------------------------------------------------------------
+// Run cadence (ALT-683) — the gate and the label, from ONE field
+// ---------------------------------------------------------------------------
+// `runCadence` decides whether a location runs at all on a given day, which is what makes a
+// Starter location weekly and a Standard location daily. That difference IS the price gap, so
+// the predicate and the customer-facing label both live here rather than being re-derived at
+// each call site. Three copies of `cadence === "weekly" ? ... : ...` across the billing tiles
+// is how the old pair of fields drifted apart in the first place.
+
+/** Does this location run today? Pure, so the gate the cron applies is the gate a test can
+ *  assert. `forced` covers an explicitly requested single location: a deliberate ops action,
+ *  not the nightly sweep deciding whose turn it is.
+ *
+ *  A weekly location runs Mondays. Active TRIALS always run: a trial is an evaluation, and an
+ *  evaluator who sees data move only on Mondays churns. (ALT-688 will revisit whether a trial
+ *  should instead mirror the plan it is trialling; when it does, change it HERE.) */
+export function isRunDueToday(
+  cadence: "weekly" | "daily",
+  dayOfWeek: number,
+  opts: { inActiveTrial?: boolean; forced?: boolean } = {}
+): boolean {
+  if (opts.forced || opts.inActiveTrial) return true
+  if (cadence === "daily") return true
+  return dayOfWeek === 1
+}
+
+/** The operator-facing label for a tier's brief cadence. The billing tiles must not phrase
+ *  this themselves: the promise on the tile and the behaviour in the cron have to come from
+ *  the same field, and a test pins that they do. */
+export function runCadenceLabel(tier: SubscriptionTier): "Weekly briefings" | "Daily briefings" {
+  return TIER_LIMITS[tier].runCadence === "weekly" ? "Weekly briefings" : "Daily briefings"
 }

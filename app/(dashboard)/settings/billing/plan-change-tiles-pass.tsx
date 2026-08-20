@@ -16,6 +16,7 @@ import {
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
+import { runCadenceLabel } from "@/lib/billing/limits"
 import { classifyBillingMutation, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
 
@@ -26,7 +27,7 @@ function tierFeatures(tier: PaidTier): string[] {
   const feats = [
     `${l.maxLocations} ${l.maxLocations === 1 ? "location" : "locations"}`,
     `${l.maxCompetitorsPerLocation} competitors per location`,
-    l.briefingCadence === "weekly_digest" ? "Weekly briefings" : "Daily briefings",
+    runCadenceLabel(tier),
     l.ownSocialNetworkLimit === 1
       ? "1 social network of your choice + competitors on all 3"
       : `All ${l.ownSocialNetworkLimit} social networks`,

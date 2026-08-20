@@ -45,7 +45,7 @@ describe("estimateTierCost — inputs come from enforced limits", () => {
     expect(top.inputs.seoRunsPerMonth).toBeLessThan(RUNS_PER_MONTH.daily)
   })
 
-  it("maps weekly_digest to weekly briefs and daily/daily_priority to daily", () => {
+  it("reads brief cadence from runCadence, the same field the cron gates on (ALT-683)", () => {
     expect(estimateTierCost("entry").inputs.briefCadence).toBe("weekly")
     expect(estimateTierCost("mid").inputs.briefCadence).toBe("daily")
     expect(estimateTierCost("top").inputs.briefCadence).toBe("daily")
