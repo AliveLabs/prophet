@@ -45,7 +45,9 @@ export type GenerateRequest = {
   /** Deep pass (P5): override the model + enable adaptive thinking for the convergence +
    *  synthesis passes. On Opus 4.8 thinking is ADAPTIVE (no budget_tokens) and temperature
    *  MUST be omitted, so when `thinking` is set we drop temperature and add output_config.effort.
-   *  Producers leave these unset (Sonnet + temperature, as before). */
+   *  Leaving it unset sends an EXPLICIT `thinking: {type:"disabled"}` — NOT an absent field. See
+   *  the DEFAULT-THINKING POLARITY block by the request body for why that distinction is
+   *  load-bearing on the Claude 5 family. */
   model?: string
   thinking?: boolean
   /** Adaptive-thinking effort. Narrowed to the set the runtime validator accepts (see the EFFORT
@@ -306,11 +308,38 @@ async function claudeRawUnthrottled(req: GenerateRequest, opts: { retries?: numb
           // Thinking tokens count toward output, so the deep pass needs much more headroom.
           max_tokens: req.maxOutputTokens ?? (req.thinking ? 32000 : 8192),
           // Opus 4.8 + adaptive thinking REJECTS temperature (400); producers (Sonnet) keep it.
+          //
+          // DEFAULT-THINKING POLARITY (ALT-613). The non-thinking branch sends an EXPLICIT
+          // `thinking: {type:"disabled"}` rather than simply omitting the field. Omitting is NOT
+          // neutral: on Sonnet 4.6 / Opus 4.8 an absent `thinking` means no thinking, but on
+          // Sonnet 5 and Opus 5 thinking is ON BY DEFAULT. So an omitted field silently turns
+          // adaptive thinking ON for every caller that never asked for it the moment ANTHROPIC_MODEL
+          // points at a 5-family id — against max_tokens ceilings sized for no thinking (8192 here,
+          // 2048 at the eval judge), with thinking tokens counting toward that same ceiling.
+          // Measured 2026-08-14 on real prompts: the eval judge went 484 -> 1451 output tokens
+          // against its 2048 cap, i.e. headroom 4.2x -> 1.4x. That is the 2026-06 truncation outage
+          // mechanism exactly, and it lands on safety-review (anti-fabrication) and on the judge we
+          // would use to MEASURE a model swap. Adaptive also means it fires per-prompt, so it fails
+          // intermittently rather than cleanly.
+          //
+          // Verified live on the whole fleet before shipping: `{type:"disabled"}` returns 200 on
+          // Sonnet 4.6, Sonnet 5, Opus 4.8, Opus 5 and Haiku 4.5, and coexists with `temperature`
+          // on the two that still accept it. It is also PROMPT-CACHE NEUTRAL today: thinking config
+          // is rendered into the prompt, but setting a parameter to its existing default is
+          // equivalent to omitting it, so a disabled-thinking call still reads a prefix written by
+          // an omitted-thinking one (confirmed: 7921 cached tokens read, 0 rewritten).
+          //
+          // One guard to keep in mind when widening the effort dial (ALT-614): Opus 5 REJECTS
+          // `{type:"disabled"}` at effort `xhigh`/`max`. This branch sends no effort at all, so it
+          // inherits the `high` default and is safe; do not start sending effort here without one.
           ...(req.thinking
             ? { thinking: { type: "adaptive" }, output_config: { effort: effortFor(req) } }
-            : acceptsTemperature(req.model ?? ANTHROPIC_MODEL)
-              ? { temperature: req.temperature ?? 0.4 }
-              : {}),
+            : {
+                thinking: { type: "disabled" as const },
+                ...(acceptsTemperature(req.model ?? ANTHROPIC_MODEL)
+                  ? { temperature: req.temperature ?? 0.4 }
+                  : {}),
+              }),
           ...(system ? { system } : {}),
           messages: [{ role: "user", content: req.prompt }],
         }),
