@@ -415,18 +415,26 @@ export function getCompetitorSocialPlatforms(
 // is how the old pair of fields drifted apart in the first place.
 
 /** Does this location run today? Pure, so the gate the cron applies is the gate a test can
- *  assert. `forced` covers an explicitly requested single location: a deliberate ops action,
- *  not the nightly sweep deciding whose turn it is.
+ *  assert. A weekly location runs Mondays.
  *
- *  A weekly location runs Mondays. Active TRIALS always run: a trial is an evaluation, and an
- *  evaluator who sees data move only on Mondays churns. (ALT-688 will revisit whether a trial
- *  should instead mirror the plan it is trialling; when it does, change it HERE.) */
+ *  `forced` covers an explicitly requested single location: a deliberate ops action, not the
+ *  nightly sweep deciding whose turn it is.
+ *
+ *  ALT-688 — THERE IS NO TRIAL BYPASS, deliberately. A trial used to run daily on any plan, on
+ *  the reasoning that an evaluator who sees data move only on Mondays churns. That was never
+ *  costed, and under the current price sheet it is backwards: Starter IS weekly and is
+ *  self-serve, so a trial showing daily briefs misrepresents the product and then takes the
+ *  behaviour away on the day they pay. The worst possible shape. A trial inherits the cadence of
+ *  the plan it is trialling; the honest demo is the real one.
+ *
+ *  Do not re-add an `inActiveTrial` escape here. If a DEMO org needs to look livelier than its
+ *  plan, that is an explicit demo rule (org_kind), not a trial rule. */
 export function isRunDueToday(
   cadence: "weekly" | "daily",
   dayOfWeek: number,
-  opts: { inActiveTrial?: boolean; forced?: boolean } = {}
+  opts: { forced?: boolean } = {}
 ): boolean {
-  if (opts.forced || opts.inActiveTrial) return true
+  if (opts.forced) return true
   if (cadence === "daily") return true
   return dayOfWeek === 1
 }

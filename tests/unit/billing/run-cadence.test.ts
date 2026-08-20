@@ -57,8 +57,13 @@ describe("isRunDueToday: the gate the cron actually applies", () => {
     expect(due).toEqual([false, true, false, false, false, false, false])
   })
 
-  it("an active trial always runs, because an evaluator who sees data move on Mondays churns", () => {
-    expect(isRunDueToday("weekly", WEDNESDAY, { inActiveTrial: true })).toBe(true)
+  it("ALT-688: there is NO trial bypass. A trial inherits its plan's cadence", () => {
+    // The signature deliberately has no `inActiveTrial`. A trial used to run daily on any plan,
+    // which showed a Starter evaluator daily briefs and then took them away on the day they paid.
+    // If this test is failing because someone re-added the option, read the comment on
+    // isRunDueToday before "fixing" it.
+    expect(Object.keys({ forced: true })).not.toContain("inActiveTrial")
+    expect(isRunDueToday("weekly", WEDNESDAY)).toBe(false)
   })
 
   it("an explicitly requested single location bypasses the gate", () => {
