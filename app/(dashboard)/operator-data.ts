@@ -24,21 +24,17 @@ import { fetchPlaceDetails } from "@/lib/places/google"
 import { fetchPhotosPageData } from "@/lib/cache/photos"
 import { fetchVisibilityPageData } from "@/lib/cache/visibility"
 import { buildEntityPhotoProfile, type PhotoRow } from "@/lib/places/listing-audit"
+import { tierDisplayName } from "@/lib/billing/tiers"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
   NormalizedOrganicCompetitor,
 } from "@/lib/seo/types"
 
-/** Map DB subscription_tier values (entry/mid/top + legacy) to display labels.
- *  'free' is a legacy pre-migration value — those orgs are trials (of Tier 2). */
-export function tierLabel(t: string): string {
-  const m: Record<string, string> = {
-    entry: "Tier 1", mid: "Tier 2", top: "Tier 3",
-    tier_1: "Tier 1", tier_2: "Tier 2", tier_3: "Tier 3", free: "Trial",
-  }
-  return m[t] ?? t
-}
+// ALT-657 — one source for the customer-facing plan name. This used to be a local map rendering
+// "Tier 1 / Tier 2 / Tier 3", duplicated here and in the other of operator-data / preview-data.
+// Kept as a thin re-export so the ~10 call sites do not all have to change.
+export const tierLabel = tierDisplayName
 
 /** Resolve the name to SHOW for an entity carrying an optional operator-set display label
  *  over a canonical source name (ALT-225). The raw source `name` stays the source of truth

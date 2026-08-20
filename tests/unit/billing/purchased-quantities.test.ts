@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest"
-import { TIER_LIMITS, TIER_PRICING } from "@/lib/billing/tiers"
+import {
+  TIER_LIMITS,
+  TIER_PRICING,
+  ADD_ON_PRICING,
+  addOnLocationPrice,
+} from "@/lib/billing/tiers"
 import {
   resolveLocationAllowance,
   resolveCompetitorAllowance,
@@ -116,26 +121,71 @@ describe("the guards enforce the purchased total, not the included count", () =>
 })
 
 describe("⚠️ INVARIANT: an add-on may never cost more than the base", () => {
-  // The arbitrage this guards: a draft priced Starter at $99 with a $269 add-on location, so two
-  // Starter accounts cost $198 against $568 and the customer saved $370 by splitting. Non-linear
-  // price over a linear cost driver ALWAYS creates arbitrage. See docs/PRICING-2026-08-19.md.
+  // The arbitrage: a draft priced Starter at $99 with a $269 add-on location, so two Starter
+  // accounts cost $198 against $568 and the customer saved $370 by splitting. Non-linear price
+  // over a linear cost driver ALWAYS creates arbitrage. See docs/PRICING-2026-08-19.md.
   //
-  // The add-on prices live in Stripe and in the doc rather than in TIER_LIMITS, so this pins the
-  // rule against the tier prices we do hold, and fails loudly if a future edit inverts them.
-  // TIER_PRICING is keyed on the PRICED tiers only (suspended has no price), so this list is
-  // narrower than PAID_TIERS by design.
-  const PRICED = ["entry", "mid", "top"] as const
+  // This test earned its keep on 2026-08-20: the DECIDED sheet still had a flat $229 add-on
+  // location, which is fine against Standard's $249 base but breaks against Starter's $99. The
+  // location add-on is now per-plan, matching the sheet's own "same plan as the first" rule.
 
-  it("every paid tier costs at least as much as the cheapest tier below it", () => {
-    const monthly = PRICED.map((t) => TIER_PRICING[t].monthly)
-    const sorted = [...monthly].sort((a, b) => a - b)
-    expect(monthly).toEqual(sorted)
+  const SELF_SERVE = ["entry", "mid"] as const
+
+  it("the location add-on never exceeds the base of the plan it attaches to", () => {
+    for (const tier of SELF_SERVE) {
+      const base = TIER_PRICING[tier]
+      const addOn = addOnLocationPrice(tier)
+      expect(addOn.monthly, `${tier} monthly`).toBeLessThanOrEqual(base.monthly)
+      expect(addOn.annualEffectiveMonthly, `${tier} annual`).toBeLessThanOrEqual(
+        base.annualEffectiveMonthly,
+      )
+    }
   })
 
-  it("annual is cheaper per month than monthly on every tier, or the discount is a lie", () => {
-    for (const tier of PRICED) {
-      const p = TIER_PRICING[tier]
-      expect(p.annualEffectiveMonthly).toBeLessThan(p.monthly)
+  it("so splitting into two accounts never saves the customer money", () => {
+    // The check in the form a customer would actually run it.
+    for (const tier of SELF_SERVE) {
+      const base = TIER_PRICING[tier].annualEffectiveMonthly
+      const twoAccounts = base * 2
+      const oneAccountTwoLocations = base + addOnLocationPrice(tier).annualEffectiveMonthly
+      expect(oneAccountTwoLocations, `${tier}: splitting must not be cheaper`).toBeLessThanOrEqual(
+        twoAccounts,
+      )
     }
+  })
+
+  it("the competitor add-on is below every base, so it needs no per-plan split", () => {
+    const cheapest = Math.min(...SELF_SERVE.map((t) => TIER_PRICING[t].annualEffectiveMonthly))
+    expect(ADD_ON_PRICING.competitor.annualEffectiveMonthly).toBeLessThan(cheapest)
+  })
+
+  it("pins the specific numbers the pricing doc committed to", () => {
+    // If these change, docs/PRICING-2026-08-19.md and the Stripe prices must change with them.
+    expect(TIER_PRICING.entry.monthly).toBe(119)
+    expect(TIER_PRICING.entry.annualEffectiveMonthly).toBe(99)
+    expect(TIER_PRICING.mid.monthly).toBe(299)
+    expect(TIER_PRICING.mid.annualEffectiveMonthly).toBe(249)
+    expect(addOnLocationPrice("mid").annualEffectiveMonthly).toBe(229)
+    expect(ADD_ON_PRICING.competitor.annualEffectiveMonthly).toBe(15)
+  })
+
+  it("annual is two months free on every line, not some other discount", () => {
+    const lines = [
+      TIER_PRICING.entry, TIER_PRICING.mid, TIER_PRICING.top,
+      addOnLocationPrice("entry"), addOnLocationPrice("mid"), ADD_ON_PRICING.competitor,
+    ]
+    for (const l of lines) {
+      expect(l.annual).toBe(l.monthly * 10)
+      expect(l.annualEffectiveMonthly).toBeLessThan(l.monthly)
+    }
+  })
+
+  it("a Standard add-on location is discounted but not given away", () => {
+    // $229 against $249 is a deliberate 8% gap. Far below and a multi-location account's blended
+    // margin collapses on locations 2..n.
+    const ratio =
+      addOnLocationPrice("mid").annualEffectiveMonthly / TIER_PRICING.mid.annualEffectiveMonthly
+    expect(ratio).toBeGreaterThan(0.85)
+    expect(ratio).toBeLessThan(1)
   })
 })

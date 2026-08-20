@@ -13,7 +13,7 @@
  *   If found, we UPDATE; if not, we CREATE. Safe to run repeatedly.
  *
  * Usage:
- *   STRIPE_SECRET_KEY=sk_test_... \
+ *   STRIPE_SECRET_KEY=sk_... \
  *   APP_URL=https://app.getticket.ai \
  *   npx tsx scripts/stripe/setup.ts
  *
@@ -87,17 +87,32 @@ type AddOnKind = "location" | "competitor"
 
 interface AddOnSpec {
   kind: AddOnKind
+  /** Present for `location`: the plan the add-on attaches to. Absent for the flat competitor. */
+  tier?: "entry" | "mid"
   name: string
   description: string
   monthly: number
 }
 
+// The location add-on is PER PLAN. "Additional locations run on the same plan as the first" has to
+// mean the same price: a flat $275 against Starter's $119 base would let a customer save money by
+// running two Starter accounts instead of one two-location account. That is the same arbitrage the
+// $269 draft had, and it survived into the decided sheet because only the Standard line was checked.
+// Multi-Location is contract-only, so it gets no self-serve add-on price.
 const ADD_ON_SPECS: AddOnSpec[] = [
   {
     kind: "location",
-    name: "Additional location",
-    description: "One more location on the same plan as your first. Billed per location.",
-    monthly: 27500, // $275/mo, $229/mo annual
+    tier: "entry",
+    name: "Additional location (Starter)",
+    description: "One more location on the Starter plan. Billed per location.",
+    monthly: 11900, // parity with the Starter base: $119/mo, $99/mo annual
+  },
+  {
+    kind: "location",
+    tier: "mid",
+    name: "Additional location (Standard)",
+    description: "One more location on the Standard plan. Billed per location.",
+    monthly: 27500, // $275/mo, $229/mo annual — an 8% discount on the $299 base
   },
   {
     kind: "competitor",
@@ -113,17 +128,19 @@ function productKey(brand: Brand, tier: Tier) {
 function priceKey(brand: Brand, tier: Tier, cadence: Cadence) {
   return `vatic.price.${brand}.${tier}.${cadence}`
 }
-function addOnProductKey(kind: AddOnKind) {
-  return `vatic.product.addon.${kind}`
+function addOnProductKey(spec: AddOnSpec) {
+  return spec.tier ? `vatic.product.addon.${spec.kind}.${spec.tier}` : `vatic.product.addon.${spec.kind}`
 }
-function addOnPriceKey(kind: AddOnKind, cadence: Cadence) {
-  return `vatic.price.addon.${kind}.${cadence}`
+function addOnPriceKey(spec: AddOnSpec, cadence: Cadence) {
+  const t = spec.tier ? `.${spec.tier}` : ""
+  return `vatic.price.addon.${spec.kind}${t}.${cadence}`
 }
 // The app resolves these via resolveAddOnPriceInfo in lib/stripe/pricing.ts, which scans the same
 // env-var names per brand. The PRODUCT is brand-neutral but the env var is per brand, so both
 // brands point at the same price ID. That is intentional: one price, two lookups.
-function addOnEnvVarName(brand: Brand, kind: AddOnKind, cadence: Cadence) {
-  return `STRIPE_PRICE_ID_${brand.toUpperCase()}_ADDON_${kind.toUpperCase()}_${cadence.toUpperCase()}`
+function addOnEnvVarName(brand: Brand, spec: AddOnSpec, cadence: Cadence) {
+  const tierPart = spec.tier ? `_${spec.tier.toUpperCase()}` : ""
+  return `STRIPE_PRICE_ID_${brand.toUpperCase()}_ADDON_${spec.kind.toUpperCase()}${tierPart}_${cadence.toUpperCase()}`
 }
 function portalConfigKey(brand: Brand) {
   return `vatic.portal.${brand}`
@@ -218,7 +235,7 @@ async function upsertPrice(
 }
 
 async function upsertAddOnProduct(stripe: Stripe, spec: AddOnSpec): Promise<Stripe.Product> {
-  const key = addOnProductKey(spec.kind)
+  const key = addOnProductKey(spec)
   const existing = await findByMetadata(
     () => stripe.products.list({ limit: 100, active: true }),
     key,
@@ -226,7 +243,7 @@ async function upsertAddOnProduct(stripe: Stripe, spec: AddOnSpec): Promise<Stri
   const params = {
     name: spec.name,
     description: spec.description,
-    metadata: { vatic_key: key, addon: spec.kind },
+    metadata: { vatic_key: key, addon: spec.kind, ...(spec.tier ? { tier: spec.tier } : {}) },
   }
   if (existing) {
     console.log(`  ✓ add-on product exists: ${spec.name} (${existing.id})`)
@@ -243,7 +260,7 @@ async function upsertAddOnPrice(
   spec: AddOnSpec,
   cadence: Cadence,
 ): Promise<Stripe.Price> {
-  const key = addOnPriceKey(spec.kind, cadence)
+  const key = addOnPriceKey(spec, cadence)
   const amount = cadence === "monthly" ? spec.monthly : annualFrom(spec.monthly)
   const existing = await findByMetadata(
     () => stripe.prices.list({ limit: 100, product: product.id, active: true }),
@@ -265,7 +282,7 @@ async function upsertAddOnPrice(
     currency: "usd",
     unit_amount: amount,
     recurring: { interval: cadence === "monthly" ? "month" : "year" },
-    metadata: { vatic_key: key, addon: spec.kind, cadence },
+    metadata: { vatic_key: key, addon: spec.kind, cadence, ...(spec.tier ? { tier: spec.tier } : {}) },
     nickname: `${spec.name} (${cadence})`,
   })
   console.log(`  + add-on price created: ${spec.name} ${cadence} $${(amount / 100).toFixed(2)} (${created.id})`)
@@ -278,12 +295,14 @@ async function upsertAddOnPrice(
 function assertAddOnsBelowBase(): void {
   const cheapestBaseMonthly = Math.min(PRICE_USD_CENTS.entry.monthly, PRICE_USD_CENTS.mid.monthly)
   for (const spec of ADD_ON_SPECS) {
-    if (spec.monthly > cheapestBaseMonthly) {
+    // A per-plan add-on is checked against ITS OWN base. A flat add-on has to clear the cheapest
+    // base, since it can attach to any of them.
+    const ceiling = spec.tier ? PRICE_USD_CENTS[spec.tier].monthly : cheapestBaseMonthly
+    if (spec.monthly > ceiling) {
       throw new Error(
         `ADD-ON PRICE INVARIANT BROKEN: "${spec.name}" at $${(spec.monthly / 100).toFixed(2)}/mo ` +
-          `exceeds the cheapest base plan at $${(cheapestBaseMonthly / 100).toFixed(2)}/mo. ` +
-          `A customer would save money by opening a second account instead of adding one. ` +
-          `See docs/PRICING-2026-08-19.md.`,
+          `exceeds the $${(ceiling / 100).toFixed(2)}/mo base it attaches to. A customer would save ` +
+          `money by opening a second account instead of adding one. See docs/PRICING-2026-08-19.md.`,
       )
     }
   }
@@ -417,6 +436,16 @@ async function main() {
 
   assertAddOnsBelowBase()
 
+  // --prices-only limits the run to products and prices, skipping the portal config and the
+  // webhook endpoint. That exists so the whole job can be done with a RESTRICTED key holding just
+  // two write scopes (Products, Prices) instead of a full secret key. The portal config and the
+  // webhook already exist in the live account, so on a price change there is nothing for them to
+  // do beyond re-listing the new price IDs, which is a separate, later step.
+  const pricesOnly = process.argv.includes("--prices-only")
+  if (pricesOnly) {
+    console.log("Mode: --prices-only (skipping portal config and webhook)\n")
+  }
+
   console.log("Step 1: Products")
   const products = new Map<string, Stripe.Product>()
   for (const spec of PRODUCT_SPECS) {
@@ -445,29 +474,40 @@ async function main() {
       const price = await upsertAddOnPrice(stripe, product, spec, cadence)
       // Same price ID under both brands: the product is brand-neutral, the lookup is per brand.
       for (const brand of ["ticket", "neat"] as const) {
-        envLines.push(`${addOnEnvVarName(brand, spec.kind, cadence)}=${price.id}`)
+        envLines.push(`${addOnEnvVarName(brand, spec, cadence)}=${price.id}`)
       }
       ticketPriceIds.push(price.id)
     }
   }
 
-  console.log("\nStep 4: Portal configurations")
-  const ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
-  const neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
+  let ticketPortal: { id: string } | null = null
+  let neatPortal: { id: string } | null = null
+  if (pricesOnly) {
+    console.log("\nSteps 4-5: SKIPPED (--prices-only)")
+  } else {
+    console.log("\nStep 4: Portal configurations")
+    ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
+    neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
 
-  console.log("\nStep 5: Webhook endpoint")
-  await upsertWebhook(stripe, appUrl)
+    console.log("\nStep 5: Webhook endpoint")
+    await upsertWebhook(stripe, appUrl)
+  }
 
   console.log("\n\n== .env snippet ==\n")
   console.log("# Stripe prices (Ticket)")
   envLines.filter((l) => l.includes("_TICKET_")).forEach((l) => console.log(l))
   console.log("\n# Stripe prices (Neat)")
   envLines.filter((l) => l.includes("_NEAT_")).forEach((l) => console.log(l))
-  console.log("\n# Stripe Customer Portal configurations")
-  console.log(`STRIPE_PORTAL_CONFIG_TICKET=${ticketPortal.id}`)
-  console.log(`STRIPE_PORTAL_CONFIG_NEAT=${neatPortal.id}`)
-  console.log("\n# Copy STRIPE_WEBHOOK_SECRET from above if the webhook was newly created.")
-  console.log("# (Stripe only returns signing secrets at creation time.)")
+  if (ticketPortal && neatPortal) {
+    console.log("\n# Stripe Customer Portal configurations")
+    console.log(`STRIPE_PORTAL_CONFIG_TICKET=${ticketPortal.id}`)
+    console.log(`STRIPE_PORTAL_CONFIG_NEAT=${neatPortal.id}`)
+    console.log("\n# Copy STRIPE_WEBHOOK_SECRET from above if the webhook was newly created.")
+    console.log("# (Stripe only returns signing secrets at creation time.)")
+  } else {
+    console.log("\n# Portal config and webhook untouched (--prices-only).")
+    console.log("# The new price IDs still need adding to the portal's allowed products later.")
+  }
   console.log("\n== Done ==\n")
 }
 

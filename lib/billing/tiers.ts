@@ -128,7 +128,12 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     contentPagesPerRun: 5,
   },
   top: {
-    includedLocations: 3,
+    // ALT-687/657 — ONE. Multi-Location is priced PER LOCATION ($275/mo each), so a single unit
+    // of it is one location and the rest arrive as `locations_purchased`. This was 3 under the old
+    // bundle model ($499 for three), and leaving it at 3 made the cost model compare three
+    // locations' cost against one location's price, which is what surfaced this: the estimate came
+    // out at $280.60 against a $275 "price". Every tier now includes exactly one location.
+    includedLocations: 1,
     includedCompetitorsPerLocation: 10,
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
@@ -215,16 +220,86 @@ export const PAID_TIERS: readonly SubscriptionTier[] = [
   "top",
 ] as const
 
-// Public dollar figures for UI. Monthly billed monthly. Annual billed
-// annually at 20% off (brief section 3/4). `annualEffectiveMonthly` =
-// annual / 12, used beside the annual price.
+// Tiers a visitor can buy WITHOUT talking to us. Multi-Location is contract-only: priced per
+// location against the schedule in §5 of the pricing doc, so it has no self-serve checkout and no
+// upgrade tile. It stays in PAID_TIERS because existing contracts still resolve through it.
+export const SELF_SERVE_TIERS: readonly SubscriptionTier[] = ["entry", "mid"] as const
+
+// ── Prices, per docs/PRICING-2026-08-19.md (authoritative) ───────────────────────────────────
+//
+// ANNUAL = MONTHLY × 10, i.e. "two months free" (16.7%), replacing the old 20% off. That
+// construction is the reason the effective monthlies are round numbers: $119 × 10 / 12 = $99.17.
+// Derived rather than hand-typed, because hand-typed cents is how a price sheet and a Stripe
+// account drift apart.
+const MONTHS_PER_ANNUAL = 10
+
+function priceLine(monthly: number) {
+  const annual = monthly * MONTHS_PER_ANNUAL
+  return { monthly, annual, annualEffectiveMonthly: Math.round(annual / 12) }
+}
+
+// `top` is PER LOCATION and contract-only. The figure is the list rate at 0% discount, which is
+// where a quote starts, not a published price. Hard floor is $165/location on daily.
 export const TIER_PRICING: Record<
   Exclude<SubscriptionTier, "suspended">,
   { monthly: number; annual: number; annualEffectiveMonthly: number }
 > = {
-  entry: { monthly: 149, annual: 1428, annualEffectiveMonthly: 119 },
-  mid: { monthly: 299, annual: 2868, annualEffectiveMonthly: 239 },
-  top: { monthly: 499, annual: 4788, annualEffectiveMonthly: 399 },
+  entry: priceLine(119), // Starter:  $119/mo, $99/mo on annual
+  mid: priceLine(299), // Standard: $299/mo, $249/mo on annual
+  top: priceLine(275), // Multi-Location, per location, contract only
+}
+
+// ── ALT-687: the metered add-ons ─────────────────────────────────────────────────────────────
+// ⚠️ INVARIANT: an add-on may never cost more than the base plan it attaches to. $229 < $249 is
+// what stops a customer opening a second account instead of adding a location. An earlier draft
+// priced the add-on at $269 against a $99 base, and a two-location customer saved $370 by
+// splitting. A test pins this; do not edit these numbers without reading it.
+// An additional LOCATION is priced PER PLAN, because the sheet's own rule is "additional
+// locations run on the same plan as the first" and the same plan has to mean the same price.
+//
+// A single flat $229 add-on breaks the invariant for Starter: $229 against a $99 base means two
+// Starter accounts cost $198 where one two-location account costs $328, so the customer saves $130
+// by splitting. That is the identical failure the $269 draft had, just smaller, and it survived
+// into the decided sheet because only the Standard line was checked. Found by the guard test.
+//
+// Standard keeps its deliberate 8% discount ($229 against $249). Starter's add-on is priced at
+// parity with its own base, which is the simplest arbitrage-free choice: splitting gains nothing.
+export const ADD_ON_PRICING = {
+  location: {
+    entry: priceLine(119), // parity with the Starter base: $119/mo, $99/mo annual
+    mid: priceLine(275), // $275/mo, $229/mo annual, an 8% discount on Standard
+    top: priceLine(275), // Multi-Location is already per-location; same rate
+  },
+  // Flat, and far below either base, so no per-plan split is needed.
+  competitor: priceLine(18), // $18/mo, $15/mo on annual. Confirmed by Bryan 2026-08-20.
+} as const
+
+/** The per-location add-on rate for the plan the account is on. */
+export function addOnLocationPrice(tier: SubscriptionTier) {
+  const t = tier === "suspended" ? "entry" : tier
+  return ADD_ON_PRICING.location[t]
+}
+
+// ── Display names ───────────────────────────────────────────────────────────────────────────
+// ONE source. There were two copies of a `tierLabel` that rendered "Tier 1 / Tier 2 / Tier 3" to
+// customers, in app/(dashboard)/operator-data.ts and app/preview/preview-data.ts. "Tier 2" is
+// internal shorthand that tells an operator nothing about what they bought, and it breaks the
+// customer-facing voice rule. Legacy DB values are mapped so an old row still renders.
+const TIER_DISPLAY_NAMES: Record<string, string> = {
+  entry: "Starter",
+  mid: "Standard",
+  top: "Multi-Location",
+  suspended: "Paused",
+  // Legacy subscription_tier values still present on old rows.
+  tier_1: "Starter",
+  tier_2: "Standard",
+  tier_3: "Multi-Location",
+  free: "Trial",
+}
+
+/** What to call a plan in front of a customer. Never render a raw tier key. */
+export function tierDisplayName(tier: string): string {
+  return TIER_DISPLAY_NAMES[tier] ?? "Starter"
 }
 
 // Resolve which OWN-account networks a tier actually collects for a location.

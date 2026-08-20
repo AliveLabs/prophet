@@ -4,17 +4,15 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getBrief } from "@/lib/insights/daily-brief"
 import type { Brief } from "@/lib/skills/types"
+import { tierDisplayName } from "@/lib/billing/tiers"
 
 export const WAGYU_LOCATION_ID = "d06eec94-baf7-4f80-920a-0886a35fad90"
 
 /** Map DB subscription_tier values (entry/mid/top + tier_n legacy) to display labels. */
-export function tierLabel(t: string): string {
-  const m: Record<string, string> = {
-    entry: "Tier 1", mid: "Tier 2", top: "Tier 3",
-    tier_1: "Tier 1", tier_2: "Tier 2", tier_3: "Tier 3", free: "Free",
-  }
-  return m[t] ?? t
-}
+// ALT-657 — one source for the customer-facing plan name. This used to be a local map rendering
+// "Tier 1 / Tier 2 / Tier 3", duplicated here and in the other of operator-data / preview-data.
+// Kept as a thin re-export so the ~10 call sites do not all have to change.
+export const tierLabel = tierDisplayName
 
 export type PreviewCompetitor = {
   id: string

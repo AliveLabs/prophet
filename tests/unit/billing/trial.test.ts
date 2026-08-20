@@ -110,15 +110,17 @@ describe("ensureCanAddLocation — trials cover one location", () => {
     ).not.toThrow()
   })
 
-  it("paid orgs fall through to the plan allowance (1 / 1 / 3)", () => {
+  it("paid orgs fall through to the plan allowance (one location on every plan)", () => {
     // ALT-687 reworded the refusal: it used to say "Location limit reached for entry tier",
     // which names an internal tier at an operator. It now says what they can do about it.
     const paid = (tier: string) => ({ subscription_tier: tier, trial_ends_at: null, payment_state: "active" })
     const refused = /add another to your subscription/i
     expect(() => ensureCanAddLocation(paid("entry"), 1)).toThrow(refused)
     expect(() => ensureCanAddLocation(paid("mid"), 1)).toThrow(refused)
-    expect(() => ensureCanAddLocation(paid("top"), 2)).not.toThrow()
-    expect(() => ensureCanAddLocation(paid("top"), 3)).toThrow(refused)
+    // ALT-687/657: `top` used to bundle 3 locations. Multi-Location is priced PER location now,
+    // so every plan includes exactly one and the rest are purchased.
+    expect(() => ensureCanAddLocation(paid("top"), 1)).toThrow(refused)
+    expect(() => ensureCanAddLocation({ ...paid("top"), locations_purchased: 2 }, 2)).not.toThrow()
   })
 
   it("ALT-687: a purchased location is honoured on top of the plan allowance", () => {
