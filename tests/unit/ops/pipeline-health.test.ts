@@ -9,6 +9,8 @@ const hoursAgo = (h: number) => new Date(NOW - h * 3_600_000).toISOString()
 
 // A fully-healthy baseline; override one field per test.
 const healthy = (over: Partial<PipelineSignals> = {}): PipelineSignals => ({
+  // ALT-744: the healthy baseline measured everything it tried to measure.
+  unmeasured: [],
   lastRunAt: hoursAgo(1),
   lastDataAt: hoursAgo(2),
   lastBriefAt: hoursAgo(3),
@@ -368,5 +370,66 @@ describe("evaluatePipelineHealth — social image mirror", () => {
     expect(v.mirrorAttemptsSampled).toBe(900)
     expect(v.mirrorSuccessRate).toBeCloseTo(0.97, 5)
     expect(v.mirrorFailures).toEqual({ http_403: 27 })
+  })
+})
+
+// ── ALT-744: a detector that could not read its input has not returned good news ────────────
+//
+// Every signal in this file is derived from a Supabase read, and each of those reads used
+// `?? 0` / `?? []` on `.data` without checking `.error`. A failed read therefore did not look
+// like a failure, it looked like GOOD NEWS: `stuckJobs: 0` reads as "no zombie jobs" and
+// `staleQueuedJobs: 0` reads as "the queue is draining". Three detectors could switch themselves
+// off while the verdict still said "ok".
+//
+// The rule this restores is already written into this module's own types: "0 here means 'can't
+// yet judge', NOT 'healthy'". It simply was never applied to read failures.
+describe("evaluatePipelineHealth: unmeasured signals (ALT-744)", () => {
+  it("never reports ok when a signal could not be read", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ unmeasured: ["stuck jobs: connection reset"] }),
+      NOW,
+      DEFAULT_THRESHOLDS,
+    )
+    expect(v.status).not.toBe("ok")
+    expect(v.status).toBe("degraded")
+  })
+
+  it("puts it in reasons, not warnings, because warnings never reach a human", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ unmeasured: ["organizations (billing gate): timeout"] }),
+      NOW,
+      DEFAULT_THRESHOLDS,
+    )
+    expect(v.reasons.join(" ")).toMatch(/could not measure/i)
+    expect(v.reasons.join(" ")).toContain("organizations (billing gate): timeout")
+    expect(v.warnings.join(" ")).not.toMatch(/could not measure/i)
+  })
+
+  it("names every unmeasured signal, so the blind spot is identifiable", () => {
+    const v = evaluatePipelineHealth(
+      healthy({ unmeasured: ["stuck jobs: a", "stale queued jobs: b", "locations: c"] }),
+      NOW,
+      DEFAULT_THRESHOLDS,
+    )
+    expect(v.unmeasured).toHaveLength(3)
+    for (const s of ["stuck jobs: a", "stale queued jobs: b", "locations: c"]) {
+      expect(v.reasons.join(" ")).toContain(s)
+    }
+  })
+
+  it("does not downgrade a real DOWN verdict to degraded", () => {
+    // A blind spot must never make a confirmed outage look milder.
+    const v = evaluatePipelineHealth(
+      healthy({ unmeasured: ["stuck jobs: x"], lastRunAt: null }),
+      NOW,
+      DEFAULT_THRESHOLDS,
+    )
+    expect(v.status).toBe("down")
+  })
+
+  it("stays ok when everything was measured", () => {
+    const v = evaluatePipelineHealth(healthy(), NOW, DEFAULT_THRESHOLDS)
+    expect(v.status).toBe("ok")
+    expect(v.unmeasured).toEqual([])
   })
 })

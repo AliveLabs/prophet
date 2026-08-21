@@ -134,13 +134,26 @@ export const EMPTY_COVERAGE: CoverageHealth = { events: HEALTHY, visibility: HEA
  * Uncached on purpose: an outage must surface live, not be hidden behind the 7-day page cache.
  */
 export async function loadCoverageHealth(sb: SB, locationId: string): Promise<CoverageHealth> {
-  const { data } = await sb
+  // ALT-745: this read was unchecked, so a failure returned all-HEALTHY and the coverage banner
+  // told the operator their data was fine. Logged rather than escalated: the customer-facing
+  // choice between "show the outage banner on an unconfirmed read" and "stay quiet" is a UX call
+  // about false-alarm tolerance, not a correctness one, and it is Bryan's to make. Deliberately
+  // NOT given an `unknown` flag on the return type: a flag with no reader is exactly what ALT-733
+  // was, and adding one here would recreate it.
+  const { data, error: coverageError } = await sb
     .from("pipeline_runs")
     .select("pipeline, outcome, reason, signals, started_at")
     .eq("location_id", locationId)
     .in("pipeline", DATAFORSEO_PIPELINES as unknown as string[])
     .order("started_at", { ascending: false })
     .limit(40)
+
+  if (coverageError) {
+    console.error(
+      `[vendor-health] coverage read failed for ${locationId}, banner will read HEALTHY without ` +
+        `evidence: ${coverageError.message}`,
+    )
+  }
 
   // Latest run per DataForSEO pipeline drives that pipeline's own banner.
   const seen = new Set<string>()
@@ -173,6 +186,18 @@ export type VendorHealthVerdict = {
   sampleReason?: string
   thresholdFraction: number
   windowHours: number
+  /** ALT-745: set when the pipeline_runs read FAILED, so `status: "healthy"` here means "no
+   *  outage detected" and not "the vendor is fine".
+   *
+   *  This detector classifies the fleet from `runs`, and `runs` came from `data ?? []` with no
+   *  error check. On a failed read the list was empty, `classifyFleet` saw `total: 0`,
+   *  `down: total > 0 && ...` evaluated false, and the verdict came back "healthy". So the one
+   *  signal built specifically to make a silent vendor outage LOUD reported all-clear whenever
+   *  it could not look.
+   *
+   *  Read by lib/ops/pipeline-health.ts, which folds it into its `unmeasured` list so the health
+   *  verdict degrades rather than claiming ok. */
+  readError?: string
 }
 
 // 8 days: comfortably exceeds the longest pull cadence (entry/suspended tiers pull events +
@@ -235,12 +260,15 @@ export async function detectDataForSeoHealth(
   const windowHours = opts.windowHours ?? DEFAULT_WINDOW_HOURS
   const sinceIso = new Date(nowMs - windowHours * 3600_000).toISOString()
 
-  const { data } = await sb
+  const { data, error: runsError } = await sb
     .from("pipeline_runs")
     .select("location_id, pipeline, outcome, reason, signals, started_at")
     .in("pipeline", DATAFORSEO_PIPELINES as unknown as string[])
     .gte("started_at", sinceIso)
     .order("started_at", { ascending: false })
+  if (runsError) {
+    console.error(`[vendor-health] pipeline_runs read failed, fleet verdict is BLIND: ${runsError.message}`)
+  }
 
   const runs: RunLite[] = (data ?? []).map((r) => ({
     locationId: r.location_id as string,
@@ -270,5 +298,6 @@ export async function detectDataForSeoHealth(
     sampleReason: now.sampleReason,
     thresholdFraction,
     windowHours,
+    ...(runsError ? { readError: runsError.message } : {}),
   }
 }
