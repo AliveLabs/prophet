@@ -2,15 +2,17 @@
 
 import { useState } from "react"
 import {
-  PAID_TIERS,
-  TIER_LIMITS,
+  SELF_SERVE_TIERS,
   TIER_PRICING,
+  ANNUAL_SAVINGS_LABEL,
+  ANNUAL_SAVINGS_INLINE,
   getTierDisplayName,
+  isTrialEligibleTier,
   type Cadence,
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
-import { runCadenceLabel } from "@/lib/billing/limits"
+import { tierFeatureList } from "@/lib/billing/limits"
 import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
@@ -20,23 +22,6 @@ interface UpgradeButtonsProps {
   /** Show the per-tier feature bullets (held/reactivation surface). The compact
    *  settings/billing grid leaves this off. */
   showFeatures?: boolean
-}
-
-// What each tier includes, derived from TIER_LIMITS so the list never drifts
-// from the gates that actually enforce it.
-function tierFeatures(tier: PaidTier): string[] {
-  const l = TIER_LIMITS[tier]
-  const feats = [
-    `${l.includedLocations} ${l.includedLocations === 1 ? "location" : "locations"}`,
-    `${l.includedCompetitorsPerLocation} competitors per location`,
-    runCadenceLabel(tier),
-    l.ownSocialNetworkLimit === 1
-      ? "1 social network of your choice + competitors on all 3"
-      : `All ${l.ownSocialNetworkLimit} social networks`,
-  ]
-  if (l.whiteLabelReports) feats.push("White-label reports")
-  if (l.apiAccess) feats.push("API access")
-  return feats
 }
 
 // Pricing card grid + monthly/annual toggle. Tier names come from
@@ -88,19 +73,25 @@ export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButton
       )}
 
       <div className="pv-tiers" style={{ marginTop: 14 }}>
-        {PAID_TIERS.map((tier) => {
+        {/* ALT-735 — SELF_SERVE_TIERS, not PAID_TIERS. This grid is the held-account
+            reactivation panel, so it is dashboard-wide and the highest-intent screen we have, and
+            it was rendering Multi-Location as a one-click upgrade. Multi-Location is contract-only
+            and priced PER LOCATION, so its list rate ($2,750/yr) sits BELOW Standard ($2,990/yr)
+            while carrying strictly more entitlement. Both prices are live in Stripe, so the
+            purchase completed. PAID_TIERS is for resolving contracts, never for offering one. */}
+        {SELF_SERVE_TIERS.map((tier) => {
           const t = tier as PaidTier
           const pricing = TIER_PRICING[t]
           const displayName = getTierDisplayName(t, industry)
           const isRecommended = t === "mid"
-          const offersTrial = t === "mid"
+          const offersTrial = isTrialEligibleTier(t)
           const priceMain =
             cadence === "monthly"
               ? `$${pricing.monthly}/mo`
               : `$${pricing.annualEffectiveMonthly}/mo`
           const priceSub =
             cadence === "annual"
-              ? `$${pricing.annual.toLocaleString()} billed annually · save 20%`
+              ? `$${pricing.annual.toLocaleString()} billed annually · ${ANNUAL_SAVINGS_INLINE}`
               : "Billed monthly"
 
           return (
@@ -120,7 +111,7 @@ export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButton
               <div className="pv-tier__sub">{priceSub}</div>
               {showFeatures && (
                 <div className="pv-tier__features">
-                  {tierFeatures(t).map((f) => (
+                  {tierFeatureList(t).map((f) => (
                     <span className="pv-tier__feat" key={f}>
                       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
                         <path d="M3 8.5l3 3 7-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -170,7 +161,7 @@ function CadenceToggle({
           Annual
         </button>
       </div>
-      {cadence === "annual" && <span className="pv-save-note">Two months free</span>}
+      {cadence === "annual" && <span className="pv-save-note">{ANNUAL_SAVINGS_LABEL}</span>}
     </div>
   )
 }

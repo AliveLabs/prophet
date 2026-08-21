@@ -4,6 +4,7 @@
 //
 // PRICE_MAP is evaluated lazily per-call so tests can mutate process.env.
 
+import { SELF_SERVE_TIERS } from "@/lib/billing/tiers"
 import type {
   Cadence,
   SubscriptionTier,
@@ -29,8 +30,12 @@ export type AddOnKind = "location" | "competitor"
 // customer save money by splitting into two accounts. A competitor is flat, and far below either
 // base, so it carries no tier. `SELF_SERVE_ADDON_TIERS` is what exists in Stripe; Multi-Location is
 // contract-only and quoted, so it has no add-on price ID.
-export const SELF_SERVE_ADDON_TIERS = ["entry", "mid"] as const
-export type AddOnTier = (typeof SELF_SERVE_ADDON_TIERS)[number]
+// Derived from SELF_SERVE_TIERS rather than written out again. It was a second hand-typed
+// ["entry", "mid"] that had to agree with the first, with nothing enforcing the match — the same
+// shape as the `eventsCadence` / `briefingCadence` bug documented in tiers.ts, and one of the two
+// copies being wrong is exactly how ALT-735 reached production.
+export const SELF_SERVE_ADDON_TIERS = SELF_SERVE_TIERS as readonly ("entry" | "mid")[]
+export type AddOnTier = "entry" | "mid"
 
 export type AddOnPriceInfo = {
   industry: IndustryType

@@ -45,8 +45,6 @@ const TIERS = [
       "50 locations",
       "200 competitors per location",
       "Daily refresh, priority processing",
-      "Full API access",
-      "White-label ready",
       "Dedicated data analyst",
     ],
   },

@@ -5,9 +5,19 @@
 //
 // Public surface used by the pricing page / upgrade buttons: includedLocations,
 // includedCompetitorsPerLocation, socialPlatforms, seoCadence, runCadence,
-// photoAnalysisDepth, retentionDays, whiteLabelReports, apiAccess, support.
+// photoAnalysisDepth, retentionDays, support.
 // Everything else (eventsQueriesPerRun, seoTrackedKeywords, etc.) is an
 // internal pipeline-tuning knob not sold on the pricing page.
+//
+// ALT-733 — `whiteLabelReports` and `apiAccess` USED TO LIVE HERE and are deliberately gone.
+// Both were booleans whose only effect was to push "White-label reports" / "API access" into a
+// customer-facing feature list; `isWhiteLabelEnabled` and `isApiAccessEnabled` existed and had
+// ZERO callers, and there is no white-label renderer and no public API in this codebase. So the
+// flags did not gate a feature, they only advertised one.
+//
+// Do not re-add them as booleans ahead of the feature. A flag that no code reads cannot be
+// "turned on" later; it can only make the claim reappear. When white-label or an API actually
+// ships, the field comes back WITH the reader that enforces it, in the same change.
 
 import type { IndustryType } from "@/lib/verticals"
 
@@ -66,8 +76,6 @@ export type TierLimits = {
   runCadence: "weekly" | "daily"
   photoAnalysisDepth: number
   retentionDays: number
-  whiteLabelReports: boolean
-  apiAccess: boolean
   support: SupportTier
 
   // --- Internal pipeline tuning (not sold) -------------------------------
@@ -91,8 +99,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoCadence: "weekly",
     photoAnalysisDepth: 10,
     retentionDays: 30,
-    whiteLabelReports: false,
-    apiAccess: false,
     support: "email",
     runCadence: "weekly",
     eventsQueriesPerRun: 1,
@@ -113,8 +119,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoCadence: "weekly",
     photoAnalysisDepth: 30,
     retentionDays: 90,
-    whiteLabelReports: true,
-    apiAccess: false,
     support: "email_chat",
     runCadence: "daily",
     eventsQueriesPerRun: 2,
@@ -140,8 +144,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoCadence: "biweekly",
     photoAnalysisDepth: 30,
     retentionDays: 365,
-    whiteLabelReports: true,
-    apiAccess: true,
     support: "dedicated",
     runCadence: "daily",
     eventsQueriesPerRun: 2,
@@ -162,8 +164,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     seoCadence: "weekly",
     photoAnalysisDepth: 0,
     retentionDays: 0,
-    whiteLabelReports: false,
-    apiAccess: false,
     support: "email",
     runCadence: "weekly",
     eventsQueriesPerRun: 0,
@@ -231,6 +231,34 @@ export const PAID_TIERS: readonly SubscriptionTier[] = [
 // upgrade tile. It stays in PAID_TIERS because existing contracts still resolve through it.
 export const SELF_SERVE_TIERS: readonly SubscriptionTier[] = ["entry", "mid"] as const
 
+/** ALT-735/732 — the ONE gate for "can a customer buy this without talking to us".
+ *
+ *  Every buying surface and every purchase endpoint must ask THIS, not `isPaidTier`. The
+ *  difference was a live Critical: the held-account panel iterated PAID_TIERS, so it rendered
+ *  Multi-Location at $2,750/yr beside Standard at $2,990/yr with strictly more entitlement
+ *  (10 competitors vs 5, biweekly SEO vs weekly, 365-day retention vs 90) as a one-click upgrade,
+ *  and /api/stripe/checkout accepted the tier because it validated with PAID_TIERS too. Both
+ *  Multi-Location prices are live and active in Stripe, so the purchase completed: a rational
+ *  buyer took the cheaper, better plan and we lost $240/yr of contribution per account. Monthly
+ *  had the same inversion, $275 against $299.
+ *
+ *  PAID_TIERS answers "is this a real paid tier" (webhooks, cron filters, resolving an existing
+ *  contract). It is the wrong question to ask at a checkout. */
+export function isSelfServeTier(
+  tier: unknown
+): tier is Exclude<SubscriptionTier, "suspended" | "top"> {
+  return typeof tier === "string" && (SELF_SERVE_TIERS as readonly string[]).includes(tier)
+}
+
+/** "Is this one of our real paid tiers." Correct for webhooks, cron filters and resolving an
+ *  existing subscription. NOT a purchase gate: use isSelfServeTier for that.
+ *
+ *  Lives here because both /api/stripe/checkout and /api/stripe/change-plan had their own
+ *  byte-identical private copy, and both were wired to the wrong question. */
+export function isPaidTier(tier: unknown): tier is Exclude<SubscriptionTier, "suspended"> {
+  return typeof tier === "string" && (PAID_TIERS as readonly string[]).includes(tier)
+}
+
 // ── Prices, per docs/PRICING-2026-08-19.md (authoritative) ───────────────────────────────────
 //
 // ANNUAL = MONTHLY × 10, i.e. "two months free" (16.7%), replacing the old 20% off. That
@@ -243,6 +271,35 @@ function priceLine(monthly: number) {
   const annual = monthly * MONTHS_PER_ANNUAL
   return { monthly, annual, annualEffectiveMonthly: Math.round(annual / 12) }
 }
+
+/** Months not charged on annual. 12 - 10 = 2. */
+export const ANNUAL_MONTHS_FREE = 12 - MONTHS_PER_ANNUAL
+
+/** The real annual discount, to one decimal: 16.7, not 20. */
+export const ANNUAL_DISCOUNT_PCT =
+  Math.round((1 - MONTHS_PER_ANNUAL / 12) * 1000) / 10
+
+const MONTHS_FREE_WORD: Record<number, string> = { 1: "One", 2: "Two", 3: "Three" }
+
+/** ALT-736 — the ONE phrase every surface uses for the annual saving.
+ *
+ *  Three buying surfaces each hardcoded "save 20%" while the same components' cadence toggles
+ *  said "Two months free". Both cannot be true: annual is monthly x 10, which is two months
+ *  free, which is 16.7%. So we advertised a 20% discount and charged a 16.7% one on every
+ *  buying screen we have, which is the kind of claim a customer checks with a calculator.
+ *
+ *  Derived from MONTHS_PER_ANNUAL rather than written out, so changing the annual construction
+ *  moves the copy with it instead of leaving a stale number behind. Spelled as a word because
+ *  this is premium buying-surface copy, not a data readout; a test pins the word to the number
+ *  so the two cannot come apart. */
+export const ANNUAL_SAVINGS_LABEL =
+  ANNUAL_MONTHS_FREE === 1
+    ? "One month free"
+    : `${MONTHS_FREE_WORD[ANNUAL_MONTHS_FREE] ?? ANNUAL_MONTHS_FREE} months free`
+
+/** The same phrase for use mid-sentence, after a separator. */
+export const ANNUAL_SAVINGS_INLINE =
+  ANNUAL_SAVINGS_LABEL.charAt(0).toLowerCase() + ANNUAL_SAVINGS_LABEL.slice(1)
 
 // `top` is PER LOCATION and contract-only. The figure is the list rate at 0% discount, which is
 // where a quote starts, not a published price. Hard floor is $165/location on daily.
