@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     const tier = body.tier
     const cadence = body.cadence
 
-    // ALT-732 — same hole as /api/stripe/checkout, in the second of the two endpoints that can
+    // ALT-732: same hole as /api/stripe/checkout, in the second of the two endpoints that can
     // move money. This validated with PAID_TIERS, so an existing Standard subscriber could
     // change-plan onto contract-only Multi-Location and land on a CHEAPER price with strictly
     // more entitlement, without ever touching a checkout page.
@@ -113,9 +113,34 @@ export async function POST(request: Request) {
       )
     }
 
+    // ALT-758: a plan change DURING A TRIAL has to say what happens to the trial, explicitly.
+    //
+    // Stripe's documented rule: switching prices "does not normally change the billing date or
+    // generate an immediate charge unless: the billing interval is changed [...] a trial starts
+    // or ends", and in those cases Stripe will "apply a credit for the unused time on the previous
+    // price, immediately charge the customer using the new price, and reset the billing date".
+    //
+    // So a trialing customer switching monthly -> annual was one interval change away from being
+    // charged in the middle of a trial we told them was $0 for 14 days. Relying on the default
+    // was the bug: it left the outcome to an interaction between two Stripe rules.
+    //
+    // Passing `trial_end` explicitly removes the ambiguity. Per the same docs it "will always
+    // overwrite any trials that might apply via a subscribed plan" and "the billing_cycle_anchor
+    // will be updated to the trial_end value", which is exactly what we want: the trial ends when
+    // we promised, and the first charge lands then, at the new price and cadence. Prorations are
+    // switched off for that path because there is no used paid time to prorate.
+    //
+    // NOT blocked: moving to Starter mid-trial, even though TRIAL_ELIGIBLE_TIERS is ["mid"] only,
+    // so the trial continues on a tier that has no trial of its own. That is deliberate. Blocking
+    // it would tell someone who has decided Standard is too expensive that their only option is
+    // to cancel, and losing the account costs far more than the few days of Starter serve cost.
+    // Flagged for Bryan rather than decided silently; reversing it is a one-line guard here.
+    const trialEnd = current.status === "trialing" ? current.trial_end : null
     const updated = await stripe.subscriptions.update(org.stripe_subscription_id, {
       items: [{ id: currentItemId, price: newPriceId }],
-      proration_behavior: "always_invoice",
+      ...(typeof trialEnd === "number"
+        ? { trial_end: trialEnd, proration_behavior: "none" as const }
+        : { proration_behavior: "always_invoice" as const }),
     })
 
     const { tier: newTier } = await applySubscriptionToOrg(admin, org.id, updated)

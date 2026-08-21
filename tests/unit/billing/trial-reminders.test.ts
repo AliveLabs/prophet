@@ -103,3 +103,75 @@ describe("hasCardOnFile — drives charge-vs-add-a-card copy", () => {
     expect(hasCardOnFile({})).toBe(false)
   })
 })
+
+// ── ALT-710: the reminder schedule must not depend on the hour someone signed up ───────────
+//
+// The cron is `0 9 * * *` UTC and `trial_ends_at` is signup + 14 days, so it lands at whatever
+// hour the customer happened to sign up. The old `Math.ceil(msRemaining / 86400000)` mixed an
+// instant delta with a day count, which shifted the whole schedule by a day for every signup
+// after 09:00 UTC and put the "your trial ends tomorrow" email on the charge day itself.
+//
+// Every case above uses exact 24-hour multiples of NOW, which is the one case where ceil is
+// correct. That is why the bug survived: the tests and the bug agreed. These use real clock
+// offsets instead.
+
+/** The 09:00 UTC cron firing on the calendar day `dayOffset` days after `signup`. */
+function cronOn(signup: string, dayOffset: number): Date {
+  const s = new Date(signup)
+  return new Date(
+    Date.UTC(s.getUTCFullYear(), s.getUTCMonth(), s.getUTCDate() + dayOffset, 9, 0, 0),
+  )
+}
+
+function trialEnd(signup: string): string {
+  return new Date(new Date(signup).getTime() + 14 * 86_400_000).toISOString()
+}
+
+describe("resolveReminderDay: reminder days are stable across signup hour (ALT-710)", () => {
+  // 08:00 signs up before the cron hour, 10:00 and 23:30 after it. All three must get the same
+  // reminders on the same trial days.
+  const SIGNUPS = [
+    "2026-08-01T00:15:00.000Z",
+    "2026-08-01T08:00:00.000Z",
+    "2026-08-01T09:00:00.000Z",
+    "2026-08-01T10:00:00.000Z",
+    "2026-08-01T17:45:00.000Z",
+    "2026-08-01T23:30:00.000Z",
+  ]
+
+  for (const signup of SIGNUPS) {
+    const hour = signup.slice(11, 16)
+    const org = { trial_ends_at: trialEnd(signup), payment_state: "trialing", org_kind: "real" }
+
+    it(`signup ${hour}: day-10 email lands on trial day 10`, () => {
+      expect(resolveReminderDay(org, cronOn(signup, 10))).toBe(10)
+    })
+
+    it(`signup ${hour}: day-13 email lands on trial day 13`, () => {
+      expect(resolveReminderDay(org, cronOn(signup, 13))).toBe(13)
+    })
+
+    // The one that shipped: a "your trial ends tomorrow" email on the day it actually ends.
+    it(`signup ${hour}: nothing is sent on day 14, the charge day`, () => {
+      expect(resolveReminderDay(org, cronOn(signup, 14))).toBeNull()
+    })
+
+    it(`signup ${hour}: no email on days 11 or 12`, () => {
+      expect(resolveReminderDay(org, cronOn(signup, 11))).toBeNull()
+      expect(resolveReminderDay(org, cronOn(signup, 12))).toBeNull()
+    })
+  }
+
+  it("each reminder fires on exactly one calendar day, never twice and never zero times", () => {
+    for (const signup of SIGNUPS) {
+      const org = { trial_ends_at: trialEnd(signup), payment_state: "trialing", org_kind: "real" }
+      const fired: Record<string, number[]> = { 10: [], 13: [] }
+      for (let day = 0; day <= 20; day++) {
+        const r = resolveReminderDay(org, cronOn(signup, day))
+        if (r) fired[String(r)].push(day)
+      }
+      expect(fired["10"], `signup ${signup} day-10 email`).toEqual([10])
+      expect(fired["13"], `signup ${signup} day-13 email`).toEqual([13])
+    }
+  })
+})

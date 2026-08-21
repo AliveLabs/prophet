@@ -159,7 +159,7 @@
 .pv-acct__soon{ font-family:var(--font-mono); font-size:9.5px; letter-spacing:.03em; text-transform:uppercase; color:var(--ash-2); padding:8px; line-height:1.4; }
 
 /* ── Billing: pricing tiles + cadence toggle (settings/billing) ── */
-/* ALT-759 — auto-fit, not repeat(3,1fr). The held-account panel now renders SELF_SERVE_TIERS
+/* ALT-759: auto-fit, not repeat(3,1fr). The held-account panel now renders SELF_SERVE_TIERS
    (two tiles) rather than PAID_TIERS (three), so a fixed three-column track would leave a third
    of the row empty. See the matching rule in settings/settings-pass.css. */
 .pv-tiers{ display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }

@@ -9,7 +9,7 @@
 // Everything else (eventsQueriesPerRun, seoTrackedKeywords, etc.) is an
 // internal pipeline-tuning knob not sold on the pricing page.
 //
-// ALT-733 — `whiteLabelReports` and `apiAccess` USED TO LIVE HERE and are deliberately gone.
+// ALT-733: `whiteLabelReports` and `apiAccess` USED TO LIVE HERE and are deliberately gone.
 // Both were booleans whose only effect was to push "White-label reports" / "API access" into a
 // customer-facing feature list; `isWhiteLabelEnabled` and `isApiAccessEnabled` existed and had
 // ZERO callers, and there is no white-label renderer and no public API in this codebase. So the
@@ -231,7 +231,7 @@ export const PAID_TIERS: readonly SubscriptionTier[] = [
 // upgrade tile. It stays in PAID_TIERS because existing contracts still resolve through it.
 export const SELF_SERVE_TIERS: readonly SubscriptionTier[] = ["entry", "mid"] as const
 
-/** ALT-735/732 — the ONE gate for "can a customer buy this without talking to us".
+/** ALT-735/732: the ONE gate for "can a customer buy this without talking to us".
  *
  *  Every buying surface and every purchase endpoint must ask THIS, not `isPaidTier`. The
  *  difference was a live Critical: the held-account panel iterated PAID_TIERS, so it rendered
@@ -281,7 +281,7 @@ export const ANNUAL_DISCOUNT_PCT =
 
 const MONTHS_FREE_WORD: Record<number, string> = { 1: "One", 2: "Two", 3: "Three" }
 
-/** ALT-736 — the ONE phrase every surface uses for the annual saving.
+/** ALT-736: the ONE phrase every surface uses for the annual saving.
  *
  *  Three buying surfaces each hardcoded "save 20%" while the same components' cadence toggles
  *  said "Two months free". Both cannot be true: annual is monthly x 10, which is two months

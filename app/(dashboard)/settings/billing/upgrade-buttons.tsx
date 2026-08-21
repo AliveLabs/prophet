@@ -73,7 +73,7 @@ export function UpgradeButtons({ industry, showFeatures = false }: UpgradeButton
       )}
 
       <div className="pv-tiers" style={{ marginTop: 14 }}>
-        {/* ALT-735 — SELF_SERVE_TIERS, not PAID_TIERS. This grid is the held-account
+        {/* ALT-735: SELF_SERVE_TIERS, not PAID_TIERS. This grid is the held-account
             reactivation panel, so it is dashboard-wide and the highest-intent screen we have, and
             it was rendering Multi-Location as a one-click upgrade. Multi-Location is contract-only
             and priced PER LOCATION, so its list rate ($2,750/yr) sits BELOW Standard ($2,990/yr)

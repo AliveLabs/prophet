@@ -5,6 +5,7 @@ import { isTrialActive } from "@/lib/billing/trial"
 import {
   TIER_LIMITS,
   TIER_PRICING,
+  ANNUAL_SAVINGS_INLINE,
   getTierDisplayName,
 } from "@/lib/billing/tiers"
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
@@ -258,11 +259,24 @@ export default async function TrialPage({
                       explained and unpolished. Same promise, said once. */}
                   <span><strong>$0 today.</strong> A card is only charged when the trial ends, and only if you added one.</span>
                 </li>
+                {/* ALT-737. This offered two prices on a screen whose only button can deliver
+                    one: StartTrialButton posts `cadence: "monthly"` with no way to choose, so an
+                    operator reading "$249/mo if you pay annually" and pressing the obvious button
+                    got $299. Both numbers were true and the choice was not available, which is a
+                    worse failure than a wrong number because it reads as a bait.
+
+                    Every other buying surface defaults to ANNUAL on purpose (ALT-699: it is the
+                    price we want people on and the cheaper one for them). This screen cannot,
+                    because starting the trial and picking a cadence are one button here. So it
+                    says which cadence the trial starts on, and says where the other one lives.
+                    Nothing is charged for 14 days, so the switch window is real, not theoretical. */}
                 <li>
                   <IconCheck />
                   <span>
-                    <strong>${monthly}/mo after {chargeDate}</strong> unless you cancel first, or{" "}
-                    <strong>${annualMonthly}/mo</strong> if you pay annually. That is two months free.
+                    <strong>${monthly}/mo after {chargeDate}</strong> unless you cancel first. Your
+                    trial starts on monthly billing. Annual is <strong>${annualMonthly}/mo</strong>{" "}
+                    ({ANNUAL_SAVINGS_INLINE}), and you can switch to it any time before that first
+                    charge.
                   </span>
                 </li>
                 <li>
