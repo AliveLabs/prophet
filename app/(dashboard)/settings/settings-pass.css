@@ -242,7 +242,7 @@
   background: var(--teal-tint); padding: 5px 11px; border-radius: 999px;
 }
 
-/* ALT-759 — auto-fit, not repeat(3, 1fr). This grid renders SELF_SERVE_TIERS, which has been TWO
+/* ALT-759: auto-fit, not repeat(3, 1fr). This grid renders SELF_SERVE_TIERS, which has been TWO
    entries since Multi-Location became contract-only, so a hardcoded three-column track left a
    third of the row empty on /settings/billing and on the onboarding pricing screen. auto-fit
    collapses the unused track and the 1fr redistributes its space, so the row stays full at two

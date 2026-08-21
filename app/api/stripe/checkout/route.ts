@@ -44,7 +44,7 @@ function isCadence(v: unknown): v is Cadence {
   return v === "monthly" || v === "annual"
 }
 
-// ALT-732 — this validated against PAID_TIERS, which includes the contract-only Multi-Location
+// ALT-732: this validated against PAID_TIERS, which includes the contract-only Multi-Location
 // tier, so `{tier:"top"}` resolved a live Stripe price and opened a real checkout. That made
 // Multi-Location self-servable at its list rate ($2,750/yr, $275/mo) while Standard costs more
 // ($2,990/yr, $299/mo) for strictly less entitlement. A tier being real is not the same question

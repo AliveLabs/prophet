@@ -445,7 +445,7 @@ export function getContentMaxPages(tier: SubscriptionTier): number {
 // Pricing-brief features (sold on the pricing page)
 // ---------------------------------------------------------------------------
 
-// ALT-733 — `isApiAccessEnabled` and `isWhiteLabelEnabled` were here and are deliberately gone
+// ALT-733: `isApiAccessEnabled` and `isWhiteLabelEnabled` were here and are deliberately gone
 // along with the TIER_LIMITS booleans behind them. Both had ZERO callers, so neither gated
 // anything; their only effect was via the three copies of the feature list below, which pushed
 // "API access" and "White-label reports" at customers on the billing page, the held-account panel
@@ -506,7 +506,7 @@ export function runCadenceLabel(tier: SubscriptionTier): "Weekly briefings" | "D
   return TIER_LIMITS[tier].runCadence === "weekly" ? "Weekly briefings" : "Daily briefings"
 }
 
-/** ALT-733 — the ONE list of what a plan includes, for every tile that sells a plan.
+/** ALT-733: the ONE list of what a plan includes, for every tile that sells a plan.
  *
  *  This existed as three byte-identical private copies: upgrade-buttons.tsx (the held-account
  *  panel), upgrade-tiles-pass.tsx (settings + the onboarding pricing screen) and
