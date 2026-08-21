@@ -11,7 +11,9 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:unit": "vitest run",
-    "test": "vitest run && playwright test"
+    "test": "vitest run && playwright test",
+    "audit:schema-parity": "tsx scripts/audit/schema-parity.mts",
+    "audit:env-parity": "tsx scripts/audit/env-parity.mts"
   },
   "dependencies": {
     "@mendable/firecrawl-js": "^4.12.1",
