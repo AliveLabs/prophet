@@ -445,13 +445,11 @@ export function getContentMaxPages(tier: SubscriptionTier): number {
 // Pricing-brief features (sold on the pricing page)
 // ---------------------------------------------------------------------------
 
-export function isApiAccessEnabled(tier: SubscriptionTier): boolean {
-  return TIER_LIMITS[tier].apiAccess
-}
-
-export function isWhiteLabelEnabled(tier: SubscriptionTier): boolean {
-  return TIER_LIMITS[tier].whiteLabelReports
-}
+// ALT-733 — `isApiAccessEnabled` and `isWhiteLabelEnabled` were here and are deliberately gone
+// along with the TIER_LIMITS booleans behind them. Both had ZERO callers, so neither gated
+// anything; their only effect was via the three copies of the feature list below, which pushed
+// "API access" and "White-label reports" at customers on the billing page, the held-account panel
+// and the onboarding pricing screen. We do not have either feature.
 
 export function getPhotoAnalysisDepth(tier: SubscriptionTier): number {
   return TIER_LIMITS[tier].photoAnalysisDepth
@@ -506,4 +504,30 @@ export function isRunDueToday(
  *  the same field, and a test pins that they do. */
 export function runCadenceLabel(tier: SubscriptionTier): "Weekly briefings" | "Daily briefings" {
   return TIER_LIMITS[tier].runCadence === "weekly" ? "Weekly briefings" : "Daily briefings"
+}
+
+/** ALT-733 — the ONE list of what a plan includes, for every tile that sells a plan.
+ *
+ *  This existed as three byte-identical private copies: upgrade-buttons.tsx (the held-account
+ *  panel), upgrade-tiles-pass.tsx (settings + the onboarding pricing screen) and
+ *  plan-change-tiles-pass.tsx. Three copies is why two false claims reached customers on three
+ *  surfaces from one edit, and why fixing one surface would have left two lying.
+ *
+ *  EVERY claim here must be enforced by something. Each line below names the gate that enforces
+ *  it. If you cannot name the gate, the claim does not belong in this list: that is exactly how
+ *  "White-label reports" and "API access" got sold on plans that had neither. */
+export function tierFeatureList(tier: SubscriptionTier): string[] {
+  const l = TIER_LIMITS[tier]
+  return [
+    // enforced by resolveLocationAllowance
+    `${l.includedLocations} ${l.includedLocations === 1 ? "location" : "locations"}`,
+    // enforced by resolveCompetitorAllowance
+    `${l.includedCompetitorsPerLocation} competitors per location`,
+    // enforced by the daily cron's runCadence gate
+    runCadenceLabel(tier),
+    // enforced by resolveOwnSocialNetworks
+    l.ownSocialNetworkLimit === 1
+      ? "1 social network of your choice + competitors on all 3"
+      : `All ${l.ownSocialNetworkLimit} social networks`,
+  ]
 }

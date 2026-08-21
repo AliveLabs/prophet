@@ -242,8 +242,14 @@
   background: var(--teal-tint); padding: 5px 11px; border-radius: 999px;
 }
 
+/* ALT-759 — auto-fit, not repeat(3, 1fr). This grid renders SELF_SERVE_TIERS, which has been TWO
+   entries since Multi-Location became contract-only, so a hardcoded three-column track left a
+   third of the row empty on /settings/billing and on the onboarding pricing screen. auto-fit
+   collapses the unused track and the 1fr redistributes its space, so the row stays full at two
+   tiles and still works if a third self-serve plan ever exists. The narrow-viewport rules below
+   force a single column and still win. */
 .tk-set-tiers {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; align-items: stretch;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 18px; align-items: stretch;
 }
 /* The tier tile is a <button>, so every box declaration here has to outrank the kit reset
    `.tk-kit button { border: 0; background: none; }` (specificity 0,1,1). A bare `.tk-set-tier`

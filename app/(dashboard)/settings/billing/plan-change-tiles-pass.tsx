@@ -9,33 +9,19 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   SELF_SERVE_TIERS,
-  TIER_LIMITS,
   TIER_PRICING,
+  ANNUAL_SAVINGS_LABEL,
+  ANNUAL_SAVINGS_INLINE,
   getTierDisplayName,
   type Cadence,
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
-import { runCadenceLabel } from "@/lib/billing/limits"
+import { tierFeatureList } from "@/lib/billing/limits"
 import { classifyBillingMutation, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
-
-function tierFeatures(tier: PaidTier): string[] {
-  const l = TIER_LIMITS[tier]
-  const feats = [
-    `${l.includedLocations} ${l.includedLocations === 1 ? "location" : "locations"}`,
-    `${l.includedCompetitorsPerLocation} competitors per location`,
-    runCadenceLabel(tier),
-    l.ownSocialNetworkLimit === 1
-      ? "1 social network of your choice + competitors on all 3"
-      : `All ${l.ownSocialNetworkLimit} social networks`,
-  ]
-  if (l.whiteLabelReports) feats.push("White-label reports")
-  if (l.apiAccess) feats.push("API access")
-  return feats
-}
 
 export function PlanChangeTilesPass({
   industry,
@@ -104,7 +90,7 @@ export function PlanChangeTilesPass({
             Annual
           </button>
         </div>
-        {cadence === "annual" && <span className="tk-set-save-note">Two months free</span>}
+        {cadence === "annual" && <span className="tk-set-save-note">{ANNUAL_SAVINGS_LABEL}</span>}
       </div>
 
       {error && <span className="tk-set-status tk-set-status-err">{error}</span>}
@@ -119,7 +105,7 @@ export function PlanChangeTilesPass({
             cadence === "monthly" ? `$${pricing.monthly}` : `$${pricing.annualEffectiveMonthly}`
           const priceSub =
             cadence === "annual"
-              ? `/mo · $${pricing.annual.toLocaleString()} billed annually · save 20%`
+              ? `/mo · $${pricing.annual.toLocaleString()} billed annually · ${ANNUAL_SAVINGS_INLINE}`
               : "/mo · billed monthly"
 
           return (
@@ -137,7 +123,7 @@ export function PlanChangeTilesPass({
               <div className="tk-set-tier-price">{priceMain}</div>
               <div className="tk-set-tier-sub">{priceSub}</div>
               <div className="tk-set-tier-feats">
-                {tierFeatures(t).map((f) => (
+                {tierFeatureList(t).map((f) => (
                   <span className="tk-set-tier-feat" key={f}>
                     {ICON_CHECK}
                     {f}

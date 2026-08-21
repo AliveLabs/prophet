@@ -10,11 +10,14 @@ import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
 import { verifyReusableCustomer } from "@/lib/stripe/customer-reuse"
 import { isValidIndustryType } from "@/lib/verticals"
 import {
-  PAID_TIERS,
+  SELF_SERVE_TIERS,
+  isPaidTier,
+  isSelfServeTier,
   isTrialEligibleTier,
+  tierDisplayName,
   type Cadence,
-  type SubscriptionTier,
 } from "@/lib/billing/tiers"
+import { SUPPORT_EMAIL } from "@/lib/support/contact"
 
 // POST /api/stripe/checkout
 // Body: { tier: 'entry' | 'mid' | 'top', cadence: 'monthly' | 'annual',
@@ -41,9 +44,11 @@ function isCadence(v: unknown): v is Cadence {
   return v === "monthly" || v === "annual"
 }
 
-function isPaidTier(v: unknown): v is Exclude<SubscriptionTier, "suspended"> {
-  return typeof v === "string" && (PAID_TIERS as readonly string[]).includes(v)
-}
+// ALT-732 — this validated against PAID_TIERS, which includes the contract-only Multi-Location
+// tier, so `{tier:"top"}` resolved a live Stripe price and opened a real checkout. That made
+// Multi-Location self-servable at its list rate ($2,750/yr, $275/mo) while Standard costs more
+// ($2,990/yr, $299/mo) for strictly less entitlement. A tier being real is not the same question
+// as a tier being buyable without us, and this endpoint has to ask the second one.
 
 export async function POST(request: Request) {
   try {
@@ -54,9 +59,18 @@ export async function POST(request: Request) {
     const tier = body.tier
     const cadence = body.cadence
 
-    if (!isPaidTier(tier)) {
+    if (!isSelfServeTier(tier)) {
+      // A REAL tier that simply is not self-serve gets an answer an operator can act on; an
+      // unrecognised value gets the plain validation error. Collapsing both into one message
+      // would tell someone who typo'd a tier to go email sales about Multi-Location.
+      const contractOnly = isPaidTier(tier)
       return NextResponse.json(
-        { error: "Invalid tier. Expected one of: entry, mid, top." },
+        {
+          error: contractOnly
+            ? `${tierDisplayName(tier as string)} is quoted per location rather than sold online. ` +
+              `Email ${SUPPORT_EMAIL} and we'll get you set up.`
+            : `Invalid tier. Expected one of: ${SELF_SERVE_TIERS.join(", ")}.`,
+        },
         { status: 400 }
       )
     }

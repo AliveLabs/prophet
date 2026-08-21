@@ -7,7 +7,14 @@ import { getStripeClient } from "@/lib/stripe/client"
 import { requireOrgOwnerOrAdmin, applySubscriptionToOrg } from "@/lib/stripe/helpers"
 import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
 import { isValidIndustryType } from "@/lib/verticals"
-import { PAID_TIERS, type Cadence, type SubscriptionTier } from "@/lib/billing/tiers"
+import {
+  SELF_SERVE_TIERS,
+  isPaidTier,
+  isSelfServeTier,
+  tierDisplayName,
+  type Cadence,
+} from "@/lib/billing/tiers"
+import { SUPPORT_EMAIL } from "@/lib/support/contact"
 
 // POST /api/stripe/change-plan
 // Body: { tier: 'entry' | 'mid' | 'top', cadence: 'monthly' | 'annual' }
@@ -22,10 +29,6 @@ import { PAID_TIERS, type Cadence, type SubscriptionTier } from "@/lib/billing/t
 //
 // RBAC: only org owners or admins.
 
-function isPaidTier(v: unknown): v is Exclude<SubscriptionTier, "suspended"> {
-  return typeof v === "string" && (PAID_TIERS as readonly string[]).includes(v)
-}
-
 function isCadence(v: unknown): v is Cadence {
   return v === "monthly" || v === "annual"
 }
@@ -39,9 +42,19 @@ export async function POST(request: Request) {
     const tier = body.tier
     const cadence = body.cadence
 
-    if (!isPaidTier(tier)) {
+    // ALT-732 — same hole as /api/stripe/checkout, in the second of the two endpoints that can
+    // move money. This validated with PAID_TIERS, so an existing Standard subscriber could
+    // change-plan onto contract-only Multi-Location and land on a CHEAPER price with strictly
+    // more entitlement, without ever touching a checkout page.
+    if (!isSelfServeTier(tier)) {
+      const contractOnly = isPaidTier(tier)
       return NextResponse.json(
-        { error: "Invalid tier. Expected one of: entry, mid, top." },
+        {
+          error: contractOnly
+            ? `${tierDisplayName(tier as string)} is quoted per location rather than sold online. ` +
+              `Email ${SUPPORT_EMAIL} and we'll get you set up.`
+            : `Invalid tier. Expected one of: ${SELF_SERVE_TIERS.join(", ")}.`,
+        },
         { status: 400 },
       )
     }

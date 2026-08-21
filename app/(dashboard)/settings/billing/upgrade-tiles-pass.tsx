@@ -10,14 +10,16 @@
 import { useState } from "react"
 import {
   SELF_SERVE_TIERS,
-  TIER_LIMITS,
   TIER_PRICING,
+  ANNUAL_SAVINGS_LABEL,
+  ANNUAL_SAVINGS_INLINE,
   getTierDisplayName,
+  isTrialEligibleTier,
   type Cadence,
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
 import type { IndustryType } from "@/lib/verticals"
-import { runCadenceLabel } from "@/lib/billing/limits"
+import { tierFeatureList } from "@/lib/billing/limits"
 import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
 import { ICON_CHECK } from "../settings-icons"
 // Self-sufficient, same convention as components/first-run/*: pull the stylesheet the tiles need
@@ -27,21 +29,6 @@ import { ICON_CHECK } from "../settings-icons"
 import "../settings-pass.css"
 
 type PaidTier = Exclude<SubscriptionTier, "suspended">
-
-function tierFeatures(tier: PaidTier): string[] {
-  const l = TIER_LIMITS[tier]
-  const feats = [
-    `${l.includedLocations} ${l.includedLocations === 1 ? "location" : "locations"}`,
-    `${l.includedCompetitorsPerLocation} competitors per location`,
-    runCadenceLabel(tier),
-    l.ownSocialNetworkLimit === 1
-      ? "1 social network of your choice + competitors on all 3"
-      : `All ${l.ownSocialNetworkLimit} social networks`,
-  ]
-  if (l.whiteLabelReports) feats.push("White-label reports")
-  if (l.apiAccess) feats.push("API access")
-  return feats
-}
 
 export function UpgradeTilesPass({
   industry,
@@ -110,7 +97,7 @@ export function UpgradeTilesPass({
             Annual
           </button>
         </div>
-        {cadence === "annual" && <span className="tk-set-save-note">Two months free</span>}
+        {cadence === "annual" && <span className="tk-set-save-note">{ANNUAL_SAVINGS_LABEL}</span>}
       </div>
 
       {error && (
@@ -125,14 +112,14 @@ export function UpgradeTilesPass({
           const pricing = TIER_PRICING[t]
           const displayName = getTierDisplayName(t, industry)
           const isRecommended = t === "mid"
-          const offersTrial = t === "mid"
+          const offersTrial = isTrialEligibleTier(t)
           const priceMain =
             cadence === "monthly"
               ? `$${pricing.monthly}`
               : `$${pricing.annualEffectiveMonthly}`
           const priceSub =
             cadence === "annual"
-              ? `/mo · $${pricing.annual.toLocaleString()} billed annually · save 20%`
+              ? `/mo · $${pricing.annual.toLocaleString()} billed annually · ${ANNUAL_SAVINGS_INLINE}`
               : "/mo · billed monthly"
 
           return (
@@ -152,7 +139,7 @@ export function UpgradeTilesPass({
               <div className="tk-set-tier-sub">{priceSub}</div>
               {showFeatures && (
                 <div className="tk-set-tier-feats">
-                  {tierFeatures(t).map((f) => (
+                  {tierFeatureList(t).map((f) => (
                     <span className="tk-set-tier-feat" key={f}>
                       {ICON_CHECK}
                       {f}
