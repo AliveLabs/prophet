@@ -51,6 +51,9 @@ type Finding = {
   severity: "Critical" | "High" | "Medium" | "Low"
   confidence: "verified" | "agent"
   latent?: boolean
+  /** PR that fixed it. Present means the finding is closed; a later sweep re-finding it is a
+   *  REGRESSION, which is a different and more urgent thing than a new bug. */
+  fixedIn?: string
 }
 type NotFinding = { fp: string; why: string }
 type Index = { generatedAt: string; findings: Finding[]; notFindings: NotFinding[] }
@@ -90,7 +93,7 @@ for (const n of idx.notFindings) {
 }
 
 if (process.argv.includes("--list")) {
-  for (const f of idx.findings) console.log(f.fp)
+  for (const f of idx.findings) console.log(f.fixedIn ? `${f.fp}    [FIXED in ${f.fixedIn}: re-finding it is a REGRESSION]` : f.fp)
   for (const n of idx.notFindings) console.log(`${n.fp}    [RULED OUT: ${n.why}]`)
   process.exit(problems.length ? 1 : 0)
 }
@@ -101,7 +104,13 @@ if (check) {
   const out = idx.notFindings.find((n) => n.fp === check)
   if (hit) {
     console.log(`ALREADY FILED as ${hit.ticket} (${hit.severity}, ${hit.confidence}${hit.latent ? ", latent" : ""})`)
-    console.log(`Do NOT file a duplicate. Add evidence to the existing ticket instead.`)
+    if (hit.fixedIn) {
+      console.log(`AND ALREADY FIXED in ${hit.fixedIn}.`)
+      console.log(`If you can still reproduce it, that is a REGRESSION, not a new finding. Say so`)
+      console.log(`explicitly and reopen ${hit.ticket} rather than filing a fresh ticket.`)
+    } else {
+      console.log(`Do NOT file a duplicate. Add evidence to the existing ticket instead.`)
+    }
     process.exit(0)
   }
   if (out) {
@@ -122,18 +131,24 @@ if (check) {
 }
 
 // ── default: summary ────────────────────────────────────────────────────────
-const bySeverity = (s: string) => idx.findings.filter((f) => f.severity === s).length
-const verified = idx.findings.filter((f) => f.confidence === "verified").length
-const latent = idx.findings.filter((f) => f.latent).length
+const open = idx.findings.filter((f) => !f.fixedIn)
+const fixed = idx.findings.filter((f) => f.fixedIn)
+const bySeverity = (s: string) => open.filter((f) => f.severity === s).length
+const verified = open.filter((f) => f.confidence === "verified").length
+const latent = open.filter((f) => f.latent).length
+// One ticket can carry several fingerprints (an `ALSO class..|..` line in its Notes), so the
+// fingerprint count and the ticket count are different numbers and both are worth knowing.
+const tickets = new Set(idx.findings.map((f) => f.ticket))
 
 console.log(`\n=== audit findings index (generated ${idx.generatedAt}) ===`)
-console.log(`  ${idx.findings.length} open findings, ${idx.notFindings.length} ruled out`)
-console.log(`  Critical ${bySeverity("Critical")} · High ${bySeverity("High")} · Medium ${bySeverity("Medium")} · Low ${bySeverity("Low")}`)
-console.log(`  ${verified} verified by the main loop, ${idx.findings.length - verified} agent-reported only`)
+console.log(`  ${idx.findings.length} fingerprints across ${tickets.size} tickets, ${idx.notFindings.length} ruled out`)
+console.log(`  ${open.length} OPEN, ${fixed.length} fixed`)
+console.log(`  open by severity: Critical ${bySeverity("Critical")} · High ${bySeverity("High")} · Medium ${bySeverity("Medium")} · Low ${bySeverity("Low")}`)
+console.log(`  ${verified} verified by the main loop, ${open.length - verified} agent-reported only`)
 console.log(`  ${latent} latent (real code path, zero rows affected in prod at the time of checking)\n`)
 
 const byFile = new Map<string, number>()
-for (const f of idx.findings) {
+for (const f of open) {
   const file = f.fp.split("|")[1]
   byFile.set(file, (byFile.get(file) ?? 0) + 1)
 }
