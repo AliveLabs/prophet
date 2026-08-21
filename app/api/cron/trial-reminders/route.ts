@@ -82,11 +82,30 @@ export async function GET(request: Request) {
       continue
     }
 
-    const { data: owners } = await admin
+    const { data: owners, error: ownersError } = await admin
       .from("organization_members")
       .select("user_id")
       .eq("organization_id", org.id)
       .in("role", ["owner", "admin"])
+
+    // This read was unchecked, and it sits AFTER the ledger insert above. The insert-first order
+    // is deliberate (a 23505 IS the same-day dedupe), but it means anything that fails between
+    // here and the send is recorded as sent and can NEVER retry: the next run sees the ledger row
+    // and skips. So a one-off failure on this read permanently loses that org's day-10 or day-13
+    // reminder, which is a promise we made at checkout.
+    //
+    // Releasing the ledger row is the surgical fix: it keeps the dedupe-before-send design that
+    // stops double-sends, and lets the next run try again. Only on a READ ERROR. Genuinely having
+    // zero owner/admins is a real answer, not a transient one, so it still consumes the row.
+    if (ownersError) {
+      await admin
+        .from("trial_reminder_sends")
+        .delete()
+        .eq("organization_id", org.id)
+        .eq("reminder_day", reminderDay)
+      errors.push(`${org.id}:day${reminderDay}:recipient lookup failed, ledger released: ${ownersError.message}`)
+      continue
+    }
 
     if (!owners || owners.length === 0) continue
 

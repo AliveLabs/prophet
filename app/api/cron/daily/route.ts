@@ -82,11 +82,26 @@ export async function GET(req: Request) {
   }
 
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
-  const { data: orgs } = await supabase
+  const { data: orgs, error: orgErr } = await supabase
     .from("organizations")
     .select("id, subscription_tier, trial_ends_at, payment_state")
     .in("id", orgIds)
     .is("deleted_at", null)
+  // ALT-743: unchecked, and this is the ENTITLEMENT ALLOWLIST for the whole nightly sweep. On a
+  // read failure both maps came out empty, so every location hit the `!orgTrial` guard below and
+  // was reported as "Org deleted or inaccessible". The fleet went dark and the response described
+  // it as a normal night where every org happened to be deleted.
+  //
+  // The guard below is right about soft-deleted orgs and wrong to also absorb this: "this org is
+  // gone" and "I could not read any org" are different answers. Fail loudly, matching the
+  // `locations` read directly above.
+  if (orgErr || !orgs) {
+    console.error(`[Cron] entitlement allowlist read failed: ${orgErr?.code ?? ""} ${orgErr?.message ?? "no rows"}`)
+    return Response.json(
+      { error: "Failed to resolve active organizations", details: orgErr?.message },
+      { status: 500 },
+    )
+  }
 
   const orgTierMap = new Map<string, SubscriptionTier>()
   const orgTrialMap = new Map<
@@ -108,6 +123,7 @@ export async function GET(req: Request) {
     pipelines: string[]
     skipped_reason?: string
   }> = []
+  let enqueueFailures = 0
 
   for (const location of locations) {
     // Per-location pause (ALT: beta-rescue 1.1). Mainly for demo orgs: turns off the daily
@@ -266,7 +282,22 @@ export async function GET(req: Request) {
         })
       }
     } catch (err) {
-      console.warn(`[Cron] Enqueue failed for ${location.name}:`, err)
+      // ALT-714: this caught, logged a warning, and then FELL THROUGH to the jobs.push below,
+      // which reports the full computed pipeline list. So a location whose enqueue threw was
+      // reported as having every pipeline enqueued, and the route still answered ok: true. The
+      // response was a description of what we INTENDED to enqueue, not what we enqueued.
+      //
+      // Now it records the failure against the location and moves on, so the response is a
+      // record of what actually happened.
+      enqueueFailures++
+      console.error(`[Cron] Enqueue failed for ${location.name}:`, err)
+      jobs.push({
+        location_id: location.id,
+        location_name: location.name,
+        pipelines: [],
+        skipped_reason: `Enqueue failed: ${err instanceof Error ? err.message : "unknown error"}`,
+      })
+      continue
     }
 
     jobs.push({
@@ -276,11 +307,17 @@ export async function GET(req: Request) {
     })
   }
 
+  // ALT-714: `ok` was a literal. It is now a claim about the run, so an alert or a human reading
+  // this can tell a clean sweep from one where every enqueue threw. `enqueued` counts locations
+  // that actually got at least one job, which `locationsProcessed` never did: that counts rows in
+  // the report, including every skip and every failure.
   return Response.json({
-    ok: true,
+    ok: enqueueFailures === 0,
     dateKey,
     isMonday,
     locationsProcessed: jobs.length,
+    enqueued: jobs.filter((j) => j.pipelines.length > 0).length,
+    enqueueFailures,
     jobs,
   })
 }
