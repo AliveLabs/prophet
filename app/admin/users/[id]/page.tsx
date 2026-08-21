@@ -1,6 +1,7 @@
 import { connection } from "next/server"
 import { notFound } from "next/navigation"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { classifyUserLifecycle } from "@/lib/ops/user-lifecycle"
 import { UserDetailClient } from "./user-detail-client"
 import "../admin-pass.css"
 
@@ -65,7 +66,15 @@ async function fetchUserDetail(userId: string) {
     lastSignInAt: user.last_sign_in_at ?? null,
     isBanned: !!user.banned_until && new Date(user.banned_until) > new Date(),
     provider: user.app_metadata?.provider ?? "email",
-    hasOnboarded: !!profile?.current_organization_id,
+    // Same shared classifier the roster and dashboard use. "Onboarded" previously read straight
+    // off current_organization_id, which said "Yes" for an invited user who had never signed in
+    // and "No" for a real user whose org had been deleted. See lib/ops/user-lifecycle.ts.
+    stage: classifyUserLifecycle({
+      lastSignInAt: user.last_sign_in_at ?? null,
+      lastSeenAtResolved: profile?.last_seen_at ?? user.last_sign_in_at ?? null,
+      currentOrganizationId: profile?.current_organization_id ?? null,
+      isBanned: !!user.banned_until && new Date(user.banned_until) > new Date(),
+    }),
     organizations: (memberships ?? []).map((m) => {
       const org = orgs.find((o) => o.id === m.organization_id)
       return {

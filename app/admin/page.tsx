@@ -10,6 +10,7 @@
 import { connection } from "next/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { isTrialing, isPaidActive } from "@/lib/billing/trial"
+import { summarizeUserLifecycle } from "@/lib/ops/user-lifecycle"
 import {
   RevealOnView,
   TkCard,
@@ -74,7 +75,8 @@ async function fetchPlatformMetrics() {
   ])
 
   let authUserCount = 0
-  let neverOnboarded = 0
+  let neverSignedIn = 0
+  let signedInNoOrg = 0
   let recentlyActive = 0
   try {
     const { data: authData } = await supabase.auth.admin.listUsers({
@@ -83,24 +85,29 @@ async function fetchPlatformMetrics() {
     })
     authUserCount = authData?.users?.length ?? 0
 
-    const now = Date.now()
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000
-    // "Recently active" means they were IN the product, not that they re-authenticated. On a
-    // magic-link product last_sign_in_at only moves when a session lapses, so it under-counted
-    // daily users badly.
-    recentlyActive = (profiles ?? []).filter(
-      (p) => p.last_seen_at && new Date(p.last_seen_at).getTime() > weekAgo
-    ).length
-
-    const allProfiles = profiles ?? []
-    const profileIds = new Set(
-      allProfiles
-        .filter((p) => p.current_organization_id)
-        .map((p) => p.id)
+    // ONE shared definition with /admin/users (lib/ops/user-lifecycle.ts). This block used to
+    // compute "never onboarded" as "has no current_organization_id", which is a different thing:
+    // it missed invited users who never signed in (they have an org set FOR them) and wrongly
+    // included users whose org was later deleted. See that module for the full write-up.
+    //
+    // "Recently active" still means they were IN the product, not that they re-authenticated. On a
+    // magic-link product last_sign_in_at only moves when a session lapses, so it under-counts
+    // daily users badly; the summarizer reads the resolved last_seen_at for that reason.
+    const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
+    const summary = summarizeUserLifecycle(
+      (authData?.users ?? []).map((u) => {
+        const profile = profileMap.get(u.id)
+        return {
+          lastSignInAt: u.last_sign_in_at ?? null,
+          lastSeenAtResolved: profile?.last_seen_at ?? u.last_sign_in_at ?? null,
+          currentOrganizationId: profile?.current_organization_id ?? null,
+          isBanned: !!u.banned_until && new Date(u.banned_until) > new Date(),
+        }
+      }),
     )
-    neverOnboarded = (authData?.users ?? []).filter(
-      (u) => !profileIds.has(u.id)
-    ).length
+    recentlyActive = summary.activeLast7d
+    neverSignedIn = summary.neverSignedIn
+    signedInNoOrg = summary.signedInNoOrg
   } catch {
     // auth admin may fail in some environments
   }
@@ -201,7 +208,8 @@ async function fetchPlatformMetrics() {
     },
     users: {
       recentlyActive,
-      neverOnboarded,
+      neverSignedIn,
+      signedInNoOrg,
     },
     recentActivity: (recentActivity ?? []).map((a) => ({
       id: a.id,
@@ -414,14 +422,21 @@ export default async function AdminOverviewPage() {
             size="wide"
             label="Active in last 7 days"
             value={m.users.recentlyActive.toLocaleString()}
-            sub="signed in within the week"
+            sub="active in the product, not just re-authenticated"
           />
           <TkWidget
             tone="gold"
             size="wide"
-            label="Never onboarded"
-            value={m.users.neverOnboarded.toLocaleString()}
-            sub="signed up, no organization yet"
+            label="Never signed in"
+            value={m.users.neverSignedIn.toLocaleString()}
+            sub="invited or created, never authenticated once"
+          />
+          <TkWidget
+            tone="rust"
+            size="wide"
+            label="Signed in, no org"
+            value={m.users.signedInNoOrg.toLocaleString()}
+            sub="got in, but attached to no organization"
           />
         </TkWidgetGrid>
       </RevealOnView>
