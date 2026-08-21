@@ -27,6 +27,20 @@ export type PipelineHealthStatus = "ok" | "degraded" | "down"
 
 /** Raw signals the verdict is computed from (all already-fetched, no I/O here). */
 export type PipelineSignals = {
+  /** ALT-744: reads that FAILED, by name. Empty is the healthy case.
+   *
+   *  Every signal below is derived from a Supabase read, and every one of those reads used
+   *  `?? 0` / `?? []` on `.data` without ever checking `.error`. So a failed read did not look
+   *  like a failure, it looked like GOOD NEWS: `stuck.count ?? 0` became "no zombie jobs",
+   *  `staleQ.count ?? 0` became "the queue is draining", and an unread `organizations` table
+   *  reclassified every stale location as billing-dark, which is the one bucket that
+   *  deliberately never escalates. Three detectors switched themselves off and the verdict
+   *  said "ok".
+   *
+   *  This file already states the rule two fields down: "0 here means 'can't yet judge', NOT
+   *  'healthy'". It just was not applied to read failures. A named entry here forces the
+   *  evaluator to say it cannot judge, instead of quietly reporting a clean bill of health. */
+  unmeasured: string[]
   /** Most recent pipeline_runs row (worker ran a job). null = the queue has never run. */
   lastRunAt: string | null
   /** Most recent location_snapshots row (data landed). */
@@ -184,6 +198,9 @@ export const RECENT_ACTIVE_DAYS = 8
 export type PipelineHealthVerdict = {
   status: PipelineHealthStatus
   checkedAt: string
+  /** ALT-744: signals we could NOT read this pass. Non-empty means at least one detector was
+   *  switched off, so `status: "ok"` would be a claim we are not entitled to make. */
+  unmeasured: string[]
   /** Human-readable problems that DROVE the status (down/degraded) — this is what pages Slack/email.
    *  Empty when status is ok. */
   reasons: string[]
@@ -238,6 +255,26 @@ export function evaluatePipelineHealth(
   let status: PipelineHealthStatus = "ok"
   const escalate = (to: PipelineHealthStatus) => {
     if (RANK[to] > RANK[status]) status = to
+  }
+
+  // ALT-744: a detector that could not read its input has NOT returned good news.
+  //
+  // This has to come first, because every check below reads a number that a failed query renders
+  // as zero. `stuckJobs: 0` and `staleQueuedJobs: 0` are indistinguishable from a healthy queue,
+  // and that is precisely how the zombie and backlog detectors used to switch themselves off and
+  // still report `status: "ok"`.
+  //
+  // DEGRADED, not DOWN: we genuinely do not know that anything is broken, and claiming an outage
+  // on a flaky read would train the on-call to ignore this alert. But it is a REASON rather than a
+  // warning, because warnings deliberately never reach Slack or email, and "the health check is
+  // partially blind" is exactly the thing a human needs told. The third incident in six weeks of
+  // a metric sharing its predicate with the thing it measures: count at the source, and never let
+  // "not measured" render as "healthy".
+  if (s.unmeasured.length > 0) {
+    reasons.push(
+      `Health check could not measure ${s.unmeasured.length} signal(s), so this verdict is incomplete: ${s.unmeasured.join("; ")}`,
+    )
+    escalate("degraded")
   }
 
   // DOWN — the scheduled pipeline isn't running at all (the silent-stall signature).
@@ -361,6 +398,7 @@ export function evaluatePipelineHealth(
   return {
     status,
     checkedAt: new Date(nowMs).toISOString(),
+    unmeasured: s.unmeasured,
     reasons,
     warnings,
     lastRunAt: s.lastRunAt,
@@ -501,6 +539,29 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   // cron/daily and cron/build-brief, so it goes dark deliberately — counting it as a partial stall
   // pages the on-call for a billing outcome (2026-08-03: two operators who abandoned Stripe
   // checkout produced a "degraded" page while the pipeline was working perfectly).
+  // ALT-744: which of the reads above actually failed. Named so the verdict can say what it could
+  // not measure, rather than reporting the absence of bad news as good news.
+  const unmeasured: string[] = []
+  for (const [name, res] of [
+    ["last pipeline run", run],
+    ["last data snapshot", data],
+    ["last brief", brief],
+    ["per-location brief freshness", recentBriefs],
+    ["stuck jobs", stuck],
+    ["recent job failures", failedRows],
+    ["stale queued jobs", staleQ],
+    ["brief drain", doneBriefJobs],
+    ["locations", locationRows],
+    ["organizations (billing gate)", orgRows],
+    ["social mirror runs", socialRuns],
+  ] as const) {
+    if (res.error) unmeasured.push(`${name}: ${res.error.message}`)
+  }
+  // ALT-745: the vendor detector reports its own blindness rather than "healthy", so fold that in
+  // too. Without this, a failed pipeline_runs read inside detectDataForSeoHealth came back as
+  // status "healthy" and this file would have believed it.
+  if (vendor.readError) unmeasured.push(`DataForSEO fleet health: ${vendor.readError}`)
+
   const gatedLocationIds = new Set<string>()
   const orgByLocation = new Map<string, string>()
   for (const l of locationRows.data ?? []) {
@@ -517,8 +578,18 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
       )
       .map((o) => o.id),
   )
-  for (const [locationId, orgId] of orgByLocation) {
-    if (!activeOrgIds.has(orgId)) gatedLocationIds.add(locationId)
+  // ALT-744: only reclassify as billing-dark when we ACTUALLY READ the billing state. If the
+  // organizations read failed, `activeOrgIds` is empty, so this loop would mark every location
+  // gated and every genuine stall would land in billingDarkLocations, the one bucket that never
+  // escalates. A fleet-wide outage would have paged nobody.
+  //
+  // On a failed read, prefer the classification that CAN page: a real stall going quiet is worse
+  // than a billing outcome being counted as a stall, and `unmeasured` says which happened.
+  const billingStateKnown = !orgRows.error && !locationRows.error
+  if (billingStateKnown) {
+    for (const [locationId, orgId] of orgByLocation) {
+      if (!activeOrgIds.has(orgId)) gatedLocationIds.add(locationId)
+    }
   }
 
   const mirror = summarizeMirrorRuns(
@@ -581,6 +652,7 @@ export async function fetchPipelineSignals(sb: SB, nowMs: number, staleHours: nu
   const { p95Ms: briefDrainP95Ms, sampled: briefDrainsSampled } = computeBriefDrainP95Ms(doneBriefJobs.data ?? [])
 
   return {
+    unmeasured,
     lastRunAt: (run.data?.finished_at ?? run.data?.started_at) ?? null,
     lastDataAt: data.data?.created_at ?? null,
     lastBriefAt: brief.data?.generated_at ?? null,
