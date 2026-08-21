@@ -24,10 +24,10 @@
     "than re-filing a bug we already shipped a fix for."
   ],
   "generatedAt": "2026-08-21",
-  "source": "Notion database 'Tickets — Tickets', rows whose Notes begin with 'AUDIT-FP:'",
+  "source": "Notion database 'Tickets \u2014 Tickets', rows whose Notes begin with 'AUDIT-FP:'",
   "findings": [
     { "fp": "class1|app/onboarding/trial/page.tsx|nothing-charged-today-vs-starter-immediate-bill", "ticket": "ALT-709", "severity": "Critical", "confidence": "verified", "fixedIn": "prophet#265 + ticket-marketing#16" },
-    { "fp": "class8|app/(dashboard)/settings/billing/upgrade-buttons.tsx|contract-only-tier-self-serve-and-cheaper-than-standard", "ticket": "ALT-735", "severity": "Critical", "confidence": "verified" },
+    { "fp": "class8|app/(dashboard)/settings/billing/upgrade-buttons.tsx|contract-only-tier-self-serve-and-cheaper-than-standard", "ticket": "ALT-735", "severity": "Critical", "confidence": "verified", "fixedIn": "prophet#267" },
 
     { "fp": "class4|supabase/migrations/20260814093000_review_watch_events.sql|migration-merged-not-applied", "ticket": "ALT-703", "severity": "High", "confidence": "verified" },
     { "fp": "class1|lib/skills/presentation.ts|negative-sentiment-pct-is-share-of-all-mentions", "ticket": "ALT-706", "severity": "High", "confidence": "verified" },
@@ -38,9 +38,9 @@
     { "fp": "class1|app/(dashboard)/weather/page.tsx|next-7-can-be-past-days", "ticket": "ALT-718", "severity": "High", "confidence": "agent" },
     { "fp": "class1|lib/insights/traffic-insights.ts|capacity-claim-from-relative-index", "ticket": "ALT-723", "severity": "High", "confidence": "agent" },
     { "fp": "class9|lib/insights/dossier/build.ts|purchased-competitor-addon-ignored-by-dossier-build", "ticket": "ALT-731", "severity": "High", "confidence": "verified", "latent": true },
-    { "fp": "class9|app/api/stripe/checkout/route.ts|self-serve-checkout-reads-paid-tiers-not-self-serve-tiers", "ticket": "ALT-732", "severity": "High", "confidence": "verified" },
-    { "fp": "class9|app/(dashboard)/settings/billing/upgrade-buttons.tsx|white-label-and-api-access-sold-with-no-implementation", "ticket": "ALT-733", "severity": "High", "confidence": "verified" },
-    { "fp": "class8|app/(dashboard)/settings/billing/upgrade-tiles-pass.tsx|annual-labelled-save-20-percent-but-is-two-months-free", "ticket": "ALT-736", "severity": "High", "confidence": "agent" },
+    { "fp": "class9|app/api/stripe/checkout/route.ts|self-serve-checkout-reads-paid-tiers-not-self-serve-tiers", "ticket": "ALT-732", "severity": "High", "confidence": "verified", "fixedIn": "prophet#267" },
+    { "fp": "class9|app/(dashboard)/settings/billing/upgrade-buttons.tsx|white-label-and-api-access-sold-with-no-implementation", "ticket": "ALT-733", "severity": "High", "confidence": "verified", "fixedIn": "prophet#267" },
+    { "fp": "class8|app/(dashboard)/settings/billing/upgrade-tiles-pass.tsx|annual-labelled-save-20-percent-but-is-two-months-free", "ticket": "ALT-736", "severity": "High", "confidence": "agent", "fixedIn": "prophet#267" },
     { "fp": "class8|app/onboarding/trial/start-trial-button.tsx|annual-price-quoted-but-checkout-hardcodes-monthly", "ticket": "ALT-737", "severity": "High", "confidence": "agent" },
     { "fp": "class8|app/api/stripe/webhook/route.ts|failed-handler-retry-swallowed-as-duplicate", "ticket": "ALT-738", "severity": "High", "confidence": "agent" },
     { "fp": "class6|app/onboarding/actions.ts|every-location-gets-eastern-timezone", "ticket": "ALT-739", "severity": "High", "confidence": "verified" },
@@ -81,6 +81,8 @@
     { "fp": "class7|lib/insights/evergreen.ts|dismissal-cooldown-silently-inactive", "ticket": "ALT-748", "severity": "Medium", "confidence": "agent" },
     { "fp": "class8|docs/PRICING-2026-08-19.md|multi-location-schedule-costed-off-standard-not-top-limits", "ticket": "ALT-757", "severity": "Medium", "confidence": "agent" },
     { "fp": "class8|app/api/stripe/change-plan/route.ts|trial-carries-onto-a-non-trial-eligible-tier", "ticket": "ALT-758", "severity": "Medium", "confidence": "agent" },
+    { "fp": "class1|app/(dashboard)/settings/settings-pass.css|tile-grid-hardcoded-three-columns", "ticket": "ALT-759", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#267" },
+    { "fp": "class1|app/(dashboard)/operator.css|tile-grid-hardcoded-three-columns", "ticket": "ALT-759", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#267" },
 
     { "fp": "class5|app/api/ai/chat/route.ts|dead-route-reads-openai-key", "ticket": "ALT-704", "severity": "Low", "confidence": "verified" },
     { "fp": "class5|.env.example|forty-env-vars-undocumented", "ticket": "ALT-705", "severity": "Low", "confidence": "verified" },
