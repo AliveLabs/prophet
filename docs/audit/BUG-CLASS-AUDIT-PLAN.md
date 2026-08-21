@@ -159,14 +159,69 @@ no enumeration.** Split every class along that line and pay the high rate only f
 1. **Deterministic work becomes a script, permanently.** Classes 4 and 5, and all ledger mechanics.
 2. **Two-stage every class**: Haiku enumerates candidates, the class model judges the shortlist.
 3. **Ledger keyed on blob SHA**: unchanged code is never re-reviewed.
-4. **WIP cap of ~10 open findings.** Finding is cheap; fixing, testing and verifying is not. A
-   200-item list is a liability, not an asset.
+4. **Cap FIXES in flight, never FINDINGS recorded.** These are different things and run 1 got it
+   wrong: the cap was written as "~10 open findings", applied to the record, and 18 of 26 findings
+   were left in a page body instead of becoming tickets. That is the single worst rule this document
+   has contained, for three reasons:
+
+   - it discards work **already paid for** (672k subagent tokens produced those 26 findings),
+   - the next sweep **re-finds the same bugs at full price**, with no way to notice it is repeating,
+   - and it hides the true size of the problem from the person who has to decide what to do about it.
+
+   **Record every finding, always.** Cap only how many are being *fixed* concurrently, because that
+   is where thrash actually comes from. A 200-item list is not a liability; a 200-item list you
+   cannot dedupe is.
 5. **Every finding lands as a test that fails when reverted.** Both 08-20 and 08-21 fixes were
    verified by actually reverting the code and watching the guard fail. Assert nothing you have not
    watched fail.
 6. **Calibrate before committing.** Run **class 1 only**, end to end, measure real token spend and
    real finding quality, then decide whether to fund the other eight. Do not authorise nine sweeps
    against an estimate.
+
+## Dedupe: how a sweep knows what has already been found
+
+Without this, every sweep re-reports everything and the cost of run N is the same as run 1.
+
+**Every audit ticket carries a fingerprint** as the first thing in its Notion `Notes` field:
+
+```
+AUDIT-FP: class|repo-relative-file|slug
+```
+
+**No line numbers.** They drift on every edit, so including them would make the same defect look new
+on the next pass, which is the exact failure this prevents. The slug names the **defect**, not the
+wording of the claim, because copy gets reworded while the bug stays.
+
+**Notion is the source of truth.** `docs/audit/findings-index.json` is a cached copy for agents and
+scripts, since `NOTION_API_KEY` lives in Vercel prod only and no local process can reach Notion.
+The sync is therefore a documented manual step, not an automated one.
+
+### The protocol, in order
+
+1. **Regenerate the index.** `npm run audit:findings -- --sql` prints the Notion query. Run it
+   through the MCP, update the JSON.
+2. **Validate it.** `npm run audit:findings` fails on a malformed fingerprint, a duplicate, a
+   fingerprint containing a line number, or a ruled-out entry with no stated reason.
+3. **Hand the list to every agent.** `npm run audit:findings -- --list`. The agent prompt must
+   require reporting **MATCHED** findings separately from **NEW** ones, so we can see the dedupe
+   working rather than assuming it.
+4. **Gate each candidate before filing.** `npm run audit:findings -- --check "<fp>"` returns one of
+   three answers: already filed (with the ticket), previously ruled out (with the reason), or new.
+   For a new one it also lists existing findings in the same file, because "same file, different
+   slug" is where a reworded duplicate hides.
+5. **File it, then add it to the index in the same pass.** Run 1 failed this: the first 10 tickets
+   were written before the fingerprint convention existed, so the very first index query returned 18
+   of 28 and silently missed the highest-severity items. They had to be backfilled by hand.
+
+### `notFindings` matters as much as `findings`
+
+The index also records what was investigated and **ruled out**, with the reason. Run 1 put eight
+entries there: four class-5 candidates that turned out to be fine, and four deliberate designs
+(`CLAUDE.md`'s fleet-cap fail-open, the surface-readiness gate, `eval-judge` returning 200,
+`sourceLabel`'s earned "Local events").
+
+Without that list, every future sweep re-raises settled decisions, and re-litigating them is how a
+finding list loses credibility with the person reading it.
 
 ## Order of execution
 
