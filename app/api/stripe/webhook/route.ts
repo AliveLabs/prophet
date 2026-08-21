@@ -4,7 +4,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
 import {
   applySubscriptionToOrg,
-  isWebhookEventNew,
+  claimWebhookEvent,
   markWebhookEventProcessed,
   resolveOrganizationId,
 } from "@/lib/stripe/helpers"
@@ -63,10 +63,16 @@ export async function POST(req: Request) {
 
   const admin = createAdminSupabaseClient()
 
-  const isNew = await isWebhookEventNew(admin, event.id, event.type)
-  if (!isNew) {
-    // Duplicate delivery: Stripe retried an event we already handled.
+  // ALT-738: the decision turns on how the LAST attempt ended, not on whether we have seen the
+  // event. Answering "ok (duplicate)" to the retry of a FAILED event discarded it permanently,
+  // which left the org's billing state diverged from Stripe with no way back.
+  const admission = await claimWebhookEvent(admin, event.id, event.type)
+  if (admission === "skip_duplicate") {
+    // Genuinely handled already. Stripe is just re-delivering.
     return new Response("ok (duplicate)", { status: 200 })
+  }
+  if (admission === "retry_failed") {
+    console.warn(`[stripe-webhook] re-running ${event.type} ${event.id}: previous attempt did not complete`)
   }
 
   try {

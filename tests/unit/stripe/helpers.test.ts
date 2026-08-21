@@ -8,7 +8,8 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import type Stripe from "stripe"
 import {
   resolveOrganizationId,
-  isWebhookEventNew,
+  admitWebhookEvent,
+  claimWebhookEvent,
   markWebhookEventProcessed,
   normalizePaymentState,
   readSubscriptionPeriodEnd,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/stripe/helpers"
 
 // A configurable chainable mock covering every chain the helpers use:
-//   .from().insert().select()                 -> insertResult   (isWebhookEventNew)
+//   .from().insert().select()                 -> insertResult   (claimWebhookEvent)
 //   .from().select().eq()[.eq()].maybeSingle() -> selectResult   (resolve / role / unknown-price)
 //   .from().update().eq()                      -> captured via onUpdate, resolves { error: null }
 //   .from().update().eq().or().select()        -> guarded write; filter captured via onUpdateFilter,
@@ -90,20 +91,49 @@ describe("resolveOrganizationId", () => {
   })
 })
 
-describe("isWebhookEventNew — idempotency ledger", () => {
-  it("returns true on a fresh insert", async () => {
+// ── ALT-738 ─────────────────────────────────────────────────────────────────────────────────
+// The ledger check used to answer "have we SEEN this", and that discarded every retry of a
+// FAILED event: the row was inserted before dispatch, the handler threw, the route returned 500
+// to ask Stripe to retry, and the retry hit 23505 and got "ok (duplicate)". The event was gone
+// and the org's billing state stayed diverged from Stripe. The question has to be "did we FINISH
+// this", which is a different question.
+describe("admitWebhookEvent (pure)", () => {
+  it("processes a delivery with no ledger row", () => {
+    expect(admitWebhookEvent(null)).toBe("process")
+  })
+
+  it("skips a delivery that completed cleanly", () => {
+    expect(admitWebhookEvent({ processed_at: "2026-08-21T00:00:00Z", error: null })).toBe("skip_duplicate")
+  })
+
+  it("RETRIES a delivery whose handler recorded an error", () => {
+    expect(admitWebhookEvent({ processed_at: "2026-08-21T00:00:00Z", error: "boom" })).toBe("retry_failed")
+  })
+
+  it("RETRIES a delivery that never finished (attempt died mid-flight)", () => {
+    expect(admitWebhookEvent({ processed_at: null, error: null })).toBe("retry_failed")
+  })
+
+  it("never returns skip_duplicate for anything that did not succeed", () => {
+    for (const row of [
+      { processed_at: null, error: null },
+      { processed_at: null, error: "boom" },
+      { processed_at: "2026-08-21T00:00:00Z", error: "boom" },
+    ]) {
+      expect(admitWebhookEvent(row)).not.toBe("skip_duplicate")
+    }
+  })
+})
+
+describe("claimWebhookEvent: idempotency ledger", () => {
+  it("processes on a fresh insert", async () => {
     const admin = makeClient({ insertResult: { data: [{ event_id: "evt_1" }], error: null } })
-    expect(await isWebhookEventNew(admin, "evt_1", "x")).toBe(true)
+    expect(await claimWebhookEvent(admin, "evt_1", "x")).toBe("process")
   })
 
-  it("returns false on a unique-violation (duplicate delivery)", async () => {
-    const admin = makeClient({ insertResult: { data: null, error: { code: "23505" } } })
-    expect(await isWebhookEventNew(admin, "evt_dup", "x")).toBe(false)
-  })
-
-  it("THROWS on any other DB error so Stripe retries (never silently drops)", async () => {
+  it("THROWS on a non-unique DB error so Stripe retries (never silently drops)", async () => {
     const admin = makeClient({ insertResult: { data: null, error: { code: "08006", message: "conn" } } })
-    await expect(isWebhookEventNew(admin, "evt_err", "x")).rejects.toBeTruthy()
+    await expect(claimWebhookEvent(admin, "evt_err", "x")).rejects.toBeTruthy()
   })
 })
 

@@ -53,24 +53,79 @@ export async function resolveOrganizationId(
 // Implementation: INSERT ON CONFLICT DO NOTHING on the primary key. Postgres
 // guarantees this is atomic even under concurrent webhook deliveries.
 
-export async function isWebhookEventNew(
+/** What to do with an incoming delivery. */
+export type WebhookAdmission =
+  /** Never seen. Run the handler. */
+  | "process"
+  /** Seen AND completed cleanly. Stripe is just re-delivering; do nothing. */
+  | "skip_duplicate"
+  /** Seen, but the last attempt did not succeed. Run the handler again. */
+  | "retry_failed"
+
+/** PURE: the admission decision for an existing ledger row (null = no row yet).
+ *
+ *  ALT-738: the old `isWebhookEventNew` collapsed "we finished this" and "we have seen this",
+ *  which silently discarded every retry of a FAILED event:
+ *
+ *    1. delivery arrives, ledger row inserted BEFORE dispatch
+ *    2. handler throws, route records the error and returns 500 so Stripe retries
+ *    3. Stripe retries, the insert hits 23505, we answer "ok (duplicate)" 200
+ *    4. the event is gone for good, and the recorded error is read by nobody
+ *
+ *  So a transient failure in any handler left the org's billing state permanently diverged from
+ *  Stripe: wrong tier, wrong payment_state, wrong access. Returning 500 to trigger a retry was
+ *  pointless, because the retry could never get past the dedupe.
+ *
+ *  Insert-before-dispatch is still right (it is what makes concurrent deliveries safe), so the
+ *  fix is to read the row's OUTCOME rather than its existence.
+ *
+ *  A row with `processed_at` null means a previous attempt died before it could record anything:
+ *  a timeout, an OOM, a cold-start abort. That is exactly a case worth retrying, and it is
+ *  indistinguishable from "in flight right now" only for the seconds a handler runs. Stripe's
+ *  retry schedule is minutes apart, so treating it as retryable is safe and losing it is not.
+ *
+ *  Retry safety, checked per handler 2026-08-21: every throw point precedes the only outbound
+ *  email (`invoice.payment_failed` sends last and swallows its own send errors), and the state
+ *  writers are upserts. Anything added here must keep that property, or it will double-fire. */
+export function admitWebhookEvent(
+  row: { processed_at: string | null; error: string | null } | null
+): WebhookAdmission {
+  if (row == null) return "process"
+  if (row.processed_at != null && row.error == null) return "skip_duplicate"
+  return "retry_failed"
+}
+
+/** Claim a delivery: insert the ledger row if new, otherwise read what happened last time. */
+export async function claimWebhookEvent(
   admin: SupabaseClient,
   eventId: string,
   eventType: string
-): Promise<boolean> {
+): Promise<WebhookAdmission> {
   const { error, data } = await admin
     .from("stripe_webhook_events")
     .insert({ event_id: eventId, event_type: eventType })
     .select("event_id")
 
-  if (error) {
-    // Unique-violation = we've seen this event before; any other error should
-    // bubble up so Stripe retries and we don't silently drop the event.
-    if (error.code === "23505") return false
-    throw error
-  }
+  // Insert succeeded, so this delivery is genuinely new.
+  if (!error) return (data?.length ?? 0) > 0 ? "process" : "retry_failed"
 
-  return (data?.length ?? 0) > 0
+  // Anything other than a unique violation should bubble up, so Stripe retries rather than us
+  // silently dropping the event.
+  if (error.code !== "23505") throw error
+
+  // Seen before. The DECISION now depends on how the last attempt ended.
+  const { data: existing, error: readErr } = await admin
+    .from("stripe_webhook_events")
+    .select("processed_at, error")
+    .eq("event_id", eventId)
+    .maybeSingle()
+  // A failed read must not be mistaken for "already handled cleanly": re-running an idempotent
+  // handler is cheap, dropping a billing event is not.
+  if (readErr) {
+    console.error(`[stripe-webhook] ledger read failed for ${eventId}, re-running: ${readErr.message}`)
+    return "retry_failed"
+  }
+  return admitWebhookEvent(existing ?? null)
 }
 
 export async function markWebhookEventProcessed(
