@@ -18,7 +18,6 @@ interface UserRow {
   lastSignInAt: string | null
   isBanned: boolean
   orgCount: number
-  hasOnboarded: boolean
   isAdmin: boolean
 }
 

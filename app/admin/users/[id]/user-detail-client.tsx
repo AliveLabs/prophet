@@ -24,7 +24,7 @@ interface UserDetail {
   lastSignInAt: string | null
   isBanned: boolean
   provider: string
-  hasOnboarded: boolean
+  stage: "never_signed_in" | "signed_in_no_org" | "onboarded"
   organizations: Array<{
     id: string
     name: string
@@ -40,6 +40,15 @@ interface UserDetail {
     details: Record<string, unknown> | null
     createdAt: string
   }>
+}
+
+/** The same three states lib/ops/user-lifecycle.ts defines. Deliberately NOT a yes/no: the old
+ *  "Onboarded: Yes/No" row was computed from org attachment alone, so it read Yes for an invited
+ *  user who had never signed in, and No for a real user whose org had been deleted. */
+const STAGE_LABEL: Record<"never_signed_in" | "signed_in_no_org" | "onboarded", string> = {
+  never_signed_in: "Never signed in",
+  signed_in_no_org: "Signed in, no org",
+  onboarded: "Onboarded",
 }
 
 export function UserDetailClient({ user }: { user: UserDetail }) {
@@ -155,7 +164,7 @@ export function UserDetailClient({ user }: { user: UserDetail }) {
                   value={user.lastSeenAt ? new Date(user.lastSeenAt).toLocaleString() : "Never"}
                 />
                 <InfoItem label="Provider" value={user.provider} />
-                <InfoItem label="Onboarded" value={user.hasOnboarded ? "Yes" : "No"} />
+                <InfoItem label="Status" value={STAGE_LABEL[user.stage]} />
               </div>
             </TkCard>
           </RevealOnView>

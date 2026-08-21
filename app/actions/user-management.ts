@@ -14,6 +14,7 @@ import { logAdminAction, logCriticalAction } from "@/lib/admin/activity-log"
 import { sendEmail } from "@/lib/email/send"
 import { WaitlistInvitation } from "@/lib/email/templates/waitlist-invitation"
 import { cascadeDeleteOrganization, findSoleOwnerOrgIds } from "@/lib/admin/cascade-cleanup"
+import { classifyUserLifecycle } from "@/lib/ops/user-lifecycle"
 
 type ActionResult =
   | { ok: true; message: string }
@@ -30,7 +31,7 @@ export async function listPlatformUsers() {
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, email, full_name, current_organization_id, created_at")
+    .select("id, email, full_name, current_organization_id, created_at, last_seen_at")
 
   const { data: memberships } = await supabase
     .from("organization_members")
@@ -60,7 +61,15 @@ export async function listPlatformUsers() {
       lastSignInAt: u.last_sign_in_at ?? null,
       isBanned: !!u.banned_until && new Date(u.banned_until) > new Date(),
       orgCount: orgs.length,
-      hasOnboarded: !!profile?.current_organization_id,
+      // Shared classifier, so this action cannot drift from the admin surfaces. Was
+      // `hasOnboarded: !!profile?.current_organization_id`, which conflated "attached to an org"
+      // with "activated" in both directions. See lib/ops/user-lifecycle.ts.
+      stage: classifyUserLifecycle({
+        lastSignInAt: u.last_sign_in_at ?? null,
+        lastSeenAtResolved: profile?.last_seen_at ?? u.last_sign_in_at ?? null,
+        currentOrganizationId: profile?.current_organization_id ?? null,
+        isBanned: !!u.banned_until && new Date(u.banned_until) > new Date(),
+      }),
     }
   })
 }
