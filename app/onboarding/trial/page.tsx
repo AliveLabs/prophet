@@ -138,11 +138,25 @@ export default async function TrialPage({
                 <span className="ob-mark"><IconBrandT /></span>
                 <span className="ob-wordmark">{brand}</span>
               </span>
-              <span className="ob-kicker">Every plan starts free</span>
+              {/* ALT-709. This read "Every plan starts free" over "Choosing a plan here starts the
+                  same 14-day trial: nothing is charged today", and both were false for Starter.
+                  `TRIAL_ELIGIBLE_TIERS` is `["mid"]` only, so the checkout route omits
+                  `trial_period_days` for `entry` and bills at once, and these tiles default to
+                  ANNUAL, which makes Starter a $1,190 charge on a screen promising nothing today.
+                  Stripe's own checkout does show the amount before confirming, so nobody was
+                  charged blind, but our copy contradicted the page we were about to send them to.
+
+                  Bryan's call 2026-08-21: the trial runs on Standard, and we say so out loud. It
+                  costs us more to serve and that is accepted, because Standard is where we want
+                  operators anyway and the margin holds. So this states the tier by name rather
+                  than implying every plan is free. */}
+              <span className="ob-kicker">Your free trial runs on {midName}</span>
               <h1 className="ob-h">Pick the plan that fits.</h1>
               <p className="ob-sub">
-                {midName} is what your free trial runs on, and it is the one most operators stay on.
-                Choosing a plan here starts the same 14-day trial: nothing is charged today.
+                The 14-day free trial runs on {midName}, and it is the one most operators stay on.
+                Picking {midName} starts that trial with nothing charged today. Any other plan
+                starts a paid subscription instead and bills at checkout, with the amount shown
+                before you confirm.
               </p>
             </header>
 
