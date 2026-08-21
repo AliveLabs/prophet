@@ -117,10 +117,25 @@ export async function GET(req: Request) {
   // Most recent brief date_key per location (self-heal gate reads this to skip locations already
   // built for their local "today"). 36h back covers every timezone's current local day.
   const sinceDate = new Date(now.getTime() - 36 * 3600 * 1000).toISOString().slice(0, 10)
-  const { data: briefRows } = await sb
+  const { data: briefRows, error: briefErr } = await sb
     .from("daily_briefs")
     .select("location_id, date_key")
     .gte("date_key", sinceDate)
+  // ALT-746: this read was unchecked, and it is the SELF-HEAL GATE's only memory of what has
+  // already been built. On a read failure the map came out empty, every location looked unbuilt,
+  // and every remaining catch-up hour in the window rebuilt the same brief at full model cost
+  // (~$1.77 each, up to 3 extra per location per day).
+  //
+  // Deliberately FAIL-OPEN rather than 500, and for the same reason the fleet cap fails open:
+  // refusing to build because a SELECT failed is a worse outage than the overspend it prevents.
+  // But it must be VISIBLE, which is the part that was missing. A duplicate-build storm with no
+  // trace is indistinguishable from the pipeline simply being expensive.
+  if (briefErr) {
+    console.error(
+      `[build-brief] SELF-HEAL GATE BLIND: daily_briefs read failed (${briefErr.code ?? ""} ${briefErr.message}). ` +
+        `Proceeding, but every location will look unbuilt, so this tick may rebuild briefs that already exist.`,
+    )
+  }
   const lastBriefByLoc = new Map<string, string>()
   for (const r of briefRows ?? []) {
     const loc = r.location_id as string
@@ -130,11 +145,30 @@ export async function GET(req: Request) {
   }
 
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
-  const { data: orgs } = await sb
+  const { data: orgs, error: orgErr } = await sb
     .from("organizations")
     .select("id, subscription_tier, trial_ends_at, payment_state")
     .in("id", orgIds)
     .is("deleted_at", null)
+  // ALT-743: this read was unchecked, and it is the ENTITLEMENT ALLOWLIST. On failure `orgs` came
+  // back null, `activeOrgs` came out EMPTY, every location failed the `activeOrgs.has(...)` test,
+  // and the route returned `ok: true` with `enqueued: 0` and `inactive: <the whole fleet>`. One
+  // transient failure on one read silently produced zero briefs fleet-wide, and the response said
+  // it worked. "Nobody is entitled" and "I could not find out who is entitled" are different
+  // answers and this collapsed them.
+  //
+  // 500 rather than fail-open, matching the `locations` read twenty lines above, which already
+  // does exactly this. Fail-open here would mean treating every org as entitled and building
+  // briefs for orgs that are not paying, so neither direction is safe silently. This is NOT the
+  // deliberate fail-open CLAUDE.md protects: that one is the fleet spend cap at the top of this
+  // file, a different read, and it is left alone.
+  if (orgErr || !orgs) {
+    console.error(`[build-brief] entitlement allowlist read failed: ${orgErr?.code ?? ""} ${orgErr?.message ?? "no rows"}`)
+    return Response.json(
+      { error: "Failed to resolve active organizations", details: orgErr?.message },
+      { status: 500 },
+    )
+  }
   const activeOrgs = new Set(
     (orgs ?? [])
       .filter((o) =>
@@ -152,6 +186,7 @@ export async function GET(req: Request) {
   let inactive = 0
   let offHour = 0
   let paused = 0
+  let failed = 0
   for (const loc of locations) {
     if (!activeOrgs.has(loc.organization_id)) {
       inactive++
@@ -196,9 +231,26 @@ export async function GET(req: Request) {
       if (result === "enqueued") enqueued++
       else skipped++
     } catch (err) {
+      // ALT-714's shape, in build-brief: a throwing enqueue was counted as NEITHER enqueued nor
+      // skipped, and the response still said ok: true. A location that silently failed to enqueue
+      // every hour looked identical to one that was correctly off-hour.
+      failed++
       console.warn(`[build-brief] enqueue failed for ${loc.id}:`, err)
     }
   }
 
-  return Response.json({ ok: true, mode: force ? "enqueue-forced" : "enqueue", buildHour, enqueued, skipped, offHour, inactive, paused })
+  // `ok` now means what it says. A caller (or an alert) that trusted ok:true could not previously
+  // tell a clean fleet-wide run from one where every single enqueue threw.
+  return Response.json({
+    ok: failed === 0,
+    mode: force ? "enqueue-forced" : "enqueue",
+    buildHour,
+    enqueued,
+    skipped,
+    offHour,
+    inactive,
+    paused,
+    failed,
+    ...(briefErr ? { selfHealGateBlind: true } : {}),
+  })
 }

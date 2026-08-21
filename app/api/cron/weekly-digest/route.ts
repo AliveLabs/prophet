@@ -82,12 +82,23 @@ export async function GET(req: Request) {
   }
 
   const orgIds = [...new Set(locations.map((l) => l.organization_id))]
-  const { data: orgs } = await admin
+  const { data: orgs, error: orgErr } = await admin
     .from("organizations")
     .select("id, subscription_tier, trial_ends_at, payment_state")
     .in("id", orgIds)
     .is("deleted_at", null)
-  const orgById = new Map((orgs ?? []).map((o) => [o.id, o]))
+  // ALT-743: unchecked, third of the three crons with this read. On failure `orgById` came out
+  // empty, every location took the `!org` branch below and was reported as "no active access",
+  // and not one digest went out. A silent zero-send week is indistinguishable here from a week
+  // where nobody was entitled, which is why it needs to fail rather than report.
+  if (orgErr || !orgs) {
+    console.error(`[weekly-digest] entitlement allowlist read failed: ${orgErr?.code ?? ""} ${orgErr?.message ?? "no rows"}`)
+    return Response.json(
+      { error: "Failed to resolve active organizations", details: orgErr?.message },
+      { status: 500 },
+    )
+  }
+  const orgById = new Map(orgs.map((o) => [o.id, o]))
 
   const results: Array<Record<string, unknown>> = []
   for (const loc of locations) {
@@ -104,10 +115,19 @@ export async function GET(req: Request) {
 
     const timezone = (loc as { timezone?: string | null }).timezone
 
-    const { data: members } = await admin
+    // Recipient resolution, and it was unchecked. On a read failure `userIds` came out empty, the
+    // profiles read was skipped entirely, and the location was reported as `sent: 0` with no
+    // reason: identical to a location where nobody was due today. Same shape as the entitlement
+    // read above, one loop further in.
+    const { data: members, error: membersError } = await admin
       .from("organization_members")
       .select("user_id")
       .eq("organization_id", loc.organization_id)
+    if (membersError) {
+      console.error(`[weekly-digest] member lookup failed for ${loc.id}: ${membersError.message}`)
+      results.push({ locationId: loc.id, sent: 0, error: `member lookup failed: ${membersError.message}` })
+      continue
+    }
     const userIds = (members ?? []).map((m) => m.user_id)
     const { data: profiles } = userIds.length
       ? await (admin as unknown as LooseAdmin)
