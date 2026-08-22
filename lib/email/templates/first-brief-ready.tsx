@@ -29,9 +29,13 @@ export function FirstBriefReady({
         <Text style={emailStyles.heading}>Your first brief is ready.</Text>
 
         <Text style={emailStyles.paragraph}>
-          We finished the first full intelligence pass for {locationName}:
-          competitors, menus, search visibility, social, local events, and
-          weather, distilled into your daily brief.
+          {/* ALT-711: this asserted all six families had LANDED, regardless of what actually
+              returned data. A location with no website gets no search visibility, and a quiet week
+              returns no local events, so the list was a promise about the pass rather than a
+              description of it. "We looked across" is true either way. */}
+          We finished the first full intelligence pass for {locationName}. We looked
+          across competitors, menus, search visibility, social, local events and
+          weather, and distilled what came back into your brief.
         </Text>
 
         {headline ? (
@@ -47,8 +51,12 @@ export function FirstBriefReady({
         </Section>
 
         <Text style={emailStyles.paragraph}>
-          From here, {brand} refreshes your signals daily and a new brief is
-          waiting each morning.
+          {/* ALT-711: said "daily [...] each morning" to every recipient, including weekly
+              Starter orgs, whose runCadence is "weekly". Naming the cadence would need the org's
+              tier at this send site, which the brief pipeline context does not carry; this wording
+              is true on both plans. */}
+          From here, {brand} keeps watching, and your next brief will be waiting
+          on your dashboard.
         </Text>
 
         <Text style={emailStyles.signoff}>The {brand} Team</Text>
