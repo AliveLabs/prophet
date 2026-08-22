@@ -2886,6 +2886,15 @@ export type Database = {
       }
       is_org_admin: { Args: { org_id: string }; Returns: boolean }
       is_org_member: { Args: { org_id: string }; Returns: boolean }
+      snapshot_yield: {
+        Args: { p_config: Json; p_since: string }
+        Returns: {
+          date_key: string
+          populated: number
+          provider: string
+          snapshots: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
