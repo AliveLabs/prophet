@@ -297,7 +297,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
         <span className="pv-kicker">Your market</span>
         <h1 className="pv-h1">Weather</h1>
         <p className="pv-sub">
-          The forecast for {locationName}, read for what it does to your foot traffic — so your brief and
+          The forecast for {locationName}, read for what it does to your foot traffic, so your brief and
           traffic insights already account for it. All-weather, honest, and estimated.
         </p>
       </div>
@@ -371,7 +371,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                     label="Severe days"
                     value={String(severeCount)}
                     sub={severeCount > 0 ? "traffic insights adjusted" : "no disruptions"}
-                    data-tip="Days flagged severe — we down-weight expected walk-in on these"
+                    data-tip="Days flagged severe: we down-weight expected walk-in on these"
                     data-tipv={severeCount > 0 ? `${severeCount} severe day${severeCount === 1 ? "" : "s"}` : "none flagged"}
                     tBubble={
                       <VizTBubble
@@ -429,7 +429,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                       {NOW_ICON_GLYPH[nowIcon]}
                     </span>
                     <span className="tk-weather-now-temp">
-                      {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°` : "—"}
+                      {latestWeather ? `${Math.round(latestWeather.temp_high_f)}°` : "n/a"}
                     </span>
                     <span className="tk-weather-now-meta">
                       <span className="tk-weather-now-cond">
@@ -439,7 +439,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                         {latestWeather && latestWeather.temp_low_f != null
                           ? `Low ${Math.round(latestWeather.temp_low_f)}° · `
                           : ""}
-                        {severeCount > 0 ? "Severe days flagged — traffic insights adjusted" : "No disruptions in view"}
+                        {severeCount > 0 ? "Severe days flagged: traffic insights adjusted" : "No disruptions in view"}
                       </span>
                     </span>
                   </div>
@@ -459,7 +459,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                             : undefined
                         const demandWord = demand === "up" ? "above" : demand === "down" ? "below" : "around"
                         const tip = topEvent
-                          ? `${topEvent.title ?? "Nearby event"} · ${distanceLabel(topEvent.distanceMiles)} — est. walk-in ${demandWord} normal`
+                          ? `${topEvent.title ?? "Nearby event"} · ${distanceLabel(topEvent.distanceMiles)}, est. walk-in ${demandWord} normal`
                           : `${d.weather_condition} · est. walk-in ${demandWord} normal`
                         return {
                           dow: dow(d.date),
@@ -476,9 +476,9 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                   )}
                   <p className="tk-weather-lead-foot">
                     {eventDaysInView > 0
-                      ? `${eventDaysInView} day${eventDaysInView === 1 ? "" : "s"} in view carr${eventDaysInView === 1 ? "ies" : "y"} a notable nearby event — folded into the estimated walk-in read below. `
+                      ? `${eventDaysInView} day${eventDaysInView === 1 ? "" : "s"} in view carr${eventDaysInView === 1 ? "ies" : "y"} a notable nearby event, folded into the estimated walk-in read below. `
                       : ""}
-                    Demand is estimated from conditions and what&rsquo;s happening nearby — directional, not a measured count.
+                    Demand is estimated from conditions and what&rsquo;s happening nearby, directional, not a measured count.
                   </p>
                 </TkCard>
               </RevealOnView>

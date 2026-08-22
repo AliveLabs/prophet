@@ -630,7 +630,7 @@ export async function loadCompetitorScorecard(
       closeRel: 0.03, // ≈0.15★ at 4.5+
       confidence: "high",
       evidence: (leader, you) => [
-        `${leader.name} holds ${leader.display} — you hold ${you.display}. Star gaps this size move which listing gets the tap in local results.`,
+        `${leader.name} holds ${leader.display}. You hold ${you.display}. Star gaps this size move which listing gets the tap in local results.`,
         `Ratings shift slowly: steady review flow and replies are the honest lever, not a sprint.`,
       ],
       source: "Listing data",
@@ -661,7 +661,7 @@ export async function loadCompetitorScorecard(
       closeRel: 0.1,
       confidence: "high",
       evidence: (leader, you) => [
-        `${leader.name} has ${leader.display} reviews to your ${you.display} — roughly ${Math.max(1, Math.round(leader.value / Math.max(1, you.value)))}× your base. Review volume compounds local visibility.`,
+        `${leader.name} has ${leader.display} reviews to your ${you.display}. Roughly ${Math.max(1, Math.round(leader.value / Math.max(1, you.value)))}× your base. Review volume compounds local visibility.`,
         `A review ask at the register or on receipts is the cheapest way to close a base gap.`,
       ],
       source: "Listing data",
@@ -712,7 +712,7 @@ export async function loadCompetitorScorecard(
         evidence: (leader) => {
           const lp = leader.id ? profiles.get(leader.id) : null
           const bits = [
-            `${leader.name} covers ${leader.display.replace(" covered", "")} of the photo types diners check first — you cover ${ownP.essentialCovered}/${ownP.essentialTotal}.`,
+            `${leader.name} covers ${leader.display.replace(" covered", "")} of the photo types diners check first. You cover ${ownP.essentialCovered}/${ownP.essentialTotal}.`,
           ]
           if (lp && lp.professionalShare > ownP.professionalShare) {
             bits.push(
@@ -783,7 +783,7 @@ export async function loadCompetitorScorecard(
         closeRel: 0.1,
         confidence: "medium",
         evidence: (leader, you) => [
-          `${leader.name}'s site draws an estimated ${leader.display.replace("~", "")} visits from search — yours draws ${you.display.replace("~", "")}.`,
+          `${leader.name}'s site draws an estimated ${leader.display.replace("~", "")} visits from search. Yours draws ${you.display.replace("~", "")}.`,
           `The Visibility page shows which searches they rank for that you don't.`,
         ],
         source: "Search ranking data (estimated traffic)",
@@ -852,11 +852,11 @@ export async function loadCompetitorScorecard(
         evidence: (leader, you) => {
           const lb = cadenceOf(leader.id)
           const bits = [
-            `${leader.name} averages ${leader.display} engagement per post — you average ${you.display}.`,
+            `${leader.name} averages ${leader.display} engagement per post. You average ${you.display}.`,
           ]
           if (lb && lb.cadence > 0) {
             bits.push(
-              `They post about ${lb.cadence.toFixed(1)}×/week on ${lb.platform} — consistent cadence is usually what earns that rate.`,
+              `They post about ${lb.cadence.toFixed(1)}×/week on ${lb.platform}. Consistent cadence is usually what earns that rate.`,
             )
           }
           return bits

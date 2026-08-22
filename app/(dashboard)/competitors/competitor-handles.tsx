@@ -42,7 +42,7 @@ export default function CompetitorHandles({
           onDiscover={runCompetitorSocialDiscoveryAction}
         />
         <p className="tk-note">
-          A wrong or missing handle means we read the wrong account — fix it here and the next pull
+          A wrong or missing handle means we read the wrong account. Fix it here and the next pull
           picks it up. <span style={{ fontWeight: 600 }}>Verified</span> accounts are confirmed;
           <span style={{ fontWeight: 600 }}> Discovering</span> ones are our best match until you confirm them.
         </p>

@@ -155,7 +155,7 @@ export function PassFeatures() {
               <h3>Competitor monitoring</h3>
               <p>
                 Track up to 50 competitors across Google, social, and their own sites.
-                Daily snapshots catch changes the moment they happen — reviews, ratings,
+                Daily snapshots catch changes the moment they happen: reviews, ratings,
                 hours, attributes, and more.
               </p>
               <div className="lp-tagrow">
@@ -187,7 +187,7 @@ export function PassFeatures() {
               </svg>
             </span>
             <h3>Menu intelligence</h3>
-            <p>Know when competitors change prices, add items, or launch promotions — side by side.</p>
+            <p>Know when competitors change prices, add items, or launch promotions, all side by side.</p>
             <MenuBarsViz />
           </div>
 
@@ -202,7 +202,7 @@ export function PassFeatures() {
               <h3>Social intelligence</h3>
               <p>
                 Beyond mentions. Track sentiment velocity across Instagram, Facebook,
-                and TikTok to spot a viral moment — or a brewing problem — before it peaks.
+                and TikTok to spot a viral moment, or a brewing problem, before it peaks.
               </p>
               <div className="lp-tagrow">
                 {["Instagram", "Facebook", "TikTok", "Engagement", "Sentiment"].map((t) => (
@@ -221,7 +221,7 @@ export function PassFeatures() {
               </svg>
             </span>
             <h3>Visual intelligence</h3>
-            <p>AI photo analysis — quality scoring, ambiance detection, food presentation grading, and brand consistency audits.</p>
+            <p>AI photo analysis: quality scoring, ambiance detection, food presentation grading, and brand consistency audits.</p>
             <PhotoScanViz />
           </div>
 
@@ -233,7 +233,7 @@ export function PassFeatures() {
               </svg>
             </span>
             <h3>Foot traffic &amp; events</h3>
-            <p>Popular-times data, local event discovery, and competitor match analysis — plan staffing and promotions around real demand.</p>
+            <p>Popular-times data, local event discovery, and competitor match analysis: plan staffing and promotions around real demand.</p>
             <HeatmapViz />
           </div>
         </LpReveal>

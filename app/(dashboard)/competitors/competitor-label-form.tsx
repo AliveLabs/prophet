@@ -43,7 +43,8 @@ export default function CompetitorLabelForm({
       />
       <p id="comp-label-hint" className="tk-comp-label-hint">
         Shown instead of “{sourceName}” (the name from Google) everywhere we show this
-        competitor — handy to tell two same-named locations apart. Leave blank to use the original.
+        competitor. Handy for telling two same-named locations apart. Leave blank to use the
+        original.
       </p>
       <div className="tk-comp-label-actions">
         <SubmitButton />

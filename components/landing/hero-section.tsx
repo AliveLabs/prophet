@@ -176,8 +176,8 @@ export function HeroSection() {
               variants={fadeUp}
               className="mt-8 max-w-xl text-lg font-light leading-relaxed tracking-tight text-muted-foreground md:text-xl"
             >
-              Ticket monitors competitor menus, pricing, reviews, and social — scored by confidence
-              so you move first, not last.
+              Ticket monitors competitor menus, pricing, reviews, and social. Every shift is
+              scored by confidence, so you move first, not last.
             </motion.p>
 
             <motion.div variants={fadeUp} className="mt-10 flex flex-col gap-4 sm:flex-row sm:gap-6">
@@ -249,7 +249,7 @@ export function HeroSection() {
                 <span className="text-[10px] font-bold uppercase tracking-widest text-signal-gold">Signal Detected</span>
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Competitor X dropped lunch prices 12% — 22 days before POS data reflected the decline.
+                Competitor X dropped lunch prices 12%, flagged 22 days before POS data reflected the decline.
               </p>
             </div>
           </motion.div>

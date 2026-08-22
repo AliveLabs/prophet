@@ -22,7 +22,7 @@ export default function RefreshControls({ locationId }: { locationId: string }) 
     setStatus(null)
     startTransition(async () => {
       const res = await refreshLocationAction(locationId)
-      setStatus(res.ok ? `Queued ${res.queued} refresh jobs — fresh data lands over the next few minutes.` : res.error)
+      setStatus(res.ok ? `Queued ${res.queued} refresh jobs. Fresh data lands over the next few minutes.` : res.error)
     })
   }
 
@@ -30,7 +30,7 @@ export default function RefreshControls({ locationId }: { locationId: string }) 
     setStatus(null)
     startTransition(async () => {
       const res = await refreshSocialNetworkAction(locationId, [id])
-      setStatus(res.ok ? `Queued a ${label} refresh — new posts land in a few minutes.` : res.error)
+      setStatus(res.ok ? `Queued a ${label} refresh. New posts land in a few minutes.` : res.error)
     })
   }
 
@@ -42,7 +42,7 @@ export default function RefreshControls({ locationId }: { locationId: string }) 
           <button type="button" className="pv-btn pv-btn--sm" disabled={pending} onClick={refreshAll}>
             {pending ? "Queuing…" : "Refresh all data"}
           </button>
-          <div className="pv-field__hint">Re-checks your menu, reviews, competitors, local events, weather, foot traffic, and social — then rebuilds your insights.</div>
+          <div className="pv-field__hint">Re-checks your menu, reviews, competitors, local events, weather, foot traffic, and social, then rebuilds your insights.</div>
         </div>
       </div>
       <div className="pv-field">

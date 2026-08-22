@@ -66,7 +66,7 @@ export function generateTrafficInsights(data: TrafficData[]): TrafficInsight[] {
     const top = overlaps[0]
     insights.push({
       title: "Peak-hour crunch",
-      summary: `${top.competitors.join(" and ")} both hit 80%+ of peak on ${top.day} at ${top.hour}.${overlaps.length > 1 ? ` This repeats across ${overlaps.length} time slots.` : ""} Their diners are likely facing waits — position yourself as the no-wait alternative.`,
+      summary: `${top.competitors.join(" and ")} both hit 80%+ of peak on ${top.day} at ${top.hour}.${overlaps.length > 1 ? ` This repeats across ${overlaps.length} time slots.` : ""} Their diners are likely facing waits. Position yourself as the no-wait alternative.`,
       severity: "info",
       icon: "overlap",
     })

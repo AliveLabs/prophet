@@ -247,7 +247,7 @@ function UserTableRow({
         <span className="ap-cell-strong">{user.email}</span>
         {user.isAdmin && <span className="ap-tag" style={{ marginLeft: 8 }}>Admin</span>}
       </td>
-      <td className="ap-cell-muted">{user.fullName || "—"}</td>
+      <td className="ap-cell-muted">{user.fullName || "n/a"}</td>
       <td>
         <StatusPill banned={user.isBanned} />
       </td>

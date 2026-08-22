@@ -120,7 +120,7 @@ export default function KeywordTabs({ keywords, newCount, upCount, downCount, lo
                     {kw.keyword}
                   </td>
                   <td className="py-2 pr-3 text-muted-foreground">
-                    {kw.searchVolume?.toLocaleString() ?? "—"}
+                    {kw.searchVolume?.toLocaleString() ?? "n/a"}
                   </td>
                   <td className="py-2 pr-3">
                     <span className={`font-semibold ${kw.rank <= 3 ? "text-precision-teal" : kw.rank <= 10 ? "text-primary" : "text-muted-foreground"}`}>
@@ -129,10 +129,10 @@ export default function KeywordTabs({ keywords, newCount, upCount, downCount, lo
                   </td>
                   <td className="py-2 pr-3">{intentBadge(kw.intent)}</td>
                   <td className="py-2 pr-3 text-muted-foreground">
-                    {kw.competition !== null ? (kw.competition * 100).toFixed(0) : "—"}
+                    {kw.competition !== null ? (kw.competition * 100).toFixed(0) : "n/a"}
                   </td>
                   <td className="py-2 text-muted-foreground">
-                    {kw.cpc ? `$${kw.cpc.toFixed(2)}` : "—"}
+                    {kw.cpc ? `$${kw.cpc.toFixed(2)}` : "n/a"}
                   </td>
                 </tr>
               ))

@@ -218,7 +218,7 @@ function PhotoTile({ photo, onOpen }: { photo: PhotoGridItem; onOpen: () => void
       role="button"
       tabIndex={0}
       className="photos-tile"
-      aria-label={`${catLabel(photo.category)} — ${photo.competitor_name}. Open detail.`}
+      aria-label={`${catLabel(photo.category)}, ${photo.competitor_name}. Open detail.`}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

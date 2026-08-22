@@ -106,7 +106,7 @@ export function ClearTestData() {
         {preview && (
           <div className="mt-confirm">
             {preview.count === 0 ? (
-              <p className="mt-confirm-empty">Nothing matches — nothing to clear.</p>
+              <p className="mt-confirm-empty">Nothing matches. Nothing to clear.</p>
             ) : (
               <>
                 <h4>

@@ -36,7 +36,7 @@ export default async function PreviewAsk() {
       <div className="pv-section">
         <div className="pv-section-head">Recent asks <span className="pv-section-sub">history</span></div>
         <div className="pv-card" style={{ textAlign: "center" }}>
-          <span className="pv-soon">Answers run live now — saved history across sessions is coming.</span>
+          <span className="pv-soon">Answers run live now. Saved history across sessions is coming.</span>
         </div>
       </div>
     </div>

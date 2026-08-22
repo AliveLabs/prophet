@@ -366,7 +366,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
         <span className="pv-kicker">Search visibility</span>
         <h1 className="pv-h1">Where you show up</h1>
         <p className="pv-sub">
-          How findable {locationDomain ? <b>{locationDomain}</b> : "your location"} is in search —
+          How findable {locationDomain ? <b>{locationDomain}</b> : "your location"} is in search:
           the keywords you win, where rivals out-rank you, and which searches you&apos;re missing.
         </p>
       </div>
@@ -429,7 +429,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           (organicEmpty ? (
             <TkEmptyState
               title="No search data yet"
-              description="Hit “Refresh SEO” above and we'll read how your domain ranks in search — keywords, rivals, and the searches you're missing."
+              description="Hit “Refresh SEO” above and we'll read how your domain ranks in search: keywords, rivals, and the searches you're missing."
             />
           ) : (
             <>
@@ -485,7 +485,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
                       label="Ad-equivalent value"
                       value={`$${trafficCost.toLocaleString()}`}
                       sub="what this reach would cost in ads · est."
-                      data-tip="Estimated cost to buy your current organic search traffic via paid ads — not your revenue"
+                      data-tip="Estimated cost to buy your current organic search traffic via paid ads, not your revenue"
                       data-tipv={`~$${trafficCost.toLocaleString()}/mo in ad spend`}
                     />
                   )}
@@ -537,7 +537,7 @@ export default async function VisibilityPage({ searchParams }: PageProps) {
           (paidEmpty ? (
             <TkEmptyState
               title="No paid advertising detected"
-              description="No Google Ads activity found for this domain or its rivals — common for local businesses that lean on organic search."
+              description="No Google Ads activity found for this domain or its rivals, common for local businesses that lean on organic search."
             />
           ) : (
             <>

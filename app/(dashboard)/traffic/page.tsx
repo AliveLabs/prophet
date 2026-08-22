@@ -225,7 +225,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
         <span className="pv-kicker">Foot traffic</span>
         <h1 className="pv-h1">When your competitors fill up</h1>
         <p className="pv-sub">
-          How busy your competitors get, hour by hour — pulled from Google Maps popular times. Scores
+          How busy your competitors get, hour by hour, pulled from Google Maps popular times. Scores
           are <b>% of each spot&apos;s own typical peak</b>, so you can read the rhythm of the
           neighborhood and find the openings.
         </p>
@@ -300,28 +300,28 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                 lede={
                   <>
                     Across the set, <b>{DAY_NAMES[bestCompeteDay]}</b> around{" "}
-                    <b>{formatHour(bestCompeteHour)}</b> is when competitors are quietest — the
+                    <b>{formatHour(bestCompeteHour)}</b> is when competitors are quietest: the
                     moment your set has the least pull elsewhere.
                   </>
                 }
               >
                 <TkWindowViz
                   headLabel={`${DAY_SHORT[bestCompeteDay]} · competitor traffic`}
-                  headValue={`Open window ${hourShort(windowStart)}–${hourShort(windowEnd)}`}
+                  headValue={`Open window ${hourShort(windowStart)}-${hourShort(windowEnd)}`}
                   axisLabels={axisLabels}
                   segments={[
                     {
                       kind: "you-open",
                       left: pos(windowStart),
                       width: `${Math.round(((windowEnd - windowStart) / AX_SPAN) * 100)}%`,
-                      tip: "Competitors are quietest here — your room to draw the crowd",
-                      tipValue: `${hourShort(windowStart)}–${hourShort(windowEnd)}`,
+                      tip: "Competitors are quietest here: your room to draw the crowd",
+                      tipValue: `${hourShort(windowStart)}-${hourShort(windowEnd)}`,
                     },
                     {
                       kind: "surge",
                       left: pos(surgeHour),
                       width: `${Math.round((1 / AX_SPAN) * 100)}%`,
-                      tip: "The set's busiest hour — diners are likely facing waits",
+                      tip: "The set's busiest hour: diners are likely facing waits",
                       tipValue: `${hourShort(surgeHour)} peak`,
                     },
                   ]}
@@ -345,7 +345,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                     </>,
                     <>
                       Scores are <b>% of each spot&apos;s typical peak</b> from Google Maps popular
-                      times — a relative read of the set&apos;s rhythm, not headcount or sales.
+                      times, a relative read of the set&apos;s rhythm, not headcount or sales.
                     </>,
                     <>
                       The surge band marks <b>{hourShort(surgeHour)}</b>, when the set is busiest and
@@ -404,10 +404,10 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
                 <TkWidget
                   tone="slate"
                   label="Busiest competitor"
-                  value={busiestComp?.competitor_name ?? "—"}
+                  value={busiestComp?.competitor_name ?? "n/a"}
                   sub={busiestComp ? `peaks ${busiestComp.peak_score}% on ${busiestComp.busiest_day}` : "no peak yet"}
                   data-tip="Highest single-day peak across the set"
-                  data-tipv={busiestComp ? `${busiestComp.peak_score}% peak` : "—"}
+                  data-tipv={busiestComp ? `${busiestComp.peak_score}% peak` : "n/a"}
                 />
               </TkWidgetGrid>
             </RevealOnView>
@@ -417,7 +417,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
             <RevealOnView>
               <div className="tk-trf-panel">
                 <p className="tk-trf-panel-sub">
-                  Each bar is how busy that competitor runs at that hour — % of their own typical peak.
+                  Each bar is how busy that competitor runs at that hour, % of their own typical peak.
                   Taller stacks mean the whole set is full at once.
                 </p>
                 <TrafficBars data={trafficData} />
@@ -429,7 +429,7 @@ export default async function TrafficPage({ searchParams }: TrafficPageProps) {
             <RevealOnView>
               <div className="tk-trf-panel">
                 <p className="tk-trf-panel-sub">
-                  Average peak across all seven days — not just the single busiest hour. The marker on
+                  Average peak across all seven days, not just the single busiest hour. The marker on
                   each bar shows where the spot sits against the set average.
                 </p>
                 <TrafficRanks competitors={peakData} />

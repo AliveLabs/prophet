@@ -53,11 +53,11 @@ const fraunces = Fraunces({
 })
 
 const SITE_DESCRIPTION =
-  "Know what's firing before it hits your P&L. Ticket monitors competitor menus, pricing, reviews, and social — scored by confidence so you move first, not last."
+  "Know what's firing before it hits your P&L. Ticket monitors competitor menus, pricing, reviews, and social. Every shift is scored by confidence, so you move first, not last."
 
 export const metadata: Metadata = {
   title: {
-    default: "Ticket — Competitive Intelligence for Restaurants",
+    default: "Ticket: Competitive Intelligence for Restaurants",
     template: "%s · Ticket",
   },
   description: SITE_DESCRIPTION,
@@ -78,20 +78,20 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Ticket",
-    title: "Ticket — Competitive Intelligence for Restaurants",
+    title: "Ticket: Competitive Intelligence for Restaurants",
     description: SITE_DESCRIPTION,
     images: [
       {
         url: "/ticket/assets/png/ticket-social-og-1200x630.png",
         width: 1200,
         height: 630,
-        alt: "Ticket — Competitive Intelligence for Restaurants",
+        alt: "Ticket: Competitive Intelligence for Restaurants",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ticket — Competitive Intelligence for Restaurants",
+    title: "Ticket: Competitive Intelligence for Restaurants",
     description: SITE_DESCRIPTION,
     images: ["/ticket/assets/png/ticket-social-og-1200x630.png"],
   },

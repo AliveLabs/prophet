@@ -37,7 +37,7 @@ export default async function SandboxPage() {
             </span>
             <h1>Demo &amp; Test</h1>
             <p className="sb-lede">
-              Admin-owned orgs that never appear in real metrics — and the only orgs
+              Admin-owned orgs that never appear in real metrics, and the only orgs
               Maintenance may bulk-clear. Use them to walk a customer through Ticket
               or to exercise the pipeline safely.
             </p>

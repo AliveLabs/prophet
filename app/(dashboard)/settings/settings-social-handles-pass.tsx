@@ -63,8 +63,8 @@ export default function SettingsSocialHandles({
     <div className="sp-handles">
       <div className="sp-handles-head">
         <p className="sp-handles-sub">
-          The handles we read for your account. A wrong handle means we read the wrong account —
-          add, fix, or remove them here.
+          The handles we read for your account. A wrong handle means we read the wrong account.
+          Add, fix, or remove them here.
         </p>
         <TkButton variant="add" onClick={handleDiscover} disabled={isDiscovering}>
           {isDiscovering ? (

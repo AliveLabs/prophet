@@ -23,7 +23,7 @@ export default async function MaintenancePage() {
           <h1>Maintenance</h1>
           <p className="mt-lede">
             Destructive housekeeping for non-customer data. Every action previews exactly
-            what it will touch before it deletes — nothing is removed without a typed
+            what it will touch before it deletes: nothing is removed without a typed
             confirmation and a logged reason.
           </p>
         </RevealOnView>

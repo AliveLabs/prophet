@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     ? new Date(org.billing_email_token_expires_at).getTime()
     : 0
   if (!expiresAt || Date.now() > expiresAt) {
-    return fail("This verification link has expired — request a new one from Organization settings.")
+    return fail("This verification link has expired. Request a new one from Organization settings.")
   }
 
   if (!tokensMatch(org.billing_email_token_hash, token)) {
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     })
     .eq("id", orgId)
 
-  if (error) return fail("Something went wrong confirming your billing email — try again.")
+  if (error) return fail("Something went wrong confirming your billing email. Try again.")
 
   return NextResponse.redirect(
     `${appUrl}/settings/organization?success=${encodeURIComponent("Billing email verified and updated.")}`,

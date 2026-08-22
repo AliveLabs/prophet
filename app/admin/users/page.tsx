@@ -131,7 +131,7 @@ export default async function AdminUsersPage() {
           <span className="tk-eyebrow">Platform · People</span>
           <h1 className="ap-title">Users</h1>
           <p className="ap-sub">
-            Every account on the platform — invite, deactivate, impersonate, and export.
+            Every account on the platform: invite, deactivate, impersonate, and export.
           </p>
         </div>
       </RevealOnView>

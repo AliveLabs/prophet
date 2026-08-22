@@ -28,7 +28,7 @@ export function WaitlistDecline({ name }: WaitlistDeclineProps) {
         <Text style={emailStyles.paragraph}>
           Thank you for your patience and understanding.
         </Text>
-        <Text style={emailStyles.signoff}>&mdash; The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

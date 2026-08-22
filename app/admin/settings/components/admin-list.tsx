@@ -98,7 +98,7 @@ export function AdminList({
                     <td className="tk-mono" style={{ fontSize: 12 }}>
                       {admin.created_at
                         ? new Date(admin.created_at).toLocaleDateString()
-                        : "—"}
+                        : "n/a"}
                     </td>
                     {canManage && (
                       <td style={{ textAlign: "right" }}>

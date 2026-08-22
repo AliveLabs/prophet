@@ -57,7 +57,7 @@ export function CancelSubscriptionPass({ cancelAtPeriodEnd }: { cancelAtPeriodEn
     return (
       <div className="tk-set-row-actions">
         <span className="tk-set-hint">
-          Cancel at the end of your current period — you keep access until then.
+          Cancel at the end of your current period. You keep access until then.
         </span>
         <TkButton variant="dismiss" onClick={() => submit(false)} disabled={loading}>
           {loading ? "Canceling…" : "Confirm cancel"}

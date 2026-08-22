@@ -31,7 +31,7 @@ export default function SonarPreview() {
         <h1 className="pv-h1">Competitor sonar</h1>
         <p className="pv-sub">
           One motif: the animated radar for the login status block, and the same scope as the
-          Competitors nav icon. Teal scan, rust you, gold competitor blips — all design tokens.
+          Competitors nav icon. Teal scan, rust you, gold competitor blips, all design tokens.
         </p>
       </div>
       <hr className="pv-rule" />

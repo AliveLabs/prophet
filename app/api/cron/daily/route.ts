@@ -159,7 +159,7 @@ export async function GET(req: Request) {
         location_id: location.id,
         location_name: location.name,
         pipelines: [],
-        skipped_reason: "Trial expired – no active subscription",
+        skipped_reason: "Trial expired: no active subscription",
       })
       continue
     }
@@ -187,7 +187,7 @@ export async function GET(req: Request) {
         location_id: location.id,
         location_name: location.name,
         pipelines: [],
-        skipped_reason: "Weekly tier – runs on Mondays only",
+        skipped_reason: "Weekly tier: runs on Mondays only",
       })
       continue
     }

@@ -331,7 +331,7 @@ export function WeatherDemandCorrelation({ days }: { days: WeatherDay[] }) {
         <div className="tk-eyebrow">How weather moved your foot traffic</div>
         <p className="tk-corr-sub">
           Estimated walk-in effect by condition over the last {window} days, against a clear-day baseline.
-          Directional — modeled from conditions, not measured covers.
+          Directional: modeled from conditions, not measured covers.
         </p>
       </div>
       <TkSentimentRows
@@ -412,7 +412,7 @@ function buildActionPlays(days: WeatherDay[]): ActionPlay[] {
     out.push({
       icon: "rain",
       title: "Extended wet stretch ahead",
-      summary: `${maxStreak} straight days in the forecast are likely to be wet.${floor} Walk-in traffic typically drops 15–30% during prolonged wet weather.`,
+      summary: `${maxStreak} straight days in the forecast are likely to be wet.${floor} Walk-in traffic typically drops 15-30% during prolonged wet weather.`,
       tone: "down",
       actions: [
         "Boost delivery / takeout promotions",

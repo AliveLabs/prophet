@@ -88,7 +88,7 @@ export default async function BillingPage({
           ? `Cancels on ${formatDate(organization.current_period_end)}`
           : `Renews ${formatDate(organization?.current_period_end)}`
         : isPastDue
-          ? "Past due — update payment"
+          ? "Past due: update payment"
           : isCanceled
             ? "Canceled"
             : isSuspended
@@ -103,8 +103,8 @@ export default async function BillingPage({
         <span className="pv-kicker">Account</span>
         <h1 className="pv-h1">Billing</h1>
         <p className="pv-sub">
-          Your plan, what it costs, and where it stands. Cancel or change it anytime —
-          no phone calls, no hoops.
+          Your plan, what it costs, and where it stands. Cancel or change it anytime.
+          No phone calls, no hoops.
         </p>
       </div>
 
@@ -154,7 +154,7 @@ export default async function BillingPage({
                       <UpdateCardPass />
                     </div>
                     <p className="tk-set-hint">
-                      Your card is tokenized by Stripe — we can&rsquo;t see or update it
+                      Your card is tokenized by Stripe. We can&rsquo;t see or update it
                       directly, so this opens a Stripe form scoped to just your card.
                     </p>
                   </div>
@@ -169,7 +169,7 @@ export default async function BillingPage({
           <RevealOnView className="tk-set-block">
             <TkSectionHead
               title="Change plan"
-              sub="Upgrade, downgrade, or switch billing cadence — takes effect immediately, prorated by Stripe."
+              sub="Upgrade, downgrade, or switch billing cadence: takes effect immediately, prorated by Stripe."
             />
             <PlanChangeTilesPass
               industry={industry}
@@ -182,7 +182,7 @@ export default async function BillingPage({
         {/* ── CANCEL / RESUME (in-app, ALT-228) ── */}
         {canManageInApp && (
           <RevealOnView className="tk-set-block">
-            <TkSectionHead title="Cancel" sub="No phone calls, no hoops — cancel or resume anytime" />
+            <TkSectionHead title="Cancel" sub="No phone calls, no hoops: cancel or resume anytime" />
             <TkSoftPanel>
               <CancelSubscriptionPass cancelAtPeriodEnd={Boolean(organization?.cancel_at_period_end)} />
             </TkSoftPanel>
@@ -218,9 +218,9 @@ function PriceLabel({
 }
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return "—"
+  if (!iso) return "n/a"
   const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return "—"
+  if (Number.isNaN(d.getTime())) return "n/a"
   return d.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",

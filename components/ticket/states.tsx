@@ -94,7 +94,7 @@ export function TkStillLearning({
         <p>
           {description ?? (
             <>
-              Still reading your area — <b>{days} days in</b>. We&apos;ll show this
+              Still reading your area, <b>{days} days in</b>. We&apos;ll show this
               once there&apos;s enough history to be honest about it.
             </>
           )}

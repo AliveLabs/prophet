@@ -153,7 +153,7 @@ function WebsiteHero({
       lede={
         href ? (
           <>
-            We read this site for menu, pricing, and the features customers expect —{" "}
+            We read this site for menu, pricing, and the features customers expect:{" "}
             <a className="content-hero-link" href={href} target="_blank" rel="noopener noreferrer">
               open it &rarr;
             </a>
@@ -203,7 +203,7 @@ function FeatureWall({ site }: { site: SiteContentSnapshot }) {
           <span
             key={r.label}
             className={`content-feat ${r.active ? "is-on" : "is-off"}`}
-            data-tip={r.active ? "Detected on your website" : "Not detected — customers may expect this"}
+            data-tip={r.active ? "Detected on your website" : "Not detected: customers may expect this"}
             data-tipv={r.label}
           >
             <span className="content-feat-ic" aria-hidden="true">
@@ -256,7 +256,7 @@ function MenuCard({
     for (const cat of filteredCats) {
       lines.push(cat.name.toUpperCase())
       for (const it of cat.items) {
-        lines.push(`  ${it.name}${it.price ? ` — ${it.price}` : ""}`)
+        lines.push(`  ${it.name}${it.price ? `: ${it.price}` : ""}`)
       }
       lines.push("")
     }
@@ -385,8 +385,8 @@ function MenuCard({
           title="The page we read your menu from"
         >
           <p className="tk-muted">
-            This is the exact page we scraped. If items look wrong, the source page may have changed —
-            refresh to re-read it.
+            This is the exact page we scraped. If items look wrong, the source page may have changed.
+            Refresh to re-read it.
           </p>
           <div className="content-shot-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -496,7 +496,7 @@ function CompareBoard({
     <div className="content-compare">
       <TkSectionHead
         title="You vs your competitors"
-        sub="From each side's own published menu — no POS data"
+        sub="From each side's own published menu, no POS data"
       />
 
       {/* selectors */}
@@ -553,7 +553,7 @@ function CompareBoard({
           </div>
           <p className="content-fo-note">
             <TkConfidence level={priceStats.loc.confidence} />
-            Meal items only, comparing like with like — drinks, sides, and add-ons are set aside.
+            Meal items only, comparing like with like: drinks, sides, and add-ons are set aside.
           </p>
         </>
       ) : (
@@ -569,7 +569,7 @@ function CompareBoard({
         <RevealOnView>
           <TkH2HBars
             rows={h2hRows}
-            note="Bars show the gap between you and this competitor on each metric. Price isn't a winner — it's positioning."
+            note="Bars show the gap between you and this competitor on each metric. Price isn't a winner: it's positioning."
           />
         </RevealOnView>
       )}
@@ -638,7 +638,7 @@ export default function ContentBoard({
             <TkEmptyState
               icon={GLOBE_ICON}
               title="No content read yet"
-              description="Run a content refresh and we'll read your website for menu items, pricing, screenshots, and the customer-facing features you offer — then line you up against your competitors."
+              description="Run a content refresh and we'll read your website for menu items, pricing, screenshots, and the customer-facing features you offer, then line you up against your competitors."
             />
           </RevealOnView>
         ) : (

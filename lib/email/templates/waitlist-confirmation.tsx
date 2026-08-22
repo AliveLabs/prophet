@@ -47,7 +47,7 @@ export function WaitlistConfirmation({
         </Text>
         <Text style={emailStyles.paragraph}>
           When your spot is ready, we&rsquo;ll send you an email with everything
-          you need to get started &mdash; including a link to set up your
+          you need to get started, including a link to set up your
           dashboard and begin monitoring {copy.monitoringSubject}.
         </Text>
         <Text style={emailStyles.paragraph}>

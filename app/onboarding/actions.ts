@@ -800,7 +800,7 @@ export async function discoverCompetitorsForLocation(
     windowSeconds: 600,
   })
   if (!rl.ok) {
-    return { ok: false, error: "We just scanned — give it a minute and try again." }
+    return { ok: false, error: "We just scanned. Give it a minute and try again." }
   }
 
   const loaded = await loadLocationForMember(admin, locationId, user.id)
@@ -1078,7 +1078,7 @@ export async function addCompetitorCandidateAction(input: {
     windowSeconds: 60,
   })
   if (!rl.ok) {
-    return { ok: false, error: "That's a lot of adds at once — give it a minute." }
+    return { ok: false, error: "That's a lot of adds at once. Give it a minute." }
   }
 
   const loaded = await loadLocationForMember(admin, input.locationId, user.id)
@@ -1099,7 +1099,7 @@ export async function addCompetitorCandidateAction(input: {
   if ((pendingCount ?? 0) >= 30) {
     return {
       ok: false,
-      error: "You've got plenty queued already — pick from what's here or remove some first.",
+      error: "You've got plenty queued already. Pick from what's here or remove some first.",
     }
   }
 

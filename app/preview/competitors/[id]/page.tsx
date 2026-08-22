@@ -54,7 +54,10 @@ export default async function CompetitorDetail({ params }: { params: Promise<{ i
         )) : (
           <div className="pv-card"><p className="pv-ev__summary">No signals tracked yet for this competitor. We&apos;ll surface activity here as it moves.</p></div>
         )}
-        <p className="pv-soon">Richer proof — their actual posts, photos, and the numbers behind each signal — is coming with the production data wiring.</p>
+        <p className="pv-soon">
+          Richer proof (their actual posts, photos, and the numbers behind each signal) is
+          coming with the production data wiring.
+        </p>
       </div>
     </div>
   )

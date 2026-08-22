@@ -118,7 +118,7 @@ export default async function AdminOrgsPage() {
         <span className="tk-eyebrow">Platform · Accounts</span>
         <h1>Organizations</h1>
         <p>
-          Every organization on the platform — adjust tiers, manage trials,
+          Every organization on the platform: adjust tiers, manage trials,
           view as the customer, and run the destructive operations.
         </p>
       </RevealOnView>

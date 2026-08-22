@@ -12,9 +12,9 @@ import { useState, useTransition } from "react"
 import { setBrandTolerance } from "../home/brief-actions"
 
 const BANDS = [
-  { max: 33, label: "Focused", desc: "Only the highest-conviction moves — the ones that clearly fit your brand." },
+  { max: 33, label: "Focused", desc: "Only the highest-conviction moves: the ones that clearly fit your brand." },
   { max: 66, label: "Balanced", desc: "A healthy spread. We surface strong plays and hold back only what clearly clashes." },
-  { max: 100, label: "Broad", desc: "Widen the net — include exploratory and higher-risk ideas. We'll flag what's a stretch." },
+  { max: 100, label: "Broad", desc: "Widen the net: include exploratory and higher-risk ideas. We'll flag what's a stretch." },
 ] as const
 
 function bandFor(v: number) {
@@ -40,7 +40,7 @@ export default function BriefTuning({ initial, locationId }: { initial: number; 
     if (locationId) {
       startSaving(async () => {
         const res = await setBrandTolerance(locationId, toSave)
-        if (!res.ok) { setSaveError(res.error ?? "Could not save — try again.") ; return }
+        if (!res.ok) { setSaveError(res.error ?? "Could not save. Try again.") ; return }
         setAppliedValue(value)
         setAppliedAll(showAll)
       })
@@ -64,7 +64,7 @@ export default function BriefTuning({ initial, locationId }: { initial: number; 
         step={1}
         value={value}
         disabled={showAll}
-        aria-label="Idea boldness — recommendation breadth"
+        aria-label="Idea boldness: recommendation breadth"
         onChange={(e) => setValue(Number(e.target.value))}
       />
       <div className="bt__ends"><span>Narrower</span><span>Broader</span></div>
@@ -75,14 +75,14 @@ export default function BriefTuning({ initial, locationId }: { initial: number; 
       </p>
       <label className="bt__all">
         <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-        <span>Show everything — surface every recommendation, no threshold</span>
+        <span>Show everything: surface every recommendation, no threshold</span>
       </label>
       <div className="bt__foot">
         <button type="button" className="bt__apply" disabled={!dirty || saving} onClick={apply}>
           {saving ? "Saving…" : "Update my recommendations"}
         </button>
         <span className="bt__hint">
-          {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
+          {saveError ?? (dirty ? "Applies to your next brief. Today's stays as it is." : "Up to date.")}
         </span>
       </div>
     </div>

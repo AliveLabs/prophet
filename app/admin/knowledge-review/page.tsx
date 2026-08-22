@@ -66,7 +66,7 @@ export default async function KnowledgeReviewPage() {
           <h1>Knowledge Review</h1>
           <p className="kr-lede">
             {canManage
-              ? "Promote a learned snippet to active and it starts informing the relevant skill's prompt. Move it to shadow to observe without serving, or retire it — retiring is instant and deploy-free. Operator-question demand is human-only; it never auto-promotes."
+              ? "Promote a learned snippet to active and it starts informing the relevant skill's prompt. Move it to shadow to observe without serving, or retire it. Retiring is instant and deploy-free. Operator-question demand is human-only; it never auto-promotes."
               : "Learned snippets awaiting review. Promotion is restricted to super admins; you can read the queue but not change what serves."}
           </p>
         </RevealOnView>

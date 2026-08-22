@@ -25,7 +25,7 @@ import "./locations.css"
 import { loadLocationMenu } from "@/lib/content/menu-history"
 
 const formatTemperature = (weather: WeatherSnapshot | null): string => {
-  if (!weather || typeof weather.temperature !== "number") return "—"
+  if (!weather || typeof weather.temperature !== "number") return "n/a"
   const unit = weather.tempUnit === "FAHRENHEIT" ? "°F" : weather.tempUnit === "CELSIUS" ? "°C" : "°"
   return `${Math.round(weather.temperature)}${unit}`
 }

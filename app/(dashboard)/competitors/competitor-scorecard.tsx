@@ -152,7 +152,7 @@ export default function CompetitorScorecard({
         <TkEmptyState
           icon={CHART_ICON}
           title="We can't place you yet"
-          description={`We compare ratings, reviews, visibility and listing quality across your set. Once ${ownName}'s own listing is read, you'll see where you lead and where a rival does — and what's driving it.`}
+          description={`We compare ratings, reviews, visibility and listing quality across your set. Once ${ownName}'s own listing is read, you'll see where you lead and where a rival does, and what's driving it.`}
         />
       </section>
     )
@@ -186,7 +186,7 @@ export default function CompetitorScorecard({
     )
     const q =
       m.status === "lead"
-        ? `I'm ahead of my competitors on ${m.label.toLowerCase()} — how do I keep that lead?`
+        ? `I'm ahead of my competitors on ${m.label.toLowerCase()}: how do I keep that lead?`
         : `${leader?.name ?? "A competitor"} beats me on ${m.label.toLowerCase()} (${leader?.display ?? ""} vs my ${m.you?.display ?? ""}). What's likely driving it, and what should I do about it?`
     router.push(`/ask?q=${encodeURIComponent(q)}`)
   }
@@ -195,7 +195,7 @@ export default function CompetitorScorecard({
     <section className="tk-comp-sec">
       <TkSectionHead
         title="Where you stand"
-        sub="Every rival on the same scale — where you lead, where they do, and what's driving it"
+        sub="Every rival on the same scale: where you lead, where they do, and what's driving it"
       />
       <RevealOnView>
         <TkCard tBubble={<VizTBubble viz={viz} />}>
@@ -288,7 +288,7 @@ export default function CompetitorScorecard({
             </div>
 
             <p className="tk-sc-foot">
-              Every measure here is absolute and comparable across venues — stars, counts and shares, never
+              Every measure here is absolute and comparable across venues: stars, counts and shares, never
               popular-times percentages. Timing and rhythm live in the busy read below.
             </p>
           </div>

@@ -27,7 +27,7 @@ export function VoiceSelect({ initial, locationId }: { initial: string | null; l
     if (!locationId) return
     startSaving(async () => {
       const res = await setVoiceTone(locationId, next)
-      setStatus(res.ok ? "Saved — used from your next brief." : (res.error ?? "Could not save."))
+      setStatus(res.ok ? "Saved. Used from your next brief." : (res.error ?? "Could not save."))
     })
   }
 
@@ -69,7 +69,7 @@ export function OwnNetworkSelect({
     startSaving(async () => {
       const res = await setOwnSocialNetwork(locationId, next)
       if (res.ok) {
-        setStatus("Saved — we're pulling it now. History on the new network starts fresh.")
+        setStatus("Saved. We're pulling it now. History on the new network starts fresh.")
       } else {
         setV(prev)
         setStatus(res.error ?? "Could not save.")
@@ -135,7 +135,7 @@ export function CommsPrefs({
 
   return (
     <div className="pv-card">
-      <Toggle title="Weekly digest email" hint={`A highlights email that drives you back to your brief — sent to ${email}.`} on={prefs.weekly_digest} disabled={saving} onChange={(v) => toggle("weekly_digest", v)} />
+      <Toggle title="Weekly digest email" hint={`A highlights email that drives you back to your brief, sent to ${email}.`} on={prefs.weekly_digest} disabled={saving} onChange={(v) => toggle("weekly_digest", v)} />
       <Toggle title="New-brief notifications" hint="An in-app heads-up when a new brief is ready." on={prefs.browser_notifications} disabled={saving} onChange={(v) => toggle("browser_notifications", v)} />
       <Toggle title="Product updates" hint="Occasional news about new features. Monthly at most." on={prefs.product_updates} disabled={saving} onChange={(v) => toggle("product_updates", v)} />
       {status ? <span className="pv-soon">{status}</span> : null}

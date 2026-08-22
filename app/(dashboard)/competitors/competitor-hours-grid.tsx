@@ -244,7 +244,7 @@ function RhythmTrack({
             style={{ left: `clamp(34px, ${(((scrubHour + 0.5) / 24) * 100).toFixed(1)}%, calc(100% - 40px))` }}
             aria-hidden="true"
           >
-            {scrubLevel != null && scrubLevel !== -1 ? LEVEL_LABEL[scrubLevel] : "—"}
+            {scrubLevel != null && scrubLevel !== -1 ? LEVEL_LABEL[scrubLevel] : "n/a"}
           </span>
         </>
       )}
@@ -281,7 +281,7 @@ function WeekMiniMap({
 
   return (
     <div className="tk-hrs-week-map">
-      <div className="tk-hrs-wbars" role="group" aria-label={`${entity.name} — strongest days`}>
+      <div className="tk-hrs-wbars" role="group" aria-label={`${entity.name}: strongest days`}>
         {profile.peaks.map((p, d) => (
           <button
             key={d}
@@ -359,8 +359,8 @@ function computeRead(entities: HoursEntity[], day: number): string[] {
     const suffix = !you
       ? ""
       : ys && busyLevel(ys[bestH] ?? 0) >= 2
-        ? " — you're in that fight too"
-        : " — a quieter hour for you"
+        ? " (you're in that fight too)"
+        : " (a quieter hour for you)"
     parts.push(`Most of the set runs hot around ${hourTick(bestH)}${suffix}.`)
   }
 
@@ -387,7 +387,7 @@ function computeRead(entities: HoursEntity[], day: number): string[] {
     }
     if (gap && gap[1] - gap[0] >= 2) {
       parts.push(
-        `Your clearest window: ${hourTick(gap[0])} - ${hourTick(gap[1])} — you're open while the rest of the set runs quiet or closed.`,
+        `Your clearest window: ${hourTick(gap[0])} - ${hourTick(gap[1])}. You're open while the rest of the set runs quiet or closed.`,
       )
     }
   }
@@ -554,7 +554,7 @@ export default function CompetitorHoursGrid({
                         </span>
                         <span
                           className="tk-hrs-open-lbl"
-                          title={obs ? "Posted hours unavailable — showing when Google observed activity" : undefined}
+                          title={obs ? "Posted hours unavailable: showing when Google observed activity" : undefined}
                         >
                           {obs ? observedLabel(obs) : openLabel(hours)}
                         </span>
@@ -577,7 +577,7 @@ export default function CompetitorHoursGrid({
                         className="tk-hrs-week"
                         id={`tk-hrs-week-${e.competitor_id}`}
                         role="group"
-                        aria-label={`${e.name} — open hours by day`}
+                        aria-label={`${e.name}: open hours by day`}
                       >
                         {DAY_ABBR.map((lbl, d) => {
                           const wd = byDay(e, d)
@@ -625,9 +625,9 @@ export default function CompetitorHoursGrid({
 
             <p className="tk-hrs-foot">
               Open hours and rhythm come from Google Maps popular times. Each curve shows that spot against its
-              own normal — &quot;their peak&quot; is the busiest hour of their typical week, whatever size that crowd is.
+              own normal: &quot;their peak&quot; is the busiest hour of their typical week, whatever size that crowd is.
               This compares timing, never crowd size. When a spot posts no hours, the dashed window shows where
-              Google observed activity — marked as observed, never presented as posted hours.
+              Google observed activity, marked as observed, never presented as posted hours.
             </p>
           </div>
         </TkCard>

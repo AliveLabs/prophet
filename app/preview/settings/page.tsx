@@ -51,7 +51,7 @@ export default async function PreviewSettings() {
             <div className="pv-field__label">Cadence</div>
             <div className="pv-field__val">Weekly deep brief<div className="pv-field__hint">Daily briefings available on higher plans.</div></div>
           </div>
-          <span className="pv-soon">Tuning is a working preview — saving + recompute land with the authed Settings page.</span>
+          <span className="pv-soon">Tuning is a working preview: saving + recompute land with the authed Settings page.</span>
         </div>
       </div>
 

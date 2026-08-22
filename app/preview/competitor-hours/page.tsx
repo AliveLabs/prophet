@@ -61,36 +61,36 @@ const everyDay = (span: string): string[] =>
 const ENTITIES: HoursEntity[] = [
   // You — open late Fri/Sat, dinner-led crowd.
   mkEntity("__you__", "Wagyu Bar", true, [
-    "Sunday: 11:00 AM – 10:00 PM",
-    "Monday: 11:00 AM – 11:00 PM",
-    "Tuesday: 11:00 AM – 11:00 PM",
-    "Wednesday: 11:00 AM – 11:00 PM",
-    "Thursday: 11:00 AM – 11:00 PM",
-    "Friday: 11:00 AM – 12:00 AM",
-    "Saturday: 11:00 AM – 12:00 AM",
+    "Sunday: 11:00 AM - 10:00 PM",
+    "Monday: 11:00 AM - 11:00 PM",
+    "Tuesday: 11:00 AM - 11:00 PM",
+    "Wednesday: 11:00 AM - 11:00 PM",
+    "Thursday: 11:00 AM - 11:00 PM",
+    "Friday: 11:00 AM - 12:00 AM",
+    "Saturday: 11:00 AM - 12:00 AM",
   ], DINNER),
   // Standard lunch + dinner rival.
-  mkEntity("c-prime", "Prime & Co", false, everyDay("11:00 AM – 10:00 PM"), LUNCH),
+  mkEntity("c-prime", "Prime & Co", false, everyDay("11:00 AM - 10:00 PM"), LUNCH),
   // Breakfast-only — opens early, closes mid-afternoon.
-  mkEntity("c-dawn", "Dawn Cafe", false, everyDay("6:00 AM – 2:00 PM"), MORNING),
+  mkEntity("c-dawn", "Dawn Cafe", false, everyDay("6:00 AM - 2:00 PM"), MORNING),
   // Open 24 hours — late-night crowd is the whole story.
   mkEntity("c-owl", "Night Owl Diner", false, everyDay("Open 24 hours"), LATE),
   // Closed on the default day (Friday) — weekends only.
   mkEntity("c-brunch", "Brunch Club", false, [
-    "Sunday: 9:00 AM – 3:00 PM",
+    "Sunday: 9:00 AM - 3:00 PM",
     "Monday: Closed",
     "Tuesday: Closed",
     "Wednesday: Closed",
     "Thursday: Closed",
     "Friday: Closed",
-    "Saturday: 9:00 AM – 3:00 PM",
+    "Saturday: 9:00 AM - 3:00 PM",
   ], MORNING),
   // Open until 4 AM — the overnight tail spills onto the NEXT calendar day's
   // track (open 12a-4a, closed gap, open again at 10a), so late-night hours
   // stay visible on the 24h calendar-day axis.
-  mkEntity("c-late", "Late Shift Bar", false, everyDay("10:00 AM – 4:00 AM"), LATE),
+  mkEntity("c-late", "Late Shift Bar", false, everyDay("10:00 AM - 4:00 AM"), LATE),
   // Hours known, but no busy curve pulled yet — open band, no heat (honest).
-  mkEntity("c-new", "The New Spot", false, everyDay("11:00 AM – 9:00 PM"), null),
+  mkEntity("c-new", "The New Spot", false, everyDay("11:00 AM - 9:00 PM"), null),
   // No readable hours at all — shows "hours unavailable" (never fabricated).
   mkEntity("c-mystery", "Mystery Taqueria", false, null, LUNCH),
 ]

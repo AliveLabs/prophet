@@ -116,7 +116,7 @@ export default function PassAskBox({
     setPinError(null)
     startPin(async () => {
       const res = await setStandingQuestion(locationId, asked.trim())
-      if (!res.ok) setPinError(res.error ?? "Couldn't pin — try again.")
+      if (!res.ok) setPinError(res.error ?? "Couldn't pin. Try again.")
       else {
         setPinnedThis(true)
         router.refresh()

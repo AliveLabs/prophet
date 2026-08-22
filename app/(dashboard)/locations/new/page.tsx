@@ -80,7 +80,7 @@ export default async function NewLocationPage() {
             {onTrial ? "Trials cover one location." : "You’re at this plan’s location limit."}
           </h1>
           <p className="pv-sub">
-            Two ways to add the next one — keep it on this bill, or give it its own.
+            Two ways to add the next one: keep it on this bill, or give it its own.
           </p>
         </div>
         <hr className="pv-rule" />
@@ -91,7 +91,7 @@ export default async function NewLocationPage() {
               <p>
                 Upgrade your plan to manage up to{" "}
                 {TIER_LIMITS[upgradeTarget].includedLocations} locations under one login and one
-                bill — each with its own competitors, signals, and brief.
+                bill, each with its own competitors, signals, and brief.
               </p>
               <Link className="loc-path-link" href="/settings/billing">
                 See plans &amp; upgrade <IconArrow />
@@ -101,7 +101,7 @@ export default async function NewLocationPage() {
           <TkCard className="loc-path-card">
             <h2>Give it its own account</h2>
             <p>
-              Set this location up on its own plan, under the same login — billed separately, so
+              Set this location up on its own plan, under the same login. It bills separately, so
               you can track costs per location and switch between them anytime.
             </p>
             <Link className="loc-path-link" href="/onboarding?new=1">
@@ -123,7 +123,7 @@ export default async function NewLocationPage() {
         <h1 className="pv-h1">Add a location.</h1>
         <p className="pv-sub">
           Each location gets its own competitors, signals, and morning brief. Find the place on
-          Google and we take it from there — the first data pull starts immediately.
+          Google and we take it from there. The first data pull starts immediately.
         </p>
       </div>
       <hr className="pv-rule" />

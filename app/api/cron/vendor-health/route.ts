@@ -49,14 +49,14 @@ export async function GET(request: Request) {
 
   // Recovery: a lightweight Slack note (no email — the failure alert already paged).
   if (verdict.status === "recovered") {
-    const slack = await postSlackAlert(`:white_check_mark: *${VENDOR_LABEL} recovered* — pulls are succeeding again across the fleet.`)
+    const slack = await postSlackAlert(`:white_check_mark: *${VENDOR_LABEL} recovered*: pulls are succeeding again across the fleet.`)
     return NextResponse.json({ ok: true, verdict, alerted: true, kind: "recovered", slack })
   }
 
   // newly_down: page ops on both channels.
   const subject = verdict.paymentRequired
-    ? `[Ticket] ${VENDOR_LABEL} is out of credits — ${verdict.downLocations}/${verdict.totalLocations} locations affected`
-    : `[Ticket] ${VENDOR_LABEL} data source failing — ${verdict.downLocations}/${verdict.totalLocations} locations affected`
+    ? `[Ticket] ${VENDOR_LABEL} is out of credits: ${verdict.downLocations}/${verdict.totalLocations} locations affected`
+    : `[Ticket] ${VENDOR_LABEL} data source failing: ${verdict.downLocations}/${verdict.totalLocations} locations affected`
 
   const email = await sendEmail({
     to: OPS_RECIPIENTS,

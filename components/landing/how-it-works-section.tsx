@@ -110,7 +110,7 @@ const STEPS = [
     icon: <PrismIcon />,
     title: "Signals scored",
     description:
-      "Every shift is classified High, Medium, or Directional — multi-source verification filters the noise so you only see what&apos;s worth a second look.",
+      "Every shift is classified High, Medium, or Directional: multi-source verification filters the noise so you only see what&apos;s worth a second look.",
   },
   {
     number: "03",

@@ -63,7 +63,7 @@ export async function GET(req: Request) {
   // D6 HARD STOP — before any DB read or brief fetch, so the OFF state is
   // unmistakable: no queries, no sends, one loud log line, an explicit body.
   if (!isWeeklyDigestSendEnabled()) {
-    console.log(`[digest] SENDS DISABLED — ${DIGEST_SENDS_DISABLED_REASON}`)
+    console.log(`[digest] SENDS DISABLED: ${DIGEST_SENDS_DISABLED_REASON}`)
     return Response.json({ enabled: false, sent: 0, reason: DIGEST_SENDS_DISABLED_REASON })
   }
 

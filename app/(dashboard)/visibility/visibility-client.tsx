@@ -396,7 +396,7 @@ export function VisibilityTrend({
             days={ringDays}
             target={30}
             title="Trend chart unlocks as history builds"
-            description="We're still reading your area. Once there's at least a month of history, we'll chart how your search standing moves week over week — until then we won't draw a line we can't stand behind."
+            description="We're still reading your area. Once there's at least a month of history, we'll chart how your search standing moves week over week. Until then we won't draw a line we can't stand behind."
           />
         )}
       </TkCard>
@@ -478,11 +478,11 @@ function DistributionBody({ distribution }: { distribution: VizDistribution }) {
   const c = useChartColors()
   const palette = [c.precisionTeal, c.precisionTeal, c.signalGold, c.signalGold, c.destructive]
   const data = [
-    { range: "1–5", count: distribution.pos_1 + distribution.pos_2_3 + Math.round(distribution.pos_4_10 * 0.2) },
-    { range: "6–10", count: Math.round(distribution.pos_4_10 * 0.8) },
-    { range: "11–20", count: distribution.pos_11_20 },
-    { range: "21–50", count: distribution.pos_21_50 },
-    { range: "51–100", count: distribution.pos_51_100 },
+    { range: "1-5", count: distribution.pos_1 + distribution.pos_2_3 + Math.round(distribution.pos_4_10 * 0.2) },
+    { range: "6-10", count: Math.round(distribution.pos_4_10 * 0.8) },
+    { range: "11-20", count: distribution.pos_11_20 },
+    { range: "21-50", count: distribution.pos_21_50 },
+    { range: "51-100", count: distribution.pos_51_100 },
   ]
   const total = data.reduce((s, d) => s + d.count, 0)
   const withPct = data.map((d) => ({
@@ -625,7 +625,7 @@ export function VisibilityKeywords({
                   return (
                     <tr key={kw.keyword}>
                       <td className="viz-kw">{kw.keyword}</td>
-                      <td className="viz-num viz-mono">{kw.searchVolume?.toLocaleString() ?? "—"}</td>
+                      <td className="viz-num viz-mono">{kw.searchVolume?.toLocaleString() ?? "n/a"}</td>
                       <td>
                         <span className={`viz-rank viz-rank-${tone}`}>#{kw.rank}</span>
                       </td>
@@ -636,10 +636,10 @@ export function VisibilityKeywords({
                             {intentLabel(kw.intent)}
                           </span>
                         ) : (
-                          <span className="viz-muted">—</span>
+                          <span className="viz-muted">n/a</span>
                         )}
                       </td>
-                      <td className="viz-num viz-mono">{kw.cpc ? `$${kw.cpc.toFixed(2)}` : "—"}</td>
+                      <td className="viz-num viz-mono">{kw.cpc ? `$${kw.cpc.toFixed(2)}` : "n/a"}</td>
                     </tr>
                   )
                 })
@@ -817,10 +817,10 @@ export function VisibilityGaps({ gaps }: { gaps: VizGapRow[] }) {
                 <tr key={g.keyword}>
                   <td className="viz-kw">{g.keyword}</td>
                   <td>
-                    <span className="viz-rank viz-rank-off">#{g.domain2Rank ?? "—"}</span>
+                    <span className="viz-rank viz-rank-off">{g.domain2Rank != null ? `#${g.domain2Rank}` : "n/a"}</span>
                   </td>
-                  <td className="viz-num viz-mono">{g.searchVolume?.toLocaleString() ?? "—"}</td>
-                  <td className="viz-num viz-mono">{g.cpc ? `$${g.cpc.toFixed(2)}` : "—"}</td>
+                  <td className="viz-num viz-mono">{g.searchVolume?.toLocaleString() ?? "n/a"}</td>
+                  <td className="viz-num viz-mono">{g.cpc ? `$${g.cpc.toFixed(2)}` : "n/a"}</td>
                 </tr>
               ))}
             </tbody>
@@ -856,13 +856,13 @@ export function VisibilityPaidOverlap({ rows }: { rows: VizPaidOverlap[] }) {
                 <tr key={r.keyword}>
                   <td className="viz-kw">{r.keyword}</td>
                   <td>
-                    <span className="viz-rank viz-rank-ok">#{r.domain1Rank ?? "—"}</span>
+                    <span className="viz-rank viz-rank-ok">{r.domain1Rank != null ? `#${r.domain1Rank}` : "n/a"}</span>
                   </td>
                   <td>
-                    <span className="viz-rank viz-rank-off">#{r.domain2Rank ?? "—"}</span>
+                    <span className="viz-rank viz-rank-off">{r.domain2Rank != null ? `#${r.domain2Rank}` : "n/a"}</span>
                   </td>
-                  <td className="viz-num viz-mono">{r.searchVolume?.toLocaleString() ?? "—"}</td>
-                  <td className="viz-num viz-mono">{r.cpc ? `$${r.cpc.toFixed(2)}` : "—"}</td>
+                  <td className="viz-num viz-mono">{r.searchVolume?.toLocaleString() ?? "n/a"}</td>
+                  <td className="viz-num viz-mono">{r.cpc ? `$${r.cpc.toFixed(2)}` : "n/a"}</td>
                 </tr>
               ))}
             </tbody>

@@ -9,7 +9,7 @@ type SortMode = "threat" | "alpha" | "activity" | "distance"
 
 const SORT_TABS: { key: SortMode; label: string }[] = [
   { key: "threat", label: "Top Threat" },
-  { key: "alpha", label: "A – Z" },
+  { key: "alpha", label: "A - Z" },
   { key: "activity", label: "Recent Activity" },
   { key: "distance", label: "Nearest" },
 ]

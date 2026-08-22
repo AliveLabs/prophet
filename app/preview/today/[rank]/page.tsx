@@ -85,7 +85,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
             ) : null}
             {step.copy ? (
               <div className="pv-step__copy">
-                <span className="pv-step__copy-label">Customer copy — your voice</span>
+                <span className="pv-step__copy-label">Customer copy: your voice</span>
                 {step.copy}
               </div>
             ) : null}

@@ -32,7 +32,7 @@ export function ReportIssueLink({ error, state, onStateChange }: ReportIssueLink
   }
 
   if (state === "sent") {
-    return <p className="chrome-report-status">Thanks — the report went through.</p>
+    return <p className="chrome-report-status">Thanks. The report went through.</p>
   }
 
   return (

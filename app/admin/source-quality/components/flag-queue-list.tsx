@@ -45,7 +45,7 @@ export function FlagQueueList({ flags, canManage }: { flags: SourceQualityFlag[]
 
       {filtered.length === 0 ? (
         <p className="sq-sub" style={{ marginTop: 14 }}>
-          {statusFilter === "open" ? "Nothing open — everything is triaged." : "No flags match this filter."}
+          {statusFilter === "open" ? "Nothing open: everything is triaged." : "No flags match this filter."}
         </p>
       ) : (
         <ul className="sq-list" style={{ marginTop: 14 }}>

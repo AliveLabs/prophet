@@ -96,9 +96,9 @@ export function TrialBanner({
 
   const detail = isPaidTrial
     ? monthlyPrice && endsOnLabel
-      ? ` — your card is charged $${monthlyPrice}/mo starting ${endsOnLabel}. Cancel anytime before then.`
-      : " — your card will be charged when it ends. Cancel anytime before then."
-    : " — there's no card on file, so add one to keep your briefs coming."
+      ? `. Your card is charged $${monthlyPrice}/mo starting ${endsOnLabel}. Cancel anytime before then.`
+      : ". Your card will be charged when it ends. Cancel anytime before then."
+    : ". There's no card on file, so add one to keep your briefs coming."
 
   return (
     <div

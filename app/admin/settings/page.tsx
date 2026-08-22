@@ -60,7 +60,7 @@ export default async function AdminSettingsPage() {
           </RevealOnView>
 
           {/* ── BROADCAST (ALT-229c) — reaches every user, bypassing notification prefs ── */}
-          <TkSectionHead title="Announcement" sub="Reaches all users — for outages & notices" />
+          <TkSectionHead title="Announcement" sub="Reaches all users, for outages & notices" />
           <RevealOnView>
             <TkCard>
               <BroadcastAnnouncement />

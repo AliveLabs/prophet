@@ -28,7 +28,7 @@ const METRICS: ScorecardMetric[] = [
     verdict: "Chick-fil-A leads · 4,870 vs your 312",
     confidence: "high",
     evidence: [
-      "Chick-fil-A has 4,870 reviews to your 312 — roughly 16× your base. Review volume compounds local visibility.",
+      "Chick-fil-A has 4,870 reviews to your 312. Roughly 16× your base. Review volume compounds local visibility.",
       "A review ask at the register or on receipts is the cheapest way to close a base gap.",
     ],
     source: "Listing data",
@@ -47,7 +47,7 @@ const METRICS: ScorecardMetric[] = [
     verdict: "Chick-fil-A leads · ~720/mo vs your ~480/mo",
     confidence: "medium",
     evidence: [
-      "Chick-fil-A's site draws an estimated 720/mo visits from search — yours draws 480/mo.",
+      "Chick-fil-A's site draws an estimated 720/mo visits from search. Yours draws 480/mo.",
       "The Visibility page shows which searches they rank for that you don't.",
     ],
     source: "Search ranking data (estimated traffic)",
@@ -68,7 +68,7 @@ const METRICS: ScorecardMetric[] = [
     verdict: "Chick-fil-A leads · 4.7★ vs your 4.6★",
     confidence: "high",
     evidence: [
-      "Chick-fil-A holds 4.7★ — you hold 4.6★. Star gaps this size move which listing gets the tap in local results.",
+      "Chick-fil-A holds 4.7★. You hold 4.6★. Star gaps this size move which listing gets the tap in local results.",
       "Ratings shift slowly: steady review flow and replies are the honest lever, not a sprint.",
     ],
     source: "Listing data",

@@ -46,7 +46,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             <span className="auth-kicker">Welcome back</span>
             <h1 className="auth-h">Sign in to your <em>feed</em>.</h1>
             <p className="auth-lede__sub">
-              Your competitive briefing is waiting — menus, pricing, reviews, and
+              Your competitive briefing is waiting: menus, pricing, reviews, and
               social, read for you overnight.
             </p>
           </div>

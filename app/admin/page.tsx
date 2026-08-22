@@ -288,8 +288,8 @@ export default async function AdminOverviewPage() {
         <div className="adm-pagehead__kicker">Platform</div>
         <h1>Overview</h1>
         <p>
-          Real-time analytics across users, organizations, trials, and platform usage —
-          refreshed on load.
+          Real-time analytics across users, organizations, trials, and platform usage.
+          Refreshed on load.
         </p>
       </RevealOnView>
 

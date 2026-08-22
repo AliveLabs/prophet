@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     }
     if (!org.stripe_subscription_id) {
       return NextResponse.json(
-        { error: "No active subscription to change — subscribe first." },
+        { error: "No active subscription to change. Subscribe first." },
         { status: 400 },
       )
     }

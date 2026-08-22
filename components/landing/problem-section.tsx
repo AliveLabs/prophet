@@ -114,7 +114,7 @@ export function ProblemSection() {
               className="mt-8 max-w-xl text-lg leading-relaxed text-muted-foreground"
             >
               A competitor drops prices across three locations. By the time customers mention it,
-              you&apos;ve already lost a week of margin. Your POS tracks what sold — Ticket tracks
+              you&apos;ve already lost a week of margin. Your POS tracks what sold. Ticket tracks
               what&apos;s shifting around you.
             </motion.p>
             <motion.p
