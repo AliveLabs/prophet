@@ -18,6 +18,14 @@ import {
   PLAN_CHOICE_MAX_AGE_SECONDS,
 } from "@/lib/billing/plan-choice"
 import { SELF_SERVE_TIERS, TIER_PRICING } from "@/lib/billing/tiers"
+import type { SelfServePlanTier } from "@/lib/billing/plan-choice"
+
+// Narrow locally rather than iterating SELF_SERVE_TIERS directly: that constant is declared
+// `readonly SubscriptionTier[]`, which throws away the literal types its own `as const` had just
+// established, so iterating it yields `SubscriptionTier` (including `top` and `suspended`).
+// Narrowing the constant itself is the right fix and surfaces two unrelated call sites in
+// plan-change-tiles-pass.tsx, so it is filed separately rather than smuggled in here.
+const SELF_SERVE: readonly SelfServePlanTier[] = ["entry", "mid"]
 
 describe("parsing the public URL parameters", () => {
   it("maps the buyer-facing plan names onto internal tiers", () => {
@@ -74,7 +82,7 @@ describe("parsing the public URL parameters", () => {
 
 describe("the cookie round trip", () => {
   it("survives serialise then deserialise, for every valid combination", () => {
-    for (const tier of SELF_SERVE_TIERS) {
+    for (const tier of SELF_SERVE) {
       for (const cadence of ["monthly", "annual"] as const) {
         const choice = { tier, cadence }
         expect(deserialisePlanChoice(serialisePlanChoice(choice))).toEqual(choice)
@@ -106,7 +114,9 @@ describe("the cookie round trip", () => {
 
   it("never yields a tier that has no price, which is what would break the picker", () => {
     // The picker reads TIER_PRICING[tier]. A tier that parsed but had no price would render
-    // `$undefined`, so the parse and the price table have to agree.
+    // `$undefined`. PlanChoice.tier is typed to the self-serve subset so the COMPILER enforces
+    // this; the runtime check below is the belt to that braces.
+    expect(SELF_SERVE.every((t) => (SELF_SERVE_TIERS as readonly string[]).includes(t))).toBe(true)
     for (const raw of ["starter:annual", "standard:monthly", "top:annual", "nonsense:annual"]) {
       const { tier } = deserialisePlanChoice(raw)
       if (tier) expect(TIER_PRICING[tier], raw).toBeDefined()

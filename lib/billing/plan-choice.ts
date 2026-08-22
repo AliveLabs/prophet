@@ -26,6 +26,17 @@
 
 import { SELF_SERVE_TIERS, type Cadence, type SubscriptionTier } from "@/lib/billing/tiers"
 
+/**
+ * The only tiers this module can ever yield: the two with a self-serve checkout.
+ *
+ * Narrowed deliberately rather than reusing `SubscriptionTier`. The wide type includes `top`
+ * (contact-us, no checkout) and `suspended`, neither of which appears in `TIER_PRICING`, so a
+ * `SubscriptionTier` here would let a caller write `TIER_PRICING[choice.tier]` and render
+ * `$undefined`. Making the type carry the guarantee means the compiler enforces what the runtime
+ * validation already does, instead of the two agreeing by convention.
+ */
+export type SelfServePlanTier = Extract<SubscriptionTier, "entry" | "mid">
+
 export const PLAN_CHOICE_COOKIE = "tk_plan_choice"
 
 /** How long the hint outlives the click. Long enough to read the email tomorrow morning, short
@@ -33,7 +44,7 @@ export const PLAN_CHOICE_COOKIE = "tk_plan_choice"
 export const PLAN_CHOICE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60
 
 export type PlanChoice = {
-  tier?: SubscriptionTier
+  tier?: SelfServePlanTier
   cadence?: Cadence
 }
 
@@ -46,7 +57,7 @@ export type PlanChoice = {
  * with no checkout, so a link claiming to preselect it would be promising something that does not
  * exist.
  */
-const PUBLIC_PLAN_NAMES: Record<string, SubscriptionTier> = {
+const PUBLIC_PLAN_NAMES: Record<string, SelfServePlanTier> = {
   starter: "entry",
   standard: "mid",
 }
@@ -104,7 +115,7 @@ export function deserialisePlanChoice(value: string | null | undefined): PlanCho
   if (!value) return {}
   const [tierRaw = "", cadenceRaw = ""] = value.split(":")
   const tier = (SELF_SERVE_TIERS as readonly string[]).includes(tierRaw)
-    ? (tierRaw as SubscriptionTier)
+    ? (tierRaw as SelfServePlanTier)
     : undefined
   const cadence = PUBLIC_CADENCES[cadenceRaw]
   const choice: PlanChoice = {}
