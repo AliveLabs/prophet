@@ -14,6 +14,7 @@ import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import type { Dossier, EntitySignals, HoursGate, RestaurantProfile, ReviewSentiment, Tier, TierCaps } from "@/lib/insights/dossier/types"
 import { TIER_CAPS } from "@/lib/insights/dossier/types"
 import { asSubscriptionTier, isSocialPlatform, resolveOwnSocialNetworks, type SubscriptionTier } from "@/lib/billing/tiers"
+import { resolveCompetitorAllowance } from "@/lib/billing/limits"
 import type { GeneratedInsight } from "@/lib/insights/types"
 import type { NormalizedSnapshot } from "@/lib/providers/types"
 import type { MenuSnapshot } from "@/lib/content/types"
@@ -322,11 +323,27 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   } else {
     const { data: orgRow } = await sb
       .from("organizations")
-      .select("subscription_tier")
+      .select("subscription_tier, competitors_purchased")
       .eq("id", loc.organization_id)
       .maybeSingle()
     const subTier = asSubscriptionTier(orgRow?.subscription_tier)
-    const caps = TIER_CAPS[TIER_NUMBER[subTier]]
+    // ALT-731: TIER_CAPS.maxCompetitors is a hardcoded 3/5/10 with NO purchased field, and the
+    // slice below truncates to it. So a customer who BOUGHT extra competitor slots was billed for
+    // them, shown them in the UI, and then had them dropped out of the dossier every night: the
+    // brief silently reasoned over fewer competitors than the invoice covered.
+    //
+    // resolveCompetitorAllowance is the canonical `included + purchased`, and limits.ts says so in
+    // as many words: "Resolve through these two functions. Reading includedCompetitorsPerLocation
+    // directly gives the INCLUDED count and silently under-counts a customer who has paid for
+    // more." This was that read, one layer removed.
+    //
+    // Latent while add-on purchasing does not exist (competitors_purchased is 0 everywhere), which
+    // is exactly why it is worth closing now rather than after the first add-on sale.
+    const competitorAllowance = resolveCompetitorAllowance({
+      subscription_tier: orgRow?.subscription_tier ?? null,
+      competitors_purchased: orgRow?.competitors_purchased ?? null,
+    })
+    const caps = { ...TIER_CAPS[TIER_NUMBER[subTier]], maxCompetitors: competitorAllowance.total }
     const settings = (loc.settings as Record<string, unknown> | null) ?? {}
     const chosen = isSocialPlatform(settings.ownSocialNetwork) ? settings.ownSocialNetwork : null
     tier = { ...caps, ownSocialPlatforms: [...resolveOwnSocialNetworks(subTier, chosen)] }

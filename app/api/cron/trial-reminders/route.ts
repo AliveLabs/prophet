@@ -109,6 +109,17 @@ export async function GET(request: Request) {
 
     if (!owners || owners.length === 0) continue
 
+    // ALT-716: the ledger row is written BEFORE the send (deliberately: a 23505 on it IS the
+    // same-day dedupe, which is what stops double-sends). But a FAILED send only pushed an error
+    // and left the row, so the reminder was recorded as sent and no later run would retry it.
+    // ALT-761 fixed the recipient-lookup path; this is the send itself.
+    //
+    // Released only when NOTHING was sent for this org and day. An org can have several
+    // owner/admins, and if one send succeeded and another failed, releasing the row would re-mail
+    // the person who already got it on the next run. Losing one recipient is better than
+    // double-mailing about a charge.
+    let anySentForOrg = false
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
     const portalUrl = `${appUrl}/settings/billing`
     const brand = industryType === "liquor_store" ? "Neat" : "Ticket"
@@ -170,10 +181,23 @@ export async function GET(request: Request) {
         })
 
         sent.push(`day${reminderDay}:${profile.email}`)
+        anySentForOrg = true
       } catch (err) {
         const msg = err instanceof Error ? err.message : "unknown"
         errors.push(`day${reminderDay}:${profile.email}:${msg}`)
       }
+    }
+
+    // ALT-716: nothing went out for this org, so release the claim and let the next run try again.
+    // Day 13 is the last warning before a card is charged; silently swallowing it is the worst
+    // outcome available here.
+    if (!anySentForOrg) {
+      await admin
+        .from("trial_reminder_sends")
+        .delete()
+        .eq("organization_id", org.id)
+        .eq("reminder_day", reminderDay)
+      errors.push(`${org.id}:day${reminderDay}:no recipient reached, ledger released for retry`)
     }
   }
 

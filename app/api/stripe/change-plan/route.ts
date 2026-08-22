@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
 import { requireOrgOwnerOrAdmin, applySubscriptionToOrg } from "@/lib/stripe/helpers"
-import { resolvePriceIdOrThrow } from "@/lib/stripe/pricing"
+import { resolvePriceIdOrThrow, resolveAddOnPriceInfo } from "@/lib/stripe/pricing"
 import { isValidIndustryType } from "@/lib/verticals"
 import {
   SELF_SERVE_TIERS,
@@ -105,10 +105,24 @@ export async function POST(request: Request) {
 
     const stripe = getStripeClient()
     const current = await stripe.subscriptions.retrieve(org.stripe_subscription_id)
-    const currentItemId = current.items.data[0]?.id
+    // ALT-755: this took items.data[0] and assumed it was the BASE plan. A subscription now carries
+    // a base item plus up to two add-on items (locations, competitors), and Stripe does not promise
+    // an order, so a plan change could reprice an ADD-ON at the base plan's price and leave the base
+    // untouched. At the add-on rates that is a $650/mo error in either direction.
+    //
+    // The base item is the one whose price resolves as a BASE price. resolveAddOnPriceInfo returns
+    // non-null only for add-on price IDs, so it is the discriminator, and it already exists for the
+    // webhook to read the same distinction. No new mapping.
+    //
+    // Latent while add-on purchasing does not exist, so every live subscription has exactly one
+    // item and items.data[0] happens to be right. That is luck, not correctness.
+    const baseItem = current.items.data.find(
+      (i) => resolveAddOnPriceInfo(typeof i.price === "string" ? i.price : i.price?.id) == null,
+    )
+    const currentItemId = baseItem?.id
     if (!currentItemId) {
       return NextResponse.json(
-        { error: "Subscription has no line item to change." },
+        { error: "Subscription has no base plan line item to change." },
         { status: 500 },
       )
     }
