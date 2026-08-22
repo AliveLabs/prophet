@@ -21,6 +21,7 @@ import {
 import type { IndustryType } from "@/lib/verticals"
 import { tierFeatureList } from "@/lib/billing/limits"
 import { classifyBillingResponse, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
+import type { PlanChoice } from "@/lib/billing/plan-choice"
 import { ICON_CHECK } from "../settings-icons"
 // Self-sufficient, same convention as components/first-run/*: pull the stylesheet the tiles need
 // rather than depending on whichever surface mounts them. ALT-658 mounts this inside onboarding,
@@ -34,6 +35,7 @@ export function UpgradeTilesPass({
   industry,
   showFeatures = true,
   context = "settings",
+  picked,
 }: {
   industry: IndustryType
   showFeatures?: boolean
@@ -41,11 +43,18 @@ export function UpgradeTilesPass({
    *  /onboarding/checkout-complete on purchase, back to /onboarding/trial on cancel. The
    *  checkout route already branches on this; the tiles just had no way to say so. */
   context?: "settings" | "onboarding"
+  /** ALT-645: what this visitor chose on the marketing pricing page, if anything. A HINT only:
+   *  it opens the cadence toggle on their choice and marks their tile, and it is deliberately not
+   *  fed to the checkout call below, which reads what they actually click here. So a stale or
+   *  hand-edited cookie can change a highlight and can never change a charge. */
+  picked?: PlanChoice
 }) {
   // ALT-699 — defaults to ANNUAL. It is the price we want people on, it is the cheaper option
   // for them, and the whole discount story (two months free) is invisible if the screen opens on
   // monthly. Not a dark pattern: the cheaper choice is pre-selected and the other is one tap away.
-  const [cadence, setCadence] = useState<Cadence>("annual")
+  // Their choice wins over the annual default when they made one, because arriving on a cadence
+  // they did not pick is the same class of bug as arriving on a tier they did not pick.
+  const [cadence, setCadence] = useState<Cadence>(picked?.cadence ?? "annual")
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -112,6 +121,7 @@ export function UpgradeTilesPass({
           const pricing = TIER_PRICING[t]
           const displayName = getTierDisplayName(t, industry)
           const isRecommended = t === "mid"
+          const isPicked = picked?.tier === t
           const offersTrial = isTrialEligibleTier(t)
           const priceMain =
             cadence === "monthly"
@@ -130,7 +140,13 @@ export function UpgradeTilesPass({
               disabled={loading !== null}
               className={`tk-set-tier${isRecommended ? " tk-set-tier-reco" : ""}`}
             >
-              {isRecommended && <span className="tk-set-tier-flag">Recommended</span>}
+              {/* Their own pick outranks our recommendation. Showing "Recommended" on Standard to
+                  somebody who just clicked Starter is us arguing with them at the checkout. */}
+              {isPicked ? (
+                <span className="tk-set-tier-flag">Your pick</span>
+              ) : isRecommended && !picked?.tier ? (
+                <span className="tk-set-tier-flag">Recommended</span>
+              ) : null}
               <div className="tk-set-tier-head">
                 <span className="tk-set-tier-name">{displayName}</span>
                 {offersTrial && <span className="tk-set-tier-trial">14-day trial</span>}
