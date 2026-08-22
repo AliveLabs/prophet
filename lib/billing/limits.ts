@@ -1,6 +1,6 @@
 // Tier guardrails for pipeline + UI. Backed by TIER_LIMITS from tiers.ts.
 
-import { TIER_LIMITS, asSubscriptionTier, type SubscriptionTier } from "./tiers"
+import { TIER_LIMITS, asSubscriptionTier, tierDisplayName, type SubscriptionTier } from "./tiers"
 import { isTrialing } from "./trial"
 
 // ---------------------------------------------------------------------------
@@ -359,7 +359,7 @@ export function canInviteTeamMembers(org: {
   return tierAllowsTeamInvites(asSubscriptionTier(org.subscription_tier))
 }
 
-/** Throwing guard for the invite server action so a Tier-1 caller can't bypass a
+/** Throwing guard for the invite server action so a Starter caller can't bypass a
  *  disabled button by invoking the action directly. */
 export function ensureCanInviteTeamMember(org: {
   subscription_tier: string
@@ -368,7 +368,8 @@ export function ensureCanInviteTeamMember(org: {
 }): void {
   if (!canInviteTeamMembers(org)) {
     throw new Error(
-      "Inviting team members is available on Tier 2 and Tier 3. Upgrade your plan to add your team."
+      `Inviting team members is available on ${tierDisplayName("mid")} and ${tierDisplayName("top")}. ` +
+        "Upgrade your plan to add your team."
     )
   }
 }

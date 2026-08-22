@@ -337,11 +337,20 @@ html { scroll-behavior: smooth; }
   font-family: var(--font-cond); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; box-shadow: var(--shadow-sm);
 }
 .lp-tier h3 { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
-.lp-tier-price { font-size: 13.5px; color: var(--ink-2); }
+/* ALT-764: this line used to read "Early-access pricing soon", so it was styled as a muted
+   caption. It now carries a real price derived from TIER_PRICING, so it leads like one. */
+.lp-tier-price {
+  font-family: var(--font-display); font-size: 34px; font-weight: 700; letter-spacing: -0.03em;
+  color: var(--ink); line-height: 1;
+}
+.lp-tier-per { font-family: var(--font-body); font-size: 12.5px; font-weight: 400; letter-spacing: 0; color: var(--ink-3); }
+.lp-tier-for { font-size: 13px; line-height: 1.45; color: var(--ink-3); }
 .lp-tier-list { display: flex; flex-direction: column; gap: 13px; flex: 1; }
 .lp-tier-feat { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; line-height: 1.45; color: var(--ink-2); }
 .lp-tier-feat svg { width: 16px; height: 16px; color: var(--teal-deep); flex: none; margin-top: 1px; }
 .lp-pricing-note { margin-top: 34px; text-align: center; font-size: 13px; color: var(--ink-3); }
+.lp-pricing-note a { color: var(--rust); text-decoration: underline; text-underline-offset: 2px; }
+.lp-pricing-note a:hover { color: var(--rust-2); }
 
 /* ── WAITLIST / CTA ──────────────────────────────────────────── */
 .lp-waitlist { position: relative; }

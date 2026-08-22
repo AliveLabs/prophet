@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { readFileSync, readdirSync, statSync } from "node:fs"
-import { join, resolve } from "node:path"
-import ts from "typescript"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { EM_DASH } from "@/lib/eval/voice-rules"
+import { REPO_ROOT, literalsIn, literalsUnder } from "../support/source-literals"
 
 // ── House style: no em dash (U+2014) or en dash (U+2013) in anything a person reads ──────────
 //
@@ -28,9 +28,7 @@ import { EM_DASH } from "@/lib/eval/voice-rules"
 // currently contain an em dash while instructing the model not to use one. That is worth
 // fixing on purpose, with an eval, not as a side effect of a copy sweep.
 
-const REPO_ROOT = resolve(__dirname, "..", "..", "..")
 const SCOPE = ["app", "components", "lib/email"]
-const SKIP = new Set(["node_modules", ".next", ".git", "worktrees", "archive"])
 
 // The characters themselves come from EM_DASH, the engine's existing constant, so there is one
 // definition of "which characters are banned" rather than two that can drift apart. The pinning
@@ -46,53 +44,14 @@ function hasDash(text: string): boolean {
   return EM_DASH.test(text) || DASH_ESCAPE.test(text)
 }
 
-const LITERAL_KINDS = new Set<ts.SyntaxKind>([
-  ts.SyntaxKind.StringLiteral,
-  ts.SyntaxKind.NoSubstitutionTemplateLiteral,
-  ts.SyntaxKind.TemplateHead,
-  ts.SyntaxKind.TemplateMiddle,
-  ts.SyntaxKind.TemplateTail,
-  ts.SyntaxKind.JsxText,
-])
-
 type Hit = { line: number; text: string }
 
-/** Every dash that sits inside a string or JSX-text literal of `src`. */
+/** Every dash that sits inside a readable literal of `src`. Comments and regex literals are not
+ *  literals, so neither the comments explaining this rule nor the EM_DASH matcher can trip it. */
 function dashesInLiterals(fileName: string, src: string): Hit[] {
-  if (!hasDash(src)) return []
-  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
-  const hits: Hit[] = []
-  const visit = (node: ts.Node): void => {
-    if (LITERAL_KINDS.has(node.kind)) {
-      const text = (node as ts.LiteralLikeNode).text ?? ""
-      if (hasDash(text)) {
-        hits.push({
-          line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
-          text: text.replace(/\s+/g, " ").trim().slice(0, 120),
-        })
-      }
-    }
-    ts.forEachChild(node, visit)
-  }
-  visit(sf)
-  return hits
-}
-
-function sourceFiles(dir: string): string[] {
-  const out: string[] = []
-  const walk = (p: string) => {
-    const st = statSync(p)
-    if (st.isFile()) {
-      if (/\.(ts|tsx)$/.test(p)) out.push(p)
-      return
-    }
-    for (const e of readdirSync(p)) {
-      if (SKIP.has(e)) continue
-      walk(join(p, e))
-    }
-  }
-  walk(join(REPO_ROOT, dir))
-  return out
+  return literalsIn(fileName, src)
+    .filter((l) => hasDash(l.text))
+    .map((l) => ({ line: l.line, text: l.text.slice(0, 120) }))
 }
 
 describe("the dash detector itself", () => {
@@ -131,14 +90,9 @@ describe("the dash detector itself", () => {
 
 describe("no dashes in customer-facing copy", () => {
   it("every string and JSX text in app/, components/ and lib/email/ is dash-free", () => {
-    const offenders: string[] = []
-    for (const dir of SCOPE) {
-      for (const file of sourceFiles(dir)) {
-        for (const hit of dashesInLiterals(file, readFileSync(file, "utf8"))) {
-          offenders.push(`${file.slice(REPO_ROOT.length + 1)}:${hit.line}  ${hit.text}`)
-        }
-      }
-    }
+    const offenders = literalsUnder(SCOPE)
+      .filter((l) => hasDash(l.text))
+      .map((l) => `${l.file}:${l.line}  ${l.text.slice(0, 120)}`)
     expect(
       offenders,
       `Use a colon, paired commas, parentheses, or a new sentence instead of a dash:\n${offenders.join("\n")}`,

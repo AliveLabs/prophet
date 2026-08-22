@@ -10,7 +10,7 @@ import { loadOperatorContext, tierLabel } from "../operator-data"
 import { requireUser } from "@/lib/auth/server"
 import type { CategoryPriors } from "@/lib/skills/category-priors"
 import { loadLatestBriefCategoryCounts } from "@/lib/insights/insight-pool"
-import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
+import { asSubscriptionTier, TIER_LIMITS, tierDisplayName } from "@/lib/billing/tiers"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import {
   RevealOnView,
@@ -256,7 +256,7 @@ export default async function SettingsPage() {
                           <p className="tk-set-hint">
                             We also found you on{" "}
                             {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
-                            {": tracked on Tier 2 and up."}
+                            {`: tracked on ${tierDisplayName("mid")} and up.`}
                           </p>
                           <div className="tk-set-row-actions">
                             <Link className="tk-set-linkbtn" href="/settings/billing">Upgrade plan {ICON_ARROW}</Link>

@@ -31,12 +31,6 @@ export const liquorStoreConfig: VerticalConfig = {
       categoryPlaceholder: "Select store type",
       categoryLabel: "Store Type",
     },
-    competitors: {
-      searchingLabel: "Searching for nearby liquor stores...",
-      foundLabel: "We found nearby liquor stores. Pick up to 5 to track.",
-      emptyLabel: "No nearby liquor stores found. Add them manually.",
-      selectLabel: "Select up to 5 competitors",
-    },
     settings: {
       newCompetitorLabel: "Get alerted when new liquor stores open nearby",
       reviewThresholdLabel: "Notify me when a competitor's reviews shift",

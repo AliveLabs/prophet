@@ -31,12 +31,6 @@ export const restaurantConfig: VerticalConfig = {
       categoryPlaceholder: "Select cuisine type",
       categoryLabel: "Cuisine Type",
     },
-    competitors: {
-      searchingLabel: "Searching for nearby restaurants...",
-      foundLabel: "We found nearby restaurants. Pick up to 5 to track.",
-      emptyLabel: "No nearby restaurants found. Add them manually.",
-      selectLabel: "Select up to 5 competitors",
-    },
     settings: {
       newCompetitorLabel: "Get alerted when new restaurants open nearby",
       reviewThresholdLabel: "Notify me when a competitor's reviews shift",

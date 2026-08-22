@@ -86,10 +86,12 @@ export async function loadPreviewContext(): Promise<PreviewContext> {
   const locationId = (loc?.id as string) ?? WAGYU_LOCATION_ID
   const orgId = loc?.organization_id as string | undefined
 
-  let tier = "tier_2"
+  // ALT-764: was "tier_2", a legacy alias that only resolved because LEGACY_TIER_ALIASES still
+  // maps it. The canonical key is "mid".
+  let tier = "mid"
   if (orgId) {
     const { data: org } = await sb.from("organizations").select("subscription_tier").eq("id", orgId).maybeSingle()
-    tier = (org?.subscription_tier as string) ?? "tier_2"
+    tier = (org?.subscription_tier as string) ?? "mid"
   }
 
   const brief = await getBrief(locationId)

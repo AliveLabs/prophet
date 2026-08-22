@@ -154,7 +154,7 @@ export function PassFeatures() {
               </span>
               <h3>Competitor monitoring</h3>
               <p>
-                Track up to 50 competitors across Google, social, and their own sites.
+                Track the competitor set you choose across Google, social, and their own sites.
                 Daily snapshots catch changes the moment they happen: reviews, ratings,
                 hours, attributes, and more.
               </p>
