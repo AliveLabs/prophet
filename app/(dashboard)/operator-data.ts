@@ -159,11 +159,21 @@ export async function loadOperatorContext(): Promise<OperatorContext> {
     (c) => (c.metadata as Record<string, unknown> | null)?.status === "approved"
   )
 
+  // ALT-720: this had NO date filter, so the count rendered as "N signals this month" on the
+  // competitor roster and list was the newest 200 competitor insights EVER. A long-running location
+  // showed a number that only grew and never reflected recent activity, and "Quiet this month" could
+  // not fire for a competitor that had genuinely gone quiet.
+  //
+  // Window is the trailing 30 days, and the labels now say "last 30 days" rather than "this month":
+  // a calendar month would read near-zero on the 1st for reasons that have nothing to do with the
+  // competitor. The limit stays as a render guard, not as the window.
+  const signalWindowStart = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10)
   const { data: recent } = await sb
     .from("insights")
     .select("competitor_id, title")
     .eq("location_id", op.locationId)
     .not("competitor_id", "is", null)
+    .gte("date_key", signalWindowStart)
     .order("date_key", { ascending: false })
     .limit(200)
   const byComp = new Map<string, { count: number; titles: string[] }>()

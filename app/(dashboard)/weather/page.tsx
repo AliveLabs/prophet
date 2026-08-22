@@ -267,6 +267,21 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
     : [...recentHistory.slice(0, Math.max(0, 7 - upcoming.length)).reverse(), ...upcoming]
   ).slice(0, 7)
 
+  // ALT-718: the caption said "Next 7" unconditionally. When fetchForecast throws, `forecastDays`
+  // is [] and the top-up above fills the strip with the SEVEN MOST RECENT PAST DAYS, so an operator
+  // read last week's weather as this week's forecast and planned against it. The top-up itself is
+  // fine (a full week reads better than a gap); labelling history as a forecast is not.
+  //
+  // Counted off `isForecast`, which the mapping above already sets, rather than re-deriving from
+  // dates: one source of truth for "is this a forecast day".
+  const stripForecastDays = stripDays.filter((d) => d.isForecast).length
+  const stripCaption =
+    stripForecastDays === 0
+      ? "Last 7 days · forecast unavailable right now"
+      : stripForecastDays >= stripDays.length
+        ? "Next 7 · forecast & estimated walk-in demand"
+        : `Next ${stripForecastDays} + recent history · forecast & estimated walk-in demand`
+
   // How many days in the visible strip carry a notable event — drives the
   // composite's "events factored in" sub-line (honest: only shown when > 0).
   const eventDaysInView = stripDays.filter((d) => topEventForDay(d.date) != null).length
@@ -430,7 +445,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                   </div>
                   {stripDays.length > 0 && (
                     <TkWeatherStrip
-                      caption="Next 7 · forecast & estimated walk-in demand"
+                      caption={stripCaption}
                       captionRight="vs a normal day"
                       days={stripDays.map((d) => {
                         const topEvent = topEventForDay(d.date)
