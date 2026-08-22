@@ -76,8 +76,8 @@ add-on and gets a row here. It does not become a tier.
 Two reasons, both Bryan's, and the second is the one that keeps getting forgotten:
 
 1. **The price genuinely varies.** A six-location group and a sixty-location group get different
-   per-location rates. The discount is real but small: on the order of 11%, 12%, 15%, and
-   **never more than that**.
+   per-location rates, and what each is worth to us differs by more than headcount. There is no
+   band table for this on purpose: see below.
 2. **That many locations needs work we have not built.** Regions, middle-tier management, roll-up
    reporting: a chain needs organisational structure a single restaurant does not, and some of it
    will be custom each time. **So we must not publish a price that gives the discount away before
@@ -106,53 +106,56 @@ because it was once purchasable, which was a live arbitrage (ALT-735).
 and what says who it is for. "Custom" describes how it is priced, not who it is for. One string in
 `PLAIN_TIER_NAMES` if that is ever preferred.
 
-### Multi-Location volume schedule (quote from this, do not improvise)
+### Multi-Location: there is no schedule, and that is the decision
 
-Applied to the $229 annual-effective per-location rate.
+**No published price. No discount bands. Nothing to quote from.** Decided by Bryan 2026-08-22, and
+this replaces the volume schedule that used to sit here.
 
-| Locations | Discount | Price/location | Margin |
-| --- | --- | --- | --- |
-| 1 to 5 | 0% | $229.00 | 70.4% |
-| 6 to 19 | **10%** | $206.10 | 67.4% |
-| 20 to 49 | 12% | $201.52 | 66.7% |
-| 50+ | 15% | $194.65 | 65.7% |
+The reason is not squeamishness about numbers. It is that **we do not yet know what supporting a
+genuinely custom arrangement takes.** A chain needs regions, middle-tier management and roll-up
+reporting we have not built, and each deal is likely to need something different. Publishing a
+discount schedule commits us to a price before we know the cost of the work, which is the one thing
+a quote is supposed to protect us from.
 
-Up to 10% is approve-freely. **Volume alone never justifies a discount:** per-location margin is
-identical at 1 location and at 200, because cost is linear and no vendor rate steps down until
-roughly 187 locations. The lever is **cadence mix, not price**: 10 daily plus 50 weekly at 12% off
-beats all-daily on margin, because they bought less.
+Percentages like "10%, 12%, 15%" have appeared in conversation and in the 08-19 decision record.
+**They were illustrations of why this is contact-us, not a schedule.** Do not treat them as bands,
+do not encode them, and do not quote from them.
 
-#### ⚠️ The margins in that table are wrong, and by how much (ALT-757, open)
+### The margin gates are an ENGINEERING guardrail. They do not veto a deal.
 
-**Do not quote from those percentages until this is decided.** The prices are fine; the margin
-column is computed against the wrong cost.
+This is worth stating plainly because an agent got it wrong on 2026-08-22 and argued the point at
+some length before Bryan corrected it.
 
-The schedule states its basis as "daily, 5 competitors, $61.20", which is **Standard's**
-entitlement. Multi-Location actually delivers 10 competitors, biweekly SEO, and roughly 4x
-Standard's SEO keyword allocation. Running the repo's own `estimateTierCost("top")` gives
-**$86.08**, against Standard's $70.33.
+**Where the 70% / 60% gates apply:** published, self-serve prices. Starter, Standard, the two add-ons.
+Anywhere a machine sells at a fixed number with no human judgement in the loop, an arbitrage or a
+thin line is a bug, and the gates catch it. That is what they are for, and the tests that enforce
+them have caught two real arbitrages.
 
-| Band | Price/location | Margin vs what Custom really delivers | Margin if Custom delivered Standard's entitlement |
-| --- | --- | --- | --- |
-| list, 0% | $229.00 | **62.4%** | 69.3% |
-| 11% off | $203.81 | **57.8%** | 65.5% |
-| 12% off | $201.52 | **57.3%** | 65.1% |
-| 15% off | $194.65 | **55.8%** | 63.9% |
+**Where they do not apply:** a negotiated contract. Bryan's words: *"these are the human decisions of
+doing business that go beyond protecting it. Let's treat the 70% gate as your gate and not mine."*
 
-So on today's entitlement **every discount band misses both margin gates**, and the undiscounted
-line misses the 70% gate too. On a 60-location chain the gap between the booked $61.20 and the real
-$86.08 is roughly **$1,493/month of contribution** the quote does not know it is giving away.
+A large multi-location contract can be worth more than its contribution margin: it can make the
+company fundable, saleable, licensable, or a reference that sells the next ten. Those returns do not
+appear in a per-location margin calculation, and refusing the deal to protect a percentage would be
+optimising the wrong thing. Thin margins have built very large companies.
 
-There is also an inversion worth naming: Custom currently delivers **more** than Standard for
-**less** per location ($229 vs $249). That is the same shape as the ALT-735 arbitrage, moved into the
-contract channel where no code gate can catch it.
+So: **run the numbers, hand them to whoever is quoting, and do not treat them as a gate.** Knowing a
+band costs 57% of contribution is useful. Concluding that it therefore cannot be offered is not the
+agent's call.
 
-**Recommendation on the table for Bryan:** make Multi-Location deliver **Standard's entitlement**,
-priced custom per location, and sell extra competitors and extra locations through the two add-ons
-that already exist. Then every band he named clears the 60% gate, list sits at 69.3%, the inversion
-disappears, and the offer matches the mental model in section 1a: two entitlement levels, custom
-pricing, two add-ons. The alternative is to keep the richer entitlement and raise the floor to about
-$287/location, which contradicts the "slight discount" intent and prices Custom above Standard.
+If someone wants the cost basis for a specific configuration, `estimateTierCost(tier, { cadence })`
+in `lib/billing/tier-cost.ts` is the repo's own model and reports it directly. For reference, on
+today's `top` entitlement it returns $86.08 per location against Standard's $70.33, the difference
+being competitor count and roughly 4x the SEO keyword allocation. That is **information for the
+conversation**, not a floor.
+
+### One real operational gap when a Custom deal closes
+
+`TIER_LIMITS.top` is a fixed default (10 competitors, biweekly SEO, daily brief). There is currently
+**no per-org entitlement override**, so a signed deal either matches those defaults or needs one.
+Locations and competitors are already purchasable per org and per location, which covers most of it;
+brief cadence and the SEO allocation are not adjustable per customer. Not urgent, since no Custom
+customer exists, but it is the thing to build first when one does.
 
 ---
 
@@ -284,7 +287,7 @@ the compiler rather than silently keeping the old org-wide behaviour.
 | Item | Ticket | What it blocks |
 | --- | --- | --- |
 | ~~The competitor add-on is priced flat but granted at every location~~ | ~~ALT-756~~ | **RESOLVED 2026-08-22.** A unit now attaches to one location. See §5. |
-| **The Multi-Location quote schedule's margins are computed against Standard's cost, not what Custom delivers.** Every discount band misses both gates on today's entitlement. See §1 for the numbers and the recommendation. | **ALT-757**, Medium | **Quoting a custom deal.** This is the sheet a founder reads on a phone call. |
+| ~~The Multi-Location quote schedule's margins are computed against Standard's cost~~ | ~~ALT-757~~ | **CLOSED BY DECISION 2026-08-22.** The finding was arithmetically right and answering the wrong question: there is no schedule to fix, because Custom is deliberately unpriced. See §1. |
 | No way to buy an additional location at all. | ALT-754 | Expansion revenue; every add-on is a support conversation. |
 | Add-on purchase UI (billing page, in-context prompts at the cap, location switcher, Portal quantity changes). | **ALT-689**, High | The whole metered model being self-serve. |
 | Purchased competitor slots are billed and displayed but the nightly dossier truncates them away. | filed 08-22 | Fires the moment add-on purchasing ships. |

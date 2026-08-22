@@ -141,9 +141,16 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     // and both money endpoints check it, because `top` undercuts Standard per location while
     // delivering more, and was briefly purchasable (ALT-735).
     //
-    // ⚠️ Its entitlement is under review (ALT-757): 10 competitors and biweekly SEO make it cost
-    // $86.08 against Standard's $70.33, so every discount band in the quote schedule misses both
-    // margin gates. Do not treat the numbers below as settled.
+    // Its entitlement below is a DEFAULT for a negotiated deal, not a published promise. A Custom
+    // arrangement is priced per deal because we do not yet know what supporting one takes, so do
+    // not compute a margin floor from these numbers and treat it as a gate: the 70%/60% gates guard
+    // PUBLISHED self-serve prices, where no human is judging. A contract can be worth more than its
+    // contribution margin. See docs/PRICING.md section 1. (This is where ALT-757 landed, closed by
+    // decision rather than by changing a number.)
+    //
+    // Worth knowing: there is no per-org entitlement override, so a signed deal either matches these
+    // defaults or needs one built. Locations and competitors are purchasable; cadence and the SEO
+    // allocation are not adjustable per customer.
     //
     // ALT-687/657 — ONE. Multi-Location is priced PER LOCATION ($275/mo each), so a single unit
     // of it is one location and the rest arrive as `locations_purchased`. This was 3 under the old
