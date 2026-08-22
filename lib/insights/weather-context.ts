@@ -81,7 +81,9 @@ export function generateWeatherCrossSignals(
       title: competitorName
         ? `${competitorName} has patio photos during warm weather`
         : "Warm weather patio opportunity",
-      summary: `Current conditions are ${Math.round(weather.today.temp_high_f)}°F and ${weather.today.weather_condition.toLowerCase()}. ${
+      // ALT-724: this is `temp_high_f` off a DAY-SUMMARY forecast row, so it is the day's high, not
+      // a reading for right now. An operator checking a thermometer at 9am would find us wrong.
+      summary: `Today should reach ${Math.round(weather.today.temp_high_f)}°F and ${weather.today.weather_condition.toLowerCase()}. ${
         competitorName
           ? `${competitorName} features outdoor dining photos — consider promoting your own patio.`
           : "Great weather for outdoor dining promotions."

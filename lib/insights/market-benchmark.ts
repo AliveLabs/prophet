@@ -121,8 +121,12 @@ const STANDING_LEAD: Record<MarketBenchmark["standing"], string> = {
 /** The rendered line. Denominated on both sides, no superlatives, no named rival. */
 export function formatBenchmarkLine(benchmark: MarketBenchmark): string {
   const reviews = benchmark.ownReviewCount.toLocaleString("en-US")
+  // ALT-726: `comparedCount` is the number of competitors that CLEARED the review floor and went
+  // into the median, which the type says explicitly. "You track" claimed it was the tracked total,
+  // so an operator watching 8 rivals read "across the 3 you track" and reasonably concluded we had
+  // lost five of them.
   const rivals =
-    benchmark.comparedCount === 1 ? "the 1 you track" : `the ${benchmark.comparedCount} you track`
+    benchmark.comparedCount === 1 ? "1 comparable competitor" : `${benchmark.comparedCount} comparable competitors`
   return (
     `${STANDING_LEAD[benchmark.standing]}: ${benchmark.ownRating.toFixed(1)} from ${reviews} reviews, ` +
     `against ${benchmark.medianRating.toFixed(1)} across ${rivals}.`

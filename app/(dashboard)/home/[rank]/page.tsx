@@ -260,8 +260,8 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
           <RevealOnView>
             <TkCard className="pd-card">
               <TkSentimentRows
-                caption="Negative sentiment by category"
-                captionRight="recent reviews"
+                caption="What your reviews talk about"
+                captionRight="share of recent reviews"
                 rows={sentiment}
               />
             </TkCard>

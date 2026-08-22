@@ -110,13 +110,17 @@ export function generateTrafficInsights(input: TrafficInsightInput): GeneratedIn
       }
     }
 
+    // ALT-723: `hourly_scores` is Google's popular-times index, 0-100 RELATIVE to this place's own
+    // busiest hour. It is not occupancy and we have no capacity denominator anywhere in the system,
+    // so "50% capacity" was a number we invented. A score of 50 means "half as busy as this place
+    // gets", which is what the copy now says.
     const curBusyHours = cur.hourly_scores.filter(s => s >= 50).length
     const prevBusyHours = prev.hourly_scores.filter(s => s >= 50).length
     if (curBusyHours > prevBusyHours + 2) {
       insights.push({
         insight_type: "traffic.extended_busy",
         title: `${competitorName} staying busier longer on ${dayName}s`,
-        summary: `Busy hours (>50% capacity) increased from ${prevBusyHours} to ${curBusyHours} hours on ${dayName}s.`,
+        summary: `Hours at more than half their busiest level went from ${prevBusyHours} to ${curBusyHours} on ${dayName}s.`,
         confidence: "medium",
         severity: "info",
         evidence: {

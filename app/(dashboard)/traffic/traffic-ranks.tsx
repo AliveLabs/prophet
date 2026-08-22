@@ -14,7 +14,12 @@ export default function TrafficRanks({ competitors }: { competitors: CompetitorP
   if (competitors.length === 0) return null
 
   const sorted = [...competitors].sort((a, b) => b.avg_peak - a.avg_peak)
+  // ALT-722: these averages can rest on different numbers of days, so the set average is a mean of
+  // means over unequal denominators. Left as-is because it is a rough reference line, not a claim,
+  // but the per-competitor caption below now states its own denominator rather than asserting a
+  // full week for everyone.
   const setAvg = Math.round(sorted.reduce((s, c) => s + c.avg_peak, 0) / sorted.length)
+  const FULL_WEEK = 7
 
   return (
     <div className="tk-trf-ranks">
@@ -34,9 +39,13 @@ export default function TrafficRanks({ competitors }: { competitors: CompetitorP
             <TkRangeBar
               value={comp.avg_peak}
               scale={["0%", `set avg ${setAvg}%`, "100%"]}
-              caption="Avg busy across the week"
+              caption={
+                comp.days_observed >= FULL_WEEK
+                  ? "Avg busy across the week"
+                  : `Avg busy across ${comp.days_observed} day${comp.days_observed === 1 ? "" : "s"}`
+              }
               captionRight={`${comp.avg_peak}%`}
-              tip={`Busiest ${comp.busiest_day} at ${comp.peak_hour}${comp.typical_time_spent ? ` · avg visit ${comp.typical_time_spent}` : ""}`}
+              tip={`Busiest ${comp.busiest_day} at ${comp.peak_hour}${comp.typical_time_spent ? ` · avg visit ${comp.typical_time_spent}` : ""}${comp.days_observed < FULL_WEEK ? ` · only ${comp.days_observed} of 7 days measured` : ""}`}
               tipValue={`${comp.avg_peak}% of peak`}
             />
             <span className="tk-trf-rank-meta">

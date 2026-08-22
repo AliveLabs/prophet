@@ -133,13 +133,18 @@ export type BreakoutQuote = {
   date?: string
 }
 
-/** Negative-sentiment share within one review category — the food/wait/price/cleanliness breakdown.
- *  `pct` is a SHARE (0-100) of the categorized theme mentions, never a fabricated count of customers. */
+/** How much of the review conversation each category takes up, plus which way that category leans.
+ *
+ *  ALT-706: this used to be described as a "negative-sentiment share", which is NOT what `pct` is
+ *  and led the UI to render it as one. `pct` is the category's share of ALL categorized mentions,
+ *  positive included. Whether the category is a problem is `direction`, a separate field. A
+ *  category can be 40% of the conversation and overwhelmingly positive. */
 export type SentimentCategory = {
   /** A normalized review category: food | service | wait | price | cleanliness | ambiance | ... */
   category: string
-  /** Share of mentions in this category, 0-100 (rounded). */
+  /** Share of ALL categorized mentions that fall in this category, 0-100. Not a negative share. */
   pct: number
+  /** Which sentiment dominates this category. THIS is the good/bad signal, not `pct`. */
   direction: "positive" | "negative" | "mixed"
 }
 
