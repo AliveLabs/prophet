@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { createHash } from "crypto"
+import { scrubInsightRows } from "@/lib/jobs/scrub-insight-rows"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { PipelineStepDef } from "../types"
 import { mapWithConcurrency } from "@/lib/jobs/concurrency"
@@ -562,7 +563,10 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
       label: "Saving all insights",
       run: async (c) => {
         if (c.state.insightsPayload.length > 0) {
-          await c.supabase.from("insights").upsert(c.state.insightsPayload, {
+          // ALT-765: brand-voice compliance at the write boundary, so every producer above is covered
+          // and the thirteenth one cannot forget. `evidence` is deliberately untouched: it carries
+          // verbatim review text.
+          await c.supabase.from("insights").upsert(scrubInsightRows(c.state.insightsPayload), {
             onConflict: "location_id,competitor_id,date_key,insight_type",
           })
         }
