@@ -23,6 +23,7 @@ import type { ReviewSentiment } from "@/lib/insights/dossier/types"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { generateSeoInsights, filterNoDiffSafeSeoInsights, type SeoInsightContext } from "@/lib/seo/insights"
 import { SEO_SNAPSHOT_TYPES } from "@/lib/seo/types"
+import { loadCompetitorMenu } from "@/lib/content/menu-history"
 import type {
   DomainRankSnapshot,
   NormalizedRankedKeyword,
@@ -536,8 +537,11 @@ export function buildInsightsSteps(): PipelineStepDef<InsightsPipelineCtx>[] {
         // ENG-M6: read each competitor's weekly menu snapshot concurrently (bounded). compMenus is
         // consumed by id/name lookup downstream, so push order doesn't matter.
         await mapWithConcurrency(c.competitors, 4, async (comp) => {
-          const { data: s } = await c.supabase.from("snapshots").select("raw_data").eq("competitor_id", comp.id).eq("snapshot_type", "web_menu_weekly").order("date_key", { ascending: false }).limit(1).maybeSingle()
-          if (s) compMenus.push({ competitorId: comp.id, competitorName: comp.name ?? "Competitor", menu: s.raw_data as MenuSnapshot, siteContent: null })
+          // ALT-740: this was single-latest while the OWN menu above deliberately unions. The
+          // own-menu raw read is justified in the comment there (its blip guards need the raw
+          // capture); a competitor menu has no such reason, so it read one thin scrape.
+          const compRead = await loadCompetitorMenu(c.supabase, comp.id)
+          if (compRead.menu) compMenus.push({ competitorId: comp.id, competitorName: comp.name ?? "Competitor", menu: compRead.menu, siteContent: null })
         })
 
         const rawInsights = generateContentInsights(locMenu, compMenus, locSiteContent, previousMenus, rawCurrentMenu)

@@ -1,5 +1,6 @@
 import { cacheTag, cacheLife } from "next/cache"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
+import { loadLocationMenu, loadCompetitorMenu } from "@/lib/content/menu-history"
 
 export type CachedContentResult = {
   siteContentSnap: { raw_data: unknown; date_key: string } | null
@@ -17,7 +18,12 @@ export async function fetchContentPageData(
 
   const supabase = createAdminSupabaseClient()
 
-  const [{ data: siteSnap }, { data: menuSnapRow }, { data: comps }] = await Promise.all([
+  // ALT-740: the /content page was the FIFTH copy of "read the single latest raw menu scrape",
+  // the one the ALT-363 union fix missed. On a day the scrape returned 3 items, this page showed a
+  // 3-item menu for a menu we knew ran to 110, while every producer skill saw the union. Same
+  // symptom, different surface. Both reads below now go through lib/content/menu-history, which is
+  // the one place that unions the recent window and takes freshness from the newest RAW capture.
+  const [{ data: siteSnap }, ownMenu, { data: comps }] = await Promise.all([
     supabase
       .from("location_snapshots")
       .select("raw_data, date_key")
@@ -26,14 +32,7 @@ export async function fetchContentPageData(
       .order("date_key", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase
-      .from("location_snapshots")
-      .select("raw_data, date_key")
-      .eq("location_id", locationId)
-      .eq("provider", "firecrawl_menu")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+    loadLocationMenu(supabase, locationId),
     supabase
       .from("competitors")
       .select("id, name, metadata, is_active")
@@ -45,25 +44,20 @@ export async function fetchContentPageData(
     (c) => (c.metadata as Record<string, unknown>)?.status === "approved"
   )
 
+  // ALT-740: competitor menus went through the same single-latest read. The dossier already
+  // unions these (build.ts), so the page and the brief could disagree about the same competitor's
+  // menu on the same day.
   const competitorMenuSnaps: Array<{ competitor_id: string; raw_data: unknown }> = []
   for (const comp of approved) {
-    const { data: compMenuSnap } = await supabase
-      .from("snapshots")
-      .select("raw_data")
-      .eq("competitor_id", comp.id)
-      .eq("snapshot_type", "web_menu_weekly")
-      .order("date_key", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (compMenuSnap) {
-      competitorMenuSnaps.push({ competitor_id: comp.id, raw_data: compMenuSnap.raw_data })
+    const read = await loadCompetitorMenu(supabase, comp.id)
+    if (read.menu) {
+      competitorMenuSnaps.push({ competitor_id: comp.id, raw_data: read.menu as unknown })
     }
   }
 
   return {
     siteContentSnap: siteSnap ? { raw_data: siteSnap.raw_data, date_key: siteSnap.date_key } : null,
-    menuSnap: menuSnapRow ? { raw_data: menuSnapRow.raw_data, date_key: menuSnapRow.date_key } : null,
+    menuSnap: ownMenu.menu ? { raw_data: ownMenu.menu as unknown, date_key: ownMenu.dateKey ?? "" } : null,
     competitors: approved.map((c) => ({ id: c.id, name: c.name ?? "Competitor", metadata: c.metadata })),
     competitorMenuSnaps,
   }
