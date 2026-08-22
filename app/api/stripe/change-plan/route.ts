@@ -9,11 +9,17 @@ import { resolvePriceIdOrThrow, resolveAddOnPriceInfo } from "@/lib/stripe/prici
 import { isValidIndustryType } from "@/lib/verticals"
 import {
   SELF_SERVE_TIERS,
+  TIER_LIMITS,
   isPaidTier,
   isSelfServeTier,
   tierDisplayName,
   type Cadence,
 } from "@/lib/billing/tiers"
+import {
+  planCompetitorTrim,
+  resolveTrimSelection,
+  type TrimLocation,
+} from "@/lib/billing/competitor-trim"
 import { SUPPORT_EMAIL } from "@/lib/support/contact"
 
 // POST /api/stripe/change-plan
@@ -41,6 +47,10 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}))
     const tier = body.tier
     const cadence = body.cadence
+    // Present on the SECOND call, after the customer has chosen what to keep on the trim screen.
+    const keepCompetitorIds: string[] | null = Array.isArray(body.keepCompetitorIds)
+      ? body.keepCompetitorIds.filter((x: unknown): x is string => typeof x === "string")
+      : null
 
     // ALT-732: same hole as /api/stripe/checkout, in the second of the two endpoints that can
     // move money. This validated with PAID_TIERS, so an existing Standard subscriber could
@@ -149,6 +159,70 @@ export async function POST(request: Request) {
     // it would tell someone who has decided Standard is too expensive that their only option is
     // to cancel, and losing the account costs far more than the few days of Starter serve cost.
     // Flagged for Bryan rather than decided silently; reversing it is a one-line guard here.
+    // ── Downgrading past the competitor cap needs the customer's choice, not ours ──────────────
+    //
+    // A Standard org holding 5 competitors moving to Starter (cap 3) used to just... land there.
+    // Nothing deactivated the excess, the roster still showed 5, and the nightly brief analysed an
+    // arbitrary subset. Ordering that query made it deterministic and the over-cap notice made it
+    // visible, but neither is the same as being ASKED. Bryan's call: a deselect screen.
+    //
+    // So this route answers the first call with a 409 carrying what the screen needs, and applies
+    // the change on the second call once `keepCompetitorIds` says what to keep.
+    const newCap = TIER_LIMITS[tier].includedCompetitorsPerLocation
+    const { data: locRows } = await admin
+      .from("locations")
+      .select("id, name, competitors_purchased")
+      .eq("organization_id", org.id)
+    const { data: compRows } = await admin
+      .from("competitors")
+      .select("id, name, location_id, created_at, metadata")
+      .in("location_id", (locRows ?? []).map((l) => l.id))
+      .eq("is_active", true)
+
+    const trimLocations: TrimLocation[] = (locRows ?? []).map((l) => ({
+      locationId: l.id,
+      locationName: l.name ?? "This location",
+      // Purchased slots survive a plan change: they are billed separately, so they add to the NEW
+      // tier's included count rather than being lost with the old one.
+      cap: newCap + Math.max(0, l.competitors_purchased ?? 0),
+      competitors: (compRows ?? [])
+        .filter(
+          (c) =>
+            c.location_id === l.id &&
+            (c.metadata as Record<string, unknown> | null)?.status === "approved",
+        )
+        .map((c) => ({ id: c.id, name: c.name ?? "This competitor", createdAt: c.created_at })),
+    }))
+    const trims = planCompetitorTrim(trimLocations)
+
+    let removeIds: string[] = []
+    if (trims.length > 0) {
+      if (!keepCompetitorIds) {
+        // Not an error the customer caused, so it carries the data to fix it rather than a message.
+        return NextResponse.json(
+          {
+            reason: "needs_competitor_selection",
+            error: "Choose which competitors to keep on this plan.",
+            newTierName: tierDisplayName(tier),
+            selection: trims.map((t) => ({
+              locationId: t.locationId,
+              locationName: t.locationName,
+              cap: t.cap,
+              mustRemove: t.mustRemove,
+              suggestedKeepIds: t.suggestedKeepIds,
+              competitors: t.competitors.map((c) => ({ id: c.id, name: c.name })),
+            })),
+          },
+          { status: 409 },
+        )
+      }
+      const resolved = resolveTrimSelection(trims, keepCompetitorIds)
+      if (!resolved.ok) {
+        return NextResponse.json({ error: resolved.message }, { status: 400 })
+      }
+      removeIds = resolved.removeIds
+    }
+
     const trialEnd = current.status === "trialing" ? current.trial_end : null
     const updated = await stripe.subscriptions.update(org.stripe_subscription_id, {
       items: [{ id: currentItemId, price: newPriceId }],
@@ -159,7 +233,32 @@ export async function POST(request: Request) {
 
     const { tier: newTier } = await applySubscriptionToOrg(admin, org.id, updated)
 
-    return NextResponse.json({ ok: true, tier: newTier })
+    // Deactivate AFTER the plan change lands, deliberately. The other order strips competitors and
+    // then, if Stripe refuses, leaves the customer on the plan they were trying to leave with data
+    // gone for nothing. This order can only leave them briefly over cap, which the competitors page
+    // now states plainly and the nightly brief handles deterministically.
+    //
+    // Soft delete (is_active = false), which is what the rest of the product means by "stop
+    // watching": history survives and re-adding restores it.
+    if (removeIds.length > 0) {
+      const { error: trimErr } = await admin
+        .from("competitors")
+        .update({ is_active: false })
+        .in("id", removeIds)
+      if (trimErr) {
+        console.error(
+          `[change-plan] plan changed to ${newTier} but trimming ${removeIds.length} competitor(s) FAILED org=${org.id}: ${trimErr.message}`,
+        )
+        return NextResponse.json({
+          ok: true,
+          tier: newTier,
+          warning:
+            "Your plan changed, but we could not stop watching the ones you deselected. Your Competitors page will show what is over your plan.",
+        })
+      }
+    }
+
+    return NextResponse.json({ ok: true, tier: newTier, removed: removeIds.length })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to change plan"
     const isAuth = /owner|admin|member/i.test(msg)
