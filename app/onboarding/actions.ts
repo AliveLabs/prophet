@@ -1375,6 +1375,12 @@ export async function completeOnboardingAction(input: {
     )
   }
 
+  // ALT-729: count what was actually ACTIVATED, not what was submitted. The welcome email told the
+  // operator "Competitors tracked: N" using input.competitorIds.length, which is the submitted
+  // list. Two things shrink it: the tier cap above (which already logs the mismatch, so the code
+  // knew the numbers differed) and a competitor row that no longer resolves for this location. So a
+  // Starter operator who picked 5 was told we track 5 while we tracked 3.
+  let activatedCompetitorCount = 0
   if (cappedCompetitorIds.length > 0) {
     for (const compId of cappedCompetitorIds) {
       const { data: comp } = await admin
@@ -1391,10 +1397,15 @@ export async function completeOnboardingAction(input: {
         status: "approved",
       }
 
-      await admin
+      const { error: activateError } = await admin
         .from("competitors")
         .update({ is_active: true, metadata })
         .eq("id", compId)
+      if (activateError) {
+        console.warn(`[Onboarding] competitor ${compId} not activated: ${activateError.message}`)
+        continue
+      }
+      activatedCompetitorCount += 1
     }
   }
 
@@ -1436,7 +1447,7 @@ export async function completeOnboardingAction(input: {
       react: Welcome({
         userName,
         locationName: locInfo?.name ?? "Your location",
-        competitorCount: input.competitorIds.length,
+        competitorCount: activatedCompetitorCount,
         dashboardUrl: `${appUrl}/home`,
       }),
       clientFacing: true,

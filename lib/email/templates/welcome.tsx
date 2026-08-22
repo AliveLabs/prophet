@@ -57,10 +57,16 @@ export function Welcome({
 
         <Text style={emailStyles.heading2}>What happens now?</Text>
         <Text style={emailStyles.paragraph}>
-          Ticket is already collecting data on your competitors. Within 24 hours,
-          you&rsquo;ll start seeing your first insights. Check back in a week
-          for your first weekly intelligence briefing: the 5 most important
-          things happening in your local market.
+          {/* ALT-730: this promised "your first weekly intelligence briefing: the 5 most
+              important things" in the FIRST email a customer receives. The weekly digest exists but
+              its sends are gated OFF by WEEKLY_DIGEST_EMAILS_ENABLED, which is not set in
+              production, so no digest has ever gone out and the specific "5 most important things"
+              is not a shape anything produces. Promising it in the welcome email meant every new
+              operator was told to expect something that would never arrive.
+              Replaced with what actually happens. */}
+          Ticket is already collecting data on your competitors. Within 24 hours
+          you&rsquo;ll see your first brief, and a fresh one lands on your
+          dashboard on your plan&rsquo;s schedule from then on.
         </Text>
 
         <Section style={emailStyles.ctaContainer}>

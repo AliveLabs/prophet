@@ -46,8 +46,12 @@ export default function SupportForm() {
     return (
       <div className="auth-msg auth-msg--ok" role="status">
         <span>
-          We have your request. Your reference is <strong>{reference}</strong>, and we have emailed a
-          copy to <strong>{email.trim().toLowerCase()}</strong>. If this is about getting in, we will
+          {/* ALT-712: this claimed "we have emailed a copy to <address>". No email is ever sent to
+              the submitter; the form writes the request and notifies us. Telling someone to check an
+              inbox that will stay empty is worse than saying nothing, and it also invites a
+              duplicate submission when nothing arrives. */}
+          We have your request. Your reference is <strong>{reference}</strong>, so keep it for
+          any follow-up. If this is about getting in, we will
           usually reply with a fresh sign-in link.
         </span>
       </div>
