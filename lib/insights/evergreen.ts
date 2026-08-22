@@ -65,9 +65,11 @@ export async function clearDismissalCooldown(
   if (error) throw new Error(`clearDismissalCooldown failed: ${error.message}`)
 }
 
-/** The set of playKeys currently in cooldown for a location (expires_at in the future). FAIL-SOFT:
- *  returns an empty set on any error (incl. the table not existing pre-migration) so a brief build
- *  never breaks — the cooldown is simply inactive until the migration lands. */
+/** The set of playKeys currently in cooldown for a location (expires_at in the future).
+ *
+ *  FAIL-SOFT, and deliberately so: a brief build must never break on this. But it is LOUD now
+ *  (ALT-748). An empty set silently re-enables every dismissed play, and "the migration has not
+ *  landed yet" stopped being the likely explanation once the table shipped. */
 export async function loadActiveCooldowns(
   locationId: string,
   opts: { client?: EvergreenStore; nowMs?: number } = {},
@@ -79,9 +81,21 @@ export async function loadActiveCooldowns(
       .select("play_key")
       .eq("location_id", locationId)
       .gt("expires_at", iso(now))
-    if (error) return new Set()
+    // ALT-748: still FAIL-SOFT, now LOUD. An empty set means every dismissed play is eligible to
+    // regenerate into tomorrow's brief, which the operator experiences as "I dismissed this and it
+    // came back" and reads as the product ignoring them. The original rationale was "the table may
+    // not exist pre-migration"; evergreen_dismissals has been in prod and in the generated types
+    // for a while, so a read error now means something is actually wrong.
+    if (error) {
+      console.error(
+        `[evergreen] dismissal cooldown INACTIVE for ${locationId} (${error.code ?? ""} ${error.message}). ` +
+          `Dismissed plays can resurface in this build.`,
+      )
+      return new Set()
+    }
     return new Set((data ?? []).map((r) => r.play_key))
-  } catch {
+  } catch (err) {
+    console.error(`[evergreen] dismissal cooldown INACTIVE for ${locationId} (threw):`, err)
     return new Set()
   }
 }

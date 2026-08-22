@@ -17,8 +17,8 @@ interface TrialOrg {
 // The one access rule (trial-tier-model-plan.md v2, "trial is OF Tier 2"):
 //
 //   - subscription_tier = 'suspended' -> NEVER active (admin override)
-//   - payment_state present (org has been through Stripe checkout) -> blocked
-//       only when Stripe has given up: canceled | incomplete_expired | unpaid.
+//   - payment_state present (org has been through Stripe checkout) -> blocked when Stripe has
+//       given up OR stopped billing: canceled | incomplete_expired | unpaid | paused.
 //       trialing / active / past_due / incomplete -> active.
 //   - payment_state null (never completed checkout) -> active iff trial_ends_at
 //       is in the future. Covers pre-Stripe internal-clock trials and the
@@ -31,10 +31,19 @@ export function isTrialActive(org: TrialOrg): boolean {
   if (org.subscription_tier === "suspended") return false
 
   if (org.payment_state != null) {
+    // ALT-749: `paused` was missing, so a paused subscription got FULL access. It is a value
+    // `normalizePaymentState` explicitly accepts, so the system has a slot for it, and a paused
+    // subscription is by definition one Stripe is not billing.
+    //
+    // Latent today: `paused` only arises from trial_settings.end_behavior.missing_payment_method =
+    // 'pause', and our checkout sets that to 'cancel'. `pause_collection` does NOT set this status
+    // (Stripe's docs are explicit). So nothing reaches it now, and one changed setting or one
+    // portal action would have made it reachable and silent.
     const blocked =
       org.payment_state === "canceled" ||
       org.payment_state === "incomplete_expired" ||
-      org.payment_state === "unpaid"
+      org.payment_state === "unpaid" ||
+      org.payment_state === "paused"
     return !blocked
   }
 

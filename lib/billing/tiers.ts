@@ -5,7 +5,10 @@
 //
 // Public surface used by the pricing page / upgrade buttons: includedLocations,
 // includedCompetitorsPerLocation, socialPlatforms, seoCadence, runCadence,
-// photoAnalysisDepth, retentionDays, support.
+// and nothing else. `photoAnalysisDepth`, `retentionDays` and `support` USED TO BE HERE and are
+// gone (ALT-734): all three had zero readers, so they were config that described an intention
+// rather than gating a behaviour. Same reasoning as the ALT-733 note below. When retention or a
+// support tier is actually enforced, the field returns WITH its reader.
 // Everything else (eventsQueriesPerRun, seoTrackedKeywords, etc.) is an
 // internal pipeline-tuning knob not sold on the pricing page.
 //
@@ -37,7 +40,6 @@ export type Cadence = "monthly" | "annual"
 export type SocialPlatform = "instagram" | "facebook" | "tiktok"
 
 export type SeoCadence = "weekly" | "biweekly" // biweekly = 2x / week
-export type SupportTier = "email" | "email_chat" | "dedicated"
 
 export const ALL_SOCIAL_PLATFORMS: readonly SocialPlatform[] = [
   "instagram",
@@ -74,9 +76,6 @@ export type TierLimits = {
    *  Do not add a second cadence field that has to agree with this one. Two fields
    *  that must match, with nothing enforcing the match, IS the bug this replaced. */
   runCadence: "weekly" | "daily"
-  photoAnalysisDepth: number
-  retentionDays: number
-  support: SupportTier
 
   // --- Internal pipeline tuning (not sold) -------------------------------
   eventsQueriesPerRun: number
@@ -97,9 +96,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 1,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
-    photoAnalysisDepth: 10,
-    retentionDays: 30,
-    support: "email",
     runCadence: "weekly",
     eventsQueriesPerRun: 1,
     eventsMaxDepth: 10,
@@ -117,9 +113,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "weekly",
-    photoAnalysisDepth: 30,
-    retentionDays: 90,
-    support: "email_chat",
     runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
@@ -142,9 +135,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 3,
     competitorSocialNetworks: ALL_SOCIAL_PLATFORMS,
     seoCadence: "biweekly",
-    photoAnalysisDepth: 30,
-    retentionDays: 365,
-    support: "dedicated",
     runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
@@ -162,9 +152,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     ownSocialNetworkLimit: 0,
     competitorSocialNetworks: [] as const,
     seoCadence: "weekly",
-    photoAnalysisDepth: 0,
-    retentionDays: 0,
-    support: "email",
     runCadence: "weekly",
     eventsQueriesPerRun: 0,
     eventsMaxDepth: 0,

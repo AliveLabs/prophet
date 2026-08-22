@@ -371,6 +371,10 @@ export type Brief = {
      *  the roll-up so a first brief's lower call count is explainable from spend analysis alone,
      *  without joining back to skillHealth. Absent on every nightly build. */
     producersSkipped?: number
+    /** ALT-747: present when the brand-fit safety gate served its no-flag fallback, so a brief that
+     *  shipped WITHOUT a brand-fit review is distinguishable from one reviewed and found clean.
+     *  Absent on a healthy build. */
+    safetyGateFallbackReason?: string
   }
   /** Deterministic eval result for THIS served brief (lib/eval/record). Observation only — the
    *  checks never blocked or altered the brief. ABSENT means "not evaluated" (pre-step-3 briefs, or

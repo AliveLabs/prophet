@@ -451,13 +451,7 @@ export function getContentMaxPages(tier: SubscriptionTier): number {
 // "API access" and "White-label reports" at customers on the billing page, the held-account panel
 // and the onboarding pricing screen. We do not have either feature.
 
-export function getPhotoAnalysisDepth(tier: SubscriptionTier): number {
-  return TIER_LIMITS[tier].photoAnalysisDepth
-}
 
-export function getRetentionDays(tier: SubscriptionTier): number {
-  return TIER_LIMITS[tier].retentionDays
-}
 
 export function getCompetitorSocialPlatforms(
   tier: SubscriptionTier

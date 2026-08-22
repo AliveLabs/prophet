@@ -44,9 +44,9 @@ const SOLD_DIMENSIONS: ReadonlyArray<(t: SubscriptionTier) => number> = [
   (t) => TIER_LIMITS[t].ownSocialNetworkLimit,
   (t) => (TIER_LIMITS[t].runCadence === "daily" ? 1 : 0),
   (t) => (TIER_LIMITS[t].seoCadence === "biweekly" ? 1 : 0),
-  (t) => TIER_LIMITS[t].photoAnalysisDepth,
-  (t) => TIER_LIMITS[t].retentionDays,
-  (t) => ({ email: 0, email_chat: 1, dedicated: 2 })[TIER_LIMITS[t].support],
+  // ALT-734 removed photoAnalysisDepth, retentionDays and support from TIER_LIMITS: all three had
+  // zero readers, so none of them was an entitlement anything enforced. Dropping them makes this
+  // guard MORE honest, because it now compares only dimensions the product actually delivers.
 ]
 
 /** True when `b` gives at least as much as `a` on every sold dimension, and more on one. */

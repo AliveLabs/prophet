@@ -234,7 +234,9 @@ export function pickLeadEvent(events: NormalizedEvent[]): NormalizedEvent | null
 /* ── Severity (insight row) → kit confidence, honestly. ──────────────────── */
 export function severityToConfidence(severity?: string | null): TkConfidenceLevel {
   if (severity === "critical" || severity === "warning") return "high"
-  if (severity === "info" || severity === "notice") return "medium"
+  // ALT-751: "notice" was here too. insights.severity is CHECK-constrained to
+  // info | warning | critical, so it can never be written and the branch was dead.
+  if (severity === "info") return "medium"
   return "directional"
 }
 
