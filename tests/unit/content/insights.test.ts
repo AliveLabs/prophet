@@ -438,3 +438,90 @@ describe("generateContentInsights — kind-aware price positioning (ALT-296)", (
     expect(price?.title.toLowerCase()).toContain("combo meal")
   })
 })
+
+// ── ALT-290: the COMPETITOR's menu coverage is checked too ──────────────────────────────────
+//
+// `menuHasCoverage` had one call site and it was passed `locationMenu`. Every menu.* claim is a
+// statement about a competitor's menu, and the competitor's coverage ratio was computed (ALT-740
+// unions their snapshots for exactly this purpose) and then never read.
+//
+// The live case these tests encode: Cadillac Pizza Pub's captured entree count fell 124 -> 57 on
+// 2026-08-16 and its reported average price fell 40% ($14.59 -> $8.70) with no real price change.
+// The insight read "high confidence" on all 14 days either side, because confidence graded the item
+// COUNT (57 clears HIGH_CONFIDENCE_ITEMS=12 easily) and never asked what share of the menu we had.
+// 57/124 = 0.46 coverage, well under the 0.85 bar.
+describe("generateContentInsights — competitor menu coverage (ALT-290)", () => {
+  const withCoverage = (m: MenuSnapshot, ratio: number | undefined): MenuSnapshot => ({
+    ...m,
+    parseMeta: { ...m.parseMeta, ...(ratio === undefined ? {} : { coverageRatio: ratio }) },
+  })
+  const comp = (menu: MenuSnapshot, name = "Rival") => ({
+    competitorId: name, competitorName: name, menu, siteContent: null,
+  })
+  const menuTypes = (out: GeneratedInsight[]) =>
+    new Set(out.filter((i) => i.insight_type.startsWith("menu.")).map((i) => i.evidence.competitor))
+
+  // 12 items a side keeps comparePriceByKind in its "high" band, so any "medium" below is the
+  // coverage cap talking and not the sample size.
+  const locMenu = kMenu(kItems(12, 10, "entree"))
+  const compMenu = kMenu(kItems(12, 20, "entree"))
+  const price = (out: GeneratedInsight[]) => out.find((i) => i.insight_type === "menu.price_positioning_shift")
+
+  it("SUPPRESSES every menu claim about a competitor whose scrape lost half its items", () => {
+    // 0.46 is the real Cadillac ratio.
+    const out = generateContentInsights(withCoverage(locMenu, 1), [comp(withCoverage(compMenu, 0.46))], null, [])
+    expect(out.filter((i) => i.insight_type.startsWith("menu."))).toEqual([])
+  })
+
+  it("suppresses only the thin competitor, not the healthy one alongside it", () => {
+    const out = generateContentInsights(
+      withCoverage(locMenu, 1),
+      [comp(withCoverage(compMenu, 0.46), "Thin"), comp(withCoverage(compMenu, 0.97), "Healthy")],
+      null,
+      [],
+    )
+    expect(menuTypes(out)).toEqual(new Set(["Healthy"]))
+  })
+
+  it("still says high confidence when BOTH menus are verifiably complete", () => {
+    const out = generateContentInsights(withCoverage(locMenu, 0.97), [comp(withCoverage(compMenu, 0.97))], null, [])
+    expect(price(out)?.confidence).toBe("high")
+  })
+
+  it("demotes to medium when only OUR side is verifiably complete", () => {
+    // Passes the suppression gate (0.9 > 0.85) but is not strong enough to headline as high...
+    const out = generateContentInsights(withCoverage(locMenu, 0.97), [comp(withCoverage(compMenu, 0.86))], null, [])
+    expect(price(out)?.confidence).toBe("high")
+    // ...whereas an unknown competitor baseline cannot support the claim at all.
+    const unknown = generateContentInsights(withCoverage(locMenu, 0.97), [comp(withCoverage(compMenu, undefined))], null, [])
+    expect(price(unknown)?.confidence).toBe("medium")
+  })
+
+  it("demotes to medium when only the COMPETITOR's side is verifiably complete", () => {
+    const out = generateContentInsights(withCoverage(locMenu, undefined), [comp(withCoverage(compMenu, 0.97))], null, [])
+    expect(price(out)?.confidence).toBe("medium")
+  })
+
+  it("an unknown baseline demotes but never suppresses, because a new competitor has no history", () => {
+    // The two polarities that must stay opposite: suppression fails OPEN on unknown coverage,
+    // the confidence badge fails CLOSED. Collapsing either into the other is a shipped bug.
+    const out = generateContentInsights(withCoverage(locMenu, undefined), [comp(withCoverage(compMenu, undefined))], null, [])
+    expect(price(out)).toBeDefined()
+    expect(price(out)?.confidence).toBe("medium")
+  })
+
+  it("leaves content.* claims alone: a thin MENU says nothing about their website", () => {
+    // The asymmetry is the point. Menu coverage gates menu claims only.
+    const siteContent = {
+      detected: { reservation: true, onlineOrdering: false, privateDining: false, catering: false, deliveryPlatforms: [] },
+    } as unknown as Parameters<typeof generateContentInsights>[2]
+    const out = generateContentInsights(
+      withCoverage(locMenu, 1),
+      [{ competitorId: "c", competitorName: "Rival", menu: withCoverage(compMenu, 0.46), siteContent }],
+      { detected: { reservation: false, onlineOrdering: false, privateDining: false, catering: false, deliveryPlatforms: [] } } as unknown as Parameters<typeof generateContentInsights>[2],
+      [],
+    )
+    expect(out.filter((i) => i.insight_type.startsWith("menu."))).toEqual([])
+    expect(out.some((i) => i.insight_type === "content.conversion_feature_gap")).toBe(true)
+  })
+})
