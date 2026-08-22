@@ -62,6 +62,56 @@ function menuCoverageIsStrong(menu: MenuSnapshot | null): boolean {
   return typeof ratio === "number" && ratio >= MENU_MIN_COVERAGE_RATIO
 }
 
+// ⚠️ The two functions above fail in OPPOSITE directions on an unknown coverageRatio, and that is
+// deliberate. Do not "make them consistent".
+//
+//   menuHasCoverage      unknown -> PASS. A brand-new location has no baseline, and muting it for
+//                        lack of history would gate it forever.
+//   menuCoverageIsStrong unknown -> FAIL. "High confidence" is a claim about completeness, and we
+//                        cannot make it about a read we have nothing to compare against.
+//
+// Suppression fails open; the confidence badge fails closed. Collapsing either polarity into the
+// other reintroduces a shipped bug.
+
+/**
+ * Competitors whose menu read is complete enough to compare our menu against (ALT-290).
+ *
+ * THE BUG THIS FIXES: `menuHasCoverage` had exactly one call site, and it was passed
+ * `locationMenu`. Every menu.* claim is a statement about a COMPETITOR's menu, and the
+ * competitor's coverage ratio was computed (ALT-740 unioned their snapshots for precisely this
+ * reason) and then never read. `lib/content/menu-history.ts` says it outright: "Competitor menus
+ * are where the instability was MEASURED (every spread above is a competitor), so this matters at
+ * least as much as the own-menu path." It did not, in fact, matter at all.
+ *
+ * What that cost, from live prod rows: Cadillac Pizza Pub's captured entree count fell 124 -> 57
+ * on 2026-08-16 and its reported average price fell 40%, from $14.59 to $8.70, with no real price
+ * change. The insight said "high confidence" on all 14 days either side of the discontinuity,
+ * because confidence read the item COUNT (57 clears HIGH_CONFIDENCE_ITEMS = 12 easily) and never
+ * asked what fraction of that menu we had actually captured. Coverage would have caught it:
+ * 57/124 = 0.46, far under the 0.85 bar.
+ *
+ * Used by the menu.* rules only. The content.* rules read `siteContent`, not the menu, so they
+ * keep iterating the full list: a thin menu scrape says nothing about whether a competitor's
+ * website has online ordering.
+ */
+function menuComparableCompetitors(comps: readonly CompetitorMenu[]): CompetitorMenu[] {
+  return comps.filter((c) => menuHasCoverage(c.menu))
+}
+
+/**
+ * Cap a sample-size confidence at "medium" unless every menu behind the claim is verifiably
+ * complete. `comparePriceByKind` grades confidence on how many items it compared, which answers
+ * "could one more item move this average?" but not "are we even looking at the whole menu?" Both
+ * have to hold before we say "high".
+ */
+function coverageCappedConfidence(
+  sampleConfidence: "high" | "medium",
+  ...menus: (MenuSnapshot | null)[]
+): "high" | "medium" {
+  if (sampleConfidence !== "high") return sampleConfidence
+  return menus.every(menuCoverageIsStrong) ? "high" : "medium"
+}
+
 // ── Sustained menu-change detection (ALT-380) ──────────────────────────────
 // Real menus change RARELY (roughly annually, a few seasonal swaps). A signal that a menu
 // "changed" every week is almost always a SCRAPE FAILURE, not reality — the scraper read a
@@ -482,11 +532,16 @@ export function generateContentInsights(
   const locDineIn = locationMenu ? filterByMenuType(locationMenu.categories, "dine_in") : []
   const locCatering = locationMenu ? filterByMenuType(locationMenu.categories, "catering") : []
 
+  // ALT-290. Menu claims compare OUR menu to a COMPETITOR's, so both reads have to be complete
+  // enough to ground one. Our side is gated once at the bottom of this function; this is the other
+  // side, which was never checked. See menuComparableCompetitors for what that cost.
+  const menuComps = menuComparableCompetitors(competitorMenus)
+
   // -----------------------------------------------------------------------
   // 1. menu.price_positioning_shift (dine-in only)
   // -----------------------------------------------------------------------
   if (locDineIn.length > 0) {
-    for (const comp of competitorMenus) {
+    for (const comp of menuComps) {
       const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
       if (compDineIn.length === 0) continue
       // Compare like-to-like by item kind (ALT-296) — never a whole-menu flat average.
@@ -506,7 +561,9 @@ export function generateContentInsights(
             ? `${comp.competitorName} ${label} prices are ${pct}% higher`
             : `${comp.competitorName} ${label} prices are ${pct}% lower`,
           summary: `Your average ${label} price ($${h.locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${h.compAvg.toFixed(2)}), comparing ${h.locN} of your ${label} items to ${h.compN} of theirs${alsoNote}. ${diff > 0 ? "You may have room to increase prices." : "Consider whether your pricing remains competitive."}`,
-          confidence,
+          // ALT-290: sample size alone said "high" on a competitor scrape that had lost 54% of
+          // its items overnight. Both menus must be verifiably complete to claim high.
+          confidence: coverageCappedConfidence(confidence, locationMenu, comp.menu),
           severity: pctDiff >= 0.3 ? "warning" : "info",
           evidence: {
             // Headline-bucket figures kept under the original keys so downstream corroboration
@@ -518,6 +575,11 @@ export function generateContentInsights(
             priceDiffPct: pct,
             comparedItemKind: h.kind,
             comparedBuckets: bucketEvidence(buckets),
+            // ALT-290: record WHY this claim was allowed to stand, not just its result. The
+            // Cadillac miss was invisible for 14 days because the row carried the sample size but
+            // never the completeness it was graded on. Absent = no baseline yet, not 100%.
+            locationCoverageRatio: locationMenu?.parseMeta.coverageRatio,
+            competitorCoverageRatio: comp.menu.parseMeta.coverageRatio,
             competitor: comp.competitorName,
             menuType: "dine_in",
           },
@@ -539,7 +601,7 @@ export function generateContentInsights(
   // -----------------------------------------------------------------------
   if (locDineIn.length > 0) {
     const locCats = categoryNames(locDineIn)
-    for (const comp of competitorMenus) {
+    for (const comp of menuComps) {
       const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
       if (compDineIn.length === 0) continue
       const compCats = categoryNames(compDineIn)
@@ -573,7 +635,7 @@ export function generateContentInsights(
   // -----------------------------------------------------------------------
   if (locDineIn.length > 0) {
     const locItems = allItemNames(locDineIn)
-    for (const comp of competitorMenus) {
+    for (const comp of menuComps) {
       const compDineIn = filterByMenuType(comp.menu.categories, "dine_in")
       if (compDineIn.length === 0) continue
       const compItems = allItemNames(compDineIn)
@@ -611,7 +673,7 @@ export function generateContentInsights(
     )
     .join(" ")
 
-  for (const comp of competitorMenus) {
+  for (const comp of menuComps) {
     const compText = comp.menu.categories
       .flatMap((c) => c.items.map((i) => `${i.name} ${i.description ?? ""}`.toLowerCase()))
       .join(" ")
@@ -759,7 +821,7 @@ export function generateContentInsights(
   // Compare catering prices between location and competitors
   // -----------------------------------------------------------------------
   if (locCatering.length > 0) {
-    for (const comp of competitorMenus) {
+    for (const comp of menuComps) {
       const compCatering = filterByMenuType(comp.menu.categories, "catering")
       if (compCatering.length === 0) continue
       // Catering menus are inherently SMALL (a handful of package/family-pack options) and
@@ -780,7 +842,7 @@ export function generateContentInsights(
             ? `${comp.competitorName} catering prices are ${pct}% higher`
             : `${comp.competitorName} catering prices are ${pct}% lower`,
           summary: `Your average catering price ($${h.locAvg.toFixed(2)}) ${diff > 0 ? "is lower than" : "exceeds"} ${comp.competitorName}'s ($${h.compAvg.toFixed(2)}), comparing ${h.locN} of your comparable catering items to ${h.compN} of theirs. Catering margins are typically high — pricing accurately matters.`,
-          confidence,
+          confidence: coverageCappedConfidence(confidence, locationMenu, comp.menu),
           severity: pctDiff >= 0.25 ? "warning" : "info",
           evidence: {
             locationCateringAvgPrice: h.locAvg,
@@ -790,6 +852,11 @@ export function generateContentInsights(
             priceDiffPct: pct,
             comparedItemKind: h.kind,
             comparedBuckets: bucketEvidence(buckets),
+            // ALT-290: record WHY this claim was allowed to stand, not just its result. The
+            // Cadillac miss was invisible for 14 days because the row carried the sample size but
+            // never the completeness it was graded on. Absent = no baseline yet, not 100%.
+            locationCoverageRatio: locationMenu?.parseMeta.coverageRatio,
+            competitorCoverageRatio: comp.menu.parseMeta.coverageRatio,
             competitor: comp.competitorName,
             menuType: "catering",
           },
