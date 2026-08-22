@@ -378,3 +378,37 @@
 @media (min-width: 721px) and (max-width: 1000px) {
   .tk-set-tiers { grid-template-columns: 1fr; }
 }
+
+/* ── ALT-689: add-on quantity controls ───────────────────────────────────────
+   A stepper that reads the same going up and going down, because "removing must
+   be as easy as adding": if it is easy to add and hard to remove, we built a trap. */
+.tk-addon-panel { display: flex; flex-direction: column; gap: 18px; }
+.tk-addon-row {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding-bottom: 16px; border-bottom: 1px solid var(--line);
+}
+.tk-addon-row:last-of-type { border-bottom: 0; padding-bottom: 0; }
+.tk-addon-copy { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 220px; }
+.tk-addon-title { font-family: var(--font-cond); font-size: 13px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink); }
+.tk-addon-stepper { display: flex; align-items: center; gap: 4px; }
+.tk-addon-stepper .tk-btn-ghost { min-width: 34px; padding: 6px 10px; font-size: 15px; line-height: 1; }
+.tk-addon-qty {
+  min-width: 38px; text-align: center; font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 15px; font-weight: 600; color: var(--ink);
+}
+.tk-addon-loc { display: flex; align-items: center; gap: 7px; }
+.tk-addon-loc select {
+  padding: 6px 9px; border-radius: var(--r-sm, 7px); border: 1px solid var(--line-2);
+  background: var(--card); color: var(--ink); font-size: 13px; max-width: 200px;
+}
+/* The confirm step is visually distinct from the row it belongs to, so "what will be charged"
+   cannot be mistaken for a label. */
+.tk-addon-confirm {
+  display: flex; flex-direction: column; gap: 11px;
+  padding: 14px 16px; border-radius: var(--r-md, 10px);
+  border: 1px solid var(--line-2); background: var(--paper-2, var(--card));
+}
+@media (max-width: 640px) {
+  .tk-addon-row { align-items: flex-start; }
+  .tk-addon-copy { min-width: 100%; }
+}

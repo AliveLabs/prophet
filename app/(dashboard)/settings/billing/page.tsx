@@ -25,6 +25,7 @@ import { UpgradeSuccessToast } from "./upgrade-success"
 import { UpgradeTilesPass } from "./upgrade-tiles-pass"
 import { PlanChangeTilesPass } from "./plan-change-tiles-pass"
 import { CancelSubscriptionPass } from "./cancel-subscription-pass"
+import { AddOnControlsPass } from "./addon-controls-pass"
 import { UpdateCardPass } from "./update-card-pass"
 import "../settings-pass.css"
 
@@ -49,7 +50,7 @@ export default async function BillingPage({
     ? await supabase
         .from("organizations")
         .select(
-          "subscription_tier, billing_email, trial_started_at, trial_ends_at, industry_type, payment_state, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_price_id"
+          "subscription_tier, billing_email, trial_started_at, trial_ends_at, industry_type, payment_state, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_price_id, locations_purchased, competitors_purchased"
         )
         .eq("id", organizationId)
         .single()
@@ -79,6 +80,22 @@ export default async function BillingPage({
   // mutate in place — trialing counts (Stripe already has the subscription),
   // past_due does not (Stripe blocks subscription updates on a failed sub).
   const canManageInApp = (isActive || isTrialing) && tier !== "suspended"
+
+  // ALT-689/756: the add-on panel needs each location's OWN allocated competitor slots, because a
+  // purchased slot belongs to one location rather than the whole org. Ordered by created_at so the
+  // picker is stable between renders.
+  const { data: locationRows } = organizationId
+    ? await supabase
+        .from("locations")
+        .select("id, name, competitors_purchased")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: true })
+    : { data: null }
+  const addOnLocations = (locationRows ?? []).map((l) => ({
+    id: l.id,
+    name: l.name ?? "This location",
+    competitorsPurchased: Math.max(0, l.competitors_purchased ?? 0),
+  }))
 
   const statusLine =
     isTrialing || isLegacyTrial
@@ -176,6 +193,27 @@ export default async function BillingPage({
               currentTier={tier}
               currentCadence={priceInfo?.cadence ?? null}
             />
+          </RevealOnView>
+        )}
+
+        {/* ── ADD-ONS (ALT-689) ── quantities, not tiers. Locations are org-wide; competitor
+              slots are allocated per location (ALT-756), so that half asks which one. ── */}
+        {canManageInApp && (
+          <RevealOnView className="tk-set-block">
+            <TkSectionHead
+              title="Add-ons"
+              sub="More locations or more competitors, added to your plan and prorated from today."
+            />
+            <TkSoftPanel>
+              <AddOnControlsPass
+                tier={tier}
+                cadence={priceInfo?.cadence ?? null}
+                trialing={isTrialing}
+                locationsPurchased={Math.max(0, organization?.locations_purchased ?? 0)}
+                competitorsBilled={Math.max(0, organization?.competitors_purchased ?? 0)}
+                locations={addOnLocations}
+              />
+            </TkSoftPanel>
           </RevealOnView>
         )}
 

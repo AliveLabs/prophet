@@ -315,3 +315,71 @@ describe("the add-on route respects the Stripe traps this repo has already hit",
     expect(s).toMatch(/catch \(err\)[\s\S]{0,400}preview unavailable/)
   })
 })
+
+// ── The UI's two ticket rules, by source scan ────────────────────────────────────────────────
+//
+// The panel is a .tsx client component, which vitest does not collect, so these pin the two rules
+// from ALT-689 that are about behaviour rather than looks.
+
+describe("the add-on panel says what will be charged, and lets you remove (ALT-689)", () => {
+  const REPO_ROOT = resolve(__dirname, "..", "..", "..")
+  const ui = () =>
+    readFileSync(join(REPO_ROOT, "app/(dashboard)/settings/billing/addon-controls-pass.tsx"), "utf8")
+  const page = () =>
+    readFileSync(join(REPO_ROOT, "app/(dashboard)/settings/billing/page.tsx"), "utf8")
+
+  it("never writes on the first click: a change previews first", () => {
+    const s = ui()
+    // The confirm control cannot render without a preview in hand.
+    expect(s).toMatch(/if \(pending !== kind \|\| !preview\) return null/)
+    // And a preview request is actually made.
+    expect(s).toMatch(/preview: previewOnly/)
+    expect(s).toMatch(/, true\)/)
+  })
+
+  it("shows Stripe's own prorated figure when it has one, and says so when it does not", () => {
+    const s = ui()
+    expect(s).toMatch(/prorationDueNowCents/)
+    expect(s).toMatch(/due now/)
+    expect(s).toMatch(/credited/) // a reduction is a credit, and must be stated as one
+    expect(s).toMatch(/prorated for the rest of/)
+  })
+
+  it("removing uses the same control as adding, not a separate path", () => {
+    const s = ui()
+    // One stepper, both directions. A decrement is not a link to support.
+    expect(s).toMatch(/setValue\(Math\.max\(0, value - 1\)\)/)
+    expect(s).toMatch(/setValue\(value \+ 1\)/)
+    expect(s).toMatch(/Confirm removal/)
+  })
+
+  it("states the billing period rather than implying a monthly debit on an annual plan", () => {
+    // "No surprises at renewal" from the ticket.
+    expect(ui()).toMatch(/billed yearly/)
+  })
+
+  it("explains itself to a trialing customer instead of showing controls that refuse", () => {
+    const s = ui()
+    expect(s).toMatch(/if \(trialing\)/)
+    expect(s).toMatch(/available once your plan starts/i)
+  })
+
+  it("the panel is only mounted for an org that can actually be charged", () => {
+    // canManageInApp is active-or-trialing and not suspended. Mounting it for a canceled org would
+    // offer a purchase that the route then refuses.
+    const s = page()
+    const mountIdx = s.indexOf("<AddOnControlsPass")
+    expect(mountIdx, "AddOnControlsPass is not mounted").toBeGreaterThan(0)
+    // The nearest guard above the mount must be canManageInApp.
+    const before = s.slice(Math.max(0, mountIdx - 500), mountIdx)
+    expect(before, "the panel is mounted without the canManageInApp guard").toContain(
+      "canManageInApp &&",
+    )
+  })
+
+  it("passes each location its OWN allocated slots, not the org total", () => {
+    const s = page()
+    expect(s).toMatch(/competitorsPurchased: Math\.max\(0, l\.competitors_purchased/)
+    expect(s).toMatch(/competitorsBilled=\{Math\.max\(0, organization\?\.competitors_purchased/)
+  })
+})
