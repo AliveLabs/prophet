@@ -558,7 +558,9 @@ export async function createOrgAndLocationAction(
     orgId: org.id,
     locationId: loc.id,
     maxCompetitors:
-      resolveCompetitorAllowance(org).total,
+      // ALT-756: `loc` was created moments ago, so its allocated slot count is 0 by construction.
+      // Passing 0 explicitly rather than reading the org total, which would over-grant.
+      resolveCompetitorAllowance(org, { competitors_purchased: 0 }).total,
   }
 }
 

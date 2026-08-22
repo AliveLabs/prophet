@@ -1262,6 +1262,7 @@ export type Database = {
           address_line2: string | null
           brand_tolerance: number
           city: string | null
+          competitors_purchased: number
           country: string | null
           created_at: string
           daily_runs_enabled: boolean
@@ -1286,6 +1287,7 @@ export type Database = {
           address_line2?: string | null
           brand_tolerance?: number
           city?: string | null
+          competitors_purchased?: number
           country?: string | null
           created_at?: string
           daily_runs_enabled?: boolean
@@ -1310,6 +1312,7 @@ export type Database = {
           address_line2?: string | null
           brand_tolerance?: number
           city?: string | null
+          competitors_purchased?: number
           country?: string | null
           created_at?: string
           daily_runs_enabled?: boolean

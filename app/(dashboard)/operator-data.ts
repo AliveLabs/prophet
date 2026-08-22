@@ -278,19 +278,27 @@ export async function loadCompetitorSwapState(): Promise<{
 }> {
   const op = await resolveOperator()
   const sb = await createServerSupabaseClient()
-  const [{ data: rows }, { data: org }] = await Promise.all([
+  const [{ data: rows }, { data: org }, { data: locRow }] = await Promise.all([
     sb.from("competitors").select("updated_at, is_active, metadata").eq("location_id", op.locationId),
     sb
       .from("organizations")
       .select("subscription_tier, trial_ends_at, payment_state, competitors_purchased")
       .eq("id", op.organizationId)
       .maybeSingle(),
+    // ALT-756: the cap is per location, so the page needs THIS location's allocated slots.
+    sb
+      .from("locations")
+      .select("competitors_purchased")
+      .eq("id", op.locationId)
+      .maybeSingle(),
   ])
 
   return {
     history: readSwapHistory(rows),
     trialing: org ? isTrialing(org) : false,
-    competitorAllowance: resolveCompetitorAllowance(org ?? { subscription_tier: null }),
+    competitorAllowance: resolveCompetitorAllowance(org ?? { subscription_tier: null }, {
+      competitors_purchased: locRow?.competitors_purchased ?? null,
+    }),
   }
 }
 

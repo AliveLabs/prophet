@@ -35,6 +35,20 @@ export type QuantityOrg = {
    *  allowance, so a bad read can never widen a cap. */
   subscription_tier: string | null
   locations_purchased?: number | null
+  /** ALT-756: the number of competitor units the org is BILLED for, mirroring the Stripe
+   *  subscription-item quantity. NOT an entitlement on its own: see LocationQuantity. */
+  competitors_purchased?: number | null
+}
+
+/**
+ * ALT-756: where a paid competitor unit is PLACED.
+ *
+ * Competitor slots are allocated per location, so one location can run 4 competitors while another
+ * runs 3 and only the one extra is billed. Before this, a single purchased unit granted +1
+ * competitor at EVERY location while the price carried no location term and the cost does, which
+ * put the line underwater by $30.50/mo at 10 locations on list price.
+ */
+export type LocationQuantity = {
   competitors_purchased?: number | null
 }
 
@@ -50,11 +64,46 @@ export function resolveLocationAllowance(org: QuantityOrg): Allowance {
   return { included, purchased: bought, total: included + bought }
 }
 
-export function resolveCompetitorAllowance(org: QuantityOrg): Allowance {
+/**
+ * The competitor cap for ONE location: the tier's included count plus whatever extra slots have
+ * been allocated to that location.
+ *
+ * ALT-756: `location` is a REQUIRED second argument, and deliberately so. It used to read the
+ * org-wide purchased total, which granted every purchased unit at every location. Making the
+ * parameter required rather than optional means every call site had to be revisited by the
+ * compiler instead of silently keeping the old behaviour, and a caller that has no location in
+ * hand is forced to notice that it is asking a question that only makes sense per location.
+ */
+export function resolveCompetitorAllowance(
+  org: Pick<QuantityOrg, "subscription_tier">,
+  location: LocationQuantity,
+): Allowance {
   const included =
     TIER_LIMITS[asSubscriptionTier(org.subscription_tier)].includedCompetitorsPerLocation
-  const bought = purchased(org.competitors_purchased)
+  const bought = purchased(location.competitors_purchased)
   return { included, purchased: bought, total: included + bought }
+}
+
+/** How many competitor units the org is paying for, from the Stripe quantity mirror. */
+export function resolveBilledCompetitorUnits(org: QuantityOrg): number {
+  return purchased(org.competitors_purchased)
+}
+
+/**
+ * The invariant tying the two columns together: you cannot place more slots than you bought.
+ *
+ * Not a CHECK constraint because it spans `organizations` and `locations`, and not a trigger
+ * because it only changes on purchase or reallocation, while a trigger would fire on every
+ * location write. Enforce it at the two write paths (buying, and moving a slot between locations).
+ */
+export function ensureCompetitorAllocation(billedUnits: number, allocatedUnits: number): void {
+  if (allocatedUnits > billedUnits) {
+    throw new Error(
+      `Cannot allocate ${allocatedUnits} competitor slot${allocatedUnits === 1 ? "" : "s"} ` +
+        `when only ${billedUnits} ${billedUnits === 1 ? "is" : "are"} paid for. ` +
+        `Add to your subscription first, or free a slot at another location.`,
+    )
+  }
 }
 
 export function ensureLocationLimit(org: QuantityOrg, currentCount: number): void {
@@ -133,8 +182,12 @@ export function canAddLocationHere(
   }
 }
 
-export function ensureCompetitorLimit(org: QuantityOrg, currentCount: number): void {
-  const { total } = resolveCompetitorAllowance(org)
+export function ensureCompetitorLimit(
+  org: Pick<QuantityOrg, "subscription_tier">,
+  location: LocationQuantity,
+  currentCount: number,
+): void {
+  const { total } = resolveCompetitorAllowance(org, location)
   if (currentCount >= total) {
     throw new Error(
       total === 0
