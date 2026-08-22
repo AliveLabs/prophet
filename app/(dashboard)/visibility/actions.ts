@@ -211,7 +211,9 @@ export async function refreshSeoAction(formData: FormData) {
   // 2. Ranked Keywords (for location domain OR seed domain)
   // =====================================================================
   try {
-    const rkDomain = locationDomain ?? seedDomain
+    // ALT-708: own domain only. `seedDomain` falls back to the first competitor's domain, which is
+    // right for seeding competitor DISCOVERY and wrong for "your ranked keywords".
+    const rkDomain = locationDomain
 
     if (rkDomain) {
       const rkResult = await fetchRankedKeywords({
@@ -643,7 +645,8 @@ export async function refreshSeoAction(formData: FormData) {
 
     const insightContext: SeoInsightContext = {
       locationName: location.name ?? "Your location",
-      locationDomain: locationDomain ?? seedDomain,
+      // ALT-708: own domain or nothing, never the competitor seed.
+      locationDomain: locationDomain,
       competitors: competitors.map((c) => ({
         id: c.id,
         name: c.name ?? null,
