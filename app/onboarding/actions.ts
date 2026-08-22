@@ -47,6 +47,29 @@ import { sendEmail } from "@/lib/email/send"
 import { Welcome } from "@/lib/email/templates/welcome"
 import { AccessRequest } from "@/lib/email/templates/access-request"
 import { mirrorLifecycleToMarketing } from "@/lib/marketing/trial-lifecycle"
+import { resolveUsTimezone } from "@/lib/geo/us-timezone"
+
+// ALT-739: derive the zone instead of asserting Eastern. Both inserts below used to hardcode
+// America/New_York, so every production row claimed Eastern and NOT ONE was, which flattened the
+// local-morning build stagger into a single burst. A fallback is now LOGGED, not silent.
+function resolveLocationTimezone(
+  place: { region?: string | null; geo_lat?: number | null; geo_lng?: number | null },
+  label: string,
+): string {
+  const { timezone, confidence } = resolveUsTimezone({
+    region: place.region ?? null,
+    lat: place.geo_lat ?? null,
+    lng: place.geo_lng ?? null,
+  })
+  if (confidence === "fallback") {
+    console.warn(
+      `[onboarding] could not resolve a timezone for ${label} (region=${place.region ?? "none"}), ` +
+        `falling back to ${timezone}. Its brief will build on the wrong local clock.`,
+    )
+  }
+  return timezone
+}
+
 
 function slugify(input: string) {
   return input
@@ -234,7 +257,14 @@ export async function createOrganizationAction(formData: FormData) {
       region: String(formData.get("region") ?? "").trim() || null,
       postal_code: String(formData.get("postal_code") ?? "").trim() || null,
       country: String(formData.get("country") ?? "").trim() || "US",
-      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      timezone:
+        String(formData.get("timezone") ?? "").trim() ||
+        // ALT-739: derive rather than assert Eastern when the form omits it.
+        resolveUsTimezone({
+          region: String(formData.get("region") ?? "") || null,
+          lat: Number(formData.get("geo_lat")) || null,
+          lng: Number(formData.get("geo_lng")) || null,
+        }).timezone,
       primary_place_id: primaryPlaceId || null,
       website,
       settings: {
@@ -329,7 +359,14 @@ export async function createLocationAction(formData: FormData) {
       region: String(formData.get("region") ?? "").trim() || null,
       postal_code: String(formData.get("postal_code") ?? "").trim() || null,
       country: String(formData.get("country") ?? "").trim() || "US",
-      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      timezone:
+        String(formData.get("timezone") ?? "").trim() ||
+        // ALT-739: derive rather than assert Eastern when the form omits it.
+        resolveUsTimezone({
+          region: String(formData.get("region") ?? "") || null,
+          lat: Number(formData.get("geo_lat")) || null,
+          lng: Number(formData.get("geo_lng")) || null,
+        }).timezone,
       primary_place_id: primaryPlaceId || null,
       website,
       geo_lat: Number.isFinite(geoLat ?? NaN) ? geoLat : null,
@@ -488,7 +525,7 @@ export async function createOrgAndLocationAction(
       region: input.place.region ?? null,
       postal_code: input.place.postal_code ?? null,
       country: input.place.country ?? "US",
-      timezone: "America/New_York",
+      timezone: resolveLocationTimezone(input.place, input.place.name || input.businessName || "new location"),
       primary_place_id: input.place.primary_place_id ?? null,
       website: input.place.website ?? null,
       geo_lat: geoLat,
@@ -597,7 +634,7 @@ export async function createLocationForOrgAction(
       region: input.place.region ?? null,
       postal_code: input.place.postal_code ?? null,
       country: input.place.country ?? "US",
-      timezone: "America/New_York",
+      timezone: resolveLocationTimezone(input.place, input.place.name || input.businessName || "new location"),
       primary_place_id: input.place.primary_place_id ?? null,
       website: input.place.website ?? null,
       geo_lat: geoLat,

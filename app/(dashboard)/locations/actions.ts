@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/server"
 import { triggerInitialLocationData } from "@/lib/jobs/triggers"
 import { ensureCanAddLocation } from "@/lib/billing/limits"
 import { checkPlaceIsServed } from "@/lib/geo/check-place-country"
+import { resolveUsTimezone } from "@/lib/geo/us-timezone"
 
 export async function createLocationFromPlaceAction(formData: FormData) {
   const user = await requireUser()
@@ -80,7 +81,14 @@ export async function createLocationFromPlaceAction(formData: FormData) {
       region: String(formData.get("region") ?? "").trim() || null,
       postal_code: String(formData.get("postal_code") ?? "").trim() || null,
       country: String(formData.get("country") ?? "").trim() || "US",
-      timezone: String(formData.get("timezone") ?? "").trim() || "America/New_York",
+      timezone:
+        String(formData.get("timezone") ?? "").trim() ||
+        // ALT-739: derive rather than assert Eastern when the form omits it.
+        resolveUsTimezone({
+          region: String(formData.get("region") ?? "") || null,
+          lat: Number(formData.get("geo_lat")) || null,
+          lng: Number(formData.get("geo_lng")) || null,
+        }).timezone,
       primary_place_id: primaryPlaceId,
       website,
       settings: {
