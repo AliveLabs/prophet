@@ -7,7 +7,7 @@ const STEPS = [
     n: "01",
     title: "Name your set",
     body:
-      "Your restaurant plus up to ten competitors, in five minutes. Ticket starts watching menus, pricing, reviews, social, and local search the moment you finish.",
+      "Your restaurant plus the competitors you pick, in five minutes. Ticket starts watching menus, pricing, reviews, social, and local search the moment you finish.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="4" /><circle cx="12" cy="12" r="0.5" fill="currentColor" />

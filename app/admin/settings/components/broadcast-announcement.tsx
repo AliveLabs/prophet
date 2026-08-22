@@ -10,12 +10,13 @@
 import { useState, useTransition, type FormEvent } from "react"
 import { broadcastEmail } from "@/app/actions/admin-email"
 import { TkButton } from "@/components/ticket"
+import { tierDisplayName } from "@/lib/billing/tiers"
 
 const AUDIENCE_OPTIONS = [
   { value: "all", label: "Everyone" },
-  { value: "tier_entry", label: "Tier 1 only" },
-  { value: "tier_mid", label: "Tier 2 only" },
-  { value: "tier_top", label: "Tier 3 only" },
+  { value: "tier_entry", label: `${tierDisplayName("entry")} only` },
+  { value: "tier_mid", label: `${tierDisplayName("mid")} only` },
+  { value: "tier_top", label: `${tierDisplayName("top")} only` },
   { value: "trial_active", label: "Active trials" },
   { value: "trial_expired", label: "Expired trials" },
 ] as const

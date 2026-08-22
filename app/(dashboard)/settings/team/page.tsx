@@ -14,6 +14,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { resolveOperator } from "../../operator-data"
 import { canInviteTeamMembers } from "@/lib/billing/limits"
+import { tierDisplayName } from "@/lib/billing/tiers"
 import {
   RevealOnView,
   TkSectionHead,
@@ -102,8 +103,8 @@ export default async function TeamPage() {
             <TkSectionHead title="Invites" sub="Bring your team in" />
             <TkEmptyState
               icon={ICON_TEAM}
-              title="Add your team on Tier 2 and up"
-              description="Your current plan is single-operator. Upgrade to Tier 2 or Tier 3 to invite teammates and manage their access."
+              title={`Add your team on ${tierDisplayName("mid")} and up`}
+              description={`Your current plan is single-operator. Upgrade to ${tierDisplayName("mid")} or ${tierDisplayName("top")} to invite teammates and manage their access.`}
               action={
                 <Link className="tk-set-linkbtn" href="/settings/billing">
                   View plans {ICON_ARROW}

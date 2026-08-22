@@ -36,12 +36,6 @@ export interface VerticalConfig {
       categoryPlaceholder: string
       categoryLabel: string
     }
-    competitors: {
-      searchingLabel: string
-      foundLabel: string
-      emptyLabel: string
-      selectLabel: string
-    }
     settings: {
       newCompetitorLabel: string
       reviewThresholdLabel: string
