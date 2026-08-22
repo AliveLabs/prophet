@@ -37,8 +37,24 @@ export type MarketPulse = {
  *  diff step (`lib/jobs/pipelines/insights.ts`), free-text provider key, no migration. */
 const OWN_PROFILE_PROVIDER = "google_places_profile"
 
-/** The competitor listing snapshot that carries `profile`. Scoping the read to this type keeps
- *  the menu and search snapshots (large jsonb) out of the response. */
+/** ALT-750: `listing_daily` IS NEVER WRITTEN. Verified against prod 2026-08-21: `snapshots` holds
+ *  six types (five `seo_*_weekly` plus `web_menu_weekly`), none of them this one, and ZERO rows
+ *  carry a `profile` key at all. So this read has always returned nothing and the competitor
+ *  rating shown to operators comes from the NEXT link in market-benchmark's chain,
+ *  `[snapshotProfile, placeDetails, metadata]`.
+ *
+ *  The read is left in place rather than deleted, because deleting it would remove the only marker
+ *  of where a FRESH competitor listing was supposed to come from, and the staleness below is a real
+ *  open problem rather than a tidy-up. It costs one indexed query that matches no rows.
+ *
+ *  ⚠️ THE ACTUAL PROBLEM, and it needs a spend decision rather than a code change:
+ *  `competitors.metadata.rating` is written once at DISCOVERY and never refreshed. Verified in prod:
+ *  of 50 competitors, ZERO have `updated_at` more than a day past `created_at`, and the oldest was
+ *  added 2026-06-09. So every competitor rating an operator sees is frozen at the moment we found
+ *  them, by up to 73 days, on a product whose whole promise is knowing what rivals are doing now.
+ *
+ *  Refreshing means a paid Places call per competitor per period (50 competitors today), so the
+ *  cadence is Bryan's call, not something to pick here. Tracked on ALT-750. */
 const LISTING_SNAPSHOT_TYPE = "listing_daily"
 
 /** Bounded read: seven days of one location's rows is small, and the cap stops a pathological

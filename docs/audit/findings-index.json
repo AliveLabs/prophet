@@ -64,6 +64,7 @@
     { "fp": "class3|app/(dashboard)/locations/page.tsx|menu-item-count-from-single-scrape", "ticket": "ALT-740", "severity": "High", "confidence": "verified", "fixedIn": "prophet#280" },
     { "fp": "class3|lib/jobs/pipelines/insights.ts|competitor-menu-read-single-latest", "ticket": "ALT-740", "severity": "High", "confidence": "verified", "fixedIn": "prophet#280" },
     { "fp": "class1|app/(dashboard)/visibility/actions.ts|competitor-domain-shown-as-own-seo", "ticket": "ALT-708", "severity": "High", "confidence": "verified", "fixedIn": "prophet#284" },
+    { "fp": "class2|lib/insights/market-pulse.ts|competitor-ratings-never-refreshed-after-discovery", "ticket": "ALT-750", "severity": "High", "confidence": "verified" },
 
     { "fp": "class1|app/support/support-form.tsx|claims-emailed-copy-to-submitter", "ticket": "ALT-712", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#279" },
     { "fp": "class1|app/admin/page.tsx|funnel-buckets-do-not-partition", "ticket": "ALT-713", "severity": "Medium", "confidence": "verified", "latent": true, "fixedIn": "prophet#281" },
@@ -114,6 +115,7 @@
     { "fp": "class1|lib/skills/presentation.ts|events-local-label", "why": "'Local events' is EARNED: google-events.ts passes a real location_name" },
     { "fp": "class2|lib/onboarding|metadata-status-watched-never-written", "why": "confirmed by run 2 class 2: no code path writes 'watched'. That value came from MY OWN bad test provisioning on 2026-08-20, not from the product. Not a code bug." },
     { "fp": "class7|lib/jobs/claim.ts|claim-order-not-execution-order", "why": "claim_signal_jobs guarantees CLAIM order by created_at, not execution order within a claimed batch. Known and accepted." },
-    { "fp": "class1|lib/reviews/watch-events.ts|newest-capture-reads-last-seen-not-first-seen", "why": "WITHDRAWN 2026-08-21: my own bad diagnosis, filed High against working code (ALT-763). last_seen_at is CORRECT; the detector's GATE 4 already documents why. first_seen_at cannot advance without a new review, so it shares the predicate with the thing being measured." }
+    { "fp": "class1|lib/reviews/watch-events.ts|newest-capture-reads-last-seen-not-first-seen", "why": "WITHDRAWN 2026-08-21: my own bad diagnosis, filed High against working code (ALT-763). last_seen_at is CORRECT; the detector's GATE 4 already documents why. first_seen_at cannot advance without a new review, so it shares the predicate with the thing being measured." },
+    { "fp": "class1|lib/insights/dossier/build.ts|asof-stamped-today-for-stored-data", "why": "CLOSED 2026-08-21, not a bug (ALT-727). Reviews and Foot traffic are both REFRESHED during the build (fetchBusyTimes at build.ts:490, upsertLocationReviews at 571), so today IS the correct asOf. The rows that carry their own stamps read STORED data. Agent-reported, never verified." }
   ]
 }
