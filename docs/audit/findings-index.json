@@ -31,7 +31,7 @@
 
     { "fp": "class4|supabase/migrations/20260814093000_review_watch_events.sql|migration-merged-not-applied", "ticket": "ALT-703", "severity": "High", "confidence": "verified", "fixedIn": "prophet#270" },
     { "fp": "class1|lib/skills/presentation.ts|negative-sentiment-pct-is-share-of-all-mentions", "ticket": "ALT-706", "severity": "High", "confidence": "verified", "fixedIn": "prophet#277" },
-    { "fp": "class1|app/admin/health/page.tsx|zero-samples-rendered-as-healthy", "ticket": "ALT-707", "severity": "High", "confidence": "verified" },
+    { "fp": "class1|app/admin/health/page.tsx|zero-samples-rendered-as-healthy", "ticket": "ALT-707", "severity": "High", "confidence": "verified", "fixedIn": "prophet#281" },
     { "fp": "class1|lib/jobs/pipelines/visibility.ts|competitor-domain-shown-as-own-seo", "ticket": "ALT-708", "severity": "High", "confidence": "verified", "latent": true },
     { "fp": "class1|lib/billing/trial-reminders.ts|ceil-shifts-reminder-day-by-signup-hour", "ticket": "ALT-710", "severity": "High", "confidence": "agent", "fixedIn": "prophet#268" },
     { "fp": "class1|lib/email/templates/first-brief-ready.tsx|daily-promise-and-six-families-asserted", "ticket": "ALT-711", "severity": "High", "confidence": "agent", "fixedIn": "prophet#279" },
@@ -65,9 +65,9 @@
     { "fp": "class3|lib/jobs/pipelines/insights.ts|competitor-menu-read-single-latest", "ticket": "ALT-740", "severity": "High", "confidence": "verified", "fixedIn": "prophet#280" },
 
     { "fp": "class1|app/support/support-form.tsx|claims-emailed-copy-to-submitter", "ticket": "ALT-712", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#279" },
-    { "fp": "class1|app/admin/page.tsx|funnel-buckets-do-not-partition", "ticket": "ALT-713", "severity": "Medium", "confidence": "verified", "latent": true },
+    { "fp": "class1|app/admin/page.tsx|funnel-buckets-do-not-partition", "ticket": "ALT-713", "severity": "Medium", "confidence": "verified", "latent": true, "fixedIn": "prophet#281" },
     { "fp": "class1|app/api/cron/daily/route.ts|enqueue-failure-reported-as-success", "ticket": "ALT-714", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#271" },
-    { "fp": "class1|lib/ops/first-run-duration.ts|incomplete-runs-never-counted", "ticket": "ALT-715", "severity": "Medium", "confidence": "verified" },
+    { "fp": "class1|lib/ops/first-run-duration.ts|incomplete-runs-never-counted", "ticket": "ALT-715", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#281" },
     { "fp": "class1|app/api/cron/trial-reminders/route.ts|ledger-written-before-send", "ticket": "ALT-716", "severity": "Medium", "confidence": "verified", "latent": true },
     { "fp": "class1|app/(dashboard)/operator-data.ts|signals-this-month-no-date-filter", "ticket": "ALT-720", "severity": "Medium", "confidence": "agent" },
     { "fp": "class1|lib/jobs/pipelines/visibility.ts|own-domain-in-competitor-ad-creatives", "ticket": "ALT-721", "severity": "Medium", "confidence": "agent" },

@@ -1,13 +1,13 @@
-// TICKET ADMIN — Pipeline Health (2026-07-08, the alert-landing page that didn't exist).
+// TICKET ADMIN: Pipeline Health (2026-07-08, the alert-landing page that didn't exist).
 //
 // The Slack/email watchdog alert deep-links here. Before this page, the link landed on the
-// admin overview with no wiring for pipeline health at all — a dead end at the exact moment an
+// admin overview with no wiring for pipeline health at all: a dead end at the exact moment an
 // operator wants context. This renders the SAME verdict the external watchdog polls
-// (detectPipelineHealth — see lib/ops/pipeline-health.ts), plus the per-location and per-day
+// (detectPipelineHealth: see lib/ops/pipeline-health.ts), plus the per-location and per-day
 // detail the aggregate verdict deliberately doesn't carry, so "why did this alert fire" is
 // answerable in one page load: verdict -> which locations/skills -> is it a trend or a blip.
 //
-// Read-only. No server actions, no writes — mirrors source-quality's posture.
+// Read-only. No server actions, no writes: mirrors source-quality's posture.
 
 import { connection } from "next/server"
 import type { CSSProperties } from "react"
@@ -89,31 +89,80 @@ export default async function PipelineHealthPage() {
       </RevealOnView>
 
       <RevealOnView className="ph-signals" stagger>
-        <SignalTile label="Fallback rate" value={pct(verdict.fallbackSkillRate)} sub={`${verdict.briefsAssessed} location(s) assessed`} tone={toneFor(verdict.fallbackSkillRate, verdict.thresholds.fallbackRateAlert)} />
-        <SignalTile label="Rate-limited" value={pct(verdict.rateLimitedRate)} sub={`${verdict.rateLimitCallsSampled} recent calls`} tone={toneFor(verdict.rateLimitedRate, verdict.thresholds.rateLimitedRateAlert)} />
-        <SignalTile label="Producer p95" value={seconds(verdict.producerLatencyP95Ms)} sub={`${verdict.latencySamples} recent calls`} tone="teal" />
-        <SignalTile label="Brief drain p95" value={minutes(verdict.briefDrainP95Ms)} sub={`${verdict.briefDrainsSampled} recent builds`} tone={toneFor(verdict.briefDrainP95Ms, verdict.thresholds.briefDrainAlertMs)} />
+        {/* ALT-707: these four rendered a ZERO-SAMPLE metric as a healthy zero. With no brief
+            carrying skillHealth, fallbackSkillRate is 0, so the tile read "0%" in teal and the page
+            asserted a clean fleet on no evidence.
+
+            The rule was already written into this file for the mirror tile below: "Not measured is
+            shown as such, never as healthy." It just was not applied to the four tiles at the top.
+            Each of these already displayed its own sample count in `sub`, so the denominator was
+            right there on screen while the value ignored it. */}
+        <SignalTile
+          label="Fallback rate"
+          value={verdict.briefsAssessed === 0 ? "n/a" : pct(verdict.fallbackSkillRate)}
+          sub={verdict.briefsAssessed === 0 ? "not measured" : `${verdict.briefsAssessed} location(s) assessed`}
+          tone={verdict.briefsAssessed === 0 ? "gold" : toneFor(verdict.fallbackSkillRate, verdict.thresholds.fallbackRateAlert)}
+        />
+        <SignalTile
+          label="Rate-limited"
+          value={verdict.rateLimitCallsSampled === 0 ? "n/a" : pct(verdict.rateLimitedRate)}
+          sub={verdict.rateLimitCallsSampled === 0 ? "not measured" : `${verdict.rateLimitCallsSampled} recent calls`}
+          tone={verdict.rateLimitCallsSampled === 0 ? "gold" : toneFor(verdict.rateLimitedRate, verdict.thresholds.rateLimitedRateAlert)}
+        />
+        <SignalTile
+          label="Producer p95"
+          value={verdict.latencySamples === 0 ? "n/a" : seconds(verdict.producerLatencyP95Ms)}
+          sub={verdict.latencySamples === 0 ? "not measured" : `${verdict.latencySamples} recent calls`}
+          tone={verdict.latencySamples === 0 ? "gold" : "teal"}
+        />
+        <SignalTile
+          label="Brief drain p95"
+          value={verdict.briefDrainsSampled === 0 ? "n/a" : minutes(verdict.briefDrainP95Ms)}
+          sub={verdict.briefDrainsSampled === 0 ? "not measured" : `${verdict.briefDrainsSampled} recent builds`}
+          tone={verdict.briefDrainsSampled === 0 ? "gold" : toneFor(verdict.briefDrainP95Ms, verdict.thresholds.briefDrainAlertMs)}
+        />
         <SignalTile label="Stale locations" value={String(verdict.staleLocations)} sub={`of ${RECENT_ACTIVE_DAYS}d-active fleet`} tone={verdict.staleLocations > 0 ? "alert" : "teal"} />
-        <SignalTile label="Vendor (DataForSEO)" value={verdict.vendor.down ? "Down" : "OK"} sub={verdict.vendor.paymentRequired ? "payment required" : "—"} tone={verdict.vendor.down ? "alert" : "teal"} />
+        <SignalTile label="Vendor (DataForSEO)" value={verdict.vendor.down ? "Down" : "OK"} sub={verdict.vendor.paymentRequired ? "payment required" : "n/a"} tone={verdict.vendor.down ? "alert" : "teal"} />
         {/* ALT-666. The tile that did not exist on 2026-07-24, when the mirror broke fleet-wide and
             stayed broken for 3.5 weeks. "Not measured" is shown as such, never as healthy. */}
-        {/* ALT-676: the 15-minute claim, measured. Cold starts only — a pre-warmed run is faster
+        {/* ALT-676: the 15-minute claim, measured. Cold starts only: a pre-warmed run is faster
             for a reason we did not earn, so it never enters the headline number. */}
         <SignalTile
           label="First run (cold, median)"
-          value={firstRun.cold.medianMs == null ? "—" : minutesPrecise(firstRun.cold.medianMs)}
-          sub={firstRun.cold.n === 0 ? "no cold starts measured" : `n=${firstRun.cold.n} · p95 ${minutesPrecise(firstRun.cold.p95Ms ?? 0)}`}
-          tone={firstRun.cold.medianMs == null ? "gold" : firstRun.cold.medianMs > FIRST_READ_CLAIM_MS ? "alert" : "teal"}
+          value={firstRun.cold.medianMs == null ? "n/a" : minutesPrecise(firstRun.cold.medianMs)}
+          /* ALT-715: name the runs that produced NO brief. The module already separates them
+             (`incomplete`) and summarizeColdStarts excludes them by design, which is right for a
+             duration median: you cannot time a run that never finished. But showing only the
+             survivors' median invites reading it as "what a new operator waits", when an onboarding
+             that never produced a brief waited forever. The worst outcome was the one the headline
+             could not represent. */
+          sub={
+            firstRun.cold.n === 0
+              ? "no cold starts measured"
+              : `n=${firstRun.cold.n} · p95 ${minutesPrecise(firstRun.cold.p95Ms ?? 0)}` +
+                (firstRun.incomplete.length > 0
+                  ? ` · ${firstRun.incomplete.length} never produced a brief, excluded`
+                  : "")
+          }
+          tone={
+            firstRun.incomplete.length > 0
+              ? "alert"
+              : firstRun.cold.medianMs == null
+                ? "gold"
+                : firstRun.cold.medianMs > FIRST_READ_CLAIM_MS
+                  ? "alert"
+                  : "teal"
+          }
         />
         <SignalTile
           label="First run idle"
-          value={firstRun.cold.idleShare == null ? "—" : pct(firstRun.cold.idleShare)}
+          value={firstRun.cold.idleShare == null ? "n/a" : pct(firstRun.cold.idleShare)}
           sub={firstRun.cold.medianIdleMs == null ? "not measured" : `${minutesPrecise(firstRun.cold.medianIdleMs)} of the median run`}
           tone={firstRun.cold.idleShare == null ? "gold" : firstRun.cold.idleShare > 0.1 ? "gold" : "teal"}
         />
         <SignalTile
           label="Social image mirror"
-          value={verdict.mirrorRunsSampled === 0 ? "—" : pct(verdict.mirrorSuccessRate)}
+          value={verdict.mirrorRunsSampled === 0 ? "n/a" : pct(verdict.mirrorSuccessRate)}
           sub={
             verdict.mirrorRunsSampled === 0
               ? "not measured yet"
@@ -169,7 +218,7 @@ export default async function PipelineHealthPage() {
             )}
             {locations.map((loc) => {
               // A first-brief readiness skip made no model call, so it is neither a real
-              // generation nor a reuse nor a degradation — it is not a slot at all.
+              // generation nor a reuse nor a degradation: it is not a slot at all.
               const real = loc.skills.filter((s) => s.status === "ok" && !s.usedFallback && !s.reused && !s.skipped).length
               const reused = loc.skills.filter((s) => s.reused).length
               const fallback = loc.skills.filter((s) => !s.skipped && (s.usedFallback || s.status === "failed"))
@@ -181,13 +230,13 @@ export default async function PipelineHealthPage() {
                   <td>{reused}</td>
                   <td className={fallback.length > 0 ? "is-alert" : undefined}>{fallback.length}</td>
                   <td className="ph-offenders">
-                    {fallback.length === 0 ? "—" : fallback.map((s) => `${s.skillId ?? "?"} (${s.reason ?? "failed"})`).join(", ")}
+                    {fallback.length === 0 ? "n/a" : fallback.map((s) => `${s.skillId ?? "?"} (${s.reason ?? "failed"})`).join(", ")}
                   </td>
                   <td>
                     {loc.requests}
                     {loc.rateLimited > 0 ? <span className="is-alert"> ({loc.rateLimited} limited)</span> : null}
                   </td>
-                  <td>{loc.estCostUsd == null ? "—" : usd(loc.estCostUsd)}</td>
+                  <td>{loc.estCostUsd == null ? "n/a" : usd(loc.estCostUsd)}</td>
                 </tr>
               )
             })}
@@ -219,13 +268,13 @@ export default async function PipelineHealthPage() {
                 <td className="is-strong">{day.dateKey}</td>
                 <td>{day.locationsBuilt}</td>
                 <td className={day.totalSlots > 0 && day.fallbackSlots / day.totalSlots >= 0.15 ? "is-alert" : undefined}>
-                  {day.totalSlots > 0 ? pct(day.fallbackSlots / day.totalSlots) : "—"}
+                  {day.totalSlots > 0 ? pct(day.fallbackSlots / day.totalSlots) : "n/a"}
                 </td>
-                <td>{day.totalSlots > 0 ? pct(day.reusedSlots / day.totalSlots) : "—"}</td>
+                <td>{day.totalSlots > 0 ? pct(day.reusedSlots / day.totalSlots) : "n/a"}</td>
                 <td>{day.requests}</td>
-                <td>{day.requests > 0 ? pct(day.rateLimited / day.requests) : "—"}</td>
-                <td>{day.inputTokens > 0 || day.outputTokens > 0 ? `${tok(day.inputTokens)} / ${tok(day.outputTokens)}` : "—"}</td>
-                <td>{day.estCostUsd > 0 ? usd(day.estCostUsd) : "—"}</td>
+                <td>{day.requests > 0 ? pct(day.rateLimited / day.requests) : "n/a"}</td>
+                <td>{day.inputTokens > 0 || day.outputTokens > 0 ? `${tok(day.inputTokens)} / ${tok(day.outputTokens)}` : "n/a"}</td>
+                <td>{day.estCostUsd > 0 ? usd(day.estCostUsd) : "n/a"}</td>
               </tr>
             ))}
           </tbody>
@@ -346,11 +395,11 @@ export default async function PipelineHealthPage() {
               <tr key={row.target}>
                 <td className="is-strong">{row.target}</td>
                 <td>{row.attempts}</td>
-                <td>{row.attempts > 0 ? `${row.succeeded} (${pct(row.succeeded / row.attempts)})` : "—"}</td>
+                <td>{row.attempts > 0 ? `${row.succeeded} (${pct(row.succeeded / row.attempts)})` : "n/a"}</td>
                 <td>{row.empty}</td>
                 <td className={row.failed > 0 ? "is-alert" : undefined}>{row.failed}</td>
                 <td className="ph-offenders">
-                  {row.reasons.length === 0 ? "—" : row.reasons.map((r) => `${r.reason} ×${r.count}`).join(", ")}
+                  {row.reasons.length === 0 ? "n/a" : row.reasons.map((r) => `${r.reason} ×${r.count}`).join(", ")}
                 </td>
               </tr>
             ))}
@@ -364,7 +413,7 @@ export default async function PipelineHealthPage() {
 // ── data layer ───────────────────────────────────────────────────────────────────────────────
 
 /** One query serves BOTH the "current fleet" table (newest brief per location) and the N-day
- *  trend (grouped by date_key) — same shape as pipeline-health.ts's own newest-per-location dedup,
+ *  trend (grouped by date_key): same shape as pipeline-health.ts's own newest-per-location dedup,
  *  kept separate here because this page needs location NAMES + raw per-skill rows, not aggregates. */
 async function loadFleetDetail(
   supabase: ReturnType<typeof createAdminSupabaseClient>,
@@ -372,7 +421,7 @@ async function loadFleetDetail(
   const sinceIso = new Date(Date.now() - Math.max(RECENT_ACTIVE_DAYS, TREND_DAYS) * 86_400_000).toISOString()
   const trendCutoffMs = Date.now() - TREND_DAYS * 86_400_000
 
-  // jsonb-path selects (brief->skillHealth) aren't in the generated types — same posture as
+  // jsonb-path selects (brief->skillHealth) aren't in the generated types: same posture as
   // pipeline-health.ts's fetchPipelineSignals: select loosely, cast the returned rows.
   const [briefRows, locRows] = await Promise.all([
     supabase
@@ -406,7 +455,7 @@ async function loadFleetDetail(
   locations.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
 
   // ALL rows within TREND_DAYS, grouped by date_key -> the trend table (every build counts, not
-  // just the newest per location — the point is daily VOLUME, not per-location freshness).
+  // just the newest per location: the point is daily VOLUME, not per-location freshness).
   const byDay = new Map<string, DayTrend>()
   for (const r of rows) {
     if (!r.date_key || new Date(r.generated_at).getTime() < trendCutoffMs) continue
@@ -415,7 +464,7 @@ async function loadFleetDetail(
     const skills = Array.isArray(r.skillHealth) ? r.skillHealth : []
     for (const s of skills) {
       // A first-brief readiness skip (beta rescue 3.1) made no model call, so it is not a slot.
-      // Counting it would pad the denominator and drag both rates toward zero — the same reason
+      // Counting it would pad the denominator and drag both rates toward zero: the same reason
       // lib/ops/pipeline-health.ts excludes it from the fleet fallback rate.
       if (s?.skipped === true) continue
       day.totalSlots++
@@ -567,9 +616,9 @@ function FirstRunRow({ row }: { row: FirstRunSample }) {
     <tr>
       <td className="is-strong">{row.locationName ?? row.locationId.slice(0, 8)}</td>
       <td>{relativeTime(row.startedAt)}</td>
-      <td className={overClaim ? "is-alert" : "is-strong"}>{row.totalMs == null ? "—" : minutesPrecise(row.totalMs)}</td>
-      <td>{row.workMs == null ? "—" : minutesPrecise(row.workMs)}</td>
-      <td>{row.idleMs == null ? "—" : minutesPrecise(row.idleMs)}</td>
+      <td className={overClaim ? "is-alert" : "is-strong"}>{row.totalMs == null ? "n/a" : minutesPrecise(row.totalMs)}</td>
+      <td>{row.workMs == null ? "n/a" : minutesPrecise(row.workMs)}</td>
+      <td>{row.idleMs == null ? "n/a" : minutesPrecise(row.idleMs)}</td>
       <td>{kind}</td>
     </tr>
   )
@@ -593,7 +642,7 @@ function seconds(ms: number): string {
 function minutes(ms: number): string {
   return `${Math.round(ms / 60_000)}m`
 }
-/** One decimal. First-run idle is measured in fractions of a minute — 0.4m rounded to "0m" would
+/** One decimal. First-run idle is measured in fractions of a minute: 0.4m rounded to "0m" would
  *  read as "no idle at all", which is the opposite of what the number says. */
 function minutesPrecise(ms: number): string {
   return `${(ms / 60_000).toFixed(1)}m`

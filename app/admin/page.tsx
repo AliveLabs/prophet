@@ -1,10 +1,10 @@
-// TICKET ADMIN — Platform Overview, rebuilt to "The Pass".
+// TICKET ADMIN: Platform Overview, rebuilt to "The Pass".
 //
 // STRUCTURE rebuild (not a reskin): the old flat stack of bordered "CardGrid"
 // boxes is replaced with weighted WIDGET tiles (gradient = headline weight,
 // --card = data) + kit TkCard sections holding token-driven, animate-in viz
 // (ranked bars, funnel meters, sparkbars, pill stats, an activity feed). The
-// data layer is IDENTICAL — fetchPlatformMetrics is unchanged; only presentation
+// data layer is IDENTICAL: fetchPlatformMetrics is unchanged; only presentation
 // moved to the kit + admin.css chrome.
 
 import { connection } from "next/server"
@@ -125,6 +125,31 @@ async function fetchPlatformMetrics() {
       new Date(o.trial_ends_at) <= now
   )
   const paidOrgs = allOrgs.filter((o) => isPaidActive(o))
+  // ALT-713: the three buckets above do not PARTITION the org set. A churned org
+  // (payment_state canceled / incomplete_expired / unpaid) is not trialing, not "expired" (that
+  // filter requires payment_state to be null) and not paid, so it fell out of the funnel entirely.
+  // So did an org with no clock and no payment_state, and a suspended one.
+  //
+  // Those omissions are what let Conversion read 100%: it divided paid by (active + paid), a
+  // denominator that excludes everyone whose trial ENDED WITHOUT CONVERTING. One paid org and no
+  // active trials printed 100% next to any number of expired ones.
+  //
+  // `other` is computed as the REMAINDER rather than as its own predicate, so the buckets are
+  // self-checking: if a future state escapes all four, it shows up here instead of vanishing.
+  const churnedOrgs = allOrgs.filter(
+    (o) =>
+      o.payment_state === "canceled" ||
+      o.payment_state === "incomplete_expired" ||
+      o.payment_state === "unpaid" ||
+      o.payment_state === "paused"
+  )
+  const bucketed = new Set([
+    ...activeTrials.map((o) => o.id),
+    ...expiredTrials.map((o) => o.id),
+    ...paidOrgs.map((o) => o.id),
+    ...churnedOrgs.map((o) => o.id),
+  ])
+  const otherOrgs = allOrgs.filter((o) => !bucketed.has(o.id))
   const tierCounts: Record<string, number> = {}
   for (const o of paidOrgs) {
     tierCounts[o.subscription_tier] =
@@ -196,6 +221,8 @@ async function fetchPlatformMetrics() {
       active: activeTrials.length,
       expired: expiredTrials.length,
       paid: paidOrgs.length,
+      churned: churnedOrgs.length,
+      other: otherOrgs.length,
       tierCounts,
     },
     insights: {
@@ -266,7 +293,7 @@ export default async function AdminOverviewPage() {
         </p>
       </RevealOnView>
 
-      {/* ── PLATFORM AT A GLANCE — weighted widget grid ── */}
+      {/* ── PLATFORM AT A GLANCE: weighted widget grid ── */}
       <TkSectionHead title="Platform at a glance" sub="Live totals" />
       <RevealOnView>
         <TkWidgetGrid>
@@ -356,15 +383,25 @@ export default async function AdminOverviewPage() {
           <TkWidget tone="teal" label="Active trials" value={m.trials.active.toLocaleString()} />
           <TkWidget tone="gold" label="Expired trials" value={m.trials.expired.toLocaleString()} />
           <TkWidget tone="rust" label="Paid subscriptions" value={m.trials.paid.toLocaleString()} />
+          <TkWidget tone="gold" label="Churned" value={m.trials.churned.toLocaleString()} />
+          {/* ALT-713: the remainder bucket. Non-zero means an org state escapes all four filters,
+              which is exactly what used to happen silently. */}
+          {m.trials.other > 0 && (
+            <TkWidget tone="rust" label="Unclassified orgs" value={m.trials.other.toLocaleString()} />
+          )}
           <TkWidget
             tone="slate"
             label="Conversion"
+            /* ALT-713: denominated on trials that ENDED. The old denominator was (active + paid),
+               which omitted every trial that expired without converting, so it could only ever
+               flatter us. Active trials have not decided yet, so they are reported separately
+               rather than diluting the rate. */
             value={
-              m.trials.active + m.trials.paid > 0
-                ? `${Math.round((m.trials.paid / (m.trials.active + m.trials.paid)) * 100)}%`
-                : "—"
+              m.trials.paid + m.trials.expired > 0
+                ? `${Math.round((m.trials.paid / (m.trials.paid + m.trials.expired)) * 100)}%`
+                : "n/a"
             }
-            sub="paid of paid+trialing"
+            sub={`paid of the ${(m.trials.paid + m.trials.expired).toLocaleString()} trial(s) that ended`}
           />
         </TkWidgetGrid>
       </RevealOnView>
@@ -476,7 +513,7 @@ export default async function AdminOverviewPage() {
                     </div>
                   </div>
                   <span className="adm-feed__time">
-                    {a.createdAt ? new Date(a.createdAt).toLocaleString() : "—"}
+                    {a.createdAt ? new Date(a.createdAt).toLocaleString() : "n/a"}
                   </span>
                 </div>
               ))}
