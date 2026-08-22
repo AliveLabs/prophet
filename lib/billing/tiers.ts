@@ -412,22 +412,11 @@ export function asSubscriptionTier(value: unknown): SubscriptionTier {
   return "entry"
 }
 
-// The next paid tier up in location count (the smallest includedLocations strictly
-// greater than `tier`'s) — i.e. the "upgrade to fit another location on this same
-// bill" target. null when the org is already at the most-locations tier (then the
-// only way to add more is a separate account). Drives the decision screen (A2 2a).
-export function nextTierWithMoreLocations(
-  tier: SubscriptionTier
-): SubscriptionTier | null {
-  const current = TIER_LIMITS[asSubscriptionTier(tier)].includedLocations
-  let best: SubscriptionTier | null = null
-  for (const t of PAID_TIERS) {
-    if (
-      TIER_LIMITS[t].includedLocations > current &&
-      (best === null || TIER_LIMITS[t].includedLocations < TIER_LIMITS[best].includedLocations)
-    ) {
-      best = t
-    }
-  }
-  return best
-}
+// ALT-754: `nextTierWithMoreLocations` lived here and is gone. It answered "which tier fits another
+// location on this same bill", and since every tier includes exactly ONE location it returned null
+// for all of them, by construction. Its single caller was the at-limit screen on /locations/new,
+// whose "Add it to this account" card therefore never rendered, leaving a second separate account as
+// the product's only offer. That screen now sells the location ADD-ON instead, which is the honest
+// answer and cheaper for a Standard operator ($275 against $299).
+//
+// If locations are ever bundled into a tier again, this is the shape to bring back.

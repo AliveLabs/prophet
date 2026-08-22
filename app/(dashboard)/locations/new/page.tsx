@@ -14,7 +14,9 @@ import { requireUser } from "@/lib/auth/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { isTrialing } from "@/lib/billing/trial"
 import { canAddLocationHere } from "@/lib/billing/limits"
-import { nextTierWithMoreLocations, asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
+import { addOnLocationPrice, asSubscriptionTier } from "@/lib/billing/tiers"
+import { resolvePriceInfo } from "@/lib/stripe/pricing"
+import { BuyLocationCard } from "./buy-location-card"
 import LocationAddForm from "@/components/places/location-add-form"
 import { TkCard, TkSoftPanel } from "@/components/ticket"
 import { createLocationFromPlaceAction } from "../actions"
@@ -44,7 +46,7 @@ export default async function NewLocationPage() {
   const [{ data: orgRow }, { count: locationCount }] = await Promise.all([
     supabase
       .from("organizations")
-      .select("subscription_tier, trial_ends_at, payment_state, org_kind, deleted_at")
+      .select("subscription_tier, trial_ends_at, payment_state, org_kind, deleted_at, locations_purchased, stripe_price_id")
       .eq("id", profile.current_organization_id)
       .maybeSingle(),
     supabase
@@ -57,18 +59,28 @@ export default async function NewLocationPage() {
   const canHere = !!orgRow && canAddLocationHere(orgRow, count)
 
   // Plan is full (or a trial caps to one location): don't render a form that
-  // only fails at submit. Offer the two real paths — keep it on this bill
-  // (upgrade), or stand it up as its own separately-billed account under the
-  // same login (A2). The separate-account path is always available; the upgrade
-  // path only when a higher tier actually fits more locations.
+  // only fails at submit. Offer the two real paths: buy the capacity on this bill, or stand it up as
+  // its own separately-billed account under the same login (A2).
+  //
+  // ALT-754: the first path used to be "upgrade to a tier with more locations", gated on
+  // nextTierWithMoreLocations(). Every tier includes exactly ONE location now, so that returned null
+  // for all of them and the card never rendered. The page's only real offer was a second account, at
+  // $299 where a Standard add-on is $275, with two logins and two bills. Now that add-on purchasing
+  // exists (ALT-689) the honest first path is buying the location.
   if (!canHere) {
     const tier = asSubscriptionTier(orgRow?.subscription_tier)
     // A suspended org can't add anywhere (and the upgrade target would read
     // misleadingly) — send it to billing. Normally unreachable: the account-held
     // gate fires first, but this keeps the page self-safe.
     if (tier === "suspended") redirect("/settings/billing")
-    const upgradeTarget = orgRow ? nextTierWithMoreLocations(tier) : null
     const onTrial = !!orgRow && isTrialing(orgRow)
+    // A trial cannot buy add-ons (Bryan, 2026-08-22), so a trialing org gets told what to do rather
+    // than a control that refuses on click.
+    const canBuy = !onTrial && orgRow?.payment_state === "active"
+    const cadence = resolvePriceInfo(orgRow?.stripe_price_id)?.cadence ?? "monthly"
+    const addOn = addOnLocationPrice(tier)
+    const unitPrice = cadence === "annual" ? addOn.annualEffectiveMonthly : addOn.monthly
+    const perLabel = cadence === "annual" ? "/month, billed yearly" : "/month"
     return (
       <div className="pv-page tk-kit">
         <Link href="/home" className="pv-back">
@@ -85,16 +97,23 @@ export default async function NewLocationPage() {
         </div>
         <hr className="pv-rule" />
         <div className="loc-paths">
-          {upgradeTarget ? (
+          {canBuy ? (
+            <TkCard className="loc-path-card">
+              <BuyLocationCard
+                locationsPurchased={Math.max(0, orgRow?.locations_purchased ?? 0)}
+                unitPrice={unitPrice}
+                perLabel={perLabel}
+              />
+            </TkCard>
+          ) : onTrial ? (
             <TkCard className="loc-path-card">
               <h2>Add it to this account</h2>
               <p>
-                Upgrade your plan to manage up to{" "}
-                {TIER_LIMITS[upgradeTarget].includedLocations} locations under one login and one
-                bill, each with its own competitors, signals, and brief.
+                Your trial covers one location. Once your plan starts you can add more to this same
+                account, each with its own competitors, signals, and brief.
               </p>
               <Link className="loc-path-link" href="/settings/billing">
-                See plans &amp; upgrade <IconArrow />
+                See your plan <IconArrow />
               </Link>
             </TkCard>
           ) : null}

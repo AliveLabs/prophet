@@ -434,3 +434,64 @@ describe("an org over its competitor cap is told, rather than silently truncated
     expect(dossier).toMatch(/\.order\("created_at", \{ ascending: true \}\)/)
   })
 })
+
+describe("the at-limit location screen sells the add-on, not a second account (ALT-754)", () => {
+  const ROOT = resolve(__dirname, "..", "..", "..")
+  const page = () => readFileSync(join(ROOT, "app/(dashboard)/locations/new/page.tsx"), "utf8")
+  const card = () =>
+    readFileSync(join(ROOT, "app/(dashboard)/locations/new/buy-location-card.tsx"), "utf8")
+
+  it("the dead upgrade-tier path is gone", () => {
+    // It returned null for every tier, because every tier includes exactly one location. Its card
+    // therefore never rendered, so the page's only real offer was a separate account at above list
+    // price.
+    //
+    // Asserting ONLY that the export is gone, deliberately. If it is not exported, any surviving
+    // call is a compile error, so tsc already guarantees the caller is gone and a source scan adds
+    // nothing. It also subtracts: scanning the page for the name matched this file's own comment
+    // explaining the removal, which is the fourth time that trap appeared today. Prefer a guarantee
+    // the compiler gives you over a scan you have to keep outsmarting.
+    const tiers = readFileSync(join(ROOT, "lib/billing/tiers.ts"), "utf8")
+    expect(tiers).not.toMatch(/export function nextTierWithMoreLocations/)
+  })
+
+  it("offers buying the location on this plan", () => {
+    expect(page()).toMatch(/<BuyLocationCard/)
+    expect(card()).toMatch(/kind: "location"/)
+  })
+
+  it("buys ONE more than currently billed, not a fixed quantity", () => {
+    // The route takes an absolute target, so a hardcoded 1 would silently un-buy a customer who
+    // already had extra locations.
+    expect(card()).toMatch(/const target = locationsPurchased \+ 1/)
+  })
+
+  it("previews before charging, like the billing panel", () => {
+    const s = card()
+    expect(s).toMatch(/preview: previewOnly/)
+    expect(s).toMatch(/go\(true\)/)
+    expect(s).toMatch(/go\(false\)/)
+    expect(s).toMatch(/prorated for the rest of your billing period/)
+  })
+
+  it("says removal is possible, so the purchase is not a trap", () => {
+    expect(card()).toMatch(/remove it again/i)
+  })
+
+  it("a trialing org is told what to do instead of shown a control that refuses", () => {
+    const s = page()
+    expect(s).toMatch(/const canBuy = !onTrial && orgRow\?\.payment_state === "active"/)
+    expect(s).toMatch(/trial covers one location/i)
+  })
+
+  it("keeps the separate-account path as the secondary option", () => {
+    // Still a legitimate choice: separate billing per location is what some operators want.
+    expect(page()).toMatch(/Give it its own account/)
+  })
+
+  it("prices from the org's own plan and cadence, never a literal", () => {
+    const s = page()
+    expect(s).toMatch(/addOnLocationPrice\(tier\)/)
+    expect(s).toMatch(/cadence === "annual" \? addOn\.annualEffectiveMonthly : addOn\.monthly/)
+  })
+})
