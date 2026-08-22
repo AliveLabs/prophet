@@ -4,6 +4,7 @@ import { join } from "node:path"
 import {
   PAID_TIERS,
   SELF_SERVE_TIERS,
+  ADD_ON_PRICING,
   TIER_LIMITS,
   TIER_PRICING,
   tierDisplayName,
@@ -62,6 +63,33 @@ describe("the tier source of truth", () => {
 
   it("only Starter and Standard are sold online", () => {
     expect([...SELF_SERVE_TIERS]).toEqual(["entry", "mid"])
+  })
+
+  // ── The shape of the offer, pinned. docs/PRICING.md section 1a. ──────────────────────────────
+  //
+  // Bryan restated this on 2026-08-22 because it had been re-argued more than once: two self-serve
+  // tiers, one contact-us tier, exactly two add-ons, nothing else. These assertions exist so the
+  // next person to wonder whether `top` is dead code gets an answer from a failing test rather than
+  // from a conversation.
+
+  it("Multi-Location still EXISTS as the contract vehicle, and is not self-serve", () => {
+    // Deleting `top` would force a negotiated deal onto the add-on LIST price, which defeats the
+    // quote. It is kept deliberately and gated deliberately.
+    expect(PAID_TIERS).toContain("top")
+    expect(TIER_LIMITS.top).toBeDefined()
+    expect(TIER_PRICING.top).toBeDefined()
+    expect(SELF_SERVE_TIERS).not.toContain("top")
+  })
+
+  it("there are exactly two add-ons: a location and a competitor", () => {
+    // A third capability sold separately becomes a third add-on and a row in the guide. It does not
+    // become a tier. This fails if one is added silently.
+    expect(Object.keys(ADD_ON_PRICING).sort()).toEqual(["competitor", "location"])
+  })
+
+  it("the location add-on is priced per plan, and the competitor add-on is flat", () => {
+    expect(Object.keys(ADD_ON_PRICING.location).sort()).toEqual(["entry", "mid", "top"])
+    expect(typeof ADD_ON_PRICING.competitor.monthly).toBe("number")
   })
 
   // The legacy aliases are a READ-side shim for old rows, so they must keep resolving even though

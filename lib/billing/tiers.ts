@@ -125,6 +125,26 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     contentPagesPerRun: 5,
   },
   top: {
+    // ── `top` IS THE CONTRACT VEHICLE. Do not delete it. ────────────────────────────────────
+    //
+    // It looks like dead code: nothing is on it, it is absent from SELF_SERVE_TIERS, and the
+    // customer-facing offer is "Starter, Standard, Custom". It is none of those things. It is the
+    // billing vehicle a signed Multi-Location deal lands on, and it exists precisely so a
+    // negotiated per-location rate is billable at all: modelling a custom customer as Standard plus
+    // N location add-ons would force them onto the add-on LIST price, which defeats the quote.
+    //
+    // Keeping it also means the Stripe product and price already exist when the first deal closes
+    // rather than being created under deadline. See docs/PRICING.md section 1a, written so this
+    // question stops being re-argued.
+    //
+    // What keeps it safe is the self-serve gate, not its absence: `isSelfServeTier("top")` is false
+    // and both money endpoints check it, because `top` undercuts Standard per location while
+    // delivering more, and was briefly purchasable (ALT-735).
+    //
+    // ⚠️ Its entitlement is under review (ALT-757): 10 competitors and biweekly SEO make it cost
+    // $86.08 against Standard's $70.33, so every discount band in the quote schedule misses both
+    // margin gates. Do not treat the numbers below as settled.
+    //
     // ALT-687/657 — ONE. Multi-Location is priced PER LOCATION ($275/mo each), so a single unit
     // of it is one location and the rest arrive as `locations_purchased`. This was 3 under the old
     // bundle model ($499 for three), and leaving it at 3 made the cost model compare three
