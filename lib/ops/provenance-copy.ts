@@ -109,7 +109,10 @@ export function operatorSafeReason(
     if (match.test(trimmed)) return copy
   }
 
-  const failed = outcome === "partial" || outcome === "failed" || outcome === "not_reached"
+  // ALT-751: "not_reached" was here too. pipeline_runs.outcome is CHECK-constrained to
+  // fresh | served_stale | dormant | no_data | partial | failed | skipped, so it can never be
+  // written and the branch was dead.
+  const failed = outcome === "partial" || outcome === "failed"
   return failed ? "we couldn't read it this time" : null
 }
 

@@ -157,8 +157,11 @@ async function fetchPlatformMetrics() {
     .slice(0, 8)
 
   const allJobs = jobRuns ?? []
-  const successfulJobs = allJobs.filter((j) => j.status === "completed" || j.status === "success")
-  const failedJobs = allJobs.filter((j) => j.status === "failed" || j.status === "error")
+  // ALT-717: this filtered for "completed" and "success". The job_runs CHECK constraint allows
+  // exactly queued | running | succeeded | failed, so NEITHER value can ever exist and the tile was
+  // structurally 0%. "error" is impossible for the same reason. Verified against prod 2026-08-21.
+  const successfulJobs = allJobs.filter((j) => j.status === "succeeded")
+  const failedJobs = allJobs.filter((j) => j.status === "failed")
 
   const signupsByWeek: Record<string, number> = {}
   for (const w of allWaitlist) {

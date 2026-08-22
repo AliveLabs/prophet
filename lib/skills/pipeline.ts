@@ -202,7 +202,22 @@ async function runBriefBudgeted(
   }
 
   // graduated brand-fit review, gated by the customer's tolerance slider (default 50)
-  const verdicts = await reviewPlays(dossier, candidates, t)
+  // ALT-747: record it when the brand-fit gate degrades. Deliberately NOT on `skillHealth`:
+  // that list is per-PRODUCER and /admin/health divides by its length to get the fleet fallback
+  // rate, so a non-producer entry would quietly move a metric. An existing test caught that, which
+  // is the metric-denominator rule doing its job. It lands on providerStats instead, beside
+  // spendDegradedCalls and producersSkipped, and is logged loudly either way.
+  let safetyGateFallbackReason: string | undefined
+  const verdicts = await reviewPlays(dossier, candidates, {
+    ...t,
+    onFallback: ({ reason }) => {
+      safetyGateFallbackReason = reason
+      console.warn(
+        `[runBrief] ${dossier.profile.locationId}: brand-fit safety gate DEGRADED (${reason}): ` +
+          `${candidates.length} play(s) shipped without a brand-fit review`,
+      )
+    },
+  })
   const { kept, dropped } = applyHarmReview(candidates, verdicts, dossier.profile.brandTolerance ?? 50)
 
   const synthInput: SkillResult[] = [{ skillId: "reviewed", status: "ok", plays: kept }]
@@ -224,7 +239,12 @@ async function runBriefBudgeted(
     ...synthesized,
     plays: await synthesisWrite(synthesized.plays, dossier, opts.transport),
   }
-  const providerStats = collectProviderStats(providerAtStart, dossier.profile.locationId, selection.skipped.length)
+  const providerStats = collectProviderStats(
+    providerAtStart,
+    dossier.profile.locationId,
+    selection.skipped.length,
+    safetyGateFallbackReason,
+  )
 
   const presented = presentBrief(written, dossier)
   const voiced: Brief = {
@@ -251,6 +271,11 @@ function collectProviderStats(
   /** First-brief readiness gating: how many producers were not called. 0 on every nightly build,
    *  and omitted from the stamp at 0 so a nightly brief's providerStats is byte-identical. */
   producersSkipped = 0,
+  /** ALT-747: set when the brand-fit safety gate served its no-flag fallback, so a brief that
+   *  shipped WITHOUT a brand-fit review is distinguishable from one that was reviewed and clean.
+   *  Deliberately here and not on skillHealth: that list is per-producer and the fleet fallback
+   *  rate divides by its length. */
+  safetyGateFallbackReason?: string,
 ): NonNullable<Brief["providerStats"]> {
   const providerAtEnd = anthropicCallStats()
   // Token telemetry (2026-07-16): per-model delta between the two snapshots — THIS build's tokens.
@@ -282,6 +307,7 @@ function collectProviderStats(
     ...(estimatedUsd > 0 ? { estimatedUsd } : {}),
     ...(budget ? { spendCeilingUsd: budget.ceilingUsd, spendDegradedCalls: budget.degradedCalls } : {}),
     ...(producersSkipped > 0 ? { producersSkipped } : {}),
+    ...(safetyGateFallbackReason ? { safetyGateFallbackReason } : {}),
   }
 }
 

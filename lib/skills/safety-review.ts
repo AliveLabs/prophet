@@ -33,10 +33,24 @@ function buildPrompt(d: Dossier, plays: EnrichedRecommendation[]): { system: str
   return { system, prompt }
 }
 
+/** ALT-747: the gate has to say when it stopped gating.
+ *
+ *  This call has a deterministic fallback that returns severity 0 for EVERY play, which means a
+ *  model failure silently passes the whole brief through an ungated safety review. Nothing recorded
+ *  it, so a build where brand-fit review never ran was indistinguishable from one where it ran and
+ *  found nothing. Unlike every producer, it passed no `onFallback`.
+ *
+ *  CLAUDE.md is explicit: "A degraded call must stay visible [...] Any new failure path must
+ *  classify itself into FallbackReason." The fallback itself is right and stays: blocking a brief
+ *  because the brand-fit reviewer timed out is worse than shipping plays it did not vet. Being
+ *  quiet about it is the bug. */
 export async function reviewPlays(
   d: Dossier,
   plays: EnrichedRecommendation[],
-  opts: { transport?: Transport } = {},
+  opts: {
+    transport?: Transport
+    onFallback?: (info: { reason: string; elapsedMs: number }) => void
+  } = {},
 ): Promise<HarmVerdict[]> {
   if (plays.length === 0) return []
   const { system, prompt } = buildPrompt(d, plays)
@@ -56,6 +70,7 @@ export async function reviewPlays(
           }
         })
       },
+      onFallback: ({ reason, elapsedMs }) => opts.onFallback?.({ reason, elapsedMs }),
       fallback: () => plays.map((_, i) => ({ index: i, severity: 0 as Severity, reason: "" })),
     },
   )
