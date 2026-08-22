@@ -136,7 +136,7 @@ export function BriefInsightCard({
   const reinforcing = (sentiment || quotes.length) ? (
     <>
       {sentiment ? (
-        <TkSentimentRows caption="Negative sentiment by category" captionRight="recent reviews" rows={sentiment} />
+        <TkSentimentRows caption="What your reviews talk about" captionRight="share of recent reviews" rows={sentiment} />
       ) : null}
       {quotes.length ? (
         <div className="tk-quotes pass-quotes">

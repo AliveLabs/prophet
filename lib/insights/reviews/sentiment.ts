@@ -120,10 +120,15 @@ export function reviewInsightsFromSentiment(sentiment: ReviewSentiment): Generat
     return {
       insight_type: "review.theme",
       title: `Review theme: ${t.theme} (${t.sentiment})`,
+      // ALT-725: this was a two-way branch on `negative`, so "mixed" fell into the praise arm and a
+      // divided theme was reported as consistent praise. That line also lands in "Why we're
+      // confident", so it was laundering a split signal into supporting evidence.
       summary:
         t.sentiment === "negative"
           ? `Customers are raising "${t.theme}" as a problem.`
-          : `Customers consistently praise "${t.theme}".`,
+          : t.sentiment === "positive"
+            ? `Customers consistently praise "${t.theme}".`
+            : `Reviews are split on "${t.theme}".`,
       confidence: "medium",
       severity: isRedFlag ? "critical" : t.sentiment === "negative" ? "warning" : "info",
       evidence: {

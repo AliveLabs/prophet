@@ -110,8 +110,17 @@ describe("formatBenchmarkLine", () => {
 
   it("denominates both sides", () => {
     expect(formatBenchmarkLine(b)).toBe(
-      "You are rated higher than your competitors: 4.6 from 812 reviews, against 4.2 across the 5 you track.",
+      // ALT-726: was "across the 5 you track". `comparedCount` is the number that CLEARED the
+      // review floor and went into the median, not the number tracked, so an operator watching 8
+      // rivals read "the 3 you track" and reasonably concluded we had lost five of them.
+      "You are rated higher than your competitors: 4.6 from 812 reviews, against 4.2 across 5 comparable competitors.",
     )
+  })
+
+  it("never claims the compared count is the tracked count (ALT-726)", () => {
+    // `comparedCount` only counts competitors that cleared the review floor. Calling it "you
+    // track" asserted a number we were not computing.
+    expect(formatBenchmarkLine(b)).not.toMatch(/you track/i)
   })
 
   it("never names a competitor and never claims a cause", () => {
@@ -136,7 +145,7 @@ describe("formatBenchmarkLine", () => {
     expect(formatBenchmarkLine(below)).toContain("rated lower than your competitors")
   })
 
-  it("keeps the phrasing correct when only one competitor cleared the floor", () => {
+  it("says \"1 comparable competitor\" when only one cleared the floor", () => {
     expect(
       formatBenchmarkLine({
         ownRating: 4.6,
@@ -145,7 +154,7 @@ describe("formatBenchmarkLine", () => {
         comparedCount: 1,
         standing: "above",
       }),
-    ).toContain("across the 1 you track.")
+    ).toContain("across 1 comparable competitor.")
   })
 })
 

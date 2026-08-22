@@ -171,13 +171,24 @@ export type MappedSentimentRow = {
   width: number
   value: string
   tone: TkSentimentTone
+  /** Which way the category leans. Carried so the tone above is explainable. */
+  direction: SentimentCategory["direction"]
   tip?: string
   tipValue?: string
 }
 
-function sentimentTone(pct: number): TkSentimentTone {
-  if (pct >= 30) return "bad"
-  if (pct >= 18) return "warn"
+/** ALT-706: tone comes from the category's SENTIMENT, not from how much it is talked about.
+ *
+ *  This took `pct`, the category's share of all categorized mentions, and coloured anything over
+ *  30% red. So a location whose reviews rave about the food got a red "Food" bar, under a heading
+ *  that read "Negative sentiment by category". The `direction` field that actually answers
+ *  good-or-bad was computed in presentation.ts and then thrown away here: a field with no reader
+ *  driving a claim, which is the same defect as ALT-733.
+ *
+ *  Popularity is already carried by the bar width and the percentage. Tone now says one thing. */
+function sentimentTone(direction: SentimentCategory["direction"]): TkSentimentTone {
+  if (direction === "negative") return "bad"
+  if (direction === "mixed") return "warn"
   return "ok"
 }
 
@@ -192,8 +203,9 @@ export function playSentiment(play: EnrichedRecommendation): MappedSentimentRow[
       // (matches Concept A, where 38% paints ~78% of the track). Capped at 100.
       width: Math.min(100, Math.round(pct * 2)),
       value: `${pct}%`,
-      tone: sentimentTone(pct),
-      tip: `${c.category} mentions`,
+      tone: sentimentTone(c.direction),
+      direction: c.direction,
+      tip: `${c.category} mentions, mostly ${c.direction}`,
       tipValue: `${pct}% of negatives`,
     }
   })
