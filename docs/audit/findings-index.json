@@ -44,7 +44,7 @@
     { "fp": "class8|app/onboarding/trial/start-trial-button.tsx|annual-price-quoted-but-checkout-hardcodes-monthly", "ticket": "ALT-737", "severity": "High", "confidence": "agent", "fixedIn": "prophet#268" },
     { "fp": "class8|app/api/stripe/webhook/route.ts|failed-handler-retry-swallowed-as-duplicate", "ticket": "ALT-738", "severity": "High", "confidence": "agent", "fixedIn": "prophet#275" },
     { "fp": "class6|app/onboarding/actions.ts|every-location-gets-eastern-timezone", "ticket": "ALT-739", "severity": "High", "confidence": "verified", "fixedIn": "prophet#276" },
-    { "fp": "class3|lib/cache/content.ts|content-page-menu-read-bypasses-union", "ticket": "ALT-740", "severity": "High", "confidence": "agent" },
+    { "fp": "class3|lib/cache/content.ts|content-page-menu-read-bypasses-union", "ticket": "ALT-740", "severity": "High", "confidence": "agent", "fixedIn": "prophet#280" },
     { "fp": "class7|app/api/cron/build-brief/route.ts|active-org-allowlist-empty-on-read-error", "ticket": "ALT-743", "severity": "High", "confidence": "agent", "fixedIn": "prophet#271" },
     { "fp": "class7|app/api/cron/daily/route.ts|active-org-allowlist-empty-on-read-error", "ticket": "ALT-743", "severity": "High", "confidence": "agent", "fixedIn": "prophet#271" },
     { "fp": "class7|app/api/cron/weekly-digest/route.ts|active-org-allowlist-empty-on-read-error", "ticket": "ALT-743", "severity": "High", "confidence": "agent", "fixedIn": "prophet#271" },
@@ -61,6 +61,8 @@
     { "fp": "class8|lib/billing/limits.ts|competitor-addon-priced-flat-but-granted-and-costed-per-location", "ticket": "ALT-756", "severity": "High", "confidence": "agent" },
     { "fp": "class7|app/api/cron/trial-reminders/route.ts|recipient-lookup-unchecked-after-ledger-write", "ticket": "ALT-761", "severity": "High", "confidence": "verified", "fixedIn": "prophet#271" },
     { "fp": "class7|app/api/cron/weekly-digest/route.ts|member-lookup-unchecked", "ticket": "ALT-761", "severity": "High", "confidence": "verified", "fixedIn": "prophet#271" },
+    { "fp": "class3|app/(dashboard)/locations/page.tsx|menu-item-count-from-single-scrape", "ticket": "ALT-740", "severity": "High", "confidence": "verified", "fixedIn": "prophet#280" },
+    { "fp": "class3|lib/jobs/pipelines/insights.ts|competitor-menu-read-single-latest", "ticket": "ALT-740", "severity": "High", "confidence": "verified", "fixedIn": "prophet#280" },
 
     { "fp": "class1|app/support/support-form.tsx|claims-emailed-copy-to-submitter", "ticket": "ALT-712", "severity": "Medium", "confidence": "verified", "fixedIn": "prophet#279" },
     { "fp": "class1|app/admin/page.tsx|funnel-buckets-do-not-partition", "ticket": "ALT-713", "severity": "Medium", "confidence": "verified", "latent": true },

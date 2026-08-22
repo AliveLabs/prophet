@@ -22,6 +22,7 @@ import { humanizeLabel } from "@/lib/skills/evidence-format"
 import type { MenuSnapshot, SiteContentSnapshot } from "@/lib/content/types"
 import { LocationsBoard, type LocationCard } from "./locations-board"
 import "./locations.css"
+import { loadLocationMenu } from "@/lib/content/menu-history"
 
 const formatTemperature = (weather: WeatherSnapshot | null): string => {
   if (!weather || typeof weather.temperature !== "number") return "—"
@@ -127,14 +128,10 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           .limit(1)
           .maybeSingle()
 
-        const { data: menuSnapRow } = await supabase
-          .from("location_snapshots")
-          .select("raw_data, date_key")
-          .eq("location_id", location.id)
-          .eq("provider", "firecrawl_menu")
-          .order("date_key", { ascending: false })
-          .limit(1)
-          .maybeSingle()
+        // ALT-740: this was a single-latest read feeding `menuItemCount`, the item count shown on
+        // the card. On a day the scrape returned 3 items the card said "3" for a menu we knew ran
+        // to 110, which is the exact ALT-363 symptom on one more surface.
+        const ownMenu = await loadLocationMenu(supabase, location.id)
 
         let scrUrl: string | null = null
         if (siteSnap) {
@@ -144,12 +141,13 @@ export default async function LocationsPage({ searchParams }: LocationsPageProps
           }
         }
 
-        const menuData = menuSnapRow?.raw_data as MenuSnapshot | null
+        const menuData = ownMenu.menu
         contentInfoMap.set(location.id, {
           screenshotUrl: scrUrl,
           menuItemCount: menuData?.parseMeta?.itemsTotal ?? 0,
           menuConfidence: menuData?.parseMeta?.confidence ?? null,
-          lastScrapedAt: siteSnap?.date_key ?? menuSnapRow?.date_key ?? null,
+          // Freshness still comes from the newest RAW capture: unioning is not a re-read.
+          lastScrapedAt: siteSnap?.date_key ?? ownMenu.dateKey ?? null,
         })
       } catch {
         contentInfoMap.set(location.id, {
