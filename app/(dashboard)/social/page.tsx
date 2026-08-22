@@ -246,7 +246,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
         <span className="pv-kicker">Your market</span>
         <h1 className="pv-h1">Social</h1>
         <p className="pv-sub">
-          How your accounts and your competitors&apos; show up — followers, engagement, and the posts
+          How your accounts and your competitors&apos; show up: followers, engagement, and the posts
           driving it. We frame everything as percentages and &ldquo;you vs them&rdquo;, never guessed
           dollars or customer counts.
         </p>
@@ -279,7 +279,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
           <>
             <TkSectionHead
               title="Your social"
-              sub="Your accounts — footprint, coverage, and recent posts"
+              sub="Your accounts: footprint, coverage, and recent posts"
               className="sp-sec sp-sec-own"
             />
 
@@ -314,9 +314,9 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                 <TkWidget
                   tone={avgEngagement > 0 ? "teal" : "muted"}
                   label="Engagement / post"
-                  value={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}%` : "—"}
+                  value={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}%` : "n/a"}
                   sub={avgEngagement > 0 ? "when you post, on average" : "no posts read yet"}
-                  data-tip="Average interactions per post ÷ followers, when you post — not how often you post"
+                  data-tip="Average interactions per post ÷ followers, when you post (not how often you post)"
                   data-tipv={avgEngagement > 0 ? `${avgEngagement.toFixed(1)}% engagement` : "not enough data"}
                   data-tip-anchor=""
                 />
@@ -459,7 +459,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                   </svg>
                 }
                 title="No reads yet"
-                description="Insights land automatically after a social-data fetch — we line your posts and engagement up against competitors and surface what's worth acting on."
+                description="Insights land automatically after a social-data fetch: we line your posts and engagement up against competitors and surface what's worth acting on."
               />
             )}
           </>
@@ -471,7 +471,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
             <TkSectionHead
               id="watched-accounts"
               title="Watched accounts"
-              sub="The handles we read — manage your own in Settings, a competitor's on its page"
+              sub="The handles we read: manage your own in Settings, a competitor's on its page"
               className="sp-sec"
             />
             <RevealOnView>
@@ -493,7 +493,7 @@ export default async function SocialPage({ searchParams }: SocialPageProps) {
                 </svg>
               }
               title="No social accounts connected yet"
-              description="Add the handles you want us to read — your own accounts and the competitors you measure against. Then run a fetch to pull posts and engagement."
+              description="Add the handles you want us to read: your own accounts and the competitors you measure against. Then run a fetch to pull posts and engagement."
               action={
                 <div className="sp-cta">
                   <Link href="/settings#social-coverage">

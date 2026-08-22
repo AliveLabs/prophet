@@ -14,7 +14,7 @@ export function ImpersonationBanner({
   return (
     <div className="flex items-center justify-center gap-3 bg-signal-gold px-4 py-2 text-center text-sm font-medium text-black">
       <span>
-        Viewing as <strong>{targetEmail}</strong> — admin <strong>{actorEmail}</strong> (read-only)
+        Viewing as <strong>{targetEmail}</strong>, admin <strong>{actorEmail}</strong> (read-only)
       </span>
       <a
         href="/api/impersonation/exit"

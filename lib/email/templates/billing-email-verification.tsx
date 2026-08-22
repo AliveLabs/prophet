@@ -34,7 +34,7 @@ export function BillingEmailVerification({ verifyUrl }: BillingEmailVerification
           billing email will not change.
         </Text>
 
-        <Text style={emailStyles.signoff}>&mdash; The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

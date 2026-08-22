@@ -173,7 +173,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
   }
 
   function fullName(s: WaitlistSignup) {
-    return [s.first_name, s.last_name].filter(Boolean).join(" ") || "—"
+    return [s.first_name, s.last_name].filter(Boolean).join(" ") || "n/a"
   }
 
   return (
@@ -295,7 +295,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
                     </td>
                     <td className="ap-cell-mono">{timeAgo(signup.created_at)}</td>
                     <td className="ap-cell-mono">
-                      {signup.reviewed_at ? timeAgo(signup.reviewed_at) : "—"}
+                      {signup.reviewed_at ? timeAgo(signup.reviewed_at) : "n/a"}
                     </td>
                     <td>
                       <RowActions
@@ -338,7 +338,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
                   )}
                   <div style={{ minWidth: 0 }}>
                     <div className="ap-rowcard-title">{signup.email}</div>
-                    {fullName(signup) !== "—" ? (
+                    {fullName(signup) !== "n/a" ? (
                       <div className="ap-cell-muted" style={{ fontSize: 13 }}>{fullName(signup)}</div>
                     ) : null}
                   </div>
@@ -347,7 +347,7 @@ export function WaitlistTable({ signups }: { signups: WaitlistSignup[] }) {
               </div>
               <div className="ap-rowcard-meta">
                 <span>Signed up <b>{timeAgo(signup.created_at)}</b></span>
-                <span>Reviewed <b>{signup.reviewed_at ? timeAgo(signup.reviewed_at) : "—"}</b></span>
+                <span>Reviewed <b>{signup.reviewed_at ? timeAgo(signup.reviewed_at) : "n/a"}</b></span>
               </div>
               <RowActions
                 signup={signup}

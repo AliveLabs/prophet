@@ -274,7 +274,7 @@ export function FeaturesSection() {
               <div className="max-w-sm">
                 <h3 className="font-display text-3xl italic text-foreground">Competitor Monitoring</h3>
                 <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                  Track up to 50 competitors across Google, social media, and their websites. Daily snapshots catch changes the moment they happen — reviews, ratings, hours, attributes, and more.
+                  Track up to 50 competitors across Google, social media, and their websites. Daily snapshots catch changes the moment they happen: reviews, ratings, hours, attributes, and more.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {["Reviews", "Ratings", "Menus", "Social", "SEO"].map((tag) => (
@@ -373,7 +373,7 @@ export function FeaturesSection() {
               </svg>
               <h3 className="mt-4 text-lg font-bold text-foreground">Visual Intelligence</h3>
               <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                AI-powered photo analysis — quality scoring, ambiance detection, food presentation grading, and brand consistency audits.
+                AI-powered photo analysis: quality scoring, ambiance detection, food presentation grading, and brand consistency audits.
               </p>
             </div>
             <div className="mt-4">

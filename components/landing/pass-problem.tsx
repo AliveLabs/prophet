@@ -69,7 +69,7 @@ export function PassProblem() {
             <p className="lp-sub">
               A competitor drops prices across three locations. By the time customers
               mention it, you&rsquo;ve already lost a week of margin. Your POS tracks what
-              sold — Ticket tracks what&rsquo;s shifting around you.
+              sold. Ticket tracks what&rsquo;s shifting around you.
             </p>
             <p className="lp-sub">
               Every signal is scored by confidence. High means multiple sources confirmed;

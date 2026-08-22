@@ -380,7 +380,7 @@ export default function UnifiedInsightCardPreview() {
           Urgency wording is now one axis end to end: <b>Next day or two</b> / <b>This week</b> /{" "}
           <b>No rush</b>. That replaces the mixed set (&ldquo;High priority&rdquo; was a priority
           word sitting between two time words) and it replaces the briefing&rsquo;s
-          &ldquo;Act in 24&ndash;48h&rdquo;, which said the same thing in different words.
+          &ldquo;Act in 24-48h&rdquo;, which said the same thing in different words.
         </p>
       </section>
 

@@ -209,7 +209,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
   const topCategory = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a)[0]
   const topCategoryLabel = topCategory
     ? CATEGORY_LABELS[topCategory[0]] ?? topCategory[0].replace(/_/g, " ")
-    : "—"
+    : "n/a"
   const proRatio = totalPhotos > 0 ? Math.round((professionalCount / totalPhotos) * 100) : 0
 
   const showFilter = !!(locations && locations.length > 1 && selectedLocationId)
@@ -220,7 +220,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
         <span className="pv-kicker">Visual intelligence</span>
         <h1 className="pv-h1">Photos</h1>
         <p className="pv-sub">
-          Every competitor photo we can see, read by vision AI — what they shoot, how well they shoot
+          Every competitor photo we can see, read by vision AI: what they shoot, how well they shoot
           it, and the promotions they&apos;re running. We surface anything that moves into your brief.
         </p>
       </div>
@@ -272,8 +272,8 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
                 <TkWidget
                   tone="teal"
                   label="Top subject"
-                  value={topCategory ? String(topCategory[1]) : "—"}
-                  sub={topCategory ? `${topCategoryLabel} — most-shot` : "no photos yet"}
+                  value={topCategory ? String(topCategory[1]) : "n/a"}
+                  sub={topCategory ? `${topCategoryLabel} (most-shot)` : "no photos yet"}
                   data-tip="Most-photographed subject across the set"
                   data-tipv={topCategory ? `${topCategoryLabel} · ${topCategory[1]} photos` : "no photos yet"}
                 />
@@ -325,7 +325,7 @@ export default async function PhotosPage({ searchParams }: PhotosPageProps) {
               days={1}
               target={7}
               title="No photos analyzed yet"
-              description="Run a scan and we'll fetch your competitors' photos and read each one with vision AI — what they shoot, how well, and any promotions. Findings surface here and in your brief."
+              description="Run a scan and we'll fetch your competitors' photos and read each one with vision AI: what they shoot, how well, and any promotions. Findings surface here and in your brief."
             />
           </RevealOnView>
         ) : (

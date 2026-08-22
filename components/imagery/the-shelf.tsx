@@ -27,7 +27,7 @@ export default function TheShelf({
           rows={shelf.rows}
           note={
             shelf.benchmarkName
-              ? `Measured against ${shelf.benchmarkName} — the strongest listing in your set.`
+              ? `Measured against ${shelf.benchmarkName}: the strongest listing in your set.`
               : undefined
           }
         />

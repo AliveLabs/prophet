@@ -183,7 +183,7 @@ export default async function SettingsPage() {
                 <div className="tk-set-fval">
                   <p className="tk-set-desc">
                     Boost the kinds of moves you care about most at this location. A modest reweight, not a
-                    filter — applies to your next brief. Hover any category for what it boosts.
+                    filter: applies to your next brief. Hover any category for what it boosts.
                   </p>
                   <SettingsCategoryPriors
                     initial={(locSettings.categoryPriors as CategoryPriors | undefined) ?? null}
@@ -248,7 +248,7 @@ export default async function SettingsPage() {
                     <>
                       <OwnNetworkSelectPass initial={chosenNetwork} locationId={ctx.locationId} />
                       <p className="tk-set-hint">
-                        Your plan tracks one of your own networks — your choice. Competitor accounts are
+                        Your plan tracks one of your own networks: your choice. Competitor accounts are
                         covered on all three networks regardless.
                       </p>
                       {otherOwnNetworks.length > 0 ? (
@@ -256,7 +256,7 @@ export default async function SettingsPage() {
                           <p className="tk-set-hint">
                             We also found you on{" "}
                             {otherOwnNetworks.map((n) => n.charAt(0).toUpperCase() + n.slice(1)).join(" and ")}
-                            {" — tracked on Tier 2 and up."}
+                            {": tracked on Tier 2 and up."}
                           </p>
                           <div className="tk-set-row-actions">
                             <Link className="tk-set-linkbtn" href="/settings/billing">Upgrade plan {ICON_ARROW}</Link>

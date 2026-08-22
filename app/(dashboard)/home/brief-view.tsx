@@ -213,7 +213,7 @@ export default function BriefView({
               title="Still reading your market"
               description={
                 brief.fallback
-                  ? "We're holding your last good brief while tonight's data lands — fresh insights return on the next sweep."
+                  ? "We're holding your last good brief while tonight's data lands. Fresh insights return on the next sweep."
                   : "We're gathering enough signal to be honest about your standing. Your first insights land as the picture fills in."
               }
             />
@@ -233,7 +233,7 @@ export default function BriefView({
             {isFallback ? (
               <div className="pass-fallback-banner" role="status">
                 <span className="pass-dot" aria-hidden="true" />
-                Holding your last good brief while tonight&apos;s data lands — fresh insights return on the next sweep.
+                Holding your last good brief while tonight&apos;s data lands. Fresh insights return on the next sweep.
               </div>
             ) : null}
 
@@ -312,12 +312,12 @@ export default function BriefView({
                   size="wide"
                   label="Signals read"
                   value={String(signalCount)}
-                  sub="distinct sources behind today's insights — tap to see them"
+                  sub="distinct sources behind today's insights (tap to see them)"
                   expand={
                     <>
                       <p className="pass-sig-why">
                         Every insight today is grounded in these live sources. More distinct sources means a
-                        wider read of your market — fewer means we leaned on what was fresh this sweep.
+                        wider read of your market. Fewer means we leaned on what was fresh this sweep.
                       </p>
                       {signalSources.length ? (
                         <ul className="pass-sig-list">
@@ -344,7 +344,7 @@ export default function BriefView({
                 <TkWidget
                   tone="teal"
                   label="You're winning"
-                  value={wonCount > 0 ? `${wonCount} insight${wonCount === 1 ? "" : "s"}` : "—"}
+                  value={wonCount > 0 ? `${wonCount} insight${wonCount === 1 ? "" : "s"}` : "n/a"}
                   sub={wonCount > 0 ? "advantages to press" : "no clear edge yet"}
                   data-tip="Insights where you lead the set"
                   data-tipv={`${wonCount} advantage${wonCount === 1 ? "" : "s"}`}
@@ -353,7 +353,7 @@ export default function BriefView({
                   tone="slate"
                   label="Acted this week"
                   value={String(weeklyMomentum)}
-                  sub={weeklyMomentum > 0 ? "insights you're on" : "kept or acted — none yet"}
+                  sub={weeklyMomentum > 0 ? "insights you're on" : "kept or acted: none yet"}
                   data-tip="Insights you kept or acted on in the last 7 days"
                   data-tipv={`${weeklyMomentum} this week`}
                 />
@@ -368,7 +368,7 @@ export default function BriefView({
                 <TkWidget
                   tone="slate"
                   label="Coverage fresh"
-                  value={coverage.length ? `${freshCount}/${coverage.length}` : "—"}
+                  value={coverage.length ? `${freshCount}/${coverage.length}` : "n/a"}
                   sub="signal streams checked this sweep"
                   data-tip="Live signal streams that returned fresh data"
                   data-tipv={coverage.length ? `${freshCount} of ${coverage.length} fresh` : "no coverage yet"}
@@ -461,7 +461,7 @@ export default function BriefView({
                 <ul className="pass-coverage">
                   {coverage.map((c) => {
                     const state = !c.present ? "off" : c.stale ? "stale" : "on"
-                    const mark = !c.present ? "—" : c.stale ? "◐" : "✓"
+                    const mark = !c.present ? "○" : c.stale ? "◐" : "✓"
                     const status = !c.present
                       ? c.detail ?? "Not reached"
                       : c.stale
@@ -486,7 +486,7 @@ export default function BriefView({
                     <p>
                       <b>Fresh</b> means we checked it in this sweep. <b>Aging</b> means we&apos;re holding the
                       last good read until new data lands. <b>Not reached</b> means we couldn&apos;t pull it this
-                      time — so nothing in today&apos;s brief leans on it.
+                      time, so nothing in today&apos;s brief leans on it.
                     </p>
                     {checks?.length ? (
                       <ul className="pass-check-runs">
@@ -495,7 +495,7 @@ export default function BriefView({
                             <span className="pass-check-run-label">{c.label}</span>
                             <span className="pass-check-run-what">
                               {c.outcome}
-                              {c.reason ? ` — ${c.reason}` : ""}
+                              {c.reason ? `: ${c.reason}` : ""}
                             </span>
                           </li>
                         ))}

@@ -120,7 +120,7 @@ export default function InsightsDashboard({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Avg Competitor Rating</p>
-          <p className="mt-1.5 text-3xl font-bold text-foreground">{avgCompetitorRating ?? "—"}</p>
+          <p className="mt-1.5 text-3xl font-bold text-foreground">{avgCompetitorRating ?? "n/a"}</p>
           {locationRating !== null && (
             <p className="mt-1 text-xs text-muted-foreground">
               Your rating: <span className={locationRating >= (avgCompetitorRating ?? 0) ? "font-semibold text-precision-teal" : "font-semibold text-signal-gold"}>{locationRating}</span>
@@ -129,13 +129,13 @@ export default function InsightsDashboard({
         </div>
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Review Share</p>
-          <p className="mt-1.5 text-3xl font-bold text-foreground">{reviewShare !== null ? `${reviewShare}%` : "—"}</p>
+          <p className="mt-1.5 text-3xl font-bold text-foreground">{reviewShare !== null ? `${reviewShare}%` : "n/a"}</p>
           <p className="mt-1 text-xs text-muted-foreground">Your share of total reviews</p>
         </div>
         <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
           <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Dominant Sentiment</p>
           <p className="mt-1.5 text-3xl font-bold" style={{ color: dominantSentiment.color }}>
-            {sentimentTotal > 0 ? dominantSentiment.name : "—"}
+            {sentimentTotal > 0 ? dominantSentiment.name : "n/a"}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {sentimentTotal > 0 ? `${Math.round((dominantSentiment.value / sentimentTotal) * 100)}% of ${sentimentTotal} themes` : "No data yet"}
@@ -327,7 +327,7 @@ export default function InsightsDashboard({
                 )}
                 {review.author && (
                   <p className="mt-1.5 text-[10px] font-medium text-muted-foreground">
-                    — {review.author}
+                    {review.author}
                   </p>
                 )}
               </div>

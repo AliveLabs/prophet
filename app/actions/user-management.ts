@@ -144,7 +144,7 @@ export const inviteNewUser = withAdminAction(
       return { ok: true, message: `Created ${normalizedEmail} but invitation email failed to send.` }
     }
 
-    return { ok: true, message: `Invited ${normalizedEmail} — invitation email sent.` }
+    return { ok: true, message: `Invited ${normalizedEmail}. Invitation email sent.` }
   }
 )
 

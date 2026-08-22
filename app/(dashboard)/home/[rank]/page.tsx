@@ -237,7 +237,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
                         ) : null}
                         {step.copy ? (
                           <div className="pd-copy">
-                            <span className="pd-copy-label">Customer copy — your voice</span>
+                            <span className="pd-copy-label">Customer copy: your voice</span>
                             <p className="pd-copy-body">{step.copy}</p>
                           </div>
                         ) : null}
@@ -288,7 +288,7 @@ export default async function PlayDetail({ params }: { params: Promise<{ rank: s
                   {e.relativeStat ? (
                     <span className="pd-fact-stat">
                       {e.relativeStat}
-                      {e.soWhat ? <span className="pd-fact-sowhat"> — {e.soWhat}</span> : null}
+                      {e.soWhat ? <span className="pd-fact-sowhat">: {e.soWhat}</span> : null}
                     </span>
                   ) : null}
                   {e.rate ? (

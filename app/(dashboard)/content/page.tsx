@@ -110,7 +110,7 @@ export default async function ContentPage({ searchParams }: PageProps) {
         <span className="pv-kicker">Your storefront</span>
         <h1 className="pv-h1">Content &amp; menu</h1>
         <p className="pv-sub">
-          What customers see on your site — the menu, prices, and features we read from it — lined up
+          What customers see on your site (the menu, prices, and features we read from it), lined up
           honestly against your competitors&apos; own published menus.
         </p>
       </div>

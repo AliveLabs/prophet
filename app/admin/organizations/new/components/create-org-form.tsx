@@ -47,8 +47,8 @@ export function CreateOrgForm({ adminEmail }: { adminEmail: string }) {
           <div className="ao-segs">
             {(
               [
-                { value: "demo", label: "Demo", hint: "Polished — for showing prospects." },
-                { value: "test", label: "Test", hint: "Throwaway — safe to bulk-clear." },
+                { value: "demo", label: "Demo", hint: "Polished: for showing prospects." },
+                { value: "test", label: "Test", hint: "Throwaway: safe to bulk-clear." },
               ] as const
             ).map((opt) => (
               <button

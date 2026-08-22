@@ -30,7 +30,7 @@ export function VoiceSelectPass({ initial, locationId }: { initial: string | nul
     startSaving(async () => {
       const res = await setVoiceTone(locationId, next)
       setErr(!res.ok)
-      setStatus(res.ok ? "Saved — used from your next brief." : (res.error ?? "Could not save."))
+      setStatus(res.ok ? "Saved. Used from your next brief." : (res.error ?? "Could not save."))
     })
   }
 
@@ -77,7 +77,7 @@ export function OwnNetworkSelectPass({
       const res = await setOwnSocialNetwork(locationId, next)
       if (res.ok) {
         setErr(false)
-        setStatus("Saved — we're pulling it now. History on the new network starts fresh.")
+        setStatus("Saved. We're pulling it now. History on the new network starts fresh.")
       } else {
         setV(prev)
         setErr(true)
@@ -153,7 +153,7 @@ export function DigestDaySelectPass({ initial }: { initial?: number | null }) {
       const res = await setWeeklyDigestDay(next)
       if (res.ok) {
         setErr(false)
-        setStatus("Saved — your digest lands that morning.")
+        setStatus("Saved. Your digest lands that morning.")
       } else {
         setDay(prev)
         setErr(true)
@@ -166,7 +166,7 @@ export function DigestDaySelectPass({ initial }: { initial?: number | null }) {
     <label className="tk-set-toggle">
       <span className="tk-set-toggle-text">
         <b>Digest day</b>
-        <span>The morning your weekly digest arrives. Yours alone — teammates pick their own.</span>
+        <span>The morning your weekly digest arrives. Yours alone (teammates pick their own).</span>
       </span>
       <span>
         <select
@@ -222,7 +222,7 @@ export function CommsPrefsPass({
     <div className="tk-set-toggles">
       <Switch
         title="Weekly digest email"
-        hint={`A highlights email that drives you back to your brief — sent to ${email}.`}
+        hint={`A highlights email that drives you back to your brief, sent to ${email}.`}
         on={prefs.weekly_digest}
         disabled={saving}
         onChange={(v) => toggle("weekly_digest", v)}

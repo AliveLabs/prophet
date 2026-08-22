@@ -50,11 +50,11 @@ const TOTAL = 5
 const STEP_NAMES = ["Find", "Confirm", "Competitors", "Focus", "Build"] as const
 
 const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
-  { kicker: "Welcome to Ticket", head: <>Let&apos;s find <em>your restaurant.</em></>, sub: "Search for your place and we'll pull everything we can from your public listing — so you barely have to type." },
+  { kicker: "Welcome to Ticket", head: <>Let&apos;s find <em>your restaurant.</em></>, sub: "Search for your place and we'll pull everything we can from your public listing, so you barely have to type." },
   { kicker: "Mostly done for you", head: <>Does this <em>look right?</em></>, sub: "We pulled these details straight from your listing. Fix anything that's off, then keep going." },
   { kicker: "Found for you", head: <>Here&apos;s who <em>we&apos;d watch.</em></>, sub: "We scanned your area and picked the spots your customers may be choosing instead, each with the reason why." },
-  { kicker: "Optional", head: <>Anything you&apos;re <em>focused on?</em></>, sub: "It just helps us rank what we surface first. Choose as many as you like — or skip for now." },
-  { kicker: "You're set", head: <>Building your <em>first brief.</em></>, sub: "We're pulling competitor, demand, and review signals now. Watch them land — or we'll tell you when it's ready." },
+  { kicker: "Optional", head: <>Anything you&apos;re <em>focused on?</em></>, sub: "It just helps us rank what we surface first. Choose as many as you like, or skip for now." },
+  { kicker: "You're set", head: <>Building your <em>first brief.</em></>, sub: "We're pulling competitor, demand, and review signals now. Watch them land, or we'll tell you when it's ready." },
 ]
 
 const IconArrow = () => (
@@ -231,7 +231,7 @@ export default function PreviewOnboarding() {
             <span className="ob-accent-ic"><IconSpark /></span>
             <div className="ob-accent-body">
               <h5>A daily brief, built for you</h5>
-              <p>Competitor moves, demand swings, and reputation shifts — ranked, with the play to make.</p>
+              <p>Competitor moves, demand swings, and reputation shifts: ranked, with the play to make.</p>
             </div>
           </div>
         </aside>
@@ -253,7 +253,7 @@ export default function PreviewOnboarding() {
               <>
                 <span className="ob-panel-eyebrow">Find your restaurant</span>
                 <h2 className="ob-panel-title">Search for your place</h2>
-                <p className="ob-panel-lede">We&apos;ll pull your address, cuisine, price, and the competitors near you from your public listing — automatically.</p>
+                <p className="ob-panel-lede">We&apos;ll pull your address, cuisine, price, and the competitors near you from your public listing, automatically.</p>
                 <div className="ob-field">
                   <label className="ob-label" htmlFor="ob-rest">Your restaurant</label>
                   {place ? (
@@ -358,7 +358,7 @@ export default function PreviewOnboarding() {
               <>
                 <span className="ob-panel-eyebrow">Optional · pick any that apply</span>
                 <h2 className="ob-panel-title">Anything you&apos;re focused on?</h2>
-                <p className="ob-panel-lede">Choose as many as you like — it just helps us rank what we surface first. You can change these anytime in Settings, or skip for now.</p>
+                <p className="ob-panel-lede">Choose as many as you like: it just helps us rank what we surface first. You can change these anytime in Settings, or skip for now.</p>
                 <div className="ob-goals">
                   {GOALS.map((g) => {
                     const on = !!goals[g.id]
@@ -382,10 +382,10 @@ export default function PreviewOnboarding() {
               <>
                 <span className="ob-panel-eyebrow">You&apos;re set</span>
                 <h2 className="ob-panel-title">We&apos;re building your first brief.</h2>
-                <p className="ob-panel-lede">We&apos;re gathering {restaurantName ? <b>{restaurantName}</b> : "your"} competitor, demand, and review signals now. Head in and watch it come together — the essentials are ready in a few minutes, and your full first brief is ready within the hour.</p>
+                <p className="ob-panel-lede">We&apos;re gathering {restaurantName ? <b>{restaurantName}</b> : "your"} competitor, demand, and review signals now. Head in and watch it come together: the essentials are ready in a few minutes, and your full first brief is ready within the hour.</p>
                 <ul className="ob-status">
                   <li className="ob-status__row is-ready"><span className="ob-status__mark" /><span className="ob-status__label">Competitors found and confirmed</span><span className="ob-status__when">Ready now</span></li>
-                  <li className="ob-status__row is-doing"><span className="ob-status__mark" /><span className="ob-status__label">Reading local demand — events, weather, foot traffic</span><span className="ob-status__when">A few minutes</span></li>
+                  <li className="ob-status__row is-doing"><span className="ob-status__mark" /><span className="ob-status__label">Reading local demand: events, weather, foot traffic</span><span className="ob-status__when">A few minutes</span></li>
                   <li className="ob-status__row is-queued"><span className="ob-status__mark" /><span className="ob-status__label">Analyzing reviews and competitor activity</span><span className="ob-status__when">Within the hour</span></li>
                 </ul>
                 <div className="ob-notify">
@@ -393,7 +393,7 @@ export default function PreviewOnboarding() {
                   <label className="ob-notify__opt"><input type="checkbox" defaultChecked /> <span>Email me when my first brief is ready</span></label>
                   <label className="ob-notify__opt"><input type="checkbox" /> <span>Browser notification</span></label>
                 </div>
-                <div className="ob-soon">Processing timing + notifications are scaffolded here — they wire up with the production pipeline.</div>
+                <div className="ob-soon">Processing timing + notifications are scaffolded here: they wire up with the production pipeline.</div>
                 <div className="ob-nav"><Link className="ob-btn ob-btn--act" href="/preview/today">Go to your brief<IconArrow /></Link></div>
               </>
             ) : null}

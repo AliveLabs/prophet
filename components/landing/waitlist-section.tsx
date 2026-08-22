@@ -65,7 +65,7 @@ export function LandingFooter() {
         </div>
 
         <p className="max-w-xs text-center text-xs tracking-wide text-muted-foreground md:text-right">
-          Ticket is powered by Vatic — competitive intelligence by Alive Labs.
+          Ticket is powered by Vatic, competitive intelligence by Alive Labs.
           <br />
           &copy; 2026 Alive Labs. All rights reserved.
         </p>

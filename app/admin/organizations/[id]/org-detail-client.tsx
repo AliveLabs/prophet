@@ -229,7 +229,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
             </div>
 
             <div className="ao-infogrid">
-              <InfoItem label="Billing email" value={org.billingEmail ?? "—"} />
+              <InfoItem label="Billing email" value={org.billingEmail ?? "n/a"} />
               <InfoItem
                 label="Trial"
                 value={
@@ -528,7 +528,7 @@ export function OrgDetailClient({ org }: { org: OrgDetail }) {
                         <td>
                           <span className="ao-nm">{l.name}</span>
                         </td>
-                        <td>{l.city ?? "—"}</td>
+                        <td>{l.city ?? "n/a"}</td>
                         <td className="ao-cell-num">{l.competitorCount}</td>
                         <td className="ao-cell-num">
                           {new Date(l.createdAt).toLocaleDateString()}
@@ -634,7 +634,7 @@ function DemoSetupBanner({
         : `${kindLabel} ready to show`
   const blurb =
     state === "fresh"
-      ? "An empty placeholder — pick its restaurant, choose competitors, and pull live data so you can present it."
+      ? "An empty placeholder: pick its restaurant, choose competitors, and pull live data so you can present it."
       : state === "partial"
         ? "It has a location but no tracked competitors yet. Finish setup to populate the dashboard."
         : "Open it to review the brief and set up social. Clear & re-run setup anytime from the Danger Zone."
@@ -881,14 +881,14 @@ function TrialBanner({
   let text: string
   if (isSuspended) {
     tone = "ao-banner-alert"
-    text = "Suspended — members have no access."
+    text = "Suspended: members have no access."
   } else if (paymentState === "active" || paymentState === "past_due") {
     tone = "ao-banner-teal"
-    text = "Paid — subscription active."
+    text = "Paid: subscription active."
   } else if (trialActive) {
     tone =
       trialDaysLeft <= 2 ? "ao-banner-alert" : trialDaysLeft <= 5 ? "ao-banner-gold" : ""
-    text = `Trial — ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left${
+    text = `Trial: ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left${
       endStr ? `, expires ${endStr}` : ""
     }${paymentState === "trialing" ? "" : " (no card)"}`
   } else if (trialEndsAt) {
@@ -1325,7 +1325,7 @@ function MergeOrgPanel({
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <p className="ao-hint" style={{ color: "var(--alert-deep)", fontWeight: 600 }}>
           Moves every member from the selected org(s) into {orgName} (an incoming owner arrives
-          as admin — {orgName}&rsquo;s own owner stays owner) and repoints anyone whose dashboard
+          as admin: {orgName}&rsquo;s own owner stays owner) and repoints anyone whose dashboard
           pointed at a selected org, then permanently deletes the selected org(s) and all their
           data (locations, competitors, briefs). This cannot be undone.
         </p>
@@ -1426,8 +1426,8 @@ function ClearDataPanel({
             className="ao-select"
             style={{ width: "100%" }}
           >
-            <option value="refresh">Refresh — wipe intelligence, keep locations</option>
-            <option value="all">Clear all — also drop locations (pre-onboarding)</option>
+            <option value="refresh">Refresh: wipe intelligence, keep locations</option>
+            <option value="all">Clear all: also drop locations (pre-onboarding)</option>
           </select>
         </div>
         {mode === "all" && (
@@ -1625,7 +1625,7 @@ function DeletedBanner({
           }}
         >
           <p className="ao-hint" style={{ color: "var(--alert-deep)", fontWeight: 600 }}>
-            Permanently deletes {orgName} and all its data — irreversible. Type{" "}
+            Permanently deletes {orgName} and all its data: irreversible. Type{" "}
             <b>{orgName}</b> and give a reason.
           </p>
           <input

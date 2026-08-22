@@ -78,7 +78,7 @@ export function TrustSection() {
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
             Ticket was designed alongside restaurant operators who told us the same thing:
             &ldquo;I don&rsquo;t have time for another dashboard.&rdquo;
-            Every insight comes with a recommended next move — specific enough to act on Monday
+            Every insight comes with a recommended next move: specific enough to act on Monday
             morning, scored so you know what&apos;s urgent and what can wait.
           </p>
         </motion.div>

@@ -213,7 +213,7 @@ export default function InsightCard({
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-bold ring-1 ${urgencyStyle.bg} ${urgencyStyle.text} ${urgencyStyle.ring}`}
-            title={`Relevance score: ${relevanceScore}/100 — based on ${severity} severity, ${confidence} confidence, and your feedback history`}
+            title={`Relevance score: ${relevanceScore}/100, based on ${severity} severity, ${confidence} confidence, and your feedback history`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${urgencyStyle.barColor}`} />
             {urgencyStyle.label}

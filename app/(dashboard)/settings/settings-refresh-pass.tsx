@@ -71,11 +71,11 @@ export default function SettingsRefreshPass({
       const res = await refreshLocationAction(locationId)
       setErr(!res.ok)
       if (res.ok) {
-        setStatus(`Queued ${res.queued} refresh jobs — fresh data lands over the next few minutes.`)
+        setStatus(`Queued ${res.queued} refresh jobs. Fresh data lands over the next few minutes.`)
         // Open a local 12h cooldown immediately (server is the source of truth).
         setAvailableAt(new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString())
       } else {
-        setStatus(res.error ?? "Could not queue — try again.")
+        setStatus(res.error ?? "Could not queue. Try again.")
         if (res.availableAt) setAvailableAt(res.availableAt)
       }
     })
@@ -86,7 +86,7 @@ export default function SettingsRefreshPass({
     startTransition(async () => {
       const res = await refreshSocialNetworkAction(locationId, [id])
       setErr(!res.ok)
-      setStatus(res.ok ? `Queued a ${label} refresh — new posts land in a few minutes.` : (res.error ?? "Could not queue — try again."))
+      setStatus(res.ok ? `Queued a ${label} refresh. New posts land in a few minutes.` : (res.error ?? "Could not queue. Try again."))
     })
   }
 
@@ -107,7 +107,7 @@ export default function SettingsRefreshPass({
             ) : null}
           </div>
           <p className="tk-set-hint">
-            Re-checks your menu, reviews, competitors, local events, weather, foot traffic, and social —
+            Re-checks your menu, reviews, competitors, local events, weather, foot traffic, and social,
             then rebuilds your insights. Available once every 12 hours.
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function SettingsRefreshPass({
               </TkButton>
             ))}
           </div>
-          <p className="tk-set-hint">Refresh a single social network without re-pulling everything — always available.</p>
+          <p className="tk-set-hint">Refresh a single social network without re-pulling everything. Always available.</p>
         </div>
       </div>
       {status ? <span className={`tk-set-status${err ? " tk-set-status-err" : ""}`} style={{ marginTop: 8 }}>{status}</span> : null}

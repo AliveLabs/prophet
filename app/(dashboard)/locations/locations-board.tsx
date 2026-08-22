@@ -190,19 +190,19 @@ function LocationDetail({
         <TkVizCap left="What we're tracking" right={`${cov.fresh} of ${cov.total} live`} />
         <ul className="loc-cov-list">
           <li className={loc.rating != null ? "loc-on" : "loc-off"}>
-            <span className="loc-cov-mark" aria-hidden="true">{loc.rating != null ? "✓" : "—"}</span>
+            <span className="loc-cov-mark" aria-hidden="true">{loc.rating != null ? "✓" : "○"}</span>
             Google profile {loc.rating != null ? `· ${loc.rating}★` : "· not reached"}
           </li>
           <li className={loc.menuItemCount > 0 ? "loc-on" : "loc-off"}>
-            <span className="loc-cov-mark" aria-hidden="true">{loc.menuItemCount > 0 ? "✓" : "—"}</span>
+            <span className="loc-cov-mark" aria-hidden="true">{loc.menuItemCount > 0 ? "✓" : "○"}</span>
             Menu {loc.menuItemCount > 0 ? `· ${loc.menuItemCount} items` : loc.menuConfidence ? "· none found" : "· not scraped yet"}
           </li>
           <li className={loc.screenshotUrl != null ? "loc-on" : "loc-off"}>
-            <span className="loc-cov-mark" aria-hidden="true">{loc.screenshotUrl != null ? "✓" : "—"}</span>
+            <span className="loc-cov-mark" aria-hidden="true">{loc.screenshotUrl != null ? "✓" : "○"}</span>
             Website content {loc.screenshotUrl != null ? "· captured" : "· not captured"}
           </li>
           <li className={loc.weather != null ? "loc-on" : "loc-off"}>
-            <span className="loc-cov-mark" aria-hidden="true">{loc.weather != null ? "✓" : "—"}</span>
+            <span className="loc-cov-mark" aria-hidden="true">{loc.weather != null ? "✓" : "○"}</span>
             Local weather {loc.weather ? `· ${loc.weather.temp}` : "· unavailable"}
           </li>
         </ul>
@@ -235,7 +235,7 @@ function LocationDetail({
       {/* live weather */}
       {loc.weather ? (
         <TkSoftPanel className="loc-weather">
-          <TkVizCap left="Local weather" right={loc.weather.condition ?? "—"} />
+          <TkVizCap left="Local weather" right={loc.weather.condition ?? "n/a"} />
           <div className="loc-weather-row">
             {loc.weather.iconUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -400,7 +400,7 @@ export function LocationsBoard({
           <TkEmptyState
             icon={<IconBuilding />}
             title="No locations yet"
-            description="Add your first location and we'll start the data pull — its own competitors, signals, and morning brief follow within a day."
+            description="Add your first location and we'll start the data pull: its own competitors, signals, and morning brief follow within a day."
             action={addCta}
           />
         </RevealOnView>
@@ -576,7 +576,7 @@ export function LocationsBoard({
         title="Add a location"
       >
         <p className="tk-muted loc-add-lede">
-          Find the place on Google — we take it from there. The first data pull starts
+          Find the place on Google. We take it from there. The first data pull starts
           immediately, and its competitors, signals, and morning brief follow.
         </p>
         <TkSoftPanel className="loc-add-panel">

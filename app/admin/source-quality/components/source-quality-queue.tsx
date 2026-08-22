@@ -34,7 +34,7 @@ export function SourceQualityQueue({
         </span>
         <h1>Source Quality</h1>
         <p className="sq-lede">
-          When an operator flags a brief play or an insight as &ldquo;this looks wrong,&rdquo; it lands here —
+          When an operator flags a brief play or an insight as &ldquo;this looks wrong,&rdquo; it lands here,
           not in the recommendation model. These are reports of bad source data to go check (a wrong listing,
           stale hours, a mislabeled place), from the last {windowDays} days, grouped so a repeatedly-flagged
           source stands out.
@@ -60,7 +60,7 @@ export function SourceQualityQueue({
         <>
           <RevealOnView as="section" className="sq-section">
             <h2 className="sq-h2">Flagged sources</h2>
-            <p className="sq-sub">Grouped by source. The most-flagged sit at the top — start there.</p>
+            <p className="sq-sub">Grouped by source. The most-flagged sit at the top. Start there.</p>
             <ul className="sq-rollup">
               {aggregates.map((a) => (
                 <li key={a.family} className="sq-rollup-row">

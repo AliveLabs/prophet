@@ -79,8 +79,8 @@ function InsightItem({ insight }: { insight: FeedInsight }) {
     .filter((r) => r.title)
 
   const whyPoints: ReactNode[] = [
-    `Relevance ${insight.relevanceScore}/100 — from ${insight.severity} severity and ${insight.confidence} confidence.`,
-    ...recs.slice(0, 2).map((r) => (r.rationale ? `${r.title} — ${r.rationale}` : r.title)),
+    `Relevance ${insight.relevanceScore}/100, from ${insight.severity} severity and ${insight.confidence} confidence.`,
+    ...recs.slice(0, 2).map((r) => (r.rationale ? `${r.title}: ${r.rationale}` : r.title)),
   ]
 
   const statusBadge = STATUS_LABEL[insight.status]

@@ -90,7 +90,7 @@ export default async function CompetitorDetail({
       style={{ backgroundImage: `url(${heroImage})` } as CSSProperties}
       data-label={c.name}
       role="img"
-      aria-label={`${c.name} — Google Business photo`}
+      aria-label={`${c.name}: Google Business photo`}
     >
       <div className="tk-veil" />
     </div>

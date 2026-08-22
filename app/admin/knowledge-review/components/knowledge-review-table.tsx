@@ -157,7 +157,7 @@ export function KnowledgeReviewTable({ rows, canManage }: { rows: KnowledgeRow[]
         <TkEmptyState
           icon={inboxIcon}
           title="Nothing awaiting review"
-          description="Learnings surface here as the pipelines distill them — external trends, feedback patterns, and operator-question demand. Nothing reaches a customer until you promote it."
+          description="Learnings surface here as the pipelines distill them: external trends, feedback patterns, and operator-question demand. Nothing reaches a customer until you promote it."
         />
       ) : (
         <RevealOnView className="kr-queue" stagger>
@@ -186,7 +186,7 @@ export function KnowledgeReviewTable({ rows, canManage }: { rows: KnowledgeRow[]
 
                 <div className="kr-meta">
                   <span className="kr-m">
-                    skill <b>{row.skillId || "—"}</b>
+                    skill <b>{row.skillId || "n/a"}</b>
                   </span>
                   <span className="kr-m">
                     {row.scope}

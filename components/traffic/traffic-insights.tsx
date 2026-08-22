@@ -71,7 +71,7 @@ function generateTrafficInsights(data: HeatmapData[]): TrafficInsight[] {
     const topOverlap = overlaps[0]
     insights.push({
       title: "Peak Hour Competition",
-      summary: `${topOverlap.competitors.join(" and ")} both hit 80%+ capacity on ${topOverlap.day} at ${topOverlap.hour}. ${overlaps.length > 1 ? `This pattern repeats across ${overlaps.length} time slots.` : ""} Diners may face waits — position yourself as the alternative.`,
+      summary: `${topOverlap.competitors.join(" and ")} both hit 80%+ capacity on ${topOverlap.day} at ${topOverlap.hour}. ${overlaps.length > 1 ? `This pattern repeats across ${overlaps.length} time slots.` : ""} Diners may face waits. Position yourself as the alternative.`,
       severity: "info",
       icon: "overlap",
     })
@@ -133,7 +133,7 @@ function generateTrafficInsights(data: HeatmapData[]): TrafficInsight[] {
     if (stronger) {
       insights.push({
         title: `${stronger === "weekends" ? "Weekend" : "Weekday"} Traffic Dominance`,
-        summary: `Competitors average ${stronger === "weekends" ? avgWeekend : avgWeekday}% capacity on ${stronger} vs ${stronger === "weekends" ? avgWeekday : avgWeekend}% on ${stronger === "weekends" ? "weekdays" : "weekends"}. ${stronger === "weekends" ? "Consider stronger weekday promotions to boost mid-week traffic." : "Weekdays see higher traffic — focus weekend efforts on events or specials to draw more diners."}`,
+        summary: `Competitors average ${stronger === "weekends" ? avgWeekend : avgWeekday}% capacity on ${stronger} vs ${stronger === "weekends" ? avgWeekday : avgWeekend}% on ${stronger === "weekends" ? "weekdays" : "weekends"}. ${stronger === "weekends" ? "Consider stronger weekday promotions to boost mid-week traffic." : "Weekdays see higher traffic: focus weekend efforts on events or specials to draw more diners."}`,
         severity: "info",
         icon: "trend",
       })

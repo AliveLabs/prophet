@@ -22,7 +22,7 @@ export function PassTrust() {
           <p className="lp-sub">
             Ticket was built alongside operators who told us the same thing: “I don’t
             have time for another dashboard.” Every insight ships with a recommended next
-            move — specific enough to act on Monday, scored so you know what’s urgent and
+            move: specific enough to act on Monday, scored so you know what’s urgent and
             what can wait.
           </p>
         </LpReveal>

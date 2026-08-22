@@ -43,23 +43,23 @@ function emphasisLabel(v: number): string {
 // already said here, in fuller language, so shortening the labels lost no copy.
 const CATEGORY_TIPS: Record<Category, string> = {
   demand:
-    "Boosts moves tied to upcoming demand — local events, big games, holidays, and weather swings that change who walks in and when.",
+    "Boosts moves tied to upcoming demand: local events, big games, holidays, and weather swings that change who walks in and when.",
   marketing:
-    "Boosts ideas for your own posts, promos, and campaigns — the content and offers you put out to draw people in.",
+    "Boosts ideas for your own posts, promos, and campaigns: the content and offers you put out to draw people in.",
   social:
-    "Boosts plays that respond to what rival accounts are doing — where to counter, match, or pull ahead of nearby competitors.",
+    "Boosts plays that respond to what rival accounts are doing: where to counter, match, or pull ahead of nearby competitors.",
   grassroots:
-    "Boosts hyper-local, low-cost hustle — neighborhood partnerships, on-the-ground outreach, and word-of-mouth tactics.",
+    "Boosts hyper-local, low-cost hustle: neighborhood partnerships, on-the-ground outreach, and word-of-mouth tactics.",
   menu:
-    "Boosts menu and food moves — items to feature, pricing tweaks, pairings, and seasonal additions.",
+    "Boosts menu and food moves: items to feature, pricing tweaks, pairings, and seasonal additions.",
   positioning:
-    "Boosts how you stand out — the angle, story, and reasons-to-choose that set you apart from the field.",
+    "Boosts how you stand out: the angle, story, and reasons-to-choose that set you apart from the field.",
   reputation:
-    "Boosts moves that shape what people say about you — reviews, ratings, and responding to feedback.",
+    "Boosts moves that shape what people say about you: reviews, ratings, and responding to feedback.",
   operations:
-    "Boosts behind-the-counter moves — staffing, hours, throughput, and service changes that affect the guest experience.",
+    "Boosts behind-the-counter moves: staffing, hours, throughput, and service changes that affect the guest experience.",
   convergence:
-    "Boosts plays where several signals line up at once — the strongest opportunities backed by more than one source of evidence.",
+    "Boosts plays where several signals line up at once: the strongest opportunities backed by more than one source of evidence.",
 }
 
 /** "2026-08-13" → "Aug 13". Parsed as a local date-only key, the same way every other
@@ -187,7 +187,7 @@ export default function SettingsCategoryPriors({
           that way: a pop-in save button on a settings surface is invisible. */}
       <div className="tk-set-apply-foot">
         <span className={`tk-set-apply-hint${saveError ? " tk-set-apply-err" : ""}`}>
-          {saveError ?? (dirty ? "Applies to your next brief — today's stays as it is." : "Up to date.")}
+          {saveError ?? (dirty ? "Applies to your next brief. Today's stays as it is." : "Up to date.")}
         </span>
         <TkButton variant="keep" disabled={!customized || saving} onClick={reset}>
           Reset to defaults

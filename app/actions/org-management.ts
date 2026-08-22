@@ -467,7 +467,7 @@ export const deleteOrg = withAdminAction(
     revalidatePath(`/admin/organizations/${orgId}`)
     return {
       ok: true,
-      message: `Deleted ${org.name} — hidden everywhere and recoverable. A super admin can permanently purge it.`,
+      message: `Deleted ${org.name}: hidden everywhere and recoverable. A super admin can permanently purge it.`,
     }
   }
 )
@@ -613,7 +613,7 @@ export const clearOrgData = withAdminAction(
       revalidatePath(`/admin/organizations/${orgId}`)
       return {
         ok: true,
-        message: `Refreshed ${org.name} — derived data wiped; locations and competitors kept.`,
+        message: `Refreshed ${org.name}: derived data wiped; locations and competitors kept.`,
       }
     }
 
@@ -650,7 +650,7 @@ export const clearOrgData = withAdminAction(
     revalidatePath(`/admin/organizations/${orgId}`)
     return {
       ok: true,
-      message: `Cleared all data for ${org.name} — org, members, and billing kept; ready to re-onboard.`,
+      message: `Cleared all data for ${org.name}: org, members, and billing kept; ready to re-onboard.`,
     }
   }
 )
@@ -743,7 +743,7 @@ export const transferOrgOwnership = withAdminAction(
         revalidatePath(`/admin/organizations/${orgId}`)
         return {
           ok: true,
-          message: `Transferred ownership of ${org.name}, but couldn't set their starting dashboard — they may land in onboarding.`,
+          message: `Transferred ownership of ${org.name}, but couldn't set their starting dashboard. They may land in onboarding.`,
         }
       }
     }
@@ -969,7 +969,7 @@ async function createAdminOwnedOrg(
     return {
       ok: true,
       orgId,
-      message: `Created ${kind} org "${name}" — owned by you, non-expiring (1yr).`,
+      message: `Created ${kind} org "${name}": owned by you, non-expiring (1yr).`,
     }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to create organization." }
@@ -1021,7 +1021,7 @@ export const setTrialEndsAt = withAdminAction(
       if (org.payment_state !== "trialing") {
         return {
           ok: false,
-          error: "This org has a live Stripe subscription past its trial — a trial end date no longer applies.",
+          error: "This org has a live Stripe subscription past its trial: a trial end date no longer applies.",
         }
       }
       // Stripe requires trial_end to be at least ~48h in the future.
@@ -1351,7 +1351,7 @@ export const mergeOrganizations = withAdminAction(
       ) {
         return {
           ok: false,
-          error: `${source.name} has a live Stripe subscription — cancel or transfer its billing before merging it away.`,
+          error: `${source.name} has a live Stripe subscription. Cancel or transfer its billing before merging it away.`,
         }
       }
     }
@@ -1426,8 +1426,8 @@ export const mergeOrganizations = withAdminAction(
       ok: true,
       message:
         merged.length > 0
-          ? `Merged ${merged.length} org(s) into ${target.name} — ${totalMembers} membership(s) moved, duplicates deleted.`
-          : `Nothing to merge — the selected org(s) were already merged or no longer exist.`,
+          ? `Merged ${merged.length} org(s) into ${target.name}: ${totalMembers} membership(s) moved, duplicates deleted.`
+          : `Nothing to merge: the selected org(s) were already merged or no longer exist.`,
       results,
     }
   }

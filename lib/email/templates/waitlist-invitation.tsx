@@ -77,7 +77,7 @@ export function WaitlistInvitation({
           new one with your email address.
         </Text>
 
-        <Text style={emailStyles.signoff}>&mdash; The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

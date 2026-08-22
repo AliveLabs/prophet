@@ -39,7 +39,7 @@ export function HeroImage({
       } as CSSProperties}
       data-label={label}
       role="img"
-      aria-label={label ? `${label} — Google Business photo` : "Listing photo"}
+      aria-label={label ? `${label}: Google Business photo` : "Listing photo"}
     >
       <div className="tk-veil" />
     </div>

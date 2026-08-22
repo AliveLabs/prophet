@@ -155,12 +155,12 @@ export default function CompetitorList({
       ) : (
         <button className="pv-add" onClick={() => setAdding(true)}>+ Add a competitor</button>
       )}
-      {pending ? <span className="pv-soon">Adding — pulling their data in the background…</span> : null}
+      {pending ? <span className="pv-soon">Adding: pulling their data in the background…</span> : null}
       {error ? <p className="pv-form-error">{error}</p> : null}
       {persist ? (
         <span className="pv-soon">Add and remove save immediately. A new rival&apos;s first data pull starts the moment you add them.</span>
       ) : (
-        <span className="pv-soon">Preview — changes here don&apos;t save.</span>
+        <span className="pv-soon">Preview: changes here don&apos;t save.</span>
       )}
     </div>
   )

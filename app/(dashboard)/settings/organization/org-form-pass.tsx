@@ -92,7 +92,7 @@ export function OrgFormPass({
         />
         {pendingBillingEmail && (
           <span className="tk-set-hint">
-            Verification pending for <strong>{pendingBillingEmail}</strong> — check that
+            Verification pending for <strong>{pendingBillingEmail}</strong>. Check that
             inbox to confirm. Billing email stays as shown above until then.
           </span>
         )}

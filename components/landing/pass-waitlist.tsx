@@ -53,7 +53,7 @@ function WaitlistForm() {
           You&rsquo;re on the list.
         </h2>
         <p className="lp-sub">
-          Check your email for a confirmation — we&rsquo;ll reach out when your spot is ready.
+          Check your email for a confirmation. We&rsquo;ll reach out when your spot is ready.
         </p>
         <p className="lp-form-fine">Don&rsquo;t see it? Check your spam folder.</p>
       </div>

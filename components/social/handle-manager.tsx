@@ -95,7 +95,7 @@ const ADD_ICON = (
 function ProvenanceBadge({ handle }: { handle: SocialHandle }) {
   if (handle.isVerified) {
     return (
-      <span className="sp-hm-prov sp-hm-prov-verified" title="Confirmed — we're reading this account">
+      <span className="sp-hm-prov sp-hm-prov-verified" title="Confirmed: we're reading this account">
         {CHECK_ICON}
         Verified
       </span>
@@ -107,8 +107,8 @@ function ProvenanceBadge({ handle }: { handle: SocialHandle }) {
       className="sp-hm-prov sp-hm-prov-discovering"
       title={
         auto
-          ? "Found by discovery — confirm it's the right account"
-          : "Added manually — verify to lock it in"
+          ? "Found by discovery: confirm it's the right account"
+          : "Added manually: verify to lock it in"
       }
     >
       <span className="sp-hm-prov-dot" aria-hidden="true" />

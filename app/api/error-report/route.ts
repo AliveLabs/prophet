@@ -84,7 +84,7 @@ export async function POST(request: Request) {
   const { userEmail, orgName } = await enrichFromSession()
 
   const subject = digest
-    ? `[Ticket] Error report — ref ${digest}`
+    ? `[Ticket] Error report: ref ${digest}`
     : `[Ticket] Error report`
 
   const emailResult = await sendEmail({

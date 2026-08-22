@@ -188,16 +188,16 @@ export default async function PipelineHealthPage() {
       )}
       {verdict.warnings.length > 0 && (
         <ReasonBlock
-          title="Warnings (informational — did not page)"
+          title="Warnings (informational, did not page)"
           items={verdict.warnings}
           tone="gold"
         />
       )}
       {verdict.reasons.length === 0 && verdict.warnings.length === 0 && (
-        <div className="ph-clean">Nothing to report — every signal is inside its healthy band.</div>
+        <div className="ph-clean">Nothing to report: every signal is inside its healthy band.</div>
       )}
 
-      <h2 className="ph-h2">Fleet — newest brief per location</h2>
+      <h2 className="ph-h2">Fleet: newest brief per location</h2>
       <div className="ph-table-wrap">
         <table className="ph-table">
           <thead>
@@ -244,7 +244,7 @@ export default async function PipelineHealthPage() {
         </table>
       </div>
 
-      <h2 className="ph-h2">{TREND_DAYS}-day trend — is this a blip or a pattern?</h2>
+      <h2 className="ph-h2">{TREND_DAYS}-day trend: is this a blip or a pattern?</h2>
       <div className="ph-table-wrap">
         <table className="ph-table">
           <thead>

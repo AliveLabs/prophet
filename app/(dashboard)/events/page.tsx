@@ -394,7 +394,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
         <h1 className="pv-h1">Events</h1>
         <p className="pv-sub">
           What&rsquo;s drawing a crowd near {locationName} {tabLabel}, ranked by how close it is and how
-          big it draws — so you can prep for the surge and spot anything your competitors are tied to.
+          big it draws, so you can prep for the surge and spot anything your competitors are tied to.
         </p>
       </div>
       <hr className="pv-rule" />
@@ -456,7 +456,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                   {lead.startDatetime ? <> · {formatDate(lead.startDatetime)}</> : null}
                   {leadMatched ? " · a competitor is tied to this one" : ""}
                   {". "}
-                  This is the closest, biggest draw in your window — expect extra foot traffic
+                  This is the closest, biggest draw in your window. Expect extra foot traffic
                   in and around it.
                 </>
               }
@@ -535,7 +535,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               {/* honest demand-window timeline (estimated) */}
               {leadWindow && (
                 <TkWindowViz
-                  headLabel="Your watch window — estimated"
+                  headLabel="Your watch window: estimated"
                   headValue={`Starts ${leadWindow.startLabel}`}
                   axisLabels={leadWindow.axisLabels}
                   segments={[
@@ -543,7 +543,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                       kind: "surge",
                       left: leadWindow.surgeLeft,
                       width: leadWindow.surgeWidth,
-                      tip: "Before the event — people grab a bite before heading over",
+                      tip: "Before the event: people grab a bite before heading over",
                       tipValue: "Before start",
                     },
                     {
@@ -558,7 +558,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                     <>
                       <span><i style={{ background: "var(--rust)" }} /> Pre-event rush</span>
                       <span><i style={{ background: "var(--teal)" }} /> Your busy window</span>
-                      <span className="tk-muted">Estimated from the start time — not a measured count.</span>
+                      <span className="tk-muted">Estimated from the start time, not a measured count.</span>
                     </>
                   }
                 />
@@ -594,7 +594,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
               <TkWidget
                 tone={totalMatched > 0 ? "teal" : "muted"}
                 label="Competitor tie-ins"
-                value={totalMatched > 0 ? String(totalMatched) : "—"}
+                value={totalMatched > 0 ? String(totalMatched) : "n/a"}
                 sub={totalMatched > 0 ? "events a rival is attached to" : "none matched yet"}
                 data-tip="Events matched to a venue/handle in your competitor set"
                 data-tipv={`${totalMatched} matched`}
@@ -821,7 +821,7 @@ export default async function EventsPage({ searchParams }: EventsPageProps) {
                               {ev.venue?.name ? <b>{ev.venue.name}</b> : null}
                               {ev.venue?.name && (time || ev.startDatetime) ? " · " : null}
                               {time || (ev.startDatetime ? formatDate(ev.startDatetime) : ev.displayedDates ?? "Date TBD")}
-                              {ev.description ? <> — {ev.description}</> : null}
+                              {ev.description ? <>: {ev.description}</> : null}
                             </>
                           }
                         >

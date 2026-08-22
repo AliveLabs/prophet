@@ -47,8 +47,9 @@ export default function ListingCheck({
         <RevealOnView>
           <TkCard className="img-firstrun">
             <p>
-              We&apos;re reading the photos on your Google listing. Your storefront check —
-              what&apos;s covered, how it reads, and who&apos;s shaping it — lands after the next scan.
+              We&apos;re reading the photos on your Google listing. Your storefront check
+              (what&apos;s covered, how it reads, and who&apos;s shaping it) lands after the
+              next scan.
             </p>
           </TkCard>
         </RevealOnView>
@@ -65,7 +66,7 @@ export default function ListingCheck({
     <section className="img-mod">
       <TkSectionHead
         title="Your Google listing"
-        sub="The photos people see when they look you up — what's covered, how it reads, and who's shaping it"
+        sub="The photos people see when they look you up: what's covered, how it reads, and who's shaping it"
       />
 
       <RevealOnView>

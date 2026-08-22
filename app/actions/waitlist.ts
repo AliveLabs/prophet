@@ -169,7 +169,7 @@ export const approveWaitlistSignup = withAdminAction(
       }
     }
 
-    return { ok: true, message: `Approved ${signup.email} — invitation email sent.` }
+    return { ok: true, message: `Approved ${signup.email}. Invitation email sent.` }
   }
 )
 
@@ -188,7 +188,7 @@ export const unapproveWaitlistSignup = withAdminAction(
       .single()
     if (!signup) return { ok: false, error: "Signup not found." }
     if (signup.status !== "approved") {
-      return { ok: false, error: `Signup is ${signup.status}, not approved — nothing to revert.` }
+      return { ok: false, error: `Signup is ${signup.status}, not approved. Nothing to revert.` }
     }
 
     // Destructive (deletes the approval's org + possibly the auto-created user). Record
@@ -322,7 +322,7 @@ export const declineWaitlistSignup = withAdminAction(
       return { ok: true, message: `Declined ${signup.email} but notification email failed to send.` }
     }
 
-    return { ok: true, message: `Declined ${signup.email} — notification email sent.` }
+    return { ok: true, message: `Declined ${signup.email}. Notification email sent.` }
   }
 )
 

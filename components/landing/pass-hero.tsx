@@ -102,7 +102,7 @@ function BriefPreview() {
           <span className="lp-sig-dot" />
           <span className="lp-float-tag">Signal detected</span>
         </div>
-        <p>A nearby competitor dropped lunch pricing — flagged 22 days before it showed up in foot-traffic.</p>
+        <p>A nearby competitor dropped lunch pricing, flagged 22 days before it showed up in foot-traffic.</p>
         <div className="lp-float-foot">22 days ahead</div>
       </div>
       <div className="lp-float-card lp-float-br lp-floaty-slow" aria-hidden="true">
@@ -140,8 +140,8 @@ export function PassHero() {
             </motion.h1>
 
             <motion.p className="lp-sub" variants={fadeUp} style={{ maxWidth: "34ch" }}>
-              Ticket watches competitor menus, pricing, reviews, and social — every
-              shift scored by confidence, so you move first, not last.
+              Ticket watches competitor menus, pricing, reviews, and social. Every
+              shift is scored by confidence, so you move first, not last.
             </motion.p>
 
             <motion.div className="lp-hero-cta-row" variants={fadeUp}>

@@ -94,7 +94,7 @@ const DISCOVER_ICON = (
 function ProvenanceBadge({ h }: { h: ManagedHandle }) {
   if (h.isVerified) {
     return (
-      <span className="tk-prov tk-prov-verified" title="Confirmed — we're reading this account">
+      <span className="tk-prov tk-prov-verified" title="Confirmed: we're reading this account">
         {VERIFIED_ICON} Verified
       </span>
     )
@@ -103,7 +103,7 @@ function ProvenanceBadge({ h }: { h: ManagedHandle }) {
   return (
     <span
       className="tk-prov tk-prov-discovering"
-      title={auto ? "Found by discovery — confirm it's the right account" : "Added manually — verify to lock it in"}
+      title={auto ? "Found by discovery: confirm it's the right account" : "Added manually: verify to lock it in"}
     >
       <span className="tk-prov-dot" aria-hidden="true" />
       {auto ? "Discovering" : "Needs check"}
@@ -187,8 +187,8 @@ export default function CompetitorHandleRoster({
           tone: "ok",
           text:
             res.discovered > 0
-              ? `Found ${res.discovered} account${res.discovered === 1 ? "" : "s"} for ${entityName} — new ones show as “Discovering” until you verify them.`
-              : `Searched for ${entityName}'s accounts — nothing new surfaced this pass.`,
+              ? `Found ${res.discovered} account${res.discovered === 1 ? "" : "s"} for ${entityName}. New ones show as “Discovering” until you verify them.`
+              : `Searched for ${entityName}'s accounts. Nothing new surfaced this pass.`,
         })
         router.refresh()
       }
@@ -243,7 +243,7 @@ export default function CompetitorHandleRoster({
         </div>
       ) : (
         <p className="tk-rost-quiet" style={{ margin: 0 }}>
-          No accounts on file for {entityName} yet. Add one below — or run discovery and we&apos;ll try to
+          No accounts on file for {entityName} yet. Add one below, or run discovery and we&apos;ll try to
           find them.
         </p>
       )}

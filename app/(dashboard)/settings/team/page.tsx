@@ -66,7 +66,7 @@ export default async function TeamPage() {
   const members: TeamMemberRow[] = (memberRows ?? []).map((m) => {
     const profile = (profileRows ?? []).find((p) => p.id === m.user_id)
     const authUser = authById.get(m.user_id)
-    const emailAddr = profile?.email ?? authUser?.email ?? "—"
+    const emailAddr = profile?.email ?? authUser?.email ?? "n/a"
     return {
       userId: m.user_id,
       name: profile?.full_name?.trim() || emailAddr.split("@")[0] || "Teammate",

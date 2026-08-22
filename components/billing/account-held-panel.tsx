@@ -49,14 +49,14 @@ export function AccountHeldPanel({
           {neverStarted ? (
             <>
               {orgName}&rsquo;s setup is saved and the first data pull is in. Start
-              with 14 days free on the {midName} tier — $0 today, cancel anytime.
+              with 14 days free on the {midName} tier: $0 today, cancel anytime.
               Add a card now, or start without one.
             </>
           ) : (
             <>
               {orgName}&rsquo;s trial
               {trialEndedLabel ? ` ended ${trialEndedLabel}` : " has ended"}. Your
-              data and insights are safe — pick a plan below to pick up right where
+              data and insights are safe. Pick a plan below to pick up right where
               you left off.
             </>
           )}
@@ -78,7 +78,7 @@ export function AccountHeldPanel({
               <strong>{insightCount.toLocaleString()} insight{insightCount === 1 ? "" : "s"}</strong>{" "}
               across{" "}
               <strong>{competitorCount} competitor{competitorCount === 1 ? "" : "s"}</strong>
-              {" "}— all of it kept and waiting.
+              , all of it kept and waiting.
             </p>
           </div>
         </div>

@@ -193,7 +193,7 @@ export function BriefInsightCard({
           />
         </div>
       ) : null}
-      {draftStep?.copy ? <DraftCopyBox label="Customer copy — your voice" text={draftStep.copy} /> : null}
+      {draftStep?.copy ? <DraftCopyBox label="Customer copy: your voice" text={draftStep.copy} /> : null}
     </>
   )
 

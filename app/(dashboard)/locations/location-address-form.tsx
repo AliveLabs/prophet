@@ -68,7 +68,7 @@ export default function LocationAddressForm({
       ) : (
         <span className="loc-field-hint">
           Search and pick your location to update its verified address. We only do this for your
-          own location — competitor addresses follow Google.
+          own location. Competitor addresses follow Google.
         </span>
       )}
       <TkButton variant="add" type="submit" disabled={!selected || isPending}>

@@ -72,7 +72,7 @@ export default function TChatMarkPreview() {
         <h1 className="pv-h1">Ticket T in a chat bubble</h1>
         <p className="pv-sub">
           The popover trigger, reimagined: the Ticket T inside a chat bubble (covers brand + “ask”), in copper.
-          Outline and T both copper. Compare shapes, an optional tint fill, and the copper shade — then see it at
+          Outline and T both copper. Compare shapes, an optional tint fill, and the copper shade, then see it at
           trigger size and on a card next to today’s icon.
         </p>
       </div>

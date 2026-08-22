@@ -23,7 +23,7 @@ export function BillingEmailChangeNotice({ newEmail }: BillingEmailChangeNoticeP
           changes unless the new address is verified. If you&rsquo;re
           concerned about account access, contact support.
         </Text>
-        <Text style={emailStyles.signoff}>&mdash; The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

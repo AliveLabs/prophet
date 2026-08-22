@@ -35,7 +35,7 @@ export function MagicLinkEmail({ email, magicLinkUrl }: MagicLinkEmailProps) {
           can safely ignore this email.
         </Text>
 
-        <Text style={emailStyles.signoff}>&mdash; The Ticket Team</Text>
+        <Text style={emailStyles.signoff}>The Ticket Team</Text>
       </Section>
     </EmailLayout>
   )

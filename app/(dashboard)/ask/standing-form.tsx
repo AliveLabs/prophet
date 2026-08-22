@@ -21,7 +21,7 @@ export default function StandingForm({
     setError(null)
     startTransition(async () => {
       const res = await setStandingQuestion(locationId, next)
-      if (!res.ok) setError(res.error ?? "Couldn't save — try again.")
+      if (!res.ok) setError(res.error ?? "Couldn't save. Try again.")
       else if (!next) setQ("")
     })
   }

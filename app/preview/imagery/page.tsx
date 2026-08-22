@@ -86,7 +86,7 @@ export default function ImageryPreview() {
         <p className="pv-sub">
           The own-listing modules that mount on the morning brief. Listing Check is a storefront
           audit (coverage punch-list + quality + who&apos;s shaping the picture); The Shelf compares
-          your listing against the strongest in your set. Honest framing only — counts, percentages,
+          your listing against the strongest in your set. Honest framing only: counts, percentages,
           and you-vs-them, never invented dollars or customer counts.
         </p>
       </div>

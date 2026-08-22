@@ -107,7 +107,7 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   {
     kicker: "Welcome to Ticket",
     head: <>Let&apos;s find <em>your restaurant.</em></>,
-    sub: "Search for your place and we'll pull everything we can from your public listing — so you barely have to type.",
+    sub: "Search for your place and we'll pull everything we can from your public listing, so you barely have to type.",
   },
   {
     kicker: "Mostly done for you",
@@ -125,12 +125,12 @@ const RAIL: Array<{ kicker: string; head: ReactNode; sub: string }> = [
   {
     kicker: "Optional",
     head: <>Anything you&apos;re <em>focused on?</em></>,
-    sub: "We watch all of this by default. Switch off anything you don't care about — you can change it anytime in Settings.",
+    sub: "We watch all of this by default. Switch off anything you don't care about. You can change it anytime in Settings.",
   },
   {
     kicker: "You're set",
     head: <>Building your <em>first brief.</em></>,
-    sub: "We're pulling competitor, demand, and review signals now. Watch each one land — or close the tab and we'll email you.",
+    sub: "We're pulling competitor, demand, and review signals now. Watch each one land, or close the tab and we'll email you.",
   },
 ]
 
@@ -1036,7 +1036,7 @@ export default function OnboardingWizardPass({
             <span className="ob-accent-ic"><IconSpark /></span>
             <div className="ob-accent-body">
               <h5>A daily brief, built for you</h5>
-              <p>Competitor moves, demand swings, and reputation shifts — ranked, with the play to make.</p>
+              <p>Competitor moves, demand swings, and reputation shifts: ranked, with the play to make.</p>
             </div>
           </div>
         </aside>
@@ -1061,8 +1061,8 @@ export default function OnboardingWizardPass({
               <div className="ob-setup-banner">
                 <IconInfo />
                 <span>
-                  Admin setup{setupOrgName ? ` — ${setupOrgName}` : ""}. This won&apos;t
-                  bill or email anyone — it builds the demo&apos;s data so you can show it.
+                  Admin setup{setupOrgName ? `: ${setupOrgName}` : ""}. This won&apos;t
+                  bill or email anyone: it builds the demo&apos;s data so you can show it.
                 </span>
               </div>
             ) : null}
@@ -1087,7 +1087,7 @@ export default function OnboardingWizardPass({
                 <h2 className="ob-panel-title">Search for your place</h2>
                 <p className="ob-panel-lede">
                   We&apos;ll pull your address, cuisine, and the competitors near
-                  you from your public listing — automatically.
+                  you from your public listing, automatically.
                 </p>
                 <div className="ob-field">
                   <label className="ob-label" htmlFor="ob-rest">Your restaurant</label>
@@ -1356,7 +1356,7 @@ export default function OnboardingWizardPass({
                       searchedFor === searchQuery.trim() &&
                       compPredictions.length === 0 &&
                       suggestions.length === 0 ? (
-                        <p className="ob-hint">No matches yet — keep typing the name.</p>
+                        <p className="ob-hint">No matches yet. Keep typing the name.</p>
                       ) : null}
                       {selectedIds.size >= maxTracked ? (
                         <p className="ob-hint">
@@ -1395,7 +1395,7 @@ export default function OnboardingWizardPass({
                 <span className="ob-panel-eyebrow">Optional · pick any that apply</span>
                 <h2 className="ob-panel-title">Anything you&apos;re focused on?</h2>
                 <p className="ob-panel-lede">
-                  We watch all of this by default — switch off anything you
+                  We watch all of this by default. Switch off anything you
                   don&apos;t care about. Change these anytime in Settings, or skip.
                 </p>
                 <div className="ob-goals">

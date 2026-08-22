@@ -28,9 +28,9 @@ import { PassPricing } from "@/components/landing/pass-pricing"
 import { PassWaitlist, PassFooter } from "@/components/landing/pass-waitlist"
 
 export const metadata: Metadata = {
-  title: "Ticket — Competitive Intelligence for Restaurants",
+  title: "Ticket: Competitive Intelligence for Restaurants",
   description:
-    "Read the ticket. Ticket watches competitor menus, pricing, reviews, and social — every shift scored by confidence, so you move first, not last.",
+    "Read the ticket. Ticket watches competitor menus, pricing, reviews, and social. Every shift is scored by confidence, so you move first, not last.",
 }
 
 export default function LandingPage() {

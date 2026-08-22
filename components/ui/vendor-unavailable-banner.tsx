@@ -17,7 +17,7 @@ export function VendorUnavailableBanner({
       <p className="mt-0.5 text-warning-dark/80">
         We couldn&rsquo;t reach our data source
         {asOf ? `, so you’re seeing your last good read from ${asOf}` : ""}. This usually clears on
-        its own &mdash; your saved data is safe and we&rsquo;ll refresh automatically once it&rsquo;s back.
+        its own. Your saved data is safe and we&rsquo;ll refresh automatically once it&rsquo;s back.
       </p>
     </div>
   )

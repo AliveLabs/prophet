@@ -65,7 +65,7 @@ export async function updateOrganizationAction(formData: FormData) {
   if (billingEmailChanged && submittedBillingEmail) {
     const result = await requestBillingEmailChange(orgId, submittedBillingEmail, currentBillingEmail)
     successMessage = result.ok
-      ? `Organization updated. Confirm ${submittedBillingEmail} — we sent a verification link, it won't take effect until then.`
+      ? `Organization updated. Confirm ${submittedBillingEmail}. We sent a verification link. It won't take effect until then.`
       : `Organization updated, but ${result.error}`
   }
 
