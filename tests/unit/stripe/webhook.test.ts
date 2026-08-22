@@ -10,7 +10,7 @@ vi.mock("next/headers", () => ({ headers: vi.fn() }))
 vi.mock("@/lib/stripe/client", () => ({ getStripeClient: vi.fn() }))
 vi.mock("@/lib/supabase/admin", () => ({ createAdminSupabaseClient: vi.fn(() => ({})) }))
 vi.mock("@/lib/stripe/helpers", () => ({
-  isWebhookEventNew: vi.fn(),
+  claimWebhookEvent: vi.fn(),
   markWebhookEventProcessed: vi.fn(),
   resolveOrganizationId: vi.fn(),
   applySubscriptionToOrg: vi.fn(),
@@ -34,7 +34,7 @@ import {
   upsertMarketingContact,
 } from "@/lib/marketing/contacts"
 import {
-  isWebhookEventNew,
+  claimWebhookEvent,
   markWebhookEventProcessed,
   applySubscriptionToOrg,
   resolveOrganizationId,
@@ -62,7 +62,7 @@ beforeEach(() => {
   vi.mocked(headers).mockResolvedValue(
     new Map([["stripe-signature", "sig_ok"]]) as unknown as Awaited<ReturnType<typeof headers>>
   )
-  vi.mocked(isWebhookEventNew).mockResolvedValue(true)
+  vi.mocked(claimWebhookEvent).mockResolvedValue("process")
   vi.mocked(resolveOrganizationId).mockResolvedValue("org_1")
   vi.mocked(applySubscriptionToOrg).mockResolvedValue({
     tier: "mid",
@@ -97,12 +97,12 @@ describe("POST /api/stripe/webhook — security + idempotency contract", () => {
     })
     const res = await POST(req())
     expect(res.status).toBe(400)
-    expect(isWebhookEventNew).not.toHaveBeenCalled()
+    expect(claimWebhookEvent).not.toHaveBeenCalled()
   })
 
   it("short-circuits a duplicate delivery (200) without dispatching or re-marking", async () => {
     constructEvent.mockReturnValue(subEvent())
-    vi.mocked(isWebhookEventNew).mockResolvedValue(false)
+    vi.mocked(claimWebhookEvent).mockResolvedValue("skip_duplicate")
     const res = await POST(req())
     expect(res.status).toBe(200)
     expect(await res.text()).toMatch(/duplicate/)
@@ -262,5 +262,30 @@ describe("POST /api/stripe/webhook — marketing mirror (ALT-591)", () => {
     constructEvent.mockReturnValue(subEvent())
     const res = await POST(req())
     expect(res.status).toBe(200)
+  })
+})
+
+// ── ALT-738 ─────────────────────────────────────────────────────────────────────────────────
+// A retry of a FAILED delivery must actually re-run. The old code answered "ok (duplicate)" to
+// it, so the event was discarded and the org's billing state stayed diverged from Stripe with no
+// path back. Returning 500 to request a retry was pointless when the retry could not get past
+// the dedupe.
+describe("POST /api/stripe/webhook: retrying a failed delivery (ALT-738)", () => {
+  it("re-dispatches when the previous attempt did not complete", async () => {
+    constructEvent.mockReturnValue(subEvent())
+    vi.mocked(claimWebhookEvent).mockResolvedValue("retry_failed")
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(await res.text()).not.toMatch(/duplicate/)
+    expect(applySubscriptionToOrg).toHaveBeenCalled()
+    expect(markWebhookEventProcessed).toHaveBeenCalled()
+  })
+
+  it("still short-circuits a delivery that genuinely succeeded before", async () => {
+    constructEvent.mockReturnValue(subEvent())
+    vi.mocked(claimWebhookEvent).mockResolvedValue("skip_duplicate")
+    const res = await POST(req())
+    expect(res.status).toBe(200)
+    expect(applySubscriptionToOrg).not.toHaveBeenCalled()
   })
 })
