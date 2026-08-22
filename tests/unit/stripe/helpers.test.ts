@@ -248,6 +248,86 @@ describe("applySubscriptionToOrg — subscription -> org state (the access-gatin
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("MISMATCH"))
     spy.mockRestore()
   })
+
+  // ── ALT-753 half B ────────────────────────────────────────────────────────────────────────
+  //
+  // An add-on supplements a plan and can never BE the plan. A subscription whose only items are
+  // add-ons is how the portal-allow-list bug cashes out: the base price is gone, so
+  // `resolvePriceInfo` returns null, the unknown-price branch preserves the tier, and the customer
+  // holds full Standard for $18/mo. The script that could build that allow-list is fixed, but the
+  // live portal config cannot be read back with a restricted key, so this is the detector.
+  describe("an add-on with no base plan is detected", () => {
+    const ADDON = "price_addon_competitor"
+
+    it("alerts, and still preserves the tier rather than cutting the account off", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+      process.env.STRIPE_PRICE_ID_TICKET_ADDON_COMPETITOR_MONTHLY = ADDON
+      let vals: Record<string, unknown> | undefined
+      const admin = makeClient({
+        selectResult: { data: { subscription_tier: "mid" } },
+        onUpdate: (_t, v) => (vals = v),
+      })
+      const { tier } = await applySubscriptionToOrg(
+        admin,
+        "org_1",
+        sub({ items: { data: [{ price: { id: ADDON }, quantity: 1 }] } } as Partial<Stripe.Subscription>),
+      )
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining("ADD-ON WITHOUT A BASE PLAN"),
+      )
+      // Preserved, not corrected: the alternative causes (drifted base-price env vars) are
+      // indistinguishable from here, and both corrections would harm a customer who did nothing.
+      expect(tier).toBe("mid")
+      expect(vals?.subscription_tier).toBe("mid")
+      expect(vals?.competitors_purchased).toBe(1)
+      spy.mockRestore()
+    })
+
+    it("stays quiet on the ordinary shape: a base plan WITH add-ons", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+      process.env.STRIPE_PRICE_ID_TICKET_ADDON_COMPETITOR_MONTHLY = ADDON
+      const admin = makeClient({})
+      await applySubscriptionToOrg(
+        admin,
+        "org_1",
+        sub({
+          items: { data: [{ price: { id: "price_mid" } }, { price: { id: ADDON }, quantity: 2 }] },
+        } as Partial<Stripe.Subscription>),
+      )
+      expect(spy).not.toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it("stays quiet on an unknown price with NO add-ons, which is the env-drift case", async () => {
+      // The pre-existing unknown-price path must not start alarming. It fires only when add-on
+      // quantities are present, because that is what makes the shape impossible rather than stale.
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+      const admin = makeClient({ selectResult: { data: { subscription_tier: "top" } } })
+      await applySubscriptionToOrg(
+        admin,
+        "org_1",
+        sub({ items: { data: [{ price: { id: "price_unknown" } }] } } as Partial<Stripe.Subscription>),
+      )
+      expect(spy).not.toHaveBeenCalled()
+      spy.mockRestore()
+    })
+
+    it("stays quiet on a deleted subscription, where both quantities park at 0 anyway", async () => {
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {})
+      process.env.STRIPE_PRICE_ID_TICKET_ADDON_COMPETITOR_MONTHLY = ADDON
+      let vals: Record<string, unknown> | undefined
+      const admin = makeClient({ onUpdate: (_t, v) => (vals = v) })
+      await applySubscriptionToOrg(
+        admin,
+        "org_1",
+        sub({ items: { data: [{ price: { id: ADDON }, quantity: 3 }] } } as Partial<Stripe.Subscription>),
+        { deleted: true },
+      )
+      expect(spy).not.toHaveBeenCalled()
+      expect(vals?.competitors_purchased).toBe(0)
+      spy.mockRestore()
+    })
+  })
 })
 
 describe("applySubscriptionToOrg — event-ordering guard (out-of-order / concurrent webhooks)", () => {
