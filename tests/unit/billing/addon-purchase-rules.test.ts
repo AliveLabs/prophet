@@ -308,11 +308,17 @@ describe("the add-on route respects the Stripe traps this repo has already hit",
     expect(src()).toMatch(/requireOrgOwnerOrAdmin/)
   })
 
-  it("a preview failure does not block the purchase", () => {
-    // The preview is a nicety; the recurring figure is computed locally and tested. A Stripe hiccup
-    // in the preview must not become a customer unable to buy.
+  it("the preview needs no Stripe round-trip at all", () => {
+    // Simplified 2026-08-22 on Bryan's call: state the monthly amount and say today is prorated,
+    // rather than computing a to-the-cent figure. A number we do not display is a Stripe
+    // round-trip, a latency cost and a failure mode bought for nothing, so the call is gone and
+    // with it the whole class of "the preview broke so the customer cannot buy".
+    // Matches the CALL, not the word: the route's own comment explains that it no longer calls
+    // createPreview, and an identifier-level assertion flags that comment. Third time this exact
+    // trap has appeared in this session, so: a source scan asserts a syntactic form, never a name.
     const s = src()
-    expect(s).toMatch(/catch \(err\)[\s\S]{0,400}preview unavailable/)
+    expect(s).not.toMatch(/createPreview\(/)
+    expect(s).not.toMatch(/prorationDueNowCents:/)
   })
 })
 
@@ -337,12 +343,17 @@ describe("the add-on panel says what will be charged, and lets you remove (ALT-6
     expect(s).toMatch(/, true\)/)
   })
 
-  it("shows Stripe's own prorated figure when it has one, and says so when it does not", () => {
+  it("states the monthly amount and that today is prorated, without inventing a figure", () => {
     const s = ui()
-    expect(s).toMatch(/prorationDueNowCents/)
-    expect(s).toMatch(/due now/)
-    expect(s).toMatch(/credited/) // a reduction is a credit, and must be stated as one
-    expect(s).toMatch(/prorated for the rest of/)
+    // The recurring amount is the customer's real question, and it is computed locally and tested.
+    expect(s).toMatch(/This add-on becomes/)
+    expect(s).toMatch(/prorated for the rest of your billing period/)
+    // "less than a full month" is the implication Bryan wanted, without asserting a number.
+    expect(s).toMatch(/less than a full month/)
+    // A reduction must read as an adjustment, never as a charge.
+    expect(s).toMatch(/next invoice is adjusted/)
+    // And no to-the-cent claim anywhere, which would be a second source of truth for Stripe's number.
+    expect(s).not.toMatch(/centsToDollars|prorationDueNowCents/)
   })
 
   it("removing uses the same control as adding, not a separate path", () => {
@@ -381,5 +392,45 @@ describe("the add-on panel says what will be charged, and lets you remove (ALT-6
     const s = page()
     expect(s).toMatch(/competitorsPurchased: Math\.max\(0, l\.competitors_purchased/)
     expect(s).toMatch(/competitorsBilled=\{Math\.max\(0, organization\?\.competitors_purchased/)
+  })
+})
+
+describe("the analysed competitor set is deterministic when an org is over its cap", () => {
+  const REPO_ROOT2 = resolve(__dirname, "..", "..", "..")
+
+  it("the dossier orders before it truncates", () => {
+    // Reachable today: a Standard trial can downgrade to Starter holding 5 competitors against a cap
+    // of 3, and nothing deactivates the excess. Without an ORDER BY, Postgres gives no ordering
+    // guarantee, so the slice took an arbitrary 3 AND the 3 could change between nights after an
+    // update or a vacuum. Same family as ALT-731, inverted: work delivered then silently dropped.
+    const src = readFileSync(join(REPO_ROOT2, "lib/insights/dossier/build.ts"), "utf8")
+    const orderIdx = src.indexOf('.order("created_at", { ascending: true })')
+    const sliceIdx = src.indexOf("slice(0, tier.maxCompetitors)")
+    expect(orderIdx, "the competitor query must be ordered").toBeGreaterThan(0)
+    expect(sliceIdx).toBeGreaterThan(0)
+    expect(orderIdx, "ordering must come before the truncation").toBeLessThan(sliceIdx)
+  })
+})
+
+describe("an org over its competitor cap is told, rather than silently truncated", () => {
+  const ROOT = resolve(__dirname, "..", "..", "..")
+
+  it("the competitors page computes and renders an over-cap notice", () => {
+    const s = readFileSync(join(ROOT, "app/(dashboard)/competitors/page.tsx"), "utf8")
+    expect(s).toMatch(/const overCapBy = Math\.max\(0, ctx\.competitors\.length - competitorLimit\)/)
+    expect(s).toMatch(/overCapBy > 0 &&/)
+    // It must say what is happening AND what to do, or it is just an alarm.
+    expect(s).toMatch(/not in your brief/)
+    expect(s).toMatch(/Stop watching/)
+    expect(s).toMatch(/add .*to your plan/)
+  })
+
+  it("the notice matches the set the brief actually analyses", () => {
+    // The page says "the N most recently added are not in your brief", which is only true because
+    // the dossier orders oldest-first before truncating. These two must move together.
+    const page = readFileSync(join(ROOT, "app/(dashboard)/competitors/page.tsx"), "utf8")
+    const dossier = readFileSync(join(ROOT, "lib/insights/dossier/build.ts"), "utf8")
+    expect(page).toMatch(/most recently added/)
+    expect(dossier).toMatch(/\.order\("created_at", \{ ascending: true \}\)/)
   })
 })

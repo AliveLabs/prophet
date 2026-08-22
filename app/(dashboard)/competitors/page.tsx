@@ -13,6 +13,7 @@ import {
 } from "@/lib/billing/limits"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { TkTooltipLayer } from "@/components/ticket"
+import Link from "next/link"
 import CompetitorRoster from "./competitor-roster"
 import { type SuggestedCompetitor } from "./competitor-add-drawer"
 import CompetitorScorecard from "./competitor-scorecard"
@@ -43,6 +44,11 @@ export default async function CompetitorsPage() {
     loadCompetitorSwapState(),
   ])
   const competitorLimit = swapState.competitorAllowance.total
+  // A downgrade can leave an org holding MORE competitors than its plan covers, and nothing
+  // deactivates the excess: a Standard trial moving to Starter keeps 5 against a cap of 3. The
+  // nightly brief then analyses the oldest `competitorLimit` and silently ignores the rest, so this
+  // says so out loud. Silence here is the failure mode: the roster showed 5 and the brief used 3.
+  const overCapBy = Math.max(0, ctx.competitors.length - competitorLimit)
   // ALT-195 — two changes during a trial, then one per COMPETITOR_SWAP_COOLDOWN_DAYS.
   const swapCooldown = computeSwapAllowance(swapState.history, { trialing: swapState.trialing })
 
@@ -82,6 +88,20 @@ export default async function CompetitorsPage() {
         </p>
       </div>
       <hr className="pv-rule" />
+
+      {overCapBy > 0 && (
+        <div className="tk-comp-overcap" role="status">
+          <p>
+            You&rsquo;re watching <b>{ctx.competitors.length}</b> and your plan covers{" "}
+            <b>{competitorLimit}</b>. The {overCapBy} most recently added{" "}
+            {overCapBy === 1 ? "is" : "are"} not in your brief.
+          </p>
+          <p className="tk-comp-overcap-actions">
+            Stop watching {overCapBy === 1 ? "one" : `${overCapBy}`} below, or{" "}
+            <Link href="/settings/billing">add {overCapBy === 1 ? "it" : "them"} to your plan</Link>.
+          </p>
+        </div>
+      )}
 
       <CompetitorRoster
         initial={ctx.competitors.map((c) => ({
