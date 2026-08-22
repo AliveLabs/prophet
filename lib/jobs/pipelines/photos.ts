@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { SupabaseClient } from "@supabase/supabase-js"
+import { scrubInsightRows } from "@/lib/jobs/scrub-insight-rows"
 import type { PipelineStepDef } from "../types"
 import {
   fetchPhotoReferences,
@@ -299,7 +300,10 @@ export function buildPhotosSteps(): PipelineStepDef<PhotosPipelineCtx>[] {
         }
 
         if (ctx.state.insightsPayload.length > 0) {
-          await ctx.supabase.from("insights").upsert(ctx.state.insightsPayload, {
+          // ALT-765: brand-voice compliance at the write boundary, so every producer above is covered
+          // and the thirteenth one cannot forget. `evidence` is deliberately untouched: it carries
+          // verbatim review text.
+          await ctx.supabase.from("insights").upsert(scrubInsightRows(ctx.state.insightsPayload), {
             onConflict: "location_id,competitor_id,date_key,insight_type",
           })
         }
