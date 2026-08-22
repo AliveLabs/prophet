@@ -35,12 +35,29 @@ import {
   stampSwapOut,
   swapLockedMessage,
 } from "@/lib/billing/limits"
+import type { LocationQuantity } from "@/lib/billing/limits"
 import { isTrialing } from "@/lib/billing/trial"
 import { asSubscriptionTier, TIER_LIMITS } from "@/lib/billing/tiers"
 import { requireUser } from "@/lib/auth/server"
 import { enrichCompetitorSeo } from "@/lib/seo/enrich"
 import { enrichCompetitorContent } from "@/lib/content/enrich"
 
+
+// ALT-756: competitor slots are allocated PER LOCATION, so the cap check needs the location's own
+// purchased count rather than the org-wide total. A failed read yields 0 purchased, which DENIES a
+// slot rather than granting one for free: that is the same "a bad read can never widen a cap"
+// direction the rest of limits.ts takes, and it is deliberate.
+async function locationSlots(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  locationId: string,
+): Promise<LocationQuantity> {
+  const { data } = await supabase
+    .from("locations")
+    .select("competitors_purchased")
+    .eq("id", locationId)
+    .maybeSingle()
+  return { competitors_purchased: data?.competitors_purchased ?? null }
+}
 // (Removed) discoverCompetitorsAction — the old Gemini keyword-discovery form action.
 // No UI called it, and onboarding now does identity-aware discovery (see
 // app/onboarding/actions.ts + lib/competitors/discover.ts). Operators add
@@ -99,8 +116,10 @@ export async function approveCompetitorAction(formData: FormData) {
     .eq("location_id", competitor.location_id)
     .eq("is_active", true)
 
+  const slots = await locationSlots(supabase, competitor.location_id)
+
   try {
-    ensureCompetitorLimit(organization ?? { subscription_tier: tier }, count ?? 0)
+    ensureCompetitorLimit(organization ?? { subscription_tier: tier }, slots, count ?? 0)
   } catch (error) {
     redirect(`/competitors?error=${encodeURIComponent(String(error))}`)
   }
@@ -280,7 +299,11 @@ export async function ignoreCompetitorAction(formData: FormData) {
     .eq("location_id", competitor.location_id)
     .eq("is_active", true)
   const atCap =
-    (activeCount ?? 0) >= resolveCompetitorAllowance(org ?? { subscription_tier: tier }).total
+    (activeCount ?? 0) >=
+    resolveCompetitorAllowance(
+      org ?? { subscription_tier: tier },
+      await locationSlots(supabase, competitor.location_id),
+    ).total
 
   const allowance = computeSwapAllowance(history, { trialing: org ? isTrialing(org) : false })
   if (atCap && allowance.locked) {
@@ -340,7 +363,7 @@ export async function addCompetitorAction(input: {
 
   const { data: location } = await supabase
     .from("locations")
-    .select("id, organization_id, name, primary_place_id, geo_lat, geo_lng, settings")
+    .select("id, organization_id, name, primary_place_id, geo_lat, geo_lng, settings, competitors_purchased")
     .eq("id", input.locationId)
     .maybeSingle()
   if (!location) return { ok: false, error: "Location not found" }
@@ -371,7 +394,7 @@ export async function addCompetitorAction(input: {
     .eq("location_id", location.id)
     .eq("is_active", true)
   try {
-    ensureCompetitorLimit(org ?? { subscription_tier: tier }, activeCount ?? 0)
+    ensureCompetitorLimit(org ?? { subscription_tier: tier }, location, activeCount ?? 0)
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }

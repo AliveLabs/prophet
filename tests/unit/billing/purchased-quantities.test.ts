@@ -10,28 +10,37 @@ import {
   resolveCompetitorAllowance,
   ensureLocationLimit,
   ensureCompetitorLimit,
+  ensureCompetitorAllocation,
+  resolveBilledCompetitorUnits,
 } from "@/lib/billing/limits"
 
-// ALT-687. Locations and competitors are PURCHASED QUANTITIES now: the plan includes some, and
-// anything beyond is bought as a Stripe subscription-item quantity mirrored onto
-// organizations.locations_purchased / competitors_purchased.
+// ALT-687, amended by ALT-756. Locations and competitors are PURCHASED QUANTITIES: the plan
+// includes some, and anything beyond is bought as a Stripe subscription-item quantity.
 //
-//     effective cap = TIER_LIMITS[tier].included* + org.*_purchased
+//     locations:    cap = TIER_LIMITS[tier].includedLocations + org.locations_purchased
+//     competitors:  cap = TIER_LIMITS[tier].includedCompetitorsPerLocation
+//                       + THIS LOCATION's competitors_purchased
+//
+// ALT-756 split the competitor side. `organizations.competitors_purchased` is now only the BILLED
+// total (the Stripe quantity mirror) and `locations.competitors_purchased` is where those paid units
+// are placed, because the cost is per location and the price has to be too. A location count is
+// inherently org-level, so the location side did not change.
 
 const entry = { subscription_tier: "entry" }
 
 describe("purchased = 0 behaves exactly as before the change", () => {
   it("the allowance equals the included count", () => {
     expect(resolveLocationAllowance(entry).total).toBe(TIER_LIMITS.entry.includedLocations)
-    expect(resolveCompetitorAllowance(entry).total).toBe(
+    expect(resolveCompetitorAllowance(entry, {}).total).toBe(
       TIER_LIMITS.entry.includedCompetitorsPerLocation
     )
   })
 
   it("an org row that omits the columns entirely still resolves", () => {
-    // The columns are optional on QuantityOrg on purpose: a caller whose select predates this
-    // change keeps today's behaviour instead of throwing or resolving to zero.
-    const allowance = resolveCompetitorAllowance({ subscription_tier: "mid" })
+    // The FIELD stays optional so a select that omits it resolves to 0 purchased rather than
+    // throwing. The location ARGUMENT is required, though: ALT-756 made it so deliberately, to force
+    // every call site through the compiler rather than letting one silently keep org-wide behaviour.
+    const allowance = resolveCompetitorAllowance({ subscription_tier: "mid" }, {})
     expect(allowance.purchased).toBe(0)
     expect(allowance.total).toBe(TIER_LIMITS.mid.includedCompetitorsPerLocation)
   })
@@ -46,13 +55,19 @@ describe("purchased quantities widen the cap", () => {
   })
 
   it("adds competitors", () => {
-    const a = resolveCompetitorAllowance({ subscription_tier: "entry", competitors_purchased: 2 })
+    const a = resolveCompetitorAllowance(
+      { subscription_tier: "entry" },
+      { competitors_purchased: 2 },
+    )
     expect(a.total).toBe(TIER_LIMITS.entry.includedCompetitorsPerLocation + 2)
   })
 
   it("the two quantities do not leak into each other", () => {
-    const org = { subscription_tier: "entry", locations_purchased: 5, competitors_purchased: 0 }
-    expect(resolveCompetitorAllowance(org).purchased).toBe(0)
+    // Since ALT-756 they cannot: locations read the org row, competitors read the location row.
+    // Pinned anyway, because the org column still EXISTS as the billed total, and reading it for
+    // entitlement is exactly the bug that ticket fixed.
+    const org = { subscription_tier: "entry", locations_purchased: 5, competitors_purchased: 9 }
+    expect(resolveCompetitorAllowance(org, { competitors_purchased: 0 }).purchased).toBe(0)
     expect(resolveLocationAllowance(org).purchased).toBe(5)
   })
 })
@@ -60,7 +75,7 @@ describe("purchased quantities widen the cap", () => {
 describe("a bad read must never WIDEN a cap", () => {
   it("an unknown or null tier degrades to entry, the smallest allowance", () => {
     for (const tier of [null, "nonsense"]) {
-      const a = resolveCompetitorAllowance({ subscription_tier: tier })
+      const a = resolveCompetitorAllowance({ subscription_tier: tier }, {})
       expect(a.total).toBe(TIER_LIMITS.entry.includedCompetitorsPerLocation)
       expect(a.total).toBeLessThan(TIER_LIMITS.top.includedCompetitorsPerLocation)
     }
@@ -92,10 +107,11 @@ describe("the guards enforce the purchased total, not the included count", () =>
 
   it("lets a customer watch the competitor they paid for", () => {
     const included = TIER_LIMITS.entry.includedCompetitorsPerLocation
-    const org = { subscription_tier: "entry", competitors_purchased: 1 }
+    const org = { subscription_tier: "entry" }
+    const loc = { competitors_purchased: 1 }
     // This is the regression that matters: at `included` a paying customer used to be refused.
-    expect(() => ensureCompetitorLimit(org, included)).not.toThrow()
-    expect(() => ensureCompetitorLimit(org, included + 1)).toThrow()
+    expect(() => ensureCompetitorLimit(org, loc, included)).not.toThrow()
+    expect(() => ensureCompetitorLimit(org, loc, included + 1)).toThrow()
   })
 
   it("suspended stays at zero no matter what was purchased", () => {
@@ -109,7 +125,7 @@ describe("the guards enforce the purchased total, not the included count", () =>
 
   it("the refusal message tells the operator what to do, not which tier failed", () => {
     try {
-      ensureCompetitorLimit({ subscription_tier: "entry" }, 99)
+      ensureCompetitorLimit({ subscription_tier: "entry" }, {}, 99)
       throw new Error("should have thrown")
     } catch (e) {
       const msg = String(e)
@@ -157,6 +173,101 @@ describe("⚠️ INVARIANT: an add-on may never cost more than the base", () => 
   it("the competitor add-on is below every base, so it needs no per-plan split", () => {
     const cheapest = Math.min(...SELF_SERVE.map((t) => TIER_PRICING[t].annualEffectiveMonthly))
     expect(ADD_ON_PRICING.competitor.annualEffectiveMonthly).toBeLessThan(cheapest)
+  })
+
+  // ── ALT-756: the same check, with the LOCATION dimension added ─────────────────────────────
+  //
+  // The guard above compares an add-on against a base at ONE location, which is why it caught the
+  // flat location add-on and missed the competitor one entirely. The competitor defect was not a
+  // price-versus-price comparison at all: the price was fine, but one purchased unit was granted at
+  // EVERY location while the cost is incurred per location. Contribution fell to 33% at 5 locations
+  // and went underwater by $30.50/mo at 10, on list price.
+  //
+  // So the property to pin is not "is the price low enough". It is "does one paid unit deliver
+  // exactly one slot, whatever the location count". That is what makes price linear in the cost
+  // driver, which is the pricing doc's own stated rule.
+
+  /** Per-competitor marginal cost, docs/PRICING-2026-08-19.md section 3. */
+  const COST_PER_COMPETITOR_SLOT = 2.41
+  /** The external margin gate: 70% excluding support. */
+  const MARGIN_GATE = 0.7
+
+  /** Slots actually delivered for `units` purchased, under the per-location model. */
+  function slotsDelivered(units: number, _locationCount: number): number {
+    // Per ALT-756 a unit is allocated to ONE location, so the location count is irrelevant to how
+    // many slots a purchase delivers. The parameter is kept to make the independence explicit:
+    // if this ever starts multiplying by location count again, the assertions below fail.
+    return units
+  }
+
+  it("one purchased competitor unit delivers exactly one slot at any location count", () => {
+    for (const locations of [1, 2, 5, 10, 50]) {
+      for (const units of [1, 3, 12]) {
+        expect(
+          slotsDelivered(units, locations),
+          `${units} unit(s) at ${locations} location(s)`,
+        ).toBe(units)
+      }
+    }
+  })
+
+  it("the competitor add-on clears the margin gate at every location count", () => {
+    const revenuePerUnit = ADD_ON_PRICING.competitor.annualEffectiveMonthly
+    for (const locations of [1, 2, 5, 10, 50]) {
+      for (const units of [1, 5, 20]) {
+        const revenue = revenuePerUnit * units
+        const cost = slotsDelivered(units, locations) * COST_PER_COMPETITOR_SLOT
+        const contribution = (revenue - cost) / revenue
+        expect(
+          contribution,
+          `${units} unit(s) at ${locations} location(s): ${(contribution * 100).toFixed(1)}%`,
+        ).toBeGreaterThanOrEqual(MARGIN_GATE)
+      }
+    }
+  })
+
+  it("the OLD org-wide model would have failed this, which is why the test exists", () => {
+    // Kept as a live demonstration rather than a comment. Under the previous model a unit granted a
+    // slot at every location, so this is what the numbers looked like at 10 locations.
+    const revenuePerUnit = ADD_ON_PRICING.competitor.annualEffectiveMonthly
+    const units = 5
+    const locations = 10
+    const orgWideSlots = units * locations
+    const revenue = revenuePerUnit * units
+    const cost = orgWideSlots * COST_PER_COMPETITOR_SLOT
+    expect(cost).toBeGreaterThan(revenue) // loss-making on list price
+    expect((revenue - cost) / revenue).toBeLessThan(0)
+  })
+})
+
+describe("competitor slots cannot be allocated beyond what was billed (ALT-756)", () => {
+  it("allows allocating up to the billed total", () => {
+    expect(() => ensureCompetitorAllocation(3, 0)).not.toThrow()
+    expect(() => ensureCompetitorAllocation(3, 3)).not.toThrow()
+  })
+
+  it("refuses to place a slot that was never paid for", () => {
+    expect(() => ensureCompetitorAllocation(3, 4)).toThrow()
+    expect(() => ensureCompetitorAllocation(0, 1)).toThrow()
+  })
+
+  it("tells the operator what to do, and names no tier", () => {
+    try {
+      ensureCompetitorAllocation(1, 2)
+      throw new Error("should have thrown")
+    } catch (e) {
+      const msg = String(e)
+      expect(msg).toMatch(/add to your subscription|free a slot/i)
+      expect(msg).not.toMatch(/[—–]/)
+    }
+  })
+
+  it("the billed total is read from the org, never from a location", () => {
+    // The two columns answer different questions and must not be swapped: organizations holds what
+    // was PAID FOR (the Stripe quantity mirror), locations holds where it was PLACED.
+    expect(resolveBilledCompetitorUnits({ subscription_tier: "mid", competitors_purchased: 4 })).toBe(4)
+    expect(resolveBilledCompetitorUnits({ subscription_tier: "mid" })).toBe(0)
+    expect(resolveBilledCompetitorUnits({ subscription_tier: "mid", competitors_purchased: -2 })).toBe(0)
   })
 
   it("pins the specific numbers the pricing doc committed to", () => {

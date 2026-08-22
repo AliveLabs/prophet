@@ -159,9 +159,26 @@ using one name for two different things is how this repo ended up with four mean
 5. **Removing must be as easy as adding.** If it is easy to add and hard to remove, we built a trap.
 6. Never name a data provider in billing UI (standing rule).
 
-**Where the quantities live:** `organizations.competitors_purchased` and
-`organizations.locations_purchased` (both default 0). Allowance is
-`includedCompetitorsPerLocation + competitors_purchased`, resolved in `lib/billing/limits.ts`.
+**A competitor unit attaches to ONE location, not all of them.** Decided by Bryan 2026-08-22 and
+implemented as ALT-756. So one location can run 4 competitors while another runs 3, and only the one
+extra is billed. The previous model granted each purchased unit at *every* location, which put the
+line underwater by $30.50/mo at 10 locations because the cost is per location and the price is not.
+
+**Where the quantities live**, and these are two different facts rather than two copies of one:
+
+| Column | Answers | Written by |
+| --- | --- | --- |
+| `organizations.competitors_purchased` | how many units are **billed** | the Stripe webhook, mirroring subscription-item quantity |
+| `locations.competitors_purchased` | where those units are **placed** | the app, on purchase or reallocation |
+| `organizations.locations_purchased` | how many extra locations are billed | the Stripe webhook |
+
+Invariant: the sum of the per-location allocations must never exceed the org's billed total.
+Enforced by `ensureCompetitorAllocation` and pinned by a test. It is not a CHECK constraint because
+it spans two tables, and not a trigger because it only changes on purchase.
+
+Resolve a cap through `resolveCompetitorAllowance(org, location)`. **Both arguments are required on
+purpose:** the location parameter was made mandatory so that every call site had to be revisited by
+the compiler rather than silently keeping the old org-wide behaviour.
 
 **Stripe mechanics that have already bitten:**
 - A subscription carries a base item **plus up to two add-on items**, and Stripe does not promise an
@@ -180,7 +197,7 @@ using one name for two different things is how this repo ended up with four mean
 
 | Item | Ticket | What it blocks |
 | --- | --- | --- |
-| **The competitor add-on is priced flat but granted and costed per location.** One purchased unit grants +1 competitor at *every* location while the price has no location term. Contribution falls to 33% at 5 locations and goes **underwater by $30.50/mo at 10**. | **ALT-756**, High | **Shipping the competitor add-on purchase flow.** Fix is either price it per location (matches the linearity rule) or grant it at one location and change the Stripe description. |
+| ~~The competitor add-on is priced flat but granted at every location~~ | ~~ALT-756~~ | **RESOLVED 2026-08-22.** A unit now attaches to one location. See §5. |
 | No way to buy an additional location at all. | ALT-754 | Expansion revenue; every add-on is a support conversation. |
 | Add-on purchase UI (billing page, in-context prompts at the cap, location switcher, Portal quantity changes). | **ALT-689**, High | The whole metered model being self-serve. |
 | Purchased competitor slots are billed and displayed but the nightly dossier truncates them away. | filed 08-22 | Fires the moment add-on purchasing ships. |

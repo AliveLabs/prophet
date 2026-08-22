@@ -29,7 +29,20 @@ async function loadMaxCompetitors(
     .eq("id", orgId)
     .maybeSingle()
   if (!org) return undefined
-  return resolveCompetitorAllowance(org).total
+  // ALT-756: the cap is per location, so read the location's OWN allocated slots. Onboarding is
+  // single-location, and a resuming org may already be paid with slots allocated, so this is a real
+  // read rather than an assumed 0. Ordered by created_at so "the location being onboarded" is
+  // deterministic if a paid org ever adds a second one mid-wizard.
+  const { data: loc } = await supabase
+    .from("locations")
+    .select("competitors_purchased")
+    .eq("organization_id", orgId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  return resolveCompetitorAllowance(org, {
+    competitors_purchased: loc?.competitors_purchased ?? null,
+  }).total
 }
 
 // Load an org's first location + its still-pending (is_active=false, not

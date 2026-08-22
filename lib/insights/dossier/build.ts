@@ -310,7 +310,7 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
   // ── location ──
   const { data: loc } = await sb
     .from("locations")
-    .select("id, name, primary_place_id, organization_id, website, timezone, geo_lat, geo_lng, settings")
+    .select("id, name, primary_place_id, organization_id, website, timezone, geo_lat, geo_lng, settings, competitors_purchased")
     .eq("id", locationId)
     .maybeSingle()
   if (!loc) throw new Error(`Location not found: ${locationId}`)
@@ -339,10 +339,13 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     //
     // Latent while add-on purchasing does not exist (competitors_purchased is 0 everywhere), which
     // is exactly why it is worth closing now rather than after the first add-on sale.
-    const competitorAllowance = resolveCompetitorAllowance({
-      subscription_tier: orgRow?.subscription_tier ?? null,
-      competitors_purchased: orgRow?.competitors_purchased ?? null,
-    })
+    // ALT-756: slots are allocated per location, so the cap is this location's own purchased
+    // count, not the org-wide billed total. Reading the org total here would have re-created the
+    // very over-grant that ticket fixed, one layer down in the nightly pipeline.
+    const competitorAllowance = resolveCompetitorAllowance(
+      { subscription_tier: orgRow?.subscription_tier ?? null },
+      { competitors_purchased: loc.competitors_purchased ?? null },
+    )
     const caps = { ...TIER_CAPS[TIER_NUMBER[subTier]], maxCompetitors: competitorAllowance.total }
     const settings = (loc.settings as Record<string, unknown> | null) ?? {}
     const chosen = isSocialPlatform(settings.ownSocialNetwork) ? settings.ownSocialNetwork : null

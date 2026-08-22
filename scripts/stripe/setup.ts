@@ -117,7 +117,10 @@ const ADD_ON_SPECS: AddOnSpec[] = [
   {
     kind: "competitor",
     name: "Additional competitor",
-    description: "Watch one more competitor at every location. Billed per competitor.",
+    // ALT-756: was "at every location", which was both the product promise AND the defect. One unit
+    // granted a slot everywhere while the cost is per location, so the line went underwater by
+    // $30.50/mo at 10 locations. A unit now attaches to ONE location of the customer's choosing.
+    description: "Watch one more competitor at a location you choose. Billed per competitor.",
     monthly: 1800, // $18/mo, $15/mo annual — confirmed by Bryan 2026-08-20
   },
 ]

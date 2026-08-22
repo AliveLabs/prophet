@@ -10,16 +10,32 @@ const read = (p: string) => readFileSync(join(REPO_ROOT, p), "utf8")
 // Three billing defects that are LATENT only because add-on purchasing does not exist yet. Each
 // becomes live on the first add-on sale, which is the wrong moment to discover them.
 
-describe("resolveCompetitorAllowance is the only competitor cap (ALT-731)", () => {
-  it("counts included plus purchased", () => {
-    expect(resolveCompetitorAllowance({ subscription_tier: "mid", competitors_purchased: 3 }).total).toBe(8)
-    expect(resolveCompetitorAllowance({ subscription_tier: "mid" }).total).toBe(5)
+describe("resolveCompetitorAllowance is the only competitor cap (ALT-731, ALT-756)", () => {
+  it("counts the tier's included slots plus the ones allocated to THIS location", () => {
+    expect(
+      resolveCompetitorAllowance({ subscription_tier: "mid" }, { competitors_purchased: 3 }).total,
+    ).toBe(8)
+    expect(resolveCompetitorAllowance({ subscription_tier: "mid" }, {}).total).toBe(5)
+  })
+
+  // ALT-756: this is the property that was broken. Slots belong to a location, so a unit allocated
+  // to location A must not raise the cap at location B. Before the fix the org-wide total was read
+  // at every location, so one $18 unit granted a slot everywhere while the cost is per location.
+  it("does not grant a slot at a location it was not allocated to", () => {
+    const org = { subscription_tier: "mid" }
+    const bought = resolveCompetitorAllowance(org, { competitors_purchased: 2 })
+    const other = resolveCompetitorAllowance(org, { competitors_purchased: 0 })
+    expect(bought.total).toBe(7)
+    expect(other.total).toBe(5)
   })
 
   it("never widens a cap on junk input", () => {
     for (const v of [-5, Number.NaN, null, undefined]) {
       expect(
-        resolveCompetitorAllowance({ subscription_tier: "mid", competitors_purchased: v as number }).total,
+        resolveCompetitorAllowance(
+          { subscription_tier: "mid" },
+          { competitors_purchased: v as number },
+        ).total,
       ).toBe(5)
     }
   })
@@ -32,6 +48,20 @@ describe("resolveCompetitorAllowance is the only competitor cap (ALT-731)", () =
     expect(src).toMatch(/resolveCompetitorAllowance\(/)
     expect(src).toMatch(/competitors_purchased/)
     expect(src).toMatch(/maxCompetitors: competitorAllowance\.total/)
+  })
+})
+
+describe("the competitor add-on promises one location, not all of them (ALT-756)", () => {
+  it("the Stripe product description does not claim every location", () => {
+    // This string is the customer-facing promise, and it was the defect stated out loud: "Watch one
+    // more competitor at every location" while the price carried no location term and the cost does.
+    // If the grant model is ever widened back, this description has to change with it, and a
+    // description change is a live Stripe write. Failing here is the cheaper way to find out.
+    const src = read("scripts/stripe/setup.ts")
+    const desc = /description: "Watch one more competitor[^"]*"/.exec(src)?.[0] ?? ""
+    expect(desc, "competitor add-on description not found").toBeTruthy()
+    expect(desc).not.toMatch(/every location/i)
+    expect(desc).toMatch(/a location you choose|one location/i)
   })
 })
 
