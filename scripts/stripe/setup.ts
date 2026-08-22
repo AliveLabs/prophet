@@ -470,6 +470,8 @@ async function main() {
     }
   }
 
+  // Collected but deliberately kept OUT of the portal allow-list. See ALT-753 below.
+  const addOnPriceIds: string[] = []
   console.log("\nStep 3: Add-on products and prices (ALT-687)")
   for (const spec of ADD_ON_SPECS) {
     const product = await upsertAddOnProduct(stripe, spec)
@@ -479,7 +481,21 @@ async function main() {
       for (const brand of ["ticket", "neat"] as const) {
         envLines.push(`${addOnEnvVarName(brand, spec, cadence)}=${price.id}`)
       }
-      ticketPriceIds.push(price.id)
+      // ALT-753: add-on price IDs must NOT join ticketPriceIds.
+      //
+      // That array is what upsertPortalConfig() puts in the portal's
+      // subscription_update.products allow-list, which is the list of plans a customer may SWITCH
+      // THEIR SUBSCRIPTION TO. An add-on is a quantity on a line item, not a plan, so listing it
+      // there let a customer replace a $299 Standard base plan with an $18 "Additional competitor"
+      // price from inside the Stripe portal. A full run of this script was all it took.
+      //
+      // The bug was also lopsided: these IDs only ever went into ticketPriceIds, so Neat's portal
+      // was never affected, which is why it would have looked brand-specific while debugging.
+      //
+      // Quantity changes in the portal are a DIFFERENT setting and are unaffected by this. If the
+      // portal should allow them (ALT-689 wanted that as a fallback), enable it explicitly rather
+      // than by smuggling add-on prices into the plan list.
+      addOnPriceIds.push(price.id)
     }
   }
 
@@ -489,6 +505,11 @@ async function main() {
     console.log("\nSteps 4-5: SKIPPED (--prices-only)")
   } else {
     console.log("\nStep 4: Portal configurations")
+    // Say what is being withheld, so an operator reading the run output can see the ALT-753 rule
+    // being applied rather than having to trust it. A silent exclusion reads like an oversight.
+    console.log(
+      `  excluding ${addOnPriceIds.length} add-on price(s) from the plan-switch allow-list (ALT-753)`,
+    )
     ticketPortal = await upsertPortalConfig(stripe, "ticket", ticketPriceIds)
     neatPortal = await upsertPortalConfig(stripe, "neat", neatPriceIds)
 
