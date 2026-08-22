@@ -356,7 +356,18 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
       run: async (c) => {
         if (!isSeoAdsEnabled(c.tier)) return { status: "skipped" }
 
-        for (const domain of c.allDomains.slice(0, 5)) {
+        // ALT-721: `allDomains` includes the OPERATOR'S OWN domain, and every creative landed in
+        // one bucket that /visibility renders as "Competitor ad creatives: live ad copy your rivals
+        // are running". So an operator was shown their own ads as a rival's. The rank-overview step
+        // above already distinguishes the own domain (`domain === c.locationDomain`); this step just
+        // never did.
+        //
+        // Skipping it rather than tagging and filtering downstream: this surface is competitor-only,
+        // and the own domain was also costing a paid vendor call per run to populate a bucket
+        // nothing should have shown it in. If "your own ads" ever becomes a surface, it gets its own
+        // fetch and its own label.
+        const competitorDomains = c.allDomains.filter((d) => d !== c.locationDomain)
+        for (const domain of competitorDomains.slice(0, 5)) {
           try {
             const adsResult = await fetchAdsSearch({ target: domain })
             if (adsResult) {

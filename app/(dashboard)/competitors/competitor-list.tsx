@@ -109,7 +109,7 @@ export default function CompetitorList({
             <div className="pv-comp__name">{c.name}</div>
             <div className="pv-comp__meta">
               {c.rating != null ? <>★ {c.rating}{c.reviewCount != null ? ` · ${c.reviewCount.toLocaleString()} reviews` : ""} · </> : null}
-              {c.added ? "Added by you" : `${c.signalCount} signal${c.signalCount === 1 ? "" : "s"} this month`}
+              {c.added ? "Added by you" : `${c.signalCount} signal${c.signalCount === 1 ? "" : "s"} in the last 30 days`}
             </div>
           </div>
           <div className="pv-comp-row__actions">

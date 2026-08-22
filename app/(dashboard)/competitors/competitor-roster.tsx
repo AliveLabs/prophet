@@ -250,12 +250,12 @@ export default function CompetitorRoster({
                 ) : c.topSignals.length ? (
                   <div className="tk-rost-signals">
                     <span className="tk-sig-lbl">
-                      {c.signalCount} signal{c.signalCount === 1 ? "" : "s"} this month
+                      {c.signalCount} signal{c.signalCount === 1 ? "" : "s"} in the last 30 days
                     </span>
                     {c.topSignals[0]}
                   </div>
                 ) : (
-                  <p className="tk-rost-quiet">Quiet this month. Nothing has moved into your brief yet.</p>
+                  <p className="tk-rost-quiet">Quiet for the last 30 days. Nothing has moved into your brief yet.</p>
                 )}
 
                 <div className="tk-rost-foot">
