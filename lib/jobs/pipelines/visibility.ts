@@ -161,8 +161,17 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
       name: "ranked_keywords",
       label: "Analyzing ranked keywords",
       run: async (c) => {
-        const rkDomain = c.locationDomain ?? c.seedDomain
-        if (!rkDomain) return { keywords: 0 }
+        // ALT-708: `seedDomain` falls back to the FIRST COMPETITOR'S domain when the location has
+        // no website of its own (see visibility/actions.ts: `locationDomain ?? compDomains[0]?.domain`).
+        // That fallback is right for its actual job, seeding competitor DISCOVERY with "find domains
+        // like this one". It is wrong here: ranked keywords fetched for a competitor's domain were
+        // stored and rendered as the operator's own, so a website-less restaurant was shown a rival's
+        // search performance under "Keywords you win".
+        //
+        // Own-domain only. No website means we have nothing true to say about their search
+        // visibility, and saying nothing is the correct output.
+        const rkDomain = c.locationDomain
+        if (!rkDomain) return { keywords: 0, skipped: "location has no website of its own" }
 
         const rkResult = await fetchRankedKeywords({
           target: rkDomain,
@@ -684,7 +693,9 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
 
         const insightContext: SeoInsightContext = {
           locationName: c.location.name ?? "Your location",
-          locationDomain: c.locationDomain ?? c.seedDomain,
+          // ALT-708: own domain or nothing. Passing the competitor seed here let downstream
+          // insight copy attribute a rival's domain to the operator.
+          locationDomain: c.locationDomain,
           competitors: c.competitors.map((cm) => ({
             id: cm.id,
             name: cm.name,
