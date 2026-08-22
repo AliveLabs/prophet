@@ -181,26 +181,17 @@ export async function POST(request: Request) {
       )
     }
 
-    // ── Preview: show the real prorated figure when Stripe will give us one ────────────────────
+    // ── Preview: the recurring figure, and a plain statement that today is prorated ──────────
+    //
+    // Bryan, 2026-08-22: state the monthly amount and say the first charge is prorated, rather than
+    // computing a to-the-cent figure. It passes on making a judgement call while still implying the
+    // charge is smaller than a full month, and it is honest without a second source of truth for a
+    // number Stripe owns.
+    //
+    // This deliberately does NOT call invoices.createPreview any more. A number we do not display
+    // is a Stripe round-trip, a latency cost and a failure mode bought for nothing. Everything
+    // returned here is computed locally by addOnRecurringSummary, which has tests.
     if (previewOnly) {
-      let prorationDueNow: number | null = null
-      try {
-        const items: Stripe.InvoiceCreatePreviewParams.SubscriptionDetails.Item[] = existingItem
-          ? [{ id: existingItem.id, quantity: plan.quantity }]
-          : [{ price: priceId, quantity: plan.quantity }]
-        const preview = await stripe.invoices.createPreview({
-          customer: typeof sub!.customer === "string" ? sub!.customer : sub!.customer.id,
-          subscription: sub!.id,
-          subscription_details: { items, proration_behavior: "always_invoice" },
-        })
-        prorationDueNow = preview.amount_due
-      } catch (err) {
-        // A preview failure must never block the purchase path. The recurring figure below is
-        // computed locally and tested, so the customer still sees a truthful number.
-        console.warn(
-          `[addons] proration preview unavailable org=${orgId}: ${err instanceof Error ? err.message : "unknown"}`,
-        )
-      }
       return NextResponse.json({
         ok: true,
         preview: true,
@@ -210,8 +201,6 @@ export async function POST(request: Request) {
         unit: recurring.unit,
         total: recurring.total,
         perLabel: recurring.perLabel,
-        /** Cents, from Stripe. Null when the preview was unavailable. */
-        prorationDueNowCents: prorationDueNow,
       })
     }
 

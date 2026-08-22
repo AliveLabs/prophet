@@ -1029,3 +1029,18 @@
   text-transform: uppercase; color: var(--teal-deep, var(--ink-2)); white-space: nowrap;
 }
 .tk-cadd-empty { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+
+/* ── Over-cap notice ─────────────────────────────────────────────────────────
+   Shown when a downgrade leaves more competitors watched than the plan covers.
+   Deliberately not styled as an error: the customer did nothing wrong, and the
+   brief is still working. It is a "here is what is happening, here is what to
+   do" panel, so it reads as gold/attention rather than red/destructive. */
+.tk-comp-overcap {
+  margin: 0 0 20px; padding: 14px 18px; border-radius: var(--r-md, 10px);
+  border: 1px solid var(--gold, var(--line-2)); background: var(--paper-2, var(--card));
+  display: flex; flex-direction: column; gap: 5px;
+}
+.tk-comp-overcap p { font-size: 13.5px; line-height: 1.5; color: var(--ink-2); margin: 0; }
+.tk-comp-overcap-actions { color: var(--ink-3) !important; }
+.tk-comp-overcap a { color: var(--rust); text-decoration: underline; text-underline-offset: 2px; }
+.tk-comp-overcap a:hover { color: var(--rust-2); }

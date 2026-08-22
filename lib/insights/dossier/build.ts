@@ -358,6 +358,16 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     .select("id, name, metadata, is_active")
     .eq("location_id", locationId)
     .eq("is_active", true)
+    // ORDER BY is load-bearing, not tidiness. The slice below truncates to the plan's cap, and
+    // Postgres gives no ordering guarantee without one, so an org holding MORE competitors than its
+    // plan covers had an arbitrary subset analysed, and the subset could differ between nights after
+    // an update or a vacuum. That is reachable today: a Standard trial can downgrade to Starter with
+    // 5 competitors against a cap of 3, and nothing deactivates the excess.
+    //
+    // Oldest-first is the choice a customer would expect if nobody asked them: the competitors they
+    // picked first are the ones they meant. Making the SET they keep a deliberate choice rather than
+    // ours is tracked separately.
+    .order("created_at", { ascending: true })
   const approved = (comps ?? [])
     .filter((c) => (c.metadata as Record<string, unknown> | null)?.status === "approved")
     .slice(0, tier.maxCompetitors)

@@ -5,8 +5,13 @@
 // Two rules from the ticket drive the whole shape of this:
 //
 //   "Say what will be charged BEFORE confirming."   → nothing writes on the first click. A change
-//                                                     previews first, and the preview shows Stripe's
-//                                                     own prorated figure when it is available.
+//                                                     previews first, and the preview states the
+//                                                     recurring amount plus the fact that today is
+//                                                     prorated. Deliberately NOT a to-the-cent
+//                                                     figure: that would be a second source of
+//                                                     truth for a number Stripe owns, and the
+//                                                     customer's real question is "what does this
+//                                                     cost me per month".
 //   "Removing must be as easy as adding."           → the same stepper goes both ways, and going to
 //                                                     zero is one control, not a hidden support path.
 //                                                     If it is easy to add and hard to remove, we
@@ -44,15 +49,9 @@ type Preview = {
   unit: number
   total: number
   perLabel: string
-  prorationDueNowCents: number | null
 }
 
 const MONEY = (n: number) => `$${n.toLocaleString()}`
-
-/** Cents to a plain dollar string. Stripe returns cents; customers read dollars. */
-function centsToDollars(cents: number): string {
-  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-}
 
 export function AddOnControlsPass({
   tier,
@@ -144,8 +143,6 @@ export function AddOnControlsPass({
           unit: payload?.unit ?? 0,
           total: payload?.total ?? 0,
           perLabel: payload?.perLabel ?? perLabel,
-          prorationDueNowCents:
-            typeof payload?.prorationDueNowCents === "number" ? payload.prorationDueNowCents : null,
         })
         setPending(kind)
         setBusy(false)
@@ -197,24 +194,18 @@ export function AddOnControlsPass({
         <p className="tk-set-hint">
           {goingUp ? "Adding" : "Removing"} {Math.abs(preview.delta)}
           {". "}
-          {preview.total > 0
-            ? `Your plan becomes ${MONEY(preview.total)}${preview.perLabel} for this add-on.`
-            : "This add-on comes off your plan."}
-          {preview.prorationDueNowCents !== null && preview.prorationDueNowCents > 0 ? (
+          {preview.total > 0 ? (
             <>
-              {" "}
-              <b>{centsToDollars(preview.prorationDueNowCents)} due now</b>, prorated for the rest of
-              this period.
-            </>
-          ) : preview.prorationDueNowCents !== null && preview.prorationDueNowCents < 0 ? (
-            <>
-              {" "}
-              You will be credited{" "}
-              <b>{centsToDollars(Math.abs(preview.prorationDueNowCents))}</b> against your next
-              invoice.
+              This add-on becomes <b>{MONEY(preview.total)}{preview.perLabel}</b>.{" "}
+              {goingUp
+                ? "Today's charge is prorated for the rest of your billing period, so it will be less than a full month."
+                : "Your next invoice is adjusted for the rest of your billing period."}
             </>
           ) : (
-            <> The change is prorated for the rest of this period.</>
+            <>
+              This add-on comes off your plan. Your next invoice is adjusted for the rest of your
+              billing period.
+            </>
           )}
         </p>
         <div className="tk-set-row-actions">
