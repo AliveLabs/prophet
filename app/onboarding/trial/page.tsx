@@ -11,6 +11,8 @@ import {
 import { isValidIndustryType, type IndustryType } from "@/lib/verticals"
 import { BrandProvider } from "@/components/brand-provider"
 import { UpgradeTilesPass } from "@/app/(dashboard)/settings/billing/upgrade-tiles-pass"
+import { cookies } from "next/headers"
+import { PLAN_CHOICE_COOKIE, deserialisePlanChoice } from "@/lib/billing/plan-choice"
 import StartTrialButton from "./start-trial-button"
 import SkipCardButton from "./skip-card-button"
 import "../onboarding.css"
@@ -128,6 +130,11 @@ export default async function TrialPage({
   // ── ALT-658: the pricing screen ──────────────────────────────────────────────
   // Its own single-column stage rather than the 480px panel: three tiles do not belong in a
   // column that narrow, and a pricing screen reads better centred anyway.
+  // ALT-645: the plan this visitor chose on the marketing pricing page, carried across the
+  // magic-link round trip in a cookie. Absent is normal and fine (they opened the email on another
+  // device, or came straight to the app), in which case the tiles use their own defaults.
+  const picked = deserialisePlanChoice((await cookies()).get(PLAN_CHOICE_COOKIE)?.value)
+
   if (params.pricing === "1") {
     return (
       <BrandProvider brand={dataBrand}>
@@ -161,7 +168,7 @@ export default async function TrialPage({
               </p>
             </header>
 
-            <UpgradeTilesPass industry={industry} context="onboarding" />
+            <UpgradeTilesPass industry={industry} context="onboarding" picked={picked} />
 
             <div className="ob-pricing-exit">
               <a className="ob-pricing-back" href="/onboarding/trial">

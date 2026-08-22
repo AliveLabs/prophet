@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { sendMagicLinkAction, signInWithGoogleAction } from "../login/actions"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { HashTokenHandler } from "@/components/auth/hash-token-handler"
+import { PlanChoiceCapture } from "@/components/auth/plan-choice-capture"
 import {
   AuthBrandMark,
   AuthGoogleIcon,
@@ -14,7 +15,10 @@ import "@/components/ticket/pass.css"
 import "../login/auth.css"
 
 type SignupPageProps = {
-  searchParams?: Promise<{ error?: string; sent?: string }>
+  // `plan` / `billing` arrive from the marketing pricing CTAs (ALT-645) and are read on the
+  // client by PlanChoiceCapture, not here: this page cannot set a cookie, and the value has to
+  // outlive a magic-link round trip.
+  searchParams?: Promise<{ error?: string; sent?: string; plan?: string; billing?: string }>
 }
 
 export default async function SignupPage({ searchParams }: SignupPageProps) {
@@ -38,6 +42,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
   return (
     <main className="ticket-chrome auth-shell">
       <HashTokenHandler />
+      <PlanChoiceCapture />
 
       <div className="auth-split">
         {/* LEFT — pearlescent canvas + welcome lede (desktop/tablet) */}
