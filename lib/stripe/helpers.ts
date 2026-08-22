@@ -303,6 +303,29 @@ export async function applySubscriptionToOrg(
     tier = (data?.subscription_tier as SubscriptionTier | undefined) ?? "entry"
   }
 
+  // ALT-753 half B: a subscription carrying add-on items but NO recognised base price is not a
+  // valid shape. An add-on supplements a plan; it cannot be the plan. The way this happens is a
+  // portal allow-list that offers an add-on price as a plan-switch target, so the customer swaps
+  // their $299 base for an $18 add-on and lands here: `resolvePriceInfo` returns null, the branch
+  // above preserves their tier, and they keep full Standard for $18.
+  //
+  // The script that built such an allow-list is fixed (#298), but the LIVE portal config cannot be
+  // read back with a restricted key, so whether it is already wrong is unverifiable. That is
+  // ALT-698. This is the detector for the window in between.
+  //
+  // Deliberately an ALERT and not a correction, same as the industry mismatch below. The two causes
+  // are indistinguishable from here: this shape, or base-price env vars that have simply drifted out
+  // of sync while the add-on ones are current. Zeroing the quantities would take away capacity a
+  // real customer paid for, and stomping the tier would cut off a paying account. Both fail toward
+  // harming someone who did nothing wrong, so this preserves state and shouts instead.
+  if (!opts?.deleted && !priceInfo && (locationsPurchased > 0 || competitorsPurchased > 0)) {
+    console.error(
+      `[stripe] ADD-ON WITHOUT A BASE PLAN org=${orgId} sub=${subscription.id} price=${priceId} ` +
+        `locations=${locationsPurchased} competitors=${competitorsPurchased} tier preserved as ${tier}; ` +
+        `CHECK THE PORTAL ALLOW-LIST (ALT-698) AND THIS SUBSCRIPTION'S ITEMS`,
+    )
+  }
+
   // SEC-Low L3: a price that resolves but belongs to a DIFFERENT industry than the org is a
   // mis-provisioned checkout. Accept it (never black-hole a real payment), but ALERT so ops can
   // review — otherwise the wrong tier is granted silently.
