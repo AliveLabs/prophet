@@ -34,24 +34,46 @@ describe("provider deep pass (Opus + adaptive thinking)", () => {
     expect(b.model).toBe(DEEP_MODEL)
     expect(b.thinking).toEqual({ type: "adaptive" })
     expect(b.output_config).toEqual({ effort: "high" })
-    expect(b.temperature).toBeUndefined() // Opus 4.8 400s if temperature is sent
+    expect(b.temperature).toBeUndefined() // the 5-family deep model 400s if temperature is sent
     expect(b.max_tokens).toBe(32000) // deep pass gets headroom (thinking counts as output)
   })
 
   // ALT-613 changed this assertion, deliberately. It used to require `thinking` to be ABSENT on a
   // normal request, which is the assumption that made a 5-family swap unsafe: an absent field means
   // no thinking on Sonnet 4.6, but thinking ON on Sonnet 5 / Opus 5. The non-thinking branch now
-  // sends an explicit disable. Everything else here is unchanged: still no effort, still
-  // temperature 0.4, still the 8192 cap.
-  it("normal request keeps temperature and explicitly DISABLES thinking, with no effort", async () => {
+  // sends an explicit disable.
+  //
+  // ALT-461 SPLIT THIS TEST. It used to also assert `temperature: 0.4`, on a call that passes no
+  // model and therefore rides ANTHROPIC_MODEL. That only passed because the DEFAULT happened to be
+  // Sonnet 4.6, which is on the temperature allowlist. When the default was corrected to Sonnet 5
+  // (matching prod) this test failed, and it was right to: it had been asserting a property of
+  // whichever model the default pointed at, under a name about `thinking`. Temperature by model
+  // generation is now asserted explicitly below, on both branches.
+  it("normal request explicitly DISABLES thinking, with no effort", async () => {
     process.env.ANTHROPIC_API_KEY = "test-key"
     const f = mockFetch()
     await claudeRaw({ tier: "reasoning", prompt: "x", temperature: 0.4 })
     const b = f.body()
     expect(b.thinking).toEqual({ type: "disabled" })
     expect(b.output_config).toBeUndefined()
-    expect(b.temperature).toBe(0.4)
     expect(b.max_tokens).toBe(8192)
+  })
+
+  it("omits temperature on the DEFAULT model, because the default is now a 5-family model", async () => {
+    // The point of the correction: non-prod now puts the same bytes on the wire as prod.
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", temperature: 0.4 })
+    expect(f.body().temperature).toBeUndefined()
+  })
+
+  it("still SENDS temperature when a 4.x model is asked for explicitly", async () => {
+    // The allowlist has not changed; only which model we reach for by default. A call site that
+    // pins a 4.x model must behave exactly as it always did.
+    process.env.ANTHROPIC_API_KEY = "test-key"
+    const f = mockFetch()
+    await claudeRaw({ tier: "reasoning", prompt: "x", temperature: 0.4, model: "claude-sonnet-4-6" })
+    expect(f.body().temperature).toBe(0.4)
   })
 
   // P5 review finding A+B: a hung deep call must abort and degrade — NOT stall the brief, and
