@@ -7,13 +7,16 @@
 //      stadium mega-event that Google buries under generic "events" gets asked
 //      for directly (the proven World Cup fix).
 //   2. Magnitude grounding — when a fetched event geocodes onto a catalog venue,
-//      it INHERITS that venue's capacity + a deterministic "major" upgrade, which
-//      also fixes FIFA-style rebrands (physical "AT&T Stadium" ↔ "Dallas Stadium")
-//      that a title regex can't catch.
+//      it INHERITS that venue's capacity, which also fixes FIFA-style rebrands
+//      (physical "AT&T Stadium" ↔ "Dallas Stadium") that a title regex can't catch.
+//      A MEASURED capacity forces "major"; a type PRIOR only lifts a floor. See
+//      magnitudeWithCapacity, and ALT-771 for why the unconditional upgrade was wrong.
 //
 // Capacity is best-effort: a measured number (Wikidata P1083) when available, else
 // a venue-type prior RANGE. We always carry the LOW end + a confidence flag so the
-// downstream impact model never fabricates a precise headcount.
+// downstream impact model never fabricates a precise headcount. As of 2026-08-23 that
+// enrichment has landed on exactly ONE of 686 prod rows, so treat `prior` as the norm
+// and `measured` as the exception, not the other way round.
 // ---------------------------------------------------------------------------
 
 import type { SupabaseClient } from "@supabase/supabase-js"
@@ -107,6 +110,53 @@ export function aliasesFor(name: string): string[] {
 /** True when a catalog venue is big enough that a coincident event is "major". */
 export function isMajorCapacity(capacityHigh: number | null | undefined): boolean {
   return (capacityHigh ?? 0) >= MAJOR_CAPACITY_THRESHOLD
+}
+
+// ── A PRIOR capacity may raise a floor. It may not assert a headline. (ALT-771) ────────────────
+//
+// WHAT WAS WRONG. annotate.ts did `isMajorCapacity(e.capacityHigh) ? "major" : baseMagnitude`,
+// with no reference to `capacityConfidence`. Measured against prod on 2026-08-23, over 14 days:
+//
+//   · 686 catalog venues exist. ONE has a measured capacity. The other 685 carry a type PRIOR.
+//   · 582 of those 685 priors have capacityHigh >= 5000, so they force "major" unconditionally.
+//   · 801 of 1,449 events (55%) came out "major". 776 of those got there from a catalog match,
+//     and 730 of the 776 (94%) rode a PRIOR. Only 46 major events had a measured capacity.
+//
+// So "major" was mostly an artifact. Real rows it was applied to: a Roughriders outing at
+// "Barney & Me Boxing Gym" (prior 20,000), four club shows at "Academy of Art University
+// Recreation & Gym" (30,000), the McKinney Farmers Market, and "Friday Hops & Shops at TUPPS
+// Brewery". That is not a near miss: `major` feeds attendancePrior() a 15,000-person crowd and
+// flags the event high-signal in the brief.
+//
+// WHY A PRIOR CANNOT CARRY THIS. The prior is not a fact about the room, it is the capacity range
+// of the Places TYPE the sweep searched under. Two mechanisms inflate it, both in
+// buildVenueCatalog: the range comes from the SEARCHED includedType and not from the venue's own
+// returned primaryType (which is how a pilates studio and a parking service hold stadium priors),
+// and a venue surfacing under several passes keeps the LARGEST range of any of them. Both are
+// filed separately, because fixing them means re-sweeping every catalog.
+//
+// A prior therefore says exactly what the title and venue-name regexes in relevance.ts already
+// say: what CLASS of room this is. Those regexes deliberately floor at "moderate" for precisely
+// this reason: a class cannot tell you a size. So a prior gets the same ceiling. A MEASURED
+// capacity is a real number and keeps its override.
+//
+// The floor is still worth keeping. "Pokémon Worlds Night" at Oracle Park has no major-event word
+// and no venue word the regexes can match (`park` cannot be added: every city park would match),
+// so without the floor it lands on "minor". "The catalog matched a crowd-sized room" is real
+// evidence, just not evidence of a headline.
+export function magnitudeWithCapacity(
+  base: "major" | "moderate" | "minor",
+  cap: {
+    capacityHigh?: number | null
+    capacityConfidence?: CapacityConfidence | null
+  },
+): "major" | "moderate" | "minor" {
+  if (!isMajorCapacity(cap.capacityHigh)) return base
+  if (cap.capacityConfidence === "measured") return "major"
+  // Absent confidence is treated as a prior, NOT as measured. An event that never matched the
+  // catalog has no capacity at all and returned above; reaching here with no confidence means a
+  // row we cannot vouch for, and the unvouched direction must be the cautious one.
+  return base === "minor" ? "moderate" : base
 }
 
 /**
