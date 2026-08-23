@@ -15,6 +15,8 @@ import {
   readSubscriptionPeriodEnd,
   applySubscriptionToOrg,
   requireOrgOwnerOrAdmin,
+  BillingAuthError,
+  isBillingAuthError,
 } from "@/lib/stripe/helpers"
 
 // A configurable chainable mock covering every chain the helpers use:
@@ -411,5 +413,105 @@ describe("requireOrgOwnerOrAdmin — billing RBAC gate", () => {
   it("rejects a non-member", async () => {
     const sb = makeClient({ selectResult: { data: null } })
     await expect(requireOrgOwnerOrAdmin(sb, "u1", "org1")).rejects.toThrow(/Not a member/)
+  })
+})
+
+// ── ALT-578, billing half ───────────────────────────────────────────────────────────────────
+//
+// `resolveOrgActorWith` (lib/auth/actor.ts) closed the soft-delete gap for /api/ask and
+// /api/ai/*, but the five Stripe routes resolve the org themselves and never went through it.
+// `requireOrgOwnerOrAdmin` checked membership and role and NOT `organizations.deleted_at`, so
+// every billing route was reachable by an owner or admin of a deleted org.
+//
+// The split matters more than the guard. Soft-delete is an admin action, it is explicitly
+// RECOVERABLE, and it does NOT touch Stripe, so a deleted org can still be BILLING. Blocking
+// cancel and portal would leave a real customer paying with no way to stop because an admin hid
+// their org, which is worse than the thing the guard prevents. So: block anything that starts or
+// grows paid capacity, leave the exits open.
+describe("requireOrgOwnerOrAdmin — the soft-delete gate", () => {
+  const ADMIN = { role: "admin" }
+
+  // The membership read and the org read are two different .from() calls that both end in
+  // .maybeSingle(). This mock answers them in order.
+  function twoStep(first: unknown, second: unknown): SupabaseClient {
+    let call = 0
+    const chain: Record<string, unknown> = {
+      select: () => chain,
+      eq: () => chain,
+      maybeSingle: () => Promise.resolve({ data: call++ === 0 ? first : second, error: null }),
+    }
+    return { from: () => chain } as unknown as SupabaseClient
+  }
+
+  it("refuses when the org is soft-deleted", async () => {
+    const sb = twoStep(ADMIN, { deleted_at: "2026-08-20T00:00:00Z" })
+    await expect(requireOrgOwnerOrAdmin(sb, "u1", "org1")).rejects.toThrow(/has been deleted/i)
+  })
+
+  it("allows when deleted_at is null", async () => {
+    const sb = twoStep(ADMIN, { deleted_at: null })
+    await expect(requireOrgOwnerOrAdmin(sb, "u1", "org1")).resolves.toBe("admin")
+  })
+
+  it("DEFAULTS to checking, so a route added later is safe without anyone remembering", async () => {
+    // The polarity is the whole design. Opting out has to be written down.
+    const sb = twoStep(ADMIN, { deleted_at: "2026-08-20T00:00:00Z" })
+    await expect(requireOrgOwnerOrAdmin(sb, "u1", "org1", {})).rejects.toThrow(/has been deleted/i)
+  })
+
+  it("lets cancel and portal through with requireActive:false, so nobody is trapped paying", async () => {
+    const sb = twoStep(ADMIN, { deleted_at: "2026-08-20T00:00:00Z" })
+    await expect(
+      requireOrgOwnerOrAdmin(sb, "u1", "org1", { requireActive: false }),
+    ).resolves.toBe("admin")
+  })
+
+  it("fails CLOSED when the org read errors, because this gate stands in front of taking money", async () => {
+    // Deliberately the opposite polarity to the cost guards, which fail open: halting the product
+    // beats overspending, but "should we charge this account" must not proceed on an unknown.
+    let call = 0
+    const chain: Record<string, unknown> = {
+      select: () => chain,
+      eq: () => chain,
+      maybeSingle: () =>
+        Promise.resolve(
+          call++ === 0 ? { data: ADMIN, error: null } : { data: null, error: { message: "boom" } },
+        ),
+    }
+    const sb = { from: () => chain } as unknown as SupabaseClient
+    await expect(requireOrgOwnerOrAdmin(sb, "u1", "org1")).rejects.toThrow(/boom/)
+  })
+
+  it("still refuses a non-member and a plain member before it ever reads the org", async () => {
+    await expect(requireOrgOwnerOrAdmin(twoStep(null, null), "u1", "org1")).rejects.toThrow(/member/i)
+    await expect(
+      requireOrgOwnerOrAdmin(twoStep({ role: "member" }, null), "u1", "org1"),
+    ).rejects.toThrow(/owners or admins/i)
+  })
+})
+
+describe("isBillingAuthError — a refusal is 403, a failure is 500", () => {
+  it("recognises the typed refusal", () => {
+    expect(isBillingAuthError(new BillingAuthError("anything at all"))).toBe(true)
+  })
+
+  it("recognises the deleted-org refusal, which the old regex would have MISSED", () => {
+    // This is the bug the type fixes: the wording contains no "owner", "admin" or "member" as a
+    // standalone word match the old check relied on, so it would have surfaced as a 500
+    // "Failed to ..." and read like our bug rather than a decision about their account.
+    const err = new BillingAuthError("This organization has been deleted, so nobody can subscribe.")
+    expect(isBillingAuthError(err)).toBe(true)
+    expect(/owner|admin|member/i.test(err.message)).toBe(false)
+  })
+
+  it("keeps the regex as a backstop, so pre-existing 403s do not become 500s", () => {
+    expect(isBillingAuthError(new Error("Only owners or admins can manage billing"))).toBe(true)
+    expect(isBillingAuthError(new Error("Not a member of this organization"))).toBe(true)
+  })
+
+  it("does not dress a real failure up as a refusal", () => {
+    expect(isBillingAuthError(new Error("Stripe timed out"))).toBe(false)
+    expect(isBillingAuthError(new Error("ECONNRESET"))).toBe(false)
+    expect(isBillingAuthError("a bare string")).toBe(false)
   })
 })

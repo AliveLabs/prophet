@@ -164,10 +164,62 @@ export function getPortalConfigId(industry: IndustryType): string | null {
 
 export type OrgRole = "owner" | "admin" | "member"
 
+/**
+ * A caller-facing authorization refusal, as opposed to something that went wrong.
+ *
+ * Every billing route decides its HTTP status by regex-sniffing the thrown message
+ * (`/owner|admin|member/i` → 403, otherwise 500 with a generic body). That works by coincidence:
+ * it depends on a particular word appearing in the string. A new refusal whose wording happens to
+ * miss the pattern comes back as a 500 "Failed to …", which tells the operator nothing and looks
+ * like a bug in our code rather than a decision about their account.
+ *
+ * So refusals now carry a TYPE. The routes still keep the regex as a backstop for anything else
+ * that throws, so nothing that worked before changes.
+ */
+export class BillingAuthError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "BillingAuthError"
+  }
+}
+
+/** True when this error is a deliberate refusal (403) rather than a failure (500). */
+export function isBillingAuthError(err: unknown): boolean {
+  if (err instanceof BillingAuthError) return true
+  // Backstop for throwers that predate the type. Deliberately kept: removing it would silently
+  // turn existing 403s into 500s.
+  const msg = err instanceof Error ? err.message : String(err)
+  return /owner|admin|member/i.test(msg)
+}
+
+/**
+ * Membership + role gate for the billing routes.
+ *
+ * ALT-578 (billing half). This checked membership and role and NOT
+ * `organizations.deleted_at`, so every billing route was reachable by an owner or admin of a
+ * soft-deleted org. Route handlers never pass through the (dashboard) layout's deleted_at gate, and
+ * `lib/auth/actor.ts` is the resolver that closed this for /api/ask and /api/ai/*, but the Stripe
+ * routes resolve the org themselves and so were never covered.
+ *
+ * ⚠️ THE DEFAULT IS `requireActive: true`, and that polarity is the point. A route added later gets
+ * the safe behaviour without anyone remembering; opting OUT has to be written down and justified.
+ *
+ * Two routes DO opt out, and this is not an oversight:
+ *
+ *   Soft-delete is an admin action (super admin for a real customer org), it is explicitly
+ *   RECOVERABLE, and it does NOT touch Stripe. So a soft-deleted org can still have a live,
+ *   billing subscription. Blocking `cancel` and `portal` would leave a real customer paying with no
+ *   way to stop, because an admin hid their org. That is a worse outcome than the thing this guard
+ *   prevents, so those two stay reachable.
+ *
+ * What IS blocked is anything that starts or grows paid capacity: checkout, change-plan, add-ons.
+ * Nobody should be able to buy more of a product for an organisation that has been deleted.
+ */
 export async function requireOrgOwnerOrAdmin(
   supabase: SupabaseClient,
   userId: string,
-  orgId: string
+  orgId: string,
+  opts: { requireActive?: boolean } = {}
 ): Promise<OrgRole> {
   const { data, error } = await supabase
     .from("organization_members")
@@ -177,12 +229,31 @@ export async function requireOrgOwnerOrAdmin(
     .maybeSingle()
 
   if (error) throw error
-  if (!data) throw new Error("Not a member of this organization")
+  if (!data) throw new BillingAuthError("Not a member of this organization")
 
   const role = data.role as OrgRole
   if (role !== "owner" && role !== "admin") {
-    throw new Error("Only owners or admins can manage billing")
+    throw new BillingAuthError("Only owners or admins can manage billing")
   }
+
+  if (opts.requireActive !== false) {
+    const { data: org, error: orgErr } = await supabase
+      .from("organizations")
+      .select("deleted_at")
+      .eq("id", orgId)
+      .maybeSingle()
+    // Fails CLOSED, unlike the read-side guards elsewhere in the codebase. This gate stands in
+    // front of taking money: if we cannot confirm the org is active we must not start or grow a
+    // subscription, and the caller can retry. A cost guard fails open because halting the product
+    // is worse than overspending; a "should we charge this account" guard is the other way round.
+    if (orgErr) throw orgErr
+    if (org?.deleted_at) {
+      throw new BillingAuthError(
+        "This organization has been deleted, so its members cannot start or change a subscription.",
+      )
+    }
+  }
+
   return role
 }
 
