@@ -205,14 +205,34 @@ export const WORKER_SAFETY_MARGIN_MS = 90_000
 // and a brief that lands late.
 //
 // Recalibrated 2026-08-03 against 36h of prod signal_jobs (118 completed jobs, 0 retries),
-// measuring claimed_at -> updated_at. Observed avg / max per pipeline:
-//   brief 409s / 719s · content 302s / 425s · visibility 277s / 389s · insights 118s / 302s
-//   photos 85s / 173s · events 79s / 380s · social 79s / 265s · busy_times 76s / 341s
-//   weather 50s / 196s
-// Note how far the tails sit above the means (events 79s avg, 380s max) — the means are
-// useless for this decision. `brief` was the dangerous one: estimated at 380s against a
-// real 719s max, so the guard would happily start a brief with ~400s left and overrun.
-// Re-derive with that query rather than nudging these by feel.
+// measuring claimed_at -> updated_at.
+//
+// ── RE-DERIVED 2026-08-23 (ALT-681), all completed jobs in prod ──────────────────────────────
+// Percentiles, not avg/max alone, because the previous note's own point was that the means are
+// useless here. Estimate in the last column:
+//
+//   pipeline      p50    p95    p99    max    estimate
+//   brief         366    545    719    793    780        <- correctly sized, do NOT lower
+//   visibility    231    564    721    793    440        <- UNDER the p99 by 280s
+//   content       285    580    640    647    480        <- UNDER
+//   insights       72    298    403    585    350        <- UNDER
+//   social        168    400    500    566    310        <- UNDER
+//   weather         7    338    420    458    240        <- UNDER
+//   events         44    279    387    478    430
+//   busy_times     83    307    386    422    390
+//   photos         92    228    250    259    220
+//
+// The posture is to size against the TAIL, because an under-estimate lets the guard start a job
+// that then overruns maxDuration and gets killed mid-flight and retried, which doubles the spend
+// on it. `brief` used to be the dangerous one (380s estimate against a 719s real max) and is now
+// the only one that is right. Five others are under their own p99 and are filed separately: fixing
+// them is a per-pipeline latency-versus-spend trade, not a sweep.
+//
+// ⚠️ ALT-681 tried to LOWER the brief estimate on the strength of five hand-picked first-run rows
+// (186/189/192/214/217s), and a unit test had pinned 217s as "the observed max". It is not: the
+// real p50 alone is 366s. Cutting the estimate toward 250s would have killed the majority of
+// briefs mid-flight. Re-derive with the query above rather than nudging these by feel, and never
+// calibrate off first-run rows alone.
 const PIPELINE_TIME_ESTIMATE_MS: Record<string, number> = {
   brief: 780_000,
   content: 480_000,
