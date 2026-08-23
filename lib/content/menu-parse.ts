@@ -9,6 +9,7 @@
 
 import type { MenuCategory, MenuItem, MenuType, MenuSnapshot, MenuSource, MenuExtractor } from "./types"
 import { coerceItemKind } from "./types"
+import { menuReadNote } from "./menu-read-note"
 import type { ExtractedMenu } from "@/lib/providers/firecrawl"
 import type { GoogleMenuResult } from "@/lib/ai/gemini"
 
@@ -108,15 +109,11 @@ export function normalizeExtractedMenu(
   // can see whether a stored read came from the deterministic parser or from the model, and
   // that distinction is the whole of the reliability story (menu-markdown.ts).
   //
-  // It names the extractor and NOT the vendor. This string is customer-facing: it renders
-  // under "How we read it" on /content (content-board.tsx). The old wording was "Extracted
-  // via <the scraping vendor> JSON mode", which put a vendor name on a customer surface: the
-  // thing lib/ops/provenance-copy.ts forbids. The static scan missed it because it walks the
-  // dashboard, not lib/content.
+  // ALT-610: the phrasing now comes from menuReadNote rather than being written here. The same
+  // mistake (a vendor name in this exact field) was made independently in this file and in
+  // lib/ai/gemini.ts, because each writer phrased its own note. One builder stops a third.
   notes.push(
-    extractor === "markdown"
-      ? `Read the menu page directly (${totalItems} items across ${categories.length} categories)`
-      : `Read the menu page with an extraction model (${totalItems} items across ${categories.length} categories)`
+    menuReadNote(extractor === "markdown" ? "page" : "extraction_model", totalItems, categories.length)
   )
 
   return {
