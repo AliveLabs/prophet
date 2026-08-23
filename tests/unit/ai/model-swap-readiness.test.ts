@@ -13,7 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import { describe, expect, it, vi, afterEach } from "vitest"
-import { acceptsTemperature, claudeRaw } from "@/lib/ai/provider"
+import { acceptsTemperature, claudeRaw, ANTHROPIC_MODEL, DEEP_MODEL, FAST_MODEL } from "@/lib/ai/provider"
 import { estimateAnthropicCostUsd, rateFor, type ModelTokenTotals } from "@/lib/ai/pricing"
 
 const tok = (o: Partial<ModelTokenTotals> = {}): ModelTokenTotals => ({
@@ -26,7 +26,7 @@ const tok = (o: Partial<ModelTokenTotals> = {}): ModelTokenTotals => ({
 
 describe("acceptsTemperature", () => {
   it("says yes for the models we run today, so nothing changes now", () => {
-    expect(acceptsTemperature("claude-sonnet-4-6")).toBe(true) // current ANTHROPIC_MODEL
+    expect(acceptsTemperature("claude-sonnet-4-6")).toBe(true) // a 4.x model, still on the allowlist
     expect(acceptsTemperature("claude-haiku-4-5")).toBe(true)
     expect(acceptsTemperature("claude-sonnet-4-5")).toBe(true)
     expect(acceptsTemperature("claude-opus-4-6")).toBe(true)
@@ -36,7 +36,7 @@ describe("acceptsTemperature", () => {
     for (const m of [
       "claude-sonnet-5",
       "claude-opus-5",
-      "claude-opus-4-8", // current DEEP_MODEL — only ever used with thinking, but must still be no
+      "claude-opus-4-8", // only ever used with thinking, but must still be no
       "claude-opus-4-7",
       "claude-fable-5",
       "claude-mythos-5",
@@ -222,5 +222,51 @@ describe("estimateAnthropicCostUsd", () => {
     const writes = estimateAnthropicCostUsd({ "claude-opus-5": tok({ cacheWriteTokens: 1_000_000 }) })
     expect(reads).toBeCloseTo(0.5, 6) // 5 * 0.1
     expect(writes).toBeCloseTo(10, 6) // 5 * 2
+  })
+})
+
+// ── ALT-461: the code default must not drift behind production ───────────────────────────────
+//
+// Production has run ANTHROPIC_MODEL=claude-sonnet-5 and ANTHROPIC_DEEP_MODEL=claude-opus-5 since
+// the 5-family swap. The code defaults stayed at claude-sonnet-4-6 and claude-opus-4-8, so every
+// environment WITHOUT those env vars (preview, local dev, CI) ran a model generation prod had
+// stopped using.
+//
+// That is not cosmetic. `acceptsTemperature` is an allowlist: sonnet-4-6 is on it and sonnet-5 is
+// not, so non-prod was putting `temperature` on requests where prod omits it. The one environment
+// you would reach for to reproduce a model-shaped bug was the one not running the model.
+//
+// These assertions are about the DEFAULT, not about any particular id, so they keep holding as the
+// family moves on. What they refuse is a default that has drifted into a generation whose
+// temperature behaviour differs from the one we actually run.
+describe("the default models agree with what production runs", () => {
+  it("the base and deep defaults both omit temperature, like prod", () => {
+    // The property that matters. If a future default lands back on an allowlisted 4.x model, the
+    // wire shape diverges from prod again and this fails.
+    expect(acceptsTemperature(ANTHROPIC_MODEL), ANTHROPIC_MODEL).toBe(false)
+    expect(acceptsTemperature(DEEP_MODEL), DEEP_MODEL).toBe(false)
+  })
+
+  it("the fast model DOES accept temperature, which is deliberate and not drift", () => {
+    // Haiku 4.5 is the current haiku and is on the allowlist on purpose. Prod sets no override for
+    // it, so the default IS what prod runs. Asserted so nobody "fixes" it to match the other two.
+    expect(acceptsTemperature(FAST_MODEL), FAST_MODEL).toBe(true)
+  })
+
+  it("every default is priced, or the cost telemetry silently reads zero", () => {
+    // pricing.ts matches by regex and ALT-544 records that the family patterns alone mispriced the
+    // 5 family. A default with no matching rate would make $/brief quietly wrong rather than error.
+    for (const m of [ANTHROPIC_MODEL, DEEP_MODEL, FAST_MODEL]) {
+      const rate = rateFor(m)
+      expect(rate, m).toBeTruthy()
+      expect(rate!.input, m).toBeGreaterThan(0)
+      expect(rate!.output, m).toBeGreaterThan(0)
+    }
+  })
+
+  it("the base and deep defaults are different models", () => {
+    // The deep pass exists to be a stronger model than the producers. Collapsing them would be an
+    // invisible quality regression, since both paths would still work.
+    expect(ANTHROPIC_MODEL).not.toBe(DEEP_MODEL)
   })
 })

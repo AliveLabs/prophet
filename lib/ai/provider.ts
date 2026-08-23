@@ -71,9 +71,17 @@ export type Transport = (req: GenerateRequest) => Promise<unknown>
  *  records its OWN spend telemetry can attribute the model without re-reading the env behind this
  *  module's back — see the first-run starter pipeline. Read-only export: nothing about how the
  *  model is chosen or sent changed. */
-export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6"
+// ALT-461. The DEFAULT was `claude-sonnet-4-6` while production has run
+// `ANTHROPIC_MODEL=claude-sonnet-5` since the 5-family swap. Prod was fine; everywhere else was
+// not. Preview, local dev and CI all fell back to a model generation prod stopped using, and the
+// difference is not cosmetic: `acceptsTemperature` is an ALLOWLIST, sonnet-4-6 is on it and
+// sonnet-5 is not, so non-prod was sending `temperature` on requests where prod omits it. The one
+// environment you would reach for to reproduce a model-shaped bug was the one not running the
+// model. Defaults now match prod, so removing the env var degrades to the CURRENT model rather
+// than to a stale one.
+export const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5"
 /** Deep reasoning model for the convergence + synthesis pass (P5): Opus + adaptive thinking. */
-export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-4-8"
+export const DEEP_MODEL = process.env.ANTHROPIC_DEEP_MODEL ?? "claude-opus-5"
 /** Light interactive model (beta rescue 2.2): the small, latency-sensitive surfaces that used to
  *  ride Gemini (quick-tip, on-demand insight, competitor brief, pipeline narratives). Haiku 4.5
  *  accepts temperature (see TEMPERATURE_OK) and prices at $1/$5 per MTok (pricing.ts /haiku/). */
