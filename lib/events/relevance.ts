@@ -53,9 +53,26 @@ export type EventRole = "local_foot" | "local_traffic" | "metro_hook" | "route_c
 
 // Venue-class + league/event keywords. Conservative: "major" needs a stadium-class
 // venue or a pro-league/headline keyword — metro hooks are the exception, not the rule.
-const MAJOR_VENUE = /\b(stadium|arena|speedway|amphitheat|fairgrounds|coliseum|bowl|field house|center)\b/i
+// ALT-572. `pavilion`, `ballpark`, `dome` and a standalone `field` were missing, and each names a
+// venue class that is never small. Confirmed against live prod rows on 2026-08-22, where all four of
+// these were classified MINOR:
+//
+//   "Los Angeles Angels at Texas Rangers"       Globe Life Field      (40k MLB ballpark)
+//   "Double Trouble Double Vision Tour 2026"    Dos Equis Pavilion    (~20k amphitheatre)
+//   "Extreme"                                   Dos Equis Pavilion
+//   "Jack Johnson"                              Morton Amphitheater
+//
+// `\bfield\b` needs the word boundary and does not match "Springfield", which is the only false
+// positive worth worrying about. `bowl` and `center` were already here and carry the same risk.
+// ⚠️ `amphitheat\w*`, not `amphitheat`. Inside `\b(...)\b` the bare stem could never match a real
+// venue: after consuming "amphitheat" the next character in "Amphitheater" is a word character, so
+// the trailing `\b` fails. Verified against the original pattern: "Morton Amphitheater" -> false,
+// "Dos Equis Amphitheatre" -> false, and only the nonexistent "Toyota Amphitheat" -> true. That
+// alternative had been dead since it was written, which is why "Jack Johnson" at Morton
+// Amphitheater came through as minor.
+const MAJOR_VENUE = /\b(stadium|arena|speedway|amphitheat\w*|fairgrounds|coliseum|bowl|ballpark|pavilion|dome|field house|field|center)\b/i
 const MAJOR_EVENT = /\b(nfl|nba|mlb|nhl|mls|ncaa|fifa|playoff|championship|final|cup|world cup|super bowl|grand prix|formula 1|monster jam|rodeo|state fair)\b/i
-// no bare "tour" — a club tour is small; stadium tours qualify via MAJOR venue+ticketing
+// no bare "tour" — a club tour is small; a stadium tour qualifies on the venue instead
 const MODERATE_EVENT = /\b(festival|fest|concert|expo|convention|marathon|parade)\b/i
 
 // Route / street-closure events: not point venues — the route can pass the block from a
@@ -86,14 +103,62 @@ export function isNonDrawListing(
   return isNonDrawVenueName(e.venue?.name) || NON_DRAW_TITLE.test(e.title ?? "")
 }
 
+/**
+ * Venue words that name an unambiguously large-capacity venue CLASS.
+ *
+ * Narrower than MAJOR_VENUE on purpose. MAJOR_VENUE also carries `center`, `bowl` and `field house`,
+ * and `center` in particular is common in names that are not large rooms at all ("Frisco Athletic
+ * Center Waterpark", "Willow Bend Center of the Arts"). Those stay useful as one signal among
+ * several but must not by themselves set a floor, or every leisure centre in the metro becomes a
+ * moderate draw.
+ *
+ * `field` IS here, deliberately. As a venue-name word it is overwhelmingly a ballpark or stadium
+ * (Globe Life Field, Riders Field, Wrigley Field, Citi Field), and `\b` means it does not match
+ * "Springfield". Tests pin both directions.
+ */
+const LARGE_VENUE = /\b(stadium|arena|speedway|amphitheat\w*|coliseum|ballpark|pavilion|dome|fairgrounds|field)\b/i
+
+/**
+ * ⚠️ `ticketsAndInfo.length` is a SCRAPE ARTIFACT, not a property of the event, and it used to be
+ * the deciding signal in three of the four rules below.
+ *
+ * Proof from one day of live prod rows (2026-08-22): the same fixture at the same venue appears
+ * with different counts. "Royals vs Blue Jays" at Kauffman Stadium carried 1 ticket link on three
+ * rows while "Royals vs Tigers" at the same venue carried 2, and "Chiefs vs Seahawks" at Arrowhead
+ * carried **0**. Identical event classes, different counts, purely a function of what the source
+ * happened to list. Gating "major" on `>= 2` therefore assigned magnitude by coin flip.
+ *
+ * It survives as a corroborator that can PROMOTE ("BTS World Tour" at AT&T Stadium with ticket
+ * links is major, and that is right). What it must never do again is DEMOTE: its absence used to
+ * drop a stadium event all the way to minor, which is what this fixes. Promotion on a noisy signal
+ * costs an over-called event; demotion on a noisy signal loses the marquee event entirely.
+ */
 export function classifyEventMagnitude(e: Pick<NormalizedEvent, "title" | "venue" | "ticketsAndInfo">): EventMagnitude {
   const venue = e.venue?.name ?? ""
   const title = e.title ?? ""
   const ticketed = (e.ticketsAndInfo?.length ?? 0) >= 2
   // A facility listing can never be a major draw, however stadium-shaped its venue string.
   if (isNonDrawListing(e)) return "minor"
+
+  // A headline event, or any sports fixture, in a large-venue class. No ticket-count requirement:
+  // "Chiefs vs Seahawks" at Arrowhead came through with zero ticket links and was only rescued by
+  // the catalog capacity upgrade in annotate.ts. Where the catalog has no row (Globe Life Field and
+  // Dos Equis Pavilion both return null capacity today) nothing rescued it.
+  if (LARGE_VENUE.test(venue) && (MAJOR_EVENT.test(title) || classifyEventType(e) === "sports")) {
+    return "major"
+  }
+  // Ticket links at a large venue still promote to major. This is the marquee case the engine
+  // exists for ("BTS World Tour" at AT&T Stadium) and a test pins it.
+  if (LARGE_VENUE.test(venue) && ticketed) return "major"
+  // A headline event anywhere, if there is any corroboration that tickets are on sale.
   if (MAJOR_EVENT.test(title) && (MAJOR_VENUE.test(venue) || ticketed)) return "major"
-  if (MAJOR_VENUE.test(venue) && ticketed) return "major"
+
+  // FLOOR: a real event in a large-venue class is at least moderate. The venue class is a property
+  // of the room and does not depend on what the scraper listed. Deliberately `moderate` and not
+  // `major`: without a capacity we cannot tell a 2,000-seat pavilion from a 20,000-seat one, and
+  // the catalog upgrade in annotate.ts promotes it to major once capacity is known.
+  if (LARGE_VENUE.test(venue)) return "moderate"
+
   if (MODERATE_EVENT.test(title) || MODERATE_EVENT.test(venue) || ticketed) return "moderate"
   return "minor"
 }
