@@ -804,3 +804,16 @@ button.tk-ask-inline {
    single-color by decision.
    ════════════════════════════════════════════════════════════ */
 .tk-em { color: var(--rust-deep, var(--rust)); font-style: normal; }
+
+/* ALT-718: a history cell topping up a short forecast. The caption says the strip is mixed; this
+   says WHICH cells, because every cell otherwise renders nothing but a weekday abbreviation and a
+   past Friday is indistinguishable from next Friday. Recessive on purpose: it is a caveat on real
+   data, not an error state. */
+.tk-fcday-past { opacity: 0.62; }
+.tk-fcday-past .tk-dow-past {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3, var(--ink-2));
+}

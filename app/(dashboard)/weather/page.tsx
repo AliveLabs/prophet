@@ -52,6 +52,7 @@ import {
 import "./weather.css"
 import { loadSurfaceReadiness } from "@/lib/onboarding/load-surface-readiness"
 import SurfaceNotReady from "@/components/first-run/surface-not-ready"
+import { describeStripDays, shouldMarkAsPast } from "@/lib/weather/strip-caption"
 
 type WeatherPageProps = {
   searchParams?: Promise<{
@@ -272,15 +273,12 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
   // read last week's weather as this week's forecast and planned against it. The top-up itself is
   // fine (a full week reads better than a gap); labelling history as a forecast is not.
   //
-  // Counted off `isForecast`, which the mapping above already sets, rather than re-deriving from
-  // dates: one source of truth for "is this a forecast day".
-  const stripForecastDays = stripDays.filter((d) => d.isForecast).length
-  const stripCaption =
-    stripForecastDays === 0
-      ? "Last 7 days · forecast unavailable right now"
-      : stripForecastDays >= stripDays.length
-        ? "Next 7 · forecast & estimated walk-in demand"
-        : `Next ${stripForecastDays} + recent history · forecast & estimated walk-in demand`
+  // Moved to lib/weather/strip-caption.ts so it can actually be tested: vitest collects only
+  // tests/unit/**/*.test.ts and never .tsx, so this decision was untestable while it lived here,
+  // which is not what you want for the one thing that was quietly wrong. The cell-level marking
+  // lives there too, for the MIXED case the caption cannot disambiguate.
+  const stripDesc = describeStripDays(stripDays)
+  const stripCaption = stripDesc.caption
 
   // How many days in the visible strip carry a notable event — drives the
   // composite's "events factored in" sub-line (honest: only shown when > 0).
@@ -463,6 +461,7 @@ export default async function WeatherPage({ searchParams }: WeatherPageProps) {
                           : `${d.weather_condition} · est. walk-in ${demandWord} normal`
                         return {
                           dow: dow(d.date),
+                          isPast: shouldMarkAsPast(d, stripDesc),
                           icon: toTkWeatherIcon(d.weather_condition, d.is_severe),
                           hi: `${Math.round(d.temp_high_f)}°`,
                           lo: `${Math.round(d.temp_low_f)}°`,
