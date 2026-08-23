@@ -23,6 +23,13 @@ import { fetchAdsSearch } from "@/lib/providers/dataforseo/ads-search"
 import { fetchRelevantPages } from "@/lib/providers/dataforseo/relevant-pages"
 import { fetchSubdomains } from "@/lib/providers/dataforseo/subdomains"
 import { fetchHistoricalRankOverview } from "@/lib/providers/dataforseo/historical-rank-overview"
+import {
+  buildLocationName,
+  withLocationScope,
+  LOCATION_CODE_US,
+  type LocationArg,
+  type LocationScope,
+} from "@/lib/providers/dataforseo/location-scope"
 import { DataForSEOError } from "@/lib/providers/dataforseo/client"
 import {
   normalizeDomainRankOverview,
@@ -68,6 +75,10 @@ export type VisibilityPipelineCtx = {
     name: string | null
     website: string | null
     primary_place_id: string | null
+    // ALT-636: needed to ask DataForSEO about THIS market rather than about the United States.
+    city: string | null
+    region: string | null
+    country: string | null
   }
   locationDomain: string | null
   seedDomain: string | null
@@ -80,6 +91,10 @@ export type VisibilityPipelineCtx = {
     domain: string
   }>
   state: {
+    /** ALT-636: the location argument every SEO call in THIS run uses, learned once. See seoCall(). */
+    locationArg?: LocationArg
+    /** Which market the run's numbers describe. Stamped onto every snapshot this run writes. */
+    locationScope?: LocationScope
     locationRankSnapshot: DomainRankSnapshot | null
     currentKeywords: NormalizedRankedKeyword[]
     serpEntries: SerpRankEntry[]
@@ -109,6 +124,50 @@ function getPreviousDateKey(dateKey: string, days: number): string {
 // Step builders
 // ---------------------------------------------------------------------------
 
+// ── ALT-636: ask about the location's market, once per run ───────────────────
+//
+// Every SEO fetch used to send DataForSEO's default `location_code: 2840`, the whole United States,
+// so "local search visibility" was national data by construction. These calls now carry the
+// location's own `location_name`.
+//
+// WHY THIS IS MEMOISED rather than each call falling back on its own. DataForSEO rejects some real
+// place names with status 40501 ("McKinney,Texas,United States" is refused while Forney and
+// Arlington are accepted), and this pipeline makes 13 calls. Falling back per call would DOUBLE the
+// request count on exactly the locations that are already failing, on our largest vendor line. So
+// the first call learns the answer and the remaining twelve reuse it.
+//
+// The learned value lives on `c.state`, which is per-run, so a location whose name starts working
+// picks it up on the next run rather than being stuck.
+async function seoCall<T>(
+  c: VisibilityPipelineCtx,
+  call: (arg: LocationArg) => Promise<T>,
+): Promise<T> {
+  if (c.state.locationArg) return call(c.state.locationArg)
+
+  const name = buildLocationName(c.location)
+  const { result, scope } = await withLocationScope(name, call)
+  c.state.locationArg =
+    scope === "local" && name ? { locationName: name } : { locationCode: LOCATION_CODE_US }
+  c.state.locationScope = scope
+  // Logged once per run, on both branches. Bryan accepted one week of broken week-over-week deltas
+  // when this shipped (the numbers change because the QUESTION changed, not because rankings moved),
+  // so what matters is being able to say later exactly which runs were national and which were not.
+  // This line plus the deploy date is enough to explain any discontinuity in the history without
+  // having to stamp all thirteen snapshot rows.
+  console.log(
+    `[visibility] location ${c.locationId} SEO scope=${scope}` +
+      (scope === "local" ? ` (${name})` : " (US-national)"),
+  )
+  return result
+}
+
+/** The scope to stamp on a snapshot. Defaults to national: if no SEO call has resolved yet, the
+ *  provider default is what would have been used, and recording the optimistic value would be a
+ *  claim we have not earned. */
+function scopeOf(c: VisibilityPipelineCtx): LocationScope {
+  return c.state.locationScope ?? "national"
+}
+
 export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[] {
   const steps: PipelineStepDef<VisibilityPipelineCtx>[] = [
     {
@@ -117,7 +176,7 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
       run: async (c) => {
         let count = 0
         for (const domain of c.allDomains) {
-          const result = await fetchDomainRankOverview({ target: domain })
+          const result = await seoCall(c, (loc) => fetchDomainRankOverview({ target: domain, ...loc }))
           if (!result) continue
           count++
           const normalized = normalizeDomainRankOverview(result, domain)
@@ -173,10 +232,11 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
         const rkDomain = c.locationDomain
         if (!rkDomain) return { keywords: 0, skipped: "location has no website of its own" }
 
-        const rkResult = await fetchRankedKeywords({
+        const rkResult = await seoCall(c, (loc) => fetchRankedKeywords({
           target: rkDomain,
           limit: getSeoRankedKeywordsLimit(c.tier),
-        })
+          ...loc,
+        }))
         if (!rkResult) return { keywords: 0 }
 
         c.state.currentKeywords = normalizeRankedKeywords(rkResult)
@@ -212,11 +272,13 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
         if ((existingKws?.length ?? 0) > 0) return { status: "already seeded" }
 
         if (!c.seedDomain) return { status: "no seed domain" }
+        const seed = c.seedDomain
 
-        const kfsResult = await fetchKeywordsForSite({
-          target: c.seedDomain,
+        const kfsResult = await seoCall(c, (loc) => fetchKeywordsForSite({
+          target: seed,
           limit: getSeoTrackedKeywordsLimit(c.tier),
-        })
+          ...loc,
+        }))
         if (!kfsResult) return { seeded: 0 }
 
         const candidates = normalizeKeywordsForSite(kfsResult)
@@ -243,11 +305,13 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
       label: "Discovering organic competitors",
       run: async (c) => {
         if (!c.seedDomain) return { competitors: 0 }
+        const seed = c.seedDomain
 
-        const cdResult = await fetchCompetitorsDomain({
-          target: c.seedDomain,
+        const cdResult = await seoCall(c, (loc) => fetchCompetitorsDomain({
+          target: seed,
           limit: 10,
-        })
+          ...loc,
+        }))
         if (!cdResult) return { competitors: 0 }
 
         const normalizedComps = normalizeCompetitorsDomain(cdResult)
@@ -282,7 +346,7 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
 
         for (const kw of trackedKws ?? []) {
           try {
-            const serpResult = await fetchSerpOrganic({ keyword: kw.keyword })
+            const serpResult = await seoCall(c, (loc) => fetchSerpOrganic({ keyword: kw.keyword, ...loc }))
             if (serpResult) {
               c.state.serpEntries.push(
                 normalizeSerpOrganic(serpResult, kw.keyword, c.allDomains)
@@ -322,14 +386,17 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
           return { status: "skipped" }
 
         const limit = getSeoIntersectionLimit(c.tier)
+        // Hoisted past the guard above: the seoCall closure cannot carry the narrowing.
+        const ownDomain = c.locationDomain
         let total = 0
         for (const comp of c.competitors.slice(0, 5)) {
           try {
-            const diResult = await fetchDomainIntersection({
-              target1: c.locationDomain,
+            const diResult = await seoCall(c, (loc) => fetchDomainIntersection({
+              target1: ownDomain,
               target2: comp.domain,
               limit,
-            })
+              ...loc,
+            }))
             if (diResult) {
               const normalized = normalizeDomainIntersection(diResult)
               c.state.intersectionRows.push(...normalized)
@@ -378,7 +445,7 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
         const competitorDomains = c.allDomains.filter((d) => d !== c.locationDomain)
         for (const domain of competitorDomains.slice(0, 5)) {
           try {
-            const adsResult = await fetchAdsSearch({ target: domain })
+            const adsResult = await seoCall(c, (loc) => fetchAdsSearch({ target: domain, ...loc }))
             if (adsResult) {
               c.state.adCreatives.push(...normalizeAdsSearch(adsResult, domain))
             }
@@ -416,11 +483,13 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
 
         // Relevant pages
         if (c.locationDomain) {
+          const ownDomain = c.locationDomain
           try {
-            const rpResult = await fetchRelevantPages({
-              target: c.locationDomain,
+            const rpResult = await seoCall(c, (loc) => fetchRelevantPages({
+              target: ownDomain,
               limit: 25,
-            })
+              ...loc,
+            }))
             if (rpResult) {
               const normalizedPages = normalizeRelevantPages(rpResult)
               preview.pages = normalizedPages.length
@@ -447,11 +516,15 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
 
         // Subdomains
         if (c.locationDomain) {
+          // Hoisted: inside the seoCall closure TypeScript cannot keep the narrowing from the
+          // enclosing `if`, since the closure could in principle run later.
+          const ownDomain = c.locationDomain
           try {
-            const sdResult = await fetchSubdomains({
-              target: c.locationDomain,
+            const sdResult = await seoCall(c, (loc) => fetchSubdomains({
+              target: ownDomain,
               limit: 10,
-            })
+              ...loc,
+            }))
             if (sdResult) {
               const normalizedSubs = normalizeSubdomains(sdResult)
               preview.subdomains = normalizedSubs.length
@@ -478,10 +551,12 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
 
         // Historical rank
         if (c.locationDomain) {
+          const ownDomain = c.locationDomain
           try {
-            const hrResult = await fetchHistoricalRankOverview({
-              target: c.locationDomain,
-            })
+            const hrResult = await seoCall(c, (loc) => fetchHistoricalRankOverview({
+              target: ownDomain,
+              ...loc,
+            }))
             if (hrResult) {
               const normalizedHistory = normalizeHistoricalRankOverview(hrResult)
               preview.historyMonths = normalizedHistory.length
@@ -517,10 +592,11 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
         const rkLimit = getSeoRankedKeywordsLimit(c.tier)
         for (const comp of c.competitors) {
           try {
-            const rkResult = await fetchRankedKeywords({
+            const rkResult = await seoCall(c, (loc) => fetchRankedKeywords({
               target: comp.domain,
               limit: rkLimit,
-            })
+              ...loc,
+            }))
             if (rkResult) {
               const normalized = normalizeRankedKeywords(rkResult)
               total += normalized.length
@@ -548,10 +624,11 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
           }
 
           try {
-            const rpResult = await fetchRelevantPages({
+            const rpResult = await seoCall(c, (loc) => fetchRelevantPages({
               target: comp.domain,
               limit: 25,
-            })
+              ...loc,
+            }))
             if (rpResult) {
               const normalized = normalizeRelevantPages(rpResult)
               await c.supabase.from("snapshots").upsert(
@@ -578,9 +655,10 @@ export function buildVisibilitySteps(): PipelineStepDef<VisibilityPipelineCtx>[]
           }
 
           try {
-            const hrResult = await fetchHistoricalRankOverview({
+            const hrResult = await seoCall(c, (loc) => fetchHistoricalRankOverview({
               target: comp.domain,
-            })
+              ...loc,
+            }))
             if (hrResult) {
               const normalized = normalizeHistoricalRankOverview(hrResult)
               await c.supabase.from("snapshots").upsert(
@@ -769,7 +847,7 @@ export async function buildVisibilityContext(
 
   const { data: location } = await supabase
     .from("locations")
-    .select("id, name, website, primary_place_id, organization_id")
+    .select("id, name, website, primary_place_id, organization_id, city, region, country")
     .eq("id", locationId)
     .eq("organization_id", organizationId)
     .maybeSingle()
@@ -833,6 +911,9 @@ export async function buildVisibilityContext(
       name: location.name,
       website: resolvedWebsite,
       primary_place_id: location.primary_place_id,
+      city: location.city ?? null,
+      region: location.region ?? null,
+      country: location.country ?? null,
     },
     locationDomain,
     seedDomain,

@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { postDataForSEO, extractFirstResult, type DataForSEOTaskResponse } from "./client"
+import { locationTask } from "./location-scope"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,6 +12,9 @@ import { postDataForSEO, extractFirstResult, type DataForSEOTaskResponse } from 
 
 export type HistoricalRankOverviewInput = {
   target: string
+  /** ALT-636: the location's own market, "City,Region,United States". Takes precedence
+   *  over locationCode. Exactly one reaches the wire; see locationTask(). */
+  locationName?: string
   locationCode?: number
   languageCode?: string
   dateFrom?: string // "YYYY-MM-DD"
@@ -79,7 +83,7 @@ export async function fetchHistoricalRankOverview(
 
   const task: Record<string, unknown> = {
     target: input.target,
-    location_code: input.locationCode ?? 2840,
+    ...locationTask(input),
     language_code: input.languageCode ?? "en",
   }
 

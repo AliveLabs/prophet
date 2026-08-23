@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { postDataForSEO, extractFirstResult, type DataForSEOTaskResponse } from "./client"
+import { locationTask } from "./location-scope"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -11,6 +12,9 @@ import { postDataForSEO, extractFirstResult, type DataForSEOTaskResponse } from 
 
 export type DomainRankOverviewInput = {
   target: string // domain, e.g. "example.com"
+  /** ALT-636: the location's own market, "City,Region,United States". Takes precedence
+   *  over locationCode. Exactly one reaches the wire; see locationTask(). */
+  locationName?: string
   locationCode?: number // default 2840 (United States)
   languageCode?: string // default "en"
 }
@@ -66,7 +70,7 @@ export async function fetchDomainRankOverview(
 ): Promise<DomainRankOverviewResult | null> {
   const task = {
     target: input.target,
-    location_code: input.locationCode ?? 2840,
+    ...locationTask(input),
     language_code: input.languageCode ?? "en",
   }
 

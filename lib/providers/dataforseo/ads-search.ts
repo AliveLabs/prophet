@@ -5,6 +5,7 @@
 // ---------------------------------------------------------------------------
 
 import { postDataForSEO, DataForSEOError, type DataForSEOTaskResponse } from "./client"
+import { locationTask } from "./location-scope"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -12,6 +13,9 @@ import { postDataForSEO, DataForSEOError, type DataForSEOTaskResponse } from "./
 
 export type AdsSearchInput = {
   target: string // domain name, e.g. "example.com"
+  /** ALT-636: the location's own market, "City,Region,United States". Takes precedence
+   *  over locationCode. Exactly one reaches the wire; see locationTask(). */
+  locationName?: string
   locationCode?: number
   languageCode?: string
   depth?: number
@@ -53,7 +57,7 @@ export async function fetchAdsSearch(
 ): Promise<AdsSearchResult | null> {
   const task = {
     target: input.target,
-    location_code: input.locationCode ?? 2840,
+    ...locationTask(input),
     language_code: input.languageCode ?? "en",
     depth: input.depth ?? 40,
   }
