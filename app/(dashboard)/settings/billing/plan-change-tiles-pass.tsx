@@ -13,9 +13,11 @@ import {
   ANNUAL_SAVINGS_LABEL,
   ANNUAL_SAVINGS_INLINE,
   getTierDisplayName,
+  planChangeDirection,
   type Cadence,
   type SubscriptionTier,
 } from "@/lib/billing/tiers"
+import { planChangeCta } from "@/lib/billing/plan-change-cta"
 import type { IndustryType } from "@/lib/verticals"
 import { tierFeatureList } from "@/lib/billing/limits"
 import { classifyBillingMutation, GENERIC_BILLING_ERROR } from "@/lib/billing/checkout-errors"
@@ -261,17 +263,17 @@ export function PlanChangeTilesPass({
                 ))}
               </div>
               <span className="tk-set-tier-cta">
-                {isCurrent
-                  ? "Current plan"
-                  : loading === t
-                    ? "Changing…"
-                    : t === currentTier
-                      ? cadence === "annual"
-                        ? "Switch to annual →"
-                        : "Switch to monthly →"
-                      : SELF_SERVE_TIERS.indexOf(t) > SELF_SERVE_TIERS.indexOf(currentTier)
-                        ? "Upgrade →"
-                        : "Downgrade →"}
+                {planChangeCta({
+                  isCurrentPlan: isCurrent,
+                  isLoading: loading === t,
+                  isSameTier: t === currentTier,
+                  cadence,
+                  // ALT-770: was `SELF_SERVE_TIERS.indexOf(t) > SELF_SERVE_TIERS.indexOf(currentTier)`,
+                  // and that list holds only ["entry", "mid"]. A Multi-Location customer ranked at
+                  // -1, so both cheaper tiles claimed to be an upgrade.
+                  direction: planChangeDirection(currentTier, t),
+                  displayName,
+                })}
               </span>
             </button>
           )

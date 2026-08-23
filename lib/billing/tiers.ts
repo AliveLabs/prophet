@@ -243,7 +243,60 @@ export const PAID_TIERS: readonly SubscriptionTier[] = [
 // Tiers a visitor can buy WITHOUT talking to us. Multi-Location is contract-only: priced per
 // location against the schedule in §5 of the pricing doc, so it has no self-serve checkout and no
 // upgrade tile. It stays in PAID_TIERS because existing contracts still resolve through it.
-export const SELF_SERVE_TIERS: readonly SubscriptionTier[] = ["entry", "mid"] as const
+//
+// ALT-770: `satisfies`, NOT a `readonly SubscriptionTier[]` annotation. The annotation used to
+// throw away the literal types that `as const` had just established, so iterating this constant
+// yielded the whole SubscriptionTier union (`top` and `suspended` included) and every consumer
+// re-narrowed by hand. Keeping the literals is what let the compiler find the -1 bug below.
+export const SELF_SERVE_TIERS = ["entry", "mid"] as const satisfies readonly SubscriptionTier[]
+
+// ── Which direction is a plan change? (ALT-770) ───────────────────────────────────────────────
+//
+// THE BUG this replaces. The billing plan-change screen decided its Upgrade-versus-Downgrade
+// label with `SELF_SERVE_TIERS.indexOf(t) > SELF_SERVE_TIERS.indexOf(currentTier)`. That list is
+// `["entry", "mid"]` and does not contain `top`, so for a Multi-Location customer `indexOf`
+// returned -1 and BOTH comparisons (`0 > -1`, `1 > -1`) came out true. The screen told them that
+// moving to Starter was an upgrade: the label on the button that changes what they pay said the
+// opposite of what the button does.
+//
+// The class of mistake is ranking against a list that does not contain every value it will be
+// asked about, and getting a plausible number back instead of an error. Same shape as ALT-754's
+// `nextTierWithMoreLocations`. So this ranks against a map that covers every tier that HAS a
+// rank, and returns "unknown" for anything else rather than a direction it cannot justify.
+//
+// The ordering is ENTITLEMENT, not price. `top` sits above `mid` because it delivers more, even
+// though its list price is lower per the arbitrage documented on `isSelfServeTier`. A customer
+// reading "Downgrade" wants to know they are giving something up, which is true of top → mid
+// whatever the invoice says.
+//
+// `suspended` deliberately has no rank. It is an account STATE, not a rung: moving off it is
+// neither up nor down, and inventing a position for it is how a wrong label gets rendered
+// confidently. It resolves to "unknown", and the caller shows a neutral label.
+const TIER_RANK: Record<Exclude<SubscriptionTier, "suspended">, number> = {
+  entry: 0,
+  mid: 1,
+  top: 2,
+}
+
+export type PlanChangeDirection = "upgrade" | "downgrade" | "same" | "unknown"
+
+function tierRank(tier: unknown): number | null {
+  if (typeof tier !== "string") return null
+  return tier in TIER_RANK ? TIER_RANK[tier as keyof typeof TIER_RANK] : null
+}
+
+/** Is moving from `from` to `to` an upgrade, a downgrade, or something we should not label?
+ *
+ *  Takes `unknown` on purpose: the current tier reaches the billing screen from a DB column, so
+ *  a legacy or unrecognised value is a real input, and it must produce "unknown" rather than a
+ *  coincidental comparison against a missing index. */
+export function planChangeDirection(from: unknown, to: unknown): PlanChangeDirection {
+  const a = tierRank(from)
+  const b = tierRank(to)
+  if (a === null || b === null) return "unknown"
+  if (a === b) return "same"
+  return b > a ? "upgrade" : "downgrade"
+}
 
 /** ALT-735/732: the ONE gate for "can a customer buy this without talking to us".
  *
