@@ -34,7 +34,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No organization found" }, { status: 400 })
     }
 
-    await requireOrgOwnerOrAdmin(supabase, user.id, profile.current_organization_id)
+    // ALT-578: deliberately `requireActive: false`. Soft-delete is an admin action, is
+    // recoverable, and does NOT cancel Stripe, so a deleted org can still be BILLING. Blocking
+    // this route would leave a real customer paying with no way to stop because an admin hid
+    // their org. Losing access to cancel is worse than the thing the guard prevents.
+    await requireOrgOwnerOrAdmin(supabase, user.id, profile.current_organization_id, {
+      requireActive: false,
+    })
 
     const admin = createAdminSupabaseClient()
     const { data: org } = await admin

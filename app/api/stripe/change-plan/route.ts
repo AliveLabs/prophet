@@ -4,7 +4,7 @@ import { impersonationReadOnlyBlock } from "@/lib/auth/impersonation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { getStripeClient } from "@/lib/stripe/client"
-import { requireOrgOwnerOrAdmin, applySubscriptionToOrg } from "@/lib/stripe/helpers"
+import { requireOrgOwnerOrAdmin, applySubscriptionToOrg, isBillingAuthError } from "@/lib/stripe/helpers"
 import { resolvePriceIdOrThrow, resolveAddOnPriceInfo } from "@/lib/stripe/pricing"
 import { isValidIndustryType } from "@/lib/verticals"
 import {
@@ -86,6 +86,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No organization found" }, { status: 400 })
     }
 
+    // ALT-578: takes the default `requireActive: true`. Changing a paid
+    // subscription for a soft-deleted organisation must not be possible.
     await requireOrgOwnerOrAdmin(supabase, user.id, profile.current_organization_id)
 
     const admin = createAdminSupabaseClient()
@@ -261,7 +263,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, tier: newTier, removed: removeIds.length })
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Failed to change plan"
-    const isAuth = /owner|admin|member/i.test(msg)
+    // A typed refusal rather than a regex on the message: a new refusal whose wording
+    // missed /owner|admin|member/ used to come back as a 500 "Failed to ...", which reads
+    // like our bug instead of a decision about their account. isBillingAuthError keeps the
+    // regex as a backstop, so nothing that returned 403 before changes.
+    const isAuth = isBillingAuthError(err)
     console.error("Stripe change-plan error:", err)
     return NextResponse.json(
       { error: isAuth ? msg : "Failed to change plan" },
