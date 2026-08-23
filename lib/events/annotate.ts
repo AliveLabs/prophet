@@ -4,14 +4,15 @@
 // Shared by the cron events pipeline AND the manual /events refresh action so both
 // paths apply the SAME geo gate (previously the manual path skipped geo entirely,
 // surfacing metro-wide events as if local). Geocoding uses the persistent cache
-// (pass `supabase`); the catalog enables the rebrand-proof "major" upgrade.
+// (pass `supabase`); the catalog grounds magnitude in the matched venue's capacity, weighted by
+// whether that capacity is MEASURED or a type prior (ALT-771).
 // ---------------------------------------------------------------------------
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { NormalizedEvent } from "./types"
 import { geocodeVenueDetailed, resolveVenueWebsite, haversineMiles } from "./geo"
 import { classifyEventMagnitude, classifyEventRole, isRouteEventTitle, classifyEventType } from "./relevance"
-import { matchEventToCatalog, isMajorCapacity, type CatalogVenue } from "./venue-catalog"
+import { matchEventToCatalog, magnitudeWithCapacity, type CatalogVenue } from "./venue-catalog"
 import { venueNameDiverges } from "./validate"
 import type { DensityClass } from "@/lib/local/census-density"
 
@@ -47,9 +48,10 @@ export async function annotateEventsGeo(
           // lets pickEventDeepLink land on a real venue site instead of a generic bureau page.
           if (pos.website) e.venueWebsite = pos.website
 
-          // Catalog coordinate-match: inherit capacity + a deterministic "major"
-          // upgrade. Rebrand-proof (fixes "Dallas Stadium", which the title regex
-          // can't catch) because it matches on COORDINATES, not name.
+          // Catalog coordinate-match: inherit the venue's capacity and its confidence.
+          // Rebrand-proof (fixes "Dallas Stadium", which the title regex can't catch) because it
+          // matches on COORDINATES, not name. ALT-771: what the match is worth depends on that
+          // confidence, so it is no longer a deterministic "major" upgrade on its own.
           const match = matchEventToCatalog(pos.lat, pos.lng, catalog)
           if (match) {
             e.catalogVenueName = match.name
@@ -74,7 +76,14 @@ export async function annotateEventsGeo(
         }
 
         const baseMagnitude = classifyEventMagnitude(e)
-        e.magnitude = isMajorCapacity(e.capacityHigh) ? "major" : baseMagnitude
+        // ALT-771: was `isMajorCapacity(e.capacityHigh) ? "major" : baseMagnitude`, which ignored
+        // capacityConfidence entirely. 685 of 686 catalog rows are type PRIORS, 582 of them clear
+        // the threshold, and they were promoting 730 events to "major" on a guess. A measured
+        // capacity still overrides; a prior can only lift a floor. See magnitudeWithCapacity.
+        e.magnitude = magnitudeWithCapacity(baseMagnitude, {
+          capacityHigh: e.capacityHigh,
+          capacityConfidence: e.capacityConfidence,
+        })
         e.role = classifyEventRole(e.distanceMiles, e.magnitude, { isRoute, densityClass: opts.densityClass })
         // Event TYPE (closed enum): a grounded source already set it; back-fill the DataForSEO path
         // from the title/venue. Additive — no consumer keys a differential-build hash off `type`.
