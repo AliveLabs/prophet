@@ -21,6 +21,24 @@
 // Do not re-add them as booleans ahead of the feature. A flag that no code reads cannot be
 // "turned on" later; it can only make the claim reappear. When white-label or an API actually
 // ships, the field comes back WITH the reader that enforces it, in the same change.
+//
+// ── THE RULE, now enforced (ALT-691) ──────────────────────────────────────────────────────────
+//
+// A field in `TIER_LIMITS` must have an ENFORCEMENT SITE, or it does not belong here.
+//
+// This is not tidiness. A field that DESCRIBES the system without CONTROLLING it will eventually
+// be priced or gated from, because it reads as authoritative to anyone scanning this file. That
+// already happened: the first cost-to-serve estimate put the top tier at ~28x the mid tier's
+// search volume, and that number came from reading `seoLabsCadence: "daily"`, a field with zero
+// readers. The field the pipeline actually honours says `biweekly`.
+//
+// `eventsKeywordSets` was deleted here for the same reason: it had zero readers anywhere, so it
+// described an events-probe behaviour that no code implemented.
+//
+// The cost model does NOT count as an enforcement site. `lib/billing/tier-cost.ts` may only read
+// fields the pipeline honours, which is exactly the constraint that got violated above, so a field
+// read solely by the cost model is still dead. `tests/unit/billing/tier-limits-have-readers.ts`
+// walks the AST and fails if any field here is never read outside this file and the cost model.
 
 import type { IndustryType } from "@/lib/verticals"
 
@@ -80,7 +98,6 @@ export type TierLimits = {
   // --- Internal pipeline tuning (not sold) -------------------------------
   eventsQueriesPerRun: number
   eventsMaxDepth: number
-  eventsKeywordSets: number
   seoTrackedKeywords: number
   seoRankedKeywordsLimit: number
   seoIntersectionEnabled: boolean
@@ -99,7 +116,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     runCadence: "weekly",
     eventsQueriesPerRun: 1,
     eventsMaxDepth: 10,
-    eventsKeywordSets: 2,
     seoTrackedKeywords: 15,
     seoRankedKeywordsLimit: 50,
     seoIntersectionEnabled: true,
@@ -116,7 +132,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
-    eventsKeywordSets: 5,
     seoTrackedKeywords: 50,
     seoRankedKeywordsLimit: 100,
     seoIntersectionEnabled: true,
@@ -165,7 +180,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     runCadence: "daily",
     eventsQueriesPerRun: 2,
     eventsMaxDepth: 10,
-    eventsKeywordSets: 5,
     seoTrackedKeywords: 200,
     seoRankedKeywordsLimit: 500,
     seoIntersectionEnabled: true,
@@ -182,7 +196,6 @@ export const TIER_LIMITS: Record<SubscriptionTier, TierLimits> = {
     runCadence: "weekly",
     eventsQueriesPerRun: 0,
     eventsMaxDepth: 0,
-    eventsKeywordSets: 0,
     seoTrackedKeywords: 0,
     seoRankedKeywordsLimit: 0,
     seoIntersectionEnabled: false,
