@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 
 import { postDataForSEO, extractFirstResult, type DataForSEOTaskResponse } from "./client"
+import { locationTask } from "./location-scope"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -13,6 +14,9 @@ export type DomainIntersectionInput = {
   target1: string // primary domain
   target2: string // competitor domain
   itemTypes?: string[] // ["organic","paid"] etc.
+  /** ALT-636: the location's own market, "City,Region,United States". Takes precedence
+   *  over locationCode. Exactly one reaches the wire; see locationTask(). */
+  locationName?: string
   locationCode?: number
   languageCode?: string
   limit?: number
@@ -68,7 +72,7 @@ export async function fetchDomainIntersection(
   const task: Record<string, unknown> = {
     target1: input.target1,
     target2: input.target2,
-    location_code: input.locationCode ?? 2840,
+    ...locationTask(input),
     language_code: input.languageCode ?? "en",
     limit: input.limit ?? 50,
   }
