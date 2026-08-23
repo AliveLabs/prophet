@@ -349,6 +349,10 @@ export function TkWeatherStrip({
     event?: ReactNode
     tip?: string
     tipValue?: string
+    /** ALT-718: this cell is recent HISTORY topping up a short forecast, not part of the week
+     *  ahead. Only set when the strip actually mixes the two, since marking every cell in an
+     *  all-history strip is noise the caption already covers. */
+    isPast?: boolean
   }>
   caption?: ReactNode
   captionRight?: ReactNode
@@ -359,9 +363,12 @@ export function TkWeatherStrip({
       <div className="tk-fc7">
         {days.map((d, i) => (
           <div className="tk-fccol" key={i}>
-            <div className="tk-fcday">
+            <div className={cx("tk-fcday", d.isPast && "tk-fcday-past")}>
               {d.event && <div className="tk-evt">{d.event}</div>}
-              <div className="tk-dow">{d.dow}</div>
+              <div className="tk-dow">
+                {d.dow}
+                {d.isPast && <span className="tk-dow-past"> past</span>}
+              </div>
               <div className={cx("tk-ic", `tk-${d.icon}-ic`)}>{WEATHER_GLYPH[d.icon]}</div>
               <div className="tk-hi">{d.hi}</div>
               <div className="tk-lo">{d.lo}</div>
