@@ -56,6 +56,52 @@ export function isPatioFavorable(d: DailyWeatherSummary | null | undefined): boo
   return d.temp_high_f >= PATIO_MIN_F && d.temp_high_f <= PATIO_MAX_F && !d.is_severe && d.precipitation_in < 0.1
 }
 
+// ── ALT-769: severe weather is not always COLD ──────────────────────────────
+//
+// The advice was one fixed string: "emphasize delivery options and cozy atmosphere". On a 105°F
+// Texas afternoon "cozy" is the opposite of what anyone wants, and it is the kind of line that
+// tells an operator we have never seen their restaurant. Every `is_severe` day in prod so far has
+// been HEAT, so the only advice we shipped was the only one that could not apply.
+//
+// Branching on the temperature rather than on a season or a region: `is_severe` covers heat, cold,
+// storms and wind, and the operator can be in any of them.
+const SEVERE_HEAT_F = 95
+const SEVERE_COLD_F = 40
+
+export function severeWeatherAdvice(
+  d: Pick<DailyWeatherSummary, "temp_high_f" | "precipitation_in">,
+): { title: string; rationale: string } {
+  // Precipitation first: a wet day is a wet day whatever the temperature, and it is the case where
+  // "stay in" is genuinely the message.
+  if (d.precipitation_in >= 0.25) {
+    return {
+      title: "Lead with delivery and pickup",
+      rationale:
+        "Wet weather moves demand off the street and onto phones. Push delivery and curbside, and make sure your hours and pickup instructions are current.",
+    }
+  }
+  if (d.temp_high_f >= SEVERE_HEAT_F) {
+    return {
+      title: "Lead with cold drinks, shade and delivery",
+      rationale:
+        "In heat this severe the patio is a liability, not an asset. Promote iced drinks and lighter dishes, say plainly that the dining room is air-conditioned, and lean on delivery for the afternoon.",
+    }
+  }
+  if (d.temp_high_f <= SEVERE_COLD_F) {
+    return {
+      title: "Lead with warm food and delivery",
+      rationale:
+        "Cold keeps people home. Push soups and hot dishes, make the dining room sound worth the trip, and expect delivery to carry the day.",
+    }
+  }
+  // Severe but neither hot nor cold: wind, storms, air quality. Say the true, general thing.
+  return {
+    title: "Lead with delivery and indoor seating",
+    rationale:
+      "Conditions like this keep walk-ins down whatever the temperature. Push delivery and pickup, and keep your hours current so nobody makes a trip for nothing.",
+  }
+}
+
 export function generateWeatherCrossSignals(
   weather: WeatherContext,
   hasPatioPhotos: boolean,
@@ -104,21 +150,32 @@ export function generateWeatherCrossSignals(
   }
 
   if (weather.today.is_severe) {
+    const advice = severeWeatherAdvice(weather.today)
     insights.push({
       insight_type: "traffic.weather_suppression",
-      title: "Severe weather — traffic insights adjusted",
-      summary: `${weather.today.weather_condition} conditions today (${Math.round(weather.today.temp_high_f)}°F, ${weather.today.precipitation_in}" precipitation). Traffic declines during this period are weather-driven, not competitive.`,
+      title: "Severe weather is driving today’s traffic, not competitors",
+      // ALT-768: "conditions today (108°F)" read as a MEASUREMENT of today, and it is not: this is
+      // a forecast high captured at ~06:30 that morning. Measured in prod on Raising Cane's, the
+      // forecast ran 1.1 to 2.2°F hotter than the eventual observation on 4 of 5 days. So the
+      // number was not wrong so much as the sentence was: "should reach" is what we can support.
+      // The patio insight above already phrased it this way; this one did not.
+      summary: `${weather.today.weather_condition} conditions today: it should reach ${Math.round(weather.today.temp_high_f)}°F with ${weather.today.precipitation_in}" precipitation forecast. Traffic declines during this period are weather-driven, not competitive.`,
       confidence: "high",
       severity: "info",
       evidence: {
         weather_condition: weather.today.weather_condition,
         temp_high: weather.today.temp_high_f,
+        // ALT-768: name what this number IS. `location_weather` holds ONE row per (location, date)
+        // and it is written twice with two different meanings: a forecast on the day, then an
+        // observation when the next day's run fetches "yesterday". So the row a reader compares
+        // against later is not the number this insight quoted, and nothing said so.
+        temp_source: "forecast",
         precipitation: weather.today.precipitation_in,
         is_severe: true,
       },
       recommendations: [{
-        title: "Focus on delivery and indoor experience",
-        rationale: "During severe weather, emphasize delivery options and cozy atmosphere in your messaging.",
+        title: advice.title,
+        rationale: advice.rationale,
       }],
     })
   }
