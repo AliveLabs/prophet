@@ -23,6 +23,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database.types"
 import type { Brief } from "@/lib/skills/types"
+import { resolveBudgetEnv } from "@/lib/ai/budget-env"
 
 export type FleetBudgetStore = SupabaseClient<Database>
 
@@ -32,16 +33,11 @@ export type FleetBudgetStore = SupabaseClient<Database>
  *  too low is a self-inflicted outage that stops every brief. `providerStats.estimatedUsd` now lands
  *  on every brief, so set this from a week of real daily totals, as a MULTIPLE of observed — this is
  *  a runaway tripwire, not a budget target. */
-export const FLEET_DAILY_CAP_USD = (() => {
-  const raw = process.env.ANTHROPIC_FLEET_DAILY_CAP_USD
-  if (raw === undefined || raw.trim() === "") return null
-  const n = Number(raw)
-  if (Number.isFinite(n) && n > 0) return n
-  console.warn(
-    `[fleet-budget] ANTHROPIC_FLEET_DAILY_CAP_USD="${raw}" is not a positive number — cap DISABLED.`,
-  )
-  return null
-})()
+export const FLEET_DAILY_CAP_USD = resolveBudgetEnv(
+  "fleet-budget",
+  "ANTHROPIC_FLEET_DAILY_CAP_USD",
+  process.env.ANTHROPIC_FLEET_DAILY_CAP_USD,
+)
 
 export type FleetSpendCheck = {
   /** Summed estimatedUsd across today's briefs. Null when it could not be determined. */

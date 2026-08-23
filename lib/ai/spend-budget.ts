@@ -23,6 +23,7 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 import type { ModelTokenTotals } from "@/lib/ai/pricing"
 import type { Effort } from "@/lib/ai/provider"
+import { resolveBudgetEnv } from "@/lib/ai/budget-env"
 
 /** Per-brief ceiling in USD. UNSET = disabled, and that is the deliberate default.
  *
@@ -31,17 +32,11 @@ import type { Effort } from "@/lib/ai/provider"
  *  `/admin/health` already reports $/brief; once there is a week of real figures, set this to a
  *  multiple of observed p95 rather than to a number someone invented. Same discipline the fleet
  *  daily cap (step 7) is waiting on. */
-export const PER_BRIEF_CEILING_USD = (() => {
-  const raw = process.env.ANTHROPIC_PER_BRIEF_CEILING_USD
-  if (raw === undefined || raw.trim() === "") return null
-  const n = Number(raw)
-  if (Number.isFinite(n) && n > 0) return n
-  console.warn(
-    `[spend-budget] ANTHROPIC_PER_BRIEF_CEILING_USD="${raw}" is not a positive number — ceiling DISABLED. ` +
-      `Spend is unguarded until this is set to a valid value.`,
-  )
-  return null
-})()
+export const PER_BRIEF_CEILING_USD = resolveBudgetEnv(
+  "spend-budget",
+  "ANTHROPIC_PER_BRIEF_CEILING_USD",
+  process.env.ANTHROPIC_PER_BRIEF_CEILING_USD,
+)
 
 export type SpendBudgetState = {
   /** USD ceiling for this build. */
