@@ -1,5 +1,6 @@
 import { fetchWithRetry } from "@/lib/http/fetch-with-retry"
 import { coerceItemKind } from "@/lib/content/types"
+import { menuReadNote } from "@/lib/content/menu-read-note"
 
 const GEMINI_INSIGHTS_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"
@@ -286,7 +287,11 @@ export async function fetchGoogleMenuData(
       categories,
       currency: typeof parsed.currency === "string" ? parsed.currency : "USD",
       confidence,
-      notes: [`Google Search grounding: ${totalItems} items across ${categories.length} categories`],
+      // ALT-610: was `Google Search grounding: N items across M categories`, and it shipped to
+      // customers. `parseMeta.notes` renders under "How we read it" on /content, so that string
+      // cited a vendor as our data source and used internal jargon ("grounding") in the same
+      // breath. Phrasing now comes from the one shared builder; see lib/content/menu-read-note.ts.
+      notes: [menuReadNote("published_sources", totalItems, categories.length)],
     }
   } catch (err) {
     console.warn("[Gemini Menu] Error:", err)
