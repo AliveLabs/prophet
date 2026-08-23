@@ -475,17 +475,15 @@ export function isSeoAdsEnabled(tier: SubscriptionTier): boolean {
   return TIER_LIMITS[tier].seoAdsEnabled
 }
 
-export function ensureTrackedKeywordLimit(
-  tier: SubscriptionTier,
-  currentCount: number
-): void {
-  const limit = TIER_LIMITS[tier].seoTrackedKeywords
-  if (currentCount >= limit) {
-    throw new Error(
-      `Tracked keyword limit reached for ${tier} tier (max ${limit}).`
-    )
-  }
-}
+// ALT-691: `ensureTrackedKeywordLimit(tier, currentCount)` USED TO BE HERE and is deliberately
+// gone. It threw when a tracked-keyword count hit the tier limit, and it had ZERO callers, so no
+// keyword-adding path was ever gated by it. Spend was never at risk: `visibility.ts` slices to
+// `getSeoTrackedKeywordsLimit` before pulling, so the cap is enforced where the money is spent.
+// What is missing is the UX cap, telling someone they cannot add another keyword.
+//
+// Deleted rather than wired because wiring it is a product change (which surface refuses, and what
+// it says), and a guard nobody calls is worse than a missing one: it reads as enforcement. When the
+// cap is actually wanted, it comes back WITH its call site in the same change.
 
 // ---------------------------------------------------------------------------
 // Content & Menu Intelligence

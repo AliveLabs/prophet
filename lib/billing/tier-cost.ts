@@ -22,11 +22,15 @@
 //     seoCadence (via isSeoDue in app/api/cron/daily), seoTrackedKeywords,
 //     seoRankedKeywordsLimit, seoIntersectionEnabled/Limit (all in lib/jobs/pipelines/visibility.ts)
 //
-//   DEAD FIELDS — zero readers anywhere. They must NOT be used to price anything:
-//     `eventsKeywordSets`
-//     `ensureTrackedKeywordLimit()` also has no callers, so the tracked-keyword cap is not
-//     enforced at the point a keyword is added. Cost is still bounded, because visibility.ts
-//     slices to `getSeoTrackedKeywordsLimit` before pulling — the gap is a UX cap, not a spend leak.
+//   DEAD FIELDS — none. The list here is now empty, and it is kept as a heading on purpose so the
+//     next dead field has an obvious place to be recorded before someone prices off it.
+//
+//   DELETED 2026-08-23 (ALT-691) — both had zero readers anywhere:
+//     `eventsKeywordSets`  described an events-probe behaviour no code implemented.
+//     `ensureTrackedKeywordLimit()`  threw at a tracked-keyword cap and had no callers, so no
+//        keyword-adding path was gated. Spend was never at risk: visibility.ts slices to
+//        `getSeoTrackedKeywordsLimit` before pulling, so the cap is enforced where the money goes.
+//        The missing piece was the UX cap, and that comes back with its call site or not at all.
 //
 //   DELETED 2026-08-20 (ALT-683) — do not restore these to "match the pricing brief":
 //     `briefingCadence`  sat in the SOLD block and enforced nothing. `eventsCadence`, filed under
