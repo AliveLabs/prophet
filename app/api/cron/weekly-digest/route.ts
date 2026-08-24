@@ -190,7 +190,7 @@ export async function GET(req: Request) {
           locationName: loc.name ?? "your restaurant",
           headline: stripAccents(brief.headline),
           deck: brief.deck,
-          plays: brief.plays.slice(0, 3).map((p) => ({ title: p.title, kind: p.kind })),
+          plays: brief.plays.slice(0, 3).map((p) => ({ title: p.title })),
           briefUrl: `${appUrl}/home`,
           watchNotices,
           reviewsUrl: `${appUrl}/reviews?location_id=${loc.id}`,
