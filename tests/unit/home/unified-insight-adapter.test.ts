@@ -69,6 +69,28 @@ describe("whenTagFor — a timing claim needs a real date", () => {
     expect(whenTagFor({ start: "2026-07-20", end: "2026-07-25" }, TODAY)).toBeNull()
   })
 
+  it("says nothing about a past start with NO end, instead of calling it Today", () => {
+    // Reported by Bryan on Sunday 2026-08-23: the home page showed a red urgent "Today" chip on a
+    // play about Saturday night's concert. Its window was `{ start: "2026-08-22" }` with no end,
+    // and the old `days <= 0` branch lumped "starts today" together with "started at some point in
+    // the past", so any elapsed window with no end read as Today, forever.
+    //
+    // Nothing holds this window open, so there is no timing claim to make. Same answer as a window
+    // whose end has closed.
+    expect(whenTagFor({ start: "2026-07-29" }, TODAY)).toBeNull()
+    expect(whenTagFor({ start: "2026-07-20" }, TODAY)).toBeNull()
+    expect(whenTagFor({ start: "2026-06-01" }, TODAY)).toBeNull()
+  })
+
+  it("still says Today when the start IS today and there is no end", () => {
+    // The boundary the fix must not move: days === 0 is a real claim about now.
+    expect(whenTagFor({ start: TODAY }, TODAY)).toEqual({
+      axis: "when",
+      label: "Today",
+      urgent: true,
+    })
+  })
+
   it("still speaks for an open window that started in the past", () => {
     expect(whenTagFor({ start: "2026-07-28", end: "2026-08-05" }, TODAY)).toEqual({
       axis: "when",

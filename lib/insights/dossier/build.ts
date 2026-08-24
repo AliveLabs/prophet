@@ -38,6 +38,7 @@ import type { EntityVisualProfile, SocialPlatform } from "@/lib/social/types"
 import { classifyNow, isUsable, THRESHOLDS, type SignalKind } from "@/lib/freshness/contract"
 import { socialContentAsOf } from "@/lib/freshness/extract"
 import { loadPartnerCatalog, PARTNER_TYPE_LABELS, type PartnerType } from "@/lib/local/partner-catalog"
+import { eventInsightHasPassed } from "@/lib/events/insight-expiry"
 
 type SB = ReturnType<typeof createAdminSupabaseClient>
 
@@ -409,6 +410,13 @@ export async function buildDossier(locationId: string, opts: BuildDossierOptions
     const dedupKey = `${type}|${(r.competitor_id as string) ?? ""}`
     if (seenKey.has(dedupKey)) continue // keep only the freshest of each logical insight
     seenKey.add(dedupKey)
+    // An events.* row expires with its EVENT, not with RETENTION_DAYS. The 30-day window above is
+    // provider-down resilience ("serve last-good"), and for a dated occurrence last-good means an
+    // event that already happened: on 2026-08-23 this fed two plays about Saturday's concert, one
+    // of them for a window that had already closed. `date_key` says when we OBSERVED the event; the
+    // only field that says when it HAPPENS is inside evidence. Fails open on an unreadable date,
+    // matching the demand-calendar gate below so the two cannot disagree about the same event.
+    if (eventInsightHasPassed(type, r.evidence, dateKey)) continue
     ruleOutputs.push({
       insight_type: type,
       title: r.title as string,
