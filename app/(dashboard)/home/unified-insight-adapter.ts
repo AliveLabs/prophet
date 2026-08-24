@@ -57,7 +57,13 @@ export function whenTagFor(
   if (start == null) return null
 
   const days = Math.round((start - today) / DAY_MS)
-  if (days <= 0) return { axis: "when", label: "Today", urgent: true }
+  // A start that has ALREADY passed only supports "Today" when an end keeps the window open. The
+  // closed-end case returned null above, so reaching here with an end means it runs to today or
+  // later, and "Today" is honest. With NO end there is nothing holding the window open, and calling
+  // it "Today" invents a claim: this was the red urgent "Today" chip on a play about Saturday
+  // night's concert, read on the Sunday. `days <= 0` used to lump the two together.
+  if (days < 0) return end != null ? { axis: "when", label: "Today", urgent: true } : null
+  if (days === 0) return { axis: "when", label: "Today", urgent: true }
   if (days === 1) return { axis: "when", label: "Tomorrow", urgent: true }
   if (days <= 6) {
     return { axis: "when", label: `By ${WEEKDAY[new Date(start).getUTCDay()]}`, urgent: days <= 2 }
