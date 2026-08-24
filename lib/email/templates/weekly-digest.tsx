@@ -4,9 +4,10 @@
 import { Section, Text, Link } from "@react-email/components"
 import { EmailLayout, emailStyles } from "./layout"
 
+/** Titles only, no kind tag: RecKind values are internal vocabulary
+ *  ("capitalize", "ops") and this is the one surface that printed them raw. */
 interface DigestPlay {
   title: string
-  kind: string
 }
 
 /** Review-watchdog notices (phase 4.2), shaped by lib/reviews/watch-copy.ts. The
@@ -79,14 +80,15 @@ export function WeeklyDigest({
           <Section style={emailStyles.infoBox}>
             {plays.map((p, i) => (
               <Text key={i} style={emailStyles.infoItem}>
-                <span style={emailStyles.tagLabel}>{p.kind}</span> {p.title}
+                {p.title}
               </Text>
             ))}
           </Section>
         ) : null}
 
         <Text style={emailStyles.paragraph}>
-          The full plan, who and when and where plus the copy to post, is on your brief.
+          Your brief has the full picture: what&apos;s happening, why it matters, and exactly what
+          to do next.
         </Text>
         <Text style={emailStyles.ctaContainer}>
           <Link href={briefUrl} style={emailStyles.ctaButton}>
