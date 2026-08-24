@@ -65,7 +65,11 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
             <span className="auth-badge__dot" aria-hidden="true" />
             <span className="auth-badge__txt">
               <span className="auth-badge__k">Setup</span>
-              <span className="auth-badge__v">Live in minutes</span>
+              {/* Not "Live in minutes": no fixed setup or first-brief time is
+                  promised anywhere (marketing dropped the same class of claim,
+                  and the first brief genuinely takes a while to build). The
+                  no-card fact is the reassurance that matters at signup. */}
+              <span className="auth-badge__v">No card required</span>
             </span>
           </div>
         </section>
