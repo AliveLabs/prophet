@@ -1,0 +1,104 @@
+/* /example-brief — the standalone public example page.
+   Only the page shell lives here; the brief itself is brief.css, untouched. */
+
+.xb-page {
+  min-height: 100vh;
+  background: var(--paper, #f5f3ef);
+}
+
+/* ── the example bar: brand, the Example label, the way in ── */
+.xb-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+  padding: 12px 22px;
+  background: color-mix(in srgb, var(--paper, #f5f3ef) 92%, transparent);
+  /* No hand-written -webkit- companion: Lightning CSS adds the prefix itself, and declaring the
+     pair makes it emit the prefixed form ALONE, which Chromium ignores (ALT-600). */
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line, #e9e2d7);
+}
+
+.xb-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-cond, var(--font-sans));
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: var(--ink, #1c1917);
+  text-decoration: none;
+}
+
+.xb-note {
+  flex: 1 1 auto;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3, #6e6862);
+}
+
+.xb-cta {
+  flex: none;
+  padding: 8px 16px;
+  font-family: var(--font-cond, var(--font-sans));
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--paper, #f5f3ef);
+  background: var(--rust, #b85c38);
+  border: 1px solid var(--rust, #b85c38);
+  border-radius: var(--r-sm, 10px);
+  text-decoration: none;
+}
+
+.xb-cta:hover {
+  background: var(--rust-deep, #96461f);
+  border-color: var(--rust-deep, #96461f);
+}
+
+/* Narrow screens: the Example label takes its own row under brand + CTA, so it
+   never truncates. It is the claims label and must stay legible at every width. */
+@media (max-width: 620px) {
+  .xb-bar {
+    padding: 10px 16px;
+  }
+  .xb-note {
+    order: 3;
+    flex-basis: 100%;
+    text-align: left;
+  }
+  .xb-cta {
+    margin-left: auto;
+  }
+}
+
+.xb-main {
+  padding-top: 30px;
+}
+
+@media (max-width: 760px) {
+  .xb-main {
+    padding-top: 20px;
+  }
+}
+
+/* Embedded (the marketing modal's iframe): the host chrome carries the label
+   and the close control, so the bar goes away and the brief starts higher. */
+.xb-page-embed .xb-main {
+  padding-top: 18px;
+}
+
+/* Links into auth-gated app pages are dead ends for a visitor (they bounce to
+   the login wall), so the example hides them in BOTH views. Covers the brief's
+   "See all insights" and market pulse's "Open your insights". */
+.xb-page .pass-pool-link {
+  display: none;
+}
