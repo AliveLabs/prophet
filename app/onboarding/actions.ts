@@ -1578,7 +1578,11 @@ export async function startTrialWithoutCardAction() {
     fallbackEmail: user.email ?? null,
   })
 
-  redirect("/home")
+  // trial_started=1 mirrors the Stripe checkout-complete redirect: the
+  // dashboard's TrialStartedPing reports the StartTrial ad conversion and
+  // strips the flag. Only this success path carries it; the idempotent
+  // double-submit redirects above stay bare so replays never re-report.
+  redirect("/home?trial_started=1")
 }
 
 // ---------------------------------------------------------------------------

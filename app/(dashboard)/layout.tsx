@@ -21,6 +21,7 @@ import { DunningBanner } from "@/components/billing/dunning-banner"
 import { BrandProvider } from "@/components/brand-provider"
 import { getVerticalConfig, isValidIndustryType } from "@/lib/verticals"
 import { Toaster } from "sonner"
+import TrialStartedPing from "@/components/trial-started-ping"
 import ShellNav from "./shell-nav"
 import AccountMenu from "./account-menu"
 import FeedbackLauncher from "./feedback-launcher"
@@ -49,6 +50,10 @@ function TicketMark() {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={<ShellSkeleton />}>
+      {/* Catches the ?trial_started=1 flag both trial paths set on their
+          success redirect and reports the StartTrial conversion (see
+          components/trial-started-ping). Client-only, renders nothing. */}
+      <TrialStartedPing />
       <OperatorShell>{children}</OperatorShell>
     </Suspense>
   )

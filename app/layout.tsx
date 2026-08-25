@@ -10,6 +10,7 @@ import {
 import { Suspense } from "react"
 import ThemeProvider from "@/components/theme-provider"
 import PostHogIdentify from "@/components/posthog-identify"
+import MarketingPixels from "@/components/marketing-pixels"
 import RouteProgress from "@/components/ui/route-progress"
 import "./globals.css"
 import "./ticket-theme.css"
@@ -116,6 +117,7 @@ export default function RootLayout({
           {children}
         </ThemeProvider>
         <PostHogIdentify />
+        <MarketingPixels />
       </body>
     </html>
   )
