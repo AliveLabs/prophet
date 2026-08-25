@@ -107,7 +107,7 @@ beforeEach(() => {
 })
 
 describe("startTrialWithoutCardAction — marketing mirror (ALT-591)", () => {
-  it("mirrors the card-less trial start at status 'trial' and still redirects home", async () => {
+  it("mirrors the card-less trial start at status 'trial' and redirects home with the trial_started flag", async () => {
     const { updates } = armAdmin({})
     const outcome = await runAction()
     expect(updates[0]).toHaveProperty("trial_started_at")
@@ -116,7 +116,10 @@ describe("startTrialWithoutCardAction — marketing mirror (ALT-591)", () => {
       status: "trial",
       fallbackEmail: "owner@rest.com",
     })
-    expect(outcome).toBe("NEXT_REDIRECT:/home")
+    // trial_started=1 mirrors the Stripe checkout-complete redirect so the
+    // dashboard's TrialStartedPing can report the StartTrial ad conversion.
+    // Only this success path carries it; the replay redirects below stay bare.
+    expect(outcome).toBe("NEXT_REDIRECT:/home?trial_started=1")
   })
 
   it("awaits the mirror BEFORE redirect() throws (a fire-and-forget write would be cut off)", async () => {

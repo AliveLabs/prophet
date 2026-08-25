@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react"
+import RegistrationPing from "./registration-ping"
 import "./onboarding.css"
 
 // The onboarding surface carries its own pearlescent token surface (.ob).
@@ -31,6 +32,7 @@ export default function OnboardingLayout({
 }) {
   return (
     <Suspense fallback={<OnboardingSkeleton />}>
+      <RegistrationPing />
       {children}
     </Suspense>
   )
