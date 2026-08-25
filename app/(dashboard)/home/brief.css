@@ -764,6 +764,10 @@
 .fr-kicker { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--rust); margin-bottom: 12px; }
 .fr-head { font-size: clamp(26px, 4vw, 34px); line-height: 1.1; margin: 0 0 10px; color: var(--ink); }
 .fr-sub { font-size: 15px; line-height: 1.55; color: var(--ink-2); margin: 0; }
+/* The leave-it-open promise, broken out on its own line (Bryan, 2026-08-25), with the elapsed
+   clock (the shared FirstRunElapsed) directly beneath it instead of floating mid-page. */
+.fr-wait { margin-top: 10px; }
+.fr-clock { margin-top: 14px; }
 
 /* 3.1: the starter insight sits between the landed signals and the pipeline rows — the first
    thing worth reading, above the machinery that is still running. The card brings its own

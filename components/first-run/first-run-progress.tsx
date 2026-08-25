@@ -114,10 +114,49 @@ function rowState(status: string | undefined, jobsKnown: boolean) {
 /** Exported for tests: this mapping is honesty-critical, so it is pinned rather than eyeballed. */
 export const __rowStateForTest = rowState
 
+/**
+ * The whole run is done ONLY once the brief job itself is done. Pure and pinned by tests.
+ *
+ * `jobs.every(done)` alone is a lie waiting to happen: the brief job is enqueued later than the
+ * batch (chained after insights, or by /home's self-healing enqueuer), so a payload can carry
+ * nine done data jobs and no brief row at all. That exact shape rendered "Everything has landed."
+ * over a brief row reading "Queued" (Chris, 2026-08-25). Requiring an explicit done brief job
+ * makes a missing one mean "still working", which is the truth.
+ */
+export function firstRunAllDone(jobs: FirstRunJob[] | null): boolean {
+  if (jobs === null || jobs.length === 0) return false
+  return jobs.every((j) => j.status === "done") && jobs.some((j) => j.pipeline === "brief" && j.status === "done")
+}
+
+/** The busy glyph + elapsed clock line. Exported so /home's panel can place the clock under its
+ *  own copy (Bryan, 2026-08-25: the clock sat mid-page between the signals and the rows, "a place
+ *  that makes zero sense") while this module stays the one owner of the markup and the format. */
+export function FirstRunElapsed({ runStartedAt, working }: { runStartedAt: string | null; working: boolean }) {
+  const elapsedMs = useRunElapsed(runStartedAt)
+  return (
+    <div className="frp-top">
+      {working ? (
+        // Three dots, each riding its own phase of a slow travelling wave. Three real elements,
+        // not two pseudo-elements plus a box-shadow: a shadow moves with its owner, which defeats
+        // the independent phase that makes this read as a wave instead of a blink.
+        <span className="frp-glyph" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      ) : null}
+      <span className="frp-elapsed">
+        Elapsed <span className="tk-mono">{formatElapsed(elapsedMs)}</span>
+      </span>
+    </div>
+  )
+}
+
 export default function FirstRunProgress({
   jobs,
   runStartedAt,
   emailPromise = true,
+  showElapsed = true,
 }: {
   /** null until the first poll returns. */
   jobs: FirstRunJob[] | null
@@ -125,11 +164,13 @@ export default function FirstRunProgress({
   runStartedAt: string | null
   /** Whether to promise the ready-email. True on both live surfaces; here so a preview can drop it. */
   emailPromise?: boolean
+  /** /home's panel renders FirstRunElapsed itself, up under the copy, and passes false here so the
+   *  clock does not appear twice. */
+  showElapsed?: boolean
 }) {
-  const elapsedMs = useRunElapsed(runStartedAt)
   const statusByPipeline = new Map((jobs ?? []).map((j) => [j.pipeline, j.status]))
   const jobsKnown = jobs !== null && jobs.length > 0
-  const allDone = jobsKnown && jobs.every((j) => j.status === "done")
+  const allDone = firstRunAllDone(jobs)
 
   const stillWorking = allDone
     ? "Everything has landed."
@@ -140,21 +181,7 @@ export default function FirstRunProgress({
   return (
     <div className="frp">
       {/* ── TOP: the busy signal and the clock, the two things worth seeing first ── */}
-      <div className="frp-top">
-        {!allDone ? (
-          // Three dots, each riding its own phase of a slow travelling wave. Three real elements,
-          // not two pseudo-elements plus a box-shadow: a shadow moves with its owner, which defeats
-          // the independent phase that makes this read as a wave instead of a blink.
-          <span className="frp-glyph" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-        ) : null}
-        <span className="frp-elapsed">
-          Elapsed <span className="tk-mono">{formatElapsed(elapsedMs)}</span>
-        </span>
-      </div>
+      {showElapsed ? <FirstRunElapsed runStartedAt={runStartedAt} working={!allDone} /> : null}
       <p className="frp-still frp-still--top" aria-live="polite">
         {stillWorking}
       </p>
