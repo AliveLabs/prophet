@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- Dev-only compositor: wraps mobile-screen.png in an iPhone frame and exposes the result
+     as a PNG data URL on window.result. Driven headlessly; not part of the app. -->
+<meta charset="utf-8" />
+<canvas id="c"></canvas>
+<script>
+  const S = 3; // scale
+  const SCREEN_W = 390, SCREEN_H = 844;
+  const BEZEL = 13, BODY = 6, MARGIN = 26;
+  const STATUS_H = 54;
+  const bodyW = SCREEN_W + 2 * (BEZEL + BODY);
+  const bodyH = SCREEN_H + 2 * (BEZEL + BODY);
+  const W = bodyW + 2 * MARGIN, H = bodyH + 2 * MARGIN;
+
+  const c = document.getElementById("c");
+  c.width = W * S; c.height = H * S;
+  const x = c.getContext("2d");
+  x.scale(S, S);
+
+  function rr(px, py, w, h, r) {
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.arcTo(px + w, py, px + w, py + h, r);
+    x.arcTo(px + w, py + h, px, py + h, r);
+    x.arcTo(px, py + h, px, py, r);
+    x.arcTo(px, py, px + w, py, r);
+    x.closePath();
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    const bx = MARGIN, by = MARGIN;
+
+    // side buttons (behind the body edge, protruding 3px)
+    x.fillStyle = "#48484c";
+    rr(bx - 3, by + 176, 4, 34, 2); x.fill();   // mute
+    rr(bx - 3, by + 236, 4, 62, 2); x.fill();   // vol up
+    rr(bx - 3, by + 312, 4, 62, 2); x.fill();   // vol down
+    rr(bx + bodyW - 1, by + 250, 4, 92, 2); x.fill(); // power
+
+    // titanium body
+    const grad = x.createLinearGradient(bx, by, bx + bodyW, by + bodyH);
+    grad.addColorStop(0, "#5a5a5f");
+    grad.addColorStop(0.18, "#8a8a90");
+    grad.addColorStop(0.35, "#4a4a4f");
+    grad.addColorStop(0.65, "#4a4a4f");
+    grad.addColorStop(0.85, "#8a8a90");
+    grad.addColorStop(1, "#5a5a5f");
+    x.fillStyle = grad;
+    rr(bx, by, bodyW, bodyH, 66); x.fill();
+
+    // subtle outer hairline
+    x.strokeStyle = "rgba(255,255,255,0.28)";
+    x.lineWidth = 0.8;
+    rr(bx + 0.4, by + 0.4, bodyW - 0.8, bodyH - 0.8, 65.6); x.stroke();
+
+    // bezel (black)
+    x.fillStyle = "#0a0a0b";
+    rr(bx + BODY, by + BODY, bodyW - 2 * BODY, bodyH - 2 * BODY, 60); x.fill();
+
+    // screen clip
+    const sx = bx + BODY + BEZEL, sy = by + BODY + BEZEL;
+    rr(sx, sy, SCREEN_W, SCREEN_H, 47);
+    x.save(); x.clip();
+
+    // app canvas + status area
+    x.fillStyle = "#f5f3ef";
+    x.fillRect(sx, sy, SCREEN_W, SCREEN_H);
+
+    // screenshot below the status area (source-cropped so it fits exactly)
+    const drawH = SCREEN_H - STATUS_H;
+    x.drawImage(img, 0, 0, img.width, drawH * (img.width / SCREEN_W), sx, sy + STATUS_H, SCREEN_W, drawH);
+
+    // status bar content
+    x.fillStyle = "#1c1917";
+    x.font = "600 16px -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif";
+    x.textBaseline = "middle";
+    x.fillText("9:41", sx + 42, sy + 26);
+
+    // signal bars
+    const bxr = sx + SCREEN_W - 96;
+    for (let i = 0; i < 4; i++) {
+      const bh = 4 + i * 2.6;
+      rr(bxr + i * 5.4, sy + 30 - bh, 3.4, bh, 1); x.fill();
+    }
+    // wifi (three arcs)
+    const wx = bxr + 30, wy = sy + 29;
+    x.strokeStyle = "#1c1917"; x.lineWidth = 2.1; x.lineCap = "round";
+    for (let r0 = 3; r0 <= 9; r0 += 3) {
+      x.beginPath(); x.arc(wx, wy, r0, Math.PI * 1.28, Math.PI * 1.72); x.stroke();
+    }
+    x.beginPath(); x.arc(wx, wy - 1, 1.4, 0, Math.PI * 2); x.fillStyle = "#1c1917"; x.fill();
+    // battery
+    const batX = bxr + 46, batY = sy + 18;
+    x.strokeStyle = "rgba(28,25,23,0.45)"; x.lineWidth = 1.2;
+    rr(batX, batY, 24, 12.5, 3.6); x.stroke();
+    x.fillStyle = "rgba(28,25,23,0.45)";
+    rr(batX + 25.2, batY + 3.8, 2.2, 5, 1.1); x.fill();
+    x.fillStyle = "#1c1917";
+    rr(batX + 1.8, batY + 1.8, 17, 8.9, 2.2); x.fill();
+
+    x.restore();
+
+    // dynamic island (over the status area)
+    x.fillStyle = "#000";
+    rr(sx + SCREEN_W / 2 - 63, sy + 11, 126, 36, 18); x.fill();
+    // camera lens glint
+    x.fillStyle = "#1a1a22";
+    x.beginPath(); x.arc(sx + SCREEN_W / 2 + 40, sy + 29, 6.5, 0, Math.PI * 2); x.fill();
+    x.fillStyle = "#2c2c3a";
+    x.beginPath(); x.arc(sx + SCREEN_W / 2 + 40, sy + 29, 3.2, 0, Math.PI * 2); x.fill();
+
+    window.result = c.toDataURL("image/png");
+    document.title = "done";
+  };
+  img.src = "/dev-mock/mobile-screen.png";
+</script>
