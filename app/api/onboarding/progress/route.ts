@@ -21,6 +21,8 @@ import {
   type RawEventRead,
 } from "@/lib/onboarding/first-run-signals"
 import { STARTER_SNAPSHOT_PROVIDER, parseStoredStarter } from "@/lib/insights/starter-play"
+import { selectProgressJobs, type ProgressJobRow } from "@/lib/onboarding/progress-jobs"
+import { hasAnyBrief } from "@/lib/insights/daily-brief"
 import type { NormalizedRankedKeyword } from "@/lib/seo/types"
 import { pickLocalKeywords, localKeywordLabel } from "@/lib/seo/local-keywords"
 
@@ -88,34 +90,27 @@ export async function GET(request: Request) {
     })
   }
 
-  const isFirstRun = (cursor: unknown) =>
-    typeof cursor === "object" &&
-    cursor !== null &&
-    (cursor as { mode?: string }).mode === "first_run"
-
-  const latest = (jobs ?? []).find((j) => isFirstRun(j.cursor))
-  const thisRun = latest ? (jobs ?? []).filter((j) => j.run_id === latest.run_id) : []
-  const runJobs = thisRun.map((j) => ({ pipeline: j.pipeline, status: j.status }))
-
-  // ALT-660: the elapsed clock must be the TOTAL time this run has been going, not time since a
-  // component mounted. Both the onboarding Build step and /home's first-run panel used to start
-  // their own timer on mount, so continuing from one screen to the other silently reset it to
-  // 0:00 and an operator who had already waited ten minutes was told they had waited none.
-  // The earliest job in the run is the run's real start, and it is the SAME value on both
-  // screens because it comes from here rather than from the browser.
-  const runStartedAt =
-    thisRun.length > 0
-      ? thisRun.reduce(
-          (earliest, j) => (j.created_at < earliest ? j.created_at : earliest),
-          thisRun[0].created_at as string
-        )
-      : null
+  // Which rows describe the first run — including the brief job, which usually lives under a
+  // DIFFERENT run_id (the ALT-674 dedupe skips the same-run chain whenever /home's self-healing
+  // enqueuer got there first). Rule is pure and pinned in lib/onboarding/progress-jobs.ts; when it
+  // was run_id-only, the panel could never see the brief finish and never auto-swapped (Chris,
+  // 2026-08-25: 22 minutes on "Queued" while the brief was already built).
+  //
+  // ALT-660: `runStartedAt` is the run's real start (earliest job in the batch), so the elapsed
+  // clock is TOTAL run time, continuous across onboarding and /home, never time-since-mount.
+  const { runJobs, runStartedAt } = selectProgressJobs((jobs ?? []) as ProgressJobRow[])
 
   // ── progressive value ──
-  // Three reads, run together. They are cheap (indexed single-location lookups) and the payload
+  // Reads run together. They are cheap (indexed single-location lookups) and the payload
   // is what makes this screen worth watching.
+  //
+  // `briefReady` is the ground truth for "can the operator read a brief right now": a daily_briefs
+  // row exists. The panel only renders while getBrief() returns null, so ANY row means a refresh
+  // swaps it for the real brief. Job statuses stay the honest progress story; this is the swap/CTA
+  // gate, because a brief can also arrive via a path whose job row the batch filter cannot see
+  // (the build-brief cron), and the gate must not depend on which path won.
   const todayKey = new Date().toISOString().slice(0, 10)
-  const [competitorRows, snapshotRows] = await Promise.all([
+  const [competitorRows, snapshotRows, briefReady] = await Promise.all([
     admin
       .from("competitors")
       .select("name, metadata, is_active")
@@ -127,6 +122,7 @@ export async function GET(request: Request) {
       .eq("location_id", locationId)
       .in("provider", [EVENTS_PROVIDER, RANKED_KEYWORDS_PROVIDER, STARTER_SNAPSHOT_PROVIDER])
       .order("date_key", { ascending: false }),
+    hasAnyBrief(locationId),
   ])
 
   const competitors = (competitorRows.data ?? [])
@@ -182,6 +178,7 @@ export async function GET(request: Request) {
       ok: true,
       jobs: runJobs,
       runStartedAt,
+      briefReady,
       signals,
       starter: starter ? { play: starter.play, generatedAt: starter.generatedAt } : null,
     }),

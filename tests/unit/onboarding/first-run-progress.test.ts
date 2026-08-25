@@ -10,6 +10,7 @@ import {
   PIPELINE_ORDER,
   PIPELINE_LABELS,
   formatElapsed,
+  firstRunAllDone,
   __rowStateForTest,
 } from "@/components/first-run/first-run-progress"
 
@@ -96,5 +97,35 @@ describe("ALT-656: the row word claims only what the job status knows", () => {
 
   it("an unrecognised status degrades to queued rather than claiming completion", () => {
     expect(__rowStateForTest("something_new", true).word).toBe("Queued")
+  })
+})
+
+// Chris, 2026-08-25: the payload can legitimately carry every DATA job done and no brief job at
+// all (the brief is enqueued later, and run_id filtering used to hide it entirely). `every(done)`
+// over that payload rendered "Everything has landed." above a brief row reading "Queued". Done
+// means done INCLUDING the brief, and a missing brief job means still working.
+describe("firstRunAllDone: the run is not done until the brief job is", () => {
+  const dataDone = [
+    { pipeline: "starter", status: "done" },
+    { pipeline: "content", status: "done" },
+    { pipeline: "insights", status: "done" },
+  ]
+
+  it("all data jobs done but NO brief job is still working — the Chris screen", () => {
+    expect(firstRunAllDone(dataDone)).toBe(false)
+  })
+
+  it("a queued or running brief job is still working", () => {
+    expect(firstRunAllDone([...dataDone, { pipeline: "brief", status: "queued" }])).toBe(false)
+    expect(firstRunAllDone([...dataDone, { pipeline: "brief", status: "running" }])).toBe(false)
+  })
+
+  it("done means every job done INCLUDING the brief", () => {
+    expect(firstRunAllDone([...dataDone, { pipeline: "brief", status: "done" }])).toBe(true)
+  })
+
+  it("no jobs yet is not done", () => {
+    expect(firstRunAllDone(null)).toBe(false)
+    expect(firstRunAllDone([])).toBe(false)
   })
 })

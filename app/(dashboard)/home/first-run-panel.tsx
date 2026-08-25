@@ -33,6 +33,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import FirstRunSignals from "@/components/first-run/first-run-signals"
 import FirstRunProgress, {
+  FirstRunElapsed,
   formatElapsed,
   useRunElapsed,
   type FirstRunJob,
@@ -72,7 +73,11 @@ export default function FirstRunPanel({
   const [signals, setSignals] = useState<FirstRunSignal[]>([])
   // ALT-660: run start comes from the server so the clock is continuous across onboarding and here.
   const [runStartedAt, setRunStartedAt] = useState<string | null>(null)
-  const refreshedRef = useRef(false)
+  // Ground truth from the server: a daily_briefs row exists, so a refresh WILL swap this panel for
+  // the real brief. This is the only thing the CTA and the auto-swap key off — never job statuses,
+  // which describe progress, not the deliverable.
+  const [briefReady, setBriefReady] = useState(false)
+  const lastRefreshAtRef = useRef(0)
   const elapsedMs = useRunElapsed(runStartedAt)
 
   // Kick the first-run fast path. Idempotent and first-run-only server side (it refuses a
@@ -118,9 +123,19 @@ export default function FirstRunPanel({
     }
   }, [locationId])
 
-  // Poll real job statuses every ~4s. When the brief pipeline finishes, the daily_briefs row
-  // now exists, so refresh the server component once — it re-renders as the real BriefView and
-  // this panel unmounts. Stops after 2h so an abandoned tab never polls forever.
+  // Poll every ~4s. When the server says the brief EXISTS (`briefReady`, a daily_briefs read, not
+  // a job status), refresh the server component — it re-renders as the real BriefView and this
+  // panel unmounts. Stops after 2h so an abandoned tab never polls forever.
+  //
+  // Two lessons from Chris's 2026-08-25 run (22 minutes on this screen while the brief was built,
+  // and only a manual reload showed it):
+  //   - The old trigger was `brief job done` from the payload, and the payload usually had NO brief
+  //     job (it was filtered out by run_id — see lib/onboarding/progress-jobs.ts). The trigger is
+  //     now the daily_briefs ground truth, which no enqueue path can hide from.
+  //   - The old code refreshed ONCE and stopped polling. If that one refresh() is lost (a transient
+  //     failure, a race), the operator sits forever on a stale panel with no retry. Now the poll
+  //     keeps going until the swap unmounts this component, re-issuing a throttled refresh() each
+  //     time it still finds itself mounted with a ready brief.
   useEffect(() => {
     let cancelled = false
     const pollUntil = Date.now() + 2 * 60 * 60 * 1000
@@ -132,17 +147,20 @@ export default function FirstRunPanel({
         return
       }
       try {
-        const res = await fetch(`/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`)
+        const res = await fetch(`/api/onboarding/progress?location_id=${encodeURIComponent(locationId)}`, {
+          cache: "no-store",
+        })
         const data = await res.json()
         if (cancelled || !data.ok || !Array.isArray(data.jobs)) return
         setJobs(data.jobs as Job[])
         if (Array.isArray(data.signals)) setSignals(data.signals as FirstRunSignal[])
         if (typeof data.runStartedAt === "string") setRunStartedAt(data.runStartedAt)
-        const brief = (data.jobs as Job[]).find((j) => j.pipeline === "brief")
-        if (brief?.status === "done" && !refreshedRef.current) {
-          refreshedRef.current = true
-          if (timer) clearInterval(timer)
-          router.refresh()
+        if (data.briefReady === true) {
+          setBriefReady(true)
+          if (Date.now() - lastRefreshAtRef.current > 12_000) {
+            lastRefreshAtRef.current = Date.now()
+            router.refresh()
+          }
         }
       } catch {
         // transient — next tick retries
@@ -155,8 +173,6 @@ export default function FirstRunPanel({
       if (timer) clearInterval(timer)
     }
   }, [locationId, router])
-
-  const allDone = jobs !== null && jobs.length > 0 && jobs.every((j) => j.status === "done")
 
   // Plain JS string rendered via {readyFact} below — React escapes it, so a normal apostrophe
   // is correct here (no JSX-text entity, and nothing dangerouslySet).
@@ -181,9 +197,16 @@ export default function FirstRunPanel({
             that prove it is alive, the elapsed clock and the per-pipeline rows below. */}
         <p className="fr-sub">
           This takes a while the first time. We read your whole market before we say anything, and
-          you can watch each part land below. Leave it open and this page turns into your brief on
-          its own.
+          you can watch each part land below.
         </p>
+        {/* Bryan, 2026-08-25: the leave-it-open promise gets its own line, and the clock sits
+            right under it — it used to float mid-page between the signals and the rows. */}
+        <p className="fr-sub fr-wait">
+          Leave this page open and it will refresh to show your brief when it&apos;s ready.
+        </p>
+        <div className="fr-clock">
+          <FirstRunElapsed runStartedAt={runStartedAt} working={!briefReady} />
+        </div>
 
         {signals.length > 0 ? <FirstRunSignals signals={signals} /> : null}
 
@@ -191,12 +214,14 @@ export default function FirstRunPanel({
             first insight is not necessarily a strong one, "and it IS the first impression that we
             don't get back". It waits for the full brief. */}
 
-        <FirstRunProgress jobs={jobs} runStartedAt={runStartedAt} />
+        <FirstRunProgress jobs={jobs} runStartedAt={runStartedAt} showElapsed={false} />
 
-        {/* The panel auto-swaps into the real brief when the poll sees the brief job done, so this
-            button is for the operator who is sitting here watching. Disabled state carries the
-            clock; enabled state is the only way in, and it only exists once there IS a brief. */}
-        {allDone ? (
+        {/* The panel auto-swaps into the real brief when the poll sees the brief exists, so this
+            button is for the operator who is sitting here watching. It enables ONLY on the same
+            `briefReady` ground truth — never on job statuses, which once enabled it while the
+            brief was still building and made the click a visible no-op. Disabled state carries
+            the clock. */}
+        {briefReady ? (
           <button type="button" className="fr-cta" onClick={() => router.refresh()}>
             Read your brief
           </button>
