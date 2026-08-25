@@ -1,10 +1,11 @@
-// The FICTIONAL brief behind /dev-mockup-brief — the marketing site's product mockup source.
+// The FICTIONAL brief behind /example-brief — the public example page AND the source the
+// marketing site's product imagery is captured from.
 //
-// Bryan, 2026-08-25: the marketing site's product imagery must demonstrate the ACTUAL appearance
-// of a brief (the real BriefView layout), not a hand-drawn approximation. This fixture is a
-// complete, honest-shaped Brief for a fictional restaurant, weighted toward marketing and social
-// insights, rendered through the real components so a capture of /dev-mockup-brief IS the current
-// product. Regenerate the marketing screenshots from that route whenever the brief UI changes.
+// Bryan, 2026-08-25: the marketing site must demonstrate the ACTUAL appearance of a brief (the
+// real BriefView layout), not a hand-drawn approximation. This fixture is a complete,
+// honest-shaped Brief for a fictional restaurant, weighted toward marketing and social insights,
+// rendered through the real components so /example-brief IS the current product. Regenerate the
+// marketing screenshots from that route whenever the brief UI changes.
 //
 // Everything here is invented and must stay obviously so:
 //   · "Copper Fern" and every competitor are fictional businesses. Never swap in a real one.

@@ -19,6 +19,24 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // /example-brief is embedded in a modal iframe on the marketing site. This header WHITELISTS
+  // who may frame it (ourselves, the marketing domain, and localhost for dev) -- the app sends no
+  // frame headers anywhere else, so this narrows rather than opens. Scoped to the one route on
+  // purpose: an app-wide frame policy is a separate security decision.
+  async headers() {
+    return [
+      {
+        source: "/example-brief",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value:
+              "frame-ancestors 'self' https://getticket.ai https://www.getticket.ai http://localhost:*",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
