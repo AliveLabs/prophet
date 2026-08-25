@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+  <!-- STAND-IN for the fictional competitor's patio photo (dev-mockup-brief): a golden-hour
+       patio at shallow depth of field. Replace with a generated photo for final marketing
+       captures; this exists so the mockup composes end to end without one. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#241017"/>
+      <stop offset="0.28" stop-color="#4a2018"/>
+      <stop offset="0.55" stop-color="#94481f"/>
+      <stop offset="0.72" stop-color="#d97f35"/>
+      <stop offset="0.82" stop-color="#f2b563"/>
+      <stop offset="1" stop-color="#e9a04b"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="0.68" cy="0.78" r="0.5">
+      <stop offset="0" stop-color="#ffe9b8" stop-opacity="0.95"/>
+      <stop offset="0.25" stop-color="#ffcf82" stop-opacity="0.55"/>
+      <stop offset="0.6" stop-color="#f2a050" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#f2a050" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bulb" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#fff3d6"/>
+      <stop offset="0.35" stop-color="#ffd88f" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffb85c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.46" r="0.75">
+      <stop offset="0" stop-color="#000" stop-opacity="0"/>
+      <stop offset="0.72" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#12080a" stop-opacity="0.55"/>
+    </radialGradient>
+    <linearGradient id="tableTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5a30"/>
+      <stop offset="0.12" stop-color="#5f3a1e"/>
+      <stop offset="1" stop-color="#241209"/>
+    </linearGradient>
+    <linearGradient id="glassCatch" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd88f" stop-opacity="0.9"/>
+      <stop offset="0.6" stop-color="#d9813a" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#7a3c1a" stop-opacity="0.5"/>
+    </linearGradient>
+    <filter id="blurXL" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="26"/></filter>
+    <filter id="blurL" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="blurM" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="blurS" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.6"/></filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 0.95  0 0 0 0 0.85  0 0 0 0.06 0"/>
+    </filter>
+  </defs>
+
+  <!-- dusk sky -->
+  <rect width="1200" height="900" fill="url(#sky)"/>
+  <rect width="1200" height="900" fill="url(#sunGlow)"/>
+
+  <!-- far skyline / rooflines, soft -->
+  <g filter="url(#blurM)" fill="#2b1410">
+    <rect x="-20" y="588" width="380" height="140"/>
+    <rect x="330" y="614" width="260" height="120"/>
+    <rect x="760" y="600" width="200" height="130"/>
+    <rect x="940" y="576" width="300" height="160"/>
+    <rect x="606" y="640" width="180" height="100"/>
+  </g>
+
+  <!-- distant patio crowd / furniture masses, very soft -->
+  <g filter="url(#blurL)" fill="#1d0d08">
+    <ellipse cx="220" cy="740" rx="150" ry="64"/>
+    <ellipse cx="520" cy="760" rx="170" ry="70"/>
+    <ellipse cx="890" cy="748" rx="180" ry="66"/>
+  </g>
+
+  <!-- warm interior spill from the left -->
+  <g filter="url(#blurXL)">
+    <ellipse cx="70" cy="560" rx="220" ry="180" fill="#ff9d4a" opacity="0.28"/>
+    <ellipse cx="1130" cy="520" rx="180" ry="150" fill="#ffb45e" opacity="0.16"/>
+  </g>
+
+  <!-- out-of-focus bokeh field -->
+  <g filter="url(#blurM)">
+    <circle cx="120" cy="180" r="34" fill="#ffcf8a" opacity="0.30"/>
+    <circle cx="238" cy="120" r="22" fill="#ffd9a0" opacity="0.34"/>
+    <circle cx="352" cy="210" r="30" fill="#ffbe6e" opacity="0.26"/>
+    <circle cx="452" cy="120" r="18" fill="#ffe0ac" opacity="0.38"/>
+    <circle cx="562" cy="196" r="26" fill="#ffcb82" opacity="0.28"/>
+    <circle cx="668" cy="110" r="20" fill="#ffd9a0" opacity="0.34"/>
+    <circle cx="788" cy="182" r="30" fill="#ffc276" opacity="0.26"/>
+    <circle cx="906" cy="120" r="22" fill="#ffe3b2" opacity="0.36"/>
+    <circle cx="1028" cy="196" r="34" fill="#ffcb82" opacity="0.26"/>
+    <circle cx="1130" cy="120" r="20" fill="#ffd9a0" opacity="0.32"/>
+    <circle cx="190" cy="330" r="42" fill="#ff9d4a" opacity="0.16"/>
+    <circle cx="1060" cy="330" r="46" fill="#ffab55" opacity="0.14"/>
+    <circle cx="620" cy="320" r="38" fill="#ffb45e" opacity="0.12"/>
+  </g>
+
+  <!-- string lights: two swags with glowing bulbs -->
+  <g fill="none" stroke="#3a1d10" stroke-width="2.4" opacity="0.85">
+    <path d="M-20 150 Q 300 236, 620 194 T 1220 168"/>
+    <path d="M-20 300 Q 360 388, 740 336 T 1220 306"/>
+  </g>
+  <g>
+    <g id="bulbs1">
+      <circle cx="90" cy="172" r="16" fill="url(#bulb)"/><circle cx="90" cy="172" r="4.4" fill="#fff1cf"/>
+      <circle cx="235" cy="204" r="16" fill="url(#bulb)"/><circle cx="235" cy="204" r="4.4" fill="#fff1cf"/>
+      <circle cx="388" cy="216" r="16" fill="url(#bulb)"/><circle cx="388" cy="216" r="4.4" fill="#fff1cf"/>
+      <circle cx="540" cy="206" r="16" fill="url(#bulb)"/><circle cx="540" cy="206" r="4.4" fill="#fff1cf"/>
+      <circle cx="700" cy="186" r="16" fill="url(#bulb)"/><circle cx="700" cy="186" r="4.4" fill="#fff1cf"/>
+      <circle cx="860" cy="172" r="16" fill="url(#bulb)"/><circle cx="860" cy="172" r="4.4" fill="#fff1cf"/>
+      <circle cx="1020" cy="168" r="16" fill="url(#bulb)"/><circle cx="1020" cy="168" r="4.4" fill="#fff1cf"/>
+      <circle cx="1160" cy="166" r="16" fill="url(#bulb)"/><circle cx="1160" cy="166" r="4.4" fill="#fff1cf"/>
+    </g>
+    <g id="bulbs2">
+      <circle cx="140" cy="332" r="18" fill="url(#bulb)"/><circle cx="140" cy="332" r="5" fill="#fff1cf"/>
+      <circle cx="320" cy="368" r="18" fill="url(#bulb)"/><circle cx="320" cy="368" r="5" fill="#fff1cf"/>
+      <circle cx="500" cy="368" r="18" fill="url(#bulb)"/><circle cx="500" cy="368" r="5" fill="#fff1cf"/>
+      <circle cx="680" cy="348" r="18" fill="url(#bulb)"/><circle cx="680" cy="348" r="5" fill="#fff1cf"/>
+      <circle cx="860" cy="326" r="18" fill="url(#bulb)"/><circle cx="860" cy="326" r="5" fill="#fff1cf"/>
+      <circle cx="1040" cy="314" r="18" fill="url(#bulb)"/><circle cx="1040" cy="314" r="5" fill="#fff1cf"/>
+    </g>
+  </g>
+
+  <!-- mid-ground: umbrella silhouette right -->
+  <g filter="url(#blurS)" fill="#170a06">
+    <path d="M 830 470 Q 990 400 1150 470 L 1150 484 Q 990 428 830 484 Z"/>
+    <rect x="986" y="470" width="8" height="180"/>
+  </g>
+
+  <!-- foreground table with drinks, catching the light (near focal plane) -->
+  <g>
+    <rect x="0" y="700" width="1200" height="200" fill="url(#tableTop)"/>
+    <rect x="0" y="700" width="1200" height="6" fill="#ffce8a" opacity="0.5"/>
+    <!-- wine glass -->
+    <g filter="url(#blurS)">
+      <path d="M 300 566 Q 300 640 348 652 L 348 716 L 316 738 L 384 738 L 352 716 L 352 652 Q 400 640 400 566 Z" fill="#1c0d07" opacity="0.92"/>
+      <path d="M 306 588 Q 306 636 350 648 Q 394 636 394 588 Z" fill="url(#glassCatch)" opacity="0.85"/>
+      <ellipse cx="326" cy="600" rx="7" ry="26" fill="#ffe9bd" opacity="0.55" transform="rotate(-12 326 600)"/>
+    </g>
+    <!-- tumbler -->
+    <g filter="url(#blurS)">
+      <path d="M 452 622 L 462 740 L 542 740 L 552 622 Z" fill="#1c0d07" opacity="0.92"/>
+      <path d="M 458 634 L 466 730 L 538 730 L 546 634 Z" fill="url(#glassCatch)" opacity="0.8"/>
+      <ellipse cx="480" cy="664" rx="6" ry="30" fill="#ffe9bd" opacity="0.5" transform="rotate(-8 480 664)"/>
+    </g>
+    <!-- small plate + bowl silhouette -->
+    <g filter="url(#blurS)" fill="#1c0d07">
+      <ellipse cx="760" cy="742" rx="120" ry="18" opacity="0.9"/>
+      <ellipse cx="760" cy="726" rx="74" ry="20" opacity="0.95"/>
+      <ellipse cx="760" cy="718" rx="60" ry="12" fill="#8a4a22"/>
+    </g>
+    <!-- candle -->
+    <g>
+      <ellipse cx="920" cy="716" rx="26" ry="10" fill="#170a06"/>
+      <rect x="906" y="678" width="28" height="40" rx="6" fill="#241109"/>
+      <ellipse cx="920" cy="668" rx="20" ry="14" fill="url(#bulb)"/>
+      <ellipse cx="920" cy="668" rx="5" ry="9" fill="#ffedc4"/>
+    </g>
+  </g>
+
+  <!-- foreground leaves, heavily blurred (depth) -->
+  <g filter="url(#blurL)" fill="#0e0603">
+    <path d="M -40 900 Q 60 700 200 660 Q 90 760 120 900 Z"/>
+    <path d="M 1240 900 Q 1140 680 980 640 Q 1120 740 1080 900 Z"/>
+    <path d="M -60 640 Q 80 560 190 590 Q 60 610 20 700 Z" opacity="0.8"/>
+  </g>
+
+  <!-- vignette + grain -->
+  <rect width="1200" height="900" fill="url(#vignette)"/>
+  <rect width="1200" height="900" filter="url(#grain)" opacity="0.5"/>
+</svg>
