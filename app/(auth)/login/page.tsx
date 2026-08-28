@@ -67,7 +67,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               <span className="auth-kicker">Welcome back</span>
               <h2 className="auth-panel__h">Sign in to your <em>feed</em>.</h2>
               <p className="auth-panel__sub">
-                Passwordless. We&apos;ll email you a 6-digit code to enter right here.
+                Passwordless. We&apos;ll email you a one-time code to enter right here.
               </p>
             </div>
 

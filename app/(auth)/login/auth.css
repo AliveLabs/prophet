@@ -398,10 +398,10 @@
 .auth-input--code {
   text-align: center;
   font-size: 24px;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.2em;
   font-variant-numeric: tabular-nums;
 }
-.auth-input--code::placeholder { letter-spacing: 0.3em; }
+.auth-input--code::placeholder { letter-spacing: 0.2em; }
 .auth-code-actions {
   display: flex;
   justify-content: space-between;

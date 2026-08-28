@@ -76,7 +76,7 @@ export default async function SignupPage({ searchParams }: SignupPageProps) {
               <span className="auth-kicker">Get started</span>
               <h2 className="auth-panel__h">Create your <em>account</em>.</h2>
               <p className="auth-panel__sub">
-                Passwordless. We&apos;ll email you a 6-digit code to enter right here.
+                Passwordless. We&apos;ll email you a one-time code to enter right here.
               </p>
             </div>
 

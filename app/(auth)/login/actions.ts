@@ -9,7 +9,7 @@ import { getAuthCallbackUrl } from "@/lib/auth/app-url"
 import { rateLimit } from "@/lib/http/rate-limit"
 import { normalizeEmailCode } from "@/lib/auth/email-code"
 
-// The email flow is a 6-digit code verified ON the page it was requested from,
+// The email flow is a one-time code verified ON the page it was requested from,
 // with the emailed link as the secondary path. It replaced the link-only flow
 // because paid social traffic arrives in the Facebook/Instagram in-app browser,
 // where "open your inbox and come back" loses the visitor and Google OAuth is
@@ -146,7 +146,7 @@ export async function verifyEmailCodeAction(
     return {
       step: "code",
       email,
-      error: "Enter the 6-digit code from the email.",
+      error: "Enter the code from the email, digits only.",
     }
   }
 

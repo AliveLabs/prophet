@@ -1,7 +1,7 @@
 "use client"
 
 // The email half of both auth pages: ask for an address, then verify the
-// 6-digit code from the email on the SAME screen. The visitor never has to
+// one-time code from the email on the SAME screen. The visitor never has to
 // leave the page, which is the point — paid social traffic lives in the
 // Facebook/Instagram in-app browser, where a "go open your inbox" round trip
 // loses most people (the emailed link still works for everyone else).
@@ -113,8 +113,10 @@ function EmailCodeSteps({
       <form action={verifyAction} className="auth-form">
         <input type="hidden" name="email" value={email} />
         <label className="auth-label" htmlFor="code">
-          Enter the 6-digit code
+          Enter the code
         </label>
+        {/* No placeholder or maxLength pinned to a digit count: Supabase owns
+            the code length (8 today, a dashboard setting). See lib/auth/email-code. */}
         <input
           id="code"
           className="auth-input auth-input--code"
@@ -122,9 +124,8 @@ function EmailCodeSteps({
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          maxLength={7}
+          maxLength={12}
           required
-          placeholder="000000"
           autoFocus
         />
         <button type="submit" className="auth-submit" disabled={verifyPending}>
