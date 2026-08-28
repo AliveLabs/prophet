@@ -393,3 +393,30 @@
   }
   .auth-panel__lede { display: block; }
 }
+
+/* Code-entry step (the 6-digit email code) */
+.auth-input--code {
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+.auth-input--code::placeholder { letter-spacing: 0.3em; }
+.auth-code-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+.auth-linkbtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rust-deep);
+}
+.auth-linkbtn:hover { text-decoration: underline; }
+.auth-linkbtn:disabled { opacity: 0.6; cursor: default; text-decoration: none; }

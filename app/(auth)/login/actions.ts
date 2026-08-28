@@ -4,88 +4,195 @@ import { redirect } from "next/navigation"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { createAdminSupabaseClient } from "@/lib/supabase/admin"
 import { sendEmail } from "@/lib/email/send"
-import { MagicLinkEmail } from "@/lib/email/templates/magic-link"
+import { SignInCodeEmail } from "@/lib/email/templates/sign-in-code"
 import { getAuthCallbackUrl } from "@/lib/auth/app-url"
 import { rateLimit } from "@/lib/http/rate-limit"
+import { normalizeEmailCode } from "@/lib/auth/email-code"
 
-function safeRedirectPath(input: string | null) {
-  if (!input) {
-    return "/login"
-  }
-  if (input.startsWith("/") && !input.startsWith("//")) {
-    return input
-  }
-  return "/login"
-}
-
-// `generateLink` type 'magiclink' only signs a link for an EXISTING auth user, and the
-// only paths that create one are waitlist Approve and the team invite. So an address
-// with no account cannot be sent a link, and no email is sent either — which reads to
-// the operator as "nothing happened". Say so plainly instead of surfacing the raw
-// GoTrue error, and don't reveal whether we hold the address.
+// The email flow is a 6-digit code verified ON the page it was requested from,
+// with the emailed link as the secondary path. It replaced the link-only flow
+// because paid social traffic arrives in the Facebook/Instagram in-app browser,
+// where "open your inbox and come back" loses the visitor and Google OAuth is
+// blocked outright (disallowed_useragent). One admin generateLink call yields
+// both credentials: `email_otp` (the code) and `action_link` (the link).
 //
-// Provisioning an account here (for waitlist members) was prototyped and pulled back
-// out: it changes WHO gets an account, no one in the 2026-08 beta cohort actually hit
-// this path, and it deserves its own review rather than riding along with a UI fix.
+// The state below drives the two-step client form (app/(auth)/auth-email-form.tsx)
+// through useActionState. Request actions RETURN state so the page stays put for
+// the code entry; only the verify action redirects, and only via a form action,
+// never awaited inside a transition (see the NEXT_REDIRECT gotcha on
+// switchOrganizationAction).
+
+export type EmailAuthState =
+  | { step: "email"; error?: string }
+  | { step: "code"; email: string; error?: string }
+
+// /signup creates the auth user before generating the code; /login never does.
+// Login keeps saying so when the address has no account: an operator locked out
+// on the wrong address needs to hear "wrong address", not receive a code that
+// silently made a second empty account.
 const NO_ACCOUNT_MESSAGE =
   "We couldn't find an account for that email. Use the address you signed up with, or contact us and we'll get you set up."
 
-export async function sendMagicLinkAction(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim()
-  const redirectPath = safeRedirectPath(
-    String(formData.get("redirect_to") ?? "/login")
-  )
+const SEND_FAILED_MESSAGE = "We couldn't send the email. Please try again."
 
-  if (!email) {
-    redirect(`${redirectPath}?error=Missing%20email`)
+async function requestEmailCode(
+  mode: "signin" | "signup",
+  formData: FormData
+): Promise<EmailAuthState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
+
+  if (!email || !email.includes("@")) {
+    return { step: "email", error: "Enter your email address." }
   }
 
-  // Unauthenticated and it sends mail on demand — cap it per address so this
-  // can't be turned into an email bomb. Fail-open, like every other rateLimit use.
-  const rl = await rateLimit(email.toLowerCase(), {
-    prefix: "magic-link",
+  // Unauthenticated and it sends mail on demand: cap it per address so this
+  // can't be turned into an email bomb. On /signup the same cap also bounds
+  // account creation. Fail-open, like every other rateLimit use.
+  const rl = await rateLimit(email, {
+    prefix: "email-code",
     limit: 5,
     windowSeconds: 900,
   })
   if (!rl.ok) {
-    redirect(
-      `${redirectPath}?error=${encodeURIComponent("Too many sign-in links requested. Wait a few minutes and try again.")}`
-    )
+    return {
+      step: "email",
+      error: "Too many codes requested. Wait a few minutes and try again.",
+    }
   }
 
   const supabase = createAdminSupabaseClient()
-  const redirectTo = getAuthCallbackUrl()
+
+  if (mode === "signup") {
+    // Self-serve account creation (the waitlist gate is retired; paid ads point
+    // here). `email_confirm: true` mirrors the waitlist-approve path and is safe
+    // because no session exists until the code from their inbox is verified,
+    // which is the same proof of address a confirmation would be.
+    const { error: createError } = await supabase.auth.admin.createUser({
+      email,
+      email_confirm: true,
+    })
+    if (createError && createError.code !== "email_exists") {
+      console.error("[auth] signup user creation failed:", createError.message)
+      return { step: "email", error: SEND_FAILED_MESSAGE }
+    }
+  }
 
   const { data, error } = await supabase.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo },
+    options: { redirectTo: getAuthCallbackUrl() },
   })
 
-  if (error || !data?.properties?.action_link) {
+  const code = data?.properties?.email_otp
+  const actionLink = data?.properties?.action_link
+  if (error || !code || !actionLink) {
     // Log the real reason for us; show the operator copy they can act on.
     console.error(
-      "[auth] magic link generation failed:",
-      error?.message ?? "no action_link"
+      "[auth] sign-in code generation failed:",
+      error?.message ?? "missing email_otp/action_link"
     )
-    redirect(`${redirectPath}?error=${encodeURIComponent(NO_ACCOUNT_MESSAGE)}`)
+    return {
+      step: "email",
+      error: mode === "signin" ? NO_ACCOUNT_MESSAGE : SEND_FAILED_MESSAGE,
+    }
   }
 
   const result = await sendEmail({
     to: email,
-    subject: "Sign in to Ticket",
-    react: MagicLinkEmail({ email, magicLinkUrl: data.properties.action_link }),
+    // The code leads the subject so it shows in a notification banner without
+    // opening the email — inside an in-app browser that is the whole ballgame.
+    subject: `${code} is your Ticket ${mode === "signup" ? "signup" : "sign-in"} code`,
+    react: SignInCodeEmail({ email, code, magicLinkUrl: actionLink, mode }),
     clientFacing: true,
     overrideClientEmailPause: true,
   })
 
   if (!result.ok) {
-    redirect(
-      `${redirectPath}?error=${encodeURIComponent("Failed to send magic link email. Please try again.")}`
-    )
+    return { step: "email", error: SEND_FAILED_MESSAGE }
   }
 
-  redirect(`${redirectPath}?sent=1`)
+  return { step: "code", email }
+}
+
+export async function requestSignInCodeAction(
+  _prev: EmailAuthState,
+  formData: FormData
+): Promise<EmailAuthState> {
+  return requestEmailCode("signin", formData)
+}
+
+export async function requestSignupCodeAction(
+  _prev: EmailAuthState,
+  formData: FormData
+): Promise<EmailAuthState> {
+  return requestEmailCode("signup", formData)
+}
+
+export async function verifyEmailCodeAction(
+  _prev: EmailAuthState,
+  formData: FormData
+): Promise<EmailAuthState> {
+  const email = String(formData.get("email") ?? "")
+    .trim()
+    .toLowerCase()
+  const code = normalizeEmailCode(String(formData.get("code") ?? ""))
+
+  if (!email) {
+    return { step: "email", error: "Start over and enter your email address." }
+  }
+  if (!code) {
+    return {
+      step: "code",
+      email,
+      error: "Enter the 6-digit code from the email.",
+    }
+  }
+
+  // Supabase expires and single-uses the code, but nothing upstream slows a
+  // guessing loop aimed at one address. Ten tries per window is generous for
+  // typos and useless for brute force against a million combinations.
+  const rl = await rateLimit(email, {
+    prefix: "email-code-verify",
+    limit: 10,
+    windowSeconds: 900,
+  })
+  if (!rl.ok) {
+    return {
+      step: "code",
+      email,
+      error: "Too many attempts. Request a new code and try again in a few minutes.",
+    }
+  }
+
+  // Verified on the cookie-bound client so the session cookies land on this
+  // browser (same reason the impersonation flow does it this way).
+  const supabase = await createServerSupabaseClient()
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token: code,
+    type: "email",
+  })
+
+  if (error || !data.user) {
+    return {
+      step: "code",
+      email,
+      error:
+        "That code didn't match or has expired. Check the newest email, or request a new code.",
+    }
+  }
+
+  // Match the auth-callback rule: an authed user with no current org hasn't
+  // finished onboarding.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("current_organization_id")
+    .eq("id", data.user.id)
+    .maybeSingle()
+
+  redirect(profile?.current_organization_id ? "/home" : "/onboarding")
 }
 
 export async function signInWithGoogleAction() {
