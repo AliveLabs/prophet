@@ -35,6 +35,41 @@ const NO_ACCOUNT_MESSAGE =
 
 const SEND_FAILED_MESSAGE = "We couldn't send the email. Please try again."
 
+// Login's no-account contract needs an EXPLICIT existence check. It used to
+// lean on generateLink(type: "magiclink") erroring for unknown emails, but with
+// project signups enabled (they must be, for Google OAuth) GoTrue quietly
+// switches that call to a signup and CREATES the user - live-verified
+// 2026-08-28: /login said "code sent" to a nonexistent address and left a
+// stray account behind. There is no admin lookup-by-email in supabase-js and
+// profiles rows are not guaranteed before onboarding, so the check is a
+// createUser probe: `email_exists` proves the account; success means there was
+// none, so the probe user is deleted on the spot and login says so. The
+// request rate limit bounds probe volume.
+async function emailHasAccount(
+  supabase: ReturnType<typeof createAdminSupabaseClient>,
+  email: string
+): Promise<boolean | null> {
+  const { data, error } = await supabase.auth.admin.createUser({ email })
+  if (error) {
+    if (error.code === "email_exists") return true
+    console.error("[auth] account existence probe failed:", error.message)
+    return null
+  }
+  if (data.user?.id) {
+    const { error: undoErr } = await supabase.auth.admin.deleteUser(data.user.id)
+    if (undoErr) {
+      // Worst case the probe user survives as an empty unconfirmed account;
+      // log loudly so it can be swept.
+      console.error(
+        "[auth] failed to undo existence probe for",
+        data.user.id,
+        undoErr.message
+      )
+    }
+  }
+  return false
+}
+
 async function requestEmailCode(
   mode: "signin" | "signup",
   formData: FormData
@@ -63,6 +98,12 @@ async function requestEmailCode(
   }
 
   const supabase = createAdminSupabaseClient()
+
+  if (mode === "signin") {
+    const exists = await emailHasAccount(supabase, email)
+    if (exists === null) return { step: "email", error: SEND_FAILED_MESSAGE }
+    if (!exists) return { step: "email", error: NO_ACCOUNT_MESSAGE }
+  }
 
   if (mode === "signup") {
     // Self-serve account creation (the waitlist gate is retired; paid ads point
@@ -93,10 +134,9 @@ async function requestEmailCode(
       "[auth] sign-in code generation failed:",
       error?.message ?? "missing email_otp/action_link"
     )
-    return {
-      step: "email",
-      error: mode === "signin" ? NO_ACCOUNT_MESSAGE : SEND_FAILED_MESSAGE,
-    }
+    // Existence is already settled in both modes by this point, so a
+    // generateLink failure is a real failure, never "no account".
+    return { step: "email", error: SEND_FAILED_MESSAGE }
   }
 
   const result = await sendEmail({
