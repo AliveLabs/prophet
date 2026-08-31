@@ -103,8 +103,12 @@ export async function POST(req: Request) {
         break
 
       case "invoice.payment_succeeded":
-        // No-op. The matching subscription.updated carries the authoritative
-        // current_period_end + payment_state; we rely on that.
+        // Billing state stays a no-op here: the matching subscription.updated
+        // carries the authoritative current_period_end + payment_state.
+        // But this event IS the money moment, and until 2026-08-31 nothing in
+        // the company could see a dollar (CMO audit P0). Ring the bell:
+        // fire-and-forget, never throws, never blocks the 200 to Stripe.
+        await ringRevenueBell(admin, event.data.object as Stripe.Invoice)
         break
 
       case "invoice.payment_failed":
@@ -298,6 +302,55 @@ async function handleSubscriptionEvent(
     subscription,
     eventType,
   })
+}
+
+// Ring the revenue bell in Slack (via the n8n revenue-bell webhook) when real
+// money lands. Deliberately fire-and-forget: a bell failure must never 500
+// this handler (that would make Stripe retry a successfully processed event).
+// Zero-amount invoices (trials, 100% coupons) stay silent: the bell means
+// money only. Requires REVENUE_BELL_SECRET in the environment; when unset,
+// warns and does nothing so preview deployments never ring it.
+async function ringRevenueBell(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  invoice: Stripe.Invoice
+): Promise<void> {
+  try {
+    const amountCents = invoice.amount_paid ?? 0
+    if (amountCents <= 0) return
+    const secret = process.env.REVENUE_BELL_SECRET
+    if (!secret) {
+      console.warn("[revenue-bell] REVENUE_BELL_SECRET unset; bell not rung")
+      return
+    }
+    const customerId = typeof invoice.customer === "string" ? invoice.customer : null
+    let orgName: string | null = null
+    let brand = "ticket"
+    if (customerId) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("name, industry_type")
+        .eq("stripe_customer_id", customerId)
+        .maybeSingle()
+      if (org) {
+        orgName = org.name
+        brand = org.industry_type === "liquor_store" ? "neat" : "ticket"
+      }
+    }
+    await fetch("https://n8n-production-6d1e.up.railway.app/webhook/revenue-bell", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-revenue-bell-secret": secret },
+      body: JSON.stringify({
+        brand,
+        event: "invoice.payment_succeeded",
+        amount_cents: amountCents,
+        company: orgName,
+        email: invoice.customer_email ?? null,
+      }),
+      signal: AbortSignal.timeout(5000),
+    })
+  } catch (err) {
+    console.warn("[revenue-bell] failed (non-fatal):", err instanceof Error ? err.message : err)
+  }
 }
 
 async function handleInvoicePaymentFailed(
